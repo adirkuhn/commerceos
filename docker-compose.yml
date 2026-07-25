@@ -1,0 +1,129 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - commerceos
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-commerceos}
+      POSTGRES_USER: ${POSTGRES_USER:-commerceos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-commerceos}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-commerceos} -d ${POSTGRES_DB:-commerceos}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    command: [ "-js", "-m", "8222" ]
+    networks:
+      - commerceos
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - commerceos
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} sslmode=disable"
+    volumes:
+      - ./backend/infrastructure/db/migrations:/migrations
+    working_dir: /migrations
+    command: [ "/goose", "up" ]
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    networks:
+      - traefik-public
+      - commerceos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      NATS_URL: nats://nats:4222
+      HTTP_PORT: ${HTTP_PORT:-8080}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    command: [ "/api" ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+
+  relay:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    networks:
+      - commerceos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      NATS_URL: nats://nats:4222
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    command: [ "/relay" ]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_LM2_LOGIN_URL=${VITE_LM2_LOGIN_URL}
+        - VITE_LM2_CALLBACK_PATH=${VITE_LM2_CALLBACK_PATH}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - traefik-public
+      - commerceos
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.frontend.entrypoints=https"
+      - "traefik.http.routers.frontend.tls=true"
+
+volumes:
+  postgres_data:
+  nats_data:
+
+networks:
+  traefik-public:
+    external: true
+  commerceos:

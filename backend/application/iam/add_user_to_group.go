@@ -1,0 +1,45 @@
+package iam
+
+import (
+	"context"
+	"fmt"
+
+	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
+	"github.com/adirkuhn/commerceos/internal/tenant"
+	"gorm.io/gorm"
+)
+
+type AddUserToGroupInput struct {
+	GroupID string
+	UserID  string
+}
+
+type AddUserToGroupUseCase struct {
+	db            *gorm.DB
+	groupRepo     iamDomain.GroupRepository
+	userGroupRepo iamDomain.UserGroupRepository
+}
+
+func NewAddUserToGroupUseCase(db *gorm.DB, groupRepo iamDomain.GroupRepository, userGroupRepo iamDomain.UserGroupRepository) *AddUserToGroupUseCase {
+	return &AddUserToGroupUseCase{db: db, groupRepo: groupRepo, userGroupRepo: userGroupRepo}
+}
+
+func (uc *AddUserToGroupUseCase) Execute(ctx context.Context, in AddUserToGroupInput) error {
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if _, err := uc.groupRepo.FindByID(ctx, in.GroupID); err != nil {
+			return err
+		}
+		isMember, err := uc.userGroupRepo.IsMember(ctx, in.GroupID, in.UserID)
+		if err != nil {
+			return err
+		}
+		if isMember {
+			return iamDomain.ErrAlreadyMember
+		}
+		return uc.userGroupRepo.AddMember(ctx, in.GroupID, in.UserID)
+	})
+	if err != nil {
+		return fmt.Errorf("addUserToGroup: %w", err)
+	}
+	return nil
+}

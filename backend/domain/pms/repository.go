@@ -1,0 +1,57 @@
+package pms
+
+import "context"
+
+type CategoryRepository interface {
+	Create(ctx context.Context, c *Category) error
+	FindByID(ctx context.Context, id string) (*Category, error)
+	List(ctx context.Context) ([]Category, error)
+	Update(ctx context.Context, c *Category) error
+	Delete(ctx context.Context, id string) error
+}
+
+type ProductRepository interface {
+	Create(ctx context.Context, p *Product) error
+	FindByID(ctx context.Context, id string) (*Product, error)
+	FindBySlug(ctx context.Context, slug string) (*Product, error)
+	List(ctx context.Context, filter ProductFilter) ([]Product, int64, error)
+	Update(ctx context.Context, p *Product) error
+	Delete(ctx context.Context, id string) error
+}
+
+type ProductFilter struct {
+	CategoryID *string
+	Status     *ProductStatus
+	Limit      int
+	Offset     int
+}
+
+type VariantRepository interface {
+	Create(ctx context.Context, v *Variant) error
+	FindByID(ctx context.Context, id string) (*Variant, error)
+	ListByProduct(ctx context.Context, productID string) ([]Variant, error)
+	Update(ctx context.Context, v *Variant) error
+	Delete(ctx context.Context, id string) error
+}
+
+type SKURepository interface {
+	Create(ctx context.Context, s *SKU) error
+	FindByID(ctx context.Context, id string) (*SKU, error)
+	FindByCode(ctx context.Context, code string) (*SKU, error)
+	ListByVariant(ctx context.Context, variantID string) ([]SKU, error)
+	Update(ctx context.Context, s *SKU) error
+	Delete(ctx context.Context, id string) error
+}
+
+type MediaRepository interface {
+	Attach(ctx context.Context, m *Media) error
+	ListByProduct(ctx context.Context, productID string) ([]Media, error)
+	Delete(ctx context.Context, id string) error
+}
+
+type AttributeRepository interface {
+	Create(ctx context.Context, a *AttributeDefinition) error
+	FindByID(ctx context.Context, id string) (*AttributeDefinition, error)
+	List(ctx context.Context) ([]AttributeDefinition, error)
+	Delete(ctx context.Context, id string) error
+}
