@@ -8,8 +8,9 @@ export function CallbackPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
+    const refreshToken = params.get('refresh_token')
 
-    if (!token) {
+    if (!token || !refreshToken) {
       setError('No token received from authentication server.')
       return
     }
@@ -21,7 +22,7 @@ export function CallbackPage() {
       return
     }
 
-    login(token)
+    login(token, refreshToken)
     // Remove token from URL before redirecting
     window.history.replaceState({}, '', '/')
     window.location.replace('/')

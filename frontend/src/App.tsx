@@ -1,35 +1,71 @@
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { CallbackPage } from './auth/CallbackPage'
+import { AppProvider, useApp } from './context/AppContext'
+import Sidebar from './components/layout/Sidebar'
+import Topbar from './components/layout/Topbar'
+import CommandPalette from './components/layout/CommandPalette'
+import Dashboard from './pages/Dashboard'
+import Products from './pages/Products'
+import Inventory from './pages/Inventory'
+import Orders from './pages/Orders'
+import Picking from './pages/Picking'
+import Integrations from './pages/Integrations'
+import Users from './pages/Users'
+import Suppliers from './pages/Suppliers'
+import Procurement from './pages/Procurement'
+import Shipping from './pages/Shipping'
+import Reports from './pages/Reports'
+import Settings from './pages/Settings'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 
+function AppContent() {
+  const { activeNav } = useApp()
+
+  const renderPage = () => {
+    switch (activeNav) {
+      case 'dashboard': return <Dashboard />
+      case 'products': return <Products />
+      case 'inventory': return <Inventory />
+      case 'orders': return <Orders />
+      case 'picking': return <Picking />
+      case 'integrations': return <Integrations />
+      case 'users': return <Users />
+      case 'suppliers': return <Suppliers />
+      case 'procurement': return <Procurement />
+      case 'shipping': return <Shipping />
+      case 'reports': return <Reports />
+      case 'settings': return <Settings />
+      default: return <Dashboard />
+    }
+  }
+
+  return (
+    <div className="flex h-screen dark:bg-[#0B1220] bg-[#F9FAFB] overflow-hidden">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Topbar />
+        <main className="flex-1 overflow-hidden dark:bg-[#0B1220] bg-[#F9FAFB]">
+          {renderPage()}
+        </main>
+      </div>
+      <CommandPalette />
+    </div>
+  )
+}
+
 function AppShell() {
-  const { isAuthenticated, logout } = useAuth()
+  const { isAuthenticated } = useAuth()
   const isCallback = window.location.pathname === CALLBACK_PATH
 
   if (isCallback) return <CallbackPage />
   if (!isAuthenticated) return <LoginPage />
 
   return (
-    <div>
-      <header style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 24px',
-        borderBottom: '1px solid #eee',
-      }}>
-        <strong>CommerceOS</strong>
-        <button onClick={logout} style={{ background: 'none', border: '1px solid #ccc', padding: '6px 12px', cursor: 'pointer', borderRadius: '4px' }}>
-          Sign out
-        </button>
-      </header>
-      <main style={{ padding: '24px' }}>
-        {/* IAM module and other modules mount here */}
-        <p>Welcome to CommerceOS.</p>
-      </main>
-    </div>
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   )
 }
 
