@@ -1,6 +1,7 @@
 import {
-  LayoutDashboard, Package, Warehouse, ShoppingCart, ScanBarcode,
-  Truck, Factory, ShoppingBag, Plug, BarChart3, Users, Settings,
+  LayoutDashboard, Package, Settings, Plug,
+  // Warehouse, ShoppingCart, ScanBarcode, Truck, Factory, ShoppingBag,
+  // BarChart3, Users,
   ChevronRight, Zap,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
@@ -19,15 +20,15 @@ interface NavEntry {
 const NAV_ITEMS: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'products', label: 'Products', icon: Package, badge: '2.4k' },
-  { id: 'inventory', label: 'Inventory', icon: Warehouse, badge: '12', badgeColor: 'red' },
-  { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
-  { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
-  { id: 'suppliers', label: 'Suppliers', icon: Factory },
-  { id: 'procurement', label: 'Procurement', icon: ShoppingBag, badge: '3', badgeColor: 'amber' },
+  // { id: 'inventory', label: 'Inventory', icon: Warehouse, badge: '12', badgeColor: 'red' },
+  // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
+  // { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
+  // { id: 'suppliers', label: 'Suppliers', icon: Factory },
+  // { id: 'procurement', label: 'Procurement', icon: ShoppingBag, badge: '3', badgeColor: 'amber' },
   { id: 'integrations', label: 'Integrations', icon: Plug, badge: '1', badgeColor: 'red' },
-  { id: 'shipping', label: 'Shipping', icon: Truck },
-  { id: 'reports', label: 'Reports', icon: BarChart3 },
-  { id: 'users', label: 'Users & Roles', icon: Users },
+  // { id: 'shipping', label: 'Shipping', icon: Truck },
+  // { id: 'reports', label: 'Reports', icon: BarChart3 },
+  // { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
