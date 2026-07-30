@@ -56,11 +56,15 @@ func JWT(secret []byte) gin.HandlerFunc {
 		c.Set(claimsGinKey, claims)
 
 		// Propagate tenant + super_admin flag into request context for use in domain layer.
+		// TenantID is set regardless of role — lm2 always resolves a company
+		// on login, even for super_admin — so code that needs a concrete
+		// tenant (e.g. creating a tenant-owned resource) still has one.
+		// super_admin additionally gets the bypass flag, which tenant.WithTenant
+		// checks first, so RLS bypass is unaffected by TenantID being present.
 		ctx := c.Request.Context()
+		ctx = tenant.WithTenantID(ctx, claims.TenantID)
 		if claims.Role == RoleSuperAdmin {
 			ctx = tenant.WithSuperAdmin(ctx)
-		} else {
-			ctx = tenant.WithTenantID(ctx, claims.TenantID)
 		}
 		c.Request = c.Request.WithContext(ctx)
 

@@ -18,6 +18,7 @@ type Product struct {
 	Slug        string
 	Description string
 	Status      ProductStatus
+	HasVariants bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

@@ -1,0 +1,330 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS IAM API
+  version: "1.0"
+  description: >
+    Group + fine-grained permission management. All routes are JWT-protected
+    (tenant scoped via RLS) and additionally require customer_owner,
+    customer_admin, or super_admin role.
+servers:
+  - url: /api/v1
+
+paths:
+  /iam/groups:
+    post:
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: listGroups
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+
+  /iam/groups/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      operationId: getGroup
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: updateGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGroupRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteGroup
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /iam/groups/{id}/members:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      operationId: addGroupMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: listGroupMembers
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MembersResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /iam/groups/{id}/members/{user_id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/userId'
+    delete:
+      operationId: removeGroupMember
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /iam/groups/{id}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      operationId: assignGroupPermission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignPermissionRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: listGroupPermissions
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionsResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /iam/groups/{id}/permissions/{rule}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/rule'
+    delete:
+      operationId: revokeGroupPermission
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /iam/users/{user_id}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      operationId: listUserPermissions
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionsResponse'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    userId:
+      name: user_id
+      in: path
+      required: true
+      schema: { type: string }
+    rule:
+      name: rule
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    CreateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+
+    UpdateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+
+    AddMemberRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id: { type: string }
+
+    AssignPermissionRequest:
+      type: object
+      required: [rule]
+      properties:
+        rule: { type: string }
+
+    Group:
+      type: object
+      required: [id, tenant_id, name, description, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    GroupResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Group'
+        error:
+          nullable: true
+
+    GroupListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
+        error:
+          nullable: true
+
+    MembersResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [members]
+          properties:
+            members:
+              type: array
+              items: { type: string }
+        error:
+          nullable: true
+
+    PermissionsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [permissions]
+          properties:
+            permissions:
+              type: array
+              items: { type: string }
+        error:
+          nullable: true
+
+    EmptyResponse:
+      type: object
+      properties:
+        data:
+          nullable: true
+        error:
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        data:
+          nullable: true
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

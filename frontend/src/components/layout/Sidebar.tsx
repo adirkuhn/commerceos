@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
+import { useProducts } from '../../pms/hooks/useProducts'
 import type { NavItem } from '../../types'
 import clsx from 'clsx'
 
@@ -19,7 +20,7 @@ interface NavEntry {
 
 const NAV_ITEMS: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'products', label: 'Products', icon: Package, badge: '2.4k' },
+  { id: 'products', label: 'Products', icon: Package },
   // { id: 'inventory', label: 'Inventory', icon: Warehouse, badge: '12', badgeColor: 'red' },
   // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
   // { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
@@ -41,7 +42,14 @@ const BADGE_COLORS: Record<string, string> = {
 
 export default function Sidebar() {
   const { activeNav, setActiveNav } = useApp()
-  const { user, logout } = useAuth()
+  const { user, logout, token } = useAuth()
+  const { products } = useProducts(token ?? '')
+
+  const navItems = NAV_ITEMS.map(item =>
+    item.id === 'products' && products.length > 0
+      ? { ...item, badge: products.length }
+      : item,
+  )
 
   return (
     <aside className="w-56 shrink-0 flex flex-col h-full bg-[#111827] border-r border-[#1F2937] dark:bg-[#111827] dark:border-[#1F2937] bg-white border-gray-200">
@@ -57,7 +65,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto scrollbar-none py-3 px-2">
-        {NAV_ITEMS.map(item => {
+        {navItems.map(item => {
           const active = activeNav === item.id
           const Icon = item.icon
           return (

@@ -9,5 +9,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    setupFiles: ['./src/test/setup.ts'],
+    env: {
+      VITE_API_BASE_URL: 'https://api.commerceos.dev.localhost/api/v1',
+    },
   },
 })

@@ -5,6 +5,7 @@ import "context"
 type CategoryRepository interface {
 	Create(ctx context.Context, c *Category) error
 	FindByID(ctx context.Context, id string) (*Category, error)
+	FindBySlug(ctx context.Context, slug string) (*Category, error)
 	List(ctx context.Context) ([]Category, error)
 	Update(ctx context.Context, c *Category) error
 	Delete(ctx context.Context, id string) error

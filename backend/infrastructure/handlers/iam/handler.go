@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	genia "github.com/adirkuhn/commerceos/api/iam"
 	appiam "github.com/adirkuhn/commerceos/application/iam"
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -54,51 +54,12 @@ type userEffectivePermissionsUC interface {
 	Execute(ctx context.Context, userID string) ([]iamDomain.Rule, error)
 }
 
-// ── Request / Response contracts ─────────────────────────────────────────────
+// ── Mappers ───────────────────────────────────────────────────────────────────
 
-type createGroupRequest struct {
-	Name        string `json:"name"        binding:"required,min=1,max=100"`
-	Description string `json:"description" binding:"max=500"`
-}
-
-type updateGroupRequest struct {
-	Name        string `json:"name"        binding:"required,min=1,max=100"`
-	Description string `json:"description" binding:"max=500"`
-}
-
-type addMemberRequest struct {
-	UserID string `json:"user_id" binding:"required"`
-}
-
-type assignPermissionRequest struct {
-	Rule string `json:"rule" binding:"required"`
-}
-
-type revokePermissionRequest struct {
-	Rule string `json:"rule" binding:"required"`
-}
-
-type groupResponse struct {
-	ID          string    `json:"id"`
-	TenantID    string    `json:"tenant_id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-type membersResponse struct {
-	Members []string `json:"members"`
-}
-
-type permissionsResponse struct {
-	Permissions []string `json:"permissions"`
-}
-
-func toGroupResponse(g *iamDomain.Group) groupResponse {
-	return groupResponse{
-		ID:          g.ID,
-		TenantID:    g.TenantID,
+func toGenGroup(g *iamDomain.Group) genia.Group {
+	return genia.Group{
+		Id:          g.ID,
+		TenantId:    g.TenantID,
 		Name:        g.Name,
 		Description: g.Description,
 		CreatedAt:   g.CreatedAt,
@@ -162,39 +123,28 @@ func NewHandler(
 	}
 }
 
-// RegisterHandler mounts routes for an already-constructed Handler.
-func RegisterHandler(rg *gin.RouterGroup, h *Handler) {
+var _ genia.ServerInterface = (*Handler)(nil)
+
+// RegisterHandler mounts routes for an already-constructed Handler, guarded
+// by role middleware. Spec paths already include the /iam prefix (matching
+// the api/pms and api/integrations convention of paths relative to the
+// /api/v1 mount point), so this registers directly on rg rather than a
+// nested /iam subgroup — nesting would double the prefix. The role guard is
+// applied per-route via GinServerOptions.Middlewares instead of Group(),
+// since RegisterHandlers owns route registration.
+func RegisterHandler(rg gin.IRouter, h *Handler) {
 	adminOnly := middleware.RequireRole(
 		middleware.RoleCustomerOwner,
 		middleware.RoleCustomerAdmin,
 		middleware.RoleSuperAdmin,
 	)
-
-	iam := rg.Group("/iam")
-	{
-		groups := iam.Group("/groups", adminOnly)
-		{
-			groups.POST("", h.createGroupHandler)
-			groups.GET("", h.listGroupsHandler)
-			groups.GET("/:id", h.getGroupHandler)
-			groups.PATCH("/:id", h.updateGroupHandler)
-			groups.DELETE("/:id", h.deleteGroupHandler)
-
-			groups.POST("/:id/members", h.addMemberHandler)
-			groups.DELETE("/:id/members/:user_id", h.removeMemberHandler)
-			groups.GET("/:id/members", h.listMembersHandler)
-
-			groups.POST("/:id/permissions", h.assignPermissionHandler)
-			groups.DELETE("/:id/permissions/:rule", h.revokePermissionHandler)
-			groups.GET("/:id/permissions", h.listPermissionsHandler)
-		}
-
-		iam.GET("/users/:user_id/permissions", adminOnly, h.userPermissionsHandler)
-	}
+	genia.RegisterHandlersWithOptions(rg, h, genia.GinServerOptions{
+		Middlewares: []genia.MiddlewareFunc{genia.MiddlewareFunc(adminOnly)},
+	})
 }
 
 // Register is the production wiring: creates repos + use cases, then calls RegisterHandler.
-func Register(rg *gin.RouterGroup, db *gorm.DB) {
+func Register(rg gin.IRouter, db *gorm.DB) {
 	groupRepo := repositories.NewGroupRepo(db)
 	userGroupRepo := repositories.NewUserGroupRepo(db)
 	gpRepo := repositories.NewGroupPermissionRepo(db)
@@ -218,77 +168,97 @@ func Register(rg *gin.RouterGroup, db *gorm.DB) {
 
 // ── Route handlers ────────────────────────────────────────────────────────────
 
-func (h *Handler) createGroupHandler(c *gin.Context) {
-	var req createGroupRequest
+func (h *Handler) CreateGroup(c *gin.Context) {
+	var req genia.CreateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
+	}
+	if req.Name == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		return
+	}
+	var description string
+	if req.Description != nil {
+		description = *req.Description
 	}
 	group, err := h.createGroup.Execute(c.Request.Context(), appiam.CreateGroupInput{
 		Name:        req.Name,
-		Description: req.Description,
+		Description: description,
 	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"data": toGroupResponse(group), "error": nil})
+	c.JSON(http.StatusCreated, gin.H{"data": toGenGroup(group), "error": nil})
 }
 
-func (h *Handler) updateGroupHandler(c *gin.Context) {
-	var req updateGroupRequest
+func (h *Handler) UpdateGroup(c *gin.Context, id genia.Id) {
+	var req genia.UpdateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
+	if req.Name == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "name is required")
+		return
+	}
+	var description string
+	if req.Description != nil {
+		description = *req.Description
+	}
 	group, err := h.updateGroup.Execute(c.Request.Context(), appiam.UpdateGroupInput{
-		ID:          c.Param("id"),
+		ID:          id,
 		Name:        req.Name,
-		Description: req.Description,
+		Description: description,
 	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGroupResponse(group))
+	middleware.OK(c, toGenGroup(group))
 }
 
-func (h *Handler) deleteGroupHandler(c *gin.Context) {
-	err := h.deleteGroup.Execute(c.Request.Context(), c.Param("id"))
+func (h *Handler) DeleteGroup(c *gin.Context, id genia.Id) {
+	err := h.deleteGroup.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}
 	middleware.OK(c, nil)
 }
 
-func (h *Handler) getGroupHandler(c *gin.Context) {
-	group, err := h.getGroup.Execute(c.Request.Context(), c.Param("id"))
+func (h *Handler) GetGroup(c *gin.Context, id genia.Id) {
+	group, err := h.getGroup.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGroupResponse(group))
+	middleware.OK(c, toGenGroup(group))
 }
 
-func (h *Handler) listGroupsHandler(c *gin.Context) {
+func (h *Handler) ListGroups(c *gin.Context) {
 	groups, err := h.listGroups.Execute(c.Request.Context())
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := make([]groupResponse, len(groups))
+	resp := make([]genia.Group, len(groups))
 	for i, g := range groups {
 		g := g
-		resp[i] = toGroupResponse(&g)
+		resp[i] = toGenGroup(&g)
 	}
 	middleware.OK(c, resp)
 }
 
-func (h *Handler) addMemberHandler(c *gin.Context) {
-	var req addMemberRequest
+func (h *Handler) AddGroupMember(c *gin.Context, id genia.Id) {
+	var req genia.AddMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.UserId == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "user_id is required")
 		return
 	}
 	err := h.addMember.Execute(c.Request.Context(), appiam.AddUserToGroupInput{
-		GroupID: c.Param("id"),
-		UserID:  req.UserID,
+		GroupID: id,
+		UserID:  req.UserId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -296,10 +266,10 @@ func (h *Handler) addMemberHandler(c *gin.Context) {
 	middleware.OK(c, nil)
 }
 
-func (h *Handler) removeMemberHandler(c *gin.Context) {
+func (h *Handler) RemoveGroupMember(c *gin.Context, id genia.Id, userId genia.UserId) {
 	err := h.removeMember.Execute(c.Request.Context(), appiam.RemoveUserFromGroupInput{
-		GroupID: c.Param("id"),
-		UserID:  c.Param("user_id"),
+		GroupID: id,
+		UserID:  userId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -307,22 +277,26 @@ func (h *Handler) removeMemberHandler(c *gin.Context) {
 	middleware.OK(c, nil)
 }
 
-func (h *Handler) listMembersHandler(c *gin.Context) {
-	members, err := h.listMembers.Execute(c.Request.Context(), c.Param("id"))
+func (h *Handler) ListGroupMembers(c *gin.Context, id genia.Id) {
+	members, err := h.listMembers.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, membersResponse{Members: members})
+	middleware.OK(c, gin.H{"members": members})
 }
 
-func (h *Handler) assignPermissionHandler(c *gin.Context) {
-	var req assignPermissionRequest
+func (h *Handler) AssignGroupPermission(c *gin.Context, id genia.Id) {
+	var req genia.AssignPermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
+	if req.Rule == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "rule is required")
+		return
+	}
 	err := h.assignPermission.Execute(c.Request.Context(), appiam.AssignPermissionInput{
-		GroupID: c.Param("id"),
+		GroupID: id,
 		Rule:    req.Rule,
 	})
 	if err := mapError(c, err); err != nil {
@@ -331,10 +305,10 @@ func (h *Handler) assignPermissionHandler(c *gin.Context) {
 	middleware.OK(c, nil)
 }
 
-func (h *Handler) revokePermissionHandler(c *gin.Context) {
+func (h *Handler) RevokeGroupPermission(c *gin.Context, id genia.Id, rule genia.Rule) {
 	err := h.revokePermission.Execute(c.Request.Context(), appiam.RevokePermissionInput{
-		GroupID: c.Param("id"),
-		Rule:    c.Param("rule"),
+		GroupID: id,
+		Rule:    rule,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -342,20 +316,20 @@ func (h *Handler) revokePermissionHandler(c *gin.Context) {
 	middleware.OK(c, nil)
 }
 
-func (h *Handler) listPermissionsHandler(c *gin.Context) {
-	rules, err := h.listPermissions.Execute(c.Request.Context(), c.Param("id"))
+func (h *Handler) ListGroupPermissions(c *gin.Context, id genia.Id) {
+	rules, err := h.listPermissions.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, permissionsResponse{Permissions: rulesToStrings(rules)})
+	middleware.OK(c, gin.H{"permissions": rulesToStrings(rules)})
 }
 
-func (h *Handler) userPermissionsHandler(c *gin.Context) {
-	rules, err := h.userPermissions.Execute(c.Request.Context(), c.Param("user_id"))
+func (h *Handler) ListUserPermissions(c *gin.Context, userId genia.UserId) {
+	rules, err := h.userPermissions.Execute(c.Request.Context(), userId)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, permissionsResponse{Permissions: rulesToStrings(rules)})
+	middleware.OK(c, gin.H{"permissions": rulesToStrings(rules)})
 }
 
 // mapError translates domain errors to HTTP responses. Returns non-nil if it wrote a response.

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
+	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 const testSecret = "test-secret-key"
@@ -159,4 +160,34 @@ func TestJWT_super_admin_sets_bypass(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestJWT_superAdminWithTenantID_stillSetsTenantContext(t *testing.T) {
+	// lm2 always resolves a company on login, even for super_admin — the
+	// tenant must still land in context (for code that needs a concrete
+	// tenant), alongside the bypass flag (for RLS).
+	claims := validClaims()
+	claims.Role = middleware.RoleSuperAdmin
+	claims.TenantID = "tenant-456"
+	token := makeToken(t, claims)
+
+	r := gin.New()
+	r.Use(middleware.JWT([]byte(testSecret)))
+	r.GET("/test", func(c *gin.Context) {
+		ctx := c.Request.Context()
+		c.JSON(http.StatusOK, gin.H{
+			"tenant_id":      tenant.IDFromContext(ctx),
+			"is_super_admin": tenant.IsSuperAdmin(ctx),
+		})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"tenant_id":"tenant-456"`)
+	assert.Contains(t, w.Body.String(), `"is_super_admin":true`)
 }

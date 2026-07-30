@@ -16,7 +16,7 @@ import (
 // ── GORM models ──────────────────────────────────────────────────────────────
 
 type iamGroupModel struct {
-	ID          string    `gorm:"primaryKey;type:uuid"`
+	ID          string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID    string    `gorm:"not null;type:uuid"`
 	Name        string    `gorm:"not null"`
 	Description string

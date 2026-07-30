@@ -1,0 +1,6 @@
+package: iam
+output: iam.gen.go
+generate:
+  gin-server: true
+  models: true
+  embedded-spec: true

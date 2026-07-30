@@ -1,0 +1,316 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Integrations API (protected)
+  description: Third-party integration connections (domain/integrations). The unauthenticated WooCommerce callback lives in a separate spec (api/integrationscallback) — it must never be mounted behind JWT.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /integrations/catalog:
+    get:
+      operationId: listCatalog
+      summary: List available integration providers
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogListResponse'
+
+  /integrations/connections:
+    get:
+      operationId: listConnections
+      summary: List this tenant's integration connections
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionListResponse'
+
+  /integrations/connections/{id}:
+    delete:
+      operationId: deleteConnection
+      summary: Disconnect an integration
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/test:
+    post:
+      operationId: testConnection
+      summary: Probe a connection's stored credentials against the real provider
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/import:
+    post:
+      operationId: importWooProducts
+      summary: Bulk-import this connection's existing WooCommerce catalog into CommerceOS
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportWooProductsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/push-product:
+    post:
+      operationId: pushProductToWoo
+      summary: Push a single-SKU CommerceOS product to this connection's WooCommerce store as a new product
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushProductToWooRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductChannelListingResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/woocommerce/connect/start:
+    post:
+      operationId: startWooConnect
+      summary: Begin the WooCommerce OAuth-style ("Application Authentication") connect flow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartWooConnectRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartWooConnectResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/woocommerce/connect/manual:
+    post:
+      operationId: manualConnectWooCommerce
+      summary: Connect WooCommerce by pasting an already-generated REST API key/secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualConnectWooCommerceRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '409':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ConnectionStatus:
+      type: string
+      enum: [connected, error]
+
+    CatalogEntry:
+      type: object
+      required: [provider, name]
+      properties:
+        provider: { type: string }
+        name: { type: string }
+
+    Connection:
+      type: object
+      required: [id, provider, store_url, status, created_at]
+      description: Never includes the stored consumer key/secret — credentials must never round-trip to the frontend.
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        store_url: { type: string }
+        status: { $ref: '#/components/schemas/ConnectionStatus' }
+        created_at: { type: string, format: date-time }
+
+    StartWooConnectRequest:
+      type: object
+      required: [store_url]
+      properties:
+        store_url: { type: string }
+
+    StartWooConnectResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            authorize_url: { type: string }
+        error: { nullable: true }
+
+    ManualConnectWooCommerceRequest:
+      type: object
+      required: [store_url, consumer_key, consumer_secret]
+      properties:
+        store_url: { type: string }
+        consumer_key: { type: string }
+        consumer_secret: { type: string }
+
+    ImportWooProductsRequest:
+      type: object
+      required: [default_warehouse_id, default_currency]
+      properties:
+        default_warehouse_id:
+          type: string
+          description: Which CommerceOS warehouse imported stock quantities are attributed to — WooCommerce has no warehouse concept.
+        default_currency:
+          type: string
+          description: WooCommerce's product endpoint doesn't return a currency (it's a store-level setting), so the caller supplies it.
+
+    ImportResult:
+      type: object
+      required: [imported, already_linked, skipped_type, errors]
+      properties:
+        imported: { type: integer }
+        already_linked: { type: integer }
+        skipped_type: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    ImportResultResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ImportResult'
+        error: { nullable: true }
+
+    PushProductToWooRequest:
+      type: object
+      required: [product_id]
+      properties:
+        product_id: { type: string }
+
+    ProductChannelListing:
+      type: object
+      required: [id, product_id, connection_id, provider, external_id, sync_status, created_at, updated_at]
+      properties:
+        id: { type: string }
+        product_id: { type: string }
+        connection_id: { type: string }
+        provider: { type: string }
+        external_id: { type: string }
+        sync_status: { type: string, enum: [pending, synced, error] }
+        last_synced_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ProductChannelListingResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/ProductChannelListing'
+        error: { nullable: true }
+
+    CatalogListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogEntry'
+        error: { nullable: true }
+
+    ConnectionListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Connection'
+        error: { nullable: true }
+
+    ConnectionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Connection' }
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

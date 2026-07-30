@@ -44,7 +44,11 @@ func WithTenant(ctx context.Context, db *gorm.DB, fn func(ctx context.Context) e
 	}
 
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SET LOCAL app.current_tenant = ?", setting).Error; err != nil {
+		// Postgres's SET/SET LOCAL only accepts a literal value, never a bind
+		// parameter — set_config() is a regular function call and does
+		// support one, so the tenant value never needs unsafe string
+		// interpolation into the SQL text.
+		if err := tx.Exec("SELECT set_config('app.current_tenant', ?, true)", setting).Error; err != nil {
 			return fmt.Errorf("set rls tenant: %w", err)
 		}
 		return fn(txctx.WithTx(ctx, tx))

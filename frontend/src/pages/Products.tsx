@@ -1,89 +1,69 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  Plus, Download, Upload, Search, Filter, MoreHorizontal,
-  ChevronUp, ChevronDown, Package, Copy, Trash2, Edit3,
+  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../auth/AuthContext'
+import { useProducts } from '../pms/hooks/useProducts'
+import { useCategories } from '../pms/hooks/useCategories'
+import { useProductDetail } from '../pms/hooks/useProductDetail'
+import * as pmsApi from '../pms/api'
+import * as integrationsApi from '../integrations/api'
+import type { Connection } from '../integrations/types'
+import type { Product, ProductStatus, SKUStatus, VariantWithSKUs } from '../pms/types'
 
-interface Product {
-  id: string
-  name: string
-  sku: string
-  barcode: string
-  category: string
-  supplier: string
-  price: number
-  cost: number
-  margin: number
-  status: 'active' | 'inactive' | 'draft'
-  stock: number
-}
-
-const MOCK: Product[] = [
-  { id: '1', name: 'Wireless Headphones Pro', sku: 'WHP-001', barcode: '8714574000282', category: 'Electronics', supplier: 'TechWorld BV', price: 249.99, cost: 89.50, margin: 64.2, status: 'active', stock: 423 },
-  { id: '2', name: 'USB-C Hub 7-in-1', sku: 'UCH-007', barcode: '8714574000299', category: 'Accessories', supplier: 'ConnectPro Ltd', price: 99.99, cost: 32.00, margin: 68.0, status: 'active', stock: 187 },
-  { id: '3', name: 'Mechanical Keyboard TKL', sku: 'MKT-TKL', barcode: '8714574000305', category: 'Peripherals', supplier: 'KeyMaster GmbH', price: 299.99, cost: 124.00, margin: 58.7, status: 'active', stock: 94 },
-  { id: '4', name: 'Webcam 4K Ultra', sku: 'WCM-4K', barcode: '8714574000312', category: 'Electronics', supplier: 'TechWorld BV', price: 299.99, cost: 98.00, margin: 67.3, status: 'active', stock: 56 },
-  { id: '5', name: 'Laptop Stand Pro', sku: 'LSP-002', barcode: '8714574000329', category: 'Accessories', supplier: 'ErgoCo NV', price: 99.99, cost: 28.50, margin: 71.5, status: 'active', stock: 312 },
-  { id: '6', name: 'Mouse Pad XL Gaming', sku: 'MPX-XL', barcode: '8714574000336', category: 'Accessories', supplier: 'GameGear BV', price: 39.99, cost: 9.80, margin: 75.5, status: 'active', stock: 8 },
-  { id: '7', name: 'HDMI Cable 2.1 2m', sku: 'HDM-2M', barcode: '8714574000343', category: 'Cables', supplier: 'ConnectPro Ltd', price: 24.99, cost: 6.20, margin: 75.2, status: 'inactive', stock: 0 },
-  { id: '8', name: 'Portable SSD 1TB', sku: 'SSD-1TB', barcode: '8714574000350', category: 'Storage', supplier: 'DataStore AG', price: 149.99, cost: 72.00, margin: 52.0, status: 'draft', stock: 0 },
-  { id: '9', name: 'LED Desk Lamp Smart', sku: 'LDL-SMT', barcode: '8714574000367', category: 'Lighting', supplier: 'LightTech BV', price: 79.99, cost: 24.00, margin: 70.0, status: 'active', stock: 145 },
-  { id: '10', name: 'Cable Management Kit', sku: 'CMK-001', barcode: '8714574000374', category: 'Accessories', supplier: 'ErgoCo NV', price: 29.99, cost: 7.50, margin: 75.0, status: 'active', stock: 890 },
-]
-
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<ProductStatus, string> = {
   active: 'bg-green-500/15 text-green-400',
-  inactive: 'bg-gray-500/15 text-gray-400',
+  archived: 'bg-gray-500/15 text-gray-400',
   draft: 'bg-amber-500/15 text-amber-400',
 }
 
-const STOCK_COLOR = (n: number) =>
-  n === 0 ? 'text-red-400' : n < 15 ? 'text-amber-400' : 'dark:text-gray-200 text-gray-800'
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 
-type SortKey = keyof Product
-type SortDir = 'asc' | 'desc'
+function formatPrice(minorUnits: number, currency: string): string {
+  return `${minorUnits < 0 ? '-' : ''}${currency} ${(Math.abs(minorUnits) / 100).toFixed(2)}`
+}
+
+function parsePriceToMinorUnits(price: string): number {
+  return Math.round(parseFloat(price || '0') * 100)
+}
+
+function formatMinorUnitsAsInput(minorUnits: number): string {
+  return (minorUnits / 100).toFixed(2)
+}
+
+function parseIntOrUndefined(value: string): number | undefined {
+  if (value === '') return undefined
+  const n = parseInt(value, 10)
+  return Number.isNaN(n) ? undefined : n
+}
 
 export default function Products() {
+  const { token } = useAuth()
+  const { products, loading, error, create: createProduct, update: updateProduct, remove: removeProduct } = useProducts(token ?? '')
+  const { categories, create: createCategory } = useCategories(token ?? '')
+
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
-  }
+  const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
 
-  const filtered = MOCK
-    .filter(p =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()) ||
-      p.barcode.includes(search)
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.slug.toLowerCase().includes(search.toLowerCase()),
+  )
+
+  if (editingId !== null) {
+    return (
+      <ProductEditPage
+        productId={editingId === 'new' ? null : editingId}
+        categories={categories}
+        onCreateCategory={createCategory}
+        onCreate={createProduct}
+        onUpdate={updateProduct}
+        onClose={() => setEditingId(null)}
+      />
     )
-    .sort((a, b) => {
-      const av = a[sortKey], bv = b[sortKey]
-      const cmp = typeof av === 'string'
-        ? av.localeCompare(bv as string)
-        : (av as number) - (bv as number)
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-
-  const toggleSelect = (id: string) =>
-    setSelected(prev => {
-      const s = new Set(prev)
-      s.has(id) ? s.delete(id) : s.add(id)
-      return s
-    })
-
-  const allSelected = filtered.length > 0 && filtered.every(p => selected.has(p.id))
-  const toggleAll = () =>
-    setSelected(allSelected ? new Set() : new Set(filtered.map(p => p.id)))
-
-  function SortIcon({ k }: { k: SortKey }) {
-    if (sortKey !== k) return <ChevronUp size={12} className="opacity-20" />
-    return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
   }
 
   return (
@@ -95,31 +75,15 @@ export default function Products() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, SKU, barcode..."
+            placeholder="Search by name or slug..."
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 border dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors">
-          <Filter size={13} /> Filters
-        </button>
-
-        {selected.size > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg dark:bg-blue-600/20 bg-blue-50 border dark:border-blue-500/30 border-blue-200">
-            <span className="text-xs text-blue-400 font-medium">{selected.size} selected</span>
-            <button className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1">
-              <Trash2 size={11} /> Delete
-            </button>
-          </div>
-        )}
-
         <div className="flex items-center gap-2 ml-auto">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors">
-            <Upload size={13} /> Import
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors">
-            <Download size={13} /> Export
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium">
+          <button
+            onClick={() => setEditingId('new')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
+          >
             <Plus size={13} /> New Product
           </button>
         </div>
@@ -130,12 +94,9 @@ export default function Products() {
         <span className="text-xs dark:text-gray-500 text-gray-400">{filtered.length} products</span>
         <span className="text-xs dark:text-gray-500 text-gray-400">·</span>
         <span className="text-xs dark:text-gray-500 text-gray-400">
-          <span className="text-green-400 font-medium">{MOCK.filter(p => p.status === 'active').length}</span> active
+          <span className="text-green-400 font-medium">{products.filter(p => p.status === 'active').length}</span> active
         </span>
-        <span className="text-xs dark:text-gray-500 text-gray-400">·</span>
-        <span className="text-xs dark:text-gray-500 text-gray-400">
-          <span className="text-red-400 font-medium">{MOCK.filter(p => p.stock < 10).length}</span> low stock
-        </span>
+        {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
       </div>
 
       {/* Table */}
@@ -143,120 +104,57 @@ export default function Products() {
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
             <tr>
-              <th className="px-4 py-2.5 w-8">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  className="rounded accent-blue-600 w-3 h-3"
-                />
-              </th>
               <th className="px-2 py-2.5 w-8" />
-              {([
-                ['name', 'Product'],
-                ['sku', 'SKU'],
-                ['barcode', 'Barcode'],
-                ['category', 'Category'],
-                ['supplier', 'Supplier'],
-                ['price', 'Price'],
-                ['cost', 'Cost'],
-                ['margin', 'Margin'],
-                ['stock', 'Stock'],
-                ['status', 'Status'],
-              ] as [SortKey, string][]).map(([k, label]) => (
-                <th
-                  key={k}
-                  onClick={() => toggleSort(k)}
-                  className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider cursor-pointer hover:dark:text-gray-300 hover:text-gray-600 transition-colors select-none whitespace-nowrap"
-                >
-                  <span className="flex items-center gap-1">
-                    {label} <SortIcon k={k} />
-                  </span>
-                </th>
-              ))}
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Category</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            {loading && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+            )}
+            {!loading && filtered.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
+            )}
             {filtered.map(p => (
-              <tr
-                key={p.id}
-                className={clsx(
-                  'group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors',
-                  selected.has(p.id) && 'dark:bg-blue-600/5 bg-blue-50',
-                )}
-              >
-                <td className="px-4 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(p.id)}
-                    onChange={() => toggleSelect(p.id)}
-                    className="rounded accent-blue-600 w-3 h-3"
-                  />
-                </td>
+              <tr key={p.id} className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
                 <td className="px-2 py-2.5">
                   <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
                     <Package size={12} className="dark:text-gray-500 text-gray-400" />
                   </div>
                 </td>
-                <td className="px-3 py-2.5 max-w-[180px]">
+                <td className="px-3 py-2.5 max-w-[220px]">
                   <p className="font-medium dark:text-gray-100 text-gray-900 truncate">{p.name}</p>
+                  <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400 truncate">{p.slug}</p>
                 </td>
-                <td className="px-3 py-2.5">
-                  <span className="font-mono dark:text-gray-400 text-gray-500">{p.sku}</span>
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className="font-mono dark:text-gray-500 text-gray-400 text-[10px]">{p.barcode}</span>
-                </td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{p.category}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 truncate max-w-[120px]">{p.supplier}</td>
-                <td className="px-3 py-2.5 dark:text-gray-200 text-gray-800 font-medium">€{p.price.toFixed(2)}</td>
-                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">€{p.cost.toFixed(2)}</td>
-                <td className="px-3 py-2.5">
-                  <span className={clsx(
-                    'font-medium',
-                    p.margin >= 65 ? 'text-green-400' : p.margin >= 50 ? 'text-amber-400' : 'text-red-400',
-                  )}>
-                    {p.margin.toFixed(1)}%
-                  </span>
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className={clsx('font-medium tabular-nums', STOCK_COLOR(p.stock))}>
-                    {p.stock.toLocaleString()}
-                  </span>
-                </td>
+                <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{categoryName(p.category_id)}</td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLES[p.status])}>
                     {p.status}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="relative">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
-                      className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-all"
+                      onClick={() => setEditingId(p.id)}
+                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      title="Edit"
                     >
-                      <MoreHorizontal size={14} className="dark:text-gray-400 text-gray-500" />
+                      <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
                     </button>
-                    {openMenu === p.id && (
-                      <div className="absolute right-0 top-7 z-20 w-40 dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-lg shadow-xl overflow-hidden">
-                        {[
-                          { icon: Edit3, label: 'Edit' },
-                          { icon: Copy, label: 'Duplicate' },
-                          { icon: Trash2, label: 'Delete', danger: true },
-                        ].map(action => (
-                          <button
-                            key={action.label}
-                            className={clsx(
-                              'w-full flex items-center gap-2 px-3 py-2 text-xs hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors',
-                              action.danger ? 'text-red-400' : 'dark:text-gray-300 text-gray-700',
-                            )}
-                          >
-                            <action.icon size={12} /> {action.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete "${p.name}"? This also deletes its variants and SKUs.`)) {
+                          removeProduct(p.id)
+                        }
+                      }}
+                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -264,26 +162,727 @@ export default function Products() {
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-5 py-2.5 border-t dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">Showing {filtered.length} of {MOCK.length} products</span>
-        <div className="flex items-center gap-1">
-          {[1, 2, 3, '...', 24].map((page, i) => (
-            <button
-              key={i}
-              className={clsx(
-                'w-7 h-7 rounded text-xs flex items-center justify-center transition-colors',
-                page === 1
-                  ? 'bg-blue-600 text-white'
-                  : 'dark:text-gray-400 text-gray-500 hover:dark:bg-[#1F2937] hover:bg-gray-100',
+// ── Product Edit Page ────────────────────────────────────────────────────────
+//
+// Dedicated full page (not a slide-over) for creating/editing a product.
+// "General" tab holds the shared data every provider needs (name, price,
+// variants...). Additional tabs hold provider-specific values — only
+// WooCommerce for now, one tab per connected integration eventually
+// (Shopify, Lightspeed, ...), each mapping the same product to that
+// channel's own fields without polluting the generic model.
+
+type EditorTab = 'general' | 'woocommerce'
+
+interface ProductEditorProps {
+  productId: string | null
+  categories: { id: string; name: string }[]
+  onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
+  onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean }) => Promise<Product>
+  onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean }) => Promise<Product>
+  onClose: () => void
+}
+
+function ProductEditPage({ productId, categories, onCreateCategory, onCreate, onUpdate, onClose }: ProductEditorProps) {
+  const { token } = useAuth()
+  const [savedProductId, setSavedProductId] = useState<string | null>(productId)
+  const detail = useProductDetail(token ?? '', savedProductId)
+
+  const existing = detail.detail?.product
+  const [name, setName] = useState(existing?.name ?? '')
+  const [description, setDescription] = useState(existing?.description ?? '')
+  const [categoryId, setCategoryId] = useState<string>(existing?.category_id ?? '')
+  const [status, setStatus] = useState<ProductStatus>(existing?.status ?? 'draft')
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [activeTab, setActiveTab] = useState<EditorTab>('general')
+
+  // Integration tabs only ever appear for a provider that's actually
+  // connected — an unconnected/disabled integration gets no tab at all,
+  // rather than a tab that just tells you to go connect it.
+  const [wooConnection, setWooConnection] = useState<Connection | null>(null)
+  useEffect(() => {
+    if (!token) return
+    integrationsApi.listConnections(token)
+      .then(conns => setWooConnection(conns.find(c => c.provider === 'woocommerce' && c.status === 'connected') ?? null))
+      .catch(() => setWooConnection(null))
+  }, [token])
+
+  // Whether to show the full named-variants manager vs. the flat single-SKU
+  // form. For a brand-new product this is a user choice made before saving;
+  // for an existing product it's the server's own has_variants field —
+  // source of truth lives in the DB, not inferred from variant count.
+  const [variantsMode, setVariantsMode] = useState(false)
+
+  // Simple-mode SKU fields (only relevant when variantsMode is false).
+  const [skuCode, setSkuCode] = useState('')
+  const [barcode, setBarcode] = useState('')
+  const [price, setPrice] = useState('')
+  const [currency, setCurrency] = useState('USD')
+  const [skuStatus, setSkuStatus] = useState<SKUStatus>('active')
+  const [isVirtual, setIsVirtual] = useState(false)
+  const [weightGrams, setWeightGrams] = useState('')
+  const [lengthMM, setLengthMM] = useState('')
+  const [widthMM, setWidthMM] = useState('')
+  const [heightMM, setHeightMM] = useState('')
+
+  // Sync local form state once the product detail loads (edit mode) — runs once.
+  const [hydrated, setHydrated] = useState(false)
+  if (!hydrated && existing) {
+    setName(existing.name)
+    setDescription(existing.description)
+    setCategoryId(existing.category_id ?? '')
+    setStatus(existing.status)
+    setVariantsMode(existing.has_variants)
+    const variants = detail.detail?.variants ?? []
+    if (variants.length === 1) {
+      const sku = variants[0].skus?.[0]
+      if (sku) {
+        setSkuCode(sku.sku_code)
+        setBarcode(sku.barcode ?? '')
+        setPrice(formatMinorUnitsAsInput(sku.price_minor_units))
+        setCurrency(sku.currency_code)
+        setSkuStatus(sku.status)
+        setIsVirtual(sku.is_virtual)
+        setWeightGrams(sku.weight_grams != null ? String(sku.weight_grams) : '')
+        setLengthMM(sku.length_mm != null ? String(sku.length_mm) : '')
+        setWidthMM(sku.width_mm != null ? String(sku.width_mm) : '')
+        setHeightMM(sku.height_mm != null ? String(sku.height_mm) : '')
+      }
+    }
+    setHydrated(true)
+  }
+
+  const singleVariant: VariantWithSKUs | null =
+    !variantsMode && detail.detail?.variants.length === 1 ? detail.detail.variants[0] : null
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError('')
+    setSaving(true)
+    try {
+      const payload = { name, description, category_id: categoryId || null, status, has_variants: variantsMode }
+      // A virtual SKU never ships, so it can never carry weight/dimensions
+      // (enforced server-side too — see ErrVirtualSKUCannotHaveDimensions).
+      const dimensions = isVirtual
+        ? { weight_grams: undefined, length_mm: undefined, width_mm: undefined, height_mm: undefined }
+        : {
+            weight_grams: parseIntOrUndefined(weightGrams),
+            length_mm: parseIntOrUndefined(lengthMM),
+            width_mm: parseIntOrUndefined(widthMM),
+            height_mm: parseIntOrUndefined(heightMM),
+          }
+
+      if (!savedProductId) {
+        const product = await onCreate(payload)
+        setSavedProductId(product.id)
+        if (!variantsMode) {
+          const variant = await pmsApi.createVariant(token ?? '', product.id, { name: product.name })
+          if (skuCode) {
+            await pmsApi.createSKU(token ?? '', variant.id, {
+              sku_code: skuCode,
+              barcode: barcode || undefined,
+              price_minor_units: parsePriceToMinorUnits(price),
+              currency_code: currency,
+              is_virtual: isVirtual,
+              ...dimensions,
+              status: skuStatus,
+            })
+          }
+        }
+        return
+      }
+
+      await onUpdate(savedProductId, payload)
+      if (!variantsMode) {
+        if (singleVariant) {
+          const currentSku = singleVariant.skus?.[0]
+          if (currentSku) {
+            await detail.updateSKU(currentSku.id, {
+              barcode: barcode || undefined,
+              price_minor_units: parsePriceToMinorUnits(price),
+              currency_code: currency,
+              is_virtual: isVirtual,
+              ...dimensions,
+              status: skuStatus,
+            })
+          } else if (skuCode) {
+            await detail.addSKU(singleVariant.id, {
+              sku_code: skuCode,
+              barcode: barcode || undefined,
+              price_minor_units: parsePriceToMinorUnits(price),
+              currency_code: currency,
+              is_virtual: isVirtual,
+              ...dimensions,
+              status: skuStatus,
+            })
+          }
+        } else if (skuCode) {
+          const variant = await pmsApi.createVariant(token ?? '', savedProductId, { name })
+          await pmsApi.createSKU(token ?? '', variant.id, {
+            sku_code: skuCode,
+            barcode: barcode || undefined,
+            price_minor_units: parsePriceToMinorUnits(price),
+            currency_code: currency,
+            is_virtual: isVirtual,
+            ...dimensions,
+            status: skuStatus,
+          })
+          detail.refresh()
+        }
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save product')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return
+    try {
+      const category = await onCreateCategory({ name: newCategoryName.trim() })
+      setCategoryId(category.id)
+      setNewCategoryName('')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create category')
+    }
+  }
+
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} title="Back to products" className="w-7 h-7 flex items-center justify-center rounded-lg dark:hover:bg-[#1F2937] hover:bg-gray-200 transition-colors">
+            <ArrowLeft size={15} className="dark:text-gray-400 text-gray-500" />
+          </button>
+          <div>
+            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">
+              {savedProductId ? name || 'Edit Product' : 'New Product'}
+            </h2>
+            {!savedProductId && (
+              <p className="text-[11px] dark:text-gray-500 text-gray-400">Fill in the basics, then save.</p>
+            )}
+          </div>
+        </div>
+        <button
+          type="submit" form="product-general-form" disabled={saving || activeTab !== 'general'}
+          className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Saving…' : savedProductId ? 'Save Changes' : 'Create Product'}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1 px-5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={clsx(
+            'px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
+            activeTab === 'general'
+              ? 'border-blue-500 text-blue-400'
+              : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+          )}
+        >
+          General
+        </button>
+        {savedProductId && wooConnection && (
+          <button
+            onClick={() => setActiveTab('woocommerce')}
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
+              activeTab === 'woocommerce'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+            )}
+          >
+            <Plug size={12} /> WooCommerce
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className={clsx('max-w-5xl mx-auto p-6', activeTab !== 'general' && 'hidden')}>
+          {renderGeneralTab()}
+        </div>
+        {activeTab === 'woocommerce' && savedProductId && wooConnection && (
+          <div className="max-w-5xl mx-auto p-6">
+            <ProductWooCommerceTab productId={savedProductId} connection={wooConnection} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  function renderGeneralTab() {
+    const showFlatSKU = !variantsMode && (savedProductId ? singleVariant !== null || detail.detail?.variants.length === 0 : true)
+
+    return (
+      <form id="product-general-form" onSubmit={handleSave}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Main column */}
+          <div className="lg:col-span-2 space-y-5">
+            <FormCard title="Title & description">
+              <div>
+                <label htmlFor="product-name" className={labelClass}>Name</label>
+                <input
+                  id="product-name"
+                  type="text" required value={name} onChange={e => setName(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="product-description" className={labelClass}>Description</label>
+                <textarea
+                  id="product-description"
+                  value={description} onChange={e => setDescription(e.target.value)} rows={3}
+                  className={inputClass}
+                />
+              </div>
+            </FormCard>
+
+            <FormCard title="Variants">
+              {variantsMode ? (
+                <>
+                  {savedProductId ? (
+                    <VariantsSection detail={detail} />
+                  ) : (
+                    <p className="text-[11px] dark:text-gray-500 text-gray-400">Save the product first, then add variants below.</p>
+                  )}
+                  {!savedProductId && (
+                    <button
+                      type="button"
+                      onClick={() => setVariantsMode(false)}
+                      className="text-[11px] dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors"
+                    >
+                      ← Actually, no variants
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setVariantsMode(true)}
+                  className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  + Add variants like size or color
+                </button>
               )}
-            >
-              {page}
-            </button>
-          ))}
+            </FormCard>
+
+            {showFlatSKU && (
+              <FormCard title="Pricing & SKU">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="product-sku-code" className={labelClass}>SKU code</label>
+                    <input
+                      id="product-sku-code"
+                      type="text" required={!variantsMode} placeholder="e.g. SHIRT-BLK-M" value={skuCode} onChange={e => setSkuCode(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="product-barcode" className={labelClass}>Barcode / EAN</label>
+                    <input
+                      id="product-barcode"
+                      type="text" placeholder="Optional" value={barcode} onChange={e => setBarcode(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="product-price" className={labelClass}>Price</label>
+                    <input
+                      id="product-price"
+                      type="number" step="0.01" min="0" required={!variantsMode} placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="product-currency" className={labelClass}>Currency</label>
+                    <select id="product-currency" value={currency} onChange={e => setCurrency(e.target.value)} className={inputClass}>
+                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="product-sku-status" className={labelClass}>SKU status</label>
+                    <select id="product-sku-status" value={skuStatus} onChange={e => setSkuStatus(e.target.value as SKUStatus)} className={inputClass}>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              </FormCard>
+            )}
+
+            {showFlatSKU && (
+              <FormCard title="Shipping" description="Leave off for digital/virtual products.">
+                <ToggleRow label="Virtual product (no shipping)" checked={isVirtual} onChange={() => setIsVirtual(v => !v)} />
+                {!isVirtual && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="product-weight" className={labelClass}>Weight (g)</label>
+                      <input
+                        id="product-weight"
+                        type="number" step="1" min="0" placeholder="Optional" value={weightGrams} onChange={e => setWeightGrams(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="product-length" className={labelClass}>Length (mm)</label>
+                      <input
+                        id="product-length"
+                        type="number" step="1" min="0" placeholder="Optional" value={lengthMM} onChange={e => setLengthMM(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="product-width" className={labelClass}>Width (mm)</label>
+                      <input
+                        id="product-width"
+                        type="number" step="1" min="0" placeholder="Optional" value={widthMM} onChange={e => setWidthMM(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="product-height" className={labelClass}>Height (mm)</label>
+                      <input
+                        id="product-height"
+                        type="number" step="1" min="0" placeholder="Optional" value={heightMM} onChange={e => setHeightMM(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                )}
+              </FormCard>
+            )}
+
+            {formError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{formError}</p>}
+          </div>
+
+          {/* Sidebar column */}
+          <div className="space-y-5">
+            <FormCard title="Status">
+              <select
+                aria-label="Status"
+                value={status} onChange={e => setStatus(e.target.value as ProductStatus)}
+                className={inputClass}
+              >
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+              </select>
+            </FormCard>
+
+            <FormCard title="Organization">
+              <div>
+                <label htmlFor="product-category" className={labelClass}>Category</label>
+                <select
+                  id="product-category"
+                  value={categoryId} onChange={e => setCategoryId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">No category</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-1.5">
+                <input
+                  type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
+                  placeholder="+ new category name"
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+                />
+                <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors">
+                  Add
+                </button>
+              </div>
+            </FormCard>
+          </div>
+        </div>
+      </form>
+    )
+  }
+}
+
+// ── Shared form layout primitives ────────────────────────────────────────────
+
+function FormCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <div>
+        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
+        {description && <p className="text-[11px] dark:text-gray-500 text-gray-400 mt-0.5">{description}</p>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs font-medium dark:text-gray-200 text-gray-800">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={onChange}
+        className={clsx(
+          'relative w-9 h-5 rounded-full shrink-0 transition-colors',
+          checked ? 'bg-blue-600' : 'dark:bg-[#2D3748] bg-gray-300',
+        )}
+      >
+        <span className={clsx(
+          'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform',
+          checked ? 'translate-x-4' : 'translate-x-0',
+        )} />
+      </button>
+    </div>
+  )
+}
+
+// ── WooCommerce tab ───────────────────────────────────────────────────────────
+//
+// Per-channel values for this product on the connected WooCommerce store.
+// Shell only for now — fields are disabled placeholders, nothing here is
+// persisted yet (no backend concept of a per-integration product mapping
+// exists). Wiring this up for real (external product id, sync status, price
+// override) is a separate, larger change: new domain entity, migration,
+// OpenAPI contract, sync use cases.
+
+function ProductWooCommerceTab({ productId, connection }: { productId: string; connection: Connection }) {
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 dark:text-gray-500 text-gray-400 outline-none cursor-not-allowed'
+  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+
+  return (
+    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Plug size={13} className="dark:text-gray-400 text-gray-500" />
+        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">WooCommerce</h3>
+        <span className="text-[10px] dark:text-gray-500 text-gray-400">· {connection.store_url}</span>
+      </div>
+      <p className="text-[11px] dark:text-gray-500 text-gray-400">
+        Per-channel sync isn't wired up yet — these fields are a preview of what's coming for product {productId}.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>WooCommerce product ID</label>
+          <input disabled placeholder="Not linked yet" className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Sync status</label>
+          <input disabled placeholder="Not synced" className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Last synced</label>
+          <input disabled placeholder="—" className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Price override</label>
+          <input disabled placeholder="Uses base price" className={inputClass} />
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Variants + SKUs section (only shown when the product has variants) ───────
+
+interface VariantsSectionProps {
+  detail: ReturnType<typeof useProductDetail>
+}
+
+function VariantsSection({ detail }: VariantsSectionProps) {
+  const [adding, setAdding] = useState(false)
+  const [variantName, setVariantName] = useState('')
+  const [addError, setAddError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const resetForm = () => {
+    setAdding(false)
+    setVariantName('')
+    setAddError('')
+  }
+
+  const handleAddVariant = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAddError('')
+    setSubmitting(true)
+    try {
+      await detail.addVariant({ name: variantName })
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add variant')
+      setSubmitting(false)
+      return
+    }
+    setSubmitting(false)
+    resetForm()
+  }
+
+  return (
+    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 uppercase tracking-wider">Variants</h3>
+        <button
+          onClick={() => setAdding(v => !v)}
+          className="text-[10px] font-medium px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+        >
+          {adding ? 'Cancel' : '+ Add Variant'}
+        </button>
+      </div>
+
+      {detail.loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {detail.error && <p className="text-xs text-red-400">{detail.error}</p>}
+
+      <div className="space-y-2">
+        {detail.detail?.variants.map(v => (
+          <VariantRow key={v.id} variant={v} detail={detail} />
+        ))}
+      </div>
+
+      {adding && (
+        <form onSubmit={handleAddVariant} className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 space-y-2">
+          <input
+            type="text" required placeholder="Variant name (e.g. Large)" value={variantName} onChange={e => setVariantName(e.target.value)}
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          />
+          {addError && <p className="text-xs text-red-400">{addError}</p>}
+          <button type="submit" disabled={submitting} className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            {submitting ? 'Adding…' : 'Add Variant'}
+          </button>
+          <p className="text-[10px] dark:text-gray-500 text-gray-400">Add a SKU (price/barcode) to the variant after creating it.</p>
+        </form>
+      )}
+    </div>
+  )
+}
+
+interface VariantRowProps {
+  variant: VariantWithSKUs
+  detail: ReturnType<typeof useProductDetail>
+}
+
+function VariantRow({ variant, detail }: VariantRowProps) {
+  const [addingSKU, setAddingSKU] = useState(false)
+  const [skuCode, setSkuCode] = useState('')
+  const [barcode, setBarcode] = useState('')
+  const [price, setPrice] = useState('')
+  const [currency, setCurrency] = useState('USD')
+  const [status, setStatus] = useState<SKUStatus>('active')
+  const [isVirtual, setIsVirtual] = useState(false)
+  const [weightGrams, setWeightGrams] = useState('')
+  const [lengthMM, setLengthMM] = useState('')
+  const [widthMM, setWidthMM] = useState('')
+  const [heightMM, setHeightMM] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleAddSKU = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSubmitting(true)
+    try {
+      await detail.addSKU(variant.id, {
+        sku_code: skuCode,
+        barcode: barcode || undefined,
+        price_minor_units: parsePriceToMinorUnits(price),
+        currency_code: currency,
+        is_virtual: isVirtual,
+        weight_grams: isVirtual ? undefined : parseIntOrUndefined(weightGrams),
+        length_mm: isVirtual ? undefined : parseIntOrUndefined(lengthMM),
+        width_mm: isVirtual ? undefined : parseIntOrUndefined(widthMM),
+        height_mm: isVirtual ? undefined : parseIntOrUndefined(heightMM),
+        status,
+      })
+      setAddingSKU(false)
+      setSkuCode(''); setBarcode(''); setPrice(''); setCurrency('USD'); setStatus('active')
+      setIsVirtual(false); setWeightGrams(''); setLengthMM(''); setWidthMM(''); setHeightMM('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add SKU')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{variant.name}</p>
+        <button
+          onClick={() => detail.removeVariant(variant.id)}
+          className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors"
+        >
+          Remove
+        </button>
+      </div>
+
+      {variant.skus?.map(sku => (
+        <div key={sku.id} className="flex items-center justify-between text-[10px] dark:text-gray-400 text-gray-500 py-1">
+          <span className="font-mono">{sku.sku_code}</span>
+          <span>{formatPrice(sku.price_minor_units, sku.currency_code)}</span>
+          <span className="capitalize">{sku.status}</span>
+          <button onClick={() => detail.removeSKU(sku.id)} className="hover:text-red-400 transition-colors">Remove</button>
+        </div>
+      ))}
+
+      {!variant.skus?.length && !addingSKU && (
+        <button onClick={() => setAddingSKU(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+          + Add SKU
+        </button>
+      )}
+
+      {addingSKU && (
+        <form onSubmit={handleAddSKU} className="mt-2 space-y-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
+            <input type="text" required placeholder="SKU code" value={skuCode} onChange={e => setSkuCode(e.target.value)}
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+            <input type="text" placeholder="Barcode" value={barcode} onChange={e => setBarcode(e.target.value)}
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+            <input type="number" step="0.01" min="0" required placeholder="Price" value={price} onChange={e => setPrice(e.target.value)}
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+            <select value={currency} onChange={e => setCurrency(e.target.value)}
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
+              {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <select value={status} onChange={e => setStatus(e.target.value as SKUStatus)}
+            className="w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+            <input type="checkbox" checked={isVirtual} onChange={e => setIsVirtual(e.target.checked)} />
+            Virtual (no shipping)
+          </label>
+          {!isVirtual && (
+            <div className="grid grid-cols-2 gap-1.5">
+              <input type="number" step="1" min="0" placeholder="Weight (g)" value={weightGrams} onChange={e => setWeightGrams(e.target.value)}
+                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+              <input type="number" step="1" min="0" placeholder="Length (mm)" value={lengthMM} onChange={e => setLengthMM(e.target.value)}
+                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+              <input type="number" step="1" min="0" placeholder="Width (mm)" value={widthMM} onChange={e => setWidthMM(e.target.value)}
+                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+              <input type="number" step="1" min="0" placeholder="Height (mm)" value={heightMM} onChange={e => setHeightMM(e.target.value)}
+                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+            </div>
+          )}
+          {error && <p className="text-[10px] text-red-400">{error}</p>}
+          <div className="flex gap-1.5">
+            <button type="submit" disabled={submitting} className="flex-1 py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              {submitting ? 'Adding…' : 'Add'}
+            </button>
+            <button type="button" onClick={() => setAddingSKU(false)} className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   )
 }

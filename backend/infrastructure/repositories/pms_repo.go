@@ -1,0 +1,587 @@
+package repositories
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"gorm.io/gorm"
+
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	"github.com/adirkuhn/commerceos/internal/txctx"
+)
+
+// ── GORM models ──────────────────────────────────────────────────────────────
+
+type categoryModel struct {
+	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID  string `gorm:"not null;type:uuid"`
+	ParentID  *string
+	Name      string `gorm:"not null"`
+	Slug      string `gorm:"not null"`
+	Position  int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (categoryModel) TableName() string { return "categories" }
+
+type productModel struct {
+	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID    string `gorm:"not null;type:uuid"`
+	CategoryID  *string
+	Name        string `gorm:"not null"`
+	Slug        string `gorm:"not null"`
+	Description string
+	Status      string `gorm:"not null"`
+	HasVariants bool   `gorm:"not null"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (productModel) TableName() string { return "products" }
+
+type variantModel struct {
+	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID  string `gorm:"not null;type:uuid"`
+	ProductID string `gorm:"not null;type:uuid"`
+	Name      string `gorm:"not null"`
+	Position  int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (variantModel) TableName() string { return "variants" }
+
+type skuModel struct {
+	ID              string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID        string `gorm:"not null;type:uuid"`
+	VariantID       string `gorm:"not null;type:uuid"`
+	SKUCode         string `gorm:"column:sku_code;not null"`
+	Barcode         string
+	PriceMinorUnits int64  `gorm:"not null"`
+	CurrencyCode    string `gorm:"not null"`
+	WeightGrams     *int64
+	LengthMM        *int64
+	WidthMM         *int64
+	HeightMM        *int64
+	IsVirtual       bool   `gorm:"not null"`
+	Status          string `gorm:"not null"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (skuModel) TableName() string { return "skus" }
+
+// ── CategoryRepo ──────────────────────────────────────────────────────────────
+
+type CategoryRepo struct{ db *gorm.DB }
+
+func NewCategoryRepo(db *gorm.DB) *CategoryRepo { return &CategoryRepo{db: db} }
+
+func (r *CategoryRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *CategoryRepo) Create(ctx context.Context, c *pmsDomain.Category) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := categoryModel{
+		TenantID:  c.TenantID,
+		ParentID:  c.ParentID,
+		Name:      c.Name,
+		Slug:      c.Slug,
+		Position:  c.Position,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("categoryRepo.Create: %w", err)
+	}
+	c.ID = m.ID
+	return nil
+}
+
+func (r *CategoryRepo) FindByID(ctx context.Context, id string) (*pmsDomain.Category, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m categoryModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrCategoryNotFound
+		}
+		return nil, fmt.Errorf("categoryRepo.FindByID: %w", err)
+	}
+	return toCategoryDomain(m), nil
+}
+
+func (r *CategoryRepo) FindBySlug(ctx context.Context, slug string) (*pmsDomain.Category, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m categoryModel
+	if err := tx.Where("slug = ?", slug).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrCategoryNotFound
+		}
+		return nil, fmt.Errorf("categoryRepo.FindBySlug: %w", err)
+	}
+	return toCategoryDomain(m), nil
+}
+
+func (r *CategoryRepo) List(ctx context.Context) ([]pmsDomain.Category, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []categoryModel
+	if err := tx.Order("position asc, name asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("categoryRepo.List: %w", err)
+	}
+	categories := make([]pmsDomain.Category, len(rows))
+	for i, row := range rows {
+		categories[i] = *toCategoryDomain(row)
+	}
+	return categories, nil
+}
+
+func (r *CategoryRepo) Update(ctx context.Context, c *pmsDomain.Category) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&categoryModel{}).Where("id = ?", c.ID).
+		Updates(map[string]any{
+			"parent_id":  c.ParentID,
+			"name":       c.Name,
+			"updated_at": c.UpdatedAt,
+		}).Error; err != nil {
+		return fmt.Errorf("categoryRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *CategoryRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&categoryModel{}).Error; err != nil {
+		return fmt.Errorf("categoryRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+func toCategoryDomain(m categoryModel) *pmsDomain.Category {
+	return &pmsDomain.Category{
+		ID:        m.ID,
+		TenantID:  m.TenantID,
+		ParentID:  m.ParentID,
+		Name:      m.Name,
+		Slug:      m.Slug,
+		Position:  m.Position,
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
+	}
+}
+
+// ── ProductRepo ───────────────────────────────────────────────────────────────
+
+type ProductRepo struct{ db *gorm.DB }
+
+func NewProductRepo(db *gorm.DB) *ProductRepo { return &ProductRepo{db: db} }
+
+func (r *ProductRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *ProductRepo) Create(ctx context.Context, p *pmsDomain.Product) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := productModel{
+		TenantID:    p.TenantID,
+		CategoryID:  p.CategoryID,
+		Name:        p.Name,
+		Slug:        p.Slug,
+		Description: p.Description,
+		Status:      string(p.Status),
+		HasVariants: p.HasVariants,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("productRepo.Create: %w", err)
+	}
+	p.ID = m.ID
+	return nil
+}
+
+func (r *ProductRepo) FindByID(ctx context.Context, id string) (*pmsDomain.Product, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m productModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrProductNotFound
+		}
+		return nil, fmt.Errorf("productRepo.FindByID: %w", err)
+	}
+	return toProductDomain(m), nil
+}
+
+func (r *ProductRepo) FindBySlug(ctx context.Context, slug string) (*pmsDomain.Product, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m productModel
+	if err := tx.Where("slug = ?", slug).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrProductNotFound
+		}
+		return nil, fmt.Errorf("productRepo.FindBySlug: %w", err)
+	}
+	return toProductDomain(m), nil
+}
+
+func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	q := tx.Model(&productModel{})
+	if filter.CategoryID != nil {
+		q = q.Where("category_id = ?", *filter.CategoryID)
+	}
+	if filter.Status != nil {
+		q = q.Where("status = ?", string(*filter.Status))
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("productRepo.List: count: %w", err)
+	}
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 200
+	}
+	var rows []productModel
+	if err := q.Order("name asc").Limit(limit).Offset(filter.Offset).Find(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("productRepo.List: %w", err)
+	}
+	products := make([]pmsDomain.Product, len(rows))
+	for i, row := range rows {
+		products[i] = *toProductDomain(row)
+	}
+	return products, total, nil
+}
+
+func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&productModel{}).Where("id = ?", p.ID).
+		Updates(map[string]any{
+			"category_id":  p.CategoryID,
+			"name":         p.Name,
+			"description":  p.Description,
+			"status":       string(p.Status),
+			"has_variants": p.HasVariants,
+			"updated_at":   p.UpdatedAt,
+		}).Error; err != nil {
+		return fmt.Errorf("productRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *ProductRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&productModel{}).Error; err != nil {
+		return fmt.Errorf("productRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+func toProductDomain(m productModel) *pmsDomain.Product {
+	return &pmsDomain.Product{
+		ID:          m.ID,
+		TenantID:    m.TenantID,
+		CategoryID:  m.CategoryID,
+		Name:        m.Name,
+		Slug:        m.Slug,
+		Description: m.Description,
+		Status:      pmsDomain.ProductStatus(m.Status),
+		HasVariants: m.HasVariants,
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
+	}
+}
+
+// ── VariantRepo ───────────────────────────────────────────────────────────────
+
+type VariantRepo struct{ db *gorm.DB }
+
+func NewVariantRepo(db *gorm.DB) *VariantRepo { return &VariantRepo{db: db} }
+
+func (r *VariantRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *VariantRepo) Create(ctx context.Context, v *pmsDomain.Variant) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := variantModel{
+		TenantID:  v.TenantID,
+		ProductID: v.ProductID,
+		Name:      v.Name,
+		Position:  v.Position,
+		CreatedAt: v.CreatedAt,
+		UpdatedAt: v.UpdatedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("variantRepo.Create: %w", err)
+	}
+	v.ID = m.ID
+	return nil
+}
+
+func (r *VariantRepo) FindByID(ctx context.Context, id string) (*pmsDomain.Variant, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m variantModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrVariantNotFound
+		}
+		return nil, fmt.Errorf("variantRepo.FindByID: %w", err)
+	}
+	return toVariantDomain(m), nil
+}
+
+func (r *VariantRepo) ListByProduct(ctx context.Context, productID string) ([]pmsDomain.Variant, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []variantModel
+	if err := tx.Where("product_id = ?", productID).Order("position asc, name asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("variantRepo.ListByProduct: %w", err)
+	}
+	variants := make([]pmsDomain.Variant, len(rows))
+	for i, row := range rows {
+		variants[i] = *toVariantDomain(row)
+	}
+	return variants, nil
+}
+
+func (r *VariantRepo) Update(ctx context.Context, v *pmsDomain.Variant) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&variantModel{}).Where("id = ?", v.ID).
+		Updates(map[string]any{
+			"name":       v.Name,
+			"position":   v.Position,
+			"updated_at": v.UpdatedAt,
+		}).Error; err != nil {
+		return fmt.Errorf("variantRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *VariantRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&variantModel{}).Error; err != nil {
+		return fmt.Errorf("variantRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+func toVariantDomain(m variantModel) *pmsDomain.Variant {
+	return &pmsDomain.Variant{
+		ID:        m.ID,
+		TenantID:  m.TenantID,
+		ProductID: m.ProductID,
+		Name:      m.Name,
+		Position:  m.Position,
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
+	}
+}
+
+// ── SKURepo ───────────────────────────────────────────────────────────────────
+
+type SKURepo struct{ db *gorm.DB }
+
+func NewSKURepo(db *gorm.DB) *SKURepo { return &SKURepo{db: db} }
+
+func (r *SKURepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := skuModel{
+		TenantID:        s.TenantID,
+		VariantID:       s.VariantID,
+		SKUCode:         s.SKUCode,
+		Barcode:         s.Barcode,
+		PriceMinorUnits: s.PriceMinorUnits,
+		CurrencyCode:    s.CurrencyCode,
+		WeightGrams:     s.WeightGrams,
+		LengthMM:        s.LengthMM,
+		WidthMM:         s.WidthMM,
+		HeightMM:        s.HeightMM,
+		IsVirtual:       s.IsVirtual,
+		Status:          string(s.Status),
+		CreatedAt:       s.CreatedAt,
+		UpdatedAt:       s.UpdatedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("skuRepo.Create: %w", err)
+	}
+	s.ID = m.ID
+	return nil
+}
+
+func (r *SKURepo) FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m skuModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrSKUNotFound
+		}
+		return nil, fmt.Errorf("skuRepo.FindByID: %w", err)
+	}
+	return toSKUDomain(m), nil
+}
+
+func (r *SKURepo) FindByCode(ctx context.Context, code string) (*pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m skuModel
+	if err := tx.Where("sku_code = ?", code).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrSKUNotFound
+		}
+		return nil, fmt.Errorf("skuRepo.FindByCode: %w", err)
+	}
+	return toSKUDomain(m), nil
+}
+
+func (r *SKURepo) ListByVariant(ctx context.Context, variantID string) ([]pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []skuModel
+	if err := tx.Where("variant_id = ?", variantID).Order("created_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuRepo.ListByVariant: %w", err)
+	}
+	skus := make([]pmsDomain.SKU, len(rows))
+	for i, row := range rows {
+		skus[i] = *toSKUDomain(row)
+	}
+	return skus, nil
+}
+
+func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&skuModel{}).Where("id = ?", s.ID).
+		Updates(map[string]any{
+			"barcode":           s.Barcode,
+			"price_minor_units": s.PriceMinorUnits,
+			"currency_code":     s.CurrencyCode,
+			"weight_grams":      s.WeightGrams,
+			"length_mm":         s.LengthMM,
+			"width_mm":          s.WidthMM,
+			"height_mm":         s.HeightMM,
+			"is_virtual":        s.IsVirtual,
+			"status":            string(s.Status),
+			"updated_at":        s.UpdatedAt,
+		}).Error; err != nil {
+		return fmt.Errorf("skuRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *SKURepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&skuModel{}).Error; err != nil {
+		return fmt.Errorf("skuRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+func toSKUDomain(m skuModel) *pmsDomain.SKU {
+	return &pmsDomain.SKU{
+		ID:              m.ID,
+		TenantID:        m.TenantID,
+		VariantID:       m.VariantID,
+		SKUCode:         m.SKUCode,
+		Barcode:         m.Barcode,
+		PriceMinorUnits: m.PriceMinorUnits,
+		CurrencyCode:    m.CurrencyCode,
+		WeightGrams:     m.WeightGrams,
+		LengthMM:        m.LengthMM,
+		WidthMM:         m.WidthMM,
+		HeightMM:        m.HeightMM,
+		IsVirtual:       m.IsVirtual,
+		Status:          pmsDomain.SKUStatus(m.Status),
+		CreatedAt:       m.CreatedAt,
+		UpdatedAt:       m.UpdatedAt,
+	}
+}

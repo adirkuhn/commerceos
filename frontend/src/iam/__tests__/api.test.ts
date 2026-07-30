@@ -52,7 +52,7 @@ describe('createGroup', () => {
     await api.createGroup(TOKEN, { name: 'Editors', description: 'desc' })
     const fetchMock = vi.mocked(fetch)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/iam/groups',
+      'https://api.commerceos.dev.localhost/api/v1/iam/groups',
       expect.objectContaining({ method: 'POST' }),
     )
   })
@@ -128,7 +128,7 @@ describe('addMember', () => {
     await api.addMember(TOKEN, 'g1', { user_id: 'user-42' })
     const fetchMock = vi.mocked(fetch)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/iam/groups/g1/members',
+      'https://api.commerceos.dev.localhost/api/v1/iam/groups/g1/members',
       expect.objectContaining({ method: 'POST' }),
     )
   })
@@ -145,7 +145,7 @@ describe('removeMember', () => {
     await api.removeMember(TOKEN, 'g1', 'user-42')
     const fetchMock = vi.mocked(fetch)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/iam/groups/g1/members/user-42',
+      'https://api.commerceos.dev.localhost/api/v1/iam/groups/g1/members/user-42',
       expect.objectContaining({ method: 'DELETE' }),
     )
   })
@@ -167,7 +167,7 @@ describe('assignPermission', () => {
     await api.assignPermission(TOKEN, 'g1', { rule: 'pms.product.create' })
     const fetchMock = vi.mocked(fetch)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/iam/groups/g1/permissions',
+      'https://api.commerceos.dev.localhost/api/v1/iam/groups/g1/permissions',
       expect.objectContaining({ method: 'POST' }),
     )
   })
@@ -179,7 +179,7 @@ describe('revokePermission', () => {
     await api.revokePermission(TOKEN, 'g1', 'pms.product.create')
     const fetchMock = vi.mocked(fetch)
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/iam/groups/g1/permissions/pms.product.create',
+      'https://api.commerceos.dev.localhost/api/v1/iam/groups/g1/permissions/pms.product.create',
       expect.objectContaining({ method: 'DELETE' }),
     )
   })

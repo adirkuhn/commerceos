@@ -1,220 +1,316 @@
 import { useState } from 'react'
-import { CheckCircle, XCircle, AlertTriangle, RefreshCw, Settings, ExternalLink, Plug } from 'lucide-react'
+import { CheckCircle, XCircle, Plug, X } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../auth/AuthContext'
+import { useConnections } from '../integrations/hooks/useConnections'
+import * as api from '../integrations/api'
 
-interface Integration {
-  id: string
-  name: string
-  type: 'marketplace' | 'store' | 'shipping'
-  status: 'connected' | 'error' | 'paused'
-  lastSync: string
-  syncedOrders: number
-  syncedProducts: number
-  error?: string
-}
-
-const INTEGRATIONS: Integration[] = [
-  { id: 'shopify', name: 'Shopify', type: 'store', status: 'connected', lastSync: '2m ago', syncedOrders: 8420, syncedProducts: 234 },
-  { id: 'woocommerce', name: 'WooCommerce', type: 'store', status: 'connected', lastSync: '5m ago', syncedOrders: 3120, syncedProducts: 189 },
-  { id: 'bol', name: 'Bol.com', type: 'marketplace', status: 'error', lastSync: '1h ago', syncedOrders: 1240, syncedProducts: 87, error: 'API rate limit exceeded (429). Retry in 45min.' },
-  { id: 'lightspeed', name: 'Lightspeed', type: 'store', status: 'connected', lastSync: '12m ago', syncedOrders: 987, syncedProducts: 145 },
-]
-
-const CHANNEL_COLORS: Record<string, string> = {
-  shopify: 'from-green-500 to-emerald-600',
+const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
-  bol: 'from-blue-500 to-blue-600',
-  lightspeed: 'from-orange-500 to-amber-500',
 }
 
 const STATUS_ICON = {
   connected: CheckCircle,
   error: XCircle,
-  paused: AlertTriangle,
 }
 
 const STATUS_COLOR = {
   connected: 'text-green-400',
   error: 'text-red-400',
-  paused: 'text-amber-400',
 }
 
-const MOCK_LOGS = [
-  { time: '14:32:01', integration: 'Shopify', type: 'sync', msg: 'Pulled 8 new orders', ok: true },
-  { time: '14:32:01', integration: 'Shopify', type: 'sync', msg: 'Updated stock for 3 SKUs', ok: true },
-  { time: '14:18:44', integration: 'WooCommerce', type: 'sync', msg: 'Pulled 2 new orders', ok: true },
-  { time: '13:01:22', integration: 'Bol.com', type: 'error', msg: 'Rate limit 429 — backing off', ok: false },
-  { time: '13:01:21', integration: 'Bol.com', type: 'retry', msg: 'Retry #3 failed', ok: false },
-  { time: '12:55:10', integration: 'Lightspeed', type: 'sync', msg: 'Pulled 1 new order', ok: true },
-  { time: '12:50:33', integration: 'Shopify', type: 'webhook', msg: 'Order cancelled webhook received', ok: true },
-]
-
 export default function Integrations() {
-  const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
-  const selected = INTEGRATIONS.find(i => i.id === selectedIntegration)
+  const { token } = useAuth()
+  const { connections, loading, error, refresh, disconnect } = useConnections(token ?? '')
+
+  const [browsing, setBrowsing] = useState(false)
+  const [connectingWoo, setConnectingWoo] = useState(false)
+  const [connectMode, setConnectMode] = useState<'auto' | 'manual'>('auto')
+  const [storeUrl, setStoreUrl] = useState('')
+  const [consumerKey, setConsumerKey] = useState('')
+  const [consumerSecret, setConsumerSecret] = useState('')
+  const [connectError, setConnectError] = useState('')
+  const [starting, setStarting] = useState(false)
+
+  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<{ id: string; ok: boolean; message: string } | null>(null)
+
+  const handleTestConnection = async (id: string) => {
+    if (!token) return
+    setTestingId(id)
+    setTestResult(null)
+    try {
+      await api.testConnection(token, id)
+      setTestResult({ id, ok: true, message: 'Connection OK' })
+    } catch (err) {
+      setTestResult({ id, ok: false, message: err instanceof Error ? err.message : 'Test failed' })
+    } finally {
+      setTestingId(null)
+      refresh()
+    }
+  }
+
+  const closeBrowse = () => {
+    setBrowsing(false)
+    setConnectingWoo(false)
+    setConnectMode('auto')
+    setStoreUrl('')
+    setConsumerKey('')
+    setConsumerSecret('')
+    setConnectError('')
+  }
+
+  const handleStartConnect = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setStarting(true)
+    try {
+      const { authorize_url } = await api.startWooConnect(token, storeUrl)
+      window.location.href = authorize_url
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to start connection')
+      setStarting(false)
+    }
+  }
+
+  const handleManualConnect = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setStarting(true)
+    try {
+      await api.manualConnectWooCommerce(token, { storeUrl, consumerKey, consumerSecret })
+      refresh()
+      closeBrowse()
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+      setStarting(false)
+    }
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left: integration cards + logs */}
       <div className="flex-1 flex flex-col overflow-hidden p-5 gap-5">
-        {/* Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {INTEGRATIONS.map(intg => {
-            const Icon = STATUS_ICON[intg.status]
-            return (
-              <button
-                key={intg.id}
-                onClick={() => setSelectedIntegration(selectedIntegration === intg.id ? null : intg.id)}
-                className={clsx(
-                  'text-left p-4 rounded-xl border transition-all',
-                  selectedIntegration === intg.id
-                    ? 'dark:border-blue-500/50 border-blue-400 dark:bg-blue-500/5 bg-blue-50'
-                    : 'dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white hover:dark:border-[#374151] hover:border-gray-300',
-                  intg.status === 'error' && selectedIntegration !== intg.id && 'dark:border-red-500/30 border-red-200',
-                )}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className={clsx(
-                    'w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center text-white font-bold text-sm',
-                    CHANNEL_COLORS[intg.id],
-                  )}>
-                    {intg.name[0]}
-                  </div>
-                  <Icon size={14} className={STATUS_COLOR[intg.status]} />
-                </div>
-                <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{intg.name}</p>
-                <p className="text-[10px] dark:text-gray-500 text-gray-400 capitalize mt-0.5">{intg.type}</p>
-                {intg.status === 'error' && (
-                  <div className="mt-2 text-[10px] text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">
-                    Sync error
-                  </div>
-                )}
-                {intg.status === 'connected' && (
-                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-2">Synced {intg.lastSync}</p>
-                )}
-                <div className="mt-3 pt-3 border-t dark:border-[#2D3748] border-gray-100 grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-sm font-semibold dark:text-gray-200 text-gray-800">{intg.syncedOrders.toLocaleString()}</p>
-                    <p className="text-[9px] dark:text-gray-500 text-gray-400">orders</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold dark:text-gray-200 text-gray-800">{intg.syncedProducts}</p>
-                    <p className="text-[9px] dark:text-gray-500 text-gray-400">products</p>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Sync logs */}
-        <div className="flex-1 dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sync Logs</h3>
-            <button className="flex items-center gap-1.5 text-xs dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700">
-              <RefreshCw size={12} /> Refresh
+        {connections.length === 0 && !loading ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 flex items-center justify-center mb-3">
+              <Plug size={20} className="dark:text-gray-500 text-gray-400" />
+            </div>
+            <p className="text-sm font-medium dark:text-gray-300 text-gray-700 mb-1">No integrations connected</p>
+            <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">Connect a store to start syncing orders and inventory</p>
+            <button
+              onClick={() => setBrowsing(true)}
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+            >
+              Browse Integrations
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto font-mono text-xs">
-            {MOCK_LOGS.map((log, i) => (
-              <div key={i} className={clsx(
-                'flex items-start gap-3 px-4 py-2 border-b dark:border-[#2D3748]/50 border-gray-50',
-                !log.ok && 'dark:bg-red-500/5 bg-red-50',
-              )}>
-                <span className="dark:text-gray-600 text-gray-400 text-[10px] shrink-0 mt-0.5">{log.time}</span>
-                <span className={clsx('text-[10px] px-1.5 py-0.5 rounded shrink-0',
-                  log.integration === 'Shopify' ? 'bg-green-500/15 text-green-400' :
-                  log.integration === 'WooCommerce' ? 'bg-purple-500/15 text-purple-400' :
-                  log.integration === 'Bol.com' ? 'bg-blue-500/15 text-blue-400' : 'bg-orange-500/15 text-orange-400',
-                )}>
-                  {log.integration}
-                </span>
-                <span className={clsx('text-[10px] font-sans', log.ok ? 'dark:text-gray-300 text-gray-700' : 'text-red-400')}>
-                  {log.msg}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Connected integrations</h2>
+              <button
+                onClick={() => setBrowsing(true)}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+              >
+                Browse Integrations
+              </button>
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {connections.map(conn => {
+                const Icon = STATUS_ICON[conn.status]
+                return (
+                  <div
+                    key={conn.id}
+                    className="text-left p-4 rounded-xl border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={clsx(
+                        'w-9 h-9 rounded-lg bg-gradient-to-br flex items-center justify-center text-white font-bold text-sm',
+                        PROVIDER_COLORS[conn.provider],
+                      )}>
+                        {conn.provider[0].toUpperCase()}
+                      </div>
+                      <Icon size={14} className={STATUS_COLOR[conn.status]} />
+                    </div>
+                    <p className="text-sm font-semibold dark:text-gray-100 text-gray-900 capitalize">{conn.provider}</p>
+                    <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5 truncate">{conn.store_url}</p>
+                    {testResult && testResult.id === conn.id && (
+                      <p className={clsx(
+                        'mt-2 text-[10px] px-2 py-1 rounded-lg',
+                        testResult.ok ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10',
+                      )}>
+                        {testResult.message}
+                      </p>
+                    )}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleTestConnection(conn.id)}
+                        disabled={testingId === conn.id}
+                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
+                      >
+                        {testingId === conn.id ? 'Testing…' : 'Test'}
+                      </button>
+                      <button
+                        onClick={() => disconnect(conn.id)}
+                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Right: integration config panel */}
-      {selected && (
-        <div className="w-80 border-l dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{selected.name} Config</h2>
-            <button onClick={() => setSelectedIntegration(null)} className="text-xs dark:text-gray-500 text-gray-400">✕</button>
-          </div>
-
-          {selected.status === 'error' && (
-            <div className="mx-4 mt-3 p-3 rounded-lg dark:bg-red-500/10 bg-red-50 border dark:border-red-500/20 border-red-200">
-              <p className="text-xs text-red-400 font-medium mb-1">Sync Error</p>
-              <p className="text-[10px] text-red-400/80">{selected.error}</p>
-              <button className="mt-2 w-full py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30 transition-colors">
-                Retry Now
+      {browsing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 dark:bg-black/60 bg-black/30"
+            onClick={closeBrowse}
+          />
+          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Browse Integrations</h3>
+              <button onClick={closeBrowse}>
+                <X size={14} className="dark:text-gray-500 text-gray-400" />
               </button>
             </div>
-          )}
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div>
-              <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">API Key</label>
-              <input
-                type="password"
-                defaultValue="sk_live_••••••••••••••••"
-                className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Store URL</label>
-              <input
-                type="text"
-                defaultValue={`https://mystore.${selected.id}.com`}
-                className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Sync Interval</label>
-              <select className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
-                <option>Every 5 minutes</option>
-                <option>Every 15 minutes</option>
-                <option>Every hour</option>
-                <option>Real-time (webhook)</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <p className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sync Rules</p>
-              {['Sync new orders', 'Update stock on sale', 'Push price changes', 'Sync product catalog'].map(rule => (
-                <label key={rule} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="rounded accent-blue-600 w-3 h-3" />
-                  <span className="text-xs dark:text-gray-300 text-gray-700">{rule}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+            {!connectingWoo ? (
+              <button
+                onClick={() => setConnectingWoo(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                  W
+                </div>
+                <span className="text-sm dark:text-gray-200 text-gray-800">WooCommerce</span>
+              </button>
+            ) : (
+              <>
+                <div className="flex gap-1 mb-4 p-0.5 rounded-lg dark:bg-[#111827] bg-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setConnectMode('auto')}
+                    className={clsx(
+                      'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                      connectMode === 'auto'
+                        ? 'bg-blue-600 text-white'
+                        : 'dark:text-gray-400 text-gray-500',
+                    )}
+                  >
+                    Connect automatically
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConnectMode('manual')}
+                    className={clsx(
+                      'flex-1 py-1.5 rounded-md text-xs font-medium transition-colors',
+                      connectMode === 'manual'
+                        ? 'bg-blue-600 text-white'
+                        : 'dark:text-gray-400 text-gray-500',
+                    )}
+                  >
+                    Manual setup
+                  </button>
+                </div>
 
-          <div className="p-4 border-t dark:border-[#2D3748] border-gray-200 space-y-2">
-            <button className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-              <Settings size={12} /> Save Configuration
-            </button>
-            <button className="w-full py-2 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 text-xs hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
-              <ExternalLink size={12} /> Open in {selected.name}
-            </button>
+                {connectMode === 'auto' ? (
+                  <form onSubmit={handleStartConnect} className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                        Store URL
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        autoFocus
+                        value={storeUrl}
+                        onChange={e => setStoreUrl(e.target.value)}
+                        placeholder="https://mystore.com"
+                        className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                        Redirects to your store to approve access. Requires your store to reach this server.
+                      </p>
+                    </div>
+                    {connectError && (
+                      <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={starting}
+                      className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      {starting ? 'Connecting…' : 'Connect'}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleManualConnect} className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                        Store URL
+                      </label>
+                      <input
+                        type="url"
+                        required
+                        autoFocus
+                        value={storeUrl}
+                        onChange={e => setStoreUrl(e.target.value)}
+                        placeholder="https://mystore.com"
+                        className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                        Consumer Key
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={consumerKey}
+                        onChange={e => setConsumerKey(e.target.value)}
+                        placeholder="ck_..."
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                        Consumer Secret
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={consumerSecret}
+                        onChange={e => setConsumerSecret(e.target.value)}
+                        placeholder="cs_..."
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                        Generate under WooCommerce → Settings → Advanced → REST API.
+                      </p>
+                    </div>
+                    {connectError && (
+                      <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={starting}
+                      className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      {starting ? 'Connecting…' : 'Connect'}
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Add new integration CTA (when none selected) */}
-      {!selected && (
-        <div className="w-72 border-l dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-12 h-12 rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 flex items-center justify-center mb-3">
-            <Plug size={20} className="dark:text-gray-500 text-gray-400" />
-          </div>
-          <p className="text-sm font-medium dark:text-gray-300 text-gray-700 mb-1">Add Integration</p>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mb-4">Connect more channels to sync orders and inventory</p>
-          <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">
-            Browse Integrations
-          </button>
         </div>
       )}
     </div>
