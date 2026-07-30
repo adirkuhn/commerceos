@@ -67,6 +67,31 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
 })
 
+describe('product list', () => {
+  it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
+    expect(screen.getByDisplayValue('T-Shirt')).toBeInTheDocument()
+  })
+
+  it('deleting a row does not also navigate to the edit page', async () => {
+    vi.mocked(pmsApi.deleteProduct).mockResolvedValue(null)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Delete'))
+
+    await waitFor(() => expect(pmsApi.deleteProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
+    expect(pmsApi.getProduct).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+  })
+})
+
 describe('editing an existing product infers variants mode from variant count', () => {
   it('shows the flat Pricing & SKU form for a product with 0 variants (not the variants manager)', async () => {
     const detail: ProductDetail = { product: product(), variants: [] }
@@ -110,6 +135,14 @@ describe('editing an existing product infers variants mode from variant count', 
     await waitFor(() => expect(screen.getByText('Small')).toBeInTheDocument())
     expect(screen.getByText('Large')).toBeInTheDocument()
     expect(screen.queryByText('Pricing & SKU')).not.toBeInTheDocument()
+
+    // Regression: the Variants card title and the variant-list's own
+    // "+ Add Variant" trigger must each render exactly once — they were
+    // briefly duplicated when VariantsSection wrapped itself in a second
+    // bordered card with its own "Variants" heading, nested inside the
+    // outer FormCard that already provides one.
+    expect(screen.getAllByText('Variants')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: '+ Add Variant' })).toHaveLength(1)
   })
 })
 
@@ -286,5 +319,30 @@ describe('SKU weight/dimensions and virtual flag', () => {
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
       is_virtual: true, weight_grams: undefined, length_mm: undefined, width_mm: undefined, height_mm: undefined,
     }))
+  })
+})
+
+describe('product edit page chrome', () => {
+  it('Discard closes the editor without saving', async () => {
+    render(<Products />)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Abandoned Product')
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(pmsApi.createProduct).not.toHaveBeenCalled()
+  })
+
+  it('shows the not-yet-supported fields as disabled placeholders', async () => {
+    render(<Products />)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    for (const label of ['Vendor', 'Collections', 'Tags', 'Page title', 'Meta description']) {
+      const field = screen.getByLabelText(label)
+      expect(field).toBeInTheDocument()
+      expect(field).toBeDisabled()
+    }
+    expect(screen.getByRole('button', { name: '+ Upload' })).toBeDisabled()
   })
 })

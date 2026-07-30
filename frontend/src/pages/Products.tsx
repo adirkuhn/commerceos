@@ -18,6 +18,11 @@ const STATUS_STYLES: Record<ProductStatus, string> = {
   draft: 'bg-amber-500/15 text-amber-400',
 }
 
+const SKU_STATUS_STYLES: Record<SKUStatus, string> = {
+  active: 'bg-green-500/15 text-green-400',
+  inactive: 'bg-gray-500/15 text-gray-400',
+}
+
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 
 function formatPrice(minorUnits: number, currency: string): string {
@@ -119,7 +124,11 @@ export default function Products() {
               <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
             )}
             {filtered.map(p => (
-              <tr key={p.id} className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+              <tr
+                key={p.id}
+                onClick={() => setEditingId(p.id)}
+                className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
                 <td className="px-2 py-2.5">
                   <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
                     <Package size={12} className="dark:text-gray-500 text-gray-400" />
@@ -138,14 +147,15 @@ export default function Products() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => setEditingId(p.id)}
+                      onClick={e => { e.stopPropagation(); setEditingId(p.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={e => {
+                        e.stopPropagation()
                         if (window.confirm(`Delete "${p.name}"? This also deletes its variants and SKUs.`)) {
                           removeProduct(p.id)
                         }
@@ -358,26 +368,32 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} title="Back to products" className="w-7 h-7 flex items-center justify-center rounded-lg dark:hover:bg-[#1F2937] hover:bg-gray-200 transition-colors">
-            <ArrowLeft size={15} className="dark:text-gray-400 text-gray-500" />
+      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+          >
+            <ArrowLeft size={11} /> Products
           </button>
-          <div>
-            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">
-              {savedProductId ? name || 'Edit Product' : 'New Product'}
-            </h2>
-            {!savedProductId && (
-              <p className="text-[11px] dark:text-gray-500 text-gray-400">Fill in the basics, then save.</p>
-            )}
-          </div>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
+            {savedProductId ? name || 'Edit Product' : 'New Product'}
+          </h1>
         </div>
-        <button
-          type="submit" form="product-general-form" disabled={saving || activeTab !== 'general'}
-          className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Saving…' : savedProductId ? 'Save Changes' : 'Create Product'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button" onClick={onClose}
+            className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors"
+          >
+            Discard
+          </button>
+          <button
+            type="submit" form="product-general-form" disabled={saving || activeTab !== 'general'}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Saving…' : savedProductId ? 'Save' : 'Create Product'}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 px-5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
@@ -428,7 +444,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Main column */}
           <div className="lg:col-span-2 space-y-5">
-            <FormCard title="Title & description">
+            <FormCard title="General">
               <div>
                 <label htmlFor="product-name" className={labelClass}>Name</label>
                 <input
@@ -444,6 +460,27 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                   value={description} onChange={e => setDescription(e.target.value)} rows={3}
                   className={inputClass}
                 />
+              </div>
+            </FormCard>
+
+            <FormCard title="Media" description="Coming soon — image upload isn't wired up yet.">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="aspect-square rounded-xl border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center text-[11px] dark:text-gray-600 text-gray-400">
+                  Featured image
+                </div>
+                <div className="grid grid-cols-2 gap-2 content-start">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="aspect-square rounded-lg border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center text-[10px] dark:text-gray-600 text-gray-400">
+                      —
+                    </div>
+                  ))}
+                  <button
+                    type="button" disabled
+                    className="aspect-square rounded-lg border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center text-[10px] dark:text-gray-600 text-gray-400 cursor-not-allowed"
+                  >
+                    + Upload
+                  </button>
+                </div>
               </div>
             </FormCard>
 
@@ -567,20 +604,21 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
 
           {/* Sidebar column */}
           <div className="space-y-5">
-            <FormCard title="Status">
-              <select
-                aria-label="Status"
-                value={status} onChange={e => setStatus(e.target.value as ProductStatus)}
-                className={inputClass}
-              >
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-              </select>
-            </FormCard>
+            <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              <div className="pb-4">
+                <label htmlFor="product-status-sidebar" className={labelClass}>Status</label>
+                <select
+                  id="product-status-sidebar"
+                  value={status} onChange={e => setStatus(e.target.value as ProductStatus)}
+                  className={inputClass}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
 
-            <FormCard title="Organization">
-              <div>
+              <div className="pt-4 pb-4">
                 <label htmlFor="product-category" className={labelClass}>Category</label>
                 <select
                   id="product-category"
@@ -590,16 +628,42 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                   <option value="">No category</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+                <div className="flex gap-1.5 mt-1.5">
+                  <input
+                    type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
+                    placeholder="+ new category name"
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+                  />
+                  <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors">
+                    Add
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-1.5">
-                <input
-                  type="text" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)}
-                  placeholder="+ new category name"
-                  className="flex-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
-                />
-                <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors">
-                  Add
-                </button>
+
+              <div className="pt-4">
+                <label htmlFor="product-vendor" className={labelClass}>Vendor</label>
+                <input id="product-vendor" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+              </div>
+
+              <div className="pt-4">
+                <label htmlFor="product-collections" className={labelClass}>Collections</label>
+                <input id="product-collections" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+              </div>
+
+              <div className="pt-4">
+                <label htmlFor="product-tags" className={labelClass}>Tags</label>
+                <input id="product-tags" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+              </div>
+            </div>
+
+            <FormCard title="SEO" description="Coming soon.">
+              <div>
+                <label htmlFor="product-seo-title" className={labelClass}>Page title</label>
+                <input id="product-seo-title" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
+              </div>
+              <div>
+                <label htmlFor="product-seo-description" className={labelClass}>Meta description</label>
+                <textarea id="product-seo-description" disabled placeholder="Coming soon" rows={2} className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
               </div>
             </FormCard>
           </div>
@@ -726,10 +790,10 @@ function VariantsSection({ detail }: VariantsSectionProps) {
   }
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 uppercase tracking-wider">Variants</h3>
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
         <button
+          type="button"
           onClick={() => setAdding(v => !v)}
           className="text-[10px] font-medium px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
         >
@@ -810,29 +874,49 @@ function VariantRow({ variant, detail }: VariantRowProps) {
     }
   }
 
+  const sku = variant.skus?.[0]
+
   return (
     <div className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200">
-      <div className="flex items-center justify-between mb-1.5">
-        <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{variant.name}</p>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center shrink-0">
+          <Package size={14} className="dark:text-gray-500 text-gray-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium dark:text-gray-200 text-gray-800 truncate">{variant.name}</p>
+          <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400 truncate">
+            {sku ? sku.sku_code : 'No SKU yet'}
+          </p>
+        </div>
+        {sku && (
+          <span className="text-xs font-medium dark:text-gray-200 text-gray-800 shrink-0">
+            {formatPrice(sku.price_minor_units, sku.currency_code)}
+          </span>
+        )}
+        {sku && (
+          <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize shrink-0', SKU_STATUS_STYLES[sku.status])}>
+            {sku.status}
+          </span>
+        )}
         <button
+          type="button"
           onClick={() => detail.removeVariant(variant.id)}
-          className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors"
+          className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors shrink-0"
         >
           Remove
         </button>
       </div>
 
-      {variant.skus?.map(sku => (
-        <div key={sku.id} className="flex items-center justify-between text-[10px] dark:text-gray-400 text-gray-500 py-1">
-          <span className="font-mono">{sku.sku_code}</span>
-          <span>{formatPrice(sku.price_minor_units, sku.currency_code)}</span>
-          <span className="capitalize">{sku.status}</span>
-          <button onClick={() => detail.removeSKU(sku.id)} className="hover:text-red-400 transition-colors">Remove</button>
+      {sku && (
+        <div className="flex justify-end mt-1.5">
+          <button type="button" onClick={() => detail.removeSKU(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+            Remove SKU
+          </button>
         </div>
-      ))}
+      )}
 
-      {!variant.skus?.length && !addingSKU && (
-        <button onClick={() => setAddingSKU(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+      {!sku && !addingSKU && (
+        <button type="button" onClick={() => setAddingSKU(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors mt-2">
           + Add SKU
         </button>
       )}
