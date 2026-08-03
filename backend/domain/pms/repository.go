@@ -23,8 +23,10 @@ type ProductRepository interface {
 type ProductFilter struct {
 	CategoryID *string
 	Status     *ProductStatus
-	Limit      int
-	Offset     int
+	// Search matches against name or slug, case-insensitively.
+	Search *string
+	Limit  int
+	Offset int
 }
 
 type VariantRepository interface {

@@ -76,6 +76,16 @@ paths:
     get:
       operationId: listProducts
       summary: List products for the current tenant
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
       responses:
         '200':
           description: ok
@@ -601,6 +611,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Product'
+        total: { type: integer }
         error: { nullable: true }
 
     ProductDetailResponse:

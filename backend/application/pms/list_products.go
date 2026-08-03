@@ -9,9 +9,21 @@ import (
 	"gorm.io/gorm"
 )
 
-// listProductsLimit is a fixed, generous page size — real server-side
-// pagination is a later refinement, not needed for the current UI.
-const listProductsLimit = 200
+const (
+	defaultProductsPerPage = 20
+	maxProductsPerPage     = 200
+)
+
+type ListProductsInput struct {
+	Page    int
+	PerPage int
+	Search  string
+}
+
+type ListProductsResult struct {
+	Products []pmsDomain.Product
+	Total    int64
+}
 
 type ListProductsUseCase struct {
 	db          *gorm.DB
@@ -22,18 +34,36 @@ func NewListProductsUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository
 	return &ListProductsUseCase{db: db, productRepo: productRepo}
 }
 
-func (uc *ListProductsUseCase) Execute(ctx context.Context) ([]pmsDomain.Product, error) {
-	var products []pmsDomain.Product
+func (uc *ListProductsUseCase) Execute(ctx context.Context, in ListProductsInput) (*ListProductsResult, error) {
+	page := in.Page
+	if page <= 0 {
+		page = 1
+	}
+	perPage := in.PerPage
+	if perPage <= 0 {
+		perPage = defaultProductsPerPage
+	}
+	if perPage > maxProductsPerPage {
+		perPage = maxProductsPerPage
+	}
+
+	filter := pmsDomain.ProductFilter{Limit: perPage, Offset: (page - 1) * perPage}
+	if in.Search != "" {
+		filter.Search = &in.Search
+	}
+
+	result := &ListProductsResult{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		p, _, err := uc.productRepo.List(ctx, pmsDomain.ProductFilter{Limit: listProductsLimit})
+		p, total, err := uc.productRepo.List(ctx, filter)
 		if err != nil {
 			return err
 		}
-		products = p
+		result.Products = p
+		result.Total = total
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listProducts: %w", err)
 	}
-	return products, nil
+	return result, nil
 }

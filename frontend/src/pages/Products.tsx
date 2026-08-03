@@ -48,25 +48,28 @@ function parseIntOrUndefined(value: string): number | undefined {
 
 export default function Products() {
   const { token } = useAuth()
-  const { products, loading, error, create: createProduct, update: updateProduct, remove: removeProduct } = useProducts(token ?? '')
-  const { categories, create: createCategory } = useCategories(token ?? '')
 
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null | 'new'>(null)
   const [page, setPage] = useState(1)
 
+  // Debounce the search box so it doesn't fire a server request on every
+  // keystroke — the list is now fetched server-side, unlike the old
+  // client-side .filter() over a fully-loaded array.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [searchInput])
+
+  const { products, total, loading, error, create: createProduct, update: updateProduct, remove: removeProduct } =
+    useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
+  const { categories, create: createCategory } = useCategories(token ?? '')
+
   const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
-
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.slug.toLowerCase().includes(search.toLowerCase()),
-  )
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  function handleSearchChange(value: string) {
-    setSearch(value)
-    setPage(1)
-  }
 
   if (editingId !== null) {
     return (
@@ -88,8 +91,8 @@ export default function Products() {
         <div className="relative flex-1 max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
           <input
-            value={search}
-            onChange={e => handleSearchChange(e.target.value)}
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
             placeholder="Search by name or slug..."
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 border dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
           />
@@ -106,11 +109,7 @@ export default function Products() {
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{filtered.length} products</span>
-        <span className="text-xs dark:text-gray-500 text-gray-400">·</span>
-        <span className="text-xs dark:text-gray-500 text-gray-400">
-          <span className="text-green-400 font-medium">{products.filter(p => p.status === 'active').length}</span> active
-        </span>
+        <span className="text-xs dark:text-gray-500 text-gray-400">{total} product{total === 1 ? '' : 's'}</span>
         {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
       </div>
 
@@ -130,10 +129,10 @@ export default function Products() {
             {loading && (
               <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
-            {!loading && filtered.length === 0 && (
+            {!loading && products.length === 0 && (
               <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
             )}
-            {paged.map(p => (
+            {products.map(p => (
               <tr
                 key={p.id}
                 onClick={() => setEditingId(p.id)}
@@ -183,7 +182,7 @@ export default function Products() {
         </table>
       </div>
 
-      <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+      <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
     </div>
   )
 }

@@ -31,7 +31,7 @@ type deleteCategoryUC interface {
 	Execute(ctx context.Context, id string) error
 }
 type listProductsUC interface {
-	Execute(ctx context.Context) ([]pmsDomain.Product, error)
+	Execute(ctx context.Context, in apppms.ListProductsInput) (*apppms.ListProductsResult, error)
 }
 type createProductUC interface {
 	Execute(ctx context.Context, in apppms.CreateProductInput) (*pmsDomain.Product, error)
@@ -241,16 +241,27 @@ func (h *Handler) DeleteCategory(c *gin.Context, id genpms.Id) {
 
 // ── Product handlers ─────────────────────────────────────────────────────────
 
-func (h *Handler) ListProducts(c *gin.Context) {
-	products, err := h.listProducts.Execute(c.Request.Context())
+func (h *Handler) ListProducts(c *gin.Context, params genpms.ListProductsParams) {
+	in := apppms.ListProductsInput{}
+	if params.Page != nil {
+		in.Page = *params.Page
+	}
+	if params.PerPage != nil {
+		in.PerPage = *params.PerPage
+	}
+	if params.Search != nil {
+		in.Search = *params.Search
+	}
+	result, err := h.listProducts.Execute(c.Request.Context(), in)
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := make([]genpms.Product, len(products))
-	for i, p := range products {
+	resp := make([]genpms.Product, len(result.Products))
+	for i, p := range result.Products {
 		resp[i] = toGenProduct(p)
 	}
-	c.JSON(http.StatusOK, genpms.ProductListResponse{Data: &resp})
+	total := int(result.Total)
+	c.JSON(http.StatusOK, genpms.ProductListResponse{Data: &resp, Total: &total})
 }
 
 func (h *Handler) CreateProduct(c *gin.Context) {

@@ -275,6 +275,10 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	if filter.Status != nil {
 		q = q.Where("status = ?", string(*filter.Status))
 	}
+	if filter.Search != nil && *filter.Search != "" {
+		pattern := "%" + *filter.Search + "%"
+		q = q.Where("name ILIKE ? OR slug ILIKE ?", pattern, pattern)
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

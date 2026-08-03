@@ -51,8 +51,32 @@ export function deleteCategory(token: string, id: string): Promise<null> {
 
 // ── Products ──────────────────────────────────────────────────────────────────
 
-export function listProducts(token: string): Promise<Product[]> {
-  return request<Product[]>(`${base()}/products`, { method: 'GET' }, token)
+export interface ListProductsParams {
+  page?: number
+  perPage?: number
+  search?: string
+}
+
+export interface ListProductsResult {
+  products: Product[]
+  total: number
+}
+
+export async function listProducts(token: string, params: ListProductsParams = {}): Promise<ListProductsResult> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  if (params.search) qs.set('search', params.search)
+  const query = qs.toString()
+
+  const res = await fetch(`${base()}/products${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<Product[]> & { total?: number } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { products: body.data ?? [], total: body.total ?? 0 }
 }
 
 export function createProduct(token: string, payload: CreateProductPayload): Promise<Product> {

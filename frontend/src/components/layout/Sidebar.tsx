@@ -44,11 +44,13 @@ const BADGE_COLORS: Record<string, string> = {
 export default function Sidebar() {
   const { activeNav, setActiveNav } = useApp()
   const { user, logout, token } = useAuth()
-  const { products } = useProducts(token ?? '')
+  // Only page 1 is fetched here — the badge needs the server-side total,
+  // not the current page's item count, now that products are paginated.
+  const { total } = useProducts(token ?? '', { page: 1, perPage: 1 })
 
   const navItems = NAV_ITEMS.map(item =>
-    item.id === 'products' && products.length > 0
-      ? { ...item, badge: products.length }
+    item.id === 'products' && total > 0
+      ? { ...item, badge: total }
       : item,
   )
 

@@ -4,6 +4,7 @@ import * as api from '../api'
 
 interface UseProductsState {
   products: Product[]
+  total: number
   loading: boolean
   error: string | null
 }
@@ -15,8 +16,10 @@ interface UseProductsActions {
   remove: (id: string) => Promise<void>
 }
 
-export function useProducts(token: string): UseProductsState & UseProductsActions {
+export function useProducts(token: string, params: { page?: number; perPage?: number; search?: string } = {}): UseProductsState & UseProductsActions {
+  const { page, perPage, search } = params
   const [products, setProducts] = useState<Product[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,33 +28,37 @@ export function useProducts(token: string): UseProductsState & UseProductsAction
     setLoading(true)
     setError(null)
     try {
-      const data = await api.listProducts(token)
-      setProducts(data)
+      const result = await api.listProducts(token, { page, perPage, search })
+      setProducts(result.products)
+      setTotal(result.total)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, page, perPage, search])
 
   useEffect(() => { load() }, [load])
 
+  // Mutations refetch the current page rather than patching the array
+  // locally — with server-side pagination/totals, splicing in place would
+  // drift from what the server actually holds (wrong page, stale total).
   const create = useCallback(async (payload: CreateProductPayload): Promise<Product> => {
     const product = await api.createProduct(token, payload)
-    setProducts(prev => [...prev, product])
+    await load()
     return product
-  }, [token])
+  }, [token, load])
 
   const update = useCallback(async (id: string, payload: UpdateProductPayload): Promise<Product> => {
     const updated = await api.updateProduct(token, id, payload)
-    setProducts(prev => prev.map(p => p.id === id ? updated : p))
+    await load()
     return updated
-  }, [token])
+  }, [token, load])
 
   const remove = useCallback(async (id: string): Promise<void> => {
     await api.deleteProduct(token, id)
-    setProducts(prev => prev.filter(p => p.id !== id))
-  }, [token])
+    await load()
+  }, [token, load])
 
-  return { products, loading, error, refresh: load, create, update, remove }
+  return { products, total, loading, error, refresh: load, create, update, remove }
 }

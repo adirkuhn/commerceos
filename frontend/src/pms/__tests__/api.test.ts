@@ -92,10 +92,37 @@ describe('deleteCategory', () => {
 })
 
 describe('listProducts', () => {
-  it('returns products', async () => {
-    mockFetch([sampleProduct])
+  function mockProductListFetch(data: typeof sampleProduct[], total: number) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ data, total, error: null }),
+    }))
+  }
+
+  it('returns products and total', async () => {
+    mockProductListFetch([sampleProduct], 1)
     const result = await api.listProducts(TOKEN)
-    expect(result).toEqual([sampleProduct])
+    expect(result).toEqual({ products: [sampleProduct], total: 1 })
+  })
+
+  it('calls the endpoint with no query string when no params are given', async () => {
+    mockProductListFetch([], 0)
+    await api.listProducts(TOKEN)
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/pms/products')
+  })
+
+  it('sends page, per_page and search as query params', async () => {
+    mockProductListFetch([], 0)
+    await api.listProducts(TOKEN, { page: 3, perPage: 50, search: 'shirt' })
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/pms/products?page=3&per_page=50&search=shirt')
+  })
+
+  it('throws on server error', async () => {
+    mockFetchError('INTERNAL', 'internal server error', 500)
+    await expect(api.listProducts(TOKEN)).rejects.toThrow('internal server error')
   })
 })
 

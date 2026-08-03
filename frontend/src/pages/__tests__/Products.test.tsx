@@ -64,9 +64,25 @@ function wooConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', ...overrides }
 }
 
+// Simulates the server: paginates and searches `all` according to the
+// params the hook actually sent, so tests exercise real request params
+// instead of asserting against a client-side .filter()/.slice() that no
+// longer exists in Products.tsx.
+function mockPaginatedProducts(all: Product[]) {
+  vi.mocked(pmsApi.listProducts).mockImplementation(async (_token, params = {}) => {
+    const page = params.page ?? 1
+    const perPage = params.perPage ?? 20
+    const search = (params.search ?? '').toLowerCase()
+    const filtered = search
+      ? all.filter(p => p.name.toLowerCase().includes(search) || p.slug.toLowerCase().includes(search))
+      : all
+    return { products: filtered.slice((page - 1) * perPage, page * perPage), total: filtered.length }
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(pmsApi.listProducts).mockResolvedValue([product()])
+  mockPaginatedProducts([product()])
   vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
@@ -98,7 +114,7 @@ describe('product list', () => {
 
   it('paginates when there are more than 20 products', async () => {
     const many = Array.from({ length: 25 }, (_, i) => product({ id: `prod-${i}`, name: `Product ${String(i).padStart(2, '0')}`, slug: `product-${i}` }))
-    vi.mocked(pmsApi.listProducts).mockResolvedValue(many)
+    mockPaginatedProducts(many)
 
     render(<Products />)
     await screen.findByText('Product 00')
@@ -114,7 +130,7 @@ describe('product list', () => {
 
   it('resets to page 1 when the search filter changes', async () => {
     const many = Array.from({ length: 25 }, (_, i) => product({ id: `prod-${i}`, name: `Product ${String(i).padStart(2, '0')}`, slug: `product-${i}` }))
-    vi.mocked(pmsApi.listProducts).mockResolvedValue(many)
+    mockPaginatedProducts(many)
 
     render(<Products />)
     await screen.findByText('Product 00')
@@ -124,6 +140,21 @@ describe('product list', () => {
     await userEvent.type(screen.getByPlaceholderText('Search by name or slug...'), 'Product 01')
 
     expect(await screen.findByText('Product 01')).toBeInTheDocument()
+  })
+
+  it('sends the search term to the server (debounced), not a client-side filter', async () => {
+    const many = [product({ id: 'p1', name: 'T-Shirt', slug: 't-shirt' }), product({ id: 'p2', name: 'Mug', slug: 'mug' })]
+    mockPaginatedProducts(many)
+
+    render(<Products />)
+    await screen.findByText('T-Shirt')
+    await screen.findByText('Mug')
+
+    await userEvent.type(screen.getByPlaceholderText('Search by name or slug...'), 'mug')
+
+    await waitFor(() => expect(pmsApi.listProducts).toHaveBeenCalledWith('test-token', expect.objectContaining({ search: 'mug' })))
+    expect(await screen.findByText('Mug')).toBeInTheDocument()
+    expect(screen.queryByText('T-Shirt')).not.toBeInTheDocument()
   })
 })
 

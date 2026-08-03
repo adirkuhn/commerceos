@@ -16,6 +16,11 @@ import (
 
 type stubProductRepo struct {
 	product *pmsDomain.Product
+
+	listResult []pmsDomain.Product
+	listTotal  int64
+	listErr    error
+	gotFilter  pmsDomain.ProductFilter
 }
 
 func (s *stubProductRepo) Create(_ context.Context, _ *pmsDomain.Product) error { return nil }
@@ -25,8 +30,9 @@ func (s *stubProductRepo) FindByID(_ context.Context, _ string) (*pmsDomain.Prod
 func (s *stubProductRepo) FindBySlug(_ context.Context, _ string) (*pmsDomain.Product, error) {
 	return nil, pmsDomain.ErrProductNotFound
 }
-func (s *stubProductRepo) List(_ context.Context, _ pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
-	return nil, 0, nil
+func (s *stubProductRepo) List(_ context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
+	s.gotFilter = filter
+	return s.listResult, s.listTotal, s.listErr
 }
 func (s *stubProductRepo) Update(_ context.Context, _ *pmsDomain.Product) error { return nil }
 func (s *stubProductRepo) Delete(_ context.Context, _ string) error             { return nil }

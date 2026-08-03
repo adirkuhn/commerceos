@@ -30,14 +30,14 @@ describe('Sidebar product count badge', () => {
   beforeEach(() => vi.mocked(listProducts).mockReset())
 
   it('shows the real product count, not a hardcoded value', async () => {
-    vi.mocked(listProducts).mockResolvedValue([product('1'), product('2'), product('3')])
+    vi.mocked(listProducts).mockResolvedValue({ products: [product('1')], total: 3 })
     renderSidebar()
     await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument())
     expect(screen.queryByText('2.4k')).not.toBeInTheDocument()
   })
 
   it('hides the badge when there are no products', async () => {
-    vi.mocked(listProducts).mockResolvedValue([])
+    vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })
     renderSidebar()
     await waitFor(() => expect(listProducts).toHaveBeenCalled())
     expect(screen.queryByText('0')).not.toBeInTheDocument()

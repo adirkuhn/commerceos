@@ -54,12 +54,22 @@ type stubDeleteCategory struct{ err error }
 func (s *stubDeleteCategory) Execute(_ context.Context, _ string) error { return s.err }
 
 type stubListProducts struct {
-	out []pmsDomain.Product
-	err error
+	out      []pmsDomain.Product
+	total    int64
+	err      error
+	gotInput apppms.ListProductsInput
 }
 
-func (s *stubListProducts) Execute(_ context.Context) ([]pmsDomain.Product, error) {
-	return s.out, s.err
+func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInput) (*apppms.ListProductsResult, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	total := s.total
+	if total == 0 {
+		total = int64(len(s.out))
+	}
+	return &apppms.ListProductsResult{Products: s.out, Total: total}, nil
 }
 
 type stubCreateProduct struct {
@@ -246,6 +256,27 @@ func TestDeleteCategory_success(t *testing.T) {
 }
 
 // ── Product tests ─────────────────────────────────────────────────────────────
+
+func TestListProducts_returnsTotalAlongsideData(t *testing.T) {
+	s := &stubs{listProducts: stubListProducts{
+		out:   []pmsDomain.Product{{ID: "p1", Name: "Widget"}},
+		total: 806,
+	}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"total":806`)
+}
+
+func TestListProducts_passesPagePerPageAndSearchQueryParams(t *testing.T) {
+	s := &stubs{listProducts: stubListProducts{}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products?page=3&per_page=50&search=shirt", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, 3, s.listProducts.gotInput.Page)
+	require.Equal(t, 50, s.listProducts.gotInput.PerPage)
+	require.Equal(t, "shirt", s.listProducts.gotInput.Search)
+}
 
 func TestCreateProduct_duplicateSlugReturns409(t *testing.T) {
 	s := &stubs{createProduct: stubCreateProduct{err: pmsDomain.ErrDuplicateSlug}}
