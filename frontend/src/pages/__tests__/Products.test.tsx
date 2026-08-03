@@ -46,8 +46,8 @@ function product(overrides: Partial<Product> = {}): Product {
   }
 }
 
-function category(): Category {
-  return { id: 'cat-1', tenant_id: 't1', name: 'Apparel', slug: 'apparel', position: 0, created_at: '', updated_at: '' }
+function category(overrides: Partial<Category> = {}): Category {
+  return { id: 'cat-1', tenant_id: 't1', name: 'Apparel', slug: 'apparel', position: 0, created_at: '', updated_at: '', ...overrides }
 }
 
 const baseVariant = {
@@ -492,6 +492,25 @@ describe('product edit page chrome', () => {
       expect(field).toBeInTheDocument()
       expect(field).toBeDisabled()
     }
+  })
+
+  it('shows categories in hierarchical order, children under their parent, not flat alphabetical', async () => {
+    vi.mocked(pmsApi.listCategories).mockResolvedValue([
+      category({ id: 'bebidas', name: 'Bebidas', parent_id: null }),
+      category({ id: 'alimentos', name: 'Alimentos', parent_id: null }),
+      category({ id: 'salgadinhos', name: 'Salgadinhos e snacks', parent_id: 'alimentos' }),
+    ])
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    const options = screen.getByLabelText('Category').querySelectorAll('option')
+    const names = Array.from(options).map(o => o.textContent?.trim())
+
+    // "Alimentos" then its child "Salgadinhos e snacks" immediately after,
+    // both before the unrelated root "Bebidas" — plain alphabetical order
+    // would put "Bebidas" between them instead.
+    expect(names).toEqual(['No category', 'Alimentos', expect.stringContaining('Salgadinhos e snacks'), 'Bebidas'])
   })
 })
 

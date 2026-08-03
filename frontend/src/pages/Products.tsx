@@ -7,12 +7,13 @@ import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
 import { useCategories } from '../pms/hooks/useCategories'
+import { sortCategoriesHierarchically } from '../pms/categoryTree'
 import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import type { Connection } from '../integrations/types'
-import type { Product, ProductStatus, SKUStatus, VariantWithSKUs, Media } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, VariantWithSKUs, Media } from '../pms/types'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
   active: 'bg-green-500/15 text-green-400',
@@ -200,7 +201,7 @@ type EditorTab = 'general' | 'woocommerce'
 
 interface ProductEditorProps {
   productId: string | null
-  categories: { id: string; name: string }[]
+  categories: Category[]
   onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
   onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean }) => Promise<Product>
   onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean }) => Promise<Product>
@@ -654,7 +655,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                   className={inputClass}
                 >
                   <option value="">No category</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {sortCategoriesHierarchically(categories).map(c => (
+                    <option key={c.id} value={c.id}>{'    '.repeat(c.depth)}{c.depth > 0 ? '↳ ' : ''}{c.name}</option>
+                  ))}
                 </select>
                 <div className="flex gap-1.5 mt-1.5">
                   <input
