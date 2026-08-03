@@ -15,12 +15,14 @@ import (
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
+	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
+	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -137,6 +139,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	settingshandler.Register(settingsGroup, db)
+
+	notificationsSpec, err := gennotifications.GetSpec()
+	if err != nil {
+		log.Fatalf("notifications: load openapi spec: %v", err)
+	}
+	// Own sub-group so the notifications-only spec validator never applies
+	// to the other modules' routes — same reasoning as pmsGroup above.
+	notificationsGroup := v1.Group("")
+	notificationsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(notificationsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	notificationshandler.Register(notificationsGroup, db)
 
 	// Uploaded product images — public, unauthenticated (product images are
 	// meant to be publicly viewable, same as any storefront/CDN asset).

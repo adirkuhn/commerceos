@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Product, CreateProductPayload, UpdateProductPayload } from '../types'
 import * as api from '../api'
+import { notifyProductsChanged, subscribeProductsChanged } from '../productsBus'
 
 interface UseProductsState {
   products: Product[]
@@ -40,12 +41,19 @@ export function useProducts(token: string, params: { page?: number; perPage?: nu
 
   useEffect(() => { load() }, [load])
 
+  // Other instances of this hook (e.g. the Sidebar badge) — or code that
+  // mutates products without going through this hook at all (bulk
+  // WooCommerce import/delete) — announce changes here so this instance
+  // stays in sync instead of showing a stale count.
+  useEffect(() => subscribeProductsChanged(load), [load])
+
   // Mutations refetch the current page rather than patching the array
   // locally — with server-side pagination/totals, splicing in place would
   // drift from what the server actually holds (wrong page, stale total).
   const create = useCallback(async (payload: CreateProductPayload): Promise<Product> => {
     const product = await api.createProduct(token, payload)
     await load()
+    notifyProductsChanged()
     return product
   }, [token, load])
 
@@ -58,6 +66,7 @@ export function useProducts(token: string, params: { page?: number; perPage?: nu
   const remove = useCallback(async (id: string): Promise<void> => {
     await api.deleteProduct(token, id)
     await load()
+    notifyProductsChanged()
   }, [token, load])
 
   return { products, total, loading, error, refresh: load, create, update, remove }

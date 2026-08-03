@@ -7,6 +7,7 @@ import * as api from './api'
 import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAllImportedProductsResult } from './types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
+import { notifyProductsChanged } from '../pms/productsBus'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 
@@ -108,6 +109,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
     try {
       const result = await api.deleteAllImportedProducts(token, connection.id)
       setDeleteResult(result)
+      notifyProductsChanged()
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Delete failed')
     } finally {

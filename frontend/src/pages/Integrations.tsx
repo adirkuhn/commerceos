@@ -4,9 +4,11 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as api from '../integrations/api'
-import type { Connection, ImportResult, DeleteAllImportedProductsResult } from '../integrations/types'
+import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../integrations/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
+import { notifyProductsChanged } from '../pms/productsBus'
+import { notifyNotificationsChanged } from '../notifications/notificationsBus'
 
 const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
@@ -54,14 +56,14 @@ export default function Integrations() {
   const [importCurrency, setImportCurrency] = useState('')
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState('')
-  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importJob, setImportJob] = useState<ImportJob | null>(null)
 
   const closeImport = () => {
     setImportingConnection(null)
     setImportWarehouseId('')
     setImportCurrency('')
     setImportError('')
-    setImportResult(null)
+    setImportJob(null)
   }
 
   const [deletingConnection, setDeletingConnection] = useState<Connection | null>(null)
@@ -86,6 +88,7 @@ export default function Integrations() {
     try {
       const result = await api.deleteAllImportedProducts(token, deletingConnection.id)
       setDeleteResult(result)
+      notifyProductsChanged()
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Delete failed')
     } finally {
@@ -93,14 +96,21 @@ export default function Integrations() {
     }
   }
 
+  // Enqueues a background job and returns immediately (202) instead of
+  // blocking on the full sync, which for a real catalog can take minutes —
+  // the job runs in cmd/scheduler; progress/completion shows up in the
+  // notification bell, not here. The backend rejects a second import for
+  // the same connection with 409 while one's already active, so this is
+  // safe even if the button is clicked again in a new tab/session.
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!token || !importingConnection) return
     setImportError('')
     setImporting(true)
     try {
-      const result = await api.importWooProducts(token, importingConnection.id, importWarehouseId, importCurrency)
-      setImportResult(result)
+      const job = await api.importWooProducts(token, importingConnection.id, importWarehouseId, importCurrency)
+      setImportJob(job)
+      notifyNotificationsChanged()
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Import failed')
     } finally {
@@ -410,19 +420,11 @@ export default function Integrations() {
               </button>
             </div>
 
-            {importResult ? (
+            {importJob ? (
               <div className="space-y-3">
                 <p className="text-xs dark:text-gray-300 text-gray-700">
-                  Imported <strong>{importResult.imported}</strong> product{importResult.imported === 1 ? '' : 's'} (with categories), skipped{' '}
-                  {importResult.already_linked} already linked and {importResult.skipped_type} unsupported type.
+                  Import started — it's running in the background. You'll see a notification when it's done (check the bell icon, top right).
                 </p>
-                {(importResult.errors ?? []).length > 0 && (
-                  <div className="max-h-32 overflow-y-auto space-y-1">
-                    {(importResult.errors ?? []).map((e, i) => (
-                      <p key={i} className="text-[10px] text-red-400 bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
-                    ))}
-                  </div>
-                )}
                 <button
                   onClick={closeImport}
                   className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"

@@ -1,5 +1,6 @@
-import { Search, Bell, Sun, Moon, Command } from 'lucide-react'
+import { Search, Sun, Moon, Command } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import NotificationBell from './NotificationBell'
 
 const NAV_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -38,11 +39,8 @@ export default function Topbar() {
       </button>
 
       <div className="flex items-center gap-2 ml-auto">
-        {/* Alerts */}
-        <button className="relative w-8 h-8 flex items-center justify-center rounded-lg dark:hover:bg-[#1F2937] hover:bg-gray-100 transition-colors">
-          <Bell size={16} className="dark:text-gray-400 text-gray-500" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
-        </button>
+        {/* Notifications */}
+        <NotificationBell />
 
         {/* Theme toggle */}
         <button

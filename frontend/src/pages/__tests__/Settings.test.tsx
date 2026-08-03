@@ -32,6 +32,7 @@ vi.mock('../../settings/api', () => ({
 import * as integrationsApi from '../../integrations/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
+import { subscribeProductsChanged } from '../../pms/productsBus'
 
 function wooConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', ...overrides }
@@ -217,6 +218,23 @@ describe('WooCommerce sync settings page', () => {
 
     await waitFor(() => expect(integrationsApi.deleteAllImportedProducts).toHaveBeenCalledWith('test-token', 'conn-1'))
     expect(await screen.findByText(/805/)).toBeInTheDocument()
+  })
+
+  it('notifies other components (e.g. the Sidebar badge) that products changed', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({ deleted_products: 805, deleted_categories: 12, errors: [] })
+    const listener = vi.fn()
+    const unsubscribe = subscribeProductsChanged(listener)
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete imported products' }))
+    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(listener).toHaveBeenCalled())
+    unsubscribe()
   })
 
   it('does not crash when the backend sends errors: null instead of []', async () => {

@@ -19,3 +19,18 @@ type SyncScheduleRepository interface {
 	ListDue(ctx context.Context, now time.Time) ([]SyncSchedule, error)
 	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error
 }
+
+type ImportJobRepository interface {
+	Create(ctx context.Context, j *ImportJob) error
+	// HasActiveForConnection checks for an existing pending/running job —
+	// the proactive half of the double-job guard (Create's unique-index
+	// violation is the backstop for the race window between check and
+	// insert).
+	HasActiveForConnection(ctx context.Context, connectionID string) (bool, error)
+	// ListPending is a system-level, cross-tenant query — cmd/scheduler
+	// polls it under tenant.WithSuperAdmin, same as SyncSchedule.ListDue.
+	ListPending(ctx context.Context) ([]ImportJob, error)
+	MarkRunning(ctx context.Context, id string, startedAt time.Time) error
+	MarkCompleted(ctx context.Context, id string, imported, alreadyLinked, skippedType int, errs []string, finishedAt time.Time) error
+	MarkFailed(ctx context.Context, id string, errMsg string, finishedAt time.Time) error
+}

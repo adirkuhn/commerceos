@@ -105,7 +105,11 @@ paths:
   /integrations/connections/{id}/import:
     post:
       operationId: importWooProducts
-      summary: Bulk-import this connection's existing WooCommerce catalog into CommerceOS
+      summary: >-
+        Enqueue a bulk import of this connection's existing WooCommerce
+        catalog into CommerceOS. Runs in the background (see cmd/scheduler)
+        — this returns immediately with the pending job; a notification is
+        created when the job starts and again when it finishes or fails.
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -115,17 +119,21 @@ paths:
             schema:
               $ref: '#/components/schemas/ImportWooProductsRequest'
       responses:
-        '200':
-          description: ok
+        '202':
+          description: accepted — job created, running in the background
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImportResultResponse'
+                $ref: '#/components/schemas/ImportJobResponse'
         '404':
           $ref: '#/components/responses/Error'
+        '409':
+          description: an import is already running for this connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
-          $ref: '#/components/responses/Error'
-        '502':
           $ref: '#/components/responses/Error'
 
   /integrations/connections/{id}/push-product:
@@ -313,22 +321,29 @@ components:
           type: string
           description: WooCommerce's product endpoint doesn't return a currency (it's a store-level setting), so the caller supplies it.
 
-    ImportResult:
+    ImportJob:
       type: object
-      required: [imported, already_linked, skipped_type, errors]
+      required: [id, connection_id, status, imported, already_linked, skipped_type, errors, error_message, created_at]
       properties:
+        id: { type: string }
+        connection_id: { type: string }
+        status: { type: string, enum: [pending, running, completed, failed] }
         imported: { type: integer }
         already_linked: { type: integer }
         skipped_type: { type: integer }
         errors:
           type: array
           items: { type: string }
+        error_message: { type: string }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
 
-    ImportResultResponse:
+    ImportJobResponse:
       type: object
       properties:
         data:
-          $ref: '#/components/schemas/ImportResult'
+          $ref: '#/components/schemas/ImportJob'
         error: { nullable: true }
 
     DeleteAllImportedProductsResult:

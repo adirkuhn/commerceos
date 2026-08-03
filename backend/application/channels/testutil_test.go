@@ -11,9 +11,11 @@ import (
 	"gorm.io/gorm"
 
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
@@ -334,6 +336,50 @@ func (s *stubSyncScheduleRepo) ListDue(_ context.Context, _ time.Time) ([]channe
 func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error {
 	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt})
 	return nil
+}
+
+// ── import job stub ──────────────────────────────────────────────────────────
+
+type stubImportJobRepo struct {
+	hasActive    bool
+	hasActiveErr error
+	createErr    error
+	created      []channelsDomain.ImportJob
+}
+
+func (s *stubImportJobRepo) Create(_ context.Context, j *channelsDomain.ImportJob) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	j.ID = "job-1"
+	s.created = append(s.created, *j)
+	return nil
+}
+func (s *stubImportJobRepo) HasActiveForConnection(_ context.Context, _ string) (bool, error) {
+	return s.hasActive, s.hasActiveErr
+}
+func (s *stubImportJobRepo) ListPending(_ context.Context) ([]channelsDomain.ImportJob, error) {
+	return nil, nil
+}
+func (s *stubImportJobRepo) MarkRunning(_ context.Context, _ string, _ time.Time) error { return nil }
+func (s *stubImportJobRepo) MarkCompleted(_ context.Context, _ string, _, _, _ int, _ []string, _ time.Time) error {
+	return nil
+}
+func (s *stubImportJobRepo) MarkFailed(_ context.Context, _ string, _ string, _ time.Time) error {
+	return nil
+}
+
+type stubNotifier struct {
+	calls []appnotifications.CreateNotificationInput
+	err   error
+}
+
+func (s *stubNotifier) Execute(_ context.Context, in appnotifications.CreateNotificationInput) (*notificationsDomain.Notification, error) {
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &notificationsDomain.Notification{ID: "notif-1"}, nil
 }
 
 // ── inventory stub ───────────────────────────────────────────────────────────

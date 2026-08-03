@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Integrations from '../Integrations'
-import type { Connection, ImportResult, DeleteAllImportedProductsResult } from '../../integrations/types'
+import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../../integrations/types'
 import type { Warehouse } from '../../inventory/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -35,6 +35,8 @@ vi.mock('../../settings/api', () => ({
 import * as integrationsApi from '../../integrations/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
+import { subscribeProductsChanged } from '../../pms/productsBus'
+import { subscribeNotificationsChanged } from '../../notifications/notificationsBus'
 
 function wooConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', ...overrides }
@@ -109,9 +111,12 @@ describe('Import products', () => {
     expect(screen.getByLabelText('Default currency')).toHaveValue('GBP')
   })
 
-  it('submitting calls importWooProducts with the entered warehouse/currency', async () => {
-    const result: ImportResult = { imported: 3, already_linked: 1, skipped_type: 0, errors: [] }
-    vi.mocked(integrationsApi.importWooProducts).mockResolvedValue(result)
+  it('submitting calls importWooProducts and shows a background-job confirmation, not a blocking result', async () => {
+    const job: ImportJob = {
+      id: 'job-1', connection_id: 'conn-1', status: 'pending', imported: 0, already_linked: 0, skipped_type: 0,
+      errors: [], error_message: '', created_at: '2026-08-03T00:00:00Z', started_at: null, finished_at: null,
+    }
+    vi.mocked(integrationsApi.importWooProducts).mockResolvedValue(job)
 
     render(<Integrations />)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
@@ -121,15 +126,17 @@ describe('Import products', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Start import' }))
 
     await waitFor(() => expect(integrationsApi.importWooProducts).toHaveBeenCalledWith('test-token', 'conn-1', 'wh-1', 'USD'))
-    expect(await screen.findByText(/Imported/)).toBeInTheDocument()
-    expect(screen.getByText(/3/)).toBeInTheDocument()
+    expect(await screen.findByText(/running in the background/)).toBeInTheDocument()
   })
 
-  it('does not crash when the backend sends errors: null instead of []', async () => {
-    // Regression: a Go nil []string marshals to JSON null, not []. The
-    // result panel used to read .errors.length unconditionally and crashed.
-    const result = { imported: 805, already_linked: 0, skipped_type: 0, errors: null } as unknown as ImportResult
-    vi.mocked(integrationsApi.importWooProducts).mockResolvedValue(result)
+  it('notifies the notification bell that a notification was created (job start)', async () => {
+    const job: ImportJob = {
+      id: 'job-1', connection_id: 'conn-1', status: 'pending', imported: 0, already_linked: 0, skipped_type: 0,
+      errors: [], error_message: '', created_at: '2026-08-03T00:00:00Z', started_at: null, finished_at: null,
+    }
+    vi.mocked(integrationsApi.importWooProducts).mockResolvedValue(job)
+    const listener = vi.fn()
+    const unsubscribe = subscribeNotificationsChanged(listener)
 
     render(<Integrations />)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
@@ -138,8 +145,42 @@ describe('Import products', () => {
     await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
     await userEvent.click(screen.getByRole('button', { name: 'Start import' }))
 
-    expect(await screen.findByText(/Imported/)).toBeInTheDocument()
-    expect(screen.getByText(/805/)).toBeInTheDocument()
+    await waitFor(() => expect(listener).toHaveBeenCalled())
+    unsubscribe()
+  })
+
+  it('shows an error if the connection already has an import running (409)', async () => {
+    vi.mocked(integrationsApi.importWooProducts).mockRejectedValue(new Error('an import is already running for this connection'))
+
+    render(<Integrations />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
+    await screen.findByText('Main DC')
+    await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
+    await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
+    await userEvent.click(screen.getByRole('button', { name: 'Start import' }))
+
+    expect(await screen.findByText('an import is already running for this connection')).toBeInTheDocument()
+  })
+
+  it('disables the submit button while the request is in flight (prevents double-clicking)', async () => {
+    let resolveImport!: (job: ImportJob) => void
+    vi.mocked(integrationsApi.importWooProducts).mockReturnValue(new Promise(resolve => { resolveImport = resolve }))
+
+    render(<Integrations />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
+    await screen.findByText('Main DC')
+    await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
+    await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
+    await userEvent.click(screen.getByRole('button', { name: 'Start import' }))
+
+    expect(screen.getByRole('button', { name: 'Importing…' })).toBeDisabled()
+    expect(integrationsApi.importWooProducts).toHaveBeenCalledTimes(1)
+
+    resolveImport({
+      id: 'job-1', connection_id: 'conn-1', status: 'pending', imported: 0, already_linked: 0, skipped_type: 0,
+      errors: [], error_message: '', created_at: '', started_at: null, finished_at: null,
+    })
+    await screen.findByText(/running in the background/)
   })
 
   it('shows an error if the import fails', async () => {
@@ -200,6 +241,20 @@ describe('Delete imported products', () => {
     await waitFor(() => expect(integrationsApi.deleteAllImportedProducts).toHaveBeenCalledWith('test-token', 'conn-1'))
     expect(await screen.findByText(/805/)).toBeInTheDocument()
     expect(screen.getByText(/12/)).toBeInTheDocument()
+  })
+
+  it('notifies other components (e.g. the Sidebar badge) that products changed', async () => {
+    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({ deleted_products: 805, deleted_categories: 12, errors: [] })
+    const listener = vi.fn()
+    const unsubscribe = subscribeProductsChanged(listener)
+
+    render(<Integrations />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
+    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(listener).toHaveBeenCalled())
+    unsubscribe()
   })
 
   it('does not crash when the backend sends errors: null instead of []', async () => {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Sidebar from '../Sidebar'
 import { AppProvider } from '../../../context/AppContext'
@@ -14,6 +14,7 @@ vi.mock('../../../pms/api', () => ({
 }))
 
 import { listProducts } from '../../../pms/api'
+import { notifyProductsChanged } from '../../../pms/productsBus'
 
 function product(id: string): Product {
   return {
@@ -41,5 +42,16 @@ describe('Sidebar product count badge', () => {
     renderSidebar()
     await waitFor(() => expect(listProducts).toHaveBeenCalled())
     expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
+  it('refetches when notified of a products change elsewhere (e.g. bulk import/delete)', async () => {
+    vi.mocked(listProducts).mockResolvedValue({ products: [product('1')], total: 3 })
+    renderSidebar()
+    await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument())
+
+    vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })
+    act(() => { notifyProductsChanged() })
+
+    await waitFor(() => expect(screen.queryByText('3')).not.toBeInTheDocument())
   })
 })

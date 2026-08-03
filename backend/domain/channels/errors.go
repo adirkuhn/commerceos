@@ -26,4 +26,10 @@ var (
 	// reconciliation adjustments need a warehouse to attribute the
 	// movement to.
 	ErrDefaultWarehouseRequired = errors.New("default warehouse is required to enable scheduled stock import")
+	// ErrImportJobAlreadyActive guards manual import: at most one
+	// pending/running ImportJob per connection — returned both by the
+	// proactive check and as the mapped form of the DB's unique-index
+	// backstop if two requests race.
+	ErrImportJobAlreadyActive = errors.New("an import is already running for this connection")
+	ErrImportJobNotFound      = errors.New("import job not found")
 )

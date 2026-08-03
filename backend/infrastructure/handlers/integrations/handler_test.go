@@ -75,16 +75,19 @@ func (s *stubTestConnection) Execute(_ context.Context, _ string) (*integrations
 	return s.out, s.err
 }
 
-type stubImportWooProducts struct {
-	out *appchannels.ImportResult
+type stubCreateImportJob struct {
+	out *channelsDomain.ImportJob
 	err error
 }
 
-func (s *stubImportWooProducts) Execute(_ context.Context, _ appchannels.ImportWooProductsInput) (*appchannels.ImportResult, error) {
-	if s.out != nil {
-		return s.out, s.err
+func (s *stubCreateImportJob) Execute(_ context.Context, in appchannels.CreateImportJobInput) (*channelsDomain.ImportJob, error) {
+	if s.err != nil {
+		return nil, s.err
 	}
-	return &appchannels.ImportResult{}, s.err
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &channelsDomain.ImportJob{ID: "job-1", ConnectionID: in.ConnectionID, Status: channelsDomain.ImportJobPending}, nil
 }
 
 type stubPushProductToWoo struct {
@@ -166,7 +169,7 @@ func newTestHandler(
 	testConn *stubTestConnection,
 ) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn,
-		&stubImportWooProducts{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
+		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
 		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{})
 }
 
@@ -176,7 +179,7 @@ func newTestHandler(
 func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertSyncSchedule) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
-		&stubDisconnectConnection{}, &stubTestConnection{}, &stubImportWooProducts{}, &stubPushProductToWoo{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 	)
 }
@@ -186,7 +189,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
-		&stubDisconnectConnection{}, &stubTestConnection{}, &stubImportWooProducts{}, &stubPushProductToWoo{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{},
 	)
 }
@@ -196,7 +199,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettings) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
-		&stubDisconnectConnection{}, &stubTestConnection{}, &stubImportWooProducts{}, &stubPushProductToWoo{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings,
 	)
 }
@@ -480,7 +483,7 @@ func TestDeleteAllImportedProductsHandler_returns500OnUnexpectedError(t *testing
 
 // newImportTestHandler builds a Handler for the import route specifically —
 // every other use case is a harmless zero-value stub.
-func newImportTestHandler(importUC *stubImportWooProducts) *integrationshandler.Handler {
+func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, importUC, &stubPushProductToWoo{},
@@ -488,12 +491,14 @@ func newImportTestHandler(importUC *stubImportWooProducts) *integrationshandler.
 	)
 }
 
-// A nil []string (the zero value, e.g. when a use case never appends any
-// errors) marshals to JSON `null`. Frontend code reads `.errors.length`
-// unconditionally, assuming an array — `null` crashed it. The handler must
-// normalize nil to [] so the wire contract's implied non-nullability holds.
-func TestImportWooProductsHandler_normalizesNilErrorsToEmptyArray(t *testing.T) {
-	h := newImportTestHandler(&stubImportWooProducts{out: &appchannels.ImportResult{Imported: 805}})
+// The import endpoint no longer runs the import inline — it enqueues an
+// ImportJob and returns immediately (202), so a large catalog no longer
+// blocks the request (and the browser tab) for as long as the sync takes.
+// cmd/scheduler picks up the pending job and runs it in the background.
+func TestImportWooProductsHandler_returns202WithPendingJob(t *testing.T) {
+	h := newImportTestHandler(&stubCreateImportJob{out: &channelsDomain.ImportJob{
+		ID: "job-1", ConnectionID: "conn-1", Status: channelsDomain.ImportJobPending,
+	}})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -501,9 +506,40 @@ func TestImportWooProductsHandler_normalizesNilErrorsToEmptyArray(t *testing.T) 
 		"default_warehouse_id": "wh-1", "default_currency": "EUR",
 	})
 
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	assert.Contains(t, w.Body.String(), `"status":"pending"`)
+	assert.Contains(t, w.Body.String(), `"id":"job-1"`)
+}
+
+// A nil []string (the zero value, e.g. when a job has no per-product
+// errors yet) marshals to JSON `null`. Frontend code reads `.errors.length`
+// unconditionally, assuming an array — `null` crashed it. The handler must
+// normalize nil to [] so the wire contract's implied non-nullability holds.
+func TestImportWooProductsHandler_normalizesNilErrorsToEmptyArray(t *testing.T) {
+	h := newImportTestHandler(&stubCreateImportJob{out: &channelsDomain.ImportJob{ID: "job-1", Status: channelsDomain.ImportJobPending}})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/import", map[string]any{
+		"default_warehouse_id": "wh-1", "default_currency": "EUR",
+	})
+
+	require.Equal(t, http.StatusAccepted, w.Code)
 	assert.Contains(t, w.Body.String(), `"errors":[]`)
 	assert.NotContains(t, w.Body.String(), `"errors":null`)
+}
+
+func TestImportWooProductsHandler_returns409WhenAlreadyRunning(t *testing.T) {
+	h := newImportTestHandler(&stubCreateImportJob{err: channelsDomain.ErrImportJobAlreadyActive})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/import", map[string]any{
+		"default_warehouse_id": "wh-1", "default_currency": "EUR",
+	})
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Contains(t, w.Body.String(), "IMPORT_ALREADY_RUNNING")
 }
 
 func TestDeleteAllImportedProductsHandler_normalizesNilErrorsToEmptyArray(t *testing.T) {

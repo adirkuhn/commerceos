@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Notifications API
+  description: >-
+    General-purpose notification feed. Any feature can produce into it —
+    import jobs (see api/integrations) are the first producer. No push/poll
+    endpoint is exposed; the frontend fetches on mount, when the bell is
+    opened, and right after triggering an action known to create one.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /notifications:
+    get:
+      operationId: listNotifications
+      summary: List the current tenant's most recent notifications
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      summary: Mark a single notification as read
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      summary: Mark every notification as read
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    Notification:
+      type: object
+      required: [id, type, title, message, read, created_at]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    NotificationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }

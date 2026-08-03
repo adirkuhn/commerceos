@@ -14,6 +14,7 @@ import (
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -45,8 +46,8 @@ type testConnectionUC interface {
 type updateConnectionSettingsUC interface {
 	Execute(ctx context.Context, in appintegrations.UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error)
 }
-type importWooProductsUC interface {
-	Execute(ctx context.Context, in appchannels.ImportWooProductsInput) (*appchannels.ImportResult, error)
+type createImportJobUC interface {
+	Execute(ctx context.Context, in appchannels.CreateImportJobInput) (*channelsDomain.ImportJob, error)
 }
 type pushProductToWooUC interface {
 	Execute(ctx context.Context, in appchannels.PushProductToWooInput) (*channelsDomain.ProductChannelListing, error)
@@ -70,7 +71,7 @@ type Handler struct {
 	manualConnectWoo         manualConnectWooCommerceUC
 	disconnect               disconnectConnectionUC
 	testConnection           testConnectionUC
-	importWooProducts        importWooProductsUC
+	createImportJob          createImportJobUC
 	pushProductToWoo         pushProductToWooUC
 	listSyncSchedules        listSyncSchedulesUC
 	upsertSyncSchedule       upsertSyncScheduleUC
@@ -86,7 +87,7 @@ func NewHandler(
 	manualConnectWoo manualConnectWooCommerceUC,
 	disconnect disconnectConnectionUC,
 	testConnection testConnectionUC,
-	importWooProducts importWooProductsUC,
+	createImportJob createImportJobUC,
 	pushProductToWoo pushProductToWooUC,
 	listSyncSchedules listSyncSchedulesUC,
 	upsertSyncSchedule upsertSyncScheduleUC,
@@ -100,7 +101,7 @@ func NewHandler(
 		manualConnectWoo:         manualConnectWoo,
 		disconnect:               disconnect,
 		testConnection:           testConnection,
-		importWooProducts:        importWooProducts,
+		createImportJob:          createImportJob,
 		pushProductToWoo:         pushProductToWoo,
 		listSyncSchedules:        listSyncSchedules,
 		upsertSyncSchedule:       upsertSyncSchedule,
@@ -147,6 +148,8 @@ func Register(
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 	stockMovementRepo := repositories.NewStockMovementRepo(db)
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
+	importJobRepo := repositories.NewImportJobRepo(db)
+	notificationRepo := repositories.NewNotificationRepo(db)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -155,10 +158,8 @@ func Register(
 		appintegrations.NewManualConnectWooCommerceUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		appintegrations.NewDisconnectConnectionUseCase(db, connRepo),
 		appintegrations.NewTestConnectionUseCase(db, connRepo, wooFactory, encryptionSecret),
-		appchannels.NewImportWooProductsUseCase(
-			db, connRepo, wooFactory, encryptionSecret,
-			categoryRepo, productRepo, variantRepo, skuRepo, listingRepo,
-			appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo),
+		appchannels.NewCreateImportJobUseCase(
+			db, importJobRepo, appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 		),
 		appchannels.NewPushProductToWooUseCase(
 			db, connRepo, wooFactory, encryptionSecret,
@@ -271,7 +272,7 @@ func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "default_warehouse_id and default_currency are required")
 		return
 	}
-	result, err := h.importWooProducts.Execute(c.Request.Context(), appchannels.ImportWooProductsInput{
+	job, err := h.createImportJob.Execute(c.Request.Context(), appchannels.CreateImportJobInput{
 		ConnectionID:       id,
 		DefaultWarehouseID: req.DefaultWarehouseId,
 		DefaultCurrency:    req.DefaultCurrency,
@@ -279,12 +280,22 @@ func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, genintegrations.ImportResult{
-		Imported:      result.Imported,
-		AlreadyLinked: result.AlreadyLinked,
-		SkippedType:   result.SkippedType,
-		Errors:        emptySliceIfNil(result.Errors),
-	})
+	c.JSON(http.StatusAccepted, middleware.APIResponse{Data: toGenImportJob(*job)})
+}
+
+func toGenImportJob(j channelsDomain.ImportJob) genintegrations.ImportJob {
+	return genintegrations.ImportJob{
+		Id: j.ID, ConnectionId: j.ConnectionID,
+		Status:        genintegrations.ImportJobStatus(j.Status),
+		Imported:      j.Imported,
+		AlreadyLinked: j.AlreadyLinked,
+		SkippedType:   j.SkippedType,
+		Errors:        emptySliceIfNil(j.Errors),
+		ErrorMessage:  j.ErrorMessage,
+		CreatedAt:     j.CreatedAt,
+		StartedAt:     j.StartedAt,
+		FinishedAt:    j.FinishedAt,
+	}
 }
 
 func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {
@@ -467,6 +478,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrNoTenantContext):
 		middleware.Fail(c, http.StatusBadRequest, "NO_TENANT", err.Error())
+	case errors.Is(err, channelsDomain.ErrImportJobAlreadyActive):
+		middleware.Fail(c, http.StatusConflict, "IMPORT_ALREADY_RUNNING", err.Error())
 	default:
 		log.Printf("integrations: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

@@ -16,11 +16,24 @@ export interface StartWooConnectResponse {
   authorize_url: string
 }
 
-export interface ImportResult {
+export type ImportJobStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+// The import endpoint enqueues a background job and returns immediately
+// instead of blocking on the full sync (which can take minutes for a real
+// catalog) — see cmd/scheduler for the worker that actually runs it, and
+// the notification center for how progress/completion is surfaced.
+export interface ImportJob {
+  id: string
+  connection_id: string
+  status: ImportJobStatus
   imported: number
   already_linked: number
   skipped_type: number
   errors: string[]
+  error_message: string
+  created_at: string
+  started_at?: string | null
+  finished_at?: string | null
 }
 
 export interface DeleteAllImportedProductsResult {
