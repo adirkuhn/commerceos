@@ -99,6 +99,62 @@ func (s *stubPushProductToWoo) Execute(_ context.Context, _ appchannels.PushProd
 	return &channelsDomain.ProductChannelListing{}, s.err
 }
 
+type stubListSyncSchedules struct {
+	out []channelsDomain.SyncSchedule
+	err error
+}
+
+func (s *stubListSyncSchedules) Execute(_ context.Context, _ string) ([]channelsDomain.SyncSchedule, error) {
+	return s.out, s.err
+}
+
+type stubUpsertSyncSchedule struct {
+	out *channelsDomain.SyncSchedule
+	err error
+}
+
+func (s *stubUpsertSyncSchedule) Execute(_ context.Context, in appchannels.UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &channelsDomain.SyncSchedule{
+		EntityType: in.EntityType, Direction: in.Direction, Enabled: in.Enabled, IntervalMinutes: in.IntervalMinutes,
+	}, nil
+}
+
+type stubDeleteAllImportedProducts struct {
+	out *appchannels.DeleteAllImportedProductsResult
+	err error
+}
+
+func (s *stubDeleteAllImportedProducts) Execute(_ context.Context, _ appchannels.DeleteAllImportedProductsInput) (*appchannels.DeleteAllImportedProductsResult, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appchannels.DeleteAllImportedProductsResult{}, nil
+}
+
+type stubUpdateConnectionSettings struct {
+	out *integrationsDomain.Connection
+	err error
+}
+
+func (s *stubUpdateConnectionSettings) Execute(_ context.Context, in appintegrations.UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &integrationsDomain.Connection{ID: in.ID, DefaultCurrency: in.DefaultCurrency}, nil
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func newTestHandler(
@@ -109,7 +165,40 @@ func newTestHandler(
 	disconnect *stubDisconnectConnection,
 	testConn *stubTestConnection,
 ) *integrationshandler.Handler {
-	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn, &stubImportWooProducts{}, &stubPushProductToWoo{})
+	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn,
+		&stubImportWooProducts{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
+		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{})
+}
+
+// newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
+// specifically — every other use case is a harmless zero-value stub, same
+// convention as newTestHandler's own hardcoded importWooProducts/pushProductToWoo.
+func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertSyncSchedule) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubImportWooProducts{}, &stubPushProductToWoo{},
+		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+	)
+}
+
+// newDeleteImportedTestHandler builds a Handler for the delete-all-imported
+// route specifically — every other use case is a harmless zero-value stub.
+func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubImportWooProducts{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{},
+	)
+}
+
+// newUpdateConnectionSettingsTestHandler builds a Handler for the
+// connection-settings route specifically.
+func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettings) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubImportWooProducts{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings,
+	)
 }
 
 func doRequest(rg *gin.Engine, method, path string, body any) *httptest.ResponseRecorder {
@@ -308,4 +397,150 @@ func TestManualConnectWooCommerceHandler_rejectsInvalidStoreURL(t *testing.T) {
 		"store_url": "not-a-url", "consumer_key": "ck_abc", "consumer_secret": "cs_abc",
 	})
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestListSyncSchedulesHandler_returnsSchedules(t *testing.T) {
+	warehouseID := "wh-1"
+	h := newSyncScheduleTestHandler(&stubListSyncSchedules{out: []channelsDomain.SyncSchedule{
+		{EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
+			Enabled: true, IntervalMinutes: 15, DefaultWarehouseID: &warehouseID},
+	}}, &stubUpsertSyncSchedule{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/sync-schedules", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "products")
+	assert.Contains(t, w.Body.String(), "wh-1")
+}
+
+func TestListSyncSchedulesHandler_notFound(t *testing.T) {
+	h := newSyncScheduleTestHandler(&stubListSyncSchedules{err: integrationsDomain.ErrConnectionNotFound}, &stubUpsertSyncSchedule{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/missing/sync-schedules", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUpsertSyncSchedulesHandler_savesEachRow(t *testing.T) {
+	h := newSyncScheduleTestHandler(&stubListSyncSchedules{}, &stubUpsertSyncSchedule{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPut, "/api/v1/integrations/connections/conn-1/sync-schedules", map[string]any{
+		"schedules": []map[string]any{
+			{"entity_type": "stock", "direction": "export", "enabled": true, "interval_minutes": 30, "last_run_status": "", "last_run_error": ""},
+		},
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "stock")
+}
+
+func TestUpsertSyncSchedulesHandler_returns422ForUnrunnableEntity(t *testing.T) {
+	h := newSyncScheduleTestHandler(&stubListSyncSchedules{}, &stubUpsertSyncSchedule{err: channelsDomain.ErrCannotEnableUnrunnableEntity})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPut, "/api/v1/integrations/connections/conn-1/sync-schedules", map[string]any{
+		"schedules": []map[string]any{
+			{"entity_type": "orders", "direction": "import", "enabled": true, "interval_minutes": 30, "last_run_status": "", "last_run_error": ""},
+		},
+	})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestDeleteAllImportedProductsHandler_returnsResult(t *testing.T) {
+	h := newDeleteImportedTestHandler(&stubDeleteAllImportedProducts{out: &appchannels.DeleteAllImportedProductsResult{
+		DeletedProducts: 805, DeletedCategories: 12,
+	}})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodDelete, "/api/v1/integrations/connections/conn-1/imported-products", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "805")
+	assert.Contains(t, w.Body.String(), "12")
+}
+
+func TestDeleteAllImportedProductsHandler_returns500OnUnexpectedError(t *testing.T) {
+	h := newDeleteImportedTestHandler(&stubDeleteAllImportedProducts{err: errors.New("db down")})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodDelete, "/api/v1/integrations/connections/conn-1/imported-products", nil)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// newImportTestHandler builds a Handler for the import route specifically —
+// every other use case is a harmless zero-value stub.
+func newImportTestHandler(importUC *stubImportWooProducts) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, importUC, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+	)
+}
+
+// A nil []string (the zero value, e.g. when a use case never appends any
+// errors) marshals to JSON `null`. Frontend code reads `.errors.length`
+// unconditionally, assuming an array — `null` crashed it. The handler must
+// normalize nil to [] so the wire contract's implied non-nullability holds.
+func TestImportWooProductsHandler_normalizesNilErrorsToEmptyArray(t *testing.T) {
+	h := newImportTestHandler(&stubImportWooProducts{out: &appchannels.ImportResult{Imported: 805}})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/import", map[string]any{
+		"default_warehouse_id": "wh-1", "default_currency": "EUR",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"errors":[]`)
+	assert.NotContains(t, w.Body.String(), `"errors":null`)
+}
+
+func TestDeleteAllImportedProductsHandler_normalizesNilErrorsToEmptyArray(t *testing.T) {
+	h := newDeleteImportedTestHandler(&stubDeleteAllImportedProducts{out: &appchannels.DeleteAllImportedProductsResult{
+		DeletedProducts: 5,
+	}})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodDelete, "/api/v1/integrations/connections/conn-1/imported-products", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"errors":[]`)
+	assert.NotContains(t, w.Body.String(), `"errors":null`)
+}
+
+func TestUpdateConnectionSettingsHandler_savesDefaultCurrency(t *testing.T) {
+	h := newUpdateConnectionSettingsTestHandler(&stubUpdateConnectionSettings{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/connections/conn-1/settings", map[string]any{
+		"default_currency": "USD",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "USD")
+}
+
+func TestUpdateConnectionSettingsHandler_notFound(t *testing.T) {
+	h := newUpdateConnectionSettingsTestHandler(&stubUpdateConnectionSettings{err: integrationsDomain.ErrConnectionNotFound})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/connections/missing/settings", map[string]any{
+		"default_currency": "USD",
+	})
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }

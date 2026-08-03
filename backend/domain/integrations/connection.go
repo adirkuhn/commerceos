@@ -45,6 +45,12 @@ type Connection struct {
 	ConsumerKey             string
 	ConsumerSecretEncrypted string
 	Status                  Status
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	// DefaultCurrency is the store-level default used for product import
+	// (WooCommerce's product endpoint doesn't return a currency — it's a
+	// store-level setting the merchant configures here once, reused by
+	// both the manual import trigger and the scheduled products/import
+	// job, instead of being retyped on every run).
+	DefaultCurrency string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }

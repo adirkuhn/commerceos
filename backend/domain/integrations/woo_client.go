@@ -43,6 +43,10 @@ type WooClient interface {
 	// CreateProduct pushes a new product to the store. p.ID is ignored (Woo
 	// assigns it); the returned WooProduct's ID is the new external id.
 	CreateProduct(ctx context.Context, p WooProduct) (*WooProduct, error)
+	// UpdateProductStock sets the stock quantity on an existing product,
+	// identified by its external (Woo) id. Used by the stock-export sync
+	// job — never touches any other product field.
+	UpdateProductStock(ctx context.Context, externalProductID string, quantity int) error
 }
 
 // WooClientFactory builds a WooClient scoped to one store's credentials.

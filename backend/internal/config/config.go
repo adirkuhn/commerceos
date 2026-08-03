@@ -22,6 +22,25 @@ type Config struct {
 	// FrontendBaseURL is the CommerceOS frontend's base URL, used to build
 	// the return_url the merchant's browser lands back on after approving.
 	FrontendBaseURL string
+	// MediaUploadDir is the local filesystem directory product images are
+	// saved to (see infrastructure/storage) — served back out at
+	// PublicAPIBaseURL + "/uploads/...". Only used when StorageDriver is
+	// "local".
+	MediaUploadDir string
+	// StorageDriver selects the pms.FileStorage adapter: "local" (default)
+	// or "s3" (MinIO / any S3-compatible store, see infrastructure/storage).
+	StorageDriver string
+	// S3* configure the S3-compatible client used when StorageDriver is
+	// "s3". Only read/validated then (see cmd/api/main.go).
+	S3Endpoint        string
+	S3AccessKeyID     string
+	S3SecretAccessKey string
+	S3Bucket          string
+	S3UseSSL          bool
+	// S3PublicBaseURL is the publicly reachable URL prefix product images
+	// are served from (bucket must allow public reads) — e.g. a domain
+	// pointed at the MinIO/S3 endpoint or a CDN in front of it.
+	S3PublicBaseURL string
 }
 
 func Load() Config {
@@ -35,6 +54,14 @@ func Load() Config {
 		IntegrationsEncryptionSecret: mustEnv("INTEGRATIONS_ENCRYPTION_SECRET"),
 		PublicAPIBaseURL:             mustEnv("API_PUBLIC_BASE_URL"),
 		FrontendBaseURL:              mustEnv("FRONTEND_BASE_URL"),
+		MediaUploadDir:               envOr("MEDIA_UPLOAD_DIR", "./uploads"),
+		StorageDriver:                envOr("STORAGE_DRIVER", "local"),
+		S3Endpoint:                   os.Getenv("S3_ENDPOINT"),
+		S3AccessKeyID:                os.Getenv("S3_ACCESS_KEY_ID"),
+		S3SecretAccessKey:            os.Getenv("S3_SECRET_ACCESS_KEY"),
+		S3Bucket:                     os.Getenv("S3_BUCKET"),
+		S3UseSSL:                     envOr("S3_USE_SSL", "false") == "true",
+		S3PublicBaseURL:              os.Getenv("S3_PUBLIC_BASE_URL"),
 	}
 }
 

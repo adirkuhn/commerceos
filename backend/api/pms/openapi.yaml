@@ -152,6 +152,82 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/products/{id}/media:
+    get:
+      operationId: listProductMedia
+      summary: List a product's images, in display order
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaListResponse'
+    post:
+      operationId: uploadProductMedia
+      summary: Upload an image for a product (jpeg/png/webp/gif)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                alt_text: { type: string }
+      responses:
+        '201':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /pms/media/{id}:
+    patch:
+      operationId: updateMedia
+      summary: Update a product image's title (alt text)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMediaRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteMedia
+      summary: Delete a product image
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /pms/products/{id}/variants:
     post:
       operationId: createVariant
@@ -338,8 +414,43 @@ components:
         product_id: { type: string }
         name: { type: string }
         position: { type: integer }
+        featured_media_id: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    Media:
+      type: object
+      required: [id, tenant_id, url, type, position, alt_text, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        product_id: { type: string, nullable: true }
+        variant_id: { type: string, nullable: true }
+        url: { type: string }
+        type: { type: string, enum: [image, video] }
+        position: { type: integer }
+        alt_text: { type: string }
+        created_at: { type: string, format: date-time }
+
+    MediaResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Media' }
+        error: { nullable: true }
+
+    MediaListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Media' }
+        error: { nullable: true }
+
+    UpdateMediaRequest:
+      type: object
+      required: [alt_text]
+      properties:
+        alt_text: { type: string }
 
     SKU:
       type: object
@@ -431,6 +542,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         position: { type: integer }
+        featured_media_id: { type: string, nullable: true }
 
     CreateSKURequest:
       type: object

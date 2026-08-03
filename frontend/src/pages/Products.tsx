@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
-  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug,
+  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug, X, ImagePlus,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
+import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
 import { useCategories } from '../pms/hooks/useCategories'
 import { useProductDetail } from '../pms/hooks/useProductDetail'
+import { useProductMedia } from '../pms/hooks/useProductMedia'
 import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import type { Connection } from '../integrations/types'
-import type { Product, ProductStatus, SKUStatus, VariantWithSKUs } from '../pms/types'
+import type { Product, ProductStatus, SKUStatus, VariantWithSKUs, Media } from '../pms/types'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
   active: 'bg-green-500/15 text-green-400',
@@ -24,6 +26,7 @@ const SKU_STATUS_STYLES: Record<SKUStatus, string> = {
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
+const PAGE_SIZE = 20
 
 function formatPrice(minorUnits: number, currency: string): string {
   return `${minorUnits < 0 ? '-' : ''}${currency} ${(Math.abs(minorUnits) / 100).toFixed(2)}`
@@ -50,6 +53,7 @@ export default function Products() {
 
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  const [page, setPage] = useState(1)
 
   const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
 
@@ -57,6 +61,12 @@ export default function Products() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.slug.toLowerCase().includes(search.toLowerCase()),
   )
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  function handleSearchChange(value: string) {
+    setSearch(value)
+    setPage(1)
+  }
 
   if (editingId !== null) {
     return (
@@ -79,7 +89,7 @@ export default function Products() {
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => handleSearchChange(e.target.value)}
             placeholder="Search by name or slug..."
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 border dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
           />
@@ -123,7 +133,7 @@ export default function Products() {
             {!loading && filtered.length === 0 && (
               <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
             )}
-            {filtered.map(p => (
+            {paged.map(p => (
               <tr
                 key={p.id}
                 onClick={() => setEditingId(p.id)}
@@ -172,6 +182,8 @@ export default function Products() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
     </div>
   )
 }
@@ -352,6 +364,32 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
     }
   }
 
+  const [enablingVariants, setEnablingVariants] = useState(false)
+  const [enableVariantsError, setEnableVariantsError] = useState('')
+
+  // For an already-saved product, has_variants must be persisted before the
+  // variants manager becomes interactive — otherwise the first "+ Add
+  // Variant" click hits the server's own invariant (product already has 1
+  // variant from flat-SKU mode, has_variants still false there) and fails.
+  // For a brand-new, unsaved product there's nothing to persist yet — the
+  // flag goes out with the initial create payload on Save.
+  const handleEnableVariants = async () => {
+    if (!savedProductId) {
+      setVariantsMode(true)
+      return
+    }
+    setEnableVariantsError('')
+    setEnablingVariants(true)
+    try {
+      await onUpdate(savedProductId, { name, description, category_id: categoryId || null, status, has_variants: true })
+      setVariantsMode(true)
+    } catch (err) {
+      setEnableVariantsError(err instanceof Error ? err.message : 'Failed to enable variants')
+    } finally {
+      setEnablingVariants(false)
+    }
+  }
+
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return
     try {
@@ -463,32 +501,19 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               </div>
             </FormCard>
 
-            <FormCard title="Media" description="Coming soon — image upload isn't wired up yet.">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="aspect-square rounded-xl border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center text-[11px] dark:text-gray-600 text-gray-400">
-                  Featured image
-                </div>
-                <div className="grid grid-cols-2 gap-2 content-start">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="aspect-square rounded-lg border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center text-[10px] dark:text-gray-600 text-gray-400">
-                      —
-                    </div>
-                  ))}
-                  <button
-                    type="button" disabled
-                    className="aspect-square rounded-lg border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center text-[10px] dark:text-gray-600 text-gray-400 cursor-not-allowed"
-                  >
-                    + Upload
-                  </button>
-                </div>
-              </div>
+            <FormCard title="Media">
+              {savedProductId ? (
+                <MediaSection productId={savedProductId} />
+              ) : (
+                <p className="text-[11px] dark:text-gray-500 text-gray-400">Save the product first, then add images.</p>
+              )}
             </FormCard>
 
             <FormCard title="Variants">
               {variantsMode ? (
                 <>
                   {savedProductId ? (
-                    <VariantsSection detail={detail} />
+                    <VariantsSection detail={detail} productId={savedProductId} />
                   ) : (
                     <p className="text-[11px] dark:text-gray-500 text-gray-400">Save the product first, then add variants below.</p>
                   )}
@@ -503,13 +528,17 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                   )}
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setVariantsMode(true)}
-                  className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  + Add variants like size or color
-                </button>
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleEnableVariants}
+                    disabled={enablingVariants}
+                    className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+                  >
+                    {enablingVariants ? 'Enabling…' : '+ Add variants like size or color'}
+                  </button>
+                  {enableVariantsError && <p className="text-[11px] text-red-500 mt-1.5">{enableVariantsError}</p>}
+                </div>
               )}
             </FormCard>
 
@@ -756,13 +785,175 @@ function ProductWooCommerceTab({ productId, connection }: { productId: string; c
   )
 }
 
+// ── Media section ─────────────────────────────────────────────────────────────
+
+const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/gif'
+
+function MediaSection({ productId }: { productId: string }) {
+  const { token } = useAuth()
+  const { media, loading, error, upload, update, remove } = useProductMedia(token ?? '', productId)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [titleDraft, setTitleDraft] = useState('')
+  const [titleSaving, setTitleSaving] = useState(false)
+  const [titleError, setTitleError] = useState('')
+
+  const featured = media[0] ?? null
+  const rest = media.slice(1)
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    setUploadError(null)
+    try {
+      await upload(files[0])
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  function openTitleEditor(m: Media) {
+    setEditingId(m.id)
+    setTitleDraft(m.alt_text)
+    setTitleError('')
+  }
+
+  async function handleSaveTitle() {
+    if (!editingId) return
+    setTitleSaving(true)
+    setTitleError('')
+    try {
+      await update(editingId, titleDraft)
+      setEditingId(null)
+    } catch (e) {
+      setTitleError(e instanceof Error ? e.message : 'Failed to update title')
+    } finally {
+      setTitleSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_IMAGE_TYPES}
+        className="hidden"
+        onChange={e => handleFiles(e.target.files)}
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="group relative aspect-square rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden flex items-center justify-center text-[11px] dark:text-gray-600 text-gray-400">
+          {featured ? (
+            <>
+              <button
+                type="button"
+                onClick={() => openTitleEditor(featured)}
+                aria-label="Edit image title"
+                className="w-full h-full cursor-pointer"
+              >
+                <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(featured.id)}
+                aria-label="Remove image"
+                className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X size={12} />
+              </button>
+            </>
+          ) : (
+            <span>Featured image</span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 content-start">
+          {rest.map(m => (
+            <div key={m.id} className="group relative aspect-square rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => openTitleEditor(m)}
+                aria-label="Edit image title"
+                className="w-full h-full cursor-pointer"
+              >
+                <img src={m.url} alt={m.alt_text} className="w-full h-full object-cover" />
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(m.id)}
+                aria-label="Remove image"
+                className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="aspect-square rounded-lg border-2 border-dashed dark:border-[#2D3748] border-gray-200 flex items-center justify-center dark:text-gray-600 text-gray-400 hover:dark:text-gray-400 hover:text-gray-500 disabled:opacity-50"
+          >
+            <ImagePlus size={16} />
+          </button>
+        </div>
+      </div>
+      {editingId && (
+        <div className="p-2.5 rounded-lg border dark:border-[#2D3748] border-gray-200 space-y-2">
+          <label htmlFor="media-title" className="block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">
+            Title
+          </label>
+          <input
+            id="media-title"
+            type="text"
+            value={titleDraft}
+            onChange={e => setTitleDraft(e.target.value)}
+            placeholder="Describe this image"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          />
+          {titleError && <p className="text-[10px] text-red-500">{titleError}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="text-[10px] dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={titleSaving}
+              onClick={handleSaveTitle}
+              className="text-[10px] font-medium px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {titleSaving ? 'Saving…' : 'Save title'}
+            </button>
+          </div>
+        </div>
+      )}
+      {loading && <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading…</p>}
+      {(uploadError || error) && (
+        <p className="text-[11px] text-red-500">{uploadError ?? error}</p>
+      )}
+    </div>
+  )
+}
+
 // ── Variants + SKUs section (only shown when the product has variants) ───────
 
 interface VariantsSectionProps {
   detail: ReturnType<typeof useProductDetail>
+  productId: string
 }
 
-function VariantsSection({ detail }: VariantsSectionProps) {
+function VariantsSection({ detail, productId }: VariantsSectionProps) {
+  const { token } = useAuth()
+  const { media: productMedia } = useProductMedia(token ?? '', productId)
   const [adding, setAdding] = useState(false)
   const [variantName, setVariantName] = useState('')
   const [addError, setAddError] = useState('')
@@ -774,8 +965,7 @@ function VariantsSection({ detail }: VariantsSectionProps) {
     setAddError('')
   }
 
-  const handleAddVariant = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleAddVariant = async () => {
     setAddError('')
     setSubmitting(true)
     try {
@@ -806,22 +996,30 @@ function VariantsSection({ detail }: VariantsSectionProps) {
 
       <div className="space-y-2">
         {detail.detail?.variants.map(v => (
-          <VariantRow key={v.id} variant={v} detail={detail} />
+          <VariantRow key={v.id} variant={v} detail={detail} productMedia={productMedia} />
         ))}
       </div>
 
       {adding && (
-        <form onSubmit={handleAddVariant} className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 space-y-2">
+        // A plain div, not a <form> — this already lives inside the page's
+        // outer <form id="product-general-form">, and nested <form>
+        // elements are invalid HTML. Browsers silently break out of the
+        // inner one, so its submit button ends up submitting the OUTER
+        // form as a real (non-JS-intercepted) navigation — a full page
+        // reload back to the app's initial route, which looked like the
+        // "Add Variant" button redirecting home.
+        <div className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 space-y-2">
           <input
             type="text" required placeholder="Variant name (e.g. Large)" value={variantName} onChange={e => setVariantName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddVariant() } }}
             className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
           />
           {addError && <p className="text-xs text-red-400">{addError}</p>}
-          <button type="submit" disabled={submitting} className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          <button type="button" onClick={handleAddVariant} disabled={submitting} className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
             {submitting ? 'Adding…' : 'Add Variant'}
           </button>
           <p className="text-[10px] dark:text-gray-500 text-gray-400">Add a SKU (price/barcode) to the variant after creating it.</p>
-        </form>
+        </div>
       )}
     </div>
   )
@@ -830,10 +1028,12 @@ function VariantsSection({ detail }: VariantsSectionProps) {
 interface VariantRowProps {
   variant: VariantWithSKUs
   detail: ReturnType<typeof useProductDetail>
+  productMedia: Media[]
 }
 
-function VariantRow({ variant, detail }: VariantRowProps) {
+function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [addingSKU, setAddingSKU] = useState(false)
+  const [imageError, setImageError] = useState('')
   const [skuCode, setSkuCode] = useState('')
   const [barcode, setBarcode] = useState('')
   const [price, setPrice] = useState('')
@@ -847,8 +1047,7 @@ function VariantRow({ variant, detail }: VariantRowProps) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const handleAddSKU = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleAddSKU = async () => {
     setError('')
     setSubmitting(true)
     try {
@@ -875,13 +1074,46 @@ function VariantRow({ variant, detail }: VariantRowProps) {
   }
 
   const sku = variant.skus?.[0]
+  const selectedImage = productMedia.find(m => m.id === variant.featured_media_id) ?? null
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  const handleSelectImage = async (mediaId: string | null) => {
+    setImageError('')
+    try {
+      await detail.updateVariant(variant.id, {
+        name: variant.name,
+        position: variant.position,
+        featured_media_id: mediaId,
+      })
+      setPickerOpen(false)
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : 'Failed to update image')
+    }
+  }
+
+  const thumbnailContent = selectedImage ? (
+    <img src={selectedImage.url} alt={selectedImage.alt_text} className="w-full h-full object-cover" />
+  ) : (
+    <Package size={14} className="dark:text-gray-500 text-gray-400" />
+  )
 
   return (
     <div className="p-3 rounded-lg border dark:border-[#2D3748] border-gray-200">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center shrink-0">
-          <Package size={14} className="dark:text-gray-500 text-gray-400" />
-        </div>
+        {productMedia.length > 0 ? (
+          <button
+            type="button"
+            aria-label={`${variant.name} image`}
+            onClick={() => setPickerOpen(v => !v)}
+            className="w-10 h-10 rounded-lg dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden"
+          >
+            {thumbnailContent}
+          </button>
+        ) : (
+          <div className="w-10 h-10 rounded-lg dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+            {thumbnailContent}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium dark:text-gray-200 text-gray-800 truncate">{variant.name}</p>
           <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400 truncate">
@@ -907,6 +1139,38 @@ function VariantRow({ variant, detail }: VariantRowProps) {
         </button>
       </div>
 
+      {pickerOpen && (
+        <div className="flex flex-wrap gap-1.5 mt-2 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+          <button
+            type="button"
+            onClick={() => handleSelectImage(null)}
+            aria-label="No image"
+            className={clsx(
+              'w-8 h-8 rounded-md border flex items-center justify-center text-[10px] dark:text-gray-500 text-gray-400 shrink-0',
+              !variant.featured_media_id ? 'border-blue-500' : 'dark:border-[#2D3748] border-gray-200',
+            )}
+          >
+            <X size={12} />
+          </button>
+          {productMedia.map(m => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => handleSelectImage(m.id)}
+              aria-label={m.alt_text || 'Product image'}
+              className={clsx(
+                'w-8 h-8 rounded-md overflow-hidden border shrink-0',
+                m.id === variant.featured_media_id ? 'border-blue-500' : 'dark:border-[#2D3748] border-gray-200',
+              )}
+            >
+              <img src={m.url} alt={m.alt_text} className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {imageError && <p className="text-[10px] text-red-500 mt-1.5">{imageError}</p>}
+
       {sku && (
         <div className="flex justify-end mt-1.5">
           <button type="button" onClick={() => detail.removeSKU(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
@@ -922,7 +1186,9 @@ function VariantRow({ variant, detail }: VariantRowProps) {
       )}
 
       {addingSKU && (
-        <form onSubmit={handleAddSKU} className="mt-2 space-y-1.5">
+        // Plain div, not <form> — same nested-<form>-inside-the-page's-outer-
+        // form bug as the Add Variant form above (see comment there).
+        <div className="mt-2 space-y-1.5">
           <div className="grid grid-cols-2 gap-1.5">
             <input type="text" required placeholder="SKU code" value={skuCode} onChange={e => setSkuCode(e.target.value)}
               className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
@@ -958,14 +1224,14 @@ function VariantRow({ variant, detail }: VariantRowProps) {
           )}
           {error && <p className="text-[10px] text-red-400">{error}</p>}
           <div className="flex gap-1.5">
-            <button type="submit" disabled={submitting} className="flex-1 py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            <button type="button" onClick={handleAddSKU} disabled={submitting} className="flex-1 py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
               {submitting ? 'Adding…' : 'Add'}
             </button>
             <button type="button" onClick={() => setAddingSKU(false)} className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 transition-colors">
               Cancel
             </button>
           </div>
-        </form>
+        </div>
       )}
     </div>
   )

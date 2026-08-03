@@ -25,6 +25,10 @@ vi.mock('../../pms/api', () => ({
   createSKU: vi.fn(),
   updateSKU: vi.fn(),
   deleteSKU: vi.fn(),
+  listProductMedia: vi.fn(),
+  uploadProductMedia: vi.fn(),
+  updateMedia: vi.fn(),
+  deleteMedia: vi.fn(),
 }))
 
 vi.mock('../../integrations/api', () => ({
@@ -65,6 +69,7 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProducts).mockResolvedValue([product()])
   vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+  vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
 })
 
 describe('product list', () => {
@@ -89,6 +94,36 @@ describe('product list', () => {
     expect(pmsApi.getProduct).not.toHaveBeenCalled()
 
     confirmSpy.mockRestore()
+  })
+
+  it('paginates when there are more than 20 products', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => product({ id: `prod-${i}`, name: `Product ${String(i).padStart(2, '0')}`, slug: `product-${i}` }))
+    vi.mocked(pmsApi.listProducts).mockResolvedValue(many)
+
+    render(<Products />)
+    await screen.findByText('Product 00')
+
+    expect(screen.queryByText('Product 20')).not.toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+
+    expect(await screen.findByText('Product 20')).toBeInTheDocument()
+    expect(screen.queryByText('Product 00')).not.toBeInTheDocument()
+  })
+
+  it('resets to page 1 when the search filter changes', async () => {
+    const many = Array.from({ length: 25 }, (_, i) => product({ id: `prod-${i}`, name: `Product ${String(i).padStart(2, '0')}`, slug: `product-${i}` }))
+    vi.mocked(pmsApi.listProducts).mockResolvedValue(many)
+
+    render(<Products />)
+    await screen.findByText('Product 00')
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    await screen.findByText('Product 20')
+
+    await userEvent.type(screen.getByPlaceholderText('Search by name or slug...'), 'Product 01')
+
+    expect(await screen.findByText('Product 01')).toBeInTheDocument()
   })
 })
 
@@ -143,6 +178,89 @@ describe('editing an existing product infers variants mode from variant count', 
     // outer FormCard that already provides one.
     expect(screen.getAllByText('Variants')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: '+ Add Variant' })).toHaveLength(1)
+  })
+})
+
+describe('Add Variant / Add SKU are not nested <form> elements', () => {
+  // Regression: these inline "forms" render inside the page's outer
+  // <form id="product-general-form">. Nested <form> is invalid HTML — a
+  // real browser normalizes it away, so the inner submit button ends up
+  // submitting the OUTER form as a genuine (non-JS-intercepted) navigation,
+  // reloading the whole app back to its initial route. jsdom doesn't
+  // perform real navigation on submit, so this bug was invisible to every
+  // other test here — assert directly on DOM shape instead.
+  it('never renders more than one <form> element even with both panels open', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    const { container } = render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Small')
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add Variant' }))
+    await userEvent.click(screen.getAllByRole('button', { name: '+ Add SKU' })[0])
+
+    expect(container.querySelectorAll('form')).toHaveLength(1)
+  })
+
+  it('clicking "Add Variant" calls the API via a plain button click, not form submit', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Small', skus: [] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'var-2', name: 'Large' })
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Small')
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add Variant' }))
+    await userEvent.type(screen.getByPlaceholderText('Variant name (e.g. Large)'), 'Large')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Variant' }))
+
+    await waitFor(() => expect(pmsApi.createVariant).toHaveBeenCalledWith('test-token', 'prod-1', { name: 'Large' }))
+  })
+})
+
+describe('enabling variants mode on an already-saved product', () => {
+  it('persists has_variants:true before letting the user add a variant', async () => {
+    const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(product({ has_variants: true }))
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Pricing & SKU')
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add variants like size or color' }))
+
+    await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
+      has_variants: true,
+    })))
+    expect(await screen.findByRole('button', { name: '+ Add Variant' })).toBeInTheDocument()
+  })
+
+  it('shows an error and stays in flat mode if persisting has_variants fails', async () => {
+    const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockRejectedValue(new Error('server exploded'))
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Pricing & SKU')
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add variants like size or color' }))
+
+    expect(await screen.findByText('server exploded')).toBeInTheDocument()
+    expect(screen.getByText('Pricing & SKU')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '+ Add Variant' })).not.toBeInTheDocument()
   })
 })
 
@@ -343,6 +461,199 @@ describe('product edit page chrome', () => {
       expect(field).toBeInTheDocument()
       expect(field).toBeDisabled()
     }
-    expect(screen.getByRole('button', { name: '+ Upload' })).toBeDisabled()
+  })
+})
+
+describe('Variant image picker', () => {
+  const media1 = {
+    id: 'media-1', tenant_id: 't1', product_id: 'prod-1',
+    url: 'https://api.example.com/uploads/t1/a.jpg', type: 'image' as const,
+    position: 0, alt_text: 'Front', created_at: '',
+  }
+  const media2 = {
+    id: 'media-2', tenant_id: 't1', product_id: 'prod-1',
+    url: 'https://api.example.com/uploads/t1/b.jpg', type: 'image' as const,
+    position: 1, alt_text: '', created_at: '',
+  }
+
+  it('does not render an image picker when the product has no media', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Small', skus: [] }, { ...baseVariant, id: 'var-2', name: 'Large', skus: [] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await screen.findByText('Small')
+    expect(screen.queryByLabelText('Small image')).not.toBeInTheDocument()
+  })
+
+  it('opens a visual thumbnail grid of the product images and selecting one updates the variant', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Small', skus: [] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([media1, media2])
+    vi.mocked(pmsApi.updateVariant).mockResolvedValue({ ...baseVariant, id: 'var-1', name: 'Small', featured_media_id: 'media-1' })
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    const thumbnailButton = await screen.findByLabelText('Small image')
+    expect(screen.queryByLabelText('Front')).not.toBeInTheDocument()
+
+    await userEvent.click(thumbnailButton)
+
+    expect(screen.getByLabelText('Front')).toBeInTheDocument()
+    expect(screen.getByLabelText('Product image')).toBeInTheDocument()
+    expect(screen.getByLabelText('No image')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('Front'))
+
+    await waitFor(() => expect(pmsApi.updateVariant).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
+      featured_media_id: 'media-1',
+    })))
+  })
+
+  it('clearing the image via "No image" sends featured_media_id: null', async () => {
+    const featuredId = 'media-1'
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Small', skus: [], featured_media_id: featuredId }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([media1])
+    vi.mocked(pmsApi.updateVariant).mockResolvedValue({ ...baseVariant, id: 'var-1', name: 'Small' })
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await userEvent.click(await screen.findByLabelText('Small image'))
+    await userEvent.click(screen.getByLabelText('No image'))
+
+    await waitFor(() => expect(pmsApi.updateVariant).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
+      featured_media_id: null,
+    })))
+  })
+
+  it('shows an error if updating the variant image fails', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Small', skus: [] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([media1])
+    vi.mocked(pmsApi.updateVariant).mockRejectedValue(new Error('boom'))
+
+    render(<Products />)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await userEvent.click(await screen.findByLabelText('Small image'))
+    await userEvent.click(screen.getByLabelText('Front'))
+
+    expect(await screen.findByText('boom')).toBeInTheDocument()
+  })
+})
+
+describe('Media section', () => {
+  const mediaItem = {
+    id: 'media-1', tenant_id: 't1', product_id: 'prod-1',
+    url: 'https://api.example.com/uploads/t1/x.jpg', type: 'image' as const,
+    position: 0, alt_text: '', created_at: '',
+  }
+
+  it('shows a save-first message for a new (unsaved) product instead of the upload UI', async () => {
+    render(<Products />)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    expect(screen.getByText('Save the product first, then add images.')).toBeInTheDocument()
+  })
+
+  it('lists existing media and uploads a new file for an existing product', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
+    const uploaded = { ...mediaItem, id: 'media-2', url: 'https://api.example.com/uploads/t1/y.jpg' }
+    vi.mocked(pmsApi.uploadProductMedia).mockResolvedValue(uploaded)
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+
+    await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalledWith('test-token', 'prod-1'))
+    expect(await screen.findByAltText('')).toBeInTheDocument()
+
+    const file = new File(['bytes'], 'photo.jpg', { type: 'image/jpeg' })
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(fileInput, file)
+
+    await waitFor(() => expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', file, undefined))
+  })
+
+  it('removes a media item when its remove button is clicked', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
+    vi.mocked(pmsApi.deleteMedia).mockResolvedValue(null)
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await screen.findByAltText('')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove image' }))
+
+    await waitFor(() => expect(pmsApi.deleteMedia).toHaveBeenCalledWith('test-token', 'media-1'))
+  })
+
+  it('clicking an image opens a title editor prefilled with its current alt text, and saving persists it', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([{ ...mediaItem, alt_text: 'Old title' }])
+    vi.mocked(pmsApi.updateMedia).mockResolvedValue({ ...mediaItem, alt_text: 'Front view' })
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await screen.findByAltText('Old title')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit image title' }))
+
+    const titleInput = screen.getByLabelText('Title')
+    expect(titleInput).toHaveValue('Old title')
+
+    await userEvent.clear(titleInput)
+    await userEvent.type(titleInput, 'Front view')
+    await userEvent.click(screen.getByRole('button', { name: 'Save title' }))
+
+    await waitFor(() => expect(pmsApi.updateMedia).toHaveBeenCalledWith('test-token', 'media-1', 'Front view'))
+    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+  })
+
+  it('Cancel closes the title editor without saving', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await screen.findByAltText('')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit image title' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument()
+    expect(pmsApi.updateMedia).not.toHaveBeenCalled()
+  })
+
+  it('shows an error if saving the title fails', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
+    vi.mocked(pmsApi.updateMedia).mockRejectedValue(new Error('title too long'))
+
+    render(<Products />)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await screen.findByAltText('')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit image title' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save title' }))
+
+    expect(await screen.findByText('title too long')).toBeInTheDocument()
   })
 })

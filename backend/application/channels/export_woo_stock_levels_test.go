@@ -1,0 +1,119 @@
+package channels_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	appchannels "github.com/adirkuhn/commerceos/application/channels"
+	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+)
+
+func TestExportWooStockLevels_pushesCurrentSyncableLevelToWoo(t *testing.T) {
+	h, sku := newStockSyncHarness(nil)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 7}}
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Updated)
+	require.Empty(t, result.Errors)
+	require.Len(t, h.wooClient.updateStockCalled, 1)
+	require.Equal(t, "23609", h.wooClient.updateStockCalled[0].ExternalID)
+	require.Equal(t, 7, h.wooClient.updateStockCalled[0].Quantity)
+}
+
+func TestExportWooStockLevels_skipsVirtualSKUs(t *testing.T) {
+	h, sku := newStockSyncHarness(nil)
+	_, variant, _ := simplePhysicalProduct()
+	sku.IsVirtual = true
+	h.skuRepo.byVariant[variant.ID] = []pmsDomain.SKU{sku}
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 7}}
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.Updated)
+	require.Empty(t, h.wooClient.updateStockCalled)
+}
+
+func TestExportWooStockLevels_recordsErrorForMultiVariantProductAndContinues(t *testing.T) {
+	h, sku := newStockSyncHarness(nil)
+	product, _, _ := simplePhysicalProduct()
+	extraVariant := pmsDomain.Variant{ID: "variant-2", ProductID: product.ID, Name: "Other"}
+	h.variantRepo.byProduct[product.ID] = append(h.variantRepo.byProduct[product.ID], extraVariant)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 7}}
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, result.Errors, 1)
+	require.Empty(t, h.wooClient.updateStockCalled)
+}
+
+func TestExportWooStockLevels_recordsErrorWhenWooUpdateFails(t *testing.T) {
+	h, sku := newStockSyncHarness(nil)
+	h.wooClient.updateStockErr = errors.New("woo 500")
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 7}}
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.Updated)
+	require.Len(t, result.Errors, 1)
+}
+
+func TestExportWooStockLevels_noopWhenNoListings(t *testing.T) {
+	h := newHarness(nil)
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, &stubStockLevelGetter{},
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.Updated)
+	require.Empty(t, h.wooClient.updateStockCalled)
+}
+
+func TestExportWooStockLevels_wrapsConnectionNotFound(t *testing.T) {
+	h := newHarness(nil)
+	h.connRepo.findErr = integrationsDomain.ErrConnectionNotFound
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, &stubStockLevelGetter{},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "missing"})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, integrationsDomain.ErrConnectionNotFound))
+}
+

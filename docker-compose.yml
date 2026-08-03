@@ -34,6 +34,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  createbuckets:
+    image: minio/mc:latest
+    networks:
+      - minio
+    entrypoint: >
+      /bin/sh -c '
+      SCHEME=http; [ ${S3_USE_SSL:-false} = true ] && SCHEME=https;
+      mc alias set target $$SCHEME://${S3_ENDPOINT:?S3_ENDPOINT is required} ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required} ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required} &&
+      mc mb -p target/${S3_BUCKET:-product-media} &&
+      mc anonymous set download target/${S3_BUCKET:-product-media}
+      '
 
   migrate:
     build:
@@ -58,6 +70,7 @@ services:
     networks:
       - traefik-public
       - commerceos
+      - minio
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -68,6 +81,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      createbuckets:
+        condition: service_completed_successfully
     environment:
       DB_DSN: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
       NATS_URL: nats://nats:4222
@@ -76,6 +91,16 @@ services:
       INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
       API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+      MEDIA_UPLOAD_DIR: /data/uploads
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-product-media}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?S3_PUBLIC_BASE_URL is required}
+    volumes:
+      - media_uploads:/data/uploads
     command: [ "/api" ]
     labels:
       - "traefik.enable=true"
@@ -107,6 +132,26 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
     command: [ "/relay" ]
 
+  scheduler:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    networks:
+      - commerceos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NATS_URL: nats://nats:4222
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+    command: [ "/scheduler" ]
+
   frontend:
     build:
       context: ./frontend
@@ -122,6 +167,7 @@ services:
     networks:
       - traefik-public
       - commerceos
+      - minio
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
@@ -133,8 +179,11 @@ services:
 volumes:
   postgres_data:
   nats_data:
+  media_uploads:
 
 networks:
   traefik-public:
+    external: true
+  minio:
     external: true
   commerceos:

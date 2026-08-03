@@ -93,9 +93,73 @@ func TestImportWooProducts_importsNewSimpleProduct(t *testing.T) {
 	require.Equal(t, "23609", h.listingRepo.created[0].ExternalID)
 	require.Equal(t, channelsDomain.SyncStatusSynced, h.listingRepo.created[0].SyncStatus)
 
-	require.Len(t, h.stock.calls, 1, "manage_stock true must record an initial receipt")
+	require.Len(t, h.stock.calls, 1, "manage_stock true must record initial stock")
 	require.Equal(t, int64(2), h.stock.calls[0].QuantityDelta)
-	require.Equal(t, invDomain.MovementTypeReceipt, h.stock.calls[0].Type)
+	require.Equal(t, invDomain.MovementTypeAdjustment, h.stock.calls[0].Type)
+}
+
+func TestImportWooProducts_recordsInitialStockAsAdjustmentEvenWhenNegative(t *testing.T) {
+	wp := simpleWooProduct()
+	negative := -5
+	wp.StockQuantity = &negative
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+
+	uc := appchannels.NewImportWooProductsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.categoryRepo, h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.stock,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, result.Errors, "negative Woo stock must not be rejected as an invalid Receipt")
+	require.Len(t, h.stock.calls, 1)
+	require.Equal(t, int64(-5), h.stock.calls[0].QuantityDelta)
+	require.Equal(t, invDomain.MovementTypeAdjustment, h.stock.calls[0].Type)
+}
+
+func TestImportWooProducts_createsCategoryWhenItDoesNotExistYet(t *testing.T) {
+	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
+	// h.categoryRepo.bySlug deliberately left empty — the product's Woo
+	// category ("salgadinhos-e-snacks") doesn't exist in CommerceOS yet.
+
+	uc := appchannels.NewImportWooProductsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.categoryRepo, h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.stock,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Imported)
+	require.Len(t, h.categoryRepo.created, 1)
+	require.Equal(t, "Salgadinhos e snacks", h.categoryRepo.created[0].Name)
+	require.Equal(t, "salgadinhos-e-snacks", h.categoryRepo.created[0].Slug)
+	require.Len(t, h.productRepo.createdProducts, 1)
+	require.Equal(t, "new-category-1", *h.productRepo.createdProducts[0].CategoryID)
+}
+
+func TestImportWooProducts_propagatesCategoryCreateFailure(t *testing.T) {
+	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
+	h.categoryRepo.createErr = errors.New("db down")
+
+	uc := appchannels.NewImportWooProductsUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.categoryRepo, h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.stock,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err) // per-product failure, not a top-level error
+	require.Len(t, result.Errors, 1)
+	require.Empty(t, h.productRepo.createdProducts)
 }
 
 func TestImportWooProducts_skipsNonSimpleProductType(t *testing.T) {

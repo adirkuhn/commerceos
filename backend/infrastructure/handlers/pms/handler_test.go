@@ -137,24 +137,59 @@ type stubDeleteSKU struct{ err error }
 
 func (s *stubDeleteSKU) Execute(_ context.Context, _ string) error { return s.err }
 
+type stubUploadMedia struct {
+	out *pmsDomain.Media
+	err error
+}
+
+func (s *stubUploadMedia) Execute(_ context.Context, _ apppms.UploadMediaInput) (*pmsDomain.Media, error) {
+	return s.out, s.err
+}
+
+type stubListProductMedia struct {
+	out []pmsDomain.Media
+	err error
+}
+
+func (s *stubListProductMedia) Execute(_ context.Context, _ string) ([]pmsDomain.Media, error) {
+	return s.out, s.err
+}
+
+type stubDeleteMedia struct{ err error }
+
+func (s *stubDeleteMedia) Execute(_ context.Context, _ string) error { return s.err }
+
+type stubUpdateMedia struct {
+	out *pmsDomain.Media
+	err error
+}
+
+func (s *stubUpdateMedia) Execute(_ context.Context, _ apppms.UpdateMediaInput) (*pmsDomain.Media, error) {
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
-	listCategories stubListCategories
-	createCategory stubCreateCategory
-	updateCategory stubUpdateCategory
-	deleteCategory stubDeleteCategory
-	listProducts   stubListProducts
-	createProduct  stubCreateProduct
-	getProduct     stubGetProduct
-	updateProduct  stubUpdateProduct
-	deleteProduct  stubDeleteProduct
-	createVariant  stubCreateVariant
-	updateVariant  stubUpdateVariant
-	deleteVariant  stubDeleteVariant
-	createSKU      stubCreateSKU
-	updateSKU      stubUpdateSKU
-	deleteSKU      stubDeleteSKU
+	listCategories   stubListCategories
+	createCategory   stubCreateCategory
+	updateCategory   stubUpdateCategory
+	deleteCategory   stubDeleteCategory
+	listProducts     stubListProducts
+	createProduct    stubCreateProduct
+	getProduct       stubGetProduct
+	updateProduct    stubUpdateProduct
+	deleteProduct    stubDeleteProduct
+	createVariant    stubCreateVariant
+	updateVariant    stubUpdateVariant
+	deleteVariant    stubDeleteVariant
+	createSKU        stubCreateSKU
+	updateSKU        stubUpdateSKU
+	deleteSKU        stubDeleteSKU
+	uploadMedia      stubUploadMedia
+	listProductMedia stubListProductMedia
+	deleteMedia      stubDeleteMedia
+	updateMedia      stubUpdateMedia
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -163,6 +198,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.listProducts, &s.createProduct, &s.getProduct, &s.updateProduct, &s.deleteProduct,
 		&s.createVariant, &s.updateVariant, &s.deleteVariant,
 		&s.createSKU, &s.updateSKU, &s.deleteSKU,
+		&s.uploadMedia, &s.listProductMedia, &s.deleteMedia, &s.updateMedia,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -220,11 +256,12 @@ func TestCreateProduct_duplicateSlugReturns409(t *testing.T) {
 }
 
 func TestGetProduct_returnsNestedVariantsAndSKUs(t *testing.T) {
+	mediaID := "media-1"
 	detail := &apppms.ProductDetail{
 		Product: pmsDomain.Product{ID: "p1", Name: "Widget", Status: pmsDomain.ProductStatusActive},
 		Variants: []apppms.VariantDetail{
 			{
-				Variant: pmsDomain.Variant{ID: "v1", Name: "Large"},
+				Variant: pmsDomain.Variant{ID: "v1", Name: "Large", FeaturedMediaID: &mediaID},
 				SKUs:    []pmsDomain.SKU{{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 1999, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}},
 			},
 		},
@@ -234,6 +271,10 @@ func TestGetProduct_returnsNestedVariantsAndSKUs(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "WID-L")
 	assert.Contains(t, w.Body.String(), "Large")
+	// Regression: toGenProductDetail built VariantWithSKUs by hand and
+	// dropped FeaturedMediaId, so a variant's selected image always
+	// reverted to "none" on reload after being set.
+	assert.Contains(t, w.Body.String(), "media-1")
 }
 
 func TestGetProduct_notFound(t *testing.T) {
@@ -269,6 +310,41 @@ func TestCreateVariant_success(t *testing.T) {
 func TestCreateVariant_productNotFound(t *testing.T) {
 	s := &stubs{createVariant: stubCreateVariant{err: pmsDomain.ErrProductNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/products/missing/variants", map[string]string{"name": "Large"})
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUpdateVariant_success(t *testing.T) {
+	mediaID := "m1"
+	s := &stubs{updateVariant: stubUpdateVariant{out: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Large", FeaturedMediaID: &mediaID}}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/variants/v1", map[string]any{
+		"name": "Large", "featured_media_id": "m1",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "m1")
+}
+
+func TestUpdateVariant_featuredMediaProductMismatchReturns422(t *testing.T) {
+	s := &stubs{updateVariant: stubUpdateVariant{err: pmsDomain.ErrFeaturedMediaProductMismatch}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/variants/v1", map[string]any{
+		"name": "Large", "featured_media_id": "m1",
+	})
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdateMedia_success(t *testing.T) {
+	s := &stubs{updateMedia: stubUpdateMedia{out: &pmsDomain.Media{ID: "m1", AltText: "Front view"}}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/media/m1", map[string]any{
+		"alt_text": "Front view",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Front view")
+}
+
+func TestUpdateMedia_notFound(t *testing.T) {
+	s := &stubs{updateMedia: stubUpdateMedia{err: pmsDomain.ErrMediaNotFound}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/media/missing", map[string]any{
+		"alt_text": "Front view",
+	})
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 

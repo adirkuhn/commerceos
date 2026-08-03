@@ -14,4 +14,10 @@ var (
 	// (digital, non-shippable) and physical SKUs: a virtual SKU never has
 	// weight/dimensions, since it never ships.
 	ErrVirtualSKUCannotHaveDimensions = errors.New("virtual SKU cannot have weight or dimensions")
+	ErrMediaNotFound                  = errors.New("media not found")
+	ErrUnsupportedMediaType           = errors.New("unsupported file type")
+	ErrMediaTargetRequired            = errors.New("media must be attached to a product or a variant")
+	// ErrFeaturedMediaProductMismatch guards a variant's FeaturedMediaID:
+	// it must reference a Media row belonging to the variant's own product.
+	ErrFeaturedMediaProductMismatch = errors.New("featured media does not belong to this variant's product")
 )

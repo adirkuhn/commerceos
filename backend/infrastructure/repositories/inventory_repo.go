@@ -18,6 +18,14 @@ type warehouseModel struct {
 	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID  string `gorm:"not null;type:uuid"`
 	Name      string `gorm:"not null"`
+	Address1  string `gorm:"not null;default:''"`
+	Address2  string `gorm:"not null;default:''"`
+	City      string `gorm:"not null;default:''"`
+	Province  string `gorm:"not null;default:''"`
+	Zip       string `gorm:"not null;default:''"`
+	Country   string `gorm:"not null;default:''"`
+	Phone     string `gorm:"not null;default:''"`
+	Active    bool   `gorm:"not null;default:true"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -27,7 +35,7 @@ func (warehouseModel) TableName() string { return "warehouses" }
 type batchModel struct {
 	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID    string `gorm:"not null;type:uuid"`
-	SKUID       string `gorm:"not null;type:uuid"`
+	SKUID       string `gorm:"column:sku_id;not null;type:uuid"`
 	WarehouseID string `gorm:"not null;type:uuid"`
 	LotNumber   string
 	ExpiryDate  *time.Time
@@ -41,7 +49,7 @@ func (batchModel) TableName() string { return "batches" }
 type stockMovementModel struct {
 	ID            string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID      string `gorm:"not null;type:uuid"`
-	SKUID         string `gorm:"not null;type:uuid"`
+	SKUID         string `gorm:"column:sku_id;not null;type:uuid"`
 	WarehouseID   string `gorm:"not null;type:uuid"`
 	BatchID       *string
 	Type          string `gorm:"not null"`
@@ -72,7 +80,12 @@ func (r *WarehouseRepo) Create(ctx context.Context, w *invDomain.Warehouse) erro
 	if err != nil {
 		return err
 	}
-	m := warehouseModel{TenantID: w.TenantID, Name: w.Name, CreatedAt: w.CreatedAt, UpdatedAt: w.UpdatedAt}
+	m := warehouseModel{
+		TenantID: w.TenantID, Name: w.Name,
+		Address1: w.Address1, Address2: w.Address2, City: w.City, Province: w.Province,
+		Zip: w.Zip, Country: w.Country, Phone: w.Phone, Active: w.Active,
+		CreatedAt: w.CreatedAt, UpdatedAt: w.UpdatedAt,
+	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("warehouseRepo.Create: %w", err)
 	}
@@ -117,7 +130,11 @@ func (r *WarehouseRepo) Update(ctx context.Context, w *invDomain.Warehouse) erro
 		return err
 	}
 	if err := tx.Model(&warehouseModel{}).Where("id = ?", w.ID).
-		Updates(map[string]any{"name": w.Name, "updated_at": w.UpdatedAt}).Error; err != nil {
+		Updates(map[string]any{
+			"name": w.Name, "updated_at": w.UpdatedAt,
+			"address1": w.Address1, "address2": w.Address2, "city": w.City, "province": w.Province,
+			"zip": w.Zip, "country": w.Country, "phone": w.Phone, "active": w.Active,
+		}).Error; err != nil {
 		return fmt.Errorf("warehouseRepo.Update: %w", err)
 	}
 	return nil
@@ -135,7 +152,12 @@ func (r *WarehouseRepo) Delete(ctx context.Context, id string) error {
 }
 
 func toWarehouseDomain(m warehouseModel) *invDomain.Warehouse {
-	return &invDomain.Warehouse{ID: m.ID, TenantID: m.TenantID, Name: m.Name, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt}
+	return &invDomain.Warehouse{
+		ID: m.ID, TenantID: m.TenantID, Name: m.Name,
+		Address1: m.Address1, Address2: m.Address2, City: m.City, Province: m.Province,
+		Zip: m.Zip, Country: m.Country, Phone: m.Phone, Active: m.Active,
+		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+	}
 }
 
 // ── Batch repo ───────────────────────────────────────────────────────────────

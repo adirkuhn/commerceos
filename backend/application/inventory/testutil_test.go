@@ -42,6 +42,10 @@ type stubWarehouseRepo struct {
 	findErr      error
 	createErr    error
 	createCalled bool
+	updateErr    error
+	updated      []invDomain.Warehouse
+	deleteErr    error
+	deleted      []string
 }
 
 func (s *stubWarehouseRepo) Create(_ context.Context, w *invDomain.Warehouse) error {
@@ -58,8 +62,20 @@ func (s *stubWarehouseRepo) FindByID(_ context.Context, _ string) (*invDomain.Wa
 func (s *stubWarehouseRepo) List(_ context.Context) ([]invDomain.Warehouse, error) {
 	return s.warehouses, nil
 }
-func (s *stubWarehouseRepo) Update(_ context.Context, _ *invDomain.Warehouse) error { return nil }
-func (s *stubWarehouseRepo) Delete(_ context.Context, _ string) error               { return nil }
+func (s *stubWarehouseRepo) Update(_ context.Context, w *invDomain.Warehouse) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *w)
+	return nil
+}
+func (s *stubWarehouseRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
 
 type stubBatchRepo struct {
 	batches      []invDomain.Batch

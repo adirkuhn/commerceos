@@ -20,6 +20,7 @@ type integrationConnectionModel struct {
 	ConsumerKey             string `gorm:"not null"`
 	ConsumerSecretEncrypted string `gorm:"not null"`
 	Status                  string `gorm:"not null"`
+	DefaultCurrency         string `gorm:"not null"`
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
@@ -50,6 +51,7 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		ConsumerKey:             c.ConsumerKey,
 		ConsumerSecretEncrypted: c.ConsumerSecretEncrypted,
 		Status:                  string(c.Status),
+		DefaultCurrency:         c.DefaultCurrency,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}
@@ -98,8 +100,9 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	}
 	if err := tx.Model(&integrationConnectionModel{}).Where("id = ?", c.ID).
 		Updates(map[string]any{
-			"status":     string(c.Status),
-			"updated_at": c.UpdatedAt,
+			"status":           string(c.Status),
+			"default_currency": c.DefaultCurrency,
+			"updated_at":       c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
 	}
@@ -126,6 +129,7 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		ConsumerKey:             m.ConsumerKey,
 		ConsumerSecretEncrypted: m.ConsumerSecretEncrypted,
 		Status:                  integrationsDomain.Status(m.Status),
+		DefaultCurrency:         m.DefaultCurrency,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}

@@ -63,25 +63,41 @@ type updateSKUUC interface {
 type deleteSKUUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type uploadMediaUC interface {
+	Execute(ctx context.Context, in apppms.UploadMediaInput) (*pmsDomain.Media, error)
+}
+type listProductMediaUC interface {
+	Execute(ctx context.Context, productID string) ([]pmsDomain.Media, error)
+}
+type deleteMediaUC interface {
+	Execute(ctx context.Context, id string) error
+}
+type updateMediaUC interface {
+	Execute(ctx context.Context, in apppms.UpdateMediaInput) (*pmsDomain.Media, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listCategories listCategoriesUC
-	createCategory createCategoryUC
-	updateCategory updateCategoryUC
-	deleteCategory deleteCategoryUC
-	listProducts   listProductsUC
-	createProduct  createProductUC
-	getProduct     getProductUC
-	updateProduct  updateProductUC
-	deleteProduct  deleteProductUC
-	createVariant  createVariantUC
-	updateVariant  updateVariantUC
-	deleteVariant  deleteVariantUC
-	createSKU      createSKUUC
-	updateSKU      updateSKUUC
-	deleteSKU      deleteSKUUC
+	listCategories   listCategoriesUC
+	createCategory   createCategoryUC
+	updateCategory   updateCategoryUC
+	deleteCategory   deleteCategoryUC
+	listProducts     listProductsUC
+	createProduct    createProductUC
+	getProduct       getProductUC
+	updateProduct    updateProductUC
+	deleteProduct    deleteProductUC
+	createVariant    createVariantUC
+	updateVariant    updateVariantUC
+	deleteVariant    deleteVariantUC
+	createSKU        createSKUUC
+	updateSKU        updateSKUUC
+	deleteSKU        deleteSKUUC
+	uploadMedia      uploadMediaUC
+	listProductMedia listProductMediaUC
+	deleteMedia      deleteMediaUC
+	updateMedia      updateMediaUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -101,23 +117,31 @@ func NewHandler(
 	createSKU createSKUUC,
 	updateSKU updateSKUUC,
 	deleteSKU deleteSKUUC,
+	uploadMedia uploadMediaUC,
+	listProductMedia listProductMediaUC,
+	deleteMedia deleteMediaUC,
+	updateMedia updateMediaUC,
 ) *Handler {
 	return &Handler{
-		listCategories: listCategories,
-		createCategory: createCategory,
-		updateCategory: updateCategory,
-		deleteCategory: deleteCategory,
-		listProducts:   listProducts,
-		createProduct:  createProduct,
-		getProduct:     getProduct,
-		updateProduct:  updateProduct,
-		deleteProduct:  deleteProduct,
-		createVariant:  createVariant,
-		updateVariant:  updateVariant,
-		deleteVariant:  deleteVariant,
-		createSKU:      createSKU,
-		updateSKU:      updateSKU,
-		deleteSKU:      deleteSKU,
+		listCategories:   listCategories,
+		createCategory:   createCategory,
+		updateCategory:   updateCategory,
+		deleteCategory:   deleteCategory,
+		listProducts:     listProducts,
+		createProduct:    createProduct,
+		getProduct:       getProduct,
+		updateProduct:    updateProduct,
+		deleteProduct:    deleteProduct,
+		createVariant:    createVariant,
+		updateVariant:    updateVariant,
+		deleteVariant:    deleteVariant,
+		createSKU:        createSKU,
+		updateSKU:        updateSKU,
+		deleteSKU:        deleteSKU,
+		uploadMedia:      uploadMedia,
+		listProductMedia: listProductMedia,
+		deleteMedia:      deleteMedia,
+		updateMedia:      updateMedia,
 	}
 }
 
@@ -125,11 +149,14 @@ var _ genpms.ServerInterface = (*Handler)(nil)
 
 // Register is the production wiring: creates repos + use cases, then
 // mounts the generated routes (matching the OpenAPI spec exactly).
-func Register(rg gin.IRouter, db *gorm.DB) {
+// fileStorage is the media storage adapter (local disk or S3/MinIO — see
+// infrastructure/storage), selected by the caller based on config.
+func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	categoryRepo := repositories.NewCategoryRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
+	mediaRepo := repositories.NewMediaRepo(db)
 
 	h := NewHandler(
 		apppms.NewListCategoriesUseCase(db, categoryRepo),
@@ -142,11 +169,15 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo),
 		apppms.NewDeleteProductUseCase(db, productRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
-		apppms.NewUpdateVariantUseCase(db, variantRepo),
+		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo),
 		apppms.NewDeleteVariantUseCase(db, variantRepo),
 		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo),
 		apppms.NewUpdateSKUUseCase(db, skuRepo),
 		apppms.NewDeleteSKUUseCase(db, skuRepo),
+		apppms.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage),
+		apppms.NewListProductMediaUseCase(db, mediaRepo),
+		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
+		apppms.NewUpdateMediaUseCase(db, mediaRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -323,9 +354,10 @@ func (h *Handler) UpdateVariant(c *gin.Context, id genpms.Id) {
 		position = *req.Position
 	}
 	variant, err := h.updateVariant.Execute(c.Request.Context(), apppms.UpdateVariantInput{
-		ID:       id,
-		Name:     req.Name,
-		Position: position,
+		ID:              id,
+		Name:            req.Name,
+		Position:        position,
+		FeaturedMediaID: req.FeaturedMediaId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -411,6 +443,72 @@ func (h *Handler) DeleteSKU(c *gin.Context, id genpms.Id) {
 	c.JSON(http.StatusOK, genpms.EmptyResponse{})
 }
 
+// ── Media handlers ────────────────────────────────────────────────────────────
+
+func (h *Handler) ListProductMedia(c *gin.Context, id genpms.Id) {
+	media, err := h.listProductMedia.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genpms.Media, len(media))
+	for i, m := range media {
+		resp[i] = toGenMedia(m)
+	}
+	c.JSON(http.StatusOK, genpms.MediaListResponse{Data: &resp})
+}
+
+func (h *Handler) UploadProductMedia(c *gin.Context, id genpms.Id) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "file is required")
+		return
+	}
+	f, err := fileHeader.Open()
+	if err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	defer f.Close()
+
+	media, err := h.uploadMedia.Execute(c.Request.Context(), apppms.UploadMediaInput{
+		ProductID:   &id,
+		Filename:    fileHeader.Filename,
+		ContentType: fileHeader.Header.Get("Content-Type"),
+		Data:        f,
+		AltText:     c.PostForm("alt_text"),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenMedia(*media)
+	c.JSON(http.StatusCreated, genpms.MediaResponse{Data: &resp})
+}
+
+func (h *Handler) UpdateMedia(c *gin.Context, id genpms.Id) {
+	var req genpms.UpdateMediaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	media, err := h.updateMedia.Execute(c.Request.Context(), apppms.UpdateMediaInput{
+		ID:      id,
+		AltText: req.AltText,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenMedia(*media)
+	c.JSON(http.StatusOK, genpms.MediaResponse{Data: &resp})
+}
+
+func (h *Handler) DeleteMedia(c *gin.Context, id genpms.Id) {
+	err := h.deleteMedia.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genpms.EmptyResponse{})
+}
+
 // ── Domain → generated-type mappers ─────────────────────────────────────────
 
 func toGenCategory(c pmsDomain.Category) genpms.Category {
@@ -443,13 +541,14 @@ func toGenProduct(p pmsDomain.Product) genpms.Product {
 
 func toGenVariant(v pmsDomain.Variant) genpms.Variant {
 	return genpms.Variant{
-		Id:        v.ID,
-		TenantId:  v.TenantID,
-		ProductId: v.ProductID,
-		Name:      v.Name,
-		Position:  v.Position,
-		CreatedAt: v.CreatedAt,
-		UpdatedAt: v.UpdatedAt,
+		Id:              v.ID,
+		TenantId:        v.TenantID,
+		ProductId:       v.ProductID,
+		Name:            v.Name,
+		Position:        v.Position,
+		FeaturedMediaId: v.FeaturedMediaID,
+		CreatedAt:       v.CreatedAt,
+		UpdatedAt:       v.UpdatedAt,
 	}
 }
 
@@ -477,6 +576,20 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 	}
 }
 
+func toGenMedia(m pmsDomain.Media) genpms.Media {
+	return genpms.Media{
+		Id:        m.ID,
+		TenantId:  m.TenantID,
+		ProductId: m.ProductID,
+		VariantId: m.VariantID,
+		Url:       m.URL,
+		Type:      genpms.MediaType(m.Type),
+		Position:  m.Position,
+		AltText:   m.AltText,
+		CreatedAt: m.CreatedAt,
+	}
+}
+
 func toGenProductDetail(d apppms.ProductDetail) genpms.ProductDetail {
 	variants := make([]genpms.VariantWithSKUs, len(d.Variants))
 	for i, vd := range d.Variants {
@@ -485,14 +598,15 @@ func toGenProductDetail(d apppms.ProductDetail) genpms.ProductDetail {
 			skus[j] = toGenSKU(s)
 		}
 		variants[i] = genpms.VariantWithSKUs{
-			Id:        vd.Variant.ID,
-			TenantId:  vd.Variant.TenantID,
-			ProductId: vd.Variant.ProductID,
-			Name:      vd.Variant.Name,
-			Position:  vd.Variant.Position,
-			CreatedAt: vd.Variant.CreatedAt,
-			UpdatedAt: vd.Variant.UpdatedAt,
-			Skus:      &skus,
+			Id:              vd.Variant.ID,
+			TenantId:        vd.Variant.TenantID,
+			ProductId:       vd.Variant.ProductID,
+			Name:            vd.Variant.Name,
+			Position:        vd.Variant.Position,
+			FeaturedMediaId: vd.Variant.FeaturedMediaID,
+			CreatedAt:       vd.Variant.CreatedAt,
+			UpdatedAt:       vd.Variant.UpdatedAt,
+			Skus:            &skus,
 		}
 	}
 	return genpms.ProductDetail{
@@ -511,13 +625,17 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, pmsDomain.ErrProductNotFound),
 		errors.Is(err, pmsDomain.ErrCategoryNotFound),
 		errors.Is(err, pmsDomain.ErrVariantNotFound),
-		errors.Is(err, pmsDomain.ErrSKUNotFound):
+		errors.Is(err, pmsDomain.ErrSKUNotFound),
+		errors.Is(err, pmsDomain.ErrMediaNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, pmsDomain.ErrDuplicateSlug),
 		errors.Is(err, pmsDomain.ErrDuplicateSKUCode):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
-		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions):
+		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),
+		errors.Is(err, pmsDomain.ErrUnsupportedMediaType),
+		errors.Is(err, pmsDomain.ErrMediaTargetRequired),
+		errors.Is(err, pmsDomain.ErrFeaturedMediaProductMismatch):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("pms: unhandled error: %v", err)

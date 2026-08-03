@@ -1,0 +1,19 @@
+-- +goose Up
+ALTER TABLE warehouses ADD COLUMN address1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN address2 TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN city TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN province TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN zip TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN country TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN phone TEXT NOT NULL DEFAULT '';
+ALTER TABLE warehouses ADD COLUMN active BOOLEAN NOT NULL DEFAULT true;
+
+-- +goose Down
+ALTER TABLE warehouses DROP COLUMN address1;
+ALTER TABLE warehouses DROP COLUMN address2;
+ALTER TABLE warehouses DROP COLUMN city;
+ALTER TABLE warehouses DROP COLUMN province;
+ALTER TABLE warehouses DROP COLUMN zip;
+ALTER TABLE warehouses DROP COLUMN country;
+ALTER TABLE warehouses DROP COLUMN phone;
+ALTER TABLE warehouses DROP COLUMN active;

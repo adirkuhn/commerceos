@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,14 @@ type stubWooClient struct {
 	createCalled  []integrationsDomain.WooProduct
 	createErr     error
 	createdWithID string // external ID assigned to the pushed product
+
+	updateStockCalled []stubStockUpdate
+	updateStockErr    error
+}
+
+type stubStockUpdate struct {
+	ExternalID string
+	Quantity   int
 }
 
 func (s *stubWooClient) TestConnection(_ context.Context) error { return nil }
@@ -92,6 +101,11 @@ func (s *stubWooClient) CreateProduct(_ context.Context, p integrationsDomain.Wo
 	return &p, nil
 }
 
+func (s *stubWooClient) UpdateProductStock(_ context.Context, externalID string, quantity int) error {
+	s.updateStockCalled = append(s.updateStockCalled, stubStockUpdate{ExternalID: externalID, Quantity: quantity})
+	return s.updateStockErr
+}
+
 type stubWooClientFactory struct {
 	client integrationsDomain.WooClient
 	err    error
@@ -104,10 +118,21 @@ func (s *stubWooClientFactory) NewClient(_, _, _ string) (integrationsDomain.Woo
 // ── pms stubs ────────────────────────────────────────────────────────────────
 
 type stubCategoryRepo struct {
-	bySlug map[string]pmsDomain.Category
+	bySlug    map[string]pmsDomain.Category
+	created   []pmsDomain.Category
+	createErr error
+	deleted   []string
+	deleteErr error
 }
 
-func (s *stubCategoryRepo) Create(_ context.Context, _ *pmsDomain.Category) error { return nil }
+func (s *stubCategoryRepo) Create(_ context.Context, c *pmsDomain.Category) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	c.ID = "new-category-1"
+	s.created = append(s.created, *c)
+	return nil
+}
 func (s *stubCategoryRepo) FindByID(_ context.Context, _ string) (*pmsDomain.Category, error) {
 	return nil, pmsDomain.ErrCategoryNotFound
 }
@@ -119,13 +144,27 @@ func (s *stubCategoryRepo) FindBySlug(_ context.Context, slug string) (*pmsDomai
 }
 func (s *stubCategoryRepo) List(_ context.Context) ([]pmsDomain.Category, error)  { return nil, nil }
 func (s *stubCategoryRepo) Update(_ context.Context, _ *pmsDomain.Category) error { return nil }
-func (s *stubCategoryRepo) Delete(_ context.Context, _ string) error              { return nil }
+func (s *stubCategoryRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
 
 type stubChannelsProductRepo struct {
 	createdProducts []pmsDomain.Product
 	createErr       error
 	bySlug          map[string]pmsDomain.Product
 	byID            map[string]pmsDomain.Product
+	listResult      []pmsDomain.Product
+	listErr         error
+	// countByCategory, when set, makes List(filter.CategoryID) return this
+	// count instead of len(listResult) — lets tests give different
+	// categories different remaining-product counts.
+	countByCategory map[string]int64
+	deleted         []string
+	deleteErr       error
 }
 
 func (s *stubChannelsProductRepo) Create(_ context.Context, p *pmsDomain.Product) error {
@@ -148,11 +187,23 @@ func (s *stubChannelsProductRepo) FindBySlug(_ context.Context, slug string) (*p
 	}
 	return nil, pmsDomain.ErrProductNotFound
 }
-func (s *stubChannelsProductRepo) List(_ context.Context, _ pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
-	return nil, 0, nil
+func (s *stubChannelsProductRepo) List(_ context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
+	if filter.CategoryID != nil && s.countByCategory != nil {
+		return nil, s.countByCategory[*filter.CategoryID], nil
+	}
+	return s.listResult, int64(len(s.listResult)), nil
 }
 func (s *stubChannelsProductRepo) Update(_ context.Context, _ *pmsDomain.Product) error { return nil }
-func (s *stubChannelsProductRepo) Delete(_ context.Context, _ string) error             { return nil }
+func (s *stubChannelsProductRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
 
 type stubChannelsVariantRepo struct {
 	created   []pmsDomain.Variant
@@ -208,6 +259,7 @@ func (s *stubChannelsSKURepo) Delete(_ context.Context, _ string) error         
 type stubListingRepo struct {
 	byExternalID map[string]channelsDomain.ProductChannelListing
 	byProduct    map[string]channelsDomain.ProductChannelListing
+	byConnection []channelsDomain.ProductChannelListing
 	created      []channelsDomain.ProductChannelListing
 	updated      []channelsDomain.ProductChannelListing
 	findErr      error
@@ -237,10 +289,50 @@ func (s *stubListingRepo) FindByProductAndConnection(_ context.Context, productI
 	return nil, channelsDomain.ErrListingNotFound
 }
 func (s *stubListingRepo) ListByConnection(_ context.Context, _ string) ([]channelsDomain.ProductChannelListing, error) {
-	return nil, nil
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	return s.byConnection, nil
 }
 func (s *stubListingRepo) Update(_ context.Context, l *channelsDomain.ProductChannelListing) error {
 	s.updated = append(s.updated, *l)
+	return nil
+}
+
+type stubSyncScheduleRepo struct {
+	upserted     []channelsDomain.SyncSchedule
+	upsertErr    error
+	byConnection []channelsDomain.SyncSchedule
+	due          []channelsDomain.SyncSchedule
+	recorded     []stubRunResult
+}
+
+type stubRunResult struct {
+	ID        string
+	RanAt     time.Time
+	Status    string
+	ErrMsg    string
+	NextRunAt time.Time
+}
+
+func (s *stubSyncScheduleRepo) Upsert(_ context.Context, sc *channelsDomain.SyncSchedule) error {
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	if sc.ID == "" {
+		sc.ID = "schedule-1"
+	}
+	s.upserted = append(s.upserted, *sc)
+	return nil
+}
+func (s *stubSyncScheduleRepo) ListByConnection(_ context.Context, _ string) ([]channelsDomain.SyncSchedule, error) {
+	return s.byConnection, nil
+}
+func (s *stubSyncScheduleRepo) ListDue(_ context.Context, _ time.Time) ([]channelsDomain.SyncSchedule, error) {
+	return s.due, nil
+}
+func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error {
+	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt})
 	return nil
 }
 

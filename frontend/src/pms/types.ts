@@ -49,6 +49,7 @@ export interface Variant {
   product_id: string
   name: string
   position: number
+  featured_media_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -84,7 +85,7 @@ export interface CreateVariantPayload {
   position?: number
 }
 
-export type UpdateVariantPayload = CreateVariantPayload
+export type UpdateVariantPayload = CreateVariantPayload & { featured_media_id?: string | null }
 
 export interface CreateSKUPayload {
   sku_code: string
@@ -109,6 +110,20 @@ export interface UpdateSKUPayload {
   height_mm?: number | null
   is_virtual?: boolean
   status: SKUStatus
+}
+
+export type MediaType = 'image' | 'video'
+
+export interface Media {
+  id: string
+  tenant_id: string
+  product_id?: string | null
+  variant_id?: string | null
+  url: string
+  type: MediaType
+  position: number
+  alt_text: string
+  created_at: string
 }
 
 export interface APIError {

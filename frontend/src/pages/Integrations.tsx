@@ -4,9 +4,21 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as api from '../integrations/api'
+import type { Connection, ImportResult, DeleteAllImportedProductsResult } from '../integrations/types'
+import { useWarehouses } from '../inventory/hooks/useWarehouses'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 
 const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
+}
+
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
+
+// Currency codes saved before the backend started normalizing them
+// (uppercase, trimmed) won't exact-match a <select> option otherwise —
+// normalize on read too so existing connections aren't stuck unselected.
+function normalizeCurrency(value: string | null | undefined): string {
+  return (value ?? '').trim().toUpperCase()
 }
 
 const STATUS_ICON = {
@@ -22,6 +34,8 @@ const STATUS_COLOR = {
 export default function Integrations() {
   const { token } = useAuth()
   const { connections, loading, error, refresh, disconnect } = useConnections(token ?? '')
+  const { warehouses } = useWarehouses(token ?? '')
+  const { settings: tenantSettings } = useTenantSettings(token ?? '')
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
@@ -34,6 +48,65 @@ export default function Integrations() {
 
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; message: string } | null>(null)
+
+  const [importingConnection, setImportingConnection] = useState<Connection | null>(null)
+  const [importWarehouseId, setImportWarehouseId] = useState('')
+  const [importCurrency, setImportCurrency] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState('')
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+
+  const closeImport = () => {
+    setImportingConnection(null)
+    setImportWarehouseId('')
+    setImportCurrency('')
+    setImportError('')
+    setImportResult(null)
+  }
+
+  const [deletingConnection, setDeletingConnection] = useState<Connection | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleteResult, setDeleteResult] = useState<DeleteAllImportedProductsResult | null>(null)
+
+  const closeDelete = () => {
+    setDeletingConnection(null)
+    setDeleteConfirmText('')
+    setDeleteError('')
+    setDeleteResult(null)
+    refresh()
+  }
+
+  const handleDeleteImported = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token || !deletingConnection) return
+    setDeleteError('')
+    setDeleting(true)
+    try {
+      const result = await api.deleteAllImportedProducts(token, deletingConnection.id)
+      setDeleteResult(result)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleImport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token || !importingConnection) return
+    setImportError('')
+    setImporting(true)
+    try {
+      const result = await api.importWooProducts(token, importingConnection.id, importWarehouseId, importCurrency)
+      setImportResult(result)
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const handleTestConnection = async (id: string) => {
     if (!token) return
@@ -152,6 +225,18 @@ export default function Integrations() {
                         className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
                       >
                         {testingId === conn.id ? 'Testing…' : 'Test'}
+                      </button>
+                      <button
+                        onClick={() => { setImportingConnection(conn); setImportCurrency(normalizeCurrency(conn.default_currency) || normalizeCurrency(tenantSettings?.default_currency)) }}
+                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                      >
+                        Import
+                      </button>
+                      <button
+                        onClick={() => setDeletingConnection(conn)}
+                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        Delete imported
                       </button>
                       <button
                         onClick={() => disconnect(conn.id)}
@@ -309,6 +394,172 @@ export default function Integrations() {
                   </form>
                 )}
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {importingConnection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={closeImport} />
+          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Import products</h3>
+              <button onClick={closeImport} aria-label="Close">
+                <X size={14} className="dark:text-gray-500 text-gray-400" />
+              </button>
+            </div>
+
+            {importResult ? (
+              <div className="space-y-3">
+                <p className="text-xs dark:text-gray-300 text-gray-700">
+                  Imported <strong>{importResult.imported}</strong> product{importResult.imported === 1 ? '' : 's'} (with categories), skipped{' '}
+                  {importResult.already_linked} already linked and {importResult.skipped_type} unsupported type.
+                </p>
+                {(importResult.errors ?? []).length > 0 && (
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {(importResult.errors ?? []).map((e, i) => (
+                      <p key={i} className="text-[10px] text-red-400 bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={closeImport}
+                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleImport} className="space-y-3">
+                <p className="text-[10px] dark:text-gray-500 text-gray-400">
+                  Imports every WooCommerce product not yet linked, along with its category. Existing categories are matched by name; missing ones are created.
+                </p>
+                <div>
+                  <label htmlFor="import-warehouse-id" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Default warehouse ID
+                  </label>
+                  <select
+                    id="import-warehouse-id"
+                    required
+                    autoFocus
+                    value={importWarehouseId}
+                    onChange={e => setImportWarehouseId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="" disabled>Select a warehouse…</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Imported stock quantities are attributed to this warehouse — WooCommerce has no warehouse concept.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="import-currency" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Default currency
+                  </label>
+                  <select
+                    id="import-currency"
+                    required
+                    value={importCurrency}
+                    onChange={e => setImportCurrency(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="" disabled>Select a currency…</option>
+                    {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                {importError && (
+                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{importError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={importing}
+                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {importing ? 'Importing…' : 'Start import'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {deletingConnection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={deleteResult ? closeDelete : undefined} />
+          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Delete imported products</h3>
+              {deleteResult && (
+                <button onClick={closeDelete} aria-label="Close">
+                  <X size={14} className="dark:text-gray-500 text-gray-400" />
+                </button>
+              )}
+            </div>
+
+            {deleteResult ? (
+              <div className="space-y-3">
+                <p className="text-xs dark:text-gray-300 text-gray-700">
+                  Deleted <strong>{deleteResult.deleted_products}</strong> product{deleteResult.deleted_products === 1 ? '' : 's'} and{' '}
+                  <strong>{deleteResult.deleted_categories}</strong> now-empty categor{deleteResult.deleted_categories === 1 ? 'y' : 'ies'}.
+                </p>
+                {(deleteResult.errors ?? []).length > 0 && (
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {(deleteResult.errors ?? []).map((e, i) => (
+                      <p key={i} className="text-[10px] text-red-400 bg-red-50 dark:bg-red-500/10 rounded px-2 py-1">{e}</p>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={closeDelete}
+                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleDeleteImported} className="space-y-3">
+                <div className="dark:bg-red-500/10 bg-red-50 border dark:border-red-500/20 border-red-200 rounded-lg p-3">
+                  <p className="text-xs text-red-400">
+                    This permanently deletes every product imported from <strong>{deletingConnection.store_url}</strong> — including
+                    their variants, SKUs, stock history, and images. Categories left empty afterward are also deleted. This cannot be undone.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="delete-confirm" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Type DELETE to confirm
+                  </label>
+                  <input
+                    id="delete-confirm"
+                    type="text"
+                    autoFocus
+                    autoComplete="off"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
+                {deleteError && (
+                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{deleteError}</p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={closeDelete}
+                    className="py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={deleting || deleteConfirmText !== 'DELETE'}
+                    className="py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
 import type {
-  Category, Product, ProductDetail, Variant, SKU,
+  Category, Product, ProductDetail, Variant, SKU, Media,
   CreateCategoryPayload, UpdateCategoryPayload,
   CreateProductPayload, UpdateProductPayload,
   CreateVariantPayload, UpdateVariantPayload,
@@ -97,4 +97,38 @@ export function updateSKU(token: string, id: string, payload: UpdateSKUPayload):
 
 export function deleteSKU(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/skus/${id}`, { method: 'DELETE' }, token)
+}
+
+// ── Media ─────────────────────────────────────────────────────────────────────
+
+export function listProductMedia(token: string, productId: string): Promise<Media[]> {
+  return request<Media[]>(`${base()}/products/${productId}/media`, { method: 'GET' }, token)
+}
+
+// Deliberately doesn't go through request(): that helper always sets
+// Content-Type: application/json, which would break multipart/form-data —
+// the browser must set that header itself (it includes the boundary).
+export async function uploadProductMedia(token: string, productId: string, file: File, altText?: string): Promise<Media> {
+  const form = new FormData()
+  form.append('file', file)
+  if (altText) form.append('alt_text', altText)
+
+  const res = await fetch(`${base()}/products/${productId}/media`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  })
+  const body: APIResponse<Media> = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return body.data as Media
+}
+
+export function updateMedia(token: string, id: string, altText: string): Promise<Media> {
+  return request<Media>(`${base()}/media/${id}`, { method: 'PATCH', body: JSON.stringify({ alt_text: altText }) }, token)
+}
+
+export function deleteMedia(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/media/${id}`, { method: 'DELETE' }, token)
 }

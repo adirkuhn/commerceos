@@ -1,0 +1,8 @@
+package: inventory
+output: inventory.gen.go
+generate:
+  gin-server: true
+  models: true
+  embedded-spec: true
+output-options:
+  skip-prune: false

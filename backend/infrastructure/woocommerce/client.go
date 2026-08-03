@@ -71,6 +71,11 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 	return &result, nil
 }
 
+func (c *wooClient) UpdateProductStock(ctx context.Context, externalProductID string, quantity int) error {
+	_, _, err := c.client.Products.Update(ctx, externalProductID, &wc.Product{StockQuantity: &quantity})
+	return err
+}
+
 func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 	images := make([]integrationsDomain.WooProductImage, len(p.Images))
 	for i, img := range p.Images {

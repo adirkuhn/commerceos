@@ -58,6 +58,69 @@ func (e ProductChannelListingSyncStatus) Valid() bool {
 	}
 }
 
+// Defines values for SyncScheduleDirection.
+const (
+	Export SyncScheduleDirection = "export"
+	Import SyncScheduleDirection = "import"
+)
+
+// Valid indicates whether the value is a known member of the SyncScheduleDirection enum.
+func (e SyncScheduleDirection) Valid() bool {
+	switch e {
+	case Export:
+		return true
+	case Import:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncScheduleEntityType.
+const (
+	Categories SyncScheduleEntityType = "categories"
+	Orders     SyncScheduleEntityType = "orders"
+	Products   SyncScheduleEntityType = "products"
+	Stock      SyncScheduleEntityType = "stock"
+)
+
+// Valid indicates whether the value is a known member of the SyncScheduleEntityType enum.
+func (e SyncScheduleEntityType) Valid() bool {
+	switch e {
+	case Categories:
+		return true
+	case Orders:
+		return true
+	case Products:
+		return true
+	case Stock:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncScheduleLastRunStatus.
+const (
+	SyncScheduleLastRunStatusEmpty   SyncScheduleLastRunStatus = ""
+	SyncScheduleLastRunStatusError   SyncScheduleLastRunStatus = "error"
+	SyncScheduleLastRunStatusSuccess SyncScheduleLastRunStatus = "success"
+)
+
+// Valid indicates whether the value is a known member of the SyncScheduleLastRunStatus enum.
+func (e SyncScheduleLastRunStatus) Valid() bool {
+	switch e {
+	case SyncScheduleLastRunStatusEmpty:
+		return true
+	case SyncScheduleLastRunStatusError:
+		return true
+	case SyncScheduleLastRunStatusSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // CatalogEntry defines model for CatalogEntry.
 type CatalogEntry struct {
 	Name     string `json:"name"`
@@ -72,11 +135,12 @@ type CatalogListResponse struct {
 
 // Connection Never includes the stored consumer key/secret — credentials must never round-trip to the frontend.
 type Connection struct {
-	CreatedAt time.Time        `json:"created_at"`
-	Id        string           `json:"id"`
-	Provider  string           `json:"provider"`
-	Status    ConnectionStatus `json:"status"`
-	StoreUrl  string           `json:"store_url"`
+	CreatedAt       time.Time        `json:"created_at"`
+	DefaultCurrency *string          `json:"default_currency,omitempty"`
+	Id              string           `json:"id"`
+	Provider        string           `json:"provider"`
+	Status          ConnectionStatus `json:"status"`
+	StoreUrl        string           `json:"store_url"`
 }
 
 // ConnectionListResponse defines model for ConnectionListResponse.
@@ -94,6 +158,19 @@ type ConnectionResponse struct {
 
 // ConnectionStatus defines model for ConnectionStatus.
 type ConnectionStatus string
+
+// DeleteAllImportedProductsResult defines model for DeleteAllImportedProductsResult.
+type DeleteAllImportedProductsResult struct {
+	DeletedCategories int      `json:"deleted_categories"`
+	DeletedProducts   int      `json:"deleted_products"`
+	Errors            []string `json:"errors"`
+}
+
+// DeleteAllImportedProductsResultResponse defines model for DeleteAllImportedProductsResultResponse.
+type DeleteAllImportedProductsResultResponse struct {
+	Data  *DeleteAllImportedProductsResult `json:"data,omitempty"`
+	Error interface{}                      `json:"error,omitempty"`
+}
 
 // EmptyResponse defines model for EmptyResponse.
 type EmptyResponse struct {
@@ -180,6 +257,47 @@ type StartWooConnectResponse struct {
 	Error interface{} `json:"error,omitempty"`
 }
 
+// SyncSchedule defines model for SyncSchedule.
+type SyncSchedule struct {
+	// DefaultCurrency Required to enable products/import. Unused otherwise.
+	DefaultCurrency *string `json:"default_currency,omitempty"`
+
+	// DefaultWarehouseId Required (with default_currency) to enable products/import; required alone to enable stock/import. Unused otherwise.
+	DefaultWarehouseId *string                   `json:"default_warehouse_id,omitempty"`
+	Direction          SyncScheduleDirection     `json:"direction"`
+	Enabled            bool                      `json:"enabled"`
+	EntityType         SyncScheduleEntityType    `json:"entity_type"`
+	IntervalMinutes    int                       `json:"interval_minutes"`
+	LastRunAt          *time.Time                `json:"last_run_at,omitempty"`
+	LastRunError       string                    `json:"last_run_error"`
+	LastRunStatus      SyncScheduleLastRunStatus `json:"last_run_status"`
+}
+
+// SyncScheduleDirection defines model for SyncSchedule.Direction.
+type SyncScheduleDirection string
+
+// SyncScheduleEntityType defines model for SyncSchedule.EntityType.
+type SyncScheduleEntityType string
+
+// SyncScheduleLastRunStatus defines model for SyncSchedule.LastRunStatus.
+type SyncScheduleLastRunStatus string
+
+// SyncScheduleListResponse defines model for SyncScheduleListResponse.
+type SyncScheduleListResponse struct {
+	Data  *[]SyncSchedule `json:"data,omitempty"`
+	Error interface{}     `json:"error,omitempty"`
+}
+
+// UpdateConnectionSettingsRequest defines model for UpdateConnectionSettingsRequest.
+type UpdateConnectionSettingsRequest struct {
+	DefaultCurrency string `json:"default_currency"`
+}
+
+// UpsertSyncSchedulesRequest defines model for UpsertSyncSchedulesRequest.
+type UpsertSyncSchedulesRequest struct {
+	Schedules []SyncSchedule `json:"schedules"`
+}
+
 // Id defines model for id.
 type Id = string
 
@@ -191,6 +309,12 @@ type ImportWooProductsJSONRequestBody = ImportWooProductsRequest
 
 // PushProductToWooJSONRequestBody defines body for PushProductToWoo for application/json ContentType.
 type PushProductToWooJSONRequestBody = PushProductToWooRequest
+
+// UpdateConnectionSettingsJSONRequestBody defines body for UpdateConnectionSettings for application/json ContentType.
+type UpdateConnectionSettingsJSONRequestBody = UpdateConnectionSettingsRequest
+
+// UpsertSyncSchedulesJSONRequestBody defines body for UpsertSyncSchedules for application/json ContentType.
+type UpsertSyncSchedulesJSONRequestBody = UpsertSyncSchedulesRequest
 
 // ManualConnectWooCommerceJSONRequestBody defines body for ManualConnectWooCommerce for application/json ContentType.
 type ManualConnectWooCommerceJSONRequestBody = ManualConnectWooCommerceRequest
@@ -212,9 +336,21 @@ type ServerInterface interface {
 	// ImportWooProducts Bulk-import this connection's existing WooCommerce catalog into CommerceOS
 	// (POST /integrations/connections/{id}/import)
 	ImportWooProducts(c *gin.Context, id Id)
+	// DeleteAllImportedProducts Delete every product this connection has imported (and any category left empty by that)
+	// (DELETE /integrations/connections/{id}/imported-products)
+	DeleteAllImportedProducts(c *gin.Context, id Id)
 	// PushProductToWoo Push a single-SKU CommerceOS product to this connection's WooCommerce store as a new product
 	// (POST /integrations/connections/{id}/push-product)
 	PushProductToWoo(c *gin.Context, id Id)
+	// UpdateConnectionSettings Update this connection's stored defaults (currently just default_currency)
+	// (PATCH /integrations/connections/{id}/settings)
+	UpdateConnectionSettings(c *gin.Context, id Id)
+	// ListSyncSchedules List this connection's recurring sync schedule configuration
+	// (GET /integrations/connections/{id}/sync-schedules)
+	ListSyncSchedules(c *gin.Context, id Id)
+	// UpsertSyncSchedules Bulk-save this connection's sync schedule rows (one per entity type + direction)
+	// (PUT /integrations/connections/{id}/sync-schedules)
+	UpsertSyncSchedules(c *gin.Context, id Id)
 	// TestConnection Probe a connection's stored credentials against the real provider
 	// (POST /integrations/connections/{id}/test)
 	TestConnection(c *gin.Context, id Id)
@@ -311,6 +447,31 @@ func (siw *ServerInterfaceWrapper) ImportWooProducts(c *gin.Context) {
 	siw.Handler.ImportWooProducts(c, id)
 }
 
+// DeleteAllImportedProducts operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAllImportedProducts(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteAllImportedProducts(c, id)
+}
+
 // PushProductToWoo operation middleware
 func (siw *ServerInterfaceWrapper) PushProductToWoo(c *gin.Context) {
 
@@ -334,6 +495,81 @@ func (siw *ServerInterfaceWrapper) PushProductToWoo(c *gin.Context) {
 	}
 
 	siw.Handler.PushProductToWoo(c, id)
+}
+
+// UpdateConnectionSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateConnectionSettings(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateConnectionSettings(c, id)
+}
+
+// ListSyncSchedules operation middleware
+func (siw *ServerInterfaceWrapper) ListSyncSchedules(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSyncSchedules(c, id)
+}
+
+// UpsertSyncSchedules operation middleware
+func (siw *ServerInterfaceWrapper) UpsertSyncSchedules(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpsertSyncSchedules(c, id)
 }
 
 // TestConnection operation middleware
@@ -417,9 +653,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/integrations/catalog", wrapper.ListCatalog)
 	router.GET(options.BaseURL+"/integrations/connections", wrapper.ListConnections)
 	router.DELETE(options.BaseURL+"/integrations/connections/:id", wrapper.DeleteConnection)
+	router.PATCH(options.BaseURL+"/integrations/connections/:id/settings", wrapper.UpdateConnectionSettings)
 	router.POST(options.BaseURL+"/integrations/connections/:id/test", wrapper.TestConnection)
+	router.DELETE(options.BaseURL+"/integrations/connections/:id/imported-products", wrapper.DeleteAllImportedProducts)
 	router.POST(options.BaseURL+"/integrations/connections/:id/import", wrapper.ImportWooProducts)
 	router.POST(options.BaseURL+"/integrations/connections/:id/push-product", wrapper.PushProductToWoo)
+	router.GET(options.BaseURL+"/integrations/connections/:id/sync-schedules", wrapper.ListSyncSchedules)
+	router.PUT(options.BaseURL+"/integrations/connections/:id/sync-schedules", wrapper.UpsertSyncSchedules)
 	router.POST(options.BaseURL+"/integrations/woocommerce/connect/start", wrapper.StartWooConnect)
 	router.POST(options.BaseURL+"/integrations/woocommerce/connect/manual", wrapper.ManualConnectWooCommerce)
 }
@@ -429,33 +669,41 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"1Fnbbtu4Fv0VgucASQA5TtOeh+O3tM1D5taiySAPbWDQ1I7FWiJVctOpJzAwHzFfOF8yICnZuvrWpOi8",
-	"FI5Ebe691uK+sI+UqyxXEiQaOnqkOdMsAwTt/xKx/1fSEc0ZJjSikmVAR+5FRDV8sUJDTEeoLUTU8AQy",
-	"5r7ARe5WGdRCTulyuXSLTa6kAW/3Umul3Q+uJIJE95PleSo4Q6Hk8LNR0j1bW/yvhns6ov8Zrt0dhrdm",
-	"6K19KOyH3WIwXIvcGaMjCn4797z4xFl8w5ClanopUS985FrloFEED0OcrUgit2wuYtBdYVYh+bheWaB2",
-	"F5UfqMln4OisFU78IgyuAmj5EjP0GAiEzGwDoxbWcrUl05r5v6GEXto0ZZMUAnvLZZd3SkrgAcTHBqa/",
-	"wRw0EZKnNgZDMAFiUGmICVfS2Aw0mcFiaIBrQPL3n38RriEGiYKlhmTWIJHehFZWxgPUIieovJ177VUR",
-	"n9KogQTXwBDiMfOKuVc6c78cQDBAkQGN2oQFDe/DY0QNMrTboV7Bcx3W+y+VhrHV6XZ9+DNUEcn605UD",
-	"UTXiu40MPaWE1rQ/mYC2u7a7R4d5cL3iFKTNHAE8vAPHQ7B516GfyyzHxXb3G77s52U9gx2wR+OYqLg7",
-	"eWVgDJtCtzYbXnX5eZXlSjuZ2RTb27JUA4sX41TIGVRPnZAIU9Ar7kxNii0vm4oTftc+i2Ym8hzicXjT",
-	"XtE8daWxqOlvw9TK17stQHybtGuQ7imb8O2tUu+1ii1H8wG+WDAd1MRwz2yKY261BskX7Xx+q9QblWWg",
-	"ORwZkgeDBGScKyGRxAqMPEKiAa2WhJHSEjkWeGQIC9l/kMIcUmIAUcjpSURMSOmcpSloYqwr8mCIwNOu",
-	"XF26+cA0JMoaGIfs3XA1ETwhpbfvrslqOSnZdd7wGflimUThQCBMA2GIWkyse4/K16RK1CRhhkhVMcaV",
-	"5JB3edrQVKfbURv0LiX9yqRlaZGmKu70UlmW1/EMFp3HZ7Ug1N6eArdzmaqWpdre7Z264iuk+SZhUkLq",
-	"qpTbpCuqIk+Pewr2IbUfviJoydI+mz2PU2ZwbBaSb96ufkKjzh7DxT4+qAVZSD42rZqVg4zdirBgS+my",
-	"ebwnZD0tShlF1OCp1r9Uwa77XyOv5tbOivm2JNstwj2z7XtrksLQjbpVqveEbqS9PSSUa7uwuEamQ1bw",
-	"sPduedB53mnDbbA3WgCLidLijw2+tLbcnQP3SMh71S4JN4nQ8SBnGhfEV37tB0mylqshx7HKmJDDyntz",
-	"ckpuEiBWOsfdcMKdMmtlwZWuCeMzkoq5q1yu+BlwczICMTlwcsxyUbNafnLia4zA6rgzAZIpK90uE0iE",
-	"jMlPtze+xAh0odNKXbuq2CQX76/Ica4V+pb1hEZ0DtqE8F+cnjkkVQ6S5YKO6MvTs9OX7ngyTDwxNf+G",
-	"PAyJ7sU0VAhHon95FdMRdSekGCRpY3Q/Pzt7ssG9a/rtGN/VLMzuNsuYm9W9e4TNmfByqRFe5iPjP2lE",
-	"vRbD5sgr654z+u7ZbWcAMBGGIEgmXQPWo/rNMAwfRbwMpykFhDYcb/3zyvgV1W6IPnZHuF4yFDFd3j0j",
-	"iPXprAe7iL46e9VnaeVauEdqIP1WmAIvwmQV5B2AHYZu1GdJZTrE1urfD4fX14XXKl48GbK9w8WyXlGK",
-	"UfTZGO4ctZ6E6Ii+Oj/fY/X/zs4PE9Frm84GQQzh1K6VcmQIfA39SKPq+NToFKcqo84uqsutSQZFX9Gv",
-	"vWY38yNJr6/T+s7K29yI/rsk6CB1jYuQ0xQG1z//Xp2fy2nf37825VlVpe8dCXPjvoSH8rtdRIll29op",
-	"xhuoVt0frsh0XGM+EfuH86nVBAirU1VewFcu2tmUCembBSAaWLpqkDpIe1CKF0yXBA4zfz3Rz1zf9QV9",
-	"nsyw7bbkO2eI/YTx/8OoLjapHcTJguQsVA0mSXGROZiCdNxATD5cXt/4iWH9fzA7Em7cANjPd2M+fCaa",
-	"e8be78xu3yzcT/H5oQ0CTIX0Z7RK8rsLi8nA4CIFcvyJXqwDIRfrcVUo+YmelImA3KfqIXhoQM/LBOqn",
-	"cTp0g+r8BV3eLf8JAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

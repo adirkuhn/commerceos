@@ -1,0 +1,174 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Inventory API
+  description: Warehouse CRUD (domain/inventory). Batches/stock movements aren't exposed here yet.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /inventory/warehouses:
+    get:
+      operationId: listWarehouses
+      summary: List warehouses for the current tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseListResponse'
+    post:
+      operationId: createWarehouse
+      summary: Create a warehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWarehouseRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/warehouses/{id}:
+    patch:
+      operationId: updateWarehouse
+      summary: Rename a warehouse
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWarehouseRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarehouseResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteWarehouse
+      summary: Delete a warehouse
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # Address/contact fields mirror Shopify's Location resource
+    # (https://shopify.dev/docs/api/admin-rest/latest/resources/location).
+    Warehouse:
+      type: object
+      required: [id, tenant_id, name, address1, address2, city, province, zip, country, phone, active, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        name: { type: string }
+        address1: { type: string }
+        address2: { type: string }
+        city: { type: string }
+        province: { type: string }
+        zip: { type: string }
+        country: { type: string }
+        phone: { type: string }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateWarehouseRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        address1: { type: string }
+        address2: { type: string }
+        city: { type: string }
+        province: { type: string }
+        zip: { type: string }
+        country: { type: string }
+        phone: { type: string }
+        active: { type: boolean, default: true }
+
+    UpdateWarehouseRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        address1: { type: string }
+        address2: { type: string }
+        city: { type: string }
+        province: { type: string }
+        zip: { type: string }
+        country: { type: string }
+        phone: { type: string }
+        active: { type: boolean }
+
+    WarehouseResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Warehouse' }
+        error: { nullable: true }
+
+    WarehouseListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Warehouse'
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

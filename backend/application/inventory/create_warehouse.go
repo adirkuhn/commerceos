@@ -11,7 +11,15 @@ import (
 )
 
 type CreateWarehouseInput struct {
-	Name string
+	Name     string
+	Address1 string
+	Address2 string
+	City     string
+	Province string
+	Zip      string
+	Country  string
+	Phone    string
+	Active   bool
 }
 
 type CreateWarehouseUseCase struct {
@@ -30,6 +38,14 @@ func (uc *CreateWarehouseUseCase) Execute(ctx context.Context, in CreateWarehous
 		warehouse = invDomain.Warehouse{
 			TenantID:  tenant.IDFromContext(ctx),
 			Name:      in.Name,
+			Address1:  in.Address1,
+			Address2:  in.Address2,
+			City:      in.City,
+			Province:  in.Province,
+			Zip:       in.Zip,
+			Country:   in.Country,
+			Phone:     in.Phone,
+			Active:    in.Active,
 			CreatedAt: now,
 			UpdatedAt: now,
 		}

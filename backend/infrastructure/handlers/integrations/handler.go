@@ -42,24 +42,40 @@ type disconnectConnectionUC interface {
 type testConnectionUC interface {
 	Execute(ctx context.Context, id string) (*integrationsDomain.Connection, error)
 }
+type updateConnectionSettingsUC interface {
+	Execute(ctx context.Context, in appintegrations.UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error)
+}
 type importWooProductsUC interface {
 	Execute(ctx context.Context, in appchannels.ImportWooProductsInput) (*appchannels.ImportResult, error)
 }
 type pushProductToWooUC interface {
 	Execute(ctx context.Context, in appchannels.PushProductToWooInput) (*channelsDomain.ProductChannelListing, error)
 }
+type listSyncSchedulesUC interface {
+	Execute(ctx context.Context, connectionID string) ([]channelsDomain.SyncSchedule, error)
+}
+type deleteAllImportedProductsUC interface {
+	Execute(ctx context.Context, in appchannels.DeleteAllImportedProductsInput) (*appchannels.DeleteAllImportedProductsResult, error)
+}
+type upsertSyncScheduleUC interface {
+	Execute(ctx context.Context, in appchannels.UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listConnections    listConnectionsUC
-	startWooConnect    startWooConnectUC
-	completeWooConnect completeWooConnectUC
-	manualConnectWoo   manualConnectWooCommerceUC
-	disconnect         disconnectConnectionUC
-	testConnection     testConnectionUC
-	importWooProducts  importWooProductsUC
-	pushProductToWoo   pushProductToWooUC
+	listConnections          listConnectionsUC
+	startWooConnect          startWooConnectUC
+	completeWooConnect       completeWooConnectUC
+	manualConnectWoo         manualConnectWooCommerceUC
+	disconnect               disconnectConnectionUC
+	testConnection           testConnectionUC
+	importWooProducts        importWooProductsUC
+	pushProductToWoo         pushProductToWooUC
+	listSyncSchedules        listSyncSchedulesUC
+	upsertSyncSchedule       upsertSyncScheduleUC
+	deleteAllImportedProds   deleteAllImportedProductsUC
+	updateConnectionSettings updateConnectionSettingsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -72,16 +88,24 @@ func NewHandler(
 	testConnection testConnectionUC,
 	importWooProducts importWooProductsUC,
 	pushProductToWoo pushProductToWooUC,
+	listSyncSchedules listSyncSchedulesUC,
+	upsertSyncSchedule upsertSyncScheduleUC,
+	deleteAllImportedProds deleteAllImportedProductsUC,
+	updateConnectionSettings updateConnectionSettingsUC,
 ) *Handler {
 	return &Handler{
-		listConnections:    listConnections,
-		startWooConnect:    startWooConnect,
-		completeWooConnect: completeWooConnect,
-		manualConnectWoo:   manualConnectWoo,
-		disconnect:         disconnect,
-		testConnection:     testConnection,
-		importWooProducts:  importWooProducts,
-		pushProductToWoo:   pushProductToWoo,
+		listConnections:          listConnections,
+		startWooConnect:          startWooConnect,
+		completeWooConnect:       completeWooConnect,
+		manualConnectWoo:         manualConnectWoo,
+		disconnect:               disconnect,
+		testConnection:           testConnection,
+		importWooProducts:        importWooProducts,
+		pushProductToWoo:         pushProductToWoo,
+		listSyncSchedules:        listSyncSchedules,
+		upsertSyncSchedule:       upsertSyncSchedule,
+		deleteAllImportedProds:   deleteAllImportedProds,
+		updateConnectionSettings: updateConnectionSettings,
 	}
 }
 
@@ -122,6 +146,7 @@ func Register(
 	skuRepo := repositories.NewSKURepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 	stockMovementRepo := repositories.NewStockMovementRepo(db)
+	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -140,6 +165,10 @@ func Register(
 			productRepo, variantRepo, skuRepo, listingRepo,
 			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db)),
 		),
+		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
+		appchannels.NewUpsertSyncScheduleUseCase(db, scheduleRepo),
+		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo),
+		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -217,6 +246,21 @@ func (h *Handler) TestConnection(c *gin.Context, id genintegrations.Id) {
 	middleware.OK(c, resp)
 }
 
+func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.UpdateConnectionSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	conn, err := h.updateConnectionSettings.Execute(c.Request.Context(), appintegrations.UpdateConnectionSettingsInput{
+		ID: id, DefaultCurrency: req.DefaultCurrency,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
+}
+
 func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.ImportWooProductsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -239,7 +283,7 @@ func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
 		Imported:      result.Imported,
 		AlreadyLinked: result.AlreadyLinked,
 		SkippedType:   result.SkippedType,
-		Errors:        result.Errors,
+		Errors:        emptySliceIfNil(result.Errors),
 	})
 }
 
@@ -260,6 +304,61 @@ func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	middleware.OK(c, toGenListing(*listing))
+}
+
+func (h *Handler) DeleteAllImportedProducts(c *gin.Context, id genintegrations.Id) {
+	result, err := h.deleteAllImportedProds.Execute(c.Request.Context(), appchannels.DeleteAllImportedProductsInput{ConnectionID: id})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genintegrations.DeleteAllImportedProductsResult{
+		DeletedProducts:   result.DeletedProducts,
+		DeletedCategories: result.DeletedCategories,
+		Errors:            emptySliceIfNil(result.Errors),
+	})
+}
+
+func (h *Handler) ListSyncSchedules(c *gin.Context, id genintegrations.Id) {
+	schedules, err := h.listSyncSchedules.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.SyncSchedule, len(schedules))
+	for i, s := range schedules {
+		resp[i] = toGenSyncSchedule(s)
+	}
+	middleware.OK(c, resp)
+}
+
+// UpsertSyncSchedules saves each row via its own independent upsert
+// (idempotent), rather than one all-or-nothing transaction spanning the
+// whole batch. If a later row in the request fails validation, earlier
+// rows in the same request have already been saved — safe to retry the
+// whole PUT once the bad row is fixed, since re-applying already-saved
+// rows is a no-op (same values in, same values out).
+func (h *Handler) UpsertSyncSchedules(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.UpsertSyncSchedulesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	resp := make([]genintegrations.SyncSchedule, 0, len(req.Schedules))
+	for _, s := range req.Schedules {
+		updated, err := h.upsertSyncSchedule.Execute(c.Request.Context(), appchannels.UpsertSyncScheduleInput{
+			ConnectionID:       id,
+			EntityType:         channelsDomain.SyncEntityType(s.EntityType),
+			Direction:          channelsDomain.SyncDirection(s.Direction),
+			Enabled:            s.Enabled,
+			IntervalMinutes:    s.IntervalMinutes,
+			DefaultWarehouseID: s.DefaultWarehouseId,
+			DefaultCurrency:    s.DefaultCurrency,
+		})
+		if err := mapError(c, err); err != nil {
+			return
+		}
+		resp = append(resp, toGenSyncSchedule(*updated))
+	}
+	middleware.OK(c, resp)
 }
 
 // ── Route handler (api/integrationscallback — public) ────────────────────────
@@ -288,12 +387,14 @@ func (h *Handler) WooCallback(c *gin.Context) {
 // ── Domain → generated-type mapper ───────────────────────────────────────────
 
 func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection {
+	currency := c.DefaultCurrency
 	return genintegrations.Connection{
-		Id:        c.ID,
-		Provider:  string(c.Provider),
-		StoreUrl:  c.StoreURL.String(),
-		Status:    genintegrations.ConnectionStatus(c.Status),
-		CreatedAt: c.CreatedAt,
+		Id:              c.ID,
+		Provider:        string(c.Provider),
+		StoreUrl:        c.StoreURL.String(),
+		Status:          genintegrations.ConnectionStatus(c.Status),
+		DefaultCurrency: &currency,
+		CreatedAt:       c.CreatedAt,
 	}
 }
 
@@ -311,6 +412,31 @@ func toGenListing(l channelsDomain.ProductChannelListing) genintegrations.Produc
 	}
 }
 
+func toGenSyncSchedule(s channelsDomain.SyncSchedule) genintegrations.SyncSchedule {
+	return genintegrations.SyncSchedule{
+		EntityType:         genintegrations.SyncScheduleEntityType(s.EntityType),
+		Direction:          genintegrations.SyncScheduleDirection(s.Direction),
+		Enabled:            s.Enabled,
+		IntervalMinutes:    s.IntervalMinutes,
+		DefaultWarehouseId: s.DefaultWarehouseID,
+		DefaultCurrency:    s.DefaultCurrency,
+		LastRunAt:          s.LastRunAt,
+		LastRunStatus:      genintegrations.SyncScheduleLastRunStatus(s.LastRunStatus),
+		LastRunError:       s.LastRunError,
+	}
+}
+
+// emptySliceIfNil normalizes a nil slice to an empty one — a nil []string
+// marshals to JSON `null`, but the OpenAPI schema declares errors as an
+// array; frontend code that unconditionally reads `.errors.length` crashes
+// on `null`. This keeps the wire contract's implied non-nullability true.
+func emptySliceIfNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
 // ── Error mapping ────────────────────────────────────────────────────────────
 
 func mapError(c *gin.Context, err error) error {
@@ -325,7 +451,13 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
-	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct):
+	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct),
+		errors.Is(err, channelsDomain.ErrInvalidSyncEntityType),
+		errors.Is(err, channelsDomain.ErrInvalidSyncDirection),
+		errors.Is(err, channelsDomain.ErrInvalidSyncInterval),
+		errors.Is(err, channelsDomain.ErrCannotEnableUnrunnableEntity),
+		errors.Is(err, channelsDomain.ErrDefaultWarehouseAndCurrencyRequired),
+		errors.Is(err, channelsDomain.ErrDefaultWarehouseRequired):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStateInvalid):
 		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())

@@ -46,6 +46,28 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/settings:
+    patch:
+      operationId: updateConnectionSettings
+      summary: Update this connection's stored defaults (currently just default_currency)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConnectionSettingsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/test:
     post:
       operationId: testConnection
@@ -62,6 +84,22 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/imported-products:
+    delete:
+      operationId: deleteAllImportedProducts
+      summary: Delete every product this connection has imported (and any category left empty by that)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteAllImportedProductsResultResponse'
+        '404':
           $ref: '#/components/responses/Error'
 
   /integrations/connections/{id}/import:
@@ -114,6 +152,44 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
         '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/sync-schedules:
+    get:
+      operationId: listSyncSchedules
+      summary: List this connection's recurring sync schedule configuration
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncScheduleListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: upsertSyncSchedules
+      summary: Bulk-save this connection's sync schedule rows (one per entity type + direction)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertSyncSchedulesRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncScheduleListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
           $ref: '#/components/responses/Error'
 
   /integrations/woocommerce/connect/start:
@@ -194,7 +270,14 @@ components:
         provider: { type: string }
         store_url: { type: string }
         status: { $ref: '#/components/schemas/ConnectionStatus' }
+        default_currency: { type: string }
         created_at: { type: string, format: date-time }
+
+    UpdateConnectionSettingsRequest:
+      type: object
+      required: [default_currency]
+      properties:
+        default_currency: { type: string }
 
     StartWooConnectRequest:
       type: object
@@ -248,6 +331,23 @@ components:
           $ref: '#/components/schemas/ImportResult'
         error: { nullable: true }
 
+    DeleteAllImportedProductsResult:
+      type: object
+      required: [deleted_products, deleted_categories, errors]
+      properties:
+        deleted_products: { type: integer }
+        deleted_categories: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    DeleteAllImportedProductsResultResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/DeleteAllImportedProductsResult'
+        error: { nullable: true }
+
     PushProductToWooRequest:
       type: object
       required: [product_id]
@@ -274,6 +374,44 @@ components:
         data:
           $ref: '#/components/schemas/ProductChannelListing'
         error: { nullable: true }
+
+    SyncSchedule:
+      type: object
+      required: [entity_type, direction, enabled, interval_minutes, last_run_status, last_run_error]
+      properties:
+        entity_type: { type: string, enum: [products, stock, orders, categories] }
+        direction: { type: string, enum: [import, export] }
+        enabled: { type: boolean }
+        interval_minutes: { type: integer }
+        default_warehouse_id:
+          type: string
+          nullable: true
+          description: Required (with default_currency) to enable products/import; required alone to enable stock/import. Unused otherwise.
+        default_currency:
+          type: string
+          nullable: true
+          description: Required to enable products/import. Unused otherwise.
+        last_run_at: { type: string, format: date-time, nullable: true }
+        last_run_status: { type: string, enum: ['', success, error] }
+        last_run_error: { type: string }
+
+    SyncScheduleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncSchedule'
+        error: { nullable: true }
+
+    UpsertSyncSchedulesRequest:
+      type: object
+      required: [schedules]
+      properties:
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncSchedule'
 
     CatalogListResponse:
       type: object

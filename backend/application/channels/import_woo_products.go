@@ -138,13 +138,6 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 			return err
 		}
 
-		var categoryID *string
-		if len(wp.Categories) > 0 {
-			if cat, err := uc.categoryRepo.FindBySlug(ctx, wp.Categories[0].Slug); err == nil {
-				categoryID = &cat.ID
-			}
-		}
-
 		priceMinorUnits, err := ParseWooPriceToMinorUnits(wp.RegularPrice)
 		if err != nil {
 			return err
@@ -152,6 +145,32 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 
 		now := time.Now()
 		tenantID := tenant.IDFromContext(ctx)
+
+		// A product's Woo category is created in CommerceOS if it doesn't
+		// already exist (matched by slug) — previously this only ever
+		// linked to a pre-existing category, so any category Woo had that
+		// CommerceOS didn't silently dropped and the product imported with
+		// no category at all. pms.Product supports one category, so only
+		// the first of Woo's (possibly several) categories is used.
+		var categoryID *string
+		if len(wp.Categories) > 0 {
+			wc := wp.Categories[0]
+			if cat, err := uc.categoryRepo.FindBySlug(ctx, wc.Slug); err == nil {
+				categoryID = &cat.ID
+			} else if errors.Is(err, pmsDomain.ErrCategoryNotFound) {
+				newCategory := pmsDomain.Category{
+					TenantID: tenantID, Name: wc.Name, Slug: wc.Slug,
+					CreatedAt: now, UpdatedAt: now,
+				}
+				if err := uc.categoryRepo.Create(ctx, &newCategory); err != nil {
+					return err
+				}
+				categoryID = &newCategory.ID
+			} else {
+				return err
+			}
+		}
+
 		slug := apppms.Slugify(wp.Name)
 		if _, err := uc.productRepo.FindBySlug(ctx, slug); err == nil {
 			slug = slug + "-" + wp.ID // collision with an unrelated existing product
@@ -209,9 +228,14 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 	}
 
 	if imported && wp.ManageStock && wp.StockQuantity != nil && *wp.StockQuantity != 0 {
+		// Adjustment, not Receipt: this is recording Woo's reported stock
+		// level as the new starting point, not a literal goods-receipt
+		// event — Receipt requires a non-negative delta and Woo can report
+		// negative stock (stores with overselling allowed), same reasoning
+		// ImportWooStockLevelsUseCase already uses for its own reconciliation.
 		_, err := uc.stock.Execute(ctx, invapp.RecordStockMovementInput{
 			SKUID: createdSKUID, WarehouseID: in.DefaultWarehouseID,
-			Type: invDomain.MovementTypeReceipt, QuantityDelta: int64(*wp.StockQuantity),
+			Type: invDomain.MovementTypeAdjustment, QuantityDelta: int64(*wp.StockQuantity),
 			Reason: "woocommerce import", OccurredAt: time.Now(),
 		})
 		if err != nil {

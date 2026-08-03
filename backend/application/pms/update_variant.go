@@ -14,15 +14,19 @@ type UpdateVariantInput struct {
 	ID       string
 	Name     string
 	Position int
+	// FeaturedMediaID: nil clears the variant's selected image, a set
+	// value must reference a Media row belonging to the variant's product.
+	FeaturedMediaID *string
 }
 
 type UpdateVariantUseCase struct {
 	db          *gorm.DB
 	variantRepo pmsDomain.VariantRepository
+	mediaRepo   pmsDomain.MediaRepository
 }
 
-func NewUpdateVariantUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository) *UpdateVariantUseCase {
-	return &UpdateVariantUseCase{db: db, variantRepo: variantRepo}
+func NewUpdateVariantUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, mediaRepo pmsDomain.MediaRepository) *UpdateVariantUseCase {
+	return &UpdateVariantUseCase{db: db, variantRepo: variantRepo, mediaRepo: mediaRepo}
 }
 
 func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInput) (*pmsDomain.Variant, error) {
@@ -32,8 +36,20 @@ func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInp
 		if err != nil {
 			return err
 		}
+
+		if in.FeaturedMediaID != nil {
+			media, err := uc.mediaRepo.FindByID(ctx, *in.FeaturedMediaID)
+			if err != nil {
+				return err
+			}
+			if media.ProductID == nil || *media.ProductID != existing.ProductID {
+				return pmsDomain.ErrFeaturedMediaProductMismatch
+			}
+		}
+
 		existing.Name = in.Name
 		existing.Position = in.Position
+		existing.FeaturedMediaID = in.FeaturedMediaID
 		existing.UpdatedAt = time.Now()
 		if err := uc.variantRepo.Update(ctx, existing); err != nil {
 			return err

@@ -46,7 +46,9 @@ type SKURepository interface {
 
 type MediaRepository interface {
 	Attach(ctx context.Context, m *Media) error
+	FindByID(ctx context.Context, id string) (*Media, error)
 	ListByProduct(ctx context.Context, productID string) ([]Media, error)
+	Update(ctx context.Context, m *Media) error
 	Delete(ctx context.Context, id string) error
 }
 

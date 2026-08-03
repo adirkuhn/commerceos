@@ -17,7 +17,26 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for MediaType.
+const (
+	Image MediaType = "image"
+	Video MediaType = "video"
+)
+
+// Valid indicates whether the value is a known member of the MediaType enum.
+func (e MediaType) Valid() bool {
+	switch e {
+	case Image:
+		return true
+	case Video:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ProductStatus.
 const (
@@ -132,6 +151,34 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// Media defines model for Media.
+type Media struct {
+	AltText   string    `json:"alt_text"`
+	CreatedAt time.Time `json:"created_at"`
+	Id        string    `json:"id"`
+	Position  int       `json:"position"`
+	ProductId *string   `json:"product_id,omitempty"`
+	TenantId  string    `json:"tenant_id"`
+	Type      MediaType `json:"type"`
+	Url       string    `json:"url"`
+	VariantId *string   `json:"variant_id,omitempty"`
+}
+
+// MediaType defines model for Media.Type.
+type MediaType string
+
+// MediaListResponse defines model for MediaListResponse.
+type MediaListResponse struct {
+	Data  *[]Media    `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// MediaResponse defines model for MediaResponse.
+type MediaResponse struct {
+	Data  *Media      `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // Product defines model for Product.
 type Product struct {
 	CategoryId  *string   `json:"category_id,omitempty"`
@@ -211,6 +258,11 @@ type UpdateCategoryRequest struct {
 	ParentId *string `json:"parent_id,omitempty"`
 }
 
+// UpdateMediaRequest defines model for UpdateMediaRequest.
+type UpdateMediaRequest struct {
+	AltText string `json:"alt_text"`
+}
+
 // UpdateProductRequest defines model for UpdateProductRequest.
 type UpdateProductRequest struct {
 	CategoryId  *string       `json:"category_id,omitempty"`
@@ -235,19 +287,21 @@ type UpdateSKURequest struct {
 
 // UpdateVariantRequest defines model for UpdateVariantRequest.
 type UpdateVariantRequest struct {
-	Name     string `json:"name"`
-	Position *int   `json:"position,omitempty"`
+	FeaturedMediaId *string `json:"featured_media_id,omitempty"`
+	Name            string  `json:"name"`
+	Position        *int    `json:"position,omitempty"`
 }
 
 // Variant defines model for Variant.
 type Variant struct {
-	CreatedAt time.Time `json:"created_at"`
-	Id        string    `json:"id"`
-	Name      string    `json:"name"`
-	Position  int       `json:"position"`
-	ProductId string    `json:"product_id"`
-	TenantId  string    `json:"tenant_id"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt       time.Time `json:"created_at"`
+	FeaturedMediaId *string   `json:"featured_media_id,omitempty"`
+	Id              string    `json:"id"`
+	Name            string    `json:"name"`
+	Position        int       `json:"position"`
+	ProductId       string    `json:"product_id"`
+	TenantId        string    `json:"tenant_id"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // VariantResponse defines model for VariantResponse.
@@ -258,14 +312,15 @@ type VariantResponse struct {
 
 // VariantWithSKUs defines model for VariantWithSKUs.
 type VariantWithSKUs struct {
-	CreatedAt time.Time `json:"created_at"`
-	Id        string    `json:"id"`
-	Name      string    `json:"name"`
-	Position  int       `json:"position"`
-	ProductId string    `json:"product_id"`
-	Skus      *[]SKU    `json:"skus,omitempty"`
-	TenantId  string    `json:"tenant_id"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt       time.Time `json:"created_at"`
+	FeaturedMediaId *string   `json:"featured_media_id,omitempty"`
+	Id              string    `json:"id"`
+	Name            string    `json:"name"`
+	Position        int       `json:"position"`
+	ProductId       string    `json:"product_id"`
+	Skus            *[]SKU    `json:"skus,omitempty"`
+	TenantId        string    `json:"tenant_id"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // Id defines model for id.
@@ -274,17 +329,29 @@ type Id = string
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// UploadProductMediaMultipartBody defines parameters for UploadProductMedia.
+type UploadProductMediaMultipartBody struct {
+	AltText *string            `json:"alt_text,omitempty"`
+	File    openapi_types.File `json:"file"`
+}
+
 // CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
 type CreateCategoryJSONRequestBody = CreateCategoryRequest
 
 // UpdateCategoryJSONRequestBody defines body for UpdateCategory for application/json ContentType.
 type UpdateCategoryJSONRequestBody = UpdateCategoryRequest
 
+// UpdateMediaJSONRequestBody defines body for UpdateMedia for application/json ContentType.
+type UpdateMediaJSONRequestBody = UpdateMediaRequest
+
 // CreateProductJSONRequestBody defines body for CreateProduct for application/json ContentType.
 type CreateProductJSONRequestBody = CreateProductRequest
 
 // UpdateProductJSONRequestBody defines body for UpdateProduct for application/json ContentType.
 type UpdateProductJSONRequestBody = UpdateProductRequest
+
+// UploadProductMediaMultipartRequestBody defines body for UploadProductMedia for multipart/form-data ContentType.
+type UploadProductMediaMultipartRequestBody UploadProductMediaMultipartBody
 
 // CreateVariantJSONRequestBody defines body for CreateVariant for application/json ContentType.
 type CreateVariantJSONRequestBody = CreateVariantRequest
@@ -312,6 +379,12 @@ type ServerInterface interface {
 	// UpdateCategory Update a category
 	// (PATCH /pms/categories/{id})
 	UpdateCategory(c *gin.Context, id Id)
+	// DeleteMedia Delete a product image
+	// (DELETE /pms/media/{id})
+	DeleteMedia(c *gin.Context, id Id)
+	// UpdateMedia Update a product image's title (alt text)
+	// (PATCH /pms/media/{id})
+	UpdateMedia(c *gin.Context, id Id)
 	// ListProducts List products for the current tenant
 	// (GET /pms/products)
 	ListProducts(c *gin.Context)
@@ -327,6 +400,12 @@ type ServerInterface interface {
 	// UpdateProduct Update a product
 	// (PATCH /pms/products/{id})
 	UpdateProduct(c *gin.Context, id Id)
+	// ListProductMedia List a product's images, in display order
+	// (GET /pms/products/{id}/media)
+	ListProductMedia(c *gin.Context, id Id)
+	// UploadProductMedia Upload an image for a product (jpeg/png/webp/gif)
+	// (POST /pms/products/{id}/media)
+	UploadProductMedia(c *gin.Context, id Id)
 	// CreateVariant Add a variant to a product
 	// (POST /pms/products/{id}/variants)
 	CreateVariant(c *gin.Context, id Id)
@@ -432,6 +511,56 @@ func (siw *ServerInterfaceWrapper) UpdateCategory(c *gin.Context) {
 	siw.Handler.UpdateCategory(c, id)
 }
 
+// DeleteMedia operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMedia(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMedia(c, id)
+}
+
+// UpdateMedia operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMedia(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateMedia(c, id)
+}
+
 // ListProducts operation middleware
 func (siw *ServerInterfaceWrapper) ListProducts(c *gin.Context) {
 
@@ -531,6 +660,56 @@ func (siw *ServerInterfaceWrapper) UpdateProduct(c *gin.Context) {
 	}
 
 	siw.Handler.UpdateProduct(c, id)
+}
+
+// ListProductMedia operation middleware
+func (siw *ServerInterfaceWrapper) ListProductMedia(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListProductMedia(c, id)
+}
+
+// UploadProductMedia operation middleware
+func (siw *ServerInterfaceWrapper) UploadProductMedia(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UploadProductMedia(c, id)
 }
 
 // CreateVariant operation middleware
@@ -719,6 +898,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/pms/products/:id", wrapper.DeleteProduct)
 	router.GET(options.BaseURL+"/pms/products/:id", wrapper.GetProduct)
 	router.PATCH(options.BaseURL+"/pms/products/:id", wrapper.UpdateProduct)
+	router.GET(options.BaseURL+"/pms/products/:id/media", wrapper.ListProductMedia)
+	router.POST(options.BaseURL+"/pms/products/:id/media", wrapper.UploadProductMedia)
+	router.DELETE(options.BaseURL+"/pms/media/:id", wrapper.DeleteMedia)
+	router.PATCH(options.BaseURL+"/pms/media/:id", wrapper.UpdateMedia)
 	router.POST(options.BaseURL+"/pms/products/:id/variants", wrapper.CreateVariant)
 	router.DELETE(options.BaseURL+"/pms/variants/:id", wrapper.DeleteVariant)
 	router.PATCH(options.BaseURL+"/pms/variants/:id", wrapper.UpdateVariant)
@@ -732,35 +915,40 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"vo64WQVqmYUsVgEdU4dF3Fme0dXN6t8AAAD//w==",
+	"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",
+	"ucz+rwnskZh522u8u9v9LwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

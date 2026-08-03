@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, APIResponse } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportResult, DeleteAllImportedProductsResult, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -65,6 +65,42 @@ export function manualConnectWooCommerce(token: string, payload: ManualConnectWo
         consumer_secret: payload.consumerSecret,
       }),
     },
+    token,
+  )
+}
+
+export function updateConnectionSettings(token: string, connectionId: string, defaultCurrency: string): Promise<Connection> {
+  return request<Connection>(
+    `${base()}/connections/${connectionId}/settings`,
+    { method: 'PATCH', body: JSON.stringify({ default_currency: defaultCurrency }) },
+    token,
+  )
+}
+
+export function importWooProducts(token: string, connectionId: string, defaultWarehouseId: string, defaultCurrency: string): Promise<ImportResult> {
+  return request<ImportResult>(
+    `${base()}/connections/${connectionId}/import`,
+    { method: 'POST', body: JSON.stringify({ default_warehouse_id: defaultWarehouseId, default_currency: defaultCurrency }) },
+    token,
+  )
+}
+
+export function deleteAllImportedProducts(token: string, connectionId: string): Promise<DeleteAllImportedProductsResult> {
+  return request<DeleteAllImportedProductsResult>(
+    `${base()}/connections/${connectionId}/imported-products`,
+    { method: 'DELETE' },
+    token,
+  )
+}
+
+export function listSyncSchedules(token: string, connectionId: string): Promise<SyncSchedule[]> {
+  return request<SyncSchedule[]>(`${base()}/connections/${connectionId}/sync-schedules`, { method: 'GET' }, token)
+}
+
+export function upsertSyncSchedules(token: string, connectionId: string, schedules: SyncSchedule[]): Promise<SyncSchedule[]> {
+  return request<SyncSchedule[]>(
+    `${base()}/connections/${connectionId}/sync-schedules`,
+    { method: 'PUT', body: JSON.stringify({ schedules }) },
     token,
   )
 }

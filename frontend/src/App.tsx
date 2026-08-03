@@ -8,6 +8,7 @@ import CommandPalette from './components/layout/CommandPalette'
 import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Inventory from './pages/Inventory'
+import Warehouses from './pages/Warehouses'
 import Orders from './pages/Orders'
 import Picking from './pages/Picking'
 import Integrations from './pages/Integrations'
@@ -28,6 +29,7 @@ function AppContent() {
       case 'dashboard': return <Dashboard />
       case 'products': return <Products />
       case 'inventory': return <Inventory />
+      case 'warehouses': return <Warehouses />
       case 'orders': return <Orders />
       case 'picking': return <Picking />
       case 'integrations': return <Integrations />

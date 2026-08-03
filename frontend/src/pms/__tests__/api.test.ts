@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { APIResponse, Category, Product, ProductDetail, Variant, SKU } from '../types'
+import type { APIResponse, Category, Product, ProductDetail, Variant, SKU, Media } from '../types'
 
 const TOKEN = 'test-token'
 const BASE = 'https://api.commerceos.dev.localhost/api/v1/pms'
@@ -193,5 +194,70 @@ describe('deleteSKU', () => {
     mockFetch(null)
     await api.deleteSKU(TOKEN, 's1')
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/skus/s1`, expect.objectContaining({ method: 'DELETE' }))
+  })
+})
+
+const sampleMedia: Media = {
+  id: 'm1', tenant_id: 't1', product_id: 'p1', url: 'https://api.example.com/uploads/t1/x.jpg',
+  type: 'image', position: 0, alt_text: '', created_at: '2026-07-29T00:00:00Z',
+}
+
+describe('listProductMedia', () => {
+  it('calls correct endpoint', async () => {
+    mockFetch([sampleMedia])
+    const result = await api.listProductMedia(TOKEN, 'p1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/products/p1/media`, expect.objectContaining({ method: 'GET' }))
+    expect(result).toEqual([sampleMedia])
+  })
+})
+
+describe('uploadProductMedia', () => {
+  it('posts a FormData body without forcing a Content-Type header', async () => {
+    mockFetch(sampleMedia, 201)
+    const file = new File(['fake-bytes'], 'photo.jpg', { type: 'image/jpeg' })
+
+    await api.uploadProductMedia(TOKEN, 'p1', file, 'Front view')
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1)
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toBe(`${BASE}/products/p1/media`)
+    expect(options?.method).toBe('POST')
+    expect(options?.body).toBeInstanceOf(FormData)
+    expect((options?.body as FormData).get('file')).toBe(file)
+    expect((options?.body as FormData).get('alt_text')).toBe('Front view')
+    // the browser must set Content-Type itself (it includes the multipart
+    // boundary) — request() always forces application/json, so this call
+    // deliberately bypasses it.
+    expect((options?.headers as Record<string, string>)['Content-Type']).toBeUndefined()
+  })
+
+  it('throws on an unsupported file type', async () => {
+    mockFetchError('VALIDATION_ERROR', 'unsupported file type', 422)
+    const file = new File(['bytes'], 'doc.pdf', { type: 'application/pdf' })
+
+    await expect(api.uploadProductMedia(TOKEN, 'p1', file)).rejects.toThrow('unsupported file type')
+  })
+})
+
+describe('updateMedia', () => {
+  it('sends alt_text in body to the correct endpoint', async () => {
+    mockFetch({ ...sampleMedia, alt_text: 'Front view' })
+    await api.updateMedia(TOKEN, 'm1', 'Front view')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/media/m1`, expect.objectContaining({ method: 'PATCH' }))
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({ alt_text: 'Front view' })
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'media not found', 404)
+    await expect(api.updateMedia(TOKEN, 'missing', 'Front view')).rejects.toThrow('media not found')
+  })
+})
+
+describe('deleteMedia', () => {
+  it('calls correct endpoint', async () => {
+    mockFetch(null)
+    await api.deleteMedia(TOKEN, 'm1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/media/m1`, expect.objectContaining({ method: 'DELETE' }))
   })
 })

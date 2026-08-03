@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { Connection, APIResponse } from '../types'
+import type { Connection, SyncSchedule, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -159,5 +159,100 @@ describe('manualConnectWooCommerce', () => {
       consumerKey: 'ck_abc',
       consumerSecret: 'cs_abc',
     })).rejects.toThrow('store URL must be a valid http(s) URL')
+  })
+})
+
+const sampleSchedule: SyncSchedule = {
+  entity_type: 'products', direction: 'import', enabled: true, interval_minutes: 15,
+  default_warehouse_id: 'wh-1', default_currency: 'USD',
+  last_run_at: null, last_run_status: '', last_run_error: '',
+}
+
+describe('listSyncSchedules', () => {
+  it('returns schedules for a connection', async () => {
+    mockFetch([sampleSchedule])
+    const result = await api.listSyncSchedules(TOKEN, 'conn-1')
+    expect(result).toEqual([sampleSchedule])
+  })
+
+  it('calls the correct endpoint', async () => {
+    mockFetch([])
+    await api.listSyncSchedules(TOKEN, 'conn-1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/sync-schedules',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'integration connection not found', 404)
+    await expect(api.listSyncSchedules(TOKEN, 'missing')).rejects.toThrow('integration connection not found')
+  })
+})
+
+describe('upsertSyncSchedules', () => {
+  it('sends schedules in body to the correct endpoint', async () => {
+    mockFetch([sampleSchedule])
+    await api.upsertSyncSchedules(TOKEN, 'conn-1', [sampleSchedule])
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/sync-schedules')
+    expect(opts.method).toBe('PUT')
+    expect(JSON.parse(opts.body as string)).toEqual({ schedules: [sampleSchedule] })
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'this entity type does not support scheduled sync yet', 422)
+    await expect(api.upsertSyncSchedules(TOKEN, 'conn-1', [sampleSchedule])).rejects.toThrow('this entity type does not support scheduled sync yet')
+  })
+})
+
+describe('importWooProducts', () => {
+  it('sends default_warehouse_id/default_currency in body to the correct endpoint', async () => {
+    mockFetch({ imported: 3, already_linked: 1, skipped_type: 0, errors: [] })
+    const result = await api.importWooProducts(TOKEN, 'conn-1', 'wh-1', 'USD')
+    expect(result.imported).toBe(3)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/import')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({ default_warehouse_id: 'wh-1', default_currency: 'USD' })
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'default_warehouse_id and default_currency are required', 422)
+    await expect(api.importWooProducts(TOKEN, 'conn-1', '', '')).rejects.toThrow('default_warehouse_id and default_currency are required')
+  })
+})
+
+describe('deleteAllImportedProducts', () => {
+  it('calls the correct endpoint with DELETE', async () => {
+    mockFetch({ deleted_products: 805, deleted_categories: 12, errors: [] })
+    const result = await api.deleteAllImportedProducts(TOKEN, 'conn-1')
+    expect(result.deleted_products).toBe(805)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/imported-products',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('throws on failure', async () => {
+    mockFetchError('INTERNAL', 'internal server error', 500)
+    await expect(api.deleteAllImportedProducts(TOKEN, 'conn-1')).rejects.toThrow('internal server error')
+  })
+})
+
+describe('updateConnectionSettings', () => {
+  it('sends default_currency in body to the correct endpoint', async () => {
+    mockFetch({ ...sampleConnection, default_currency: 'USD' })
+    const result = await api.updateConnectionSettings(TOKEN, 'conn-1', 'USD')
+    expect(result.default_currency).toBe('USD')
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/settings')
+    expect(opts.method).toBe('PATCH')
+    expect(JSON.parse(opts.body as string)).toEqual({ default_currency: 'USD' })
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'integration connection not found', 404)
+    await expect(api.updateConnectionSettings(TOKEN, 'missing', 'USD')).rejects.toThrow('integration connection not found')
   })
 })

@@ -43,13 +43,14 @@ type productModel struct {
 func (productModel) TableName() string { return "products" }
 
 type variantModel struct {
-	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID  string `gorm:"not null;type:uuid"`
-	ProductID string `gorm:"not null;type:uuid"`
-	Name      string `gorm:"not null"`
-	Position  int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID              string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID        string `gorm:"not null;type:uuid"`
+	ProductID       string `gorm:"not null;type:uuid"`
+	Name            string `gorm:"not null"`
+	Position        int
+	FeaturedMediaID *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (variantModel) TableName() string { return "variants" }
@@ -360,12 +361,13 @@ func (r *VariantRepo) Create(ctx context.Context, v *pmsDomain.Variant) error {
 		return err
 	}
 	m := variantModel{
-		TenantID:  v.TenantID,
-		ProductID: v.ProductID,
-		Name:      v.Name,
-		Position:  v.Position,
-		CreatedAt: v.CreatedAt,
-		UpdatedAt: v.UpdatedAt,
+		TenantID:        v.TenantID,
+		ProductID:       v.ProductID,
+		Name:            v.Name,
+		Position:        v.Position,
+		FeaturedMediaID: v.FeaturedMediaID,
+		CreatedAt:       v.CreatedAt,
+		UpdatedAt:       v.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("variantRepo.Create: %w", err)
@@ -412,9 +414,10 @@ func (r *VariantRepo) Update(ctx context.Context, v *pmsDomain.Variant) error {
 	}
 	if err := tx.Model(&variantModel{}).Where("id = ?", v.ID).
 		Updates(map[string]any{
-			"name":       v.Name,
-			"position":   v.Position,
-			"updated_at": v.UpdatedAt,
+			"name":              v.Name,
+			"position":          v.Position,
+			"featured_media_id": v.FeaturedMediaID,
+			"updated_at":        v.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("variantRepo.Update: %w", err)
 	}
@@ -434,13 +437,14 @@ func (r *VariantRepo) Delete(ctx context.Context, id string) error {
 
 func toVariantDomain(m variantModel) *pmsDomain.Variant {
 	return &pmsDomain.Variant{
-		ID:        m.ID,
-		TenantID:  m.TenantID,
-		ProductID: m.ProductID,
-		Name:      m.Name,
-		Position:  m.Position,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
+		ID:              m.ID,
+		TenantID:        m.TenantID,
+		ProductID:       m.ProductID,
+		Name:            m.Name,
+		Position:        m.Position,
+		FeaturedMediaID: m.FeaturedMediaID,
+		CreatedAt:       m.CreatedAt,
+		UpdatedAt:       m.UpdatedAt,
 	}
 }
 
@@ -583,5 +587,123 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		Status:          pmsDomain.SKUStatus(m.Status),
 		CreatedAt:       m.CreatedAt,
 		UpdatedAt:       m.UpdatedAt,
+	}
+}
+
+// ── Media repo ───────────────────────────────────────────────────────────────
+
+type mediaModel struct {
+	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID  string `gorm:"not null;type:uuid"`
+	ProductID *string
+	VariantID *string
+	URL       string `gorm:"not null"`
+	Type      string `gorm:"not null"`
+	Position  int    `gorm:"not null"`
+	AltText   string
+	CreatedAt time.Time
+}
+
+func (mediaModel) TableName() string { return "media" }
+
+type MediaRepo struct{ db *gorm.DB }
+
+func NewMediaRepo(db *gorm.DB) *MediaRepo { return &MediaRepo{db: db} }
+
+func (r *MediaRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *MediaRepo) Attach(ctx context.Context, m *pmsDomain.Media) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	row := mediaModel{
+		TenantID:  m.TenantID,
+		ProductID: m.ProductID,
+		VariantID: m.VariantID,
+		URL:       m.URL,
+		Type:      string(m.Type),
+		Position:  m.Position,
+		AltText:   m.AltText,
+		CreatedAt: m.CreatedAt,
+	}
+	if err := tx.Create(&row).Error; err != nil {
+		return fmt.Errorf("mediaRepo.Attach: %w", err)
+	}
+	m.ID = row.ID
+	return nil
+}
+
+func (r *MediaRepo) FindByID(ctx context.Context, id string) (*pmsDomain.Media, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var row mediaModel
+	if err := tx.Where("id = ?", id).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrMediaNotFound
+		}
+		return nil, fmt.Errorf("mediaRepo.FindByID: %w", err)
+	}
+	return toMediaDomain(row), nil
+}
+
+func (r *MediaRepo) ListByProduct(ctx context.Context, productID string) ([]pmsDomain.Media, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []mediaModel
+	if err := tx.Where("product_id = ?", productID).Order("position asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("mediaRepo.ListByProduct: %w", err)
+	}
+	out := make([]pmsDomain.Media, len(rows))
+	for i, row := range rows {
+		out[i] = *toMediaDomain(row)
+	}
+	return out, nil
+}
+
+func (r *MediaRepo) Update(ctx context.Context, m *pmsDomain.Media) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&mediaModel{}).Where("id = ?", m.ID).
+		Update("alt_text", m.AltText).Error; err != nil {
+		return fmt.Errorf("mediaRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *MediaRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&mediaModel{}).Error; err != nil {
+		return fmt.Errorf("mediaRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+func toMediaDomain(m mediaModel) *pmsDomain.Media {
+	return &pmsDomain.Media{
+		ID:        m.ID,
+		TenantID:  m.TenantID,
+		ProductID: m.ProductID,
+		VariantID: m.VariantID,
+		URL:       m.URL,
+		Type:      pmsDomain.MediaType(m.Type),
+		Position:  m.Position,
+		AltText:   m.AltText,
+		CreatedAt: m.CreatedAt,
 	}
 }

@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import {
-  Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard,
+  Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard, Plug,
   ChevronRight, Check, AlertTriangle,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../auth/AuthContext'
+import { useConnections } from '../integrations/hooks/useConnections'
+import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
+import type { Connection } from '../integrations/types'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 
 interface SettingSection {
   id: string
@@ -14,6 +19,7 @@ interface SettingSection {
 
 const SECTIONS: SettingSection[] = [
   { id: 'company', label: 'Company', icon: Building2, description: 'Business name, address, tax IDs' },
+  { id: 'integrations', label: 'Integrations', icon: Plug, description: 'Connect and configure external services' },
   { id: 'inventory', label: 'Inventory Rules', icon: Package, description: 'FEFO, min stock, reorder points' },
   { id: 'shipping', label: 'Shipping Rules', icon: Truck, description: 'Default carriers, label format, zones' },
   { id: 'localization', label: 'Localization', icon: Globe, description: 'Currency, timezone, language' },
@@ -35,6 +41,11 @@ const AUTOMATIONS = [
 
 export default function Settings() {
   const [activeSection, setActiveSection] = useState<SectionId>('company')
+  const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
+
+  if (configuringConnection) {
+    return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={() => setConfiguringConnection(null)} />
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -99,6 +110,8 @@ export default function Settings() {
           </div>
         )}
 
+        {activeSection === 'integrations' && <IntegrationsSettingsSection onConfigure={setConfiguringConnection} />}
+
         {activeSection === 'inventory' && (
           <div className="max-w-2xl space-y-6">
             <div>
@@ -151,33 +164,7 @@ export default function Settings() {
           </div>
         )}
 
-        {activeSection === 'localization' && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Localization</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Currency, timezone, date formats</p>
-            </div>
-            <div className="space-y-4">
-              {[
-                { label: 'Default Currency', options: ['EUR — Euro', 'USD — US Dollar', 'GBP — British Pound', 'CHF — Swiss Franc'], def: 0 },
-                { label: 'Timezone', options: ['Europe/Amsterdam (UTC+2)', 'Europe/London (UTC+1)', 'Europe/Paris (UTC+2)', 'America/New_York (UTC-4)'], def: 0 },
-                { label: 'Date Format', options: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'], def: 0 },
-                { label: 'Language', options: ['English (EN)', 'Dutch (NL)', 'German (DE)', 'French (FR)'], def: 0 },
-              ].map(({ label, options, def }) => (
-                <div key={label}>
-                  <label className="block text-xs font-medium dark:text-gray-300 text-gray-700 mb-1.5">{label}</label>
-                  <select
-                    defaultValue={options[def]}
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    {options.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-            <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">Save Changes</button>
-          </div>
-        )}
+        {activeSection === 'localization' && <LocalizationSettingsSection />}
 
         {activeSection === 'automation' && (
           <div className="max-w-2xl space-y-6">
@@ -283,7 +270,7 @@ export default function Settings() {
           </div>
         )}
 
-        {!['company', 'inventory', 'localization', 'automation', 'security', 'notifications'].includes(activeSection) && (
+        {!['company', 'integrations', 'inventory', 'localization', 'automation', 'security', 'notifications'].includes(activeSection) && (
           <div className="max-w-2xl">
             <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1 capitalize">{activeSection}</h2>
             <p className="text-xs dark:text-gray-500 text-gray-400">
@@ -298,6 +285,165 @@ export default function Settings() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Integrations settings section ─────────────────────────────────────────────
+
+const STATUS_STYLES: Record<Connection['status'], string> = {
+  connected: 'bg-green-500/15 text-green-400',
+  error: 'bg-red-500/15 text-red-400',
+}
+
+function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection: Connection) => void }) {
+  const { token } = useAuth()
+  const { connections, loading, error } = useConnections(token ?? '')
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Integrations</h2>
+        <p className="text-xs dark:text-gray-500 text-gray-400">Connected external services. Configure sync schedules for each.</p>
+      </div>
+
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {!loading && connections.length === 0 && (
+        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-6 text-center">
+          <p className="text-xs dark:text-gray-500 text-gray-400">No integrations connected yet.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {connections.map(conn => (
+          <div key={conn.id} className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-medium dark:text-gray-200 text-gray-800 capitalize">{conn.provider}</p>
+                <span className={clsx('px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize', STATUS_STYLES[conn.status])}>
+                  {conn.status}
+                </span>
+              </div>
+              <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate mt-0.5">{conn.store_url}</p>
+            </div>
+            {conn.provider === 'woocommerce' ? (
+              <button
+                onClick={() => onConfigure(conn)}
+                className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors shrink-0"
+              >
+                Configure
+              </button>
+            ) : (
+              <span className="text-[10px] dark:text-gray-600 text-gray-400 shrink-0">Coming soon</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Localization settings section ─────────────────────────────────────────────
+
+const CURRENCY_OPTIONS = [
+  { value: 'EUR', label: 'EUR — Euro' },
+  { value: 'USD', label: 'USD — US Dollar' },
+  { value: 'GBP', label: 'GBP — British Pound' },
+  { value: 'CHF', label: 'CHF — Swiss Franc' },
+]
+const TIMEZONE_OPTIONS = [
+  { value: 'Europe/Amsterdam', label: 'Europe/Amsterdam (UTC+2)' },
+  { value: 'Europe/London', label: 'Europe/London (UTC+1)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (UTC+2)' },
+  { value: 'America/New_York', label: 'America/New_York (UTC-4)' },
+]
+const DATE_FORMAT_OPTIONS = [
+  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
+  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+]
+const LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English (EN)' },
+  { value: 'nl', label: 'Dutch (NL)' },
+  { value: 'de', label: 'German (DE)' },
+  { value: 'fr', label: 'French (FR)' },
+]
+
+function LocalizationSettingsSection() {
+  const { token } = useAuth()
+  const { settings, loading, error, save } = useTenantSettings(token ?? '')
+
+  const [defaultCurrency, setDefaultCurrency] = useState(CURRENCY_OPTIONS[0].value)
+  const [timezone, setTimezone] = useState(TIMEZONE_OPTIONS[0].value)
+  const [dateFormat, setDateFormat] = useState(DATE_FORMAT_OPTIONS[0].value)
+  const [language, setLanguage] = useState(LANGUAGE_OPTIONS[0].value)
+  const [hydrated, setHydrated] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  if (!hydrated && settings) {
+    if (settings.default_currency) setDefaultCurrency(settings.default_currency)
+    if (settings.timezone) setTimezone(settings.timezone)
+    if (settings.date_format) setDateFormat(settings.date_format)
+    if (settings.language) setLanguage(settings.language)
+    setHydrated(true)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveError('')
+    setSaved(false)
+    try {
+      await save({ default_currency: defaultCurrency, timezone, date_format: dateFormat, language })
+      setSaved(true)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fields: { id: string; label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }[] = [
+    { id: 'localization-currency', label: 'Default Currency', value: defaultCurrency, onChange: setDefaultCurrency, options: CURRENCY_OPTIONS },
+    { id: 'localization-timezone', label: 'Timezone', value: timezone, onChange: setTimezone, options: TIMEZONE_OPTIONS },
+    { id: 'localization-date-format', label: 'Date Format', value: dateFormat, onChange: setDateFormat, options: DATE_FORMAT_OPTIONS },
+    { id: 'localization-language', label: 'Language', value: language, onChange: setLanguage, options: LANGUAGE_OPTIONS },
+  ]
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Localization</h2>
+        <p className="text-xs dark:text-gray-500 text-gray-400">Currency, timezone, date formats</p>
+      </div>
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      <div className="space-y-4">
+        {fields.map(({ id, label, value, onChange, options }) => (
+          <div key={id}>
+            <label htmlFor={id} className="block text-xs font-medium dark:text-gray-300 text-gray-700 mb-1.5">{label}</label>
+            <select
+              id={id}
+              value={value}
+              onChange={e => { onChange(e.target.value); setSaved(false) }}
+              className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+      {(error || saveError) && <p className="text-xs text-red-400">{error || saveError}</p>}
+      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+      >
+        {saving ? 'Saving…' : 'Save Changes'}
+      </button>
     </div>
   )
 }
