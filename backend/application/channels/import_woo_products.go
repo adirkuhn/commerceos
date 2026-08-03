@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -33,6 +36,14 @@ type stockRecorder interface {
 	Execute(ctx context.Context, in invapp.RecordStockMovementInput) (*invDomain.StockMovement, error)
 }
 
+// mediaUploader is the one method of application/pms's UploadMediaUseCase
+// this use case needs (ISP) — same "call after the transaction commits,
+// never nested inside it" reasoning as stockRecorder above, since Upload
+// itself opens two transactions of its own around a storage write.
+type mediaUploader interface {
+	Execute(ctx context.Context, in apppms.UploadMediaInput) (*pmsDomain.Media, error)
+}
+
 const maxImportPages = 100 // safety cap against a runaway pagination loop
 
 type ImportWooProductsInput struct {
@@ -59,6 +70,7 @@ type ImportWooProductsUseCase struct {
 	skuRepo          pmsDomain.SKURepository
 	listingRepo      channelsDomain.ProductChannelListingRepository
 	stock            stockRecorder
+	media            mediaUploader
 }
 
 func NewImportWooProductsUseCase(
@@ -72,11 +84,12 @@ func NewImportWooProductsUseCase(
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
 	stock stockRecorder,
+	media mediaUploader,
 ) *ImportWooProductsUseCase {
 	return &ImportWooProductsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		categoryRepo: categoryRepo, productRepo: productRepo, variantRepo: variantRepo,
-		skuRepo: skuRepo, listingRepo: listingRepo, stock: stock,
+		skuRepo: skuRepo, listingRepo: listingRepo, stock: stock, media: media,
 	}
 }
 
@@ -101,6 +114,18 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 		return nil, fmt.Errorf("importWooProducts: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 
+	// Fetched once per run, not per product — a product's own Categories
+	// only carry {id, name, slug}, no parent, so reconstructing the tree
+	// needs this separate, flat listing (see WooCategory's doc comment).
+	cats, err := client.ListCategories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("importWooProducts: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+	}
+	catsByID := make(map[string]integrationsDomain.WooCategory, len(cats))
+	for _, c := range cats {
+		catsByID[c.ExternalID] = c
+	}
+
 	result := ImportResult{}
 	for page := 1; page <= maxImportPages; page++ {
 		products, err := client.ListProducts(ctx, page, 50)
@@ -111,7 +136,7 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 			break
 		}
 		for _, wp := range products {
-			uc.importOne(ctx, in, wp, &result)
+			uc.importOne(ctx, in, client, catsByID, wp, &result)
 		}
 	}
 	return &result, nil
@@ -120,13 +145,16 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 // importOne processes a single Woo product. Failures here are recorded on
 // the result and never abort the rest of the import — one bad product
 // (unparseable price, transient error) shouldn't block the other 199.
-func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooProductsInput, wp integrationsDomain.WooProduct, result *ImportResult) {
+func (uc *ImportWooProductsUseCase) importOne(
+	ctx context.Context, in ImportWooProductsInput, client integrationsDomain.WooClient,
+	catsByID map[string]integrationsDomain.WooCategory, wp integrationsDomain.WooProduct, result *ImportResult,
+) {
 	if !ShouldImportWooProductType(wp.Type) {
 		result.SkippedType++
 		return
 	}
 
-	var createdSKUID string
+	var createdProductID, createdSKUID string
 	var imported bool
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		_, err := uc.listingRepo.FindByExternalID(ctx, in.ConnectionID, wp.ID)
@@ -146,29 +174,21 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 		now := time.Now()
 		tenantID := tenant.IDFromContext(ctx)
 
-		// A product's Woo category is created in CommerceOS if it doesn't
-		// already exist (matched by slug) — previously this only ever
-		// linked to a pre-existing category, so any category Woo had that
-		// CommerceOS didn't silently dropped and the product imported with
-		// no category at all. pms.Product supports one category, so only
-		// the first of Woo's (possibly several) categories is used.
+		// A product's Woo category (and its ancestors, to preserve Woo's
+		// hierarchy) is created in CommerceOS if it doesn't already exist
+		// (matched by slug) — previously this only ever linked to a
+		// pre-existing category, so any category Woo had that CommerceOS
+		// didn't silently dropped and the product imported with no
+		// category at all. pms.Product supports one category, so only the
+		// first of Woo's (possibly several) categories is used; that
+		// leaf's ParentID chain is what carries the hierarchy.
 		var categoryID *string
 		if len(wp.Categories) > 0 {
-			wc := wp.Categories[0]
-			if cat, err := uc.categoryRepo.FindBySlug(ctx, wc.Slug); err == nil {
-				categoryID = &cat.ID
-			} else if errors.Is(err, pmsDomain.ErrCategoryNotFound) {
-				newCategory := pmsDomain.Category{
-					TenantID: tenantID, Name: wc.Name, Slug: wc.Slug,
-					CreatedAt: now, UpdatedAt: now,
-				}
-				if err := uc.categoryRepo.Create(ctx, &newCategory); err != nil {
-					return err
-				}
-				categoryID = &newCategory.ID
-			} else {
+			id, err := uc.resolveCategoryChain(ctx, tenantID, now, catsByID, wp.Categories[0].ExternalID)
+			if err != nil {
 				return err
 			}
+			categoryID = id
 		}
 
 		slug := apppms.Slugify(wp.Name)
@@ -217,6 +237,7 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 			return err
 		}
 
+		createdProductID = product.ID
 		createdSKUID = sku.ID
 		imported = true
 		result.Imported++
@@ -226,8 +247,11 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 		result.Errors = append(result.Errors, fmt.Sprintf("product %s (%s): %v", wp.ID, wp.Name, err))
 		return
 	}
+	if !imported {
+		return
+	}
 
-	if imported && wp.ManageStock && wp.StockQuantity != nil && *wp.StockQuantity != 0 {
+	if wp.ManageStock && wp.StockQuantity != nil && *wp.StockQuantity != 0 {
 		// Adjustment, not Receipt: this is recording Woo's reported stock
 		// level as the new starting point, not a literal goods-receipt
 		// event — Receipt requires a non-negative delta and Woo can report
@@ -242,4 +266,91 @@ func (uc *ImportWooProductsUseCase) importOne(ctx context.Context, in ImportWooP
 			result.Errors = append(result.Errors, fmt.Sprintf("product %s: initial stock: %v", wp.ID, err))
 		}
 	}
+
+	uc.importImages(ctx, client, createdProductID, wp, result)
+}
+
+// resolveCategoryChain ensures every ancestor of externalID exists in
+// CommerceOS (creating any that don't, root-first, so a child's ParentID
+// always references an already-persisted row) and returns the leaf's
+// CommerceOS id. Matching is by slug, same as before — two different Woo
+// categories that happen to slugify to the same string (e.g. same name
+// under different parents) still conflate into one CommerceOS category;
+// that's a pre-existing limitation of the category model, not new here.
+func (uc *ImportWooProductsUseCase) resolveCategoryChain(
+	ctx context.Context, tenantID string, now time.Time,
+	catsByID map[string]integrationsDomain.WooCategory, externalID string,
+) (*string, error) {
+	woo, ok := catsByID[externalID]
+	if !ok {
+		// Category list didn't include it (e.g. deleted between the
+		// categories call and the products call) — degrade to
+		// uncategorized rather than failing the whole product.
+		return nil, nil
+	}
+
+	if cat, err := uc.categoryRepo.FindBySlug(ctx, woo.Slug); err == nil {
+		return &cat.ID, nil
+	} else if !errors.Is(err, pmsDomain.ErrCategoryNotFound) {
+		return nil, err
+	}
+
+	var parentID *string
+	if woo.ParentExternalID != "" {
+		id, err := uc.resolveCategoryChain(ctx, tenantID, now, catsByID, woo.ParentExternalID)
+		if err != nil {
+			return nil, err
+		}
+		parentID = id
+	}
+
+	newCategory := pmsDomain.Category{
+		TenantID: tenantID, ParentID: parentID, Name: woo.Name, Slug: woo.Slug,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := uc.categoryRepo.Create(ctx, &newCategory); err != nil {
+		return nil, err
+	}
+	return &newCategory.ID, nil
+}
+
+// importImages downloads each Woo image and re-uploads it through our own
+// FileStorage rather than just linking Woo's URL — the product stays
+// viewable if the store connection is later removed, and we're not
+// hotlinking another site's media indefinitely. Runs after the product's
+// own transaction has committed (mediaUploader opens its own transactions
+// around a storage write — see mediaUploader's doc comment). Per-image
+// failures are recorded and never abort the rest of the product's images
+// or the run.
+func (uc *ImportWooProductsUseCase) importImages(ctx context.Context, client integrationsDomain.WooClient, productID string, wp integrationsDomain.WooProduct, result *ImportResult) {
+	for _, img := range wp.Images {
+		if img.URL == "" {
+			continue
+		}
+		data, contentType, err := client.DownloadImage(ctx, img.URL)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("product %s: image %s: %v", wp.ID, img.URL, err))
+			continue
+		}
+		contentType = strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0])
+		_, err = uc.media.Execute(ctx, apppms.UploadMediaInput{
+			ProductID: &productID, Filename: filenameFromURL(img.URL), ContentType: contentType, Data: data, AltText: img.Alt,
+		})
+		data.Close()
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("product %s: image %s: %v", wp.ID, img.URL, err))
+		}
+	}
+}
+
+func filenameFromURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "image"
+	}
+	name := path.Base(u.Path)
+	if name == "" || name == "." || name == "/" {
+		return "image"
+	}
+	return name
 }

@@ -1,7 +1,10 @@
 package channels_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -73,6 +77,14 @@ type stubWooClient struct {
 
 	updateStockCalled []stubStockUpdate
 	updateStockErr    error
+
+	categories    []integrationsDomain.WooCategory
+	categoriesErr error
+
+	downloadedURLs []string
+	downloadErr    error
+	downloadImage  []byte // defaults to a small placeholder if nil
+	downloadType   string // defaults to "image/jpeg" if ""
 }
 
 type stubStockUpdate struct {
@@ -108,6 +120,40 @@ func (s *stubWooClient) UpdateProductStock(_ context.Context, externalID string,
 	return s.updateStockErr
 }
 
+func (s *stubWooClient) ListCategories(_ context.Context) ([]integrationsDomain.WooCategory, error) {
+	return s.categories, s.categoriesErr
+}
+
+func (s *stubWooClient) DownloadImage(_ context.Context, url string) (io.ReadCloser, string, error) {
+	s.downloadedURLs = append(s.downloadedURLs, url)
+	if s.downloadErr != nil {
+		return nil, "", s.downloadErr
+	}
+	data := s.downloadImage
+	if data == nil {
+		data = []byte("fake-image-bytes")
+	}
+	contentType := s.downloadType
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+	return io.NopCloser(bytes.NewReader(data)), contentType, nil
+}
+
+// stubMediaUploader stands in for application/pms's UploadMediaUseCase.
+type stubMediaUploader struct {
+	calls []apppms.UploadMediaInput
+	err   error
+}
+
+func (s *stubMediaUploader) Execute(_ context.Context, in apppms.UploadMediaInput) (*pmsDomain.Media, error) {
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &pmsDomain.Media{ID: "media-1"}, nil
+}
+
 type stubWooClientFactory struct {
 	client integrationsDomain.WooClient
 	err    error
@@ -131,7 +177,10 @@ func (s *stubCategoryRepo) Create(_ context.Context, c *pmsDomain.Category) erro
 	if s.createErr != nil {
 		return s.createErr
 	}
-	c.ID = "new-category-1"
+	// Unique per call (not a fixed "new-category-1") so tests that create
+	// more than one category in a run (e.g. a Woo parent+child pair) can
+	// assert on each one's own id and ParentID linkage.
+	c.ID = fmt.Sprintf("new-category-%d", len(s.created)+1)
 	s.created = append(s.created, *c)
 	return nil
 }
@@ -367,6 +416,9 @@ func (s *stubImportJobRepo) MarkCompleted(_ context.Context, _ string, _, _, _ i
 }
 func (s *stubImportJobRepo) MarkFailed(_ context.Context, _ string, _ string, _ time.Time) error {
 	return nil
+}
+func (s *stubImportJobRepo) MarkOrphanedRunningAsFailed(_ context.Context, _ string, _ time.Time) (int64, error) {
+	return 0, nil
 }
 
 type stubNotifier struct {

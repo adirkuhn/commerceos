@@ -1,6 +1,9 @@
 package integrations
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
 // WooProduct is the subset of a WooCommerce product this codebase actually
 // maps to its own generic Product/Variant/SKU model — deliberately excludes
@@ -33,6 +36,17 @@ type WooProductCategory struct {
 	Slug       string
 }
 
+// WooCategory is a full entry from Woo's Product Categories resource
+// (/wc/v3/products/categories) — unlike the category info embedded on a
+// product, this includes ParentExternalID, which is what makes hierarchy
+// reconstruction possible. ParentExternalID is "" for a top-level category.
+type WooCategory struct {
+	ExternalID       string
+	Name             string
+	Slug             string
+	ParentExternalID string
+}
+
 // WooClient talks to one WooCommerce store's REST API on behalf of a single
 // stored connection. A pure port — infrastructure implements it against the
 // real WooCommerce client library, so domain/application never import any
@@ -47,6 +61,17 @@ type WooClient interface {
 	// identified by its external (Woo) id. Used by the stock-export sync
 	// job — never touches any other product field.
 	UpdateProductStock(ctx context.Context, externalProductID string, quantity int) error
+	// ListCategories returns every category in the store, flat — callers
+	// reconstruct the tree themselves via ParentExternalID. Used by import
+	// to preserve Woo's category hierarchy instead of importing everything
+	// as a single flat level.
+	ListCategories(ctx context.Context) ([]WooCategory, error)
+	// DownloadImage fetches a product image from its Woo-hosted URL — a
+	// plain HTTPS GET (product images aren't behind the store's REST API
+	// auth), routed through this port anyway so all of an import's outbound
+	// network calls stay behind one seam. Caller must close the returned
+	// reader.
+	DownloadImage(ctx context.Context, url string) (data io.ReadCloser, contentType string, err error)
 }
 
 // WooClientFactory builds a WooClient scoped to one store's credentials.

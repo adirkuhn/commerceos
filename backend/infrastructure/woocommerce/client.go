@@ -5,7 +5,13 @@ package woocommerce
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"strconv"
+	"strings"
 
 	wc "github.com/adirkuhn/go-woocommerce-api"
 
@@ -25,11 +31,19 @@ func (f *Factory) NewClient(storeURL, consumerKey, consumerSecret string) (integ
 	if err != nil {
 		return nil, err
 	}
-	return &wooClient{client: client}, nil
+	return &wooClient{
+		client: client,
+		// go-woocommerce-api has no Categories resource and doesn't expose
+		// its internal httpClient/baseURL, so ListCategories builds its own
+		// request against the same REST base the library itself targets —
+		// these three are all it needs to replicate that.
+		storeURL: strings.TrimRight(storeURL, "/"), consumerKey: consumerKey, consumerSecret: consumerSecret,
+	}, nil
 }
 
 type wooClient struct {
-	client *wc.WooCommerce
+	client                                *wc.WooCommerce
+	storeURL, consumerKey, consumerSecret string
 }
 
 // TestConnection lists a single product as the cheapest real call that
@@ -50,6 +64,86 @@ func (c *wooClient) ListProducts(ctx context.Context, page, perPage int) ([]inte
 		out[i] = toWooProduct(p)
 	}
 	return out, nil
+}
+
+type wooCategoryDTO struct {
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Slug   string `json:"slug"`
+	Parent int    `json:"parent"`
+}
+
+const categoriesPerPage = 100
+
+// ListCategories pages through /wc/v3/products/categories directly — see
+// the comment on wooClient's storeURL/consumerKey/consumerSecret fields for
+// why this isn't going through the wrapped library.
+func (c *wooClient) ListCategories(ctx context.Context) ([]integrationsDomain.WooCategory, error) {
+	var out []integrationsDomain.WooCategory
+	for page := 1; page <= maxCategoryPages; page++ {
+		url := fmt.Sprintf("%s/wp-json/wc/v3/products/categories?page=%d&per_page=%d", c.storeURL, page, categoriesPerPage)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", c.basicAuthHeader())
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		var dtos []wooCategoryDTO
+		decodeErr := json.NewDecoder(resp.Body).Decode(&dtos)
+		resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("list categories: %s: status %d", url, resp.StatusCode)
+		}
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		if len(dtos) == 0 {
+			break
+		}
+		for _, d := range dtos {
+			parent := ""
+			if d.Parent != 0 {
+				parent = strconv.Itoa(d.Parent)
+			}
+			out = append(out, integrationsDomain.WooCategory{
+				ExternalID: strconv.Itoa(d.ID), Name: d.Name, Slug: d.Slug, ParentExternalID: parent,
+			})
+		}
+	}
+	return out, nil
+}
+
+// maxCategoryPages mirrors import_woo_products.go's maxImportPages — a
+// safety cap against a runaway pagination loop, not an expected real limit
+// (100 pages * 100 per page = 10,000 categories).
+const maxCategoryPages = 100
+
+func (c *wooClient) basicAuthHeader() string {
+	token := base64.StdEncoding.EncodeToString([]byte(c.consumerKey + ":" + c.consumerSecret))
+	return "Basic " + token
+}
+
+// DownloadImage is a plain GET — Woo product images are regular media URLs,
+// not behind the store's REST API auth.
+func (c *wooClient) DownloadImage(ctx context.Context, url string) (io.ReadCloser, string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		resp.Body.Close()
+		return nil, "", fmt.Errorf("download image: %s: status %d", url, resp.StatusCode)
+	}
+	return resp.Body, resp.Header.Get("Content-Type"), nil
 }
 
 func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {

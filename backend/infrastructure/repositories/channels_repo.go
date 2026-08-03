@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -288,20 +289,48 @@ func toSyncScheduleDomain(m syncScheduleModel) *channelsDomain.SyncSchedule {
 // ── Import job repo ──────────────────────────────────────────────────────────
 
 type importJobModel struct {
-	ID                 string   `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID           string   `gorm:"not null;type:uuid"`
-	ConnectionID       string   `gorm:"not null;type:uuid"`
-	DefaultWarehouseID string   `gorm:"not null;type:uuid"`
-	DefaultCurrency    string   `gorm:"not null"`
-	Status             string   `gorm:"not null"`
-	Imported           int      `gorm:"not null"`
-	AlreadyLinked      int      `gorm:"not null"`
-	SkippedType        int      `gorm:"not null"`
-	Errors             []string `gorm:"type:jsonb;serializer:json"`
-	ErrorMessage       string   `gorm:"not null"`
-	CreatedAt          time.Time
-	StartedAt          *time.Time
-	FinishedAt         *time.Time
+	ID                 string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID           string `gorm:"not null;type:uuid"`
+	ConnectionID       string `gorm:"not null;type:uuid"`
+	DefaultWarehouseID string `gorm:"not null;type:uuid"`
+	DefaultCurrency    string `gorm:"not null"`
+	Status             string `gorm:"not null"`
+	Imported           int    `gorm:"not null"`
+	AlreadyLinked      int    `gorm:"not null"`
+	SkippedType        int    `gorm:"not null"`
+	// Errors is hand-marshaled JSON (via errorsToJSON/errorsFromJSON), not
+	// GORM's `serializer:json` tag — that serializer only fires for
+	// struct-based operations (Create, Find). MarkCompleted updates via a
+	// map[string]any (needed so legitimate zero values like
+	// already_linked:0 are actually written — GORM's struct-based Updates
+	// silently skips zero-valued fields), and a serializer tag never
+	// applies to a plain map key, so an empty/nil []string there wrote SQL
+	// NULL and violated this column's NOT NULL constraint.
+	Errors       string `gorm:"type:jsonb;not null;default:'[]'"`
+	ErrorMessage string `gorm:"not null"`
+	CreatedAt    time.Time
+	StartedAt    *time.Time
+	FinishedAt   *time.Time
+}
+
+func errorsToJSON(errs []string) string {
+	if errs == nil {
+		errs = []string{}
+	}
+	b, err := json.Marshal(errs)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+func errorsFromJSON(raw string) []string {
+	var out []string
+	if raw == "" {
+		return out
+	}
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
 }
 
 func (importJobModel) TableName() string { return "import_jobs" }
@@ -329,7 +358,7 @@ func (r *ImportJobRepo) Create(ctx context.Context, j *channelsDomain.ImportJob)
 		DefaultWarehouseID: j.DefaultWarehouseID,
 		DefaultCurrency:    j.DefaultCurrency,
 		Status:             string(j.Status),
-		Errors:             []string{},
+		Errors:             errorsToJSON(nil),
 		CreatedAt:          j.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -392,13 +421,10 @@ func (r *ImportJobRepo) MarkCompleted(ctx context.Context, id string, imported, 
 	if err != nil {
 		return err
 	}
-	if errs == nil {
-		errs = []string{}
-	}
 	if err := tx.Model(&importJobModel{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"status": string(channelsDomain.ImportJobCompleted), "imported": imported,
-			"already_linked": alreadyLinked, "skipped_type": skippedType, "errors": errs, "finished_at": finishedAt,
+			"already_linked": alreadyLinked, "skipped_type": skippedType, "errors": errorsToJSON(errs), "finished_at": finishedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("importJobRepo.MarkCompleted: %w", err)
 	}
@@ -417,13 +443,26 @@ func (r *ImportJobRepo) MarkFailed(ctx context.Context, id string, errMsg string
 	return nil
 }
 
+func (r *ImportJobRepo) MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	result := tx.Model(&importJobModel{}).Where("status = ?", string(channelsDomain.ImportJobRunning)).
+		Updates(map[string]any{"status": string(channelsDomain.ImportJobFailed), "error_message": errMsg, "finished_at": finishedAt})
+	if result.Error != nil {
+		return 0, fmt.Errorf("importJobRepo.MarkOrphanedRunningAsFailed: %w", result.Error)
+	}
+	return result.RowsAffected, nil
+}
+
 func toImportJobDomain(m importJobModel) *channelsDomain.ImportJob {
 	return &channelsDomain.ImportJob{
 		ID: m.ID, TenantID: m.TenantID, ConnectionID: m.ConnectionID,
 		DefaultWarehouseID: m.DefaultWarehouseID, DefaultCurrency: m.DefaultCurrency,
 		Status:   channelsDomain.ImportJobStatus(m.Status),
 		Imported: m.Imported, AlreadyLinked: m.AlreadyLinked, SkippedType: m.SkippedType,
-		Errors: m.Errors, ErrorMessage: m.ErrorMessage,
+		Errors: errorsFromJSON(m.Errors), ErrorMessage: m.ErrorMessage,
 		CreatedAt: m.CreatedAt, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt,
 	}
 }

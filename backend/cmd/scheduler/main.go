@@ -8,15 +8,20 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
+	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
+	"github.com/adirkuhn/commerceos/infrastructure/storage"
 	"github.com/adirkuhn/commerceos/infrastructure/woocommerce"
 	"github.com/adirkuhn/commerceos/internal/config"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -32,6 +37,31 @@ const pollInterval = 60 * time.Second
 // are user-triggered (the "Import" button) and should start promptly, not
 // wait up to a full minute the way a periodic sync schedule can afford to.
 const importJobPollInterval = 5 * time.Second
+
+// buildFileStorage mirrors cmd/api/main.go's helper of the same name —
+// each binary wires its own dependencies (no shared main-package library
+// between commands), matching this codebase's existing convention.
+func buildFileStorage(cfg config.Config) pmsDomain.FileStorage {
+	switch cfg.StorageDriver {
+	case "s3":
+		if cfg.S3Endpoint == "" || cfg.S3AccessKeyID == "" || cfg.S3SecretAccessKey == "" || cfg.S3Bucket == "" || cfg.S3PublicBaseURL == "" {
+			log.Fatalf("storage: STORAGE_DRIVER=s3 requires S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET, S3_PUBLIC_BASE_URL")
+		}
+		client, err := minio.New(cfg.S3Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(cfg.S3AccessKeyID, cfg.S3SecretAccessKey, ""),
+			Secure: cfg.S3UseSSL,
+		})
+		if err != nil {
+			log.Fatalf("storage: minio client: %v", err)
+		}
+		return storage.NewS3Storage(client, cfg.S3Bucket, cfg.S3PublicBaseURL)
+	case "local":
+		return storage.NewLocalStorage(cfg.MediaUploadDir, cfg.PublicAPIBaseURL+"/api/v1/uploads")
+	default:
+		log.Fatalf("storage: unknown STORAGE_DRIVER %q (want \"local\" or \"s3\")", cfg.StorageDriver)
+		return nil
+	}
+}
 
 func main() {
 	cfg := config.Load()
@@ -53,6 +83,9 @@ func main() {
 	batchRepo := repositories.NewBatchRepo(db)
 	importJobRepo := repositories.NewImportJobRepo(db)
 	notificationRepo := repositories.NewNotificationRepo(db)
+	mediaRepo := repositories.NewMediaRepo(db)
+	fileStorage := buildFileStorage(cfg)
+	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage)
 
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo)
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo)
@@ -62,7 +95,7 @@ func main() {
 	)
 	importUC := channelsapp.NewImportWooProductsUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, stockRecorderUC,
+		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, stockRecorderUC, uploadMediaUC,
 	)
 	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
 
@@ -81,6 +114,14 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	// A job can only be "running" while some scheduler process is actively
+	// inside runImportJob. If the previous process died mid-run (crash,
+	// redeploy) before reaching a terminal state, the row is stuck forever
+	// — and since Create's double-job guard checks pending/running, that
+	// permanently blocks any further import for the connection. Recover
+	// once at startup, before polling begins.
+	recoverOrphanedImportJobs(ctx, db, importJobRepo)
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
@@ -148,6 +189,28 @@ func runOne(adminCtx context.Context, db *gorm.DB, scheduleRepo channelsDomain.S
 	})
 	if err != nil {
 		log.Printf("record run result for schedule %s: %v", s.ID, err)
+	}
+}
+
+// recoverOrphanedImportJobs fails every job left "running" by a scheduler
+// process that never got to mark it terminal — see the call site's comment
+// for why this matters. Cross-tenant, so it runs under SuperAdmin like the
+// rest of this file's polling functions. A failure here is logged, not
+// fatal — worst case, a stuck job just waits for the next restart.
+func recoverOrphanedImportJobs(ctx context.Context, db *gorm.DB, jobRepo channelsDomain.ImportJobRepository) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+	var recovered int64
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "interrupted: scheduler restarted while this job was running", time.Now())
+		return err
+	})
+	if err != nil {
+		log.Printf("recover orphaned import jobs: %v", err)
+		return
+	}
+	if recovered > 0 {
+		log.Printf("recovered %d orphaned import job(s) left running by a previous scheduler process", recovered)
 	}
 }
 

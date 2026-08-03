@@ -33,4 +33,12 @@ type ImportJobRepository interface {
 	MarkRunning(ctx context.Context, id string, startedAt time.Time) error
 	MarkCompleted(ctx context.Context, id string, imported, alreadyLinked, skippedType int, errs []string, finishedAt time.Time) error
 	MarkFailed(ctx context.Context, id string, errMsg string, finishedAt time.Time) error
+	// MarkOrphanedRunningAsFailed fails every job still marked "running" —
+	// called once at scheduler startup. A job can only be "running" while
+	// some scheduler process is actively inside runImportJob; if the
+	// process that set it died (crash, redeploy) before reaching a
+	// terminal state, the row is stuck forever and — since Create's
+	// double-job guard checks pending/running — permanently blocks any
+	// further import for that connection. Returns the count recovered.
+	MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error)
 }
