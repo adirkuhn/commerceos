@@ -2,9 +2,30 @@ package pms_test
 
 import (
 	"context"
+	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
+
+// stubOutboxRepo is a no-op outbox — the tests that need this package's
+// UpdateProductUseCase/UpdateSKUUseCase to raise a pms.product.changed
+// event only care that Enqueue was called (via `calls`), not that it
+// actually persists anything.
+type stubOutboxRepo struct {
+	calls []string // subjects enqueued
+	err   error
+}
+
+func (s *stubOutboxRepo) Enqueue(_ context.Context, subject, _ string, _ []byte, _ time.Time) error {
+	s.calls = append(s.calls, subject)
+	return s.err
+}
+func (s *stubOutboxRepo) FetchPending(_ context.Context, _ int) ([]outbox.Message, error) {
+	return nil, nil
+}
+func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return nil }
+func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
 
 type stubSKURepo struct {
 	findByCodeResult *pmsDomain.SKU

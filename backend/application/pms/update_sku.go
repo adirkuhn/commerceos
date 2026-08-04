@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -24,12 +25,14 @@ type UpdateSKUInput struct {
 }
 
 type UpdateSKUUseCase struct {
-	db      *gorm.DB
-	skuRepo pmsDomain.SKURepository
+	db          *gorm.DB
+	variantRepo pmsDomain.VariantRepository
+	skuRepo     pmsDomain.SKURepository
+	outboxRepo  outbox.Repository
 }
 
-func NewUpdateSKUUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository) *UpdateSKUUseCase {
-	return &UpdateSKUUseCase{db: db, skuRepo: skuRepo}
+func NewUpdateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, outboxRepo outbox.Repository) *UpdateSKUUseCase {
+	return &UpdateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, outboxRepo: outboxRepo}
 }
 
 // Execute updates price/barcode/currency/status. SKUCode is deliberately
@@ -60,7 +63,12 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 			return err
 		}
 		sku = *existing
-		return nil
+
+		variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
+		if err != nil {
+			return err
+		}
+		return enqueueProductChanged(ctx, uc.outboxRepo, variant.ProductID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)

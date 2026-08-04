@@ -33,6 +33,7 @@ vi.mock('../../pms/api', () => ({
 
 vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
+  getProductChannelListing: vi.fn(),
 }))
 
 import * as pmsApi from '../../pms/api'
@@ -85,6 +86,7 @@ beforeEach(() => {
   mockPaginatedProducts([product()])
   vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+  vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
 })
 
@@ -380,17 +382,49 @@ describe('WooCommerce tab', () => {
     expect(screen.queryByRole('button', { name: /WooCommerce/ })).not.toBeInTheDocument()
   })
 
-  it('shows the channel field shell for a connected WooCommerce store', async () => {
+  it('shows "not linked yet" when the product has no listing for this connection', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
 
     render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
     await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
 
     await waitFor(() => expect(screen.getByText(/mystore\.com/)).toBeInTheDocument())
-    expect(screen.getByPlaceholderText('Not linked yet')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Not linked yet')).toBeDisabled()
+    expect(await screen.findByText(/not linked to this WooCommerce store yet/i)).toBeInTheDocument()
+    expect(integrationsApi.getProductChannelListing).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1')
+  })
+
+  it('shows real sync state when the product is linked to this connection', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue({
+      id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'woocommerce',
+      external_id: '23609', sync_status: 'synced', last_synced_at: '2026-07-26T12:00:00Z',
+      created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-26T12:00:00Z',
+    })
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+
+    expect(await screen.findByDisplayValue('23609')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Synced')).toBeInTheDocument()
+    expect(screen.queryByText(/not linked to this WooCommerce store yet/i)).not.toBeInTheDocument()
+  })
+
+  it('surfaces an error instead of silently showing "not linked" when the fetch fails', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockRejectedValue(new Error('internal server error'))
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+
+    expect(await screen.findByText('internal server error')).toBeInTheDocument()
+    expect(screen.queryByText(/not linked to this WooCommerce store yet/i)).not.toBeInTheDocument()
   })
 })
 

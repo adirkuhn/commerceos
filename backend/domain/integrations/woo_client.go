@@ -21,8 +21,20 @@ type WooProduct struct {
 	Virtual       bool // digital/non-shippable — never has weight or dimensions
 	ManageStock   bool
 	StockQuantity *int
-	Images        []WooProductImage
-	Categories    []WooProductCategory
+	// Weight/Dimensions are raw numeric strings in whatever unit the store
+	// is configured for (WooCommerce doesn't return the unit per-product —
+	// see WooClient.GetProductUnits). Empty string means Woo has no value
+	// set for that field.
+	Weight     string
+	Dimensions WooProductDimensions
+	Images     []WooProductImage
+	Categories []WooProductCategory
+}
+
+type WooProductDimensions struct {
+	Length string
+	Width  string
+	Height string
 }
 
 type WooProductImage struct {
@@ -61,11 +73,28 @@ type WooClient interface {
 	// identified by its external (Woo) id. Used by the stock-export sync
 	// job — never touches any other product field.
 	UpdateProductStock(ctx context.Context, externalProductID string, quantity int) error
+	// UpdateProduct pushes this codebase's current view of a product to an
+	// already-linked Woo product, identified by its external id — used by
+	// the event-driven product->channel sync (see application/channels'
+	// SyncProductToChannelsUseCase). Only fields this codebase manages are
+	// sent (name/description/status/price/virtual/weight/dimensions);
+	// categories/images/SEO meta etc. are left untouched on the Woo side.
+	// Bool fields (Virtual) rely on the underlying library's own omitempty
+	// JSON tags, so explicitly clearing a previously-true flag back to
+	// false does not round-trip — a pre-existing library limitation.
+	UpdateProduct(ctx context.Context, externalProductID string, p WooProduct) (*WooProduct, error)
 	// ListCategories returns every category in the store, flat — callers
 	// reconstruct the tree themselves via ParentExternalID. Used by import
 	// to preserve Woo's category hierarchy instead of importing everything
 	// as a single flat level.
 	ListCategories(ctx context.Context) ([]WooCategory, error)
+	// GetProductUnits returns the store's configured weight unit
+	// (kg/g/lb/oz) and dimension unit (m/cm/mm/in/yd) — WooCommerce's
+	// product endpoint returns raw numeric strings with no unit attached;
+	// these are a store-wide setting, fetched separately, needed to
+	// convert Weight/Dimensions into WeightGrams/*MM correctly instead of
+	// assuming a unit and silently importing wrong values.
+	GetProductUnits(ctx context.Context) (weightUnit, dimensionUnit string, err error)
 	// DownloadImage fetches a product image from its Woo-hosted URL — a
 	// plain HTTPS GET (product images aren't behind the store's REST API
 	// auth), routed through this port anyway so all of an import's outbound

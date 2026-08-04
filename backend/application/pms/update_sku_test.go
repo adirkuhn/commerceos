@@ -13,7 +13,8 @@ import (
 
 func TestUpdateSKU_rejectsDimensionsOnVirtualSKU(t *testing.T) {
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), skuRepo)
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
 		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -26,7 +27,8 @@ func TestUpdateSKU_rejectsDimensionsOnVirtualSKU(t *testing.T) {
 
 func TestUpdateSKU_allowsVirtualSKUWithoutDimensions(t *testing.T) {
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), skuRepo)
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
 		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -35,4 +37,18 @@ func TestUpdateSKU_allowsVirtualSKUWithoutDimensions(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, sku.IsVirtual)
+}
+
+func TestUpdateSKU_raisesProductChangedEventForTheSKUsProduct(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
+	outboxRepo := &stubOutboxRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, outboxRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"pms.product.changed"}, outboxRepo.calls)
 }

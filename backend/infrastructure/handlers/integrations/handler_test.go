@@ -158,6 +158,15 @@ func (s *stubUpdateConnectionSettings) Execute(_ context.Context, in appintegrat
 	return &integrationsDomain.Connection{ID: in.ID, DefaultCurrency: in.DefaultCurrency}, nil
 }
 
+type stubGetProductChannelListing struct {
+	out *channelsDomain.ProductChannelListing
+	err error
+}
+
+func (s *stubGetProductChannelListing) Execute(_ context.Context, _, _ string) (*channelsDomain.ProductChannelListing, error) {
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func newTestHandler(
@@ -170,7 +179,7 @@ func newTestHandler(
 ) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn,
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
-		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{})
+		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{})
 }
 
 // newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
@@ -180,7 +189,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{},
 	)
 }
 
@@ -190,7 +199,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{},
 	)
 }
 
@@ -200,7 +209,18 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings,
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{},
+	)
+}
+
+// newGetListingTestHandler builds a Handler for the get-product-channel-listing
+// route specifically — every other use case is a harmless zero-value stub.
+func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		getListing,
 	)
 }
 
@@ -487,7 +507,7 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, importUC, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{},
 	)
 }
 
@@ -577,6 +597,31 @@ func TestUpdateConnectionSettingsHandler_notFound(t *testing.T) {
 	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/connections/missing/settings", map[string]any{
 		"default_currency": "USD",
 	})
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetProductChannelListingHandler_returnsTheListing(t *testing.T) {
+	h := newGetListingTestHandler(&stubGetProductChannelListing{out: &channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "prod-1", ConnectionID: "conn-1", Provider: "woocommerce",
+		ExternalID: "23609", SyncStatus: channelsDomain.SyncStatusSynced,
+	}})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/listings/prod-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "23609")
+	assert.Contains(t, w.Body.String(), "synced")
+}
+
+func TestGetProductChannelListingHandler_notFoundWhenProductNeverLinked(t *testing.T) {
+	h := newGetListingTestHandler(&stubGetProductChannelListing{err: channelsDomain.ErrListingNotFound})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/listings/prod-1", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

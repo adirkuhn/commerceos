@@ -12,7 +12,7 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
-import type { Connection } from '../integrations/types'
+import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
 import type { Category, Product, ProductStatus, SKUStatus, VariantWithSKUs, Media } from '../pms/types'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
@@ -744,15 +744,39 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
 
 // ── WooCommerce tab ───────────────────────────────────────────────────────────
 //
-// Per-channel values for this product on the connected WooCommerce store.
-// Shell only for now — fields are disabled placeholders, nothing here is
-// persisted yet (no backend concept of a per-integration product mapping
-// exists). Wiring this up for real (external product id, sync status, price
-// override) is a separate, larger change: new domain entity, migration,
-// OpenAPI contract, sync use cases.
+// Per-channel sync state for this product on the connected WooCommerce
+// store, fetched from GetProductChannelListingUseCase. A 404 (no listing
+// row) is an expected, common state — most products aren't linked to every
+// connected channel — rendered as "not linked yet", not an error.
+
+const WOO_SYNC_STATUS_LABEL: Record<ProductChannelListingSyncStatus, string> = {
+  pending: 'Pending', synced: 'Synced', error: 'Error',
+}
+const WOO_SYNC_STATUS_STYLE: Record<ProductChannelListingSyncStatus, string> = {
+  pending: 'dark:text-amber-400 text-amber-600',
+  synced: 'dark:text-green-400 text-green-600',
+  error: 'dark:text-red-400 text-red-600',
+}
 
 function ProductWooCommerceTab({ productId, connection }: { productId: string; connection: Connection }) {
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 dark:text-gray-500 text-gray-400 outline-none cursor-not-allowed'
+  const { token } = useAuth()
+  const [listing, setListing] = useState<ProductChannelListing | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    integrationsApi.getProductChannelListing(token, connection.id, productId)
+      .then(result => { if (!cancelled) setListing(result) })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load WooCommerce sync status') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, connection.id, productId])
+
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 outline-none cursor-not-allowed'
   const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
 
   return (
@@ -762,27 +786,47 @@ function ProductWooCommerceTab({ productId, connection }: { productId: string; c
         <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">WooCommerce</h3>
         <span className="text-[10px] dark:text-gray-500 text-gray-400">· {connection.store_url}</span>
       </div>
-      <p className="text-[11px] dark:text-gray-500 text-gray-400">
-        Per-channel sync isn't wired up yet — these fields are a preview of what's coming for product {productId}.
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass}>WooCommerce product ID</label>
-          <input disabled placeholder="Not linked yet" className={inputClass} />
+
+      {loading && (
+        <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading sync status…</p>
+      )}
+
+      {!loading && error && (
+        <p className="text-[11px] dark:text-red-400 text-red-600">{error}</p>
+      )}
+
+      {!loading && !error && !listing && (
+        <p className="text-[11px] dark:text-gray-500 text-gray-400">
+          Not linked to this WooCommerce store yet — import it from WooCommerce or push it from CommerceOS to start syncing.
+        </p>
+      )}
+
+      {!loading && !error && listing && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>WooCommerce product ID</label>
+            <input disabled readOnly value={listing.external_id} className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')} />
+          </div>
+          <div>
+            <label className={labelClass}>Sync status</label>
+            <input
+              disabled
+              readOnly
+              value={WOO_SYNC_STATUS_LABEL[listing.sync_status]}
+              className={clsx(inputClass, WOO_SYNC_STATUS_STYLE[listing.sync_status])}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Last synced</label>
+            <input
+              disabled
+              readOnly
+              value={listing.last_synced_at ? new Date(listing.last_synced_at).toLocaleString() : '—'}
+              className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
+            />
+          </div>
         </div>
-        <div>
-          <label className={labelClass}>Sync status</label>
-          <input disabled placeholder="Not synced" className={inputClass} />
-        </div>
-        <div>
-          <label className={labelClass}>Last synced</label>
-          <input disabled placeholder="—" className={inputClass} />
-        </div>
-        <div>
-          <label className={labelClass}>Price override</label>
-          <input disabled placeholder="Uses base price" className={inputClass} />
-        </div>
-      </div>
+      )}
     </div>
   )
 }

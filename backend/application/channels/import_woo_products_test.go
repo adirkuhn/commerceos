@@ -446,3 +446,119 @@ func TestImportWooProducts_noImagesMeansNoUploadCalls(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, h.media.calls)
 }
+
+// ── Weight and dimensions ────────────────────────────────────────────────────
+//
+// WooCommerce's product endpoint returns raw numeric strings with no unit
+// attached (the unit is a store-wide setting, fetched separately via
+// GetProductUnits) — these tests exercise the conversion end to end through
+// Execute rather than the unexported converters directly.
+
+func TestImportWooProducts_convertsWeightAndDimensionsUsingStoreUnits(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.Weight = "0.5"
+	wp.Dimensions = integrationsDomain.WooProductDimensions{Length: "10", Width: "5", Height: "2"}
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.wooClient.weightUnit = "kg"
+	h.wooClient.dimensionUnit = "cm"
+
+	uc := h.newImportUseCase(t, 2)
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.skuRepo.created, 1)
+	sku := h.skuRepo.created[0]
+	require.NotNil(t, sku.WeightGrams)
+	require.Equal(t, int64(500), *sku.WeightGrams, "0.5kg must convert to 500g, not 0.5g")
+	require.Equal(t, int64(100), *sku.LengthMM)
+	require.Equal(t, int64(50), *sku.WidthMM)
+	require.Equal(t, int64(20), *sku.HeightMM)
+}
+
+func TestImportWooProducts_convertsPoundsAndInches(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.Weight = "1"
+	wp.Dimensions = integrationsDomain.WooProductDimensions{Length: "1"}
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.wooClient.weightUnit = "lbs"
+	h.wooClient.dimensionUnit = "in"
+
+	uc := h.newImportUseCase(t, 2)
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(454), *h.skuRepo.created[0].WeightGrams, "1 lb ≈ 454g")
+	require.Equal(t, int64(25), *h.skuRepo.created[0].LengthMM, "1 in = 25.4mm, rounded")
+}
+
+func TestImportWooProducts_leavesWeightNilWhenWooOmitsIt(t *testing.T) {
+	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()}) // no Weight/Dimensions set
+	h.wooClient.weightUnit = "kg"
+	h.wooClient.dimensionUnit = "cm"
+
+	uc := h.newImportUseCase(t, 2)
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, h.skuRepo.created[0].WeightGrams)
+	require.Nil(t, h.skuRepo.created[0].LengthMM)
+}
+
+func TestImportWooProducts_leavesWeightNilWhenUnitsAreUnknown(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.Weight = "0.5"
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	// h.wooClient.weightUnit deliberately left "" — e.g. GetProductUnits
+	// failed and Execute degraded to best-effort rather than propagating.
+
+	uc := h.newImportUseCase(t, 2)
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, h.skuRepo.created[0].WeightGrams, "must never guess a unit")
+}
+
+func TestImportWooProducts_neverSetsWeightOrDimensionsForVirtualProducts(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.Virtual = true
+	wp.ManageStock = false
+	wp.StockQuantity = nil
+	wp.Weight = "0.5"
+	wp.Dimensions = integrationsDomain.WooProductDimensions{Length: "10"}
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.wooClient.weightUnit = "kg"
+	h.wooClient.dimensionUnit = "cm"
+
+	uc := h.newImportUseCase(t, 2)
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, h.skuRepo.created[0].WeightGrams)
+	require.Nil(t, h.skuRepo.created[0].LengthMM)
+}
+
+func TestImportWooProducts_getProductUnitsFailureDegradesGracefullyInsteadOfAbortingImport(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.Weight = "0.5"
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.wooClient.unitsErr = errors.New("500 from woocommerce")
+
+	uc := h.newImportUseCase(t, 2)
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Imported)
+	require.Nil(t, h.skuRepo.created[0].WeightGrams)
+}

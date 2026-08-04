@@ -126,6 +126,16 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 		catsByID[c.ExternalID] = c
 	}
 
+	// Best-effort, not fatal: weight/dimensions are a nice-to-have, not
+	// core to the import the way categories are — a units lookup failure
+	// shouldn't abort importing 805 products over it. Empty units make
+	// convertWooWeight/convertWooLength return nil (skip), same as before
+	// this field existed at all.
+	weightUnit, dimensionUnit, err := client.GetProductUnits(ctx)
+	if err != nil {
+		weightUnit, dimensionUnit = "", ""
+	}
+
 	result := ImportResult{}
 	for page := 1; page <= maxImportPages; page++ {
 		products, err := client.ListProducts(ctx, page, 50)
@@ -136,7 +146,7 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 			break
 		}
 		for _, wp := range products {
-			uc.importOne(ctx, in, client, catsByID, wp, &result)
+			uc.importOne(ctx, in, client, catsByID, weightUnit, dimensionUnit, wp, &result)
 		}
 	}
 	return &result, nil
@@ -147,7 +157,8 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 // (unparseable price, transient error) shouldn't block the other 199.
 func (uc *ImportWooProductsUseCase) importOne(
 	ctx context.Context, in ImportWooProductsInput, client integrationsDomain.WooClient,
-	catsByID map[string]integrationsDomain.WooCategory, wp integrationsDomain.WooProduct, result *ImportResult,
+	catsByID map[string]integrationsDomain.WooCategory, weightUnit, dimensionUnit string,
+	wp integrationsDomain.WooProduct, result *ImportResult,
 ) {
 	if !ShouldImportWooProductType(wp.Type) {
 		result.SkippedType++
@@ -220,8 +231,16 @@ func (uc *ImportWooProductsUseCase) importOne(
 		sku := pmsDomain.SKU{
 			TenantID: tenantID, VariantID: variant.ID, SKUCode: skuCode,
 			PriceMinorUnits: priceMinorUnits, CurrencyCode: in.DefaultCurrency,
-			IsVirtual: wp.Virtual, // weight/dimensions stay unimported regardless (unit system unknown)
+			IsVirtual: wp.Virtual,
 			Status:    pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		// A virtual SKU never ships, so it can never carry weight/dimensions
+		// (enforced elsewhere too — see ErrVirtualSKUCannotHaveDimensions).
+		if !wp.Virtual {
+			sku.WeightGrams = convertWooWeight(wp.Weight, weightUnit)
+			sku.LengthMM = convertWooLength(wp.Dimensions.Length, dimensionUnit)
+			sku.WidthMM = convertWooLength(wp.Dimensions.Width, dimensionUnit)
+			sku.HeightMM = convertWooLength(wp.Dimensions.Height, dimensionUnit)
 		}
 		if err := uc.skuRepo.Create(ctx, &sku); err != nil {
 			return err

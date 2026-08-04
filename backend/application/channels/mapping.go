@@ -92,6 +92,70 @@ func MapCommerceStatusToWoo(status pmsDomain.ProductStatus) string {
 	}
 }
 
+// wooWeightToGrams/wooLengthToMM are the store's configured unit -> our
+// fixed unit, per WooCommerce's own settings option values
+// (woocommerce_weight_unit: kg/g/lbs/oz; woocommerce_dimension_unit:
+// m/cm/mm/in/yd).
+var wooWeightToGrams = map[string]float64{
+	"kg": 1000, "g": 1, "lbs": 453.59237, "oz": 28.349523125,
+}
+var wooLengthToMM = map[string]float64{
+	"m": 1000, "cm": 10, "mm": 1, "in": 25.4, "yd": 914.4,
+}
+
+// convertWooWeight converts a WooCommerce weight string (in the store's
+// configured unit) to whole grams. Returns nil if the value is empty or the
+// unit isn't one WooCommerce actually uses — never guesses a unit, since
+// importing "0.5" as 0.5g instead of 0.5kg would silently import a value
+// 1000x too small.
+func convertWooWeight(value, unit string) *int64 {
+	return convertWooMeasurement(value, unit, wooWeightToGrams)
+}
+
+// convertWooLength converts a WooCommerce length/width/height string (in
+// the store's configured unit) to whole millimeters. Same "never guess a
+// unit" reasoning as convertWooWeight.
+func convertWooLength(value, unit string) *int64 {
+	return convertWooMeasurement(value, unit, wooLengthToMM)
+}
+
+func convertWooMeasurement(value, unit string, unitToBase map[string]float64) *int64 {
+	if value == "" {
+		return nil
+	}
+	factor, ok := unitToBase[unit]
+	if !ok {
+		return nil
+	}
+	f, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return nil
+	}
+	grams := int64(f*factor + 0.5) // round to nearest, f/factor always >= 0 for a real product
+	return &grams
+}
+
+// gramsToWooWeight/mmToWooLength are the export-direction inverse of
+// convertWooWeight/convertWooLength — our fixed unit -> the store's
+// configured unit, as a decimal string Woo's API accepts. Same "never guess
+// a unit" reasoning: an unrecognized/unknown store unit returns ok=false
+// rather than silently picking one.
+func gramsToWooWeight(grams int64, unit string) (string, bool) {
+	return convertToWooMeasurement(grams, unit, wooWeightToGrams)
+}
+
+func mmToWooLength(mm int64, unit string) (string, bool) {
+	return convertToWooMeasurement(mm, unit, wooLengthToMM)
+}
+
+func convertToWooMeasurement(base int64, unit string, unitToBase map[string]float64) (string, bool) {
+	factor, ok := unitToBase[unit]
+	if !ok {
+		return "", false
+	}
+	return strconv.FormatFloat(float64(base)/factor, 'f', -1, 64), true
+}
+
 // FormatMinorUnitsAsWooPrice is the push-direction inverse of
 // ParseWooPriceToMinorUnits — formats minor units (149) as the decimal
 // string WooCommerce expects ("1.49"). Also avoids float64: dividing by 100

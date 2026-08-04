@@ -61,6 +61,9 @@ type deleteAllImportedProductsUC interface {
 type upsertSyncScheduleUC interface {
 	Execute(ctx context.Context, in appchannels.UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error)
 }
+type getProductChannelListingUC interface {
+	Execute(ctx context.Context, productID, connectionID string) (*channelsDomain.ProductChannelListing, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +80,7 @@ type Handler struct {
 	upsertSyncSchedule       upsertSyncScheduleUC
 	deleteAllImportedProds   deleteAllImportedProductsUC
 	updateConnectionSettings updateConnectionSettingsUC
+	getProductChannelListing getProductChannelListingUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -93,6 +97,7 @@ func NewHandler(
 	upsertSyncSchedule upsertSyncScheduleUC,
 	deleteAllImportedProds deleteAllImportedProductsUC,
 	updateConnectionSettings updateConnectionSettingsUC,
+	getProductChannelListing getProductChannelListingUC,
 ) *Handler {
 	return &Handler{
 		listConnections:          listConnections,
@@ -107,6 +112,7 @@ func NewHandler(
 		upsertSyncSchedule:       upsertSyncSchedule,
 		deleteAllImportedProds:   deleteAllImportedProds,
 		updateConnectionSettings: updateConnectionSettings,
+		getProductChannelListing: getProductChannelListing,
 	}
 }
 
@@ -170,6 +176,7 @@ func Register(
 		appchannels.NewUpsertSyncScheduleUseCase(db, scheduleRepo),
 		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
+		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -372,6 +379,14 @@ func (h *Handler) UpsertSyncSchedules(c *gin.Context, id genintegrations.Id) {
 	middleware.OK(c, resp)
 }
 
+func (h *Handler) GetProductChannelListing(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	listing, err := h.getProductChannelListing.Execute(c.Request.Context(), productId, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenListing(*listing))
+}
+
 // ── Route handler (api/integrationscallback — public) ────────────────────────
 
 // WooCallback is unauthenticated — WooCommerce itself calls this
@@ -456,7 +471,8 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound),
-		errors.Is(err, pmsDomain.ErrProductNotFound):
+		errors.Is(err, pmsDomain.ErrProductNotFound),
+		errors.Is(err, channelsDomain.ErrListingNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStoreURLInvalid):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())

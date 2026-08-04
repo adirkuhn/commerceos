@@ -78,8 +78,15 @@ type stubWooClient struct {
 	updateStockCalled []stubStockUpdate
 	updateStockErr    error
 
+	updateProductCalled []stubUpdateProductCall
+	updateProductErr    error
+
 	categories    []integrationsDomain.WooCategory
 	categoriesErr error
+
+	weightUnit    string
+	dimensionUnit string
+	unitsErr      error
 
 	downloadedURLs []string
 	downloadErr    error
@@ -90,6 +97,11 @@ type stubWooClient struct {
 type stubStockUpdate struct {
 	ExternalID string
 	Quantity   int
+}
+
+type stubUpdateProductCall struct {
+	ExternalID string
+	Product    integrationsDomain.WooProduct
 }
 
 func (s *stubWooClient) TestConnection(_ context.Context) error { return nil }
@@ -120,8 +132,21 @@ func (s *stubWooClient) UpdateProductStock(_ context.Context, externalID string,
 	return s.updateStockErr
 }
 
+func (s *stubWooClient) UpdateProduct(_ context.Context, externalID string, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
+	s.updateProductCalled = append(s.updateProductCalled, stubUpdateProductCall{ExternalID: externalID, Product: p})
+	if s.updateProductErr != nil {
+		return nil, s.updateProductErr
+	}
+	p.ID = externalID
+	return &p, nil
+}
+
 func (s *stubWooClient) ListCategories(_ context.Context) ([]integrationsDomain.WooCategory, error) {
 	return s.categories, s.categoriesErr
+}
+
+func (s *stubWooClient) GetProductUnits(_ context.Context) (string, string, error) {
+	return s.weightUnit, s.dimensionUnit, s.unitsErr
 }
 
 func (s *stubWooClient) DownloadImage(_ context.Context, url string) (io.ReadCloser, string, error) {
@@ -308,12 +333,14 @@ func (s *stubChannelsSKURepo) Delete(_ context.Context, _ string) error         
 // ── channels stub ────────────────────────────────────────────────────────────
 
 type stubListingRepo struct {
-	byExternalID map[string]channelsDomain.ProductChannelListing
-	byProduct    map[string]channelsDomain.ProductChannelListing
-	byConnection []channelsDomain.ProductChannelListing
-	created      []channelsDomain.ProductChannelListing
-	updated      []channelsDomain.ProductChannelListing
-	findErr      error
+	byExternalID  map[string]channelsDomain.ProductChannelListing
+	byProduct     map[string]channelsDomain.ProductChannelListing
+	byConnection  []channelsDomain.ProductChannelListing
+	listByProduct map[string][]channelsDomain.ProductChannelListing
+	created       []channelsDomain.ProductChannelListing
+	updated       []channelsDomain.ProductChannelListing
+	findErr       error
+	listByProdErr error
 }
 
 func (s *stubListingRepo) Create(_ context.Context, l *channelsDomain.ProductChannelListing) error {
@@ -344,6 +371,12 @@ func (s *stubListingRepo) ListByConnection(_ context.Context, _ string) ([]chann
 		return nil, s.findErr
 	}
 	return s.byConnection, nil
+}
+func (s *stubListingRepo) ListByProduct(_ context.Context, productID string) ([]channelsDomain.ProductChannelListing, error) {
+	if s.listByProdErr != nil {
+		return nil, s.listByProdErr
+	}
+	return s.listByProduct[productID], nil
 }
 func (s *stubListingRepo) Update(_ context.Context, l *channelsDomain.ProductChannelListing) error {
 	s.updated = append(s.updated, *l)

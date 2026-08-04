@@ -10,6 +10,10 @@ type ProductChannelListingRepository interface {
 	FindByExternalID(ctx context.Context, connectionID, externalID string) (*ProductChannelListing, error)
 	FindByProductAndConnection(ctx context.Context, productID, connectionID string) (*ProductChannelListing, error)
 	ListByConnection(ctx context.Context, connectionID string) ([]ProductChannelListing, error)
+	// ListByProduct returns every channel this product is linked to, across
+	// all connections — used to fan a single product change out to every
+	// channel it's synced to.
+	ListByProduct(ctx context.Context, productID string) ([]ProductChannelListing, error)
 	Update(ctx context.Context, l *ProductChannelListing) error
 }
 

@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, APIResponse } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -103,4 +103,22 @@ export function upsertSyncSchedules(token: string, connectionId: string, schedul
     { method: 'PUT', body: JSON.stringify({ schedules }) },
     token,
   )
+}
+
+// Returns null (not an error) when the product has never been linked to
+// this connection — that's an expected, common state (most products aren't
+// imported from / pushed to every connected channel), not a failure.
+export async function getProductChannelListing(token: string, connectionId: string, productId: string): Promise<ProductChannelListing | null> {
+  const res = await fetch(`${base()}/connections/${connectionId}/listings/${productId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 404) {
+    return null
+  }
+  const body: APIResponse<ProductChannelListing> = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return body.data
 }

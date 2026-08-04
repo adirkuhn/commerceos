@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { Connection, SyncSchedule, APIResponse } from '../types'
+import type { Connection, SyncSchedule, ProductChannelListing, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -254,5 +254,49 @@ describe('updateConnectionSettings', () => {
   it('throws on not found', async () => {
     mockFetchError('NOT_FOUND', 'integration connection not found', 404)
     await expect(api.updateConnectionSettings(TOKEN, 'missing', 'USD')).rejects.toThrow('integration connection not found')
+  })
+})
+
+const sampleListing: ProductChannelListing = {
+  id: 'listing-1',
+  product_id: 'prod-1',
+  connection_id: 'conn-1',
+  provider: 'woocommerce',
+  external_id: '23609',
+  sync_status: 'synced',
+  last_synced_at: '2026-07-26T00:00:00Z',
+  created_at: '2026-07-01T00:00:00Z',
+  updated_at: '2026-07-26T00:00:00Z',
+}
+
+describe('getProductChannelListing', () => {
+  it('returns the listing when the product is linked', async () => {
+    mockFetch(sampleListing)
+    const result = await api.getProductChannelListing(TOKEN, 'conn-1', 'prod-1')
+    expect(result).toEqual(sampleListing)
+  })
+
+  it('calls the correct endpoint', async () => {
+    mockFetch(sampleListing)
+    await api.getProductChannelListing(TOKEN, 'conn-1', 'prod-1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/listings/prod-1',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('returns null (not a thrown error) when the product was never linked', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ data: null, error: { code: 'NOT_FOUND', message: 'listing not found' } }),
+    }))
+    const result = await api.getProductChannelListing(TOKEN, 'conn-1', 'prod-1')
+    expect(result).toBeNull()
+  })
+
+  it('throws on unexpected failure', async () => {
+    mockFetchError('INTERNAL', 'internal server error', 500)
+    await expect(api.getProductChannelListing(TOKEN, 'conn-1', 'prod-1')).rejects.toThrow('internal server error')
   })
 })

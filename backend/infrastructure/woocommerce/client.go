@@ -123,6 +123,49 @@ func (c *wooClient) ListCategories(ctx context.Context) ([]integrationsDomain.Wo
 // (100 pages * 100 per page = 10,000 categories).
 const maxCategoryPages = 100
 
+type wooSettingDTO struct {
+	ID    string `json:"id"`
+	Value string `json:"value"`
+}
+
+// GetProductUnits reads the store's weight/dimension unit settings —
+// there's no per-product unit on Woo's product resource, so this is the
+// only way to know whether "0.5" means 0.5kg or 0.5lb.
+func (c *wooClient) GetProductUnits(ctx context.Context) (string, string, error) {
+	url := fmt.Sprintf("%s/wp-json/wc/v3/settings/products", c.storeURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Authorization", c.basicAuthHeader())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	var settings []wooSettingDTO
+	decodeErr := json.NewDecoder(resp.Body).Decode(&settings)
+	resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", "", fmt.Errorf("get product units: %s: status %d", url, resp.StatusCode)
+	}
+	if decodeErr != nil {
+		return "", "", decodeErr
+	}
+
+	var weightUnit, dimensionUnit string
+	for _, s := range settings {
+		switch s.ID {
+		case "woocommerce_weight_unit":
+			weightUnit = s.Value
+		case "woocommerce_dimension_unit":
+			dimensionUnit = s.Value
+		}
+	}
+	return weightUnit, dimensionUnit, nil
+}
+
 func (c *wooClient) basicAuthHeader() string {
 	token := base64.StdEncoding.EncodeToString([]byte(c.consumerKey + ":" + c.consumerSecret))
 	return "Basic " + token
@@ -170,6 +213,29 @@ func (c *wooClient) UpdateProductStock(ctx context.Context, externalProductID st
 	return err
 }
 
+func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
+	var dims *wc.ProductDimensions
+	if p.Dimensions.Length != "" || p.Dimensions.Width != "" || p.Dimensions.Height != "" {
+		dims = &wc.ProductDimensions{Length: p.Dimensions.Length, Width: p.Dimensions.Width, Height: p.Dimensions.Height}
+	}
+	updated, _, err := c.client.Products.Update(ctx, externalProductID, &wc.Product{
+		Name:          p.Name,
+		Status:        p.Status,
+		Description:   p.Description,
+		RegularPrice:  wc.FlexibleString(p.RegularPrice),
+		Virtual:       p.Virtual,
+		ManageStock:   p.ManageStock,
+		StockQuantity: p.StockQuantity,
+		Weight:        p.Weight,
+		Dimensions:    dims,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := toWooProduct(*updated)
+	return &result, nil
+}
+
 func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 	images := make([]integrationsDomain.WooProductImage, len(p.Images))
 	for i, img := range p.Images {
@@ -181,6 +247,12 @@ func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 			ExternalID: strconv.Itoa(cat.ID),
 			Name:       cat.Name,
 			Slug:       cat.Slug,
+		}
+	}
+	var dimensions integrationsDomain.WooProductDimensions
+	if p.Dimensions != nil {
+		dimensions = integrationsDomain.WooProductDimensions{
+			Length: p.Dimensions.Length, Width: p.Dimensions.Width, Height: p.Dimensions.Height,
 		}
 	}
 	return integrationsDomain.WooProduct{
@@ -195,6 +267,8 @@ func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 		Virtual:       p.Virtual,
 		ManageStock:   p.ManageStock,
 		StockQuantity: p.StockQuantity,
+		Weight:        p.Weight,
+		Dimensions:    dimensions,
 		Images:        images,
 		Categories:    categories,
 	}

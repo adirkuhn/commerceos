@@ -57,6 +57,20 @@ export interface SyncSchedule {
   last_run_error: string
 }
 
+export type ProductChannelListingSyncStatus = 'pending' | 'synced' | 'error'
+
+export interface ProductChannelListing {
+  id: string
+  product_id: string
+  connection_id: string
+  provider: string
+  external_id: string
+  sync_status: ProductChannelListingSyncStatus
+  last_synced_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface APIError {
   code: string
   message: string

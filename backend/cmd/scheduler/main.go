@@ -10,6 +10,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/nats-io/nats.go"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -18,8 +19,11 @@ import (
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
 	"github.com/adirkuhn/commerceos/infrastructure/woocommerce"
@@ -71,6 +75,19 @@ func main() {
 		log.Fatalf("db connect: %v", err)
 	}
 
+	nc, err := nats.Connect(cfg.NatsURL)
+	if err != nil {
+		log.Fatalf("nats connect: %v", err)
+	}
+	defer nc.Drain()
+	js, err := nc.JetStream()
+	if err != nil {
+		log.Fatalf("jetstream: %v", err)
+	}
+	if err := publishers.EnsureStream(js); err != nil {
+		log.Fatalf("jetstream: %v", err)
+	}
+
 	connRepo := repositories.NewConnectionRepo(db)
 	wooFactory := woocommerce.NewFactory()
 	categoryRepo := repositories.NewCategoryRepo(db)
@@ -98,6 +115,21 @@ func main() {
 		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, stockRecorderUC, uploadMediaUC,
 	)
 	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
+
+	processedEventRepo := repositories.NewProcessedEventRepo(db)
+	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
+		db, productRepo, variantRepo, skuRepo, listingRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
+	)
+	productChangedConsumer := consumers.NewProductChangedConsumer(processedEventRepo, syncProductUC)
+	// Durable name persists this subscription's delivery cursor in
+	// JetStream across scheduler restarts — a redeploy resumes from where
+	// it left off instead of replaying (or losing) everything.
+	productChangedSub, err := js.Subscribe(events.ProductChanged{}.EventName(), productChangedConsumer.Handle,
+		nats.Durable("product-changed-scheduler"), nats.ManualAck())
+	if err != nil {
+		log.Fatalf("subscribe pms.product.changed: %v", err)
+	}
+	defer productChangedSub.Unsubscribe()
 
 	rs := buildRunners(
 		importUC,

@@ -114,6 +114,22 @@ func (r *ProductChannelListingRepo) ListByConnection(ctx context.Context, connec
 	return out, nil
 }
 
+func (r *ProductChannelListingRepo) ListByProduct(ctx context.Context, productID string) ([]channelsDomain.ProductChannelListing, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []productChannelListingModel
+	if err := tx.Where("product_id = ?", productID).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("productChannelListingRepo.ListByProduct: %w", err)
+	}
+	out := make([]channelsDomain.ProductChannelListing, len(rows))
+	for i, row := range rows {
+		out[i] = *toListingDomain(row)
+	}
+	return out, nil
+}
+
 func (r *ProductChannelListingRepo) Update(ctx context.Context, l *channelsDomain.ProductChannelListing) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

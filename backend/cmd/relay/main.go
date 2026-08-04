@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/adirkuhn/commerceos/domain/outbox"
+	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/config"
 )
@@ -27,6 +28,9 @@ func main() {
 
 	js, err := nc.JetStream()
 	if err != nil {
+		log.Fatalf("jetstream: %v", err)
+	}
+	if err := publishers.EnsureStream(js); err != nil {
 		log.Fatalf("jetstream: %v", err)
 	}
 

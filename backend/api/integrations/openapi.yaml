@@ -162,6 +162,27 @@ paths:
         '502':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/listings/{productId}:
+    get:
+      operationId: getProductChannelListing
+      summary: >-
+        Get a single product's sync state for this connection (powers the
+        product edit page's per-channel tab). 404 means the product has
+        never been linked to this connection (not imported from it, not
+        pushed to it).
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductChannelListingResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/sync-schedules:
     get:
       operationId: listSyncSchedules
@@ -244,6 +265,13 @@ components:
   parameters:
     id:
       name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    productId:
+      name: productId
       in: path
       required: true
       schema:

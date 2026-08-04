@@ -114,7 +114,7 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	fileStorage := buildFileStorage(cfg)
-	pmshandler.Register(pmsGroup, db, fileStorage)
+	pmshandler.Register(pmsGroup, db, fileStorage, outboxRepo)
 
 	inventorySpec, err := geninventory.GetSpec()
 	if err != nil {

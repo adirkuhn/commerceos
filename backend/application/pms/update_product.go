@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -23,10 +24,11 @@ type UpdateProductUseCase struct {
 	db          *gorm.DB
 	productRepo pmsDomain.ProductRepository
 	variantRepo pmsDomain.VariantRepository
+	outboxRepo  outbox.Repository
 }
 
-func NewUpdateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository) *UpdateProductUseCase {
-	return &UpdateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo}
+func NewUpdateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository, outboxRepo outbox.Repository) *UpdateProductUseCase {
+	return &UpdateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, outboxRepo: outboxRepo}
 }
 
 // Execute updates product fields. Slug is deliberately left unchanged even
@@ -58,7 +60,7 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 			return err
 		}
 		product = *existing
-		return nil
+		return enqueueProductChanged(ctx, uc.outboxRepo, product.ID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateProduct: %w", err)

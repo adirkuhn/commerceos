@@ -11,6 +11,7 @@ import (
 
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -151,7 +152,7 @@ var _ genpms.ServerInterface = (*Handler)(nil)
 // mounts the generated routes (matching the OpenAPI spec exactly).
 // fileStorage is the media storage adapter (local disk or S3/MinIO — see
 // infrastructure/storage), selected by the caller based on config.
-func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
+func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, outboxRepo outbox.Repository) {
 	categoryRepo := repositories.NewCategoryRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
@@ -166,13 +167,13 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		apppms.NewListProductsUseCase(db, productRepo),
 		apppms.NewCreateProductUseCase(db, productRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
-		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo),
+		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo),
 		apppms.NewDeleteProductUseCase(db, productRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
 		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo),
 		apppms.NewDeleteVariantUseCase(db, variantRepo),
 		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo),
-		apppms.NewUpdateSKUUseCase(db, skuRepo),
+		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo),
 		apppms.NewDeleteSKUUseCase(db, skuRepo),
 		apppms.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage),
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
