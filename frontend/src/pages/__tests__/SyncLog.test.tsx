@@ -40,10 +40,10 @@ describe('Sync History page', () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [entry()], total: 1 })
     render(<SyncLog />)
 
-    expect(await screen.findByText('T-Shirt')).toBeInTheDocument()
+    expect(await screen.findAllByText('T-Shirt')).not.toHaveLength(0)
     expect(screen.getByText(/mystore\.com/)).toBeInTheDocument()
     expect(screen.getByText('success')).toBeInTheDocument()
-    expect(screen.getByText('name')).toBeInTheDocument()
+    expect(screen.getByText('name:')).toBeInTheDocument()
   })
 
   it('falls back to product_id when product_name is missing', async () => {
@@ -55,14 +55,35 @@ describe('Sync History page', () => {
     expect(await screen.findByText('prod-1')).toBeInTheDocument()
   })
 
-  it('expands a row on click to show the full before/after diff', async () => {
+  it('shows the original and new value for each changed field, no click needed', async () => {
     vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [entry()], total: 1 })
     render(<SyncLog />)
 
-    expect(screen.queryByText('Old')).not.toBeInTheDocument()
-    await userEvent.click(await screen.findByText('T-Shirt'))
+    expect(await screen.findByText('Old')).toBeInTheDocument()
+  })
 
-    expect(screen.getByText('Old')).toBeInTheDocument()
+  it('shows only changed fields, not the full field snapshot', async () => {
+    vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({
+      entries: [entry({
+        fields: { name: 'T-Shirt', description: 'unchanged text' },
+        changes: { name: { from: 'Old', to: 'T-Shirt' } },
+      })],
+      total: 1,
+    })
+    render(<SyncLog />)
+
+    await screen.findByText('name:')
+    expect(screen.queryByText('description:')).not.toBeInTheDocument()
+    expect(screen.queryByText('unchanged text')).not.toBeInTheDocument()
+  })
+
+  it('shows "No changes" when a sync recorded no field diff', async () => {
+    vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({
+      entries: [entry({ changes: {} })], total: 1,
+    })
+    render(<SyncLog />)
+
+    expect(await screen.findByText('No changes')).toBeInTheDocument()
   })
 
   it('shows the error message for a failed sync', async () => {
@@ -70,8 +91,6 @@ describe('Sync History page', () => {
       entries: [entry({ status: 'error', error_message: 'woo unreachable', changes: {} })], total: 1,
     })
     render(<SyncLog />)
-
-    await userEvent.click(await screen.findByText('T-Shirt'))
 
     expect(await screen.findByText('woo unreachable')).toBeInTheDocument()
   })

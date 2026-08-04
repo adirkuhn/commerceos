@@ -1,9 +1,9 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSyncLogs } from '../integrations/hooks/useSyncLogs'
-import type { SyncLogEntry, SyncLogStatus, SyncLogDirection } from '../integrations/types'
+import type { SyncLogStatus, SyncLogDirection } from '../integrations/types'
 
 const PAGE_SIZE = 20
 
@@ -17,20 +17,17 @@ const DIRECTION_LABEL: Record<SyncLogDirection, string> = {
   import: 'Channel → CommerceOS',
 }
 
-function changedFieldsSummary(entry: SyncLogEntry): string {
-  const keys = Object.keys(entry.changes)
-  if (keys.length === 0) return '—'
-  return keys.join(', ')
-}
-
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString()
+}
+
+function formatValue(v: string): string {
+  return v === '' ? '—' : v
 }
 
 export default function SyncLog() {
   const { token } = useAuth()
   const [page, setPage] = useState(1)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const { entries, total, loading, error, refresh } = useSyncLogs(token ?? '', { page, perPage: PAGE_SIZE })
 
   return (
@@ -61,7 +58,7 @@ export default function SyncLog() {
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Channel</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Direction</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Changed</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Changes</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
             </tr>
           </thead>
@@ -72,54 +69,44 @@ export default function SyncLog() {
             {!loading && entries.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No syncs yet</td></tr>
             )}
-            {entries.map(entry => (
-              <Fragment key={entry.id}>
-                <tr
-                  key={entry.id}
-                  onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
-                  className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
+            {entries.map(entry => {
+              const changedFields = Object.entries(entry.changes)
+              return (
+                <tr key={entry.id} className="align-top hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
                   <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(entry.synced_at)}</td>
                   <td className="px-3 py-2.5 dark:text-gray-200 text-gray-800">{entry.product_name || entry.product_id}</td>
                   <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">
                     {entry.provider}
                     {entry.store_url && <span className="dark:text-gray-500 text-gray-400"> · {entry.store_url}</span>}
                   </td>
-                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{DIRECTION_LABEL[entry.direction]}</td>
-                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{changedFieldsSummary(entry)}</td>
+                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{DIRECTION_LABEL[entry.direction]}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[entry.status]}`}>
+                    {changedFields.length === 0 ? (
+                      <span className="dark:text-gray-500 text-gray-400">No changes</span>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {changedFields.map(([field, change]) => (
+                          <div key={field} className="flex items-baseline gap-1.5">
+                            <span className="dark:text-gray-500 text-gray-400 shrink-0">{field}:</span>
+                            <span className="dark:text-gray-400 text-gray-500 truncate max-w-[220px]" title={change.from}>{formatValue(change.from)}</span>
+                            <span className="dark:text-gray-600 text-gray-300 shrink-0">→</span>
+                            <span className="dark:text-gray-100 text-gray-900 font-medium truncate max-w-[220px]" title={change.to}>{formatValue(change.to)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${STATUS_STYLES[entry.status]}`}>
                       {entry.status}
                     </span>
+                    {entry.status === 'error' && entry.error_message && (
+                      <p className="text-[10px] text-red-400 mt-1 max-w-[220px]">{entry.error_message}</p>
+                    )}
                   </td>
                 </tr>
-                {expandedId === entry.id && (
-                  <tr className="dark:bg-[#0B1220]/60 bg-gray-50">
-                    <td colSpan={6} className="px-4 py-3">
-                      {entry.status === 'error' && entry.error_message && (
-                        <p className="text-[11px] text-red-400 mb-2">{entry.error_message}</p>
-                      )}
-                      {Object.keys(entry.changes).length === 0 ? (
-                        <p className="text-[11px] dark:text-gray-500 text-gray-400">No field changes recorded.</p>
-                      ) : (
-                        <table className="text-[11px]">
-                          <tbody>
-                            {Object.entries(entry.changes).map(([field, change]) => (
-                              <tr key={field}>
-                                <td className="pr-3 py-0.5 dark:text-gray-500 text-gray-400">{field}</td>
-                                <td className="pr-3 py-0.5 dark:text-gray-400 text-gray-500">{change.from || '—'}</td>
-                                <td className="pr-3 py-0.5 dark:text-gray-500 text-gray-400">→</td>
-                                <td className="py-0.5 dark:text-gray-200 text-gray-800">{change.to || '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
