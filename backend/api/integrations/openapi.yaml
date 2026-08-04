@@ -183,6 +183,49 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/sync-logs:
+    get:
+      operationId: listAllSyncLogs
+      summary: >-
+        Tenant-wide sync history — every push/import/stock attempt across
+        every product and connection, newest first. Powers the Sync
+        History page (as opposed to the per-listing endpoint, which is
+        scoped to one product's WooCommerce tab).
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncLogEntryPageResponse'
+
+  /integrations/connections/{id}/listings/{productId}/sync-logs:
+    get:
+      operationId: listSyncLogs
+      summary: >-
+        The audit trail for one product's sync history on this connection —
+        every push/import/stock attempt, what changed, when, and whether it
+        succeeded. Newest first.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncLogEntryListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/sync-schedules:
     get:
       operationId: listSyncSchedules
@@ -416,6 +459,60 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/ProductChannelListing'
+        error: { nullable: true }
+
+    FieldChange:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string }
+        to: { type: string }
+
+    SyncLogEntry:
+      type: object
+      required: [id, listing_id, product_id, connection_id, provider, external_id, direction, status, error_message, fields, changes, synced_at]
+      properties:
+        id: { type: string }
+        listing_id: { type: string }
+        product_id: { type: string }
+        connection_id: { type: string }
+        provider: { type: string }
+        external_id: { type: string }
+        direction: { type: string, enum: [push, import] }
+        status: { type: string, enum: [success, error] }
+        error_message: { type: string }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+        changes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FieldChange'
+        synced_at: { type: string, format: date-time }
+        product_name:
+          type: string
+          description: Only populated by the tenant-wide sync history list — the per-listing endpoint's caller already knows the product.
+        store_url:
+          type: string
+          description: Only populated by the tenant-wide sync history list.
+
+    SyncLogEntryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncLogEntry'
+        error: { nullable: true }
+
+    SyncLogEntryPageResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncLogEntry'
+        total: { type: integer }
         error: { nullable: true }
 
     SyncSchedule:

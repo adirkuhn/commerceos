@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -29,6 +30,7 @@ type ExportWooStockLevelsUseCase struct {
 	variantRepo pmsDomain.VariantRepository
 	skuRepo     pmsDomain.SKURepository
 	listingRepo channelsDomain.ProductChannelListingRepository
+	syncLogRepo channelsDomain.SyncLogRepository
 	stockLevel  stockLevelGetter
 }
 
@@ -40,11 +42,12 @@ func NewExportWooStockLevelsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
+	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 ) *ExportWooStockLevelsUseCase {
 	return &ExportWooStockLevelsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
-		variantRepo: variantRepo, skuRepo: skuRepo, listingRepo: listingRepo, stockLevel: stockLevel,
+		variantRepo: variantRepo, skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
 	}
 }
 
@@ -112,6 +115,7 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("product %s: %v", listing.ProductID, err))
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), nil)
 		return
 	}
 	if isVirtual {
@@ -121,12 +125,16 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	level, err := uc.stockLevel.Execute(ctx, skuID)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: stock level: %v", skuID, err))
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), nil)
 		return
 	}
 
+	fields := map[string]string{"stock_quantity": strconv.FormatInt(level.Syncable, 10)}
 	if err := client.UpdateProductStock(ctx, listing.ExternalID, int(level.Syncable)); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: %v: %v", skuID, integrationsDomain.ErrWooRequestFailed, err))
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 	result.Updated++
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusSuccess, "", fields)
 }

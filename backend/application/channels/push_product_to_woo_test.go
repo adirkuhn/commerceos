@@ -53,8 +53,8 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 	h.wooClient.createdWithID = "555"
 
 	uc := appchannels.NewPushProductToWooUseCase(
-		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
 	listing, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -85,7 +85,7 @@ func TestPushProductToWoo_returnsExistingListingWithoutRepushing(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
 	listing, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -105,7 +105,7 @@ func TestPushProductToWoo_rejectsProductWithVariants(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -125,7 +125,7 @@ func TestPushProductToWoo_wrapsWooCreateFailureAsErrWooRequestFailed(t *testing.
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -143,8 +143,8 @@ func TestPushProductToWoo_pushesVirtualProductWithoutStockManagement(t *testing.
 	stockLevel := &stubStockLevelGetter{err: errors.New("no ledger entries yet")}
 
 	uc := appchannels.NewPushProductToWooUseCase(
-		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, stockLevel,
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -157,4 +157,43 @@ func TestPushProductToWoo_pushesVirtualProductWithoutStockManagement(t *testing.
 	require.True(t, pushed.Virtual)
 	require.False(t, pushed.ManageStock)
 	require.Nil(t, pushed.StockQuantity)
+}
+
+func TestPushProductToWoo_writesASyncLogEntryForTheNewListing(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{}
+	h.wooClient.createdWithID = "555"
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{ProductID: product.ID, ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	entry := h.syncLogRepo.created[0]
+	require.Equal(t, channelsDomain.SyncFlowPush, entry.Direction)
+	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
+	require.Equal(t, "listing-1", entry.ListingID)
+	require.Equal(t, product.Name, entry.Fields["name"])
+}
+
+func TestPushProductToWoo_doesNotLogWhenAlreadyLinked(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	h.listingRepo.byProduct[product.ID] = channelsDomain.ProductChannelListing{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "999"}
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{ProductID: product.ID, ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Empty(t, h.syncLogRepo.created, "no push happened, so nothing to log")
 }

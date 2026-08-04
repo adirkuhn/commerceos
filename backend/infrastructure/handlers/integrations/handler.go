@@ -64,6 +64,12 @@ type upsertSyncScheduleUC interface {
 type getProductChannelListingUC interface {
 	Execute(ctx context.Context, productID, connectionID string) (*channelsDomain.ProductChannelListing, error)
 }
+type listSyncLogsUC interface {
+	Execute(ctx context.Context, productID, connectionID string) ([]channelsDomain.SyncLogEntry, error)
+}
+type listAllSyncLogsUC interface {
+	Execute(ctx context.Context, page, perPage int) ([]appchannels.SyncLogEntryWithNames, int64, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +87,8 @@ type Handler struct {
 	deleteAllImportedProds   deleteAllImportedProductsUC
 	updateConnectionSettings updateConnectionSettingsUC
 	getProductChannelListing getProductChannelListingUC
+	listSyncLogs             listSyncLogsUC
+	listAllSyncLogs          listAllSyncLogsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -98,6 +106,8 @@ func NewHandler(
 	deleteAllImportedProds deleteAllImportedProductsUC,
 	updateConnectionSettings updateConnectionSettingsUC,
 	getProductChannelListing getProductChannelListingUC,
+	listSyncLogs listSyncLogsUC,
+	listAllSyncLogs listAllSyncLogsUC,
 ) *Handler {
 	return &Handler{
 		listConnections:          listConnections,
@@ -113,6 +123,8 @@ func NewHandler(
 		deleteAllImportedProds:   deleteAllImportedProds,
 		updateConnectionSettings: updateConnectionSettings,
 		getProductChannelListing: getProductChannelListing,
+		listSyncLogs:             listSyncLogs,
+		listAllSyncLogs:          listAllSyncLogs,
 	}
 }
 
@@ -152,6 +164,7 @@ func Register(
 	variantRepo := repositories.NewVariantRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
+	syncLogRepo := repositories.NewSyncLogRepo(db)
 	stockMovementRepo := repositories.NewStockMovementRepo(db)
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	importJobRepo := repositories.NewImportJobRepo(db)
@@ -169,7 +182,7 @@ func Register(
 		),
 		appchannels.NewPushProductToWooUseCase(
 			db, connRepo, wooFactory, encryptionSecret,
-			productRepo, variantRepo, skuRepo, listingRepo,
+			productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
 			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db)),
 		),
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
@@ -177,6 +190,8 @@ func Register(
 		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
+		appchannels.NewListSyncLogsUseCase(db, listingRepo, syncLogRepo),
+		appchannels.NewListAllSyncLogsUseCase(db, syncLogRepo, productRepo, connRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -387,6 +402,45 @@ func (h *Handler) GetProductChannelListing(c *gin.Context, id genintegrations.Id
 	middleware.OK(c, toGenListing(*listing))
 }
 
+func (h *Handler) ListSyncLogs(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	entries, err := h.listSyncLogs.Execute(c.Request.Context(), productId, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.SyncLogEntry, len(entries))
+	for i, e := range entries {
+		resp[i] = toGenSyncLogEntry(e)
+	}
+	middleware.OK(c, resp)
+}
+
+func (h *Handler) ListAllSyncLogs(c *gin.Context, params genintegrations.ListAllSyncLogsParams) {
+	page, perPage := 1, 20
+	if params.Page != nil {
+		page = *params.Page
+	}
+	if params.PerPage != nil {
+		perPage = *params.PerPage
+	}
+	entries, total, err := h.listAllSyncLogs.Execute(c.Request.Context(), page, perPage)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.SyncLogEntry, len(entries))
+	for i, e := range entries {
+		gen := toGenSyncLogEntry(e.SyncLogEntry)
+		if e.ProductName != "" {
+			gen.ProductName = &e.ProductName
+		}
+		if e.StoreURL != "" {
+			gen.StoreUrl = &e.StoreURL
+		}
+		resp[i] = gen
+	}
+	totalInt := int(total)
+	c.JSON(http.StatusOK, genintegrations.SyncLogEntryPageResponse{Data: &resp, Total: &totalInt})
+}
+
 // ── Route handler (api/integrationscallback — public) ────────────────────────
 
 // WooCallback is unauthenticated — WooCommerce itself calls this
@@ -435,6 +489,23 @@ func toGenListing(l channelsDomain.ProductChannelListing) genintegrations.Produc
 		LastSyncedAt: l.LastSyncedAt,
 		CreatedAt:    l.CreatedAt,
 		UpdatedAt:    l.UpdatedAt,
+	}
+}
+
+func toGenSyncLogEntry(e channelsDomain.SyncLogEntry) genintegrations.SyncLogEntry {
+	changes := make(map[string]genintegrations.FieldChange, len(e.Changes))
+	for k, v := range e.Changes {
+		changes[k] = genintegrations.FieldChange{From: v.From, To: v.To}
+	}
+	fields := e.Fields
+	if fields == nil {
+		fields = map[string]string{}
+	}
+	return genintegrations.SyncLogEntry{
+		Id: e.ID, ListingId: e.ListingID, ProductId: e.ProductID, ConnectionId: e.ConnectionID,
+		Provider: e.Provider, ExternalId: e.ExternalID,
+		Direction: genintegrations.SyncLogEntryDirection(e.Direction), Status: genintegrations.SyncLogEntryStatus(e.Status),
+		ErrorMessage: e.ErrorMessage, Fields: fields, Changes: changes, SyncedAt: e.SyncedAt,
 	}
 }
 

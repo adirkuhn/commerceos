@@ -82,18 +82,54 @@ func (e ProductChannelListingSyncStatus) Valid() bool {
 	}
 }
 
+// Defines values for SyncLogEntryDirection.
+const (
+	SyncLogEntryDirectionImport SyncLogEntryDirection = "import"
+	SyncLogEntryDirectionPush   SyncLogEntryDirection = "push"
+)
+
+// Valid indicates whether the value is a known member of the SyncLogEntryDirection enum.
+func (e SyncLogEntryDirection) Valid() bool {
+	switch e {
+	case SyncLogEntryDirectionImport:
+		return true
+	case SyncLogEntryDirectionPush:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncLogEntryStatus.
+const (
+	SyncLogEntryStatusError   SyncLogEntryStatus = "error"
+	SyncLogEntryStatusSuccess SyncLogEntryStatus = "success"
+)
+
+// Valid indicates whether the value is a known member of the SyncLogEntryStatus enum.
+func (e SyncLogEntryStatus) Valid() bool {
+	switch e {
+	case SyncLogEntryStatusError:
+		return true
+	case SyncLogEntryStatusSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SyncScheduleDirection.
 const (
-	Export SyncScheduleDirection = "export"
-	Import SyncScheduleDirection = "import"
+	SyncScheduleDirectionExport SyncScheduleDirection = "export"
+	SyncScheduleDirectionImport SyncScheduleDirection = "import"
 )
 
 // Valid indicates whether the value is a known member of the SyncScheduleDirection enum.
 func (e SyncScheduleDirection) Valid() bool {
 	switch e {
-	case Export:
+	case SyncScheduleDirectionExport:
 		return true
-	case Import:
+	case SyncScheduleDirectionImport:
 		return true
 	default:
 		return false
@@ -211,6 +247,12 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// FieldChange defines model for FieldChange.
+type FieldChange struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
 // ImportJob defines model for ImportJob.
 type ImportJob struct {
 	AlreadyLinked int             `json:"already_linked"`
@@ -291,6 +333,47 @@ type StartWooConnectResponse struct {
 	Error interface{} `json:"error,omitempty"`
 }
 
+// SyncLogEntry defines model for SyncLogEntry.
+type SyncLogEntry struct {
+	Changes      map[string]FieldChange `json:"changes"`
+	ConnectionId string                 `json:"connection_id"`
+	Direction    SyncLogEntryDirection  `json:"direction"`
+	ErrorMessage string                 `json:"error_message"`
+	ExternalId   string                 `json:"external_id"`
+	Fields       map[string]string      `json:"fields"`
+	Id           string                 `json:"id"`
+	ListingId    string                 `json:"listing_id"`
+	ProductId    string                 `json:"product_id"`
+
+	// ProductName Only populated by the tenant-wide sync history list — the per-listing endpoint's caller already knows the product.
+	ProductName *string            `json:"product_name,omitempty"`
+	Provider    string             `json:"provider"`
+	Status      SyncLogEntryStatus `json:"status"`
+
+	// StoreUrl Only populated by the tenant-wide sync history list.
+	StoreUrl *string   `json:"store_url,omitempty"`
+	SyncedAt time.Time `json:"synced_at"`
+}
+
+// SyncLogEntryDirection defines model for SyncLogEntry.Direction.
+type SyncLogEntryDirection string
+
+// SyncLogEntryStatus defines model for SyncLogEntry.Status.
+type SyncLogEntryStatus string
+
+// SyncLogEntryListResponse defines model for SyncLogEntryListResponse.
+type SyncLogEntryListResponse struct {
+	Data  *[]SyncLogEntry `json:"data,omitempty"`
+	Error interface{}     `json:"error,omitempty"`
+}
+
+// SyncLogEntryPageResponse defines model for SyncLogEntryPageResponse.
+type SyncLogEntryPageResponse struct {
+	Data  *[]SyncLogEntry `json:"data,omitempty"`
+	Error interface{}     `json:"error,omitempty"`
+	Total *int            `json:"total,omitempty"`
+}
+
 // SyncSchedule defines model for SyncSchedule.
 type SyncSchedule struct {
 	// DefaultCurrency Required to enable products/import. Unused otherwise.
@@ -341,6 +424,12 @@ type ProductId = string
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// ListAllSyncLogsParams defines parameters for ListAllSyncLogs.
+type ListAllSyncLogsParams struct {
+	Page    *int `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
 // ImportWooProductsJSONRequestBody defines body for ImportWooProducts for application/json ContentType.
 type ImportWooProductsJSONRequestBody = ImportWooProductsRequest
 
@@ -379,6 +468,9 @@ type ServerInterface interface {
 	// GetProductChannelListing Get a single product's sync state for this connection (powers the product edit page's per-channel tab). 404 means the product has never been linked to this connection (not imported from it, not pushed to it).
 	// (GET /integrations/connections/{id}/listings/{productId})
 	GetProductChannelListing(c *gin.Context, id Id, productId ProductId)
+	// ListSyncLogs The audit trail for one product's sync history on this connection — every push/import/stock attempt, what changed, when, and whether it succeeded. Newest first.
+	// (GET /integrations/connections/{id}/listings/{productId}/sync-logs)
+	ListSyncLogs(c *gin.Context, id Id, productId ProductId)
 	// PushProductToWoo Push a single-SKU CommerceOS product to this connection's WooCommerce store as a new product
 	// (POST /integrations/connections/{id}/push-product)
 	PushProductToWoo(c *gin.Context, id Id)
@@ -394,6 +486,9 @@ type ServerInterface interface {
 	// TestConnection Probe a connection's stored credentials against the real provider
 	// (POST /integrations/connections/{id}/test)
 	TestConnection(c *gin.Context, id Id)
+	// ListAllSyncLogs Tenant-wide sync history — every push/import/stock attempt across every product and connection, newest first. Powers the Sync History page (as opposed to the per-listing endpoint, which is scoped to one product's WooCommerce tab).
+	// (GET /integrations/sync-logs)
+	ListAllSyncLogs(c *gin.Context, params ListAllSyncLogsParams)
 	// ManualConnectWooCommerce Connect WooCommerce by pasting an already-generated REST API key/secret
 	// (POST /integrations/woocommerce/connect/manual)
 	ManualConnectWooCommerce(c *gin.Context)
@@ -546,6 +641,40 @@ func (siw *ServerInterfaceWrapper) GetProductChannelListing(c *gin.Context) {
 	siw.Handler.GetProductChannelListing(c, id, productId)
 }
 
+// ListSyncLogs operation middleware
+func (siw *ServerInterfaceWrapper) ListSyncLogs(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "productId" -------------
+	var productId ProductId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "productId", c.Param("productId"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter productId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSyncLogs(c, id, productId)
+}
+
 // PushProductToWoo operation middleware
 func (siw *ServerInterfaceWrapper) PushProductToWoo(c *gin.Context) {
 
@@ -671,6 +800,41 @@ func (siw *ServerInterfaceWrapper) TestConnection(c *gin.Context) {
 	siw.Handler.TestConnection(c, id)
 }
 
+// ListAllSyncLogs operation middleware
+func (siw *ServerInterfaceWrapper) ListAllSyncLogs(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAllSyncLogsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", c.Request.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter per_page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListAllSyncLogs(c, params)
+}
+
 // ManualConnectWooCommerce operation middleware
 func (siw *ServerInterfaceWrapper) ManualConnectWooCommerce(c *gin.Context) {
 
@@ -733,6 +897,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/integrations/connections/:id/import", wrapper.ImportWooProducts)
 	router.POST(options.BaseURL+"/integrations/connections/:id/push-product", wrapper.PushProductToWoo)
 	router.GET(options.BaseURL+"/integrations/connections/:id/listings/:productId", wrapper.GetProductChannelListing)
+	router.GET(options.BaseURL+"/integrations/sync-logs", wrapper.ListAllSyncLogs)
+	router.GET(options.BaseURL+"/integrations/connections/:id/listings/:productId/sync-logs", wrapper.ListSyncLogs)
 	router.GET(options.BaseURL+"/integrations/connections/:id/sync-schedules", wrapper.ListSyncSchedules)
 	router.PUT(options.BaseURL+"/integrations/connections/:id/sync-schedules", wrapper.UpsertSyncSchedules)
 	router.POST(options.BaseURL+"/integrations/woocommerce/connect/start", wrapper.StartWooConnect)
@@ -744,47 +910,54 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"TbC92f4vAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -167,6 +167,25 @@ func (s *stubGetProductChannelListing) Execute(_ context.Context, _, _ string) (
 	return s.out, s.err
 }
 
+type stubListSyncLogs struct {
+	out []channelsDomain.SyncLogEntry
+	err error
+}
+
+func (s *stubListSyncLogs) Execute(_ context.Context, _, _ string) ([]channelsDomain.SyncLogEntry, error) {
+	return s.out, s.err
+}
+
+type stubListAllSyncLogs struct {
+	out   []appchannels.SyncLogEntryWithNames
+	total int64
+	err   error
+}
+
+func (s *stubListAllSyncLogs) Execute(_ context.Context, _, _ int) ([]appchannels.SyncLogEntryWithNames, int64, error) {
+	return s.out, s.total, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func newTestHandler(
@@ -179,7 +198,7 @@ func newTestHandler(
 ) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn,
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
-		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{})
+		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{})
 }
 
 // newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
@@ -189,7 +208,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{},
+		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 	)
 }
 
@@ -199,7 +218,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 	)
 }
 
@@ -209,7 +228,7 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 	)
 }
 
@@ -220,7 +239,30 @@ func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integra
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		getListing,
+		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+	)
+}
+
+// newListSyncLogsTestHandler builds a Handler for the list-sync-logs route
+// specifically — every other use case is a harmless zero-value stub.
+func newListSyncLogsTestHandler(listLogs *stubListSyncLogs) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{},
+	)
+}
+
+// newListAllSyncLogsTestHandler builds a Handler for the tenant-wide
+// sync-logs route specifically — every other use case is a harmless
+// zero-value stub.
+func newListAllSyncLogsTestHandler(listAll *stubListAllSyncLogs) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll,
 	)
 }
 
@@ -507,7 +549,7 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, importUC, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 	)
 }
 
@@ -624,4 +666,70 @@ func TestGetProductChannelListingHandler_notFoundWhenProductNeverLinked(t *testi
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/listings/prod-1", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListSyncLogsHandler_returnsEntries(t *testing.T) {
+	h := newListSyncLogsTestHandler(&stubListSyncLogs{out: []channelsDomain.SyncLogEntry{
+		{
+			ID: "log-1", ListingID: "listing-1", ProductID: "prod-1", ConnectionID: "conn-1",
+			Provider: "woocommerce", ExternalID: "23609",
+			Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusSuccess,
+			Fields:  map[string]string{"name": "T-Shirt"},
+			Changes: map[string]channelsDomain.FieldChange{"name": {From: "", To: "T-Shirt"}},
+		},
+	}})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/listings/prod-1/sync-logs", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "log-1")
+	assert.Contains(t, w.Body.String(), "T-Shirt")
+	assert.Contains(t, w.Body.String(), `"push"`)
+}
+
+func TestListSyncLogsHandler_notFoundWhenListingMissing(t *testing.T) {
+	h := newListSyncLogsTestHandler(&stubListSyncLogs{err: channelsDomain.ErrListingNotFound})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/listings/prod-1/sync-logs", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListAllSyncLogsHandler_returnsEntriesWithTotal(t *testing.T) {
+	h := newListAllSyncLogsTestHandler(&stubListAllSyncLogs{
+		out: []appchannels.SyncLogEntryWithNames{
+			{
+				SyncLogEntry: channelsDomain.SyncLogEntry{
+					ID: "log-1", ProductID: "prod-1", ConnectionID: "conn-1", Provider: "woocommerce",
+					Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusSuccess,
+				},
+				ProductName: "T-Shirt", StoreURL: "https://mystore.com",
+			},
+		},
+		total: 42,
+	})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/sync-logs?page=2&per_page=10", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "T-Shirt")
+	assert.Contains(t, w.Body.String(), "mystore.com")
+	assert.Contains(t, w.Body.String(), `"total":42`)
+}
+
+func TestListAllSyncLogsHandler_defaultsPageAndPerPage(t *testing.T) {
+	stub := &stubListAllSyncLogs{}
+	h := newListAllSyncLogsTestHandler(stub)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/sync-logs", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
 }

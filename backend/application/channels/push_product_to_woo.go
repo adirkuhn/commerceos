@@ -40,6 +40,7 @@ type PushProductToWooUseCase struct {
 	variantRepo pmsDomain.VariantRepository
 	skuRepo     pmsDomain.SKURepository
 	listingRepo channelsDomain.ProductChannelListingRepository
+	syncLogRepo channelsDomain.SyncLogRepository
 	stockLevel  stockLevelGetter
 }
 
@@ -52,12 +53,13 @@ func NewPushProductToWooUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
+	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 ) *PushProductToWooUseCase {
 	return &PushProductToWooUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
-		listingRepo: listingRepo, stockLevel: stockLevel,
+		listingRepo: listingRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
 	}
 }
 
@@ -162,5 +164,9 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 	if err != nil {
 		return nil, fmt.Errorf("pushProductToWoo: %w", err)
 	}
+
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+		channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
+
 	return &listing, nil
 }

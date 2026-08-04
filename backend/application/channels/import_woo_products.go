@@ -69,6 +69,7 @@ type ImportWooProductsUseCase struct {
 	variantRepo      pmsDomain.VariantRepository
 	skuRepo          pmsDomain.SKURepository
 	listingRepo      channelsDomain.ProductChannelListingRepository
+	syncLogRepo      channelsDomain.SyncLogRepository
 	stock            stockRecorder
 	media            mediaUploader
 }
@@ -83,13 +84,14 @@ func NewImportWooProductsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
+	syncLogRepo channelsDomain.SyncLogRepository,
 	stock stockRecorder,
 	media mediaUploader,
 ) *ImportWooProductsUseCase {
 	return &ImportWooProductsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		categoryRepo: categoryRepo, productRepo: productRepo, variantRepo: variantRepo,
-		skuRepo: skuRepo, listingRepo: listingRepo, stock: stock, media: media,
+		skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo, stock: stock, media: media,
 	}
 }
 
@@ -166,6 +168,8 @@ func (uc *ImportWooProductsUseCase) importOne(
 	}
 
 	var createdProductID, createdSKUID string
+	var createdListing channelsDomain.ProductChannelListing
+	var createdFields map[string]string
 	var imported bool
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		_, err := uc.listingRepo.FindByExternalID(ctx, in.ConnectionID, wp.ID)
@@ -258,6 +262,8 @@ func (uc *ImportWooProductsUseCase) importOne(
 
 		createdProductID = product.ID
 		createdSKUID = sku.ID
+		createdListing = listing
+		createdFields = importedFieldsFromWoo(wp, product, sku)
 		imported = true
 		result.Imported++
 		return nil
@@ -269,6 +275,9 @@ func (uc *ImportWooProductsUseCase) importOne(
 	if !imported {
 		return
 	}
+
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, createdListing, channelsDomain.SyncFlowImport,
+		channelsDomain.SyncLogStatusSuccess, "", createdFields)
 
 	if wp.ManageStock && wp.StockQuantity != nil && *wp.StockQuantity != 0 {
 		// Adjustment, not Receipt: this is recording Woo's reported stock

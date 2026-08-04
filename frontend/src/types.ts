@@ -8,6 +8,7 @@ export type NavItem =
   | 'suppliers'
   | 'procurement'
   | 'integrations'
+  | 'sync-log'
   | 'shipping'
   | 'reports'
   | 'users'

@@ -71,6 +71,33 @@ export interface ProductChannelListing {
   updated_at: string
 }
 
+export type SyncLogDirection = 'push' | 'import'
+export type SyncLogStatus = 'success' | 'error'
+
+export interface FieldChange {
+  from: string
+  to: string
+}
+
+export interface SyncLogEntry {
+  id: string
+  listing_id: string
+  product_id: string
+  connection_id: string
+  provider: string
+  external_id: string
+  direction: SyncLogDirection
+  status: SyncLogStatus
+  error_message: string
+  fields: Record<string, string>
+  changes: Record<string, FieldChange>
+  synced_at: string
+  // Only populated by listAllSyncLogs (the tenant-wide history list) — the
+  // per-listing endpoint's caller already knows the product.
+  product_name?: string
+  store_url?: string
+}
+
 export interface APIError {
   code: string
   message: string

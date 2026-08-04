@@ -95,6 +95,7 @@ func main() {
 	variantRepo := repositories.NewVariantRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
+	syncLogRepo := repositories.NewSyncLogRepo(db)
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
@@ -108,17 +109,17 @@ func main() {
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		productRepo, variantRepo, skuRepo, listingRepo, stockLevelUC,
+		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
 	)
 	importUC := channelsapp.NewImportWooProductsUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, stockRecorderUC, uploadMediaUC,
+		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockRecorderUC, uploadMediaUC,
 	)
 	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 	)
 	productChangedConsumer := consumers.NewProductChangedConsumer(processedEventRepo, syncProductUC)
 	// Durable name persists this subscription's delivery cursor in
@@ -136,11 +137,11 @@ func main() {
 		channelsapp.NewRunScheduledProductExportUseCase(db, productRepo, listingRepo, pushUC),
 		channelsapp.NewImportWooStockLevelsUseCase(
 			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			variantRepo, skuRepo, listingRepo, stockLevelUC, stockRecorderUC,
+			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, stockRecorderUC,
 		),
 		channelsapp.NewExportWooStockLevelsUseCase(
 			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			variantRepo, skuRepo, listingRepo, stockLevelUC,
+			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
 		),
 	)
 

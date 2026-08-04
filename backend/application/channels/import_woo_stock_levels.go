@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -44,6 +45,7 @@ type ImportWooStockLevelsUseCase struct {
 	variantRepo pmsDomain.VariantRepository
 	skuRepo     pmsDomain.SKURepository
 	listingRepo channelsDomain.ProductChannelListingRepository
+	syncLogRepo channelsDomain.SyncLogRepository
 	stockLevel  stockLevelGetter
 	stock       stockRecorder
 }
@@ -56,12 +58,13 @@ func NewImportWooStockLevelsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
+	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 	stock stockRecorder,
 ) *ImportWooStockLevelsUseCase {
 	return &ImportWooStockLevelsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
-		variantRepo: variantRepo, skuRepo: skuRepo, listingRepo: listingRepo,
+		variantRepo: variantRepo, skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		stockLevel: stockLevel, stock: stock,
 	}
 }
@@ -127,6 +130,7 @@ func (uc *ImportWooStockLevelsUseCase) Execute(ctx context.Context, in ImportWoo
 // adjustment movement to match it. Failures on one listing are recorded on
 // the result and never abort the rest of the run.
 func (uc *ImportWooStockLevelsUseCase) reconcileOne(ctx context.Context, in ImportWooStockLevelsInput, listing channelsDomain.ProductChannelListing, wooQty int, result *StockSyncResult) {
+	fields := map[string]string{"stock_quantity": strconv.Itoa(wooQty)}
 	var skuID string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		variants, err := uc.variantRepo.ListByProduct(ctx, listing.ProductID)
@@ -148,12 +152,14 @@ func (uc *ImportWooStockLevelsUseCase) reconcileOne(ctx context.Context, in Impo
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("product %s: %v", listing.ProductID, err))
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 
 	level, err := uc.stockLevel.Execute(ctx, skuID)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: stock level: %v", skuID, err))
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 	delta := int64(wooQty) - level.Syncable
@@ -168,7 +174,9 @@ func (uc *ImportWooStockLevelsUseCase) reconcileOne(ctx context.Context, in Impo
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: record adjustment: %v", skuID, err))
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
 	}
 	result.Updated++
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowImport, channelsDomain.SyncLogStatusSuccess, "", fields)
 }

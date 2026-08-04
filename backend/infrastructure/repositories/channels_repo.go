@@ -483,6 +483,150 @@ func toImportJobDomain(m importJobModel) *channelsDomain.ImportJob {
 	}
 }
 
+// ── sync log ─────────────────────────────────────────────────────────────────
+
+type channelSyncLogModel struct {
+	ID           string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID     string `gorm:"not null;type:uuid"`
+	ListingID    string `gorm:"not null;type:uuid"`
+	ProductID    string `gorm:"not null;type:uuid"`
+	ConnectionID string `gorm:"not null;type:uuid"`
+	Provider     string `gorm:"not null"`
+	ExternalID   string `gorm:"not null"`
+	Direction    string `gorm:"not null"`
+	Status       string `gorm:"not null"`
+	ErrorMessage string `gorm:"not null;default:''"`
+	// Fields/Changes are hand-marshaled JSON strings (not GORM's
+	// serializer:json tag) stored in jsonb columns — matches
+	// importJobModel.Errors' reasoning: this app never Update()s a sync
+	// log row (it's insert-only), but keeping the convention consistent
+	// avoids the tag silently doing nothing if that ever changes.
+	Fields   string `gorm:"type:jsonb;not null;default:'{}'"`
+	Changes  string `gorm:"type:jsonb;not null;default:'{}'"`
+	SyncedAt time.Time
+}
+
+func (channelSyncLogModel) TableName() string { return "channel_sync_logs" }
+
+type SyncLogRepo struct{ db *gorm.DB }
+
+func NewSyncLogRepo(db *gorm.DB) *SyncLogRepo { return &SyncLogRepo{db: db} }
+
+func (r *SyncLogRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("channels: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *SyncLogRepo) Create(ctx context.Context, e *channelsDomain.SyncLogEntry) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := channelSyncLogModel{
+		TenantID: e.TenantID, ListingID: e.ListingID, ProductID: e.ProductID, ConnectionID: e.ConnectionID,
+		Provider: e.Provider, ExternalID: e.ExternalID,
+		Direction: string(e.Direction), Status: string(e.Status), ErrorMessage: e.ErrorMessage,
+		Fields: stringMapToJSON(e.Fields), Changes: changesToJSON(e.Changes),
+		SyncedAt: e.SyncedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("syncLogRepo.Create: %w", err)
+	}
+	e.ID = m.ID
+	return nil
+}
+
+func (r *SyncLogRepo) ListByListing(ctx context.Context, listingID string, limit int) ([]channelsDomain.SyncLogEntry, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []channelSyncLogModel
+	if err := tx.Where("listing_id = ?", listingID).Order("synced_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("syncLogRepo.ListByListing: %w", err)
+	}
+	out := make([]channelsDomain.SyncLogEntry, len(rows))
+	for i, row := range rows {
+		out[i] = *toSyncLogDomain(row)
+	}
+	return out, nil
+}
+
+func (r *SyncLogRepo) ListAll(ctx context.Context, page, perPage int) ([]channelsDomain.SyncLogEntry, int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	var total int64
+	if err := tx.Model(&channelSyncLogModel{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("syncLogRepo.ListAll: count: %w", err)
+	}
+	var rows []channelSyncLogModel
+	offset := (page - 1) * perPage
+	if err := tx.Order("synced_at DESC").Offset(offset).Limit(perPage).Find(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("syncLogRepo.ListAll: %w", err)
+	}
+	out := make([]channelsDomain.SyncLogEntry, len(rows))
+	for i, row := range rows {
+		out[i] = *toSyncLogDomain(row)
+	}
+	return out, total, nil
+}
+
+func stringMapToJSON(m map[string]string) string {
+	if m == nil {
+		m = map[string]string{}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
+
+func stringMapFromJSON(raw string) map[string]string {
+	out := map[string]string{}
+	if raw == "" {
+		return out
+	}
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
+}
+
+func changesToJSON(m map[string]channelsDomain.FieldChange) string {
+	if m == nil {
+		m = map[string]channelsDomain.FieldChange{}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
+
+func changesFromJSON(raw string) map[string]channelsDomain.FieldChange {
+	out := map[string]channelsDomain.FieldChange{}
+	if raw == "" {
+		return out
+	}
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
+}
+
+func toSyncLogDomain(m channelSyncLogModel) *channelsDomain.SyncLogEntry {
+	return &channelsDomain.SyncLogEntry{
+		ID: m.ID, TenantID: m.TenantID, ListingID: m.ListingID, ProductID: m.ProductID, ConnectionID: m.ConnectionID,
+		Provider: m.Provider, ExternalID: m.ExternalID,
+		Direction: channelsDomain.SyncDirectionFlow(m.Direction), Status: channelsDomain.SyncLogStatus(m.Status),
+		ErrorMessage: m.ErrorMessage,
+		Fields:       stringMapFromJSON(m.Fields), Changes: changesFromJSON(m.Changes),
+		SyncedAt: m.SyncedAt,
+	}
+}
+
 func toListingDomain(m productChannelListingModel) *channelsDomain.ProductChannelListing {
 	return &channelsDomain.ProductChannelListing{
 		ID:            m.ID,

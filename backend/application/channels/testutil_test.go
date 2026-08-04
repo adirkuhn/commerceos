@@ -383,6 +383,55 @@ func (s *stubListingRepo) Update(_ context.Context, l *channelsDomain.ProductCha
 	return nil
 }
 
+type stubSyncLogRepo struct {
+	created   []channelsDomain.SyncLogEntry
+	createErr error
+	byListing map[string][]channelsDomain.SyncLogEntry // newest-first
+	all       []channelsDomain.SyncLogEntry            // newest-first, for ListAll
+	listErr   error
+}
+
+func (s *stubSyncLogRepo) Create(_ context.Context, e *channelsDomain.SyncLogEntry) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	e.ID = fmt.Sprintf("sync-log-%d", len(s.created)+1)
+	s.created = append(s.created, *e)
+	if s.byListing == nil {
+		s.byListing = map[string][]channelsDomain.SyncLogEntry{}
+	}
+	s.byListing[e.ListingID] = append([]channelsDomain.SyncLogEntry{*e}, s.byListing[e.ListingID]...)
+	return nil
+}
+func (s *stubSyncLogRepo) ListByListing(_ context.Context, listingID string, limit int) ([]channelsDomain.SyncLogEntry, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	entries := s.byListing[listingID]
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
+	}
+	return entries, nil
+}
+func (s *stubSyncLogRepo) ListAll(_ context.Context, page, perPage int) ([]channelsDomain.SyncLogEntry, int64, error) {
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
+	if s.all == nil {
+		return nil, 0, nil
+	}
+	total := int64(len(s.all))
+	start := (page - 1) * perPage
+	if start >= len(s.all) {
+		return nil, total, nil
+	}
+	end := start + perPage
+	if end > len(s.all) {
+		end = len(s.all)
+	}
+	return s.all[start:end], total, nil
+}
+
 type stubSyncScheduleRepo struct {
 	upserted     []channelsDomain.SyncSchedule
 	upsertErr    error

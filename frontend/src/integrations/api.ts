@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, APIResponse } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -121,4 +121,36 @@ export async function getProductChannelListing(token: string, connectionId: stri
     throw new Error(body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data
+}
+
+export function listSyncLogs(token: string, connectionId: string, productId: string): Promise<SyncLogEntry[]> {
+  return request<SyncLogEntry[]>(`${base()}/connections/${connectionId}/listings/${productId}/sync-logs`, { method: 'GET' }, token)
+}
+
+export interface ListAllSyncLogsParams {
+  page?: number
+  perPage?: number
+}
+
+export interface ListAllSyncLogsResult {
+  entries: SyncLogEntry[]
+  total: number
+}
+
+// Tenant-wide sync history — every push/import/stock attempt across every
+// product and connection, newest first.
+export async function listAllSyncLogs(token: string, params: ListAllSyncLogsParams = {}): Promise<ListAllSyncLogsResult> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  const query = qs.toString()
+
+  const res = await fetch(`${base()}/sync-logs${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<SyncLogEntry[]> & { total?: number } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { entries: body.data ?? [], total: body.total ?? 0 }
 }

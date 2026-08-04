@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { Connection, SyncSchedule, ProductChannelListing, APIResponse } from '../types'
+import type { Connection, SyncSchedule, ProductChannelListing, SyncLogEntry, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -298,5 +298,64 @@ describe('getProductChannelListing', () => {
   it('throws on unexpected failure', async () => {
     mockFetchError('INTERNAL', 'internal server error', 500)
     await expect(api.getProductChannelListing(TOKEN, 'conn-1', 'prod-1')).rejects.toThrow('internal server error')
+  })
+})
+
+const sampleLogEntry: SyncLogEntry = {
+  id: 'log-1', listing_id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1',
+  provider: 'woocommerce', external_id: '23609', direction: 'push', status: 'success',
+  error_message: '', fields: { name: 'T-Shirt' }, changes: { name: { from: '', to: 'T-Shirt' } },
+  synced_at: '2026-08-04T10:00:00Z',
+}
+
+function mockSyncLogListFetch(data: SyncLogEntry[], total: number) {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ data, total, error: null }),
+  }))
+}
+
+describe('listSyncLogs', () => {
+  it('returns entries for a listing', async () => {
+    mockFetch([sampleLogEntry])
+    const result = await api.listSyncLogs(TOKEN, 'conn-1', 'prod-1')
+    expect(result).toEqual([sampleLogEntry])
+  })
+
+  it('calls the correct endpoint', async () => {
+    mockFetch([])
+    await api.listSyncLogs(TOKEN, 'conn-1', 'prod-1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/listings/prod-1/sync-logs',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})
+
+describe('listAllSyncLogs', () => {
+  it('returns entries and total', async () => {
+    mockSyncLogListFetch([sampleLogEntry], 42)
+    const result = await api.listAllSyncLogs(TOKEN, { page: 2, perPage: 10 })
+    expect(result).toEqual({ entries: [sampleLogEntry], total: 42 })
+  })
+
+  it('sends page/per_page as query params', async () => {
+    mockSyncLogListFetch([], 0)
+    await api.listAllSyncLogs(TOKEN, { page: 2, perPage: 10 })
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sync-logs?page=2&per_page=10')
+  })
+
+  it('omits query params when not given', async () => {
+    mockSyncLogListFetch([], 0)
+    await api.listAllSyncLogs(TOKEN)
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sync-logs')
+  })
+
+  it('throws on failure', async () => {
+    mockFetchError('INTERNAL', 'internal server error', 500)
+    await expect(api.listAllSyncLogs(TOKEN)).rejects.toThrow('internal server error')
   })
 })

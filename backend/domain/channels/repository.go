@@ -17,6 +17,18 @@ type ProductChannelListingRepository interface {
 	Update(ctx context.Context, l *ProductChannelListing) error
 }
 
+// SyncLogRepository is insert-only, no-op-free by design — a sync log
+// entry is never updated once written.
+type SyncLogRepository interface {
+	Create(ctx context.Context, e *SyncLogEntry) error
+	// ListByListing returns entries newest-first, capped at limit.
+	ListByListing(ctx context.Context, listingID string, limit int) ([]SyncLogEntry, error)
+	// ListAll returns every sync log entry for the current tenant
+	// (RLS-scoped), newest first, paginated — powers the tenant-wide sync
+	// history page (as opposed to ListByListing's single-product view).
+	ListAll(ctx context.Context, page, perPage int) ([]SyncLogEntry, int64, error)
+}
+
 type SyncScheduleRepository interface {
 	Upsert(ctx context.Context, s *SyncSchedule) error
 	ListByConnection(ctx context.Context, connectionID string) ([]SyncSchedule, error)

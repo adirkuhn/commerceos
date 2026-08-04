@@ -35,6 +35,7 @@ type SyncProductToChannelsUseCase struct {
 	variantRepo pmsDomain.VariantRepository
 	skuRepo     pmsDomain.SKURepository
 	listingRepo channelsDomain.ProductChannelListingRepository
+	syncLogRepo channelsDomain.SyncLogRepository
 	connRepo    integrationsDomain.ConnectionRepository
 	wooFactory  integrationsDomain.WooClientFactory
 	encSecret   string
@@ -46,13 +47,15 @@ func NewSyncProductToChannelsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
+	syncLogRepo channelsDomain.SyncLogRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
 		db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
-		listingRepo: listingRepo, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
+		listingRepo: listingRepo, syncLogRepo: syncLogRepo,
+		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 	}
 }
 
@@ -121,9 +124,10 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 
 func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, listing channelsDomain.ProductChannelListing) {
 	var syncErr error
+	var fields map[string]string
 	switch listing.Provider {
 	case string(integrationsDomain.ProviderWooCommerce):
-		syncErr = uc.pushToWoo(ctx, product, sku, listing)
+		fields, syncErr = uc.pushToWoo(ctx, product, sku, listing)
 	default:
 		return // no other provider implemented yet
 	}
@@ -131,14 +135,20 @@ func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pms
 	now := time.Now()
 	listing.LastSyncedAt = &now
 	listing.UpdatedAt = now
+	status := channelsDomain.SyncLogStatusSuccess
+	errMsg := ""
 	if syncErr != nil {
 		listing.SyncStatus = channelsDomain.SyncStatusError
 		listing.LastSyncError = syncErr.Error()
+		status = channelsDomain.SyncLogStatusError
+		errMsg = syncErr.Error()
 		log.Printf("syncProductToChannels: product %s -> connection %s: %v", product.ID, listing.ConnectionID, syncErr)
 	} else {
 		listing.SyncStatus = channelsDomain.SyncStatusSynced
 		listing.LastSyncError = ""
 	}
+
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, status, errMsg, fields)
 
 	if uErr := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		return uc.listingRepo.Update(ctx, &listing)
@@ -147,7 +157,7 @@ func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pms
 	}
 }
 
-func (uc *SyncProductToChannelsUseCase) pushToWoo(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, listing channelsDomain.ProductChannelListing) error {
+func (uc *SyncProductToChannelsUseCase) pushToWoo(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, listing channelsDomain.ProductChannelListing) (map[string]string, error) {
 	var conn integrationsDomain.Connection
 	var secret string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -160,12 +170,12 @@ func (uc *SyncProductToChannelsUseCase) pushToWoo(ctx context.Context, product p
 		return err
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	client, err := uc.wooFactory.NewClient(conn.StoreURL.String(), conn.ConsumerKey, secret)
 	if err != nil {
-		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
+		return nil, fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 
 	wooProduct := integrationsDomain.WooProduct{
@@ -204,8 +214,9 @@ func (uc *SyncProductToChannelsUseCase) pushToWoo(ctx context.Context, product p
 		}
 	}
 
+	fields := wooProductToFields(wooProduct)
 	if _, err := client.UpdateProduct(ctx, listing.ExternalID, wooProduct); err != nil {
-		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
+		return fields, fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
-	return nil
+	return fields, nil
 }

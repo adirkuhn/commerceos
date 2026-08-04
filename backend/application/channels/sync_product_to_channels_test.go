@@ -22,7 +22,7 @@ func newSyncHarness(product pmsDomain.Product, variant pmsDomain.Variant, sku pm
 func (h *harness) newSyncUseCase(t *testing.T, n int) *appchannels.SyncProductToChannelsUseCase {
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
-		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo,
+		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret,
 	)
 }
@@ -46,7 +46,7 @@ func TestSyncProductToChannels_pushesUpdatedFieldsToWoo(t *testing.T) {
 		SyncStatus: channelsDomain.SyncStatusSynced,
 	}
 	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
-	uc := h.newSyncUseCase(t, 3)
+	uc := h.newSyncUseCase(t, 4)
 
 	err := uc.Execute(context.Background(), product.ID)
 
@@ -78,7 +78,7 @@ func TestSyncProductToChannels_convertsWeightAndDimensionsUsingStoreUnits(t *tes
 	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
 	h.wooClient.weightUnit = "kg"
 	h.wooClient.dimensionUnit = "cm"
-	uc := h.newSyncUseCase(t, 3)
+	uc := h.newSyncUseCase(t, 4)
 
 	err := uc.Execute(context.Background(), product.ID)
 
@@ -102,7 +102,7 @@ func TestSyncProductToChannels_neverSetsWeightOrDimensionsForVirtualProducts(t *
 	}
 	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
 	h.wooClient.weightUnit = "kg"
-	uc := h.newSyncUseCase(t, 3)
+	uc := h.newSyncUseCase(t, 4)
 
 	err := uc.Execute(context.Background(), product.ID)
 
@@ -120,7 +120,7 @@ func TestSyncProductToChannels_recordsErrorStatusWhenWooUpdateFails_withoutFaili
 	}
 	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
 	h.wooClient.updateProductErr = errors.New("woo unreachable")
-	uc := h.newSyncUseCase(t, 3)
+	uc := h.newSyncUseCase(t, 4)
 
 	err := uc.Execute(context.Background(), product.ID)
 
@@ -160,4 +160,68 @@ func TestSyncProductToChannels_skipsListingsForUnimplementedProviders(t *testing
 	require.NoError(t, err)
 	require.Empty(t, h.wooClient.updateProductCalled)
 	require.Empty(t, h.listingRepo.updated)
+}
+
+func TestSyncProductToChannels_writesASyncLogEntryOnSuccess(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	entry := h.syncLogRepo.created[0]
+	require.Equal(t, "listing-1", entry.ListingID)
+	require.Equal(t, channelsDomain.SyncFlowPush, entry.Direction)
+	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
+	require.Equal(t, product.Name, entry.Fields["name"])
+	require.Equal(t, "19.99", entry.Fields["regular_price"])
+	// First-ever entry for this listing -- everything shows as new (from "").
+	require.Equal(t, channelsDomain.FieldChange{From: "", To: product.Name}, entry.Changes["name"])
+}
+
+func TestSyncProductToChannels_diffsAgainstThePreviousSyncLogEntry(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
+		"listing-1": {{ListingID: "listing-1", Fields: map[string]string{"name": "Old Name", "regular_price": "19.99"}}},
+	}
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	changes := h.syncLogRepo.created[0].Changes
+	require.Equal(t, channelsDomain.FieldChange{From: "Old Name", To: product.Name}, changes["name"])
+	_, priceChanged := changes["regular_price"]
+	require.False(t, priceChanged, "unchanged field must not appear in the diff")
+}
+
+func TestSyncProductToChannels_writesASyncLogEntryOnFailureToo(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	h.wooClient.updateProductErr = errors.New("woo unreachable")
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	entry := h.syncLogRepo.created[0]
+	require.Equal(t, channelsDomain.SyncLogStatusError, entry.Status)
+	require.Contains(t, entry.ErrorMessage, "woo unreachable")
 }
