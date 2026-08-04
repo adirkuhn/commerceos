@@ -207,6 +207,35 @@ func TestSyncProductToChannels_diffsAgainstThePreviousSyncLogEntry(t *testing.T)
 	require.False(t, priceChanged, "unchanged field must not appear in the diff")
 }
 
+func TestSyncProductToChannels_skipsWritingALogEntryWhenNothingChangedSinceLastSync(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	// Previous entry already has the exact fields this sync will produce
+	// (same name/description/status/price/virtual) — e.g. a second
+	// pms.product.changed event fired moments later by a sibling API call
+	// (product update + SKU update from the same "Save" click) that didn't
+	// touch anything this use case pushes.
+	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
+		"listing-1": {{
+			ListingID: "listing-1",
+			Fields: map[string]string{
+				"name": product.Name, "description": product.Description, "status": "publish",
+				"regular_price": "19.99", "virtual": "false", "weight": "", "length": "", "width": "", "height": "",
+			},
+		}},
+	}
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Empty(t, h.syncLogRepo.created, "identical fields since last entry must not produce a new row")
+}
+
 func TestSyncProductToChannels_writesASyncLogEntryOnFailureToo(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	listing := channelsDomain.ProductChannelListing{

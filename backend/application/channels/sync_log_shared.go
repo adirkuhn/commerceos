@@ -21,6 +21,16 @@ import (
 // one place regardless of which direction or entity moved. Diffs fields
 // against that listing's most recent entry — on the very first entry for a
 // listing, every field shows as changed from "" (nothing existed before).
+//
+// A successful sync whose fields are identical to the last recorded entry
+// is skipped entirely — no row written. Without this, a single product
+// edit that touches both the product and its SKU (two separate API calls,
+// two separate pms.product.changed events) produces two syncs moments
+// apart: the second one finds nothing left to change and would otherwise
+// show up as a confusing "No changes" row right under the real one. A
+// failed sync is always recorded, even if fields match, since the failure
+// itself is the thing worth an audit trail.
+//
 // Must be called from its own tenant.WithTenant block — logging failures
 // are only logged, never propagated, since the actual sync this entry
 // describes has already happened by the time this runs.
@@ -35,14 +45,20 @@ func recordSyncLog(
 			return err
 		}
 		var prevFields map[string]string
-		if len(prev) > 0 {
+		hasPrev := len(prev) > 0
+		if hasPrev {
 			prevFields = prev[0].Fields
 		}
+		changes := diffFields(prevFields, fields)
+		if status == channelsDomain.SyncLogStatusSuccess && hasPrev && len(changes) == 0 {
+			return nil
+		}
+
 		entry := channelsDomain.SyncLogEntry{
 			TenantID: tenant.IDFromContext(ctx), ListingID: listing.ID, ProductID: listing.ProductID,
 			ConnectionID: listing.ConnectionID, Provider: listing.Provider, ExternalID: listing.ExternalID,
 			Direction: direction, Status: status, ErrorMessage: errMsg,
-			Fields: fields, Changes: diffFields(prevFields, fields), SyncedAt: time.Now(),
+			Fields: fields, Changes: changes, SyncedAt: time.Now(),
 		}
 		return syncLogRepo.Create(ctx, &entry)
 	})
