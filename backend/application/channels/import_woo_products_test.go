@@ -216,6 +216,78 @@ func TestImportWooProducts_noopsWhenAlreadyLinked(t *testing.T) {
 	require.Empty(t, h.productRepo.createdProducts)
 }
 
+func TestImportWooProducts_linksToExistingProductBySKUCodeInsteadOfDuplicating(t *testing.T) {
+	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
+	h.skuRepo.byCode = map[string]pmsDomain.SKU{
+		"7896222211910": {ID: "existing-sku", VariantID: "existing-variant"},
+	}
+	h.variantRepo.byProduct = map[string][]pmsDomain.Variant{
+		"existing-product": {{ID: "existing-variant", ProductID: "existing-product"}},
+	}
+	h.variantRepo.findByIDResult = &pmsDomain.Variant{ID: "existing-variant", ProductID: "existing-product"}
+	h.productRepo.byID = map[string]pmsDomain.Product{
+		"existing-product": {ID: "existing-product", Name: "Existing Product"},
+	}
+
+	uc := h.newImportUseCase(t, 3)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.AlreadyLinked)
+	require.Equal(t, 0, result.Imported)
+	require.Empty(t, h.productRepo.createdProducts, "must not create a duplicate product")
+	require.Empty(t, h.skuRepo.created, "must not create a duplicate SKU")
+	require.Empty(t, h.stock.calls, "CommerceOS already owns this SKU's stock -- Woo's number must not overwrite it")
+	require.Empty(t, h.media.calls, "no new product was created, so no images to import")
+
+	require.Len(t, h.listingRepo.created, 1)
+	require.Equal(t, "existing-product", h.listingRepo.created[0].ProductID)
+	require.Equal(t, "23609", h.listingRepo.created[0].ExternalID)
+
+	require.Len(t, h.syncLogRepo.created, 1, "the link itself is still worth an audit trail entry")
+	require.Equal(t, channelsDomain.SyncFlowImport, h.syncLogRepo.created[0].Direction)
+}
+
+func TestImportWooProducts_createsNewProductWhenNoSKUCodeMatch(t *testing.T) {
+	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+	// h.skuRepo.byCode deliberately left empty -- no existing SKU matches.
+
+	uc := h.newImportUseCase(t, 3)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Imported)
+	require.Equal(t, 0, result.AlreadyLinked)
+	require.Len(t, h.productRepo.createdProducts, 1)
+}
+
+func TestImportWooProducts_neverMatchesOnEmptySKUCode(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.SKU = ""
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+	// An existing SKU with an empty code must never false-match another
+	// empty-code product.
+	h.skuRepo.byCode = map[string]pmsDomain.SKU{"": {ID: "some-other-sku"}}
+
+	uc := h.newImportUseCase(t, 3)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Imported)
+	require.Equal(t, 0, result.AlreadyLinked)
+}
+
 func TestImportWooProducts_doesNotRecordStockWhenManageStockFalse(t *testing.T) {
 	p := simpleWooProduct()
 	p.ManageStock = false

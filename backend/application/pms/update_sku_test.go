@@ -52,3 +52,17 @@ func TestUpdateSKU_raisesProductChangedEventForTheSKUsProduct(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"pms.product.changed"}, outboxRepo.calls)
 }
+
+func TestUpdateSKU_persistsTracksExpiry(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, TracksExpiry: true,
+	})
+
+	require.NoError(t, err)
+	require.True(t, sku.TracksExpiry)
+}

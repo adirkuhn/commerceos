@@ -22,6 +22,7 @@ type CreateSKUInput struct {
 	WidthMM         *int64
 	HeightMM        *int64
 	IsVirtual       bool
+	TracksExpiry    bool
 	Status          pmsDomain.SKUStatus
 }
 
@@ -67,6 +68,7 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 			WidthMM:         in.WidthMM,
 			HeightMM:        in.HeightMM,
 			IsVirtual:       in.IsVirtual,
+			TracksExpiry:    in.TracksExpiry,
 			Status:          in.Status,
 			CreatedAt:       now,
 			UpdatedAt:       now,

@@ -17,7 +17,92 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for MarkDamagedOrLostRequestType.
+const (
+	MarkDamagedOrLostRequestTypeDamaged MarkDamagedOrLostRequestType = "damaged"
+	MarkDamagedOrLostRequestTypeLost    MarkDamagedOrLostRequestType = "lost"
+)
+
+// Valid indicates whether the value is a known member of the MarkDamagedOrLostRequestType enum.
+func (e MarkDamagedOrLostRequestType) Valid() bool {
+	switch e {
+	case MarkDamagedOrLostRequestTypeDamaged:
+		return true
+	case MarkDamagedOrLostRequestTypeLost:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MovementType.
+const (
+	MovementTypeAdjustment  MovementType = "adjustment"
+	MovementTypeDamaged     MovementType = "damaged"
+	MovementTypeLost        MovementType = "lost"
+	MovementTypeReceipt     MovementType = "receipt"
+	MovementTypeSale        MovementType = "sale"
+	MovementTypeTransferIn  MovementType = "transfer_in"
+	MovementTypeTransferOut MovementType = "transfer_out"
+)
+
+// Valid indicates whether the value is a known member of the MovementType enum.
+func (e MovementType) Valid() bool {
+	switch e {
+	case MovementTypeAdjustment:
+		return true
+	case MovementTypeDamaged:
+		return true
+	case MovementTypeLost:
+		return true
+	case MovementTypeReceipt:
+		return true
+	case MovementTypeSale:
+		return true
+	case MovementTypeTransferIn:
+		return true
+	case MovementTypeTransferOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Batch defines model for Batch.
+type Batch struct {
+	CreatedAt   time.Time           `json:"created_at"`
+	ExpiryDate  *openapi_types.Date `json:"expiry_date,omitempty"`
+	Id          string              `json:"id"`
+	LotNumber   string              `json:"lot_number"`
+	ReceivedAt  time.Time           `json:"received_at"`
+	SkuId       string              `json:"sku_id"`
+	TenantId    string              `json:"tenant_id"`
+	UpdatedAt   time.Time           `json:"updated_at"`
+	WarehouseId string              `json:"warehouse_id"`
+}
+
+// BatchListResponse defines model for BatchListResponse.
+type BatchListResponse struct {
+	Data  *[]Batch    `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// BatchResponse defines model for BatchResponse.
+type BatchResponse struct {
+	Data  *Batch      `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// CreateBatchRequest defines model for CreateBatchRequest.
+type CreateBatchRequest struct {
+	ExpiryDate  *openapi_types.Date `json:"expiry_date,omitempty"`
+	LotNumber   *string             `json:"lot_number,omitempty"`
+	ReceivedAt  *time.Time          `json:"received_at,omitempty"`
+	WarehouseId string              `json:"warehouse_id"`
+}
 
 // CreateWarehouseRequest defines model for CreateWarehouseRequest.
 type CreateWarehouseRequest struct {
@@ -45,6 +130,112 @@ type ErrorResponse struct {
 		Code    *string `json:"code,omitempty"`
 		Message *string `json:"message,omitempty"`
 	} `json:"error,omitempty"`
+}
+
+// MarkDamagedOrLostRequest defines model for MarkDamagedOrLostRequest.
+type MarkDamagedOrLostRequest struct {
+	BatchId     *string                      `json:"batch_id,omitempty"`
+	OccurredAt  *time.Time                   `json:"occurred_at,omitempty"`
+	Quantity    int64                        `json:"quantity"`
+	Reason      *string                      `json:"reason,omitempty"`
+	Type        MarkDamagedOrLostRequestType `json:"type"`
+	WarehouseId string                       `json:"warehouse_id"`
+}
+
+// MarkDamagedOrLostRequestType defines model for MarkDamagedOrLostRequest.Type.
+type MarkDamagedOrLostRequestType string
+
+// MovementType defines model for MovementType.
+type MovementType string
+
+// RecordRecountRequest defines model for RecordRecountRequest.
+type RecordRecountRequest struct {
+	// BatchId Null recounts the un-lotted, general-ledger stock for this SKU.
+	BatchId         *string    `json:"batch_id,omitempty"`
+	CountedQuantity int64      `json:"counted_quantity"`
+	OccurredAt      *time.Time `json:"occurred_at,omitempty"`
+	Reason          *string    `json:"reason,omitempty"`
+	WarehouseId     string     `json:"warehouse_id"`
+}
+
+// RecordStockMovementRequest defines model for RecordStockMovementRequest.
+type RecordStockMovementRequest struct {
+	BatchId       *string      `json:"batch_id,omitempty"`
+	OccurredAt    *time.Time   `json:"occurred_at,omitempty"`
+	QuantityDelta int64        `json:"quantity_delta"`
+	Reason        *string      `json:"reason,omitempty"`
+	Type          MovementType `json:"type"`
+	WarehouseId   string       `json:"warehouse_id"`
+}
+
+// StockLevel defines model for StockLevel.
+type StockLevel struct {
+	SkuId string `json:"sku_id"`
+
+	// Syncable What's reported to external channels — excludes expired batches.
+	Syncable int64 `json:"syncable"`
+
+	// Total Sum of every movement, regardless of batch expiry.
+	Total int64 `json:"total"`
+}
+
+// StockLevelResponse defines model for StockLevelResponse.
+type StockLevelResponse struct {
+	Data  *StockLevel `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// StockMovement defines model for StockMovement.
+type StockMovement struct {
+	// BatchId Null means un-lotted, general-ledger stock.
+	BatchId    *string   `json:"batch_id,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	Id         string    `json:"id"`
+	OccurredAt time.Time `json:"occurred_at"`
+
+	// QuantityDelta Signed. Positive for stock coming in, negative for stock going out.
+	QuantityDelta int64        `json:"quantity_delta"`
+	Reason        string       `json:"reason"`
+	SkuId         string       `json:"sku_id"`
+	TenantId      string       `json:"tenant_id"`
+	Type          MovementType `json:"type"`
+	WarehouseId   string       `json:"warehouse_id"`
+}
+
+// StockMovementResponse defines model for StockMovementResponse.
+type StockMovementResponse struct {
+	Data  *StockMovement `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
+// TransferStockRequest defines model for TransferStockRequest.
+type TransferStockRequest struct {
+	FromBatchId     *string    `json:"from_batch_id,omitempty"`
+	FromWarehouseId string     `json:"from_warehouse_id"`
+	OccurredAt      *time.Time `json:"occurred_at,omitempty"`
+	Quantity        int64      `json:"quantity"`
+	Reason          *string    `json:"reason,omitempty"`
+	ToBatchId       *string    `json:"to_batch_id,omitempty"`
+	ToWarehouseId   string     `json:"to_warehouse_id"`
+}
+
+// TransferStockResult defines model for TransferStockResult.
+type TransferStockResult struct {
+	In  StockMovement `json:"in"`
+	Out StockMovement `json:"out"`
+}
+
+// TransferStockResultResponse defines model for TransferStockResultResponse.
+type TransferStockResultResponse struct {
+	Data  *TransferStockResult `json:"data,omitempty"`
+	Error interface{}          `json:"error,omitempty"`
+}
+
+// UpdateBatchRequest defines model for UpdateBatchRequest.
+type UpdateBatchRequest struct {
+	ExpiryDate  *openapi_types.Date `json:"expiry_date,omitempty"`
+	LotNumber   *string             `json:"lot_number,omitempty"`
+	WarehouseId string              `json:"warehouse_id"`
 }
 
 // UpdateWarehouseRequest defines model for UpdateWarehouseRequest.
@@ -92,8 +283,29 @@ type WarehouseResponse struct {
 // Id defines model for id.
 type Id = string
 
+// SkuId defines model for skuId.
+type SkuId = string
+
 // Error defines model for Error.
 type Error = ErrorResponse
+
+// UpdateBatchJSONRequestBody defines body for UpdateBatch for application/json ContentType.
+type UpdateBatchJSONRequestBody = UpdateBatchRequest
+
+// CreateBatchJSONRequestBody defines body for CreateBatch for application/json ContentType.
+type CreateBatchJSONRequestBody = CreateBatchRequest
+
+// MarkDamagedOrLostJSONRequestBody defines body for MarkDamagedOrLost for application/json ContentType.
+type MarkDamagedOrLostJSONRequestBody = MarkDamagedOrLostRequest
+
+// RecordStockMovementJSONRequestBody defines body for RecordStockMovement for application/json ContentType.
+type RecordStockMovementJSONRequestBody = RecordStockMovementRequest
+
+// RecordRecountJSONRequestBody defines body for RecordRecount for application/json ContentType.
+type RecordRecountJSONRequestBody = RecordRecountRequest
+
+// TransferStockJSONRequestBody defines body for TransferStock for application/json ContentType.
+type TransferStockJSONRequestBody = TransferStockRequest
 
 // CreateWarehouseJSONRequestBody defines body for CreateWarehouse for application/json ContentType.
 type CreateWarehouseJSONRequestBody = CreateWarehouseRequest
@@ -103,6 +315,33 @@ type UpdateWarehouseJSONRequestBody = UpdateWarehouseRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// DeleteBatch Delete a batch — rejected if any stock movement references it
+	// (DELETE /inventory/batches/{id})
+	DeleteBatch(c *gin.Context, id Id)
+	// UpdateBatch Edit a batch's warehouse, lot number, or expiry date
+	// (PATCH /inventory/batches/{id})
+	UpdateBatch(c *gin.Context, id Id)
+	// ListBatches List every batch recorded for a SKU
+	// (GET /inventory/skus/{skuId}/batches)
+	ListBatches(c *gin.Context, skuId SkuId)
+	// CreateBatch Create a new batch (lot) for a SKU
+	// (POST /inventory/skus/{skuId}/batches)
+	CreateBatch(c *gin.Context, skuId SkuId)
+	// MarkDamagedOrLost Write off stock as damaged or lost
+	// (POST /inventory/skus/{skuId}/mark-damaged-lost)
+	MarkDamagedOrLost(c *gin.Context, skuId SkuId)
+	// RecordStockMovement Record a stock movement directly (adjust/receipt/sale) — sign of quantity_delta must match the movement type (see StockMovement schema). For a two-sided warehouse/batch move use /transfer; for write-offs use /mark-damaged-lost; for a recount use /recount.
+	// (POST /inventory/skus/{skuId}/movements)
+	RecordStockMovement(c *gin.Context, skuId SkuId)
+	// RecordRecount Record a physical count for a SKU (or one of its batches) and auto-create the adjustment movement for the difference. No movement is created if the count already matches.
+	// (POST /inventory/skus/{skuId}/recount)
+	RecordRecount(c *gin.Context, skuId SkuId)
+	// GetSKUStockLevel Total and Syncable (channel-facing) stock for a SKU
+	// (GET /inventory/skus/{skuId}/stock-level)
+	GetSKUStockLevel(c *gin.Context, skuId SkuId)
+	// TransferStock Move stock between warehouses and/or batches — a null batch id on either side means the general ledger (un-lotted stock), so this also covers "move general ledger stock into a batch" and back.
+	// (POST /inventory/skus/{skuId}/transfer)
+	TransferStock(c *gin.Context, skuId SkuId)
 	// ListWarehouses List warehouses for the current tenant
 	// (GET /inventory/warehouses)
 	ListWarehouses(c *gin.Context)
@@ -125,6 +364,231 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// DeleteBatch operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBatch(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteBatch(c, id)
+}
+
+// UpdateBatch operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBatch(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateBatch(c, id)
+}
+
+// ListBatches operation middleware
+func (siw *ServerInterfaceWrapper) ListBatches(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListBatches(c, skuId)
+}
+
+// CreateBatch operation middleware
+func (siw *ServerInterfaceWrapper) CreateBatch(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateBatch(c, skuId)
+}
+
+// MarkDamagedOrLost operation middleware
+func (siw *ServerInterfaceWrapper) MarkDamagedOrLost(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.MarkDamagedOrLost(c, skuId)
+}
+
+// RecordStockMovement operation middleware
+func (siw *ServerInterfaceWrapper) RecordStockMovement(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RecordStockMovement(c, skuId)
+}
+
+// RecordRecount operation middleware
+func (siw *ServerInterfaceWrapper) RecordRecount(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RecordRecount(c, skuId)
+}
+
+// GetSKUStockLevel operation middleware
+func (siw *ServerInterfaceWrapper) GetSKUStockLevel(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSKUStockLevel(c, skuId)
+}
+
+// TransferStock operation middleware
+func (siw *ServerInterfaceWrapper) TransferStock(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.TransferStock(c, skuId)
+}
 
 // ListWarehouses operation middleware
 func (siw *ServerInterfaceWrapper) ListWarehouses(c *gin.Context) {
@@ -233,6 +697,15 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/inventory/warehouses", wrapper.CreateWarehouse)
 	router.DELETE(options.BaseURL+"/inventory/warehouses/:id", wrapper.DeleteWarehouse)
 	router.PATCH(options.BaseURL+"/inventory/warehouses/:id", wrapper.UpdateWarehouse)
+	router.GET(options.BaseURL+"/inventory/skus/:skuId/stock-level", wrapper.GetSKUStockLevel)
+	router.GET(options.BaseURL+"/inventory/skus/:skuId/batches", wrapper.ListBatches)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/batches", wrapper.CreateBatch)
+	router.DELETE(options.BaseURL+"/inventory/batches/:id", wrapper.DeleteBatch)
+	router.PATCH(options.BaseURL+"/inventory/batches/:id", wrapper.UpdateBatch)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/movements", wrapper.RecordStockMovement)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/recount", wrapper.RecordRecount)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/transfer", wrapper.TransferStock)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/mark-damaged-lost", wrapper.MarkDamagedOrLost)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -240,20 +713,42 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"q/8GAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

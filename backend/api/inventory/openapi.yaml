@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: CommerceOS Inventory API
-  description: Warehouse CRUD (domain/inventory). Batches/stock movements aren't exposed here yet.
+  description: Warehouse CRUD, batch CRUD, and the stock-movement ledger (domain/inventory).
   version: "1.0"
 servers:
   - url: /api/v1
@@ -76,10 +76,205 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /inventory/skus/{skuId}/stock-level:
+    get:
+      operationId: getSKUStockLevel
+      summary: Total and Syncable (channel-facing) stock for a SKU
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLevelResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /inventory/skus/{skuId}/batches:
+    get:
+      operationId: listBatches
+      summary: List every batch recorded for a SKU
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchListResponse'
+    post:
+      operationId: createBatch
+      summary: Create a new batch (lot) for a SKU
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBatchRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/batches/{id}:
+    patch:
+      operationId: updateBatch
+      summary: Edit a batch's warehouse, lot number, or expiry date
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBatchRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteBatch
+      summary: Delete a batch — rejected if any stock movement references it
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /inventory/skus/{skuId}/movements:
+    post:
+      operationId: recordStockMovement
+      summary: >-
+        Record a stock movement directly (adjust/receipt/sale) — sign of
+        quantity_delta must match the movement type (see StockMovement
+        schema). For a two-sided warehouse/batch move use /transfer; for
+        write-offs use /mark-damaged-lost; for a recount use /recount.
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordStockMovementRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/skus/{skuId}/recount:
+    post:
+      operationId: recordRecount
+      summary: >-
+        Record a physical count for a SKU (or one of its batches) and
+        auto-create the adjustment movement for the difference. No movement
+        is created if the count already matches.
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordRecountRequest'
+      responses:
+        '200':
+          description: ok — data is null when the count matched and nothing changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/skus/{skuId}/transfer:
+    post:
+      operationId: transferStock
+      summary: >-
+        Move stock between warehouses and/or batches — a null batch id on
+        either side means the general ledger (un-lotted stock), so this
+        also covers "move general ledger stock into a batch" and back.
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferStockRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferStockResultResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/skus/{skuId}/mark-damaged-lost:
+    post:
+      operationId: markDamagedOrLost
+      summary: Write off stock as damaged or lost
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkDamagedOrLostRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
       name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    skuId:
+      name: skuId
       in: path
       required: true
       schema:
@@ -156,6 +351,167 @@ components:
           items:
             $ref: '#/components/schemas/Warehouse'
         error: { nullable: true }
+
+    MovementType:
+      type: string
+      enum: [receipt, sale, adjustment, transfer_out, transfer_in, damaged, lost]
+
+    Batch:
+      type: object
+      required: [id, tenant_id, sku_id, warehouse_id, lot_number, received_at, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        sku_id: { type: string }
+        warehouse_id: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+        received_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateBatchRequest:
+      type: object
+      required: [warehouse_id]
+      properties:
+        warehouse_id: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+        received_at: { type: string, format: date-time }
+
+    UpdateBatchRequest:
+      type: object
+      required: [warehouse_id]
+      properties:
+        warehouse_id: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+
+    BatchResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Batch' }
+        error: { nullable: true }
+
+    BatchListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+        error: { nullable: true }
+
+    StockMovement:
+      type: object
+      required: [id, tenant_id, sku_id, warehouse_id, type, quantity_delta, reason, occurred_at, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        sku_id: { type: string }
+        warehouse_id: { type: string }
+        batch_id:
+          type: string
+          nullable: true
+          description: Null means un-lotted, general-ledger stock.
+        type: { $ref: '#/components/schemas/MovementType' }
+        quantity_delta:
+          type: integer
+          format: int64
+          description: Signed. Positive for stock coming in, negative for stock going out.
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    StockMovementResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/StockMovement'
+          nullable: true
+        error: { nullable: true }
+
+    StockLevel:
+      type: object
+      required: [sku_id, total, syncable]
+      properties:
+        sku_id: { type: string }
+        total:
+          type: integer
+          format: int64
+          description: Sum of every movement, regardless of batch expiry.
+        syncable:
+          type: integer
+          format: int64
+          description: What's reported to external channels — excludes expired batches.
+
+    StockLevelResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StockLevel' }
+        error: { nullable: true }
+
+    RecordStockMovementRequest:
+      type: object
+      required: [warehouse_id, type, quantity_delta]
+      properties:
+        warehouse_id: { type: string }
+        batch_id: { type: string, nullable: true }
+        type: { $ref: '#/components/schemas/MovementType' }
+        quantity_delta: { type: integer, format: int64 }
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+
+    RecordRecountRequest:
+      type: object
+      required: [warehouse_id, counted_quantity]
+      properties:
+        warehouse_id: { type: string }
+        batch_id:
+          type: string
+          nullable: true
+          description: Null recounts the un-lotted, general-ledger stock for this SKU.
+        counted_quantity: { type: integer, format: int64 }
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+
+    TransferStockRequest:
+      type: object
+      required: [quantity, from_warehouse_id, to_warehouse_id]
+      properties:
+        quantity: { type: integer, format: int64, minimum: 1 }
+        from_warehouse_id: { type: string }
+        from_batch_id: { type: string, nullable: true }
+        to_warehouse_id: { type: string }
+        to_batch_id: { type: string, nullable: true }
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+
+    TransferStockResult:
+      type: object
+      required: [out, in]
+      properties:
+        out: { $ref: '#/components/schemas/StockMovement' }
+        in: { $ref: '#/components/schemas/StockMovement' }
+
+    TransferStockResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/TransferStockResult' }
+        error: { nullable: true }
+
+    MarkDamagedOrLostRequest:
+      type: object
+      required: [warehouse_id, quantity, type]
+      properties:
+        warehouse_id: { type: string }
+        batch_id: { type: string, nullable: true }
+        quantity: { type: integer, format: int64, minimum: 1 }
+        type:
+          type: string
+          enum: [damaged, lost]
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
 
     EmptyResponse:
       type: object

@@ -5,13 +5,16 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"gorm.io/gorm"
 
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -30,14 +33,50 @@ type updateWarehouseUC interface {
 type deleteWarehouseUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type createBatchUC interface {
+	Execute(ctx context.Context, in appinventory.CreateBatchInput) (*invDomain.Batch, error)
+}
+type updateBatchUC interface {
+	Execute(ctx context.Context, in appinventory.UpdateBatchInput) (*invDomain.Batch, error)
+}
+type deleteBatchUC interface {
+	Execute(ctx context.Context, id string) error
+}
+type listBatchesUC interface {
+	Execute(ctx context.Context, skuID string) ([]invDomain.Batch, error)
+}
+type getSKUStockLevelUC interface {
+	Execute(ctx context.Context, skuID string) (*appinventory.StockLevel, error)
+}
+type recordStockMovementUC interface {
+	Execute(ctx context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error)
+}
+type recordRecountUC interface {
+	Execute(ctx context.Context, in appinventory.RecordRecountInput) (*invDomain.StockMovement, error)
+}
+type transferStockUC interface {
+	Execute(ctx context.Context, in appinventory.TransferStockInput) (*appinventory.TransferStockResult, error)
+}
+type markDamagedOrLostUC interface {
+	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listWarehouses  listWarehousesUC
-	createWarehouse createWarehouseUC
-	updateWarehouse updateWarehouseUC
-	deleteWarehouse deleteWarehouseUC
+	listWarehouses      listWarehousesUC
+	createWarehouse     createWarehouseUC
+	updateWarehouse     updateWarehouseUC
+	deleteWarehouse     deleteWarehouseUC
+	createBatch         createBatchUC
+	updateBatch         updateBatchUC
+	deleteBatch         deleteBatchUC
+	listBatches         listBatchesUC
+	getSKUStockLevel    getSKUStockLevelUC
+	recordStockMovement recordStockMovementUC
+	recordRecount       recordRecountUC
+	transferStock       transferStockUC
+	markDamagedOrLost   markDamagedOrLostUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -46,12 +85,30 @@ func NewHandler(
 	createWarehouse createWarehouseUC,
 	updateWarehouse updateWarehouseUC,
 	deleteWarehouse deleteWarehouseUC,
+	createBatch createBatchUC,
+	updateBatch updateBatchUC,
+	deleteBatch deleteBatchUC,
+	listBatches listBatchesUC,
+	getSKUStockLevel getSKUStockLevelUC,
+	recordStockMovement recordStockMovementUC,
+	recordRecount recordRecountUC,
+	transferStock transferStockUC,
+	markDamagedOrLost markDamagedOrLostUC,
 ) *Handler {
 	return &Handler{
-		listWarehouses:  listWarehouses,
-		createWarehouse: createWarehouse,
-		updateWarehouse: updateWarehouse,
-		deleteWarehouse: deleteWarehouse,
+		listWarehouses:      listWarehouses,
+		createWarehouse:     createWarehouse,
+		updateWarehouse:     updateWarehouse,
+		deleteWarehouse:     deleteWarehouse,
+		createBatch:         createBatch,
+		updateBatch:         updateBatch,
+		deleteBatch:         deleteBatch,
+		listBatches:         listBatches,
+		getSKUStockLevel:    getSKUStockLevel,
+		recordStockMovement: recordStockMovement,
+		recordRecount:       recordRecount,
+		transferStock:       transferStock,
+		markDamagedOrLost:   markDamagedOrLost,
 	}
 }
 
@@ -59,19 +116,30 @@ var _ geninventory.ServerInterface = (*Handler)(nil)
 
 // Register is the production wiring: creates repos + use cases, then
 // mounts the generated routes (matching the OpenAPI spec exactly).
-func Register(rg gin.IRouter, db *gorm.DB) {
+func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	warehouseRepo := repositories.NewWarehouseRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
 		appinventory.NewCreateWarehouseUseCase(db, warehouseRepo),
 		appinventory.NewUpdateWarehouseUseCase(db, warehouseRepo),
 		appinventory.NewDeleteWarehouseUseCase(db, warehouseRepo),
+		appinventory.NewCreateBatchUseCase(db, batchRepo),
+		appinventory.NewUpdateBatchUseCase(db, batchRepo),
+		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo),
+		appinventory.NewListBatchesUseCase(db, batchRepo),
+		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo),
+		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
+		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
+		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
+		appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
 }
 
-// ── Route handlers ────────────────────────────────────────────────────────────
+// ── Warehouse route handlers ─────────────────────────────────────────────────
 
 func (h *Handler) ListWarehouses(c *gin.Context) {
 	warehouses, err := h.listWarehouses.Execute(c.Request.Context())
@@ -145,7 +213,154 @@ func (h *Handler) DeleteWarehouse(c *gin.Context, id geninventory.Id) {
 	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
 }
 
-// ── Domain → generated-type mapper ───────────────────────────────────────────
+// ── Batch route handlers ─────────────────────────────────────────────────────
+
+func (h *Handler) ListBatches(c *gin.Context, skuId geninventory.SkuId) {
+	batches, err := h.listBatches.Execute(c.Request.Context(), skuId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]geninventory.Batch, len(batches))
+	for i, b := range batches {
+		resp[i] = toGenBatch(b)
+	}
+	c.JSON(http.StatusOK, geninventory.BatchListResponse{Data: &resp})
+}
+
+func (h *Handler) CreateBatch(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.CreateBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	var receivedAt time.Time
+	if req.ReceivedAt != nil {
+		receivedAt = *req.ReceivedAt
+	}
+	batch, err := h.createBatch.Execute(c.Request.Context(), appinventory.CreateBatchInput{
+		SKUID: skuId, WarehouseID: req.WarehouseId, LotNumber: strPtrOr(req.LotNumber),
+		ExpiryDate: genDateToTimePtr(req.ExpiryDate), ReceivedAt: receivedAt,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenBatch(*batch)
+	c.JSON(http.StatusCreated, geninventory.BatchResponse{Data: &resp})
+}
+
+func (h *Handler) UpdateBatch(c *gin.Context, id geninventory.Id) {
+	var req geninventory.UpdateBatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	batch, err := h.updateBatch.Execute(c.Request.Context(), appinventory.UpdateBatchInput{
+		ID: id, WarehouseID: req.WarehouseId, LotNumber: strPtrOr(req.LotNumber),
+		ExpiryDate: genDateToTimePtr(req.ExpiryDate),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenBatch(*batch)
+	c.JSON(http.StatusOK, geninventory.BatchResponse{Data: &resp})
+}
+
+func (h *Handler) DeleteBatch(c *gin.Context, id geninventory.Id) {
+	err := h.deleteBatch.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
+}
+
+// ── Stock-level / movement route handlers ────────────────────────────────────
+
+func (h *Handler) GetSKUStockLevel(c *gin.Context, skuId geninventory.SkuId) {
+	level, err := h.getSKUStockLevel.Execute(c.Request.Context(), skuId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := geninventory.StockLevel{SkuId: level.SKUID, Total: level.Total, Syncable: level.Syncable}
+	c.JSON(http.StatusOK, geninventory.StockLevelResponse{Data: &resp})
+}
+
+func (h *Handler) RecordStockMovement(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.RecordStockMovementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	movement, err := h.recordStockMovement.Execute(c.Request.Context(), appinventory.RecordStockMovementInput{
+		SKUID: skuId, WarehouseID: req.WarehouseId, BatchID: req.BatchId,
+		Type: invDomain.MovementType(req.Type), QuantityDelta: req.QuantityDelta,
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenStockMovement(*movement)
+	c.JSON(http.StatusCreated, geninventory.StockMovementResponse{Data: &resp})
+}
+
+func (h *Handler) RecordRecount(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.RecordRecountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	movement, err := h.recordRecount.Execute(c.Request.Context(), appinventory.RecordRecountInput{
+		SKUID: skuId, WarehouseID: req.WarehouseId, BatchID: req.BatchId,
+		CountedQuantity: req.CountedQuantity, Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	var resp *geninventory.StockMovement
+	if movement != nil {
+		g := toGenStockMovement(*movement)
+		resp = &g
+	}
+	c.JSON(http.StatusOK, geninventory.StockMovementResponse{Data: resp})
+}
+
+func (h *Handler) TransferStock(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.TransferStockRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.transferStock.Execute(c.Request.Context(), appinventory.TransferStockInput{
+		SKUID: skuId, Quantity: req.Quantity,
+		FromWarehouseID: req.FromWarehouseId, FromBatchID: req.FromBatchId,
+		ToWarehouseID: req.ToWarehouseId, ToBatchID: req.ToBatchId,
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := geninventory.TransferStockResult{Out: toGenStockMovement(*result.Out), In: toGenStockMovement(*result.In)}
+	c.JSON(http.StatusCreated, geninventory.TransferStockResultResponse{Data: &resp})
+}
+
+func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.MarkDamagedOrLostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	movement, err := h.markDamagedOrLost.Execute(c.Request.Context(), appinventory.MarkDamagedOrLostInput{
+		SKUID: skuId, WarehouseID: req.WarehouseId, BatchID: req.BatchId,
+		Quantity: req.Quantity, Type: invDomain.MovementType(req.Type),
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenStockMovement(*movement)
+	c.JSON(http.StatusCreated, geninventory.StockMovementResponse{Data: &resp})
+}
+
+// ── Domain → generated-type mappers ──────────────────────────────────────────
 
 func toGenWarehouse(w invDomain.Warehouse) geninventory.Warehouse {
 	return geninventory.Warehouse{
@@ -165,6 +380,44 @@ func toGenWarehouse(w invDomain.Warehouse) geninventory.Warehouse {
 	}
 }
 
+func toGenBatch(b invDomain.Batch) geninventory.Batch {
+	return geninventory.Batch{
+		Id: b.ID, TenantId: b.TenantID, SkuId: b.SKUID, WarehouseId: b.WarehouseID,
+		LotNumber: b.LotNumber, ExpiryDate: timePtrToGenDate(b.ExpiryDate),
+		ReceivedAt: b.ReceivedAt, CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt,
+	}
+}
+
+func toGenStockMovement(m invDomain.StockMovement) geninventory.StockMovement {
+	return geninventory.StockMovement{
+		Id: m.ID, TenantId: m.TenantID, SkuId: m.SKUID, WarehouseId: m.WarehouseID, BatchId: m.BatchID,
+		Type: geninventory.MovementType(m.Type), QuantityDelta: m.QuantityDelta,
+		Reason: m.Reason, OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt,
+	}
+}
+
+func genDateToTimePtr(d *openapi_types.Date) *time.Time {
+	if d == nil {
+		return nil
+	}
+	t := d.Time
+	return &t
+}
+
+func timePtrToGenDate(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	return &openapi_types.Date{Time: *t}
+}
+
+func timeOrNow(t *time.Time) time.Time {
+	if t == nil {
+		return time.Now()
+	}
+	return *t
+}
+
 func strPtrOr(s *string) string {
 	if s == nil {
 		return ""
@@ -179,8 +432,12 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, invDomain.ErrWarehouseNotFound):
+	case errors.Is(err, invDomain.ErrWarehouseNotFound), errors.Is(err, invDomain.ErrBatchNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, invDomain.ErrBatchHasMovements):
+		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	default:
 		log.Printf("inventory: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

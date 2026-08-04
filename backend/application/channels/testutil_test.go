@@ -282,9 +282,11 @@ func (s *stubChannelsProductRepo) Delete(_ context.Context, id string) error {
 }
 
 type stubChannelsVariantRepo struct {
-	created   []pmsDomain.Variant
-	createErr error
-	byProduct map[string][]pmsDomain.Variant
+	created        []pmsDomain.Variant
+	createErr      error
+	byProduct      map[string][]pmsDomain.Variant
+	findByIDResult *pmsDomain.Variant
+	findByIDErr    error
 }
 
 func (s *stubChannelsVariantRepo) Create(_ context.Context, v *pmsDomain.Variant) error {
@@ -296,7 +298,10 @@ func (s *stubChannelsVariantRepo) Create(_ context.Context, v *pmsDomain.Variant
 	return nil
 }
 func (s *stubChannelsVariantRepo) FindByID(_ context.Context, _ string) (*pmsDomain.Variant, error) {
-	return nil, pmsDomain.ErrVariantNotFound
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, pmsDomain.ErrVariantNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
 }
 func (s *stubChannelsVariantRepo) ListByProduct(_ context.Context, productID string) ([]pmsDomain.Variant, error) {
 	return s.byProduct[productID], nil
@@ -305,9 +310,12 @@ func (s *stubChannelsVariantRepo) Update(_ context.Context, _ *pmsDomain.Variant
 func (s *stubChannelsVariantRepo) Delete(_ context.Context, _ string) error             { return nil }
 
 type stubChannelsSKURepo struct {
-	created   []pmsDomain.SKU
-	createErr error
-	byVariant map[string][]pmsDomain.SKU
+	created        []pmsDomain.SKU
+	createErr      error
+	byVariant      map[string][]pmsDomain.SKU
+	findByIDResult *pmsDomain.SKU
+	findByIDErr    error
+	byCode         map[string]pmsDomain.SKU
 }
 
 func (s *stubChannelsSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -319,9 +327,15 @@ func (s *stubChannelsSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) erro
 	return nil
 }
 func (s *stubChannelsSKURepo) FindByID(_ context.Context, _ string) (*pmsDomain.SKU, error) {
-	return nil, pmsDomain.ErrSKUNotFound
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, pmsDomain.ErrSKUNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
 }
-func (s *stubChannelsSKURepo) FindByCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubChannelsSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU, error) {
+	if sku, ok := s.byCode[code]; ok {
+		return &sku, nil
+	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
 func (s *stubChannelsSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {

@@ -21,6 +21,7 @@ type UpdateSKUInput struct {
 	WidthMM         *int64
 	HeightMM        *int64
 	IsVirtual       bool
+	TracksExpiry    bool
 	Status          pmsDomain.SKUStatus
 }
 
@@ -57,6 +58,7 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		existing.WidthMM = in.WidthMM
 		existing.HeightMM = in.HeightMM
 		existing.IsVirtual = in.IsVirtual
+		existing.TracksExpiry = in.TracksExpiry
 		existing.Status = in.Status
 		existing.UpdatedAt = time.Now()
 		if err := uc.skuRepo.Update(ctx, existing); err != nil {

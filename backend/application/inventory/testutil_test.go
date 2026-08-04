@@ -3,6 +3,7 @@ package inventory_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
@@ -10,7 +11,26 @@ import (
 	"gorm.io/gorm"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 )
+
+// stubOutboxRepo is a no-op outbox — tests that need a stock-changing use
+// case to raise an inventory.stock.changed event only care that Enqueue
+// was called (via `calls`), not that it actually persists anything.
+type stubOutboxRepo struct {
+	calls []string // subjects enqueued
+	err   error
+}
+
+func (s *stubOutboxRepo) Enqueue(_ context.Context, subject, _ string, _ []byte, _ time.Time) error {
+	s.calls = append(s.calls, subject)
+	return s.err
+}
+func (s *stubOutboxRepo) FetchPending(_ context.Context, _ int) ([]outbox.Message, error) {
+	return nil, nil
+}
+func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return nil }
+func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
 
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy
 // tenant.WithTenant's Begin/set_config/Commit sequence — same pattern as
@@ -83,6 +103,8 @@ type stubBatchRepo struct {
 	findErr      error
 	createErr    error
 	createCalled bool
+	deleteErr    error
+	deleted      []string
 }
 
 func (s *stubBatchRepo) Create(_ context.Context, b *invDomain.Batch) error {
@@ -100,6 +122,13 @@ func (s *stubBatchRepo) ListBySKU(_ context.Context, _ string) ([]invDomain.Batc
 	return s.batches, nil
 }
 func (s *stubBatchRepo) Update(_ context.Context, _ *invDomain.Batch) error { return nil }
+func (s *stubBatchRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
 
 type stubStockMovementRepo struct {
 	bySKU     []invDomain.StockMovement

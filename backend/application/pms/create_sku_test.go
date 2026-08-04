@@ -55,3 +55,17 @@ func TestCreateSKU_allowsPhysicalSKUWithDimensions(t *testing.T) {
 	require.False(t, sku.IsVirtual)
 	require.Equal(t, int64(500), *sku.WeightGrams)
 }
+
+func TestCreateSKU_persistsTracksExpiry(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, TracksExpiry: true,
+	})
+
+	require.NoError(t, err)
+	require.True(t, sku.TracksExpiry)
+}

@@ -171,6 +171,7 @@ func (uc *ImportWooProductsUseCase) importOne(
 	var createdListing channelsDomain.ProductChannelListing
 	var createdFields map[string]string
 	var imported bool
+	var linkedExisting bool
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		_, err := uc.listingRepo.FindByExternalID(ctx, in.ConnectionID, wp.ID)
 		if err == nil {
@@ -179,6 +180,45 @@ func (uc *ImportWooProductsUseCase) importOne(
 		}
 		if !errors.Is(err, channelsDomain.ErrListingNotFound) {
 			return err
+		}
+
+		// CommerceOS is the source of truth: if a product with this SKU
+		// code already exists (created manually, or imported from a
+		// different channel), link to it instead of creating a duplicate
+		// — and never touch its stock, since Woo's number isn't
+		// authoritative once CommerceOS already owns this SKU.
+		if wp.SKU != "" {
+			existingSKU, err := uc.skuRepo.FindByCode(ctx, wp.SKU)
+			if err == nil {
+				existingVariant, err := uc.variantRepo.FindByID(ctx, existingSKU.VariantID)
+				if err != nil {
+					return err
+				}
+				existingProduct, err := uc.productRepo.FindByID(ctx, existingVariant.ProductID)
+				if err != nil {
+					return err
+				}
+
+				now := time.Now()
+				listing := channelsDomain.ProductChannelListing{
+					TenantID: tenant.IDFromContext(ctx), ProductID: existingProduct.ID, ConnectionID: in.ConnectionID,
+					Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: wp.ID,
+					SyncStatus: channelsDomain.SyncStatusSynced, LastSyncedAt: &now,
+					CreatedAt: now, UpdatedAt: now,
+				}
+				if err := uc.listingRepo.Create(ctx, &listing); err != nil {
+					return err
+				}
+
+				createdListing = listing
+				createdFields = importedFieldsFromWoo(wp, *existingProduct, *existingSKU)
+				linkedExisting = true
+				result.AlreadyLinked++
+				return nil
+			}
+			if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+				return err
+			}
 		}
 
 		priceMinorUnits, err := ParseWooPriceToMinorUnits(wp.RegularPrice)
@@ -272,12 +312,19 @@ func (uc *ImportWooProductsUseCase) importOne(
 		result.Errors = append(result.Errors, fmt.Sprintf("product %s (%s): %v", wp.ID, wp.Name, err))
 		return
 	}
-	if !imported {
+	if !imported && !linkedExisting {
 		return
 	}
 
 	recordSyncLog(ctx, uc.db, uc.syncLogRepo, createdListing, channelsDomain.SyncFlowImport,
 		channelsDomain.SyncLogStatusSuccess, "", createdFields)
+
+	// Linked to a pre-existing CommerceOS product by SKU code match — no
+	// new product/SKU was created, so there's no stock or images to
+	// import either. CommerceOS's existing stock is left exactly as-is.
+	if linkedExisting {
+		return
+	}
 
 	if wp.ManageStock && wp.StockQuantity != nil && *wp.StockQuantity != 0 {
 		// Adjustment, not Receipt: this is recording Woo's reported stock

@@ -464,7 +464,7 @@ components:
 
     SKU:
       type: object
-      required: [id, tenant_id, variant_id, sku_code, price_minor_units, currency_code, is_virtual, status, created_at, updated_at]
+      required: [id, tenant_id, variant_id, sku_code, price_minor_units, currency_code, is_virtual, tracks_expiry, status, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -480,6 +480,9 @@ components:
         is_virtual:
           type: boolean
           description: Digital/non-shippable SKU. A virtual SKU never has weight or dimensions set.
+        tracks_expiry:
+          type: boolean
+          description: Whether this SKU's inventory batches carry a meaningful expiry date — advisory only, doesn't block creating a batch without one.
         status: { $ref: '#/components/schemas/SKUStatus' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -567,6 +570,7 @@ components:
         width_mm: { type: integer, format: int64, minimum: 0, nullable: true }
         height_mm: { type: integer, format: int64, minimum: 0, nullable: true }
         is_virtual: { type: boolean, default: false }
+        tracks_expiry: { type: boolean, default: false }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     UpdateSKURequest:
@@ -581,6 +585,7 @@ components:
         width_mm: { type: integer, format: int64, minimum: 0, nullable: true }
         height_mm: { type: integer, format: int64, minimum: 0, nullable: true }
         is_virtual: { type: boolean, default: false }
+        tracks_expiry: { type: boolean, default: false }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     CategoryResponse:

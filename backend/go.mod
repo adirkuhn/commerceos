@@ -8,7 +8,9 @@ require (
 	github.com/getkin/kin-openapi v0.142.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/joho/godotenv v1.5.1
+	github.com/minio/minio-go/v7 v7.2.1
 	github.com/nats-io/nats.go v1.36.0
 	github.com/oapi-codegen/gin-middleware v1.1.0
 	github.com/oapi-codegen/runtime v1.6.0
@@ -39,9 +41,8 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/pgx/v5 v5.5.5 // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -52,7 +53,6 @@ require (
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.2.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect

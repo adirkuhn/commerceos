@@ -99,13 +99,14 @@ func main() {
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
 	importJobRepo := repositories.NewImportJobRepo(db)
 	notificationRepo := repositories.NewNotificationRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
 	fileStorage := buildFileStorage(cfg)
 	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage)
 
-	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo)
+	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
@@ -131,6 +132,17 @@ func main() {
 		log.Fatalf("subscribe pms.product.changed: %v", err)
 	}
 	defer productChangedSub.Unsubscribe()
+
+	syncStockUC := channelsapp.NewSyncStockToChannelsUseCase(
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret,
+	)
+	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC)
+	stockChangedSub, err := js.Subscribe(events.InventoryStockChanged{}.EventName(), stockChangedConsumer.Handle,
+		nats.Durable("inventory-stock-changed-scheduler"), nats.ManualAck())
+	if err != nil {
+		log.Fatalf("subscribe inventory.stock.changed: %v", err)
+	}
+	defer stockChangedSub.Unsubscribe()
 
 	rs := buildRunners(
 		importUC,

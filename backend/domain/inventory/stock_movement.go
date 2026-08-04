@@ -10,6 +10,8 @@ const (
 	MovementTypeAdjustment  MovementType = "adjustment"   // recount correction
 	MovementTypeTransferOut MovementType = "transfer_out" // leaving a warehouse/batch
 	MovementTypeTransferIn  MovementType = "transfer_in"  // arriving at a warehouse/batch
+	MovementTypeDamaged     MovementType = "damaged"      // written off — damaged goods
+	MovementTypeLost        MovementType = "lost"         // written off — lost/missing goods
 )
 
 // StockMovement is one immutable ledger entry. Current stock for a SKU (or

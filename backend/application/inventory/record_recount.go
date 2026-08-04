@@ -6,6 +6,7 @@ import (
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -22,10 +23,11 @@ type RecordRecountInput struct {
 type RecordRecountUseCase struct {
 	db           *gorm.DB
 	movementRepo invDomain.StockMovementRepository
+	outboxRepo   outbox.Repository
 }
 
-func NewRecordRecountUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository) *RecordRecountUseCase {
-	return &RecordRecountUseCase{db: db, movementRepo: movementRepo}
+func NewRecordRecountUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository) *RecordRecountUseCase {
+	return &RecordRecountUseCase{db: db, movementRepo: movementRepo, outboxRepo: outboxRepo}
 }
 
 // Execute compares CountedQuantity against the current computed stock for
@@ -77,7 +79,7 @@ func (uc *RecordRecountUseCase) Execute(ctx context.Context, in RecordRecountInp
 			return err
 		}
 		movement = &m
-		return nil
+		return enqueueStockChanged(ctx, uc.outboxRepo, in.SKUID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("recordRecount: %w", err)

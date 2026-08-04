@@ -244,6 +244,17 @@ func (r *BatchRepo) Update(ctx context.Context, b *invDomain.Batch) error {
 	return nil
 }
 
+func (r *BatchRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&batchModel{}).Error; err != nil {
+		return fmt.Errorf("batchRepo.Delete: %w", err)
+	}
+	return nil
+}
+
 func toBatchDomain(m batchModel) *invDomain.Batch {
 	return &invDomain.Batch{
 		ID:          m.ID,

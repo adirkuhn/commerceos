@@ -15,6 +15,12 @@ type BatchRepository interface {
 	FindByID(ctx context.Context, id string) (*Batch, error)
 	ListBySKU(ctx context.Context, skuID string) ([]Batch, error)
 	Update(ctx context.Context, b *Batch) error
+	// Delete removes a batch — callers must ensure no StockMovement
+	// references it first (see application/inventory's DeleteBatchUseCase);
+	// the DB's ON DELETE RESTRICT FK would reject it anyway, but the app
+	// layer check gives a clean ErrBatchHasMovements instead of a raw
+	// constraint-violation error.
+	Delete(ctx context.Context, id string) error
 }
 
 // StockMovementRepository is append-only by design — a ledger entry is

@@ -28,7 +28,14 @@ type SKU struct {
 	// IsVirtual marks a digital/non-shippable SKU — never has weight or
 	// dimensions set (see ErrVirtualSKUCannotHaveDimensions).
 	IsVirtual bool
-	Status    SKUStatus
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// TracksExpiry marks a SKU whose inventory batches carry a
+	// meaningful expiry date (e.g. food, cosmetics) — the frontend uses
+	// this to decide whether to require/show an expiry date when
+	// creating a batch. Purely advisory: a batch can still be created
+	// with no expiry regardless of this flag (e.g. general-ledger stock,
+	// or a lot whose expiry just isn't known yet).
+	TracksExpiry bool
+	Status       SKUStatus
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

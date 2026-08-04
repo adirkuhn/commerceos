@@ -126,7 +126,7 @@ func main() {
 	inventoryGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(inventorySpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	inventoryhandler.Register(inventoryGroup, db)
+	inventoryhandler.Register(inventoryGroup, db, outboxRepo)
 
 	settingsSpec, err := gensettings.GetSpec()
 	if err != nil {

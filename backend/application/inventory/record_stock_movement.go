@@ -6,6 +6,7 @@ import (
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -23,16 +24,18 @@ type RecordStockMovementInput struct {
 type RecordStockMovementUseCase struct {
 	db           *gorm.DB
 	movementRepo invDomain.StockMovementRepository
+	outboxRepo   outbox.Repository
 }
 
-func NewRecordStockMovementUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository) *RecordStockMovementUseCase {
-	return &RecordStockMovementUseCase{db: db, movementRepo: movementRepo}
+func NewRecordStockMovementUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository) *RecordStockMovementUseCase {
+	return &RecordStockMovementUseCase{db: db, movementRepo: movementRepo, outboxRepo: outboxRepo}
 }
 
 // validateSign enforces that a movement's sign matches what its type means:
 // stock coming in (receipt, transfer_in) must be positive, stock going out
-// (sale, transfer_out) must be negative. adjustment is the one type allowed
-// to go either way, since a recount correction can move stock up or down.
+// (sale, transfer_out, damaged, lost — a write-off always removes stock)
+// must be negative. adjustment is the one type allowed to go either way,
+// since a recount correction can move stock up or down.
 func validateSign(movementType invDomain.MovementType, delta int64) error {
 	if delta == 0 {
 		return invDomain.ErrInvalidQuantity
@@ -42,7 +45,8 @@ func validateSign(movementType invDomain.MovementType, delta int64) error {
 		if delta < 0 {
 			return invDomain.ErrInvalidQuantity
 		}
-	case invDomain.MovementTypeSale, invDomain.MovementTypeTransferOut:
+	case invDomain.MovementTypeSale, invDomain.MovementTypeTransferOut,
+		invDomain.MovementTypeDamaged, invDomain.MovementTypeLost:
 		if delta > 0 {
 			return invDomain.ErrInvalidQuantity
 		}
@@ -69,7 +73,10 @@ func (uc *RecordStockMovementUseCase) Execute(ctx context.Context, in RecordStoc
 			OccurredAt:    in.OccurredAt,
 			CreatedAt:     now,
 		}
-		return uc.movementRepo.Create(ctx, &movement)
+		if err := uc.movementRepo.Create(ctx, &movement); err != nil {
+			return err
+		}
+		return enqueueStockChanged(ctx, uc.outboxRepo, in.SKUID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("recordStockMovement: %w", err)

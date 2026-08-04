@@ -6,6 +6,7 @@ import (
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -29,10 +30,11 @@ type TransferStockResult struct {
 type TransferStockUseCase struct {
 	db           *gorm.DB
 	movementRepo invDomain.StockMovementRepository
+	outboxRepo   outbox.Repository
 }
 
-func NewTransferStockUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository) *TransferStockUseCase {
-	return &TransferStockUseCase{db: db, movementRepo: movementRepo}
+func NewTransferStockUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, outboxRepo outbox.Repository) *TransferStockUseCase {
+	return &TransferStockUseCase{db: db, movementRepo: movementRepo, outboxRepo: outboxRepo}
 }
 
 // Execute records a warehouse/batch transfer as two ledger entries — a
@@ -80,7 +82,7 @@ func (uc *TransferStockUseCase) Execute(ctx context.Context, in TransferStockInp
 		}
 
 		result = TransferStockResult{Out: &out, In: &inbound}
-		return nil
+		return enqueueStockChanged(ctx, uc.outboxRepo, in.SKUID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("transferStock: %w", err)

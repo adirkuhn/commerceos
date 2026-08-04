@@ -14,7 +14,7 @@ import (
 
 func TestTransferStock_rejectsNonPositiveQuantity(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo)
+	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.TransferStockInput{
 		SKUID: "sku-1", Quantity: 0, FromWarehouseID: "wh-a", ToWarehouseID: "wh-b", OccurredAt: time.Now(),
@@ -27,7 +27,7 @@ func TestTransferStock_rejectsNonPositiveQuantity(t *testing.T) {
 
 func TestTransferStock_createsMatchingOutAndInMovements(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo)
+	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	result, err := uc.Execute(context.Background(), appinv.TransferStockInput{
 		SKUID: "sku-1", Quantity: 5,
@@ -50,9 +50,22 @@ func TestTransferStock_createsMatchingOutAndInMovements(t *testing.T) {
 	require.Equal(t, "batch-b", *result.In.BatchID)
 }
 
+func TestTransferStock_raisesStockChangedEvent(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	outboxRepo := &stubOutboxRepo{}
+	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, outboxRepo)
+
+	_, err := uc.Execute(context.Background(), appinv.TransferStockInput{
+		SKUID: "sku-1", Quantity: 5, FromWarehouseID: "wh-a", ToWarehouseID: "wh-b", OccurredAt: time.Now(),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"inventory.stock.changed"}, outboxRepo.calls)
+}
+
 func TestTransferStock_propagatesRepoErrorAndCreatesNothingFurther(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{createErr: errors.New("db down")}
-	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo)
+	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.TransferStockInput{
 		SKUID: "sku-1", Quantity: 5, FromWarehouseID: "wh-a", ToWarehouseID: "wh-b", OccurredAt: time.Now(),
