@@ -77,6 +77,62 @@ describe('Inventory page', () => {
     expect(await screen.findByText('Widget')).toBeInTheDocument()
   })
 
+  it('shows price, sale price, and total stock in the collapsed product row', async () => {
+    render(<Inventory />)
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(await screen.findByText('USD 10.00')).toBeInTheDocument()
+    expect(await screen.findByText('10')).toBeInTheDocument()
+    // No sale price on this fixture -- shown as a dash, not blank.
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
+  it('filters to only low-stock or out-of-stock products', async () => {
+    const lowStockProduct: Product = { ...product, id: 'prod-2', name: 'Low Stock Widget', slug: 'low-stock-widget' }
+    const outOfStockProduct: Product = { ...product, id: 'prod-3', name: 'Empty Widget', slug: 'empty-widget' }
+    const lowSku = { ...sku, id: 'sku-2', sku_code: 'LOW-1' }
+    const outSku = { ...sku, id: 'sku-3', sku_code: 'OUT-1' }
+
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product, lowStockProduct, outOfStockProduct], total: 3 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) => {
+      if (id === 'prod-2') return { product: lowStockProduct, variants: [{ ...detail.variants[0], skus: [lowSku] }] }
+      if (id === 'prod-3') return { product: outOfStockProduct, variants: [{ ...detail.variants[0], skus: [outSku] }] }
+      return detail
+    })
+    vi.mocked(inventoryApi.getSKUStockLevel).mockImplementation(async (_token, skuId) => {
+      if (skuId === 'sku-2') return { sku_id: skuId, total: 3, syncable: 3 } // <= threshold -- low
+      if (skuId === 'sku-3') return { sku_id: skuId, total: 0, syncable: 0 } // zero -- out of stock
+      return { sku_id: skuId, total: 50, syncable: 50 } // sku-1: well above the low-stock threshold
+    })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await screen.findByText('Widget')
+    await screen.findByText('Low Stock Widget')
+    await screen.findByText('Empty Widget')
+
+    await user.click(screen.getByRole('button', { name: 'Low Stock' }))
+    await waitFor(() => {
+      expect(screen.getByText('Low Stock Widget')).toBeInTheDocument()
+      expect(screen.queryByText('Widget')).not.toBeInTheDocument()
+      expect(screen.queryByText('Empty Widget')).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Out of Stock' }))
+    await waitFor(() => {
+      expect(screen.getByText('Empty Widget')).toBeInTheDocument()
+      expect(screen.queryByText('Widget')).not.toBeInTheDocument()
+      expect(screen.queryByText('Low Stock Widget')).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'All' }))
+    await waitFor(() => {
+      expect(screen.getByText('Widget')).toBeInTheDocument()
+      expect(screen.getByText('Low Stock Widget')).toBeInTheDocument()
+      expect(screen.getByText('Empty Widget')).toBeInTheDocument()
+    })
+  })
+
   it('expanding a product loads its SKUs, stock level, and batches', async () => {
     const user = userEvent.setup()
     render(<Inventory />)
@@ -142,7 +198,7 @@ describe('Inventory page', () => {
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
-    await user.click(screen.getByText('USD 10.00'))
+    await user.click(screen.getByRole('button', { name: /^Price$/ }))
     const dialog = await screen.findByText('Edit Price')
     const modal = dialog.closest('div')!.parentElement!
 
@@ -168,7 +224,7 @@ describe('Inventory page', () => {
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
-    await user.click(screen.getByText('USD 10.00'))
+    await user.click(screen.getByRole('button', { name: /^Price$/ }))
     const dialog = await screen.findByText('Edit Price')
     const modal = dialog.closest('div')!.parentElement!
     await user.click(within(modal).getByRole('button', { name: /save/i }))

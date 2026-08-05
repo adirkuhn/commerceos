@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import {
   Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
-  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, Calendar,
+  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -11,10 +11,18 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
 import * as pmsApi from '../pms/api'
+import * as inventoryApi from '../inventory/api'
 import type { SKU } from '../pms/types'
 import type { Batch, MovementType } from '../inventory/types'
 
 const PAGE_SIZE = 20
+
+// No per-SKU reorder threshold exists in the backend yet -- this is a
+// client-side heuristic ("low" = at or below this many units, but not
+// zero) until a real configurable threshold field is added.
+const LOW_STOCK_THRESHOLD = 10
+
+type StockFilter = 'all' | 'low' | 'out'
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '—'
@@ -542,46 +550,6 @@ function PriceModal({ sku, onSave, onClose }: {
   )
 }
 
-// ── Price badge (ATUM-style: regular/sale/discount% + schedule at a glance) ──
-
-function PriceBadge({ sku, onClick }: { sku: SKU; onClick: () => void }) {
-  const onSale = sku.sale_price_minor_units != null
-  const discountPct = onSale ? Math.round((1 - sku.sale_price_minor_units! / sku.price_minor_units) * 100) : 0
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title="Edit price"
-      className="flex items-center gap-2 px-2 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white hover:border-blue-500 transition-colors"
-    >
-      <Tag size={11} className="dark:text-gray-500 text-gray-400 shrink-0" />
-      {onSale ? (
-        <div className="flex flex-col items-start leading-tight">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] line-through dark:text-gray-500 text-gray-400">
-              {formatPrice(sku.price_minor_units, sku.currency_code)}
-            </span>
-            <span className="text-xs font-semibold text-green-400">
-              {formatPrice(sku.sale_price_minor_units!, sku.currency_code)}
-            </span>
-            <span className="text-[9px] px-1 py-px rounded bg-green-500/15 text-green-400 font-medium">-{discountPct}%</span>
-          </div>
-          {sku.sale_end_date && (
-            <span className="flex items-center gap-1 text-[9px] text-amber-500 dark:text-amber-400 mt-0.5">
-              <Calendar size={9} /> until {formatDate(sku.sale_end_date)}
-            </span>
-          )}
-        </div>
-      ) : (
-        <span className="text-xs font-medium dark:text-gray-200 text-gray-700">
-          {formatPrice(sku.price_minor_units, sku.currency_code)}
-        </span>
-      )}
-    </button>
-  )
-}
-
 // ── Per-SKU stock panel ───────────────────────────────────────────────────────
 
 type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
@@ -625,7 +593,14 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated }: {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <span className="font-mono text-[11px] dark:text-gray-300 text-gray-700">{sku.sku_code}</span>
-          <PriceBadge sku={sku} onClick={() => setModal('price')} />
+          <button
+            type="button"
+            onClick={() => setModal('price')}
+            title="Edit price"
+            className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400"
+          >
+            <Tag size={11} /> Price
+          </button>
           {level && (
             <span data-testid="stock-level" className="text-[10px] dark:text-gray-400 text-gray-500">
               Total: <strong className="dark:text-gray-200 text-gray-800">{level.total}</strong>
@@ -733,12 +708,52 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated }: {
 
 // ── Product row ───────────────────────────────────────────────────────────────
 
-function ProductStockRow({ token, productId, productName, warehouses }: {
+// A product with more than one SKU (named variants) has no single
+// "the" price/sale price to show at the product-row level — the price
+// columns show a min–max range instead, and the sale-price column shows
+// "-" rather than guessing which variant's sale is "the" one.
+export interface ProductStockSummary {
+  totalStock: number
+  skuCount: number
+}
+
+function ProductStockRow({ token, productId, productName, warehouses, onSummary }: {
   token: string; productId: string; productName: string; warehouses: { id: string; name: string }[]
+  onSummary: (productId: string, summary: ProductStockSummary) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const { detail, loading, refresh } = useProductDetail(token, expanded ? productId : null)
+  const { detail, loading, refresh } = useProductDetail(token, productId)
   const skus = (detail?.variants ?? []).flatMap(v => v.skus ?? [])
+  const skusKey = skus.map(s => s.id).join(',')
+
+  const [stockBySKU, setStockBySKU] = useState<Record<string, number>>({})
+  const [stockLoading, setStockLoading] = useState(true)
+
+  useEffect(() => {
+    if (!token || skus.length === 0) {
+      setStockBySKU({})
+      setStockLoading(false)
+      return
+    }
+    let cancelled = false
+    setStockLoading(true)
+    Promise.all(skus.map(sku => inventoryApi.getSKUStockLevel(token, sku.id).then(l => [sku.id, l.total] as const).catch(() => [sku.id, 0] as const)))
+      .then(pairs => { if (!cancelled) setStockBySKU(Object.fromEntries(pairs)) })
+      .finally(() => { if (!cancelled) setStockLoading(false) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- skusKey is the stable dependency; skus itself is a new array every render
+  }, [token, skusKey])
+
+  const totalStock = Object.values(stockBySKU).reduce((sum, n) => sum + n, 0)
+
+  useEffect(() => {
+    if (!stockLoading) onSummary(productId, { totalStock, skuCount: skus.length })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSummary identity is stable per Inventory render; including it would re-fire on every parent render
+  }, [productId, totalStock, skus.length, stockLoading])
+
+  const singleSKU = skus.length === 1 ? skus[0] : null
+  const prices = skus.map(s => s.price_minor_units)
+  const priceRange = prices.length > 0 ? [Math.min(...prices), Math.max(...prices)] as const : null
 
   return (
     <>
@@ -747,10 +762,47 @@ function ProductStockRow({ token, productId, productName, warehouses }: {
           {expanded ? <ChevronDown size={13} className="dark:text-gray-500 text-gray-400" /> : <ChevronRight size={13} className="dark:text-gray-500 text-gray-400" />}
         </td>
         <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{productName}</td>
+        <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+          {singleSKU ? (
+            <span className="text-xs dark:text-gray-300 text-gray-700">{formatPrice(singleSKU.price_minor_units, singleSKU.currency_code)}</span>
+          ) : priceRange ? (
+            <span className="text-xs dark:text-gray-300 text-gray-700">
+              {priceRange[0] === priceRange[1]
+                ? formatPrice(priceRange[0], skus[0].currency_code)
+                : `${formatPrice(priceRange[0], skus[0].currency_code)} – ${formatPrice(priceRange[1], skus[0].currency_code)}`}
+            </span>
+          ) : (
+            <span className="text-xs dark:text-gray-600 text-gray-300">—</span>
+          )}
+        </td>
+        <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+          {singleSKU && singleSKU.sale_price_minor_units != null ? (
+            <span className="flex items-center gap-1">
+              <span className="text-xs font-medium text-green-400">{formatPrice(singleSKU.sale_price_minor_units, singleSKU.currency_code)}</span>
+              {singleSKU.sale_end_date && (
+                <span className="text-[9px] dark:text-gray-500 text-gray-400">until {formatDate(singleSKU.sale_end_date)}</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-xs dark:text-gray-600 text-gray-300">—</span>
+          )}
+        </td>
+        <td className="px-3 py-2.5">
+          {stockLoading ? (
+            <span className="text-xs dark:text-gray-600 text-gray-400">…</span>
+          ) : (
+            <span className={clsx(
+              'text-xs font-medium tabular-nums',
+              totalStock <= 0 ? 'text-red-400' : totalStock <= LOW_STOCK_THRESHOLD ? 'text-amber-400' : 'dark:text-gray-300 text-gray-700',
+            )}>
+              {totalStock}
+            </span>
+          )}
+        </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={2} className="p-0">
+          <td colSpan={5} className="p-0">
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
             {!loading && skus.map(sku => <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} />)}
@@ -768,6 +820,8 @@ export default function Inventory() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [stockFilter, setStockFilter] = useState<StockFilter>('all')
+  const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -780,6 +834,26 @@ export default function Inventory() {
   const { products, total, loading, error } = useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
   const { warehouses } = useWarehouses(token ?? '')
 
+  // Rows report their own stock total once loaded — low-stock/out-of-stock
+  // filtering is client-side over the current page (the product search API
+  // has no stock-aware filtering yet), so a row not yet reporting a
+  // summary is still shown rather than hidden while it resolves.
+  const handleSummary = (productId: string, summary: ProductStockSummary) => {
+    setSummaryByProduct(prev => {
+      const existing = prev[productId]
+      if (existing && existing.totalStock === summary.totalStock && existing.skuCount === summary.skuCount) return prev
+      return { ...prev, [productId]: summary }
+    })
+  }
+
+  const visibleProducts = products.filter(p => {
+    if (stockFilter === 'all') return true
+    const summary = summaryByProduct[p.id]
+    if (!summary) return true
+    if (stockFilter === 'out') return summary.totalStock <= 0
+    return summary.totalStock > 0 && summary.totalStock <= LOW_STOCK_THRESHOLD
+  })
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
@@ -791,6 +865,27 @@ export default function Inventory() {
             placeholder="Search product..."
             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
           />
+        </div>
+        <div className="flex items-center rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden shrink-0">
+          {([
+            ['all', 'All'],
+            ['low', 'Low Stock'],
+            ['out', 'Out of Stock'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setStockFilter(value)}
+              className={clsx(
+                'px-2.5 py-1.5 text-[11px] font-medium transition-colors',
+                stockFilter === value
+                  ? 'bg-blue-600 text-white'
+                  : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <span className="text-xs dark:text-gray-500 text-gray-400 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
       </div>
@@ -807,17 +902,20 @@ export default function Inventory() {
             <tr>
               <th className="px-2 py-2.5 w-8" />
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Price</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sale Price</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Stock</th>
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={2} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
-            {!loading && products.length === 0 && (
-              <tr><td colSpan={2} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
+            {!loading && visibleProducts.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
             )}
-            {!loading && products.map(p => (
-              <ProductStockRow key={p.id} token={token ?? ''} productId={p.id} productName={p.name} warehouses={warehouses} />
+            {!loading && visibleProducts.map(p => (
+              <ProductStockRow key={p.id} token={token ?? ''} productId={p.id} productName={p.name} warehouses={warehouses} onSummary={handleSummary} />
             ))}
           </tbody>
         </table>
