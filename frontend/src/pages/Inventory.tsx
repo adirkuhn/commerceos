@@ -1,185 +1,829 @@
-import { useState } from 'react'
-import { Search, Filter, Plus, ArrowRightLeft, AlertTriangle, Calendar } from 'lucide-react'
+import { useState, useEffect, type ReactNode } from 'react'
+import {
+  Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
+  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, Calendar,
+} from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../auth/AuthContext'
+import Pagination from '../components/common/Pagination'
+import { useProducts } from '../pms/hooks/useProducts'
+import { useProductDetail } from '../pms/hooks/useProductDetail'
+import { useWarehouses } from '../inventory/hooks/useWarehouses'
+import { useSKUStock } from '../inventory/hooks/useSKUStock'
+import * as pmsApi from '../pms/api'
+import type { SKU } from '../pms/types'
+import type { Batch, MovementType } from '../inventory/types'
 
-interface StockItem {
-  id: string
-  product: string
-  sku: string
-  location: string
-  qty: number
-  reserved: number
-  available: number
-  lot: string
-  expiry: string
-  status: 'ok' | 'expiring' | 'expired' | 'low'
+const PAGE_SIZE = 20
+
+function formatDate(iso?: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString()
 }
 
-const STOCK: StockItem[] = [
-  { id: '1', product: 'Wireless Headphones Pro', sku: 'WHP-001', location: 'Warehouse A — A01-B03', qty: 423, reserved: 12, available: 411, lot: 'LOT-2024-001', expiry: '—', status: 'ok' },
-  { id: '2', product: 'USB-C Hub 7-in-1', sku: 'UCH-007', location: 'Warehouse A — A02-C01', qty: 187, reserved: 8, available: 179, lot: 'LOT-2024-002', expiry: '—', status: 'ok' },
-  { id: '3', product: 'Organic Oat Cookies', sku: 'OOC-500', location: 'Warehouse B — C04-D02', qty: 340, reserved: 20, available: 320, lot: 'LOT-2026-012', expiry: '2026-05-22', status: 'expiring' },
-  { id: '4', product: 'Vitamin C 1000mg', sku: 'VTC-1K', location: 'Warehouse B — D01-A01', qty: 120, reserved: 5, available: 115, lot: 'LOT-2024-089', expiry: '2026-04-30', status: 'expired' },
-  { id: '5', product: 'Mouse Pad XL Gaming', sku: 'MPX-XL', location: 'Warehouse A — A03-B01', qty: 8, reserved: 2, available: 6, lot: 'LOT-2025-044', expiry: '—', status: 'low' },
-  { id: '6', product: 'Webcam 4K Ultra', sku: 'WCM-4K', location: 'Warehouse A — B02-C03', qty: 56, reserved: 4, available: 52, lot: 'LOT-2025-033', expiry: '—', status: 'ok' },
-  { id: '7', product: 'Laptop Stand Pro', sku: 'LSP-002', location: 'Warehouse A — A04-D01', qty: 312, reserved: 15, available: 297, lot: 'LOT-2025-077', expiry: '—', status: 'ok' },
-  { id: '8', product: 'Protein Bar Chocolate', sku: 'PBC-BOX', location: 'Warehouse B — C03-B02', qty: 890, reserved: 45, available: 845, lot: 'LOT-2026-009', expiry: '2026-05-19', status: 'expiring' },
-  { id: '9', product: 'LED Desk Lamp Smart', sku: 'LDL-SMT', location: 'Store Brussels', qty: 12, reserved: 0, available: 12, lot: 'LOT-2025-091', expiry: '—', status: 'low' },
-  { id: '10', product: 'Cable Management Kit', sku: 'CMK-001', location: 'Warehouse A — A01-A04', qty: 890, reserved: 30, available: 860, lot: 'LOT-2025-055', expiry: '—', status: 'ok' },
-]
-
-const STATUS_STYLE: Record<string, string> = {
-  ok: 'bg-green-500/15 text-green-400',
-  expiring: 'bg-amber-500/15 text-amber-400',
-  expired: 'bg-red-500/15 text-red-400',
-  low: 'bg-orange-500/15 text-orange-400',
+function formatPrice(minorUnits: number, currency: string): string {
+  return `${currency} ${(minorUnits / 100).toFixed(2)}`
 }
 
-const STATUS_ICON: Record<string, React.ElementType> = {
-  expiring: Calendar,
-  expired: AlertTriangle,
-  low: AlertTriangle,
+function parsePriceToMinorUnits(price: string): number {
+  return Math.round(parseFloat(price || '0') * 100)
 }
 
-const LOCATIONS = ['All Locations', 'Warehouse A', 'Warehouse B', 'Store Brussels']
+function parseOptionalPriceToMinorUnits(price: string): number | null {
+  if (price.trim() === '') return null
+  return Math.round(parseFloat(price) * 100)
+}
 
-export default function Inventory() {
-  const [search, setSearch] = useState('')
-  const [location, setLocation] = useState('All Locations')
-  const [statusFilter, setStatusFilter] = useState('all')
+function formatMinorUnitsAsInput(minorUnits: number): string {
+  return (minorUnits / 100).toFixed(2)
+}
 
-  const filtered = STOCK.filter(s => {
-    const matchSearch = s.product.toLowerCase().includes(search.toLowerCase()) || s.sku.toLowerCase().includes(search.toLowerCase())
-    const matchLoc = location === 'All Locations' || s.location.includes(location)
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter
-    return matchSearch && matchLoc && matchStatus
-  })
+function isExpired(iso?: string | null): boolean {
+  if (!iso) return false
+  return new Date(iso).getTime() < Date.now()
+}
 
-  const counts = {
-    ok: STOCK.filter(s => s.status === 'ok').length,
-    expiring: STOCK.filter(s => s.status === 'expiring').length,
-    expired: STOCK.filter(s => s.status === 'expired').length,
-    low: STOCK.filter(s => s.status === 'low').length,
+function isExpiringSoon(iso?: string | null, withinDays = 30): boolean {
+  if (!iso) return false
+  const ms = new Date(iso).getTime() - Date.now()
+  return ms >= 0 && ms <= withinDays * 24 * 60 * 60 * 1000
+}
+
+// ── Generic modal shell ──────────────────────────────────────────────────────
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-xl dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
+          <button type="button" onClick={onClose} aria-label="Close" className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+const labelClass = 'block text-[10px] font-medium dark:text-gray-400 text-gray-500 mb-1'
+
+// ── Batch form (create/edit) ─────────────────────────────────────────────────
+
+function BatchFormModal({
+  batch, warehouses, onSave, onClose,
+}: {
+  batch: Batch | null
+  warehouses: { id: string; name: string }[]
+  onSave: (input: { warehouse_id: string; lot_number?: string; expiry_date?: string | null }) => Promise<void>
+  onClose: () => void
+}) {
+  const [warehouseId, setWarehouseId] = useState(batch?.warehouse_id ?? warehouses[0]?.id ?? '')
+  const [lotNumber, setLotNumber] = useState(batch?.lot_number ?? '')
+  const [expiryDate, setExpiryDate] = useState(batch?.expiry_date ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({ warehouse_id: warehouseId, lot_number: lotNumber, expiry_date: expiryDate || null })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save batch')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-3 p-4 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
-        {([
-          ['ok', 'OK Stock', counts.ok, 'green'],
-          ['expiring', 'Expiring Soon', counts.expiring, 'amber'],
-          ['expired', 'Expired', counts.expired, 'red'],
-          ['low', 'Low Stock', counts.low, 'orange'],
-        ] as const).map(([s, label, count, color]) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(statusFilter === s ? 'all' : s)}
-            className={clsx(
-              'text-left p-3 rounded-xl border transition-all',
-              statusFilter === s
-                ? `dark:bg-${color}-500/10 bg-${color}-50 dark:border-${color}-500/30 border-${color}-200`
-                : 'dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748]/50 hover:bg-gray-50',
+    <Modal title={batch ? 'Edit Batch' : 'New Batch'} onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass} htmlFor="batch-warehouse">Warehouse</label>
+          <select id="batch-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="batch-lot">Lot number</label>
+          <input id="batch-lot" value={lotNumber} onChange={e => setLotNumber(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="batch-expiry">Expiry date (leave empty for no expiry)</label>
+          <input id="batch-expiry" type="date" value={expiryDate ?? ''} onChange={e => setExpiryDate(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Adjust stock ──────────────────────────────────────────────────────────────
+
+function AdjustStockModal({
+  warehouses, batches, onSave, onClose,
+}: {
+  warehouses: { id: string; name: string }[]
+  batches: Batch[]
+  onSave: (input: { warehouse_id: string; batch_id?: string | null; type: MovementType; quantity_delta: number; reason?: string }) => Promise<void>
+  onClose: () => void
+}) {
+  const [type, setType] = useState<'receipt' | 'sale' | 'adjustment'>('receipt')
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    const n = parseInt(quantity, 10)
+    if (Number.isNaN(n) || n === 0) {
+      setError('Enter a non-zero quantity')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const delta = type === 'sale' ? -Math.abs(n) : type === 'receipt' ? Math.abs(n) : n
+      await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, type, quantity_delta: delta, reason })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to record movement')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Adjust Stock" onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass} htmlFor="adjust-type">Type</label>
+          <select id="adjust-type" value={type} onChange={e => setType(e.target.value as typeof type)} className={inputClass}>
+            <option value="receipt">Receipt (stock in)</option>
+            <option value="sale">Sale (stock out)</option>
+            <option value="adjustment">Adjustment (+/-)</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="adjust-warehouse">Warehouse</label>
+          <select id="adjust-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="adjust-batch">Batch (leave empty for general ledger)</label>
+          <select id="adjust-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+            <option value="">General ledger (no batch)</option>
+            {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="adjust-qty">
+            Quantity {type === 'adjustment' ? '(use a minus sign to decrease)' : ''}
+          </label>
+          <input id="adjust-qty" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="adjust-reason">Reason (optional)</label>
+          <input id="adjust-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Record'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Recount ───────────────────────────────────────────────────────────────────
+
+function RecountModal({
+  warehouses, batches, onSave, onClose,
+}: {
+  warehouses: { id: string; name: string }[]
+  batches: Batch[]
+  onSave: (input: { warehouse_id: string; batch_id?: string | null; counted_quantity: number; reason?: string }) => Promise<void>
+  onClose: () => void
+}) {
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState('')
+  const [counted, setCounted] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    const n = parseInt(counted, 10)
+    if (Number.isNaN(n) || n < 0) {
+      setError('Enter the counted quantity')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, counted_quantity: n, reason })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to record recount')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Recount Stock" onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass} htmlFor="recount-warehouse">Warehouse</label>
+          <select id="recount-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="recount-batch">Batch (leave empty for general ledger)</label>
+          <select id="recount-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+            <option value="">General ledger (no batch)</option>
+            {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="recount-qty">Counted quantity</label>
+          <input id="recount-qty" type="number" min={0} value={counted} onChange={e => setCounted(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="recount-reason">Reason (optional)</label>
+          <input id="recount-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Record'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Transfer (also covers general-ledger <-> batch moves) ───────────────────
+
+function TransferModal({
+  warehouses, batches, onSave, onClose,
+}: {
+  warehouses: { id: string; name: string }[]
+  batches: Batch[]
+  onSave: (input: {
+    quantity: number; from_warehouse_id: string; from_batch_id?: string | null
+    to_warehouse_id: string; to_batch_id?: string | null; reason?: string
+  }) => Promise<void>
+  onClose: () => void
+}) {
+  const [quantity, setQuantity] = useState('')
+  const [fromWarehouse, setFromWarehouse] = useState(warehouses[0]?.id ?? '')
+  const [fromBatch, setFromBatch] = useState('')
+  const [toWarehouse, setToWarehouse] = useState(warehouses[0]?.id ?? '')
+  const [toBatch, setToBatch] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    const n = parseInt(quantity, 10)
+    if (Number.isNaN(n) || n <= 0) {
+      setError('Enter a positive quantity')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({
+        quantity: n, from_warehouse_id: fromWarehouse, from_batch_id: fromBatch || null,
+        to_warehouse_id: toWarehouse, to_batch_id: toBatch || null, reason,
+      })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to transfer stock')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Transfer Stock" onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+          Leaving a batch empty means the general ledger (un-lotted stock) — use this to move stock into or out of a batch too.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={labelClass} htmlFor="transfer-from-wh">From warehouse</label>
+            <select id="transfer-from-wh" value={fromWarehouse} onChange={e => setFromWarehouse(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="transfer-to-wh">To warehouse</label>
+            <select id="transfer-to-wh" value={toWarehouse} onChange={e => setToWarehouse(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="transfer-from-batch">From batch</label>
+            <select id="transfer-from-batch" value={fromBatch} onChange={e => setFromBatch(e.target.value)} className={inputClass}>
+              <option value="">General ledger</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="transfer-to-batch">To batch</label>
+            <select id="transfer-to-batch" value={toBatch} onChange={e => setToBatch(e.target.value)} className={inputClass}>
+              <option value="">General ledger</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="transfer-qty">Quantity</label>
+          <input id="transfer-qty" type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="transfer-reason">Reason (optional)</label>
+          <input id="transfer-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Transfer'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Mark damaged / lost ───────────────────────────────────────────────────────
+
+function DamagedLostModal({
+  warehouses, batches, onSave, onClose,
+}: {
+  warehouses: { id: string; name: string }[]
+  batches: Batch[]
+  onSave: (input: { warehouse_id: string; batch_id?: string | null; quantity: number; type: 'damaged' | 'lost'; reason?: string }) => Promise<void>
+  onClose: () => void
+}) {
+  const [type, setType] = useState<'damaged' | 'lost'>('damaged')
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    const n = parseInt(quantity, 10)
+    if (Number.isNaN(n) || n <= 0) {
+      setError('Enter a positive quantity')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, quantity: n, type, reason })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to write off stock')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Mark Damaged / Lost" onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass} htmlFor="dl-type">Type</label>
+          <select id="dl-type" value={type} onChange={e => setType(e.target.value as typeof type)} className={inputClass}>
+            <option value="damaged">Damaged</option>
+            <option value="lost">Lost</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="dl-warehouse">Warehouse</label>
+          <select id="dl-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+            {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="dl-batch">Batch (leave empty for general ledger)</label>
+          <select id="dl-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+            <option value="">General ledger (no batch)</option>
+            {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="dl-qty">Quantity</label>
+          <input id="dl-qty" type="number" min={1} value={quantity} onChange={e => setQuantity(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="dl-reason">Reason (optional)</label>
+          <input id="dl-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving || !warehouseId} className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Write off'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Price / sale price (owned by pms, edited here as a convenience — same
+// pattern as ATUM's inventory screen writing back to WooCommerce's own
+// product price, not a separate price store) ────────────────────────────────
+
+function PriceModal({ sku, onSave, onClose }: {
+  sku: SKU; onSave: (price: string, salePrice: string, saleEndDate: string) => Promise<void>; onClose: () => void
+}) {
+  const [price, setPrice] = useState(formatMinorUnitsAsInput(sku.price_minor_units))
+  const [salePrice, setSalePrice] = useState(sku.sale_price_minor_units != null ? formatMinorUnitsAsInput(sku.sale_price_minor_units) : '')
+  const [saleEndDate, setSaleEndDate] = useState(sku.sale_end_date ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave(price, salePrice, saleEndDate)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update price')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const priceNum = parseFloat(price || '0')
+  const salePriceNum = salePrice.trim() === '' ? null : parseFloat(salePrice)
+  const discountPct = salePriceNum != null && priceNum > 0 ? Math.round((1 - salePriceNum / priceNum) * 100) : null
+
+  return (
+    <Modal title="Edit Price" onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className={labelClass} htmlFor="price-edit-price">Regular price ({sku.currency_code})</label>
+          <input id="price-edit-price" type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} className={inputClass} />
+        </div>
+
+        <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className={clsx(labelClass, 'mb-0')} htmlFor="price-edit-sale-price">Sale price (optional)</label>
+            {discountPct != null && discountPct > 0 && (
+              <span className="text-[9px] px-1.5 py-px rounded bg-green-500/15 text-green-400 font-medium">-{discountPct}%</span>
             )}
-          >
-            <p className="text-xl font-semibold dark:text-gray-100 text-gray-900">{count}</p>
-            <p className="text-[10px] dark:text-gray-400 text-gray-500 mt-0.5">{label}</p>
-          </button>
-        ))}
-      </div>
+            {discountPct != null && discountPct <= 0 && (
+              <span className="text-[9px] text-red-400">must be below regular price</span>
+            )}
+          </div>
+          <input id="price-edit-sale-price" type="number" step="0.01" min="0" value={salePrice} onChange={e => {
+            setSalePrice(e.target.value)
+            if (e.target.value.trim() === '') setSaleEndDate('')
+          }} className={inputClass} />
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search product, SKU..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
-          />
+          <div>
+            <label className={labelClass} htmlFor="price-edit-sale-end-date">Sale ends (optional)</label>
+            <input id="price-edit-sale-end-date" type="date" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)} className={inputClass} disabled={salePriceNum == null} />
+            <p className="text-[9px] dark:text-gray-500 text-gray-400 mt-1">Reverts to the regular price automatically the day after this date.</p>
+          </div>
         </div>
 
-        <select
-          value={location}
-          onChange={e => setLocation(e.target.value)}
-          className="px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 outline-none"
-        >
-          {LOCATIONS.map(l => <option key={l}>{l}</option>)}
-        </select>
-
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
-          <Filter size={13} /> Filters
-        </button>
-
-        <div className="flex items-center gap-2 ml-auto">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
-            <ArrowRightLeft size={13} /> Transfer
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 font-medium">
-            <Plus size={13} /> Adjust Stock
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
+    </Modal>
+  )
+}
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+// ── Price badge (ATUM-style: regular/sale/discount% + schedule at a glance) ──
+
+function PriceBadge({ sku, onClick }: { sku: SKU; onClick: () => void }) {
+  const onSale = sku.sale_price_minor_units != null
+  const discountPct = onSale ? Math.round((1 - sku.sale_price_minor_units! / sku.price_minor_units) * 100) : 0
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Edit price"
+      className="flex items-center gap-2 px-2 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white hover:border-blue-500 transition-colors"
+    >
+      <Tag size={11} className="dark:text-gray-500 text-gray-400 shrink-0" />
+      {onSale ? (
+        <div className="flex flex-col items-start leading-tight">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] line-through dark:text-gray-500 text-gray-400">
+              {formatPrice(sku.price_minor_units, sku.currency_code)}
+            </span>
+            <span className="text-xs font-semibold text-green-400">
+              {formatPrice(sku.sale_price_minor_units!, sku.currency_code)}
+            </span>
+            <span className="text-[9px] px-1 py-px rounded bg-green-500/15 text-green-400 font-medium">-{discountPct}%</span>
+          </div>
+          {sku.sale_end_date && (
+            <span className="flex items-center gap-1 text-[9px] text-amber-500 dark:text-amber-400 mt-0.5">
+              <Calendar size={9} /> until {formatDate(sku.sale_end_date)}
+            </span>
+          )}
+        </div>
+      ) : (
+        <span className="text-xs font-medium dark:text-gray-200 text-gray-700">
+          {formatPrice(sku.price_minor_units, sku.currency_code)}
+        </span>
+      )}
+    </button>
+  )
+}
+
+// ── Per-SKU stock panel ───────────────────────────────────────────────────────
+
+type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
+
+function SKUStockPanel({ token, sku, warehouses, onSKUUpdated }: {
+  token: string; sku: SKU; warehouses: { id: string; name: string }[]; onSKUUpdated: () => void
+}) {
+  const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, markDamagedOrLost } =
+    useSKUStock(token, sku.id)
+  const [modal, setModal] = useState<ActiveModal>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const handleSavePrice = async (price: string, salePrice: string, saleEndDate: string) => {
+    await pmsApi.updateSKU(token, sku.id, {
+      barcode: sku.barcode ?? undefined,
+      price_minor_units: parsePriceToMinorUnits(price),
+      sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
+      sale_end_date: saleEndDate || null,
+      currency_code: sku.currency_code,
+      weight_grams: sku.weight_grams,
+      length_mm: sku.length_mm,
+      width_mm: sku.width_mm,
+      height_mm: sku.height_mm,
+      is_virtual: sku.is_virtual,
+      status: sku.status,
+    })
+    onSKUUpdated()
+  }
+
+  const handleDeleteBatch = async (id: string) => {
+    setDeleteError(null)
+    try {
+      await removeBatch(id)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete batch')
+    }
+  }
+
+  return (
+    <div className="pl-8 pr-4 py-3 border-t dark:border-[#2D3748]/60 border-gray-100 dark:bg-[#0B1220]/40 bg-gray-50/60">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[11px] dark:text-gray-300 text-gray-700">{sku.sku_code}</span>
+          <PriceBadge sku={sku} onClick={() => setModal('price')} />
+          {level && (
+            <span data-testid="stock-level" className="text-[10px] dark:text-gray-400 text-gray-500">
+              Total: <strong className="dark:text-gray-200 text-gray-800">{level.total}</strong>
+              {' · '}Syncable: <strong className="dark:text-gray-200 text-gray-800">{level.syncable}</strong>
+            </span>
+          )}
+          {loading && <span className="text-[10px] dark:text-gray-600 text-gray-400">Loading…</span>}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <Plus size={11} /> Adjust
+          </button>
+          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <ClipboardList size={11} /> Recount
+          </button>
+          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <ArrowRightLeft size={11} /> Transfer
+          </button>
+          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-red-400 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            <PackageMinus size={11} /> Damaged/Lost
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="text-[10px] text-red-500 mb-2">{error}</p>}
+      {deleteError && <p className="text-[10px] text-red-500 mb-2">{deleteError}</p>}
+
+      <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <table className="w-full text-[10px]">
+          <thead className="dark:bg-[#111827] bg-gray-100">
             <tr>
-              <th className="px-4 py-2.5 w-8">
-                <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
-              </th>
-              {['Product', 'SKU', 'Location', 'Qty', 'Reserved', 'Available', 'Lot', 'Expiry', 'Status'].map(h => (
-                <th key={h} className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  {h}
-                </th>
+              {['Lot', 'Warehouse', 'Expiry', ''].map(h => (
+                <th key={h} className="px-2.5 py-1.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
-            {filtered.map(s => {
-              const StatusIconComp = STATUS_ICON[s.status]
-              return (
-                <tr key={s.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-2.5">
-                    <input type="checkbox" className="rounded accent-blue-600 w-3 h-3" />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <p className="font-medium dark:text-gray-100 text-gray-900">{s.product}</p>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className="font-mono dark:text-gray-400 text-gray-500">{s.sku}</span>
-                  </td>
-                  <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 text-[10px]">{s.location}</td>
-                  <td className="px-3 py-2.5 dark:text-gray-200 text-gray-800 font-medium tabular-nums">{s.qty.toLocaleString()}</td>
-                  <td className="px-3 py-2.5 text-amber-400 tabular-nums">{s.reserved}</td>
-                  <td className="px-3 py-2.5 text-green-400 font-medium tabular-nums">{s.available.toLocaleString()}</td>
-                  <td className="px-3 py-2.5 font-mono dark:text-gray-500 text-gray-400 text-[10px]">{s.lot}</td>
-                  <td className="px-3 py-2.5">
-                    {s.expiry === '—' ? (
-                      <span className="dark:text-gray-600 text-gray-300">—</span>
-                    ) : (
-                      <span className={clsx(
-                        'font-mono text-[10px]',
-                        s.status === 'expired' ? 'text-red-400' : 'text-amber-400',
-                      )}>
-                        {s.expiry}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className={clsx('flex items-center gap-1 w-fit px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLE[s.status])}>
-                      {StatusIconComp && <StatusIconComp size={10} />}
-                      {s.status}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
+            {batches.map(b => (
+              <tr key={b.id}>
+                <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">{b.lot_number || '—'}</td>
+                <td className="px-2.5 py-1.5 dark:text-gray-400 text-gray-500">{warehouses.find(w => w.id === b.warehouse_id)?.name ?? b.warehouse_id}</td>
+                <td className="px-2.5 py-1.5">
+                  <span className={clsx(
+                    'font-mono',
+                    isExpired(b.expiry_date) ? 'text-red-400' : isExpiringSoon(b.expiry_date) ? 'text-amber-400' : 'dark:text-gray-400 text-gray-500',
+                  )}>
+                    {formatDate(b.expiry_date)}
+                  </span>
+                </td>
+                <td className="px-2.5 py-1.5">
+                  <div className="flex items-center justify-end gap-2">
+                    <button type="button" onClick={() => setModal({ edit: b })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
+                      <Edit3 size={11} />
+                    </button>
+                    <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:text-red-400">
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {batches.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">No batches — all stock is in the general ledger.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        <div className="px-2.5 py-1.5 border-t dark:border-[#2D3748] border-gray-200">
+          <button type="button" onClick={() => setModal('batch-new')} className="text-[10px] text-blue-400 hover:text-blue-300">
+            + New batch
+          </button>
+        </div>
+      </div>
+
+      {modal === 'adjust' && (
+        <AdjustStockModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+          onSave={input => adjust(input).then(() => undefined)} />
+      )}
+      {modal === 'recount' && (
+        <RecountModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+          onSave={input => recount(input).then(() => undefined)} />
+      )}
+      {modal === 'transfer' && (
+        <TransferModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)} onSave={transfer} />
+      )}
+      {modal === 'damaged-lost' && (
+        <DamagedLostModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+          onSave={input => markDamagedOrLost(input).then(() => undefined)} />
+      )}
+      {modal === 'batch-new' && (
+        <BatchFormModal batch={null} warehouses={warehouses} onClose={() => setModal(null)}
+          onSave={input => addBatch(input).then(() => undefined)} />
+      )}
+      {modal === 'price' && (
+        <PriceModal sku={sku} onClose={() => setModal(null)} onSave={handleSavePrice} />
+      )}
+      {modal !== null && typeof modal === 'object' && (
+        <BatchFormModal batch={modal.edit} warehouses={warehouses} onClose={() => setModal(null)}
+          onSave={input => editBatch(modal.edit.id, input).then(() => undefined)} />
+      )}
+    </div>
+  )
+}
+
+// ── Product row ───────────────────────────────────────────────────────────────
+
+function ProductStockRow({ token, productId, productName, warehouses }: {
+  token: string; productId: string; productName: string; warehouses: { id: string; name: string }[]
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const { detail, loading, refresh } = useProductDetail(token, expanded ? productId : null)
+  const skus = (detail?.variants ?? []).flatMap(v => v.skus ?? [])
+
+  return (
+    <>
+      <tr className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setExpanded(v => !v)}>
+        <td className="px-4 py-2.5 w-8">
+          {expanded ? <ChevronDown size={13} className="dark:text-gray-500 text-gray-400" /> : <ChevronRight size={13} className="dark:text-gray-500 text-gray-400" />}
+        </td>
+        <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{productName}</td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={2} className="p-0">
+            {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
+            {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
+            {!loading && skus.map(sku => <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} />)}
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function Inventory() {
+  const { token } = useAuth()
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timeout)
+  }, [searchInput])
+
+  const { products, total, loading, error } = useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
+  const { warehouses } = useWarehouses(token ?? '')
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <input
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Search product..."
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <span className="text-xs dark:text-gray-500 text-gray-400 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-1.5 px-5 py-2 text-xs text-red-400">
+          <AlertTriangle size={12} /> {error}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+            <tr>
+              <th className="px-2 py-2.5 w-8" />
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            {loading && (
+              <tr><td colSpan={2} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+            )}
+            {!loading && products.length === 0 && (
+              <tr><td colSpan={2} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
+            )}
+            {!loading && products.map(p => (
+              <ProductStockRow key={p.id} token={token ?? ''} productId={p.id} productName={p.name} warehouses={warehouses} />
+            ))}
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
     </div>
   )
 }

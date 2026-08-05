@@ -1,6 +1,26 @@
 package inventory
 
-import "context"
+import (
+	"context"
+	"time"
+)
+
+// ExpiringBatch is a read-model row for the tenant-wide "expiring soon"
+// report — a Batch enriched with its SKU code, product name, warehouse
+// name, and current remaining quantity. This join lives entirely at the
+// infrastructure layer for this one reporting query; it isn't a call into
+// another domain's repository, and nothing here is written back.
+type ExpiringBatch struct {
+	BatchID       string
+	SKUID         string
+	SKUCode       string
+	ProductName   string
+	WarehouseID   string
+	WarehouseName string
+	LotNumber     string
+	ExpiryDate    time.Time
+	Quantity      int64
+}
 
 type WarehouseRepository interface {
 	Create(ctx context.Context, w *Warehouse) error
@@ -21,6 +41,10 @@ type BatchRepository interface {
 	// layer check gives a clean ErrBatchHasMovements instead of a raw
 	// constraint-violation error.
 	Delete(ctx context.Context, id string) error
+	// ListExpiringSoon returns every batch (across all SKUs) expiring
+	// within the given number of days that still has stock remaining
+	// (Quantity > 0), soonest-expiring first.
+	ListExpiringSoon(ctx context.Context, withinDays int) ([]ExpiringBatch, error)
 }
 
 // StockMovementRepository is append-only by design — a ledger entry is

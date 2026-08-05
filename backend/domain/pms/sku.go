@@ -17,7 +17,19 @@ type SKU struct {
 	Barcode   string
 	// PriceMinorUnits is the price in the smallest currency unit (e.g. cents for USD).
 	PriceMinorUnits int64
-	CurrencyCode    string
+	// SalePriceMinorUnits is an optional discounted price, same unit as
+	// PriceMinorUnits. Nil means no sale is active. When set it must be
+	// <= PriceMinorUnits (see ErrSalePriceExceedsPrice) -- a "sale" that
+	// costs more than the regular price isn't one.
+	SalePriceMinorUnits *int64
+	// SaleEndDate is an optional date after which SalePriceMinorUnits
+	// automatically reverts to nil -- the sale is active through this
+	// date (inclusive); the scheduler clears it once the date has
+	// passed (see application/pms's ExpireSKUSalePriceUseCase). Only
+	// meaningful when SalePriceMinorUnits is set (see
+	// ErrSaleEndDateRequiresSalePrice).
+	SaleEndDate  *time.Time
+	CurrencyCode string
 	// WeightGrams and the *MM dimensions are nil when unknown — normalized
 	// to fixed SI units (like PriceMinorUnits normalizes money) so values
 	// from any future channel are comparable without ambiguity.

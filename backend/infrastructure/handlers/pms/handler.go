@@ -5,8 +5,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"gorm.io/gorm"
 
 	genpms "github.com/adirkuhn/commerceos/api/pms"
@@ -16,6 +18,25 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
+
+// genDateToTimePtr/timePtrToGenDate convert between openapi_types.Date
+// (date-only, no time-of-day) and *time.Time -- same helpers as
+// infrastructure/handlers/inventory's, duplicated rather than shared
+// since these two handler packages don't otherwise depend on each other.
+func genDateToTimePtr(d *openapi_types.Date) *time.Time {
+	if d == nil {
+		return nil
+	}
+	t := d.Time
+	return &t
+}
+
+func timePtrToGenDate(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	return &openapi_types.Date{Time: *t}
+}
 
 // ── Use-case interfaces (defined at point of use — ISP) ──────────────────────
 
@@ -399,18 +420,20 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 		barcode = *req.Barcode
 	}
 	sku, err := h.createSKU.Execute(c.Request.Context(), apppms.CreateSKUInput{
-		VariantID:       id,
-		SKUCode:         req.SkuCode,
-		Barcode:         barcode,
-		PriceMinorUnits: req.PriceMinorUnits,
-		CurrencyCode:    req.CurrencyCode,
-		WeightGrams:     req.WeightGrams,
-		LengthMM:        req.LengthMm,
-		WidthMM:         req.WidthMm,
-		HeightMM:        req.HeightMm,
-		IsVirtual:       req.IsVirtual != nil && *req.IsVirtual,
-		TracksExpiry:    req.TracksExpiry != nil && *req.TracksExpiry,
-		Status:          pmsDomain.SKUStatus(req.Status),
+		VariantID:           id,
+		SKUCode:             req.SkuCode,
+		Barcode:             barcode,
+		PriceMinorUnits:     req.PriceMinorUnits,
+		SalePriceMinorUnits: req.SalePriceMinorUnits,
+		SaleEndDate:         genDateToTimePtr(req.SaleEndDate),
+		CurrencyCode:        req.CurrencyCode,
+		WeightGrams:         req.WeightGrams,
+		LengthMM:            req.LengthMm,
+		WidthMM:             req.WidthMm,
+		HeightMM:            req.HeightMm,
+		IsVirtual:           req.IsVirtual != nil && *req.IsVirtual,
+		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
+		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -430,17 +453,19 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 		barcode = *req.Barcode
 	}
 	sku, err := h.updateSKU.Execute(c.Request.Context(), apppms.UpdateSKUInput{
-		ID:              id,
-		Barcode:         barcode,
-		PriceMinorUnits: req.PriceMinorUnits,
-		CurrencyCode:    req.CurrencyCode,
-		WeightGrams:     req.WeightGrams,
-		LengthMM:        req.LengthMm,
-		WidthMM:         req.WidthMm,
-		HeightMM:        req.HeightMm,
-		IsVirtual:       req.IsVirtual != nil && *req.IsVirtual,
-		TracksExpiry:    req.TracksExpiry != nil && *req.TracksExpiry,
-		Status:          pmsDomain.SKUStatus(req.Status),
+		ID:                  id,
+		Barcode:             barcode,
+		PriceMinorUnits:     req.PriceMinorUnits,
+		SalePriceMinorUnits: req.SalePriceMinorUnits,
+		SaleEndDate:         genDateToTimePtr(req.SaleEndDate),
+		CurrencyCode:        req.CurrencyCode,
+		WeightGrams:         req.WeightGrams,
+		LengthMM:            req.LengthMm,
+		WidthMM:             req.WidthMm,
+		HeightMM:            req.HeightMm,
+		IsVirtual:           req.IsVirtual != nil && *req.IsVirtual,
+		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
+		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -572,22 +597,24 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		barcode = &s.Barcode
 	}
 	return genpms.SKU{
-		Id:              s.ID,
-		TenantId:        s.TenantID,
-		VariantId:       s.VariantID,
-		SkuCode:         s.SKUCode,
-		Barcode:         barcode,
-		PriceMinorUnits: s.PriceMinorUnits,
-		CurrencyCode:    s.CurrencyCode,
-		WeightGrams:     s.WeightGrams,
-		LengthMm:        s.LengthMM,
-		WidthMm:         s.WidthMM,
-		HeightMm:        s.HeightMM,
-		IsVirtual:       s.IsVirtual,
-		TracksExpiry:    s.TracksExpiry,
-		Status:          genpms.SKUStatus(s.Status),
-		CreatedAt:       s.CreatedAt,
-		UpdatedAt:       s.UpdatedAt,
+		Id:                  s.ID,
+		TenantId:            s.TenantID,
+		VariantId:           s.VariantID,
+		SkuCode:             s.SKUCode,
+		Barcode:             barcode,
+		PriceMinorUnits:     s.PriceMinorUnits,
+		SalePriceMinorUnits: s.SalePriceMinorUnits,
+		SaleEndDate:         timePtrToGenDate(s.SaleEndDate),
+		CurrencyCode:        s.CurrencyCode,
+		WeightGrams:         s.WeightGrams,
+		LengthMm:            s.LengthMM,
+		WidthMm:             s.WidthMM,
+		HeightMm:            s.HeightMM,
+		IsVirtual:           s.IsVirtual,
+		TracksExpiry:        s.TracksExpiry,
+		Status:              genpms.SKUStatus(s.Status),
+		CreatedAt:           s.CreatedAt,
+		UpdatedAt:           s.UpdatedAt,
 	}
 }
 
@@ -648,6 +675,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),
+		errors.Is(err, pmsDomain.ErrSalePriceExceedsPrice),
+		errors.Is(err, pmsDomain.ErrSaleEndDateRequiresSalePrice),
 		errors.Is(err, pmsDomain.ErrUnsupportedMediaType),
 		errors.Is(err, pmsDomain.ErrMediaTargetRequired),
 		errors.Is(err, pmsDomain.ErrFeaturedMediaProductMismatch):

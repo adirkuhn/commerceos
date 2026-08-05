@@ -64,6 +64,31 @@ func TestSyncProductToChannels_pushesUpdatedFieldsToWoo(t *testing.T) {
 	require.NotNil(t, h.listingRepo.updated[0].LastSyncedAt)
 }
 
+// TestSyncProductToChannels_syncsSalePriceExpiry proves the actual path
+// the "sync sale-price expiry to Woo" requirement depends on: this is the
+// exact event (pms.product.changed) ExpireSKUSalePriceUseCase raises after
+// clearing a SKU's sale, and this is the exact consumer/use case that
+// picks it up and pushes the reverted price to Woo -- no separate Woo-sync
+// mechanism was built for this, it reuses the one every other product edit
+// already goes through.
+func TestSyncProductToChannels_syncsSalePriceExpiry(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct() // no sale price set -- simulates post-expiry state
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	call := h.wooClient.updateProductCalled[0]
+	require.Equal(t, "19.99", call.Product.RegularPrice, "regular price still pushed")
+	require.Empty(t, call.Product.SalePrice, "no sale price sent once expired")
+}
+
 func TestSyncProductToChannels_convertsWeightAndDimensionsUsingStoreUnits(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	weight, length, width, height := int64(500), int64(300), int64(200), int64(100) // grams/mm
@@ -183,6 +208,40 @@ func TestSyncProductToChannels_writesASyncLogEntryOnSuccess(t *testing.T) {
 	require.Equal(t, "19.99", entry.Fields["regular_price"])
 	// First-ever entry for this listing -- everything shows as new (from "").
 	require.Equal(t, channelsDomain.FieldChange{From: "", To: product.Name}, entry.Changes["name"])
+}
+
+// TestSyncProductToChannels_auditLogTracksSalePriceExpiry proves the sale
+// price revert is visible in the sync-log audit trail, not just pushed to
+// Woo silently -- wooProductToFields must include sale_price/sale_end_date
+// or a revert like this would leave Woo correctly updated but the audit
+// trail (what the SyncLog page shows) blind to what changed.
+func TestSyncProductToChannels_auditLogTracksSalePriceExpiry(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	// Previous entry recorded the sale as active.
+	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
+		"listing-1": {{
+			ListingID: "listing-1",
+			Fields: map[string]string{
+				"name": product.Name, "description": product.Description, "status": "publish",
+				"regular_price": "19.99", "sale_price": "14.99", "sale_end_date": "2026-08-01",
+				"virtual": "false", "weight": "", "length": "", "width": "", "height": "",
+			},
+		}},
+	}
+	uc := h.newSyncUseCase(t, 4) // sku here has no sale price -- simulates post-expiry
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	entry := h.syncLogRepo.created[0]
+	require.Equal(t, channelsDomain.FieldChange{From: "14.99", To: ""}, entry.Changes["sale_price"])
+	require.Equal(t, channelsDomain.FieldChange{From: "2026-08-01", To: ""}, entry.Changes["sale_end_date"])
 }
 
 func TestSyncProductToChannels_diffsAgainstThePreviousSyncLogEntry(t *testing.T) {

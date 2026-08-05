@@ -12,17 +12,19 @@ import (
 )
 
 type UpdateSKUInput struct {
-	ID              string
-	Barcode         string
-	PriceMinorUnits int64
-	CurrencyCode    string
-	WeightGrams     *int64
-	LengthMM        *int64
-	WidthMM         *int64
-	HeightMM        *int64
-	IsVirtual       bool
-	TracksExpiry    bool
-	Status          pmsDomain.SKUStatus
+	ID                  string
+	Barcode             string
+	PriceMinorUnits     int64
+	SalePriceMinorUnits *int64
+	SaleEndDate         *time.Time
+	CurrencyCode        string
+	WeightGrams         *int64
+	LengthMM            *int64
+	WidthMM             *int64
+	HeightMM            *int64
+	IsVirtual           bool
+	TracksExpiry        bool
+	Status              pmsDomain.SKUStatus
 }
 
 type UpdateSKUUseCase struct {
@@ -43,6 +45,12 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 	if err := validateVirtualDimensions(in.IsVirtual, in.WeightGrams, in.LengthMM, in.WidthMM, in.HeightMM); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
+	if err := validateSalePrice(in.SalePriceMinorUnits, in.PriceMinorUnits); err != nil {
+		return nil, fmt.Errorf("updateSKU: %w", err)
+	}
+	if err := validateSaleEndDate(in.SaleEndDate, in.SalePriceMinorUnits); err != nil {
+		return nil, fmt.Errorf("updateSKU: %w", err)
+	}
 
 	var sku pmsDomain.SKU
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -52,6 +60,8 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		}
 		existing.Barcode = in.Barcode
 		existing.PriceMinorUnits = in.PriceMinorUnits
+		existing.SalePriceMinorUnits = in.SalePriceMinorUnits
+		existing.SaleEndDate = in.SaleEndDate
 		existing.CurrencyCode = in.CurrencyCode
 		existing.WeightGrams = in.WeightGrams
 		existing.LengthMM = in.LengthMM

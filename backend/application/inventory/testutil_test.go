@@ -105,6 +105,9 @@ type stubBatchRepo struct {
 	createCalled bool
 	deleteErr    error
 	deleted      []string
+
+	expiringSoon    []invDomain.ExpiringBatch
+	expiringSoonErr error
 }
 
 func (s *stubBatchRepo) Create(_ context.Context, b *invDomain.Batch) error {
@@ -128,6 +131,9 @@ func (s *stubBatchRepo) Delete(_ context.Context, id string) error {
 	}
 	s.deleted = append(s.deleted, id)
 	return nil
+}
+func (s *stubBatchRepo) ListExpiringSoon(_ context.Context, _ int) ([]invDomain.ExpiringBatch, error) {
+	return s.expiringSoon, s.expiringSoonErr
 }
 
 type stubStockMovementRepo struct {

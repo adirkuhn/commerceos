@@ -94,7 +94,7 @@ describe('product list', () => {
   it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('T-Shirt'))
 
     await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
@@ -105,7 +105,7 @@ describe('product list', () => {
     vi.mocked(pmsApi.deleteProduct).mockResolvedValue(null)
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(pmsApi.deleteProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
@@ -118,7 +118,7 @@ describe('product list', () => {
     const many = Array.from({ length: 25 }, (_, i) => product({ id: `prod-${i}`, name: `Product ${String(i).padStart(2, '0')}`, slug: `product-${i}` }))
     mockPaginatedProducts(many)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await screen.findByText('Product 00')
 
     expect(screen.queryByText('Product 20')).not.toBeInTheDocument()
@@ -134,7 +134,7 @@ describe('product list', () => {
     const many = Array.from({ length: 25 }, (_, i) => product({ id: `prod-${i}`, name: `Product ${String(i).padStart(2, '0')}`, slug: `product-${i}` }))
     mockPaginatedProducts(many)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await screen.findByText('Product 00')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await screen.findByText('Product 20')
@@ -148,7 +148,7 @@ describe('product list', () => {
     const many = [product({ id: 'p1', name: 'T-Shirt', slug: 't-shirt' }), product({ id: 'p2', name: 'Mug', slug: 'mug' })]
     mockPaginatedProducts(many)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await screen.findByText('T-Shirt')
     await screen.findByText('Mug')
 
@@ -165,7 +165,7 @@ describe('editing an existing product infers variants mode from variant count', 
     const detail: ProductDetail = { product: product(), variants: [] }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await waitFor(() => expect(screen.getByText('Pricing & SKU')).toBeInTheDocument())
@@ -179,7 +179,7 @@ describe('editing an existing product infers variants mode from variant count', 
     }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await waitFor(() => expect(screen.getByDisplayValue('TSHIRT-1')).toBeInTheDocument())
@@ -197,7 +197,7 @@ describe('editing an existing product infers variants mode from variant count', 
     }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await waitFor(() => expect(screen.getByText('Small')).toBeInTheDocument())
@@ -232,7 +232,7 @@ describe('Add Variant / Add SKU are not nested <form> elements', () => {
     }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
 
-    const { container } = render(<Products />)
+    const { container } = render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Small')
 
@@ -250,7 +250,7 @@ describe('Add Variant / Add SKU are not nested <form> elements', () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
     vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'var-2', name: 'Large' })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Small')
 
@@ -268,7 +268,7 @@ describe('enabling variants mode on an already-saved product', () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
     vi.mocked(pmsApi.updateProduct).mockResolvedValue(product({ has_variants: true }))
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Pricing & SKU')
 
@@ -285,7 +285,7 @@ describe('enabling variants mode on an already-saved product', () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
     vi.mocked(pmsApi.updateProduct).mockRejectedValue(new Error('server exploded'))
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Pricing & SKU')
 
@@ -308,7 +308,7 @@ describe('creating a new product', () => {
       variants: [{ ...baseVariant, id: 'new-var', product_id: 'new-prod', skus: [{ ...baseSku, id: 'new-sku', variant_id: 'new-var' }] }],
     })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
@@ -331,7 +331,7 @@ describe('creating a new product', () => {
     vi.mocked(pmsApi.createProduct).mockResolvedValue(created)
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: created, variants: [] })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     await userEvent.type(screen.getByLabelText('Name'), 'Configurable Shirt')
@@ -430,7 +430,7 @@ describe('WooCommerce tab', () => {
 
 describe('SKU weight/dimensions and virtual flag', () => {
   it('shows weight/dimensions fields and a virtual-product toggle for a simple product', async () => {
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     expect(screen.getByLabelText('Weight (g)')).toBeInTheDocument()
@@ -441,7 +441,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
   })
 
   it('hides weight/dimensions fields once the product is marked virtual', async () => {
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     await userEvent.click(screen.getByRole('switch', { name: 'Virtual product (no shipping)' }))
@@ -459,7 +459,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
       variants: [{ ...baseVariant, id: 'new-var', product_id: 'new-prod', skus: [{ ...baseSku, id: 'new-sku', variant_id: 'new-var' }] }],
     })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
@@ -488,7 +488,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
       variants: [{ ...baseVariant, id: 'new-var', product_id: 'new-prod', skus: [{ ...baseSku, id: 'new-sku', variant_id: 'new-var' }] }],
     })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     await userEvent.type(screen.getByLabelText('Name'), 'E-Book')
@@ -507,7 +507,7 @@ describe('SKU weight/dimensions and virtual flag', () => {
 
 describe('product edit page chrome', () => {
   it('Discard closes the editor without saving', async () => {
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     await userEvent.type(screen.getByLabelText('Name'), 'Abandoned Product')
@@ -518,7 +518,7 @@ describe('product edit page chrome', () => {
   })
 
   it('shows the not-yet-supported fields as disabled placeholders', async () => {
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     for (const label of ['Vendor', 'Collections', 'Tags', 'Page title', 'Meta description']) {
@@ -535,7 +535,7 @@ describe('product edit page chrome', () => {
       category({ id: 'salgadinhos', name: 'Salgadinhos e snacks', parent_id: 'alimentos' }),
     ])
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     const options = screen.getByLabelText('Category').querySelectorAll('option')
@@ -567,7 +567,7 @@ describe('Variant image picker', () => {
     }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await screen.findByText('Small')
@@ -583,7 +583,7 @@ describe('Variant image picker', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([media1, media2])
     vi.mocked(pmsApi.updateVariant).mockResolvedValue({ ...baseVariant, id: 'var-1', name: 'Small', featured_media_id: 'media-1' })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     const thumbnailButton = await screen.findByLabelText('Small image')
@@ -612,7 +612,7 @@ describe('Variant image picker', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([media1])
     vi.mocked(pmsApi.updateVariant).mockResolvedValue({ ...baseVariant, id: 'var-1', name: 'Small' })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await userEvent.click(await screen.findByLabelText('Small image'))
@@ -632,7 +632,7 @@ describe('Variant image picker', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([media1])
     vi.mocked(pmsApi.updateVariant).mockRejectedValue(new Error('boom'))
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
 
     await userEvent.click(await screen.findByLabelText('Small image'))
@@ -650,7 +650,7 @@ describe('Media section', () => {
   }
 
   it('shows a save-first message for a new (unsaved) product instead of the upload UI', async () => {
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
     expect(screen.getByText('Save the product first, then add images.')).toBeInTheDocument()
@@ -662,7 +662,7 @@ describe('Media section', () => {
     const uploaded = { ...mediaItem, id: 'media-2', url: 'https://api.example.com/uploads/t1/y.jpg' }
     vi.mocked(pmsApi.uploadProductMedia).mockResolvedValue(uploaded)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('T-Shirt'))
 
     await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalledWith('test-token', 'prod-1'))
@@ -680,7 +680,7 @@ describe('Media section', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
     vi.mocked(pmsApi.deleteMedia).mockResolvedValue(null)
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('T-Shirt'))
     await screen.findByAltText('')
 
@@ -694,7 +694,7 @@ describe('Media section', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([{ ...mediaItem, alt_text: 'Old title' }])
     vi.mocked(pmsApi.updateMedia).mockResolvedValue({ ...mediaItem, alt_text: 'Front view' })
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('T-Shirt'))
     await screen.findByAltText('Old title')
 
@@ -715,7 +715,7 @@ describe('Media section', () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('T-Shirt'))
     await screen.findByAltText('')
 
@@ -731,7 +731,7 @@ describe('Media section', () => {
     vi.mocked(pmsApi.listProductMedia).mockResolvedValue([mediaItem])
     vi.mocked(pmsApi.updateMedia).mockRejectedValue(new Error('title too long'))
 
-    render(<Products />)
+    render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('T-Shirt'))
     await screen.findByAltText('')
 

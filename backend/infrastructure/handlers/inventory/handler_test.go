@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -194,11 +195,21 @@ func (s *stubMarkDamagedOrLost) Execute(_ context.Context, in appinventory.MarkD
 	return &invDomain.StockMovement{ID: "movement-1", Type: in.Type, QuantityDelta: -in.Quantity}, nil
 }
 
+type stubListExpiringBatches struct {
+	out []invDomain.ExpiringBatch
+	err error
+}
+
+func (s *stubListExpiringBatches) Execute(_ context.Context, _ int) ([]invDomain.ExpiringBatch, error) {
+	return s.out, s.err
+}
+
 func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, update *stubUpdateWarehouse, del *stubDeleteWarehouse) *inventoryhandler.Handler {
 	return inventoryhandler.NewHandler(
 		list, create, update, del,
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{},
 	)
 }
 
@@ -213,6 +224,7 @@ func newBatchTestHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		createBatch, updateBatch, deleteBatch, listBatches,
 		stockLevel, recordMovement, recordRecount, transfer, markDamagedOrLost,
+		&stubListExpiringBatches{},
 	)
 }
 
@@ -389,6 +401,23 @@ func TestGetSKUStockLevelHandler_returnsLevel(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"total":20`)
 	assert.Contains(t, w.Body.String(), `"syncable":15`)
+}
+
+func TestListExpiringBatchesHandler_returnsBatches(t *testing.T) {
+	expiry := time.Now().Add(48 * time.Hour)
+	h := inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{out: []invDomain.ExpiringBatch{
+			{BatchID: "batch-1", SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", ExpiryDate: expiry, Quantity: 5},
+		}},
+	)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/batches/expiring-soon?within_days=10", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"sku_code":"SKU-1"`)
+	assert.Contains(t, w.Body.String(), `"product_name":"Widget"`)
 }
 
 func TestRecordStockMovementHandler_success(t *testing.T) {

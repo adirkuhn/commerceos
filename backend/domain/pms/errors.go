@@ -14,6 +14,12 @@ var (
 	// (digital, non-shippable) and physical SKUs: a virtual SKU never has
 	// weight/dimensions, since it never ships.
 	ErrVirtualSKUCannotHaveDimensions = errors.New("virtual SKU cannot have weight or dimensions")
+	// ErrSalePriceExceedsPrice guards SKU.SalePriceMinorUnits: when set,
+	// it must not exceed PriceMinorUnits.
+	ErrSalePriceExceedsPrice = errors.New("sale price cannot exceed regular price")
+	// ErrSaleEndDateRequiresSalePrice guards SKU.SaleEndDate: it can only
+	// be set alongside a SalePriceMinorUnits.
+	ErrSaleEndDateRequiresSalePrice = errors.New("sale end date requires a sale price to be set")
 	ErrMediaNotFound                  = errors.New("media not found")
 	ErrUnsupportedMediaType           = errors.New("unsupported file type")
 	ErrMediaTargetRequired            = errors.New("media must be attached to a product or a variant")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -54,6 +55,64 @@ func TestCreateSKU_allowsPhysicalSKUWithDimensions(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, sku.IsVirtual)
 	require.Equal(t, int64(500), *sku.WeightGrams)
+}
+
+func TestCreateSKU_rejectsSalePriceAboveRegularPrice(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, SalePriceMinorUnits: int64Ptr(150),
+		CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrSalePriceExceedsPrice))
+}
+
+func TestCreateSKU_allowsSalePriceEqualToOrBelowRegularPrice(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, SalePriceMinorUnits: int64Ptr(80),
+		CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(80), *sku.SalePriceMinorUnits)
+}
+
+func TestCreateSKU_rejectsSaleEndDateWithoutSalePrice(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	endDate := time.Now().Add(24 * time.Hour)
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, SaleEndDate: &endDate,
+		CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrSaleEndDateRequiresSalePrice))
+}
+
+func TestCreateSKU_allowsSaleEndDateWithSalePrice(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	endDate := time.Now().Add(24 * time.Hour)
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, SalePriceMinorUnits: int64Ptr(80), SaleEndDate: &endDate,
+		CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, endDate, *sku.SaleEndDate)
 }
 
 func TestCreateSKU_persistsTracksExpiry(t *testing.T) {

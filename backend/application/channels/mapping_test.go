@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"testing"
+	"time"
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -100,5 +101,35 @@ func TestFormatMinorUnitsAsWooPrice_roundTripsWithParse(t *testing.T) {
 		if parsed != minorUnits {
 			t.Errorf("round-trip %d -> %q -> %d, want %d", minorUnits, formatted, parsed, minorUnits)
 		}
+	}
+}
+
+func TestWooSaleFields_noSaleReturnsBothEmpty(t *testing.T) {
+	salePrice, saleEndDate := appchannels.WooSaleFields(pmsDomain.SKU{PriceMinorUnits: 1000})
+	if salePrice != "" || saleEndDate != "" {
+		t.Errorf("got (%q, %q), want (\"\", \"\")", salePrice, saleEndDate)
+	}
+}
+
+func TestWooSaleFields_salePriceWithoutEndDate(t *testing.T) {
+	sale := int64(800)
+	salePrice, saleEndDate := appchannels.WooSaleFields(pmsDomain.SKU{PriceMinorUnits: 1000, SalePriceMinorUnits: &sale})
+	if salePrice != "8.00" {
+		t.Errorf("salePrice = %q, want \"8.00\"", salePrice)
+	}
+	if saleEndDate != "" {
+		t.Errorf("saleEndDate = %q, want \"\"", saleEndDate)
+	}
+}
+
+func TestWooSaleFields_salePriceWithEndDate(t *testing.T) {
+	sale := int64(800)
+	end := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	salePrice, saleEndDate := appchannels.WooSaleFields(pmsDomain.SKU{PriceMinorUnits: 1000, SalePriceMinorUnits: &sale, SaleEndDate: &end})
+	if salePrice != "8.00" {
+		t.Errorf("salePrice = %q, want \"8.00\"", salePrice)
+	}
+	if saleEndDate != "2026-08-10" {
+		t.Errorf("saleEndDate = %q, want \"2026-08-10\"", saleEndDate)
 	}
 }

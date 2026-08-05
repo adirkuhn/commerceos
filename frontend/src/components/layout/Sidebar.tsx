@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Package, Settings, Plug, Warehouse, History,
+  LayoutDashboard, Package, Settings, Plug, Warehouse, History, Boxes,
   // ShoppingCart, ScanBarcode, Truck, Factory, ShoppingBag,
   // BarChart3, Users,
   ChevronRight, Zap,
@@ -22,7 +22,7 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
-  // { id: 'inventory', label: 'Inventory', icon: Warehouse, badge: '12', badgeColor: 'red' },
+  { id: 'inventory', label: 'Inventory', icon: Boxes },
   // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
   // { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
   // { id: 'suppliers', label: 'Suppliers', icon: Factory },

@@ -64,8 +64,14 @@ Every tenant-scoped table has a `tenant_id UUID NOT NULL` column with an RLS pol
 
 ```sql
 USING (current_setting('app.current_tenant', true) = 'bypass_rls'
-    OR tenant_id = current_setting('app.current_tenant', true)::uuid)
+    OR tenant_id = NULLIF(current_setting('app.current_tenant', true), 'bypass_rls')::uuid)
 ```
+
+The `NULLIF` matters: casting the literal string `'bypass_rls'` straight to `::uuid` throws (`invalid input syntax for type uuid`) once RLS is actually enforced — Postgres does not guarantee the `OR` short-circuits before the right-hand cast runs. `NULLIF(...)` evaluates to `NULL` instead of the sentinel string when it matches, and `NULL::uuid` is a valid no-op cast, so the comparison is `NULL` (not an error) while the already-true left side still makes the whole expression `true`.
+
+RLS is only enforced at all because of two more things every table needs, added in `020_app_role_and_force_rls.sql`:
+- `ALTER TABLE <table> FORCE ROW LEVEL SECURITY;` — without `FORCE`, RLS does not apply to the table's owner.
+- The app must connect as `commerceos_app`, a dedicated `NOSUPERUSER NOBYPASSRLS` role — **not** `POSTGRES_USER`/`commerceos`. Postgres superusers and any `BYPASSRLS` role ignore RLS policies unconditionally, `FORCE` or not. `commerceos` stays superuser and is used only for migrations (`GOOSE_DBSTRING`); `commerceos_app` is what `DB_DSN` (backend/relay/scheduler) must point at.
 
 **All DB access (reads and writes) must go through `tenant.WithTenant`:**
 

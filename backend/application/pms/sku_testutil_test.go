@@ -65,3 +65,6 @@ func (s *stubSKURepo) Update(_ context.Context, sku *pmsDomain.SKU) error {
 	return nil
 }
 func (s *stubSKURepo) Delete(_ context.Context, _ string) error { return nil }
+func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}

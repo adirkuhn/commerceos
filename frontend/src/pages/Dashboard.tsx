@@ -1,12 +1,14 @@
 import {
   Package, Warehouse, ShoppingCart, AlertTriangle,
-  TrendingUp, TrendingDown, XCircle, DollarSign, ArrowUpRight,
+  TrendingUp, TrendingDown, XCircle, DollarSign, ArrowUpRight, Calendar,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import clsx from 'clsx'
+import { useAuth } from '../auth/AuthContext'
+import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
 
 const STOCK_FLOW = [
   { day: 'Mon', in: 142, out: 89 },
@@ -31,14 +33,6 @@ const TOP_PRODUCTS = [
   { name: 'Mechanical Keyboard TKL', sku: 'MKT-TKL', sold: 156, revenue: 46800, trend: 'down' },
   { name: 'Webcam 4K Ultra', sku: 'WCM-4K', sold: 143, revenue: 42900, trend: 'up' },
   { name: 'Laptop Stand Pro', sku: 'LSP-002', sold: 127, revenue: 12700, trend: 'down' },
-]
-
-const ALERTS = [
-  { id: '1', type: 'critical' as const, msg: '12 products at critical stock level', time: '2m ago' },
-  { id: '2', type: 'warning' as const, msg: '8 products expiring within 7 days', time: '15m ago' },
-  { id: '3', type: 'critical' as const, msg: 'Bol.com sync failed — API rate limit', time: '1h ago' },
-  { id: '4', type: 'warning' as const, msg: '3 orders stuck in picking > 4h', time: '2h ago' },
-  { id: '5', type: 'info' as const, msg: 'Shopify import completed — 47 new orders', time: '3h ago' },
 ]
 
 interface StatCardProps {
@@ -86,6 +80,53 @@ function StatCard({ label, value, sub, icon: Icon, trend, trendValue, color = 'b
         )}>
           {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
           {trendValue} vs last week
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The only real (non-mock) data on this page — everything else here is
+// still placeholder content pending a proper reporting/analytics backend.
+function ExpiringSoonWidget() {
+  const { token } = useAuth()
+  const { batches, loading, error } = useExpiringBatches(token ?? '', 30)
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Expiring Soon</h3>
+        <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">
+          {batches.length} within 30 days
+        </span>
+      </div>
+      {loading && <p className="px-4 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {error && <p className="px-4 py-4 text-xs text-red-400">{error}</p>}
+      {!loading && !error && batches.length === 0 && (
+        <p className="px-4 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing expiring in the next 30 days.</p>
+      )}
+      {!loading && !error && batches.length > 0 && (
+        <div className="divide-y dark:divide-[#2D3748] divide-gray-100 max-h-64 overflow-auto">
+          {batches.map(b => {
+            const expired = new Date(b.expiry_date).getTime() < Date.now()
+            return (
+              <div key={b.batch_id} className="flex items-start gap-3 px-4 py-3 hover:dark:bg-[#2D3748]/30 hover:bg-gray-50 transition-colors">
+                <Calendar size={13} className={clsx('mt-0.5 shrink-0', expired ? 'text-red-400' : 'text-amber-400')} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs dark:text-gray-200 text-gray-700 truncate">{b.product_name}</p>
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 font-mono">
+                    {b.sku_code} · lot {b.lot_number || '—'} · {b.warehouse_name}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{b.quantity} units</p>
+                  <p className={clsx('text-[10px] font-mono', expired ? 'text-red-400' : 'text-amber-400')}>
+                    {new Date(b.expiry_date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -216,39 +257,8 @@ export default function Dashboard() {
           </table>
         </div>
 
-        {/* Alerts */}
-        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Alerts</h3>
-            <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium">
-              {ALERTS.filter(a => a.type === 'critical').length} critical
-            </span>
-          </div>
-          <div className="divide-y dark:divide-[#2D3748] divide-gray-100">
-            {ALERTS.map(alert => (
-              <div key={alert.id} className="flex items-start gap-3 px-4 py-3 hover:dark:bg-[#2D3748]/30 hover:bg-gray-50 transition-colors">
-                <div className={clsx(
-                  'w-1.5 h-1.5 rounded-full mt-1.5 shrink-0',
-                  alert.type === 'critical' && 'bg-red-500',
-                  alert.type === 'warning' && 'bg-amber-500',
-                  alert.type === 'info' && 'bg-blue-500',
-                )} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-gray-200 text-gray-700">{alert.msg}</p>
-                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">{alert.time}</p>
-                </div>
-                <span className={clsx(
-                  'text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
-                  alert.type === 'critical' && 'bg-red-500/15 text-red-400',
-                  alert.type === 'warning' && 'bg-amber-500/15 text-amber-400',
-                  alert.type === 'info' && 'bg-blue-500/15 text-blue-400',
-                )}>
-                  {alert.type}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Expiring soon — the one real (non-mock) widget on this page */}
+        <ExpiringSoonWidget />
       </div>
     </div>
   )

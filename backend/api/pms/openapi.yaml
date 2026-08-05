@@ -472,6 +472,16 @@ components:
         sku_code: { type: string }
         barcode: { type: string, nullable: true }
         price_minor_units: { type: integer, format: int64 }
+        sale_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Optional discounted price. Null means no sale is active. When set, must be <= price_minor_units.
+        sale_end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Sale is active through this date (inclusive); the scheduler clears sale_price_minor_units the day after. Only meaningful alongside sale_price_minor_units.
         currency_code: { type: string }
         weight_grams: { type: integer, format: int64, nullable: true }
         length_mm: { type: integer, format: int64, nullable: true }
@@ -564,6 +574,8 @@ components:
         sku_code: { type: string, minLength: 1 }
         barcode: { type: string }
         price_minor_units: { type: integer, format: int64, minimum: 0 }
+        sale_price_minor_units: { type: integer, format: int64, minimum: 0, nullable: true }
+        sale_end_date: { type: string, format: date, nullable: true }
         currency_code: { type: string, minLength: 3, maxLength: 3 }
         weight_grams: { type: integer, format: int64, minimum: 0, nullable: true }
         length_mm: { type: integer, format: int64, minimum: 0, nullable: true }
@@ -579,6 +591,8 @@ components:
       properties:
         barcode: { type: string }
         price_minor_units: { type: integer, format: int64, minimum: 0 }
+        sale_price_minor_units: { type: integer, format: int64, minimum: 0, nullable: true }
+        sale_end_date: { type: string, format: date, nullable: true }
         currency_code: { type: string, minLength: 3, maxLength: 3 }
         weight_grams: { type: integer, format: int64, minimum: 0, nullable: true }
         length_mm: { type: integer, format: int64, minimum: 0, nullable: true }

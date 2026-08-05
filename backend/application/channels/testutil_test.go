@@ -343,6 +343,9 @@ func (s *stubChannelsSKURepo) ListByVariant(_ context.Context, variantID string)
 }
 func (s *stubChannelsSKURepo) Update(_ context.Context, _ *pmsDomain.SKU) error { return nil }
 func (s *stubChannelsSKURepo) Delete(_ context.Context, _ string) error         { return nil }
+func (s *stubChannelsSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}
 
 // ── channels stub ────────────────────────────────────────────────────────────
 

@@ -76,6 +76,24 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /inventory/batches/expiring-soon:
+    get:
+      operationId: listExpiringBatches
+      summary: >-
+        Tenant-wide report of batches expiring within N days that still
+        have stock remaining, soonest first.
+      parameters:
+        - name: within_days
+          in: query
+          schema: { type: integer, default: 30, minimum: 1 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpiringBatchListResponse'
+
   /inventory/skus/{skuId}/stock-level:
     get:
       operationId: getSKUStockLevel
@@ -512,6 +530,29 @@ components:
           enum: [damaged, lost]
         reason: { type: string }
         occurred_at: { type: string, format: date-time }
+
+    ExpiringBatch:
+      type: object
+      required: [batch_id, sku_id, sku_code, product_name, warehouse_id, warehouse_name, lot_number, expiry_date, quantity]
+      properties:
+        batch_id: { type: string }
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        warehouse_id: { type: string }
+        warehouse_name: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date-time }
+        quantity: { type: integer, format: int64 }
+
+    ExpiringBatchListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpiringBatch'
+        error: { nullable: true }
 
     EmptyResponse:
       type: object

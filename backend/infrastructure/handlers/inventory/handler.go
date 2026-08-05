@@ -60,6 +60,9 @@ type transferStockUC interface {
 type markDamagedOrLostUC interface {
 	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
 }
+type listExpiringBatchesUC interface {
+	Execute(ctx context.Context, withinDays int) ([]invDomain.ExpiringBatch, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +80,7 @@ type Handler struct {
 	recordRecount       recordRecountUC
 	transferStock       transferStockUC
 	markDamagedOrLost   markDamagedOrLostUC
+	listExpiringBatches listExpiringBatchesUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -94,6 +98,7 @@ func NewHandler(
 	recordRecount recordRecountUC,
 	transferStock transferStockUC,
 	markDamagedOrLost markDamagedOrLostUC,
+	listExpiringBatches listExpiringBatchesUC,
 ) *Handler {
 	return &Handler{
 		listWarehouses:      listWarehouses,
@@ -109,6 +114,7 @@ func NewHandler(
 		recordRecount:       recordRecount,
 		transferStock:       transferStock,
 		markDamagedOrLost:   markDamagedOrLost,
+		listExpiringBatches: listExpiringBatches,
 	}
 }
 
@@ -135,6 +141,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
+		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
 }
@@ -284,6 +291,22 @@ func (h *Handler) GetSKUStockLevel(c *gin.Context, skuId geninventory.SkuId) {
 	c.JSON(http.StatusOK, geninventory.StockLevelResponse{Data: &resp})
 }
 
+func (h *Handler) ListExpiringBatches(c *gin.Context, params geninventory.ListExpiringBatchesParams) {
+	withinDays := 30
+	if params.WithinDays != nil {
+		withinDays = *params.WithinDays
+	}
+	batches, err := h.listExpiringBatches.Execute(c.Request.Context(), withinDays)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]geninventory.ExpiringBatch, len(batches))
+	for i, b := range batches {
+		resp[i] = toGenExpiringBatch(b)
+	}
+	c.JSON(http.StatusOK, geninventory.ExpiringBatchListResponse{Data: &resp})
+}
+
 func (h *Handler) RecordStockMovement(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.RecordStockMovementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -385,6 +408,14 @@ func toGenBatch(b invDomain.Batch) geninventory.Batch {
 		Id: b.ID, TenantId: b.TenantID, SkuId: b.SKUID, WarehouseId: b.WarehouseID,
 		LotNumber: b.LotNumber, ExpiryDate: timePtrToGenDate(b.ExpiryDate),
 		ReceivedAt: b.ReceivedAt, CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt,
+	}
+}
+
+func toGenExpiringBatch(b invDomain.ExpiringBatch) geninventory.ExpiringBatch {
+	return geninventory.ExpiringBatch{
+		BatchId: b.BatchID, SkuId: b.SKUID, SkuCode: b.SKUCode, ProductName: b.ProductName,
+		WarehouseId: b.WarehouseID, WarehouseName: b.WarehouseName, LotNumber: b.LotNumber,
+		ExpiryDate: b.ExpiryDate, Quantity: b.Quantity,
 	}
 }
 

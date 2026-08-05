@@ -10,14 +10,23 @@ import (
 // the large tail of SEO/ads/affiliate/plugin meta_data fields real Woo
 // stores carry, none of which any other channel would ever have.
 type WooProduct struct {
-	ID            string
-	Name          string
-	Slug          string
-	SKU           string
-	Description   string
-	Status        string // woo: publish/draft/private/pending
-	Type          string // woo: simple/variable/grouped/external
-	RegularPrice  string
+	ID           string
+	Name         string
+	Slug         string
+	SKU          string
+	Description  string
+	Status       string // woo: publish/draft/private/pending
+	Type         string // woo: simple/variable/grouped/external
+	RegularPrice string
+	// SalePrice/SaleEndDate mirror this codebase's SKU.SalePriceMinorUnits/
+	// SaleEndDate -- empty string means no sale. SaleEndDate is
+	// "YYYY-MM-DD" (Woo's date_on_sale_to). Same round-trip caveat as
+	// Virtual below: the underlying library's omitempty means explicitly
+	// clearing a previously-set SalePrice back to "" does not actually
+	// clear it on the Woo side (a pre-existing library limitation, not new
+	// to these two fields).
+	SalePrice     string
+	SaleEndDate   string
 	Virtual       bool // digital/non-shippable — never has weight or dimensions
 	ManageStock   bool
 	StockQuantity *int

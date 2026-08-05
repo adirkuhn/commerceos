@@ -23,7 +23,8 @@ type ProductRepository interface {
 type ProductFilter struct {
 	CategoryID *string
 	Status     *ProductStatus
-	// Search matches against name or slug, case-insensitively.
+	// Search matches against name or slug, case- and accent-insensitively
+	// (e.g. "acai" matches "Açaí").
 	Search *string
 	Limit  int
 	Offset int
@@ -44,6 +45,11 @@ type SKURepository interface {
 	ListByVariant(ctx context.Context, variantID string) ([]SKU, error)
 	Update(ctx context.Context, s *SKU) error
 	Delete(ctx context.Context, id string) error
+	// ListWithExpiredSale returns every SKU (across all tenants -- meant
+	// to be called under a bypass_rls/SuperAdmin context, see
+	// cmd/scheduler) whose sale has a SaleEndDate in the past and still
+	// has a SalePriceMinorUnits set.
+	ListWithExpiredSale(ctx context.Context) ([]SKU, error)
 }
 
 type MediaRepository interface {

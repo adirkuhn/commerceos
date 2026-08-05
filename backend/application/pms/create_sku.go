@@ -12,18 +12,20 @@ import (
 )
 
 type CreateSKUInput struct {
-	VariantID       string
-	SKUCode         string
-	Barcode         string
-	PriceMinorUnits int64
-	CurrencyCode    string
-	WeightGrams     *int64
-	LengthMM        *int64
-	WidthMM         *int64
-	HeightMM        *int64
-	IsVirtual       bool
-	TracksExpiry    bool
-	Status          pmsDomain.SKUStatus
+	VariantID           string
+	SKUCode             string
+	Barcode             string
+	PriceMinorUnits     int64
+	SalePriceMinorUnits *int64
+	SaleEndDate         *time.Time
+	CurrencyCode        string
+	WeightGrams         *int64
+	LengthMM            *int64
+	WidthMM             *int64
+	HeightMM            *int64
+	IsVirtual           bool
+	TracksExpiry        bool
+	Status              pmsDomain.SKUStatus
 }
 
 type CreateSKUUseCase struct {
@@ -38,6 +40,12 @@ func NewCreateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, s
 
 func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pmsDomain.SKU, error) {
 	if err := validateVirtualDimensions(in.IsVirtual, in.WeightGrams, in.LengthMM, in.WidthMM, in.HeightMM); err != nil {
+		return nil, fmt.Errorf("createSKU: %w", err)
+	}
+	if err := validateSalePrice(in.SalePriceMinorUnits, in.PriceMinorUnits); err != nil {
+		return nil, fmt.Errorf("createSKU: %w", err)
+	}
+	if err := validateSaleEndDate(in.SaleEndDate, in.SalePriceMinorUnits); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
 
@@ -57,21 +65,23 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 
 		now := time.Now()
 		sku = pmsDomain.SKU{
-			TenantID:        tenant.IDFromContext(ctx),
-			VariantID:       in.VariantID,
-			SKUCode:         in.SKUCode,
-			Barcode:         in.Barcode,
-			PriceMinorUnits: in.PriceMinorUnits,
-			CurrencyCode:    in.CurrencyCode,
-			WeightGrams:     in.WeightGrams,
-			LengthMM:        in.LengthMM,
-			WidthMM:         in.WidthMM,
-			HeightMM:        in.HeightMM,
-			IsVirtual:       in.IsVirtual,
-			TracksExpiry:    in.TracksExpiry,
-			Status:          in.Status,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			TenantID:            tenant.IDFromContext(ctx),
+			VariantID:           in.VariantID,
+			SKUCode:             in.SKUCode,
+			Barcode:             in.Barcode,
+			PriceMinorUnits:     in.PriceMinorUnits,
+			SalePriceMinorUnits: in.SalePriceMinorUnits,
+			SaleEndDate:         in.SaleEndDate,
+			CurrencyCode:        in.CurrencyCode,
+			WeightGrams:         in.WeightGrams,
+			LengthMM:            in.LengthMM,
+			WidthMM:             in.WidthMM,
+			HeightMM:            in.HeightMM,
+			IsVirtual:           in.IsVirtual,
+			TracksExpiry:        in.TracksExpiry,
+			Status:              in.Status,
+			CreatedAt:           now,
+			UpdatedAt:           now,
 		}
 		return uc.skuRepo.Create(ctx, &sku)
 	})
@@ -79,6 +89,27 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
 	return &sku, nil
+}
+
+// validateSalePrice is the shared invariant for CreateSKU/UpdateSKU: a
+// sale price, if set, can't exceed the regular price.
+func validateSalePrice(salePriceMinorUnits *int64, priceMinorUnits int64) error {
+	if salePriceMinorUnits == nil {
+		return nil
+	}
+	if *salePriceMinorUnits > priceMinorUnits {
+		return pmsDomain.ErrSalePriceExceedsPrice
+	}
+	return nil
+}
+
+// validateSaleEndDate is the shared invariant for CreateSKU/UpdateSKU: a
+// sale end date only means something alongside an actual sale price.
+func validateSaleEndDate(saleEndDate *time.Time, salePriceMinorUnits *int64) error {
+	if saleEndDate != nil && salePriceMinorUnits == nil {
+		return pmsDomain.ErrSaleEndDateRequiresSalePrice
+	}
+	return nil
 }
 
 // validateVirtualDimensions is the split-config invariant shared by

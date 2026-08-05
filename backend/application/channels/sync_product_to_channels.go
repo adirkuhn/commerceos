@@ -178,10 +178,13 @@ func (uc *SyncProductToChannelsUseCase) pushToWoo(ctx context.Context, product p
 		return nil, fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 
+	salePrice, saleEndDate := WooSaleFields(sku)
 	wooProduct := integrationsDomain.WooProduct{
 		Name: product.Name, Description: product.Description,
 		Status:       MapCommerceStatusToWoo(product.Status),
 		RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
+		SalePrice:    salePrice,
+		SaleEndDate:  saleEndDate,
 		Virtual:      sku.IsVirtual,
 	}
 	// Weight/dimensions need the store's configured unit to convert into —

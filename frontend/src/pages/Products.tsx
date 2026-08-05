@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug, X, ImagePlus,
+  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug, X, ImagePlus, Boxes,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
+import { useApp } from '../context/AppContext'
 import Pagination from '../components/common/Pagination'
 import { useProducts } from '../pms/hooks/useProducts'
 import { useCategories } from '../pms/hooks/useCategories'
@@ -12,8 +13,10 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
+import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
 import type { Category, Product, ProductStatus, SKUStatus, VariantWithSKUs, Media } from '../pms/types'
+import type { StockLevel } from '../inventory/types'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
   active: 'bg-green-500/15 text-green-400',
@@ -35,6 +38,11 @@ function formatPrice(minorUnits: number, currency: string): string {
 
 function parsePriceToMinorUnits(price: string): number {
   return Math.round(parseFloat(price || '0') * 100)
+}
+
+function parseOptionalPriceToMinorUnits(price: string): number | null {
+  if (price.trim() === '') return null
+  return Math.round(parseFloat(price) * 100)
 }
 
 function formatMinorUnitsAsInput(minorUnits: number): string {
@@ -244,6 +252,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const [skuCode, setSkuCode] = useState('')
   const [barcode, setBarcode] = useState('')
   const [price, setPrice] = useState('')
+  const [salePrice, setSalePrice] = useState('')
+  const [saleEndDate, setSaleEndDate] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [skuStatus, setSkuStatus] = useState<SKUStatus>('active')
   const [isVirtual, setIsVirtual] = useState(false)
@@ -267,6 +277,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         setSkuCode(sku.sku_code)
         setBarcode(sku.barcode ?? '')
         setPrice(formatMinorUnitsAsInput(sku.price_minor_units))
+        setSalePrice(sku.sale_price_minor_units != null ? formatMinorUnitsAsInput(sku.sale_price_minor_units) : '')
+        setSaleEndDate(sku.sale_end_date ?? '')
         setCurrency(sku.currency_code)
         setSkuStatus(sku.status)
         setIsVirtual(sku.is_virtual)
@@ -309,6 +321,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               sku_code: skuCode,
               barcode: barcode || undefined,
               price_minor_units: parsePriceToMinorUnits(price),
+              sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
+              sale_end_date: saleEndDate || null,
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
@@ -327,6 +341,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
             await detail.updateSKU(currentSku.id, {
               barcode: barcode || undefined,
               price_minor_units: parsePriceToMinorUnits(price),
+              sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
+              sale_end_date: saleEndDate || null,
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
@@ -337,6 +353,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               sku_code: skuCode,
               barcode: barcode || undefined,
               price_minor_units: parsePriceToMinorUnits(price),
+              sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
+              sale_end_date: saleEndDate || null,
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
@@ -349,6 +367,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
             sku_code: skuCode,
             barcode: barcode || undefined,
             price_minor_units: parsePriceToMinorUnits(price),
+            sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
+            sale_end_date: saleEndDate || null,
             currency_code: currency,
             is_virtual: isVirtual,
             ...dimensions,
@@ -566,6 +586,22 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                     <input
                       id="product-price"
                       type="number" step="0.01" min="0" required={!variantsMode} placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="product-sale-price" className={labelClass}>Sale price (optional)</label>
+                    <input
+                      id="product-sale-price"
+                      type="number" step="0.01" min="0" placeholder="None" value={salePrice} onChange={e => setSalePrice(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="product-sale-end-date" className={labelClass}>Sale ends (optional)</label>
+                    <input
+                      id="product-sale-end-date"
+                      type="date" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)}
                       className={inputClass}
                     />
                   </div>
@@ -1071,6 +1107,35 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
   )
 }
 
+// Shows a SKU's current stock level (fetched live, not cached with the
+// product) and a shortcut into the Inventory page for batches/adjustments
+// — kept read-only here since Inventory is the single place stock actions
+// happen, to avoid duplicating that UI.
+function StockBadge({ skuId }: { skuId: string }) {
+  const { token } = useAuth()
+  const { setActiveNav } = useApp()
+  const [level, setLevel] = useState<StockLevel | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    inventoryApi.getSKUStockLevel(token, skuId).then(l => { if (!cancelled) setLevel(l) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [token, skuId])
+
+  return (
+    <button
+      type="button"
+      onClick={() => setActiveNav('inventory')}
+      title="View in Inventory"
+      className="flex items-center gap-1 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 shrink-0"
+    >
+      <Boxes size={11} />
+      {level ? `${level.total} in stock` : '…'}
+    </button>
+  )
+}
+
 interface VariantRowProps {
   variant: VariantWithSKUs
   detail: ReturnType<typeof useProductDetail>
@@ -1083,6 +1148,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [skuCode, setSkuCode] = useState('')
   const [barcode, setBarcode] = useState('')
   const [price, setPrice] = useState('')
+  const [salePrice, setSalePrice] = useState('')
+  const [saleEndDate, setSaleEndDate] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [status, setStatus] = useState<SKUStatus>('active')
   const [isVirtual, setIsVirtual] = useState(false)
@@ -1101,6 +1168,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         sku_code: skuCode,
         barcode: barcode || undefined,
         price_minor_units: parsePriceToMinorUnits(price),
+        sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
+        sale_end_date: saleEndDate || null,
         currency_code: currency,
         is_virtual: isVirtual,
         weight_grams: isVirtual ? undefined : parseIntOrUndefined(weightGrams),
@@ -1110,7 +1179,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         status,
       })
       setAddingSKU(false)
-      setSkuCode(''); setBarcode(''); setPrice(''); setCurrency('USD'); setStatus('active')
+      setSkuCode(''); setBarcode(''); setPrice(''); setSalePrice(''); setSaleEndDate(''); setCurrency('USD'); setStatus('active')
       setIsVirtual(false); setWeightGrams(''); setLengthMM(''); setWidthMM(''); setHeightMM('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add SKU')
@@ -1166,7 +1235,19 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             {sku ? sku.sku_code : 'No SKU yet'}
           </p>
         </div>
-        {sku && (
+        {sku && sku.sale_price_minor_units != null ? (
+          <span className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] dark:text-gray-500 text-gray-400 line-through">
+              {formatPrice(sku.price_minor_units, sku.currency_code)}
+            </span>
+            <span className="text-xs font-medium text-green-400">
+              {formatPrice(sku.sale_price_minor_units, sku.currency_code)}
+            </span>
+            {sku.sale_end_date && (
+              <span className="text-[9px] dark:text-gray-500 text-gray-400">until {sku.sale_end_date}</span>
+            )}
+          </span>
+        ) : sku && (
           <span className="text-xs font-medium dark:text-gray-200 text-gray-800 shrink-0">
             {formatPrice(sku.price_minor_units, sku.currency_code)}
           </span>
@@ -1176,6 +1257,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             {sku.status}
           </span>
         )}
+        {sku && <StockBadge skuId={sku.id} />}
         <button
           type="button"
           onClick={() => detail.removeVariant(variant.id)}
@@ -1241,6 +1323,10 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             <input type="text" placeholder="Barcode" value={barcode} onChange={e => setBarcode(e.target.value)}
               className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
             <input type="number" step="0.01" min="0" required placeholder="Price" value={price} onChange={e => setPrice(e.target.value)}
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+            <input type="number" step="0.01" min="0" placeholder="Sale price (optional)" value={salePrice} onChange={e => setSalePrice(e.target.value)}
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+            <input type="date" title="Sale ends (optional)" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)}
               className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
             <select value={currency} onChange={e => setCurrency(e.target.value)}
               className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">

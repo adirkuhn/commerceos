@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -74,6 +75,31 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 	require.True(t, pushed.ManageStock)
 	require.NotNil(t, pushed.StockQuantity)
 	require.Equal(t, 4, *pushed.StockQuantity)
+}
+
+func TestPushProductToWoo_pushesSalePriceAndEndDate(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	salePrice := int64(1499)
+	end := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	sku.SalePriceMinorUnits = &salePrice
+	sku.SaleEndDate = &end
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 4}}
+	h.wooClient.createdWithID = "555"
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	pushed := h.wooClient.createCalled[0]
+	require.Equal(t, "14.99", pushed.SalePrice)
+	require.Equal(t, "2026-08-10", pushed.SaleEndDate)
 }
 
 func TestPushProductToWoo_returnsExistingListingWithoutRepushing(t *testing.T) {

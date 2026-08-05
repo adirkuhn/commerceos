@@ -127,10 +127,12 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 
+	salePrice, saleEndDate := WooSaleFields(sku)
 	wooProduct := integrationsDomain.WooProduct{
 		Name: product.Name, Description: product.Description,
 		Status: MapCommerceStatusToWoo(product.Status),
 		SKU:    sku.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
+		SalePrice: salePrice, SaleEndDate: saleEndDate,
 		Virtual: sku.IsVirtual,
 	}
 	// Stock is only pushed for physical SKUs — a virtual SKU never has a

@@ -105,6 +105,7 @@ func main() {
 	mediaRepo := repositories.NewMediaRepo(db)
 	fileStorage := buildFileStorage(cfg)
 	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage)
+	expireSalePriceUC := pmsapp.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo)
 
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo)
@@ -181,6 +182,7 @@ func main() {
 			return
 		case <-ticker.C:
 			runDue(ctx, db, scheduleRepo, rs)
+			runExpiredSalePrices(ctx, db, skuRepo, expireSalePriceUC)
 		case <-importJobTicker.C:
 			runPendingImportJobs(ctx, db, importJobRepo, importUC, notifyUC)
 		}
@@ -234,6 +236,37 @@ func runOne(adminCtx context.Context, db *gorm.DB, scheduleRepo channelsDomain.S
 	})
 	if err != nil {
 		log.Printf("record run result for schedule %s: %v", s.ID, err)
+	}
+}
+
+// runExpiredSalePrices polls for SKUs whose sale has passed its end date
+// across every tenant -- a system-level, cross-tenant query, so it runs
+// under SuperAdmin like the rest of this file's polling functions. Each
+// expiry is dispatched under the SKU's own tenant identity (see runOne's
+// comment for why); ExpireSKUSalePriceUseCase clearing the sale raises
+// pms.product.changed, which the existing productChangedConsumer already
+// picks up to re-push the product to Woo -- no separate sync path needed.
+// Never crashes the loop: a failure here or in any one SKU's revert is
+// logged and the next tick tries again.
+func runExpiredSalePrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SKURepository, expireSalePriceUC *pmsapp.ExpireSKUSalePriceUseCase) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+
+	var expired []pmsDomain.SKU
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		expired, err = skuRepo.ListWithExpiredSale(ctx)
+		return err
+	})
+	if err != nil {
+		log.Printf("list skus with expired sale: %v", err)
+		return
+	}
+
+	for _, s := range expired {
+		runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
+		if _, err := expireSalePriceUC.Execute(runCtx, s.ID); err != nil {
+			log.Printf("expire sale price for sku %s: %v", s.ID, err)
+		}
 	}
 }
 

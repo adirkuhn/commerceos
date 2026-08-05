@@ -32,6 +32,8 @@ export interface SKU {
   sku_code: string
   barcode?: string | null
   price_minor_units: number
+  sale_price_minor_units?: number | null
+  sale_end_date?: string | null
   currency_code: string
   weight_grams?: number | null
   length_mm?: number | null
@@ -91,6 +93,8 @@ export interface CreateSKUPayload {
   sku_code: string
   barcode?: string
   price_minor_units: number
+  sale_price_minor_units?: number | null
+  sale_end_date?: string | null
   currency_code: string
   weight_grams?: number | null
   length_mm?: number | null
@@ -103,6 +107,8 @@ export interface CreateSKUPayload {
 export interface UpdateSKUPayload {
   barcode?: string
   price_minor_units: number
+  sale_price_minor_units?: number | null
+  sale_end_date?: string | null
   currency_code: string
   weight_grams?: number | null
   length_mm?: number | null

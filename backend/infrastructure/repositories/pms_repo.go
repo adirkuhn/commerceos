@@ -56,22 +56,24 @@ type variantModel struct {
 func (variantModel) TableName() string { return "variants" }
 
 type skuModel struct {
-	ID              string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID        string `gorm:"not null;type:uuid"`
-	VariantID       string `gorm:"not null;type:uuid"`
-	SKUCode         string `gorm:"column:sku_code;not null"`
-	Barcode         string
-	PriceMinorUnits int64  `gorm:"not null"`
-	CurrencyCode    string `gorm:"not null"`
-	WeightGrams     *int64
-	LengthMM        *int64
-	WidthMM         *int64
-	HeightMM        *int64
-	IsVirtual       bool   `gorm:"not null"`
-	TracksExpiry    bool   `gorm:"not null"`
-	Status          string `gorm:"not null"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                  string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID            string `gorm:"not null;type:uuid"`
+	VariantID           string `gorm:"not null;type:uuid"`
+	SKUCode             string `gorm:"column:sku_code;not null"`
+	Barcode             string
+	PriceMinorUnits     int64 `gorm:"not null"`
+	SalePriceMinorUnits *int64
+	SaleEndDate         *time.Time
+	CurrencyCode        string `gorm:"not null"`
+	WeightGrams         *int64
+	LengthMM            *int64
+	WidthMM             *int64
+	HeightMM            *int64
+	IsVirtual           bool   `gorm:"not null"`
+	TracksExpiry        bool   `gorm:"not null"`
+	Status              string `gorm:"not null"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (skuModel) TableName() string { return "skus" }
@@ -277,8 +279,10 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		q = q.Where("status = ?", string(*filter.Status))
 	}
 	if filter.Search != nil && *filter.Search != "" {
+		// unaccent() so "acai" matches "Açaí", "feijao" matches "Feijão",
+		// etc. — plain ILIKE is case-insensitive but not accent-insensitive.
 		pattern := "%" + *filter.Search + "%"
-		q = q.Where("name ILIKE ? OR slug ILIKE ?", pattern, pattern)
+		q = q.Where("unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?)", pattern, pattern)
 	}
 
 	var total int64
@@ -473,21 +477,23 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		return err
 	}
 	m := skuModel{
-		TenantID:        s.TenantID,
-		VariantID:       s.VariantID,
-		SKUCode:         s.SKUCode,
-		Barcode:         s.Barcode,
-		PriceMinorUnits: s.PriceMinorUnits,
-		CurrencyCode:    s.CurrencyCode,
-		WeightGrams:     s.WeightGrams,
-		LengthMM:        s.LengthMM,
-		WidthMM:         s.WidthMM,
-		HeightMM:        s.HeightMM,
-		IsVirtual:       s.IsVirtual,
-		TracksExpiry:    s.TracksExpiry,
-		Status:          string(s.Status),
-		CreatedAt:       s.CreatedAt,
-		UpdatedAt:       s.UpdatedAt,
+		TenantID:            s.TenantID,
+		VariantID:           s.VariantID,
+		SKUCode:             s.SKUCode,
+		Barcode:             s.Barcode,
+		PriceMinorUnits:     s.PriceMinorUnits,
+		SalePriceMinorUnits: s.SalePriceMinorUnits,
+		SaleEndDate:         s.SaleEndDate,
+		CurrencyCode:        s.CurrencyCode,
+		WeightGrams:         s.WeightGrams,
+		LengthMM:            s.LengthMM,
+		WidthMM:             s.WidthMM,
+		HeightMM:            s.HeightMM,
+		IsVirtual:           s.IsVirtual,
+		TracksExpiry:        s.TracksExpiry,
+		Status:              string(s.Status),
+		CreatedAt:           s.CreatedAt,
+		UpdatedAt:           s.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("skuRepo.Create: %w", err)
@@ -549,17 +555,19 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 	}
 	if err := tx.Model(&skuModel{}).Where("id = ?", s.ID).
 		Updates(map[string]any{
-			"barcode":           s.Barcode,
-			"price_minor_units": s.PriceMinorUnits,
-			"currency_code":     s.CurrencyCode,
-			"weight_grams":      s.WeightGrams,
-			"length_mm":         s.LengthMM,
-			"width_mm":          s.WidthMM,
-			"height_mm":         s.HeightMM,
-			"is_virtual":        s.IsVirtual,
-			"tracks_expiry":     s.TracksExpiry,
-			"status":            string(s.Status),
-			"updated_at":        s.UpdatedAt,
+			"barcode":                s.Barcode,
+			"price_minor_units":      s.PriceMinorUnits,
+			"sale_price_minor_units": s.SalePriceMinorUnits,
+			"sale_end_date":          s.SaleEndDate,
+			"currency_code":          s.CurrencyCode,
+			"weight_grams":           s.WeightGrams,
+			"length_mm":              s.LengthMM,
+			"width_mm":               s.WidthMM,
+			"height_mm":              s.HeightMM,
+			"is_virtual":             s.IsVirtual,
+			"tracks_expiry":          s.TracksExpiry,
+			"status":                 string(s.Status),
+			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("skuRepo.Update: %w", err)
 	}
@@ -577,24 +585,43 @@ func (r *SKURepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (r *SKURepo) ListWithExpiredSale(ctx context.Context) ([]pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []skuModel
+	if err := tx.Where("sale_price_minor_units IS NOT NULL AND sale_end_date IS NOT NULL AND sale_end_date < CURRENT_DATE").
+		Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuRepo.ListWithExpiredSale: %w", err)
+	}
+	skus := make([]pmsDomain.SKU, len(rows))
+	for i, row := range rows {
+		skus[i] = *toSKUDomain(row)
+	}
+	return skus, nil
+}
+
 func toSKUDomain(m skuModel) *pmsDomain.SKU {
 	return &pmsDomain.SKU{
-		ID:              m.ID,
-		TenantID:        m.TenantID,
-		VariantID:       m.VariantID,
-		SKUCode:         m.SKUCode,
-		Barcode:         m.Barcode,
-		PriceMinorUnits: m.PriceMinorUnits,
-		CurrencyCode:    m.CurrencyCode,
-		WeightGrams:     m.WeightGrams,
-		LengthMM:        m.LengthMM,
-		WidthMM:         m.WidthMM,
-		HeightMM:        m.HeightMM,
-		IsVirtual:       m.IsVirtual,
-		TracksExpiry:    m.TracksExpiry,
-		Status:          pmsDomain.SKUStatus(m.Status),
-		CreatedAt:       m.CreatedAt,
-		UpdatedAt:       m.UpdatedAt,
+		ID:                  m.ID,
+		TenantID:            m.TenantID,
+		VariantID:           m.VariantID,
+		SKUCode:             m.SKUCode,
+		Barcode:             m.Barcode,
+		PriceMinorUnits:     m.PriceMinorUnits,
+		SalePriceMinorUnits: m.SalePriceMinorUnits,
+		SaleEndDate:         m.SaleEndDate,
+		CurrencyCode:        m.CurrencyCode,
+		WeightGrams:         m.WeightGrams,
+		LengthMM:            m.LengthMM,
+		WidthMM:             m.WidthMM,
+		HeightMM:            m.HeightMM,
+		IsVirtual:           m.IsVirtual,
+		TracksExpiry:        m.TracksExpiry,
+		Status:              pmsDomain.SKUStatus(m.Status),
+		CreatedAt:           m.CreatedAt,
+		UpdatedAt:           m.UpdatedAt,
 	}
 }
 

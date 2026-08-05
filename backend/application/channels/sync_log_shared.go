@@ -120,6 +120,8 @@ func wooProductToFields(p integrationsDomain.WooProduct) map[string]string {
 		"description":   p.Description,
 		"status":        p.Status,
 		"regular_price": p.RegularPrice,
+		"sale_price":    p.SalePrice,
+		"sale_end_date": p.SaleEndDate,
 		"virtual":       fmt.Sprintf("%t", p.Virtual),
 		"weight":        p.Weight,
 		"length":        p.Dimensions.Length,

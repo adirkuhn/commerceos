@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
@@ -173,4 +174,19 @@ func FormatMinorUnitsAsWooPrice(minorUnits int64) string {
 		sign = "-"
 	}
 	return fmt.Sprintf("%s%d.%02d", sign, whole, cents)
+}
+
+// WooSaleFields formats a SKU's SalePriceMinorUnits/SaleEndDate as the
+// strings Woo's sale_price/date_on_sale_to fields expect -- both empty
+// when there's no active sale, which is the shape every caller building a
+// WooProduct needs (push, sync-on-change).
+func WooSaleFields(sku pmsDomain.SKU) (salePrice, saleEndDate string) {
+	if sku.SalePriceMinorUnits == nil {
+		return "", ""
+	}
+	salePrice = FormatMinorUnitsAsWooPrice(*sku.SalePriceMinorUnits)
+	if sku.SaleEndDate != nil {
+		saleEndDate = sku.SaleEndDate.Format(time.DateOnly)
+	}
+	return salePrice, saleEndDate
 }
