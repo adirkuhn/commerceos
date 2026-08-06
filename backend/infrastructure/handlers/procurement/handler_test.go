@@ -1,0 +1,946 @@
+package procurement_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
+	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
+)
+
+// doMultipartRequest builds a multipart/form-data POST with a "file" part
+// plus any extra plain form fields -- used for the document upload endpoints,
+// which (unlike every other route in this handler) aren't JSON.
+func doMultipartRequest(rg *gin.Engine, path, fileName, fileContent string, extraFields map[string]string) *httptest.ResponseRecorder {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile("file", fileName)
+	_, _ = fw.Write([]byte(fileContent))
+	for k, v := range extraFields {
+		_ = mw.WriteField(k, v)
+	}
+	_ = mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, path, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	rg.ServeHTTP(w, req)
+	return w
+}
+
+func init() { gin.SetMode(gin.TestMode) }
+
+func strPtr(s string) *string { return &s }
+
+type stubListPurchaseOrders struct {
+	out []procurementDomain.PurchaseOrder
+	err error
+}
+
+func (s *stubListPurchaseOrders) Execute(_ context.Context) ([]procurementDomain.PurchaseOrder, error) {
+	return s.out, s.err
+}
+
+type stubCreatePurchaseOrder struct {
+	out      *procurementDomain.PurchaseOrder
+	err      error
+	gotInput appprocurement.CreatePurchaseOrderInput
+}
+
+func (s *stubCreatePurchaseOrder) Execute(_ context.Context, in appprocurement.CreatePurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: in.SupplierID, WarehouseID: in.WarehouseID, Status: procurementDomain.PurchaseOrderStatusDraft}, nil
+}
+
+type stubGetPurchaseOrder struct {
+	out *appprocurement.PurchaseOrderDetail
+	err error
+}
+
+func (s *stubGetPurchaseOrder) Execute(_ context.Context, _ string) (*appprocurement.PurchaseOrderDetail, error) {
+	return s.out, s.err
+}
+
+type stubUpdatePurchaseOrder struct {
+	out      *procurementDomain.PurchaseOrder
+	err      error
+	gotInput appprocurement.UpdatePurchaseOrderInput
+}
+
+func (s *stubUpdatePurchaseOrder) Execute(_ context.Context, in appprocurement.UpdatePurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.PurchaseOrder{ID: in.ID, SupplierID: in.SupplierID, Status: in.Status}, nil
+}
+
+type stubDeletePurchaseOrder struct {
+	err   error
+	calls []string
+}
+
+func (s *stubDeletePurchaseOrder) Execute(_ context.Context, id string) error {
+	s.calls = append(s.calls, id)
+	return s.err
+}
+
+type stubAddLineItem struct {
+	out      *procurementDomain.PurchaseOrderLineItem
+	err      error
+	gotInput appprocurement.AddPurchaseOrderLineItemInput
+}
+
+func (s *stubAddLineItem) Execute(_ context.Context, in appprocurement.AddPurchaseOrderLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.PurchaseOrderLineItem{ID: "line-item-1", PurchaseOrderID: in.PurchaseOrderID, Quantity: in.Quantity}, nil
+}
+
+type stubUpdateLineItem struct {
+	out      *procurementDomain.PurchaseOrderLineItem
+	err      error
+	gotInput appprocurement.UpdatePurchaseOrderLineItemInput
+}
+
+func (s *stubUpdateLineItem) Execute(_ context.Context, in appprocurement.UpdatePurchaseOrderLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.PurchaseOrderLineItem{ID: in.ID, Quantity: in.Quantity}, nil
+}
+
+type stubRemoveLineItem struct {
+	err   error
+	calls []string
+}
+
+func (s *stubRemoveLineItem) Execute(_ context.Context, id string) error {
+	s.calls = append(s.calls, id)
+	return s.err
+}
+
+type stubAttachDocument struct {
+	out      *procurementDomain.DocumentParsingJob
+	err      error
+	gotInput appprocurement.AttachDocumentToPurchaseOrderInput
+}
+
+func (s *stubAttachDocument) Execute(_ context.Context, in appprocurement.AttachDocumentToPurchaseOrderInput) (*procurementDomain.DocumentParsingJob, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: in.PurchaseOrderID, Status: procurementDomain.DocumentParsingJobPending}, nil
+}
+
+type stubCreatePurchaseOrderFromDocument struct {
+	out      *procurementDomain.DocumentParsingJob
+	err      error
+	gotInput appprocurement.CreatePurchaseOrderFromDocumentInput
+}
+
+func (s *stubCreatePurchaseOrderFromDocument) Execute(_ context.Context, in appprocurement.CreatePurchaseOrderFromDocumentInput) (*procurementDomain.DocumentParsingJob, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-new", Status: procurementDomain.DocumentParsingJobPending}, nil
+}
+
+type stubLinkLineItemToSKU struct {
+	out      *procurementDomain.PurchaseOrderLineItem
+	err      error
+	gotInput appprocurement.LinkLineItemToSKUInput
+}
+
+func (s *stubLinkLineItemToSKU) Execute(_ context.Context, in appprocurement.LinkLineItemToSKUInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	skuID := in.SKUID
+	return &procurementDomain.PurchaseOrderLineItem{ID: in.LineItemID, SKUID: &skuID}, nil
+}
+
+type stubCreateProductAndLinkLineItem struct {
+	out      *procurementDomain.PurchaseOrderLineItem
+	err      error
+	gotInput appprocurement.CreateProductAndLinkLineItemInput
+}
+
+func (s *stubCreateProductAndLinkLineItem) Execute(_ context.Context, in appprocurement.CreateProductAndLinkLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	skuID := "new-sku-1"
+	return &procurementDomain.PurchaseOrderLineItem{ID: in.LineItemID, SKUID: &skuID}, nil
+}
+
+type stubCreateSupplierAndAssign struct {
+	out      *procurementDomain.PurchaseOrder
+	err      error
+	gotInput appprocurement.CreateSupplierAndAssignToPurchaseOrderInput
+}
+
+func (s *stubCreateSupplierAndAssign) Execute(_ context.Context, in appprocurement.CreateSupplierAndAssignToPurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.PurchaseOrder{ID: in.PurchaseOrderID, SupplierID: strPtr("new-supplier-1"), Status: procurementDomain.PurchaseOrderStatusDraft}, nil
+}
+
+type stubUploadInvoice struct {
+	out      *procurementDomain.ReceivingParsingJob
+	err      error
+	gotInput appprocurement.UploadInvoiceInput
+}
+
+func (s *stubUploadInvoice) Execute(_ context.Context, in appprocurement.UploadInvoiceInput) (*procurementDomain.ReceivingParsingJob, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.ReceivingParsingJob{ID: "receiving-job-1", ReceivingRecordID: "receiving-record-1", Status: procurementDomain.ReceivingParsingJobPending}, nil
+}
+
+type stubListReceivingRecords struct {
+	out []procurementDomain.ReceivingRecord
+	err error
+}
+
+func (s *stubListReceivingRecords) Execute(_ context.Context, _ string) ([]procurementDomain.ReceivingRecord, error) {
+	return s.out, s.err
+}
+
+type stubGetReceivingRecord struct {
+	out *appprocurement.ReceivingRecordDetail
+	err error
+}
+
+func (s *stubGetReceivingRecord) Execute(_ context.Context, _ string) (*appprocurement.ReceivingRecordDetail, error) {
+	return s.out, s.err
+}
+
+type stubCompleteReceiving struct {
+	out      *procurementDomain.ReceivingRecord
+	err      error
+	gotInput string
+}
+
+func (s *stubCompleteReceiving) Execute(_ context.Context, receivingRecordID string) (*procurementDomain.ReceivingRecord, error) {
+	s.gotInput = receivingRecordID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.ReceivingRecord{ID: receivingRecordID, Status: procurementDomain.ReceivingRecordStatusApplied}, nil
+}
+
+type stubStartOrResumeBooking struct {
+	out      *procurementDomain.Booking
+	err      error
+	gotInput appprocurement.StartOrResumeBookingInput
+}
+
+func (s *stubStartOrResumeBooking) Execute(_ context.Context, in appprocurement.StartOrResumeBookingInput) (*procurementDomain.Booking, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: in.PurchaseOrderID, Status: procurementDomain.BookingStatusInProgress}, nil
+}
+
+type stubGetBooking struct {
+	out *appprocurement.BookingDetail
+	err error
+}
+
+func (s *stubGetBooking) Execute(_ context.Context, _ string) (*appprocurement.BookingDetail, error) {
+	return s.out, s.err
+}
+
+type stubScanBookingItem struct {
+	out      *appprocurement.ScanBookingItemResult
+	err      error
+	gotInput appprocurement.ScanBookingItemInput
+}
+
+func (s *stubScanBookingItem) Execute(_ context.Context, in appprocurement.ScanBookingItemInput) (*appprocurement.ScanBookingItemResult, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appprocurement.ScanBookingItemResult{
+		Receipt: &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: "sku-1", QuantityDelta: in.Quantity}},
+		Scan:    procurementDomain.BookingScan{ID: "booking-scan-1", BookingID: "booking-1", Quantity: in.Quantity},
+	}, nil
+}
+
+type stubPauseBooking struct {
+	out *procurementDomain.Booking
+	err error
+}
+
+func (s *stubPauseBooking) Execute(_ context.Context, _ string) (*procurementDomain.Booking, error) {
+	return s.out, s.err
+}
+
+type stubCompleteBooking struct {
+	out *appprocurement.CompleteBookingResult
+	err error
+}
+
+func (s *stubCompleteBooking) Execute(_ context.Context, _ string, _ string) (*appprocurement.CompleteBookingResult, error) {
+	return s.out, s.err
+}
+
+func newTestHandler(
+	list *stubListPurchaseOrders, create *stubCreatePurchaseOrder, get *stubGetPurchaseOrder, update *stubUpdatePurchaseOrder,
+	del *stubDeletePurchaseOrder, addLI *stubAddLineItem, updateLI *stubUpdateLineItem, removeLI *stubRemoveLineItem,
+) *procurementhandler.Handler {
+	return procurementhandler.NewHandler(list, create, get, update, del, addLI, updateLI, removeLI, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+}
+
+// newBookingTestHandler builds a Handler for the booking routes
+// specifically -- every non-booking use case is a harmless zero-value stub.
+func newBookingTestHandler(
+	startOrResumeBooking *stubStartOrResumeBooking, getBooking *stubGetBooking, scanBookingItem *stubScanBookingItem,
+	pauseBooking *stubPauseBooking, completeBooking *stubCompleteBooking,
+) *procurementhandler.Handler {
+	return procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{},
+		&stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		startOrResumeBooking, getBooking, scanBookingItem, pauseBooking, completeBooking,
+	)
+}
+
+// newReceivingTestHandler builds a Handler for the receiving routes
+// specifically -- every non-receiving use case is a harmless zero-value stub.
+func newReceivingTestHandler(
+	uploadInvoice *stubUploadInvoice, listReceivingRecords *stubListReceivingRecords,
+	getReceivingRecord *stubGetReceivingRecord, completeReceiving *stubCompleteReceiving,
+) *procurementhandler.Handler {
+	return procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{},
+		&stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		uploadInvoice, listReceivingRecords, getReceivingRecord, completeReceiving,
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+}
+
+func doRequest(rg *gin.Engine, method, path string, body any) *httptest.ResponseRecorder {
+	var buf bytes.Buffer
+	if body != nil {
+		_ = json.NewEncoder(&buf).Encode(body)
+	}
+	req := httptest.NewRequest(method, path, &buf)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	rg.ServeHTTP(w, req)
+	return w
+}
+
+func newTestRouter(h *procurementhandler.Handler) *gin.Engine {
+	r := gin.New()
+	genprocurement.RegisterHandlers(r.Group("/api/v1"), h)
+	return r
+}
+
+func TestListPurchaseOrdersHandler_returnsPurchaseOrders(t *testing.T) {
+	h := newTestHandler(&stubListPurchaseOrders{out: []procurementDomain.PurchaseOrder{{ID: "po-1", SupplierID: strPtr("supplier-1")}}},
+		&stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "po-1")
+}
+
+func TestCreatePurchaseOrderHandler_success(t *testing.T) {
+	create := &stubCreatePurchaseOrder{}
+	h := newTestHandler(&stubListPurchaseOrders{}, create, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders", map[string]any{
+		"supplier_id": "supplier-1", "warehouse_id": "wh-1", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.NotNil(t, create.gotInput.SupplierID)
+	assert.Equal(t, "supplier-1", *create.gotInput.SupplierID)
+	require.NotNil(t, create.gotInput.WarehouseID)
+	assert.Equal(t, "wh-1", *create.gotInput.WarehouseID)
+}
+
+func TestCreatePurchaseOrderHandler_allowsOmittingWarehouse(t *testing.T) {
+	create := &stubCreatePurchaseOrder{}
+	h := newTestHandler(&stubListPurchaseOrders{}, create, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders", map[string]any{
+		"supplier_id": "supplier-1", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Nil(t, create.gotInput.WarehouseID)
+}
+
+func TestGetPurchaseOrderHandler_returnsDetail(t *testing.T) {
+	get := &stubGetPurchaseOrder{out: &appprocurement.PurchaseOrderDetail{
+		PurchaseOrder: procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1")},
+		LineItems:     []procurementDomain.PurchaseOrderLineItem{{ID: "line-item-1", Quantity: 10}},
+	}}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, get, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders/po-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"supplier_id":"supplier-1"`)
+	assert.Contains(t, w.Body.String(), `"quantity":10`)
+}
+
+func TestGetPurchaseOrderHandler_includesParsingSuggestions(t *testing.T) {
+	get := &stubGetPurchaseOrder{out: &appprocurement.PurchaseOrderDetail{
+		PurchaseOrder: procurementDomain.PurchaseOrder{
+			ID: "po-1", SuggestedSupplierName: "Pedaços do Brasil, Lda.", SuggestedCurrencyCode: "EUR",
+		},
+	}}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, get, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders/po-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"suggested_supplier_name":"Pedaços do Brasil, Lda."`)
+	assert.Contains(t, w.Body.String(), `"suggested_currency_code":"EUR"`)
+}
+
+func TestGetPurchaseOrderHandler_notFound(t *testing.T) {
+	get := &stubGetPurchaseOrder{err: procurementDomain.ErrPurchaseOrderNotFound}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, get, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders/missing", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUpdatePurchaseOrderHandler_success(t *testing.T) {
+	update := &stubUpdatePurchaseOrder{}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, update, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/procurement/purchase-orders/po-1", map[string]any{
+		"supplier_id": "supplier-2", "warehouse_id": "wh-2", "status": "sent", "currency_code": "EUR",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, procurementDomain.PurchaseOrderStatusSent, update.gotInput.Status)
+}
+
+func TestUpdatePurchaseOrderHandler_notFound(t *testing.T) {
+	update := &stubUpdatePurchaseOrder{err: procurementDomain.ErrPurchaseOrderNotFound}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, update, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/procurement/purchase-orders/missing", map[string]any{
+		"supplier_id": "s", "warehouse_id": "w", "status": "draft", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeletePurchaseOrderHandler_success(t *testing.T) {
+	del := &stubDeletePurchaseOrder{}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, del, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/procurement/purchase-orders/po-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"po-1"}, del.calls)
+}
+
+func TestAddPurchaseOrderLineItemHandler_success(t *testing.T) {
+	add := &stubAddLineItem{}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, add, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/line-items", map[string]any{
+		"raw_description": "Widget", "quantity": 10, "unit_cost_minor_units": 500,
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "po-1", add.gotInput.PurchaseOrderID)
+	assert.Equal(t, int64(10), add.gotInput.Quantity)
+}
+
+func TestAddPurchaseOrderLineItemHandler_rejectsInvalidQuantity(t *testing.T) {
+	add := &stubAddLineItem{err: procurementDomain.ErrInvalidQuantity}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, add, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/line-items", map[string]any{
+		"raw_description": "Widget", "quantity": 1, "unit_cost_minor_units": 500,
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdatePurchaseOrderLineItemHandler_success(t *testing.T) {
+	update := &stubUpdateLineItem{}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, update, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/procurement/purchase-order-line-items/line-item-1", map[string]any{
+		"raw_description": "Widget v2", "quantity": 20, "unit_cost_minor_units": 600,
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "line-item-1", update.gotInput.ID)
+	assert.Equal(t, int64(20), update.gotInput.Quantity)
+}
+
+func TestRemovePurchaseOrderLineItemHandler_success(t *testing.T) {
+	remove := &stubRemoveLineItem{}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, remove)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/procurement/purchase-order-line-items/line-item-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"line-item-1"}, remove.calls)
+}
+
+func TestAttachDocumentToPurchaseOrderHandler_success(t *testing.T) {
+	attach := &stubAttachDocument{}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, attach, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/po-1/documents", "order.csv", "sku,qty\nA,1", nil)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "po-1", attach.gotInput.PurchaseOrderID)
+	assert.Equal(t, "order.csv", attach.gotInput.FileName)
+	assert.Contains(t, w.Body.String(), "job-1")
+}
+
+func TestAttachDocumentToPurchaseOrderHandler_missingFileReturns422(t *testing.T) {
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.Close()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/documents", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	newTestRouter(h).ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestAttachDocumentToPurchaseOrderHandler_notFound(t *testing.T) {
+	attach := &stubAttachDocument{err: procurementDomain.ErrPurchaseOrderNotFound}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, attach, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/missing/documents", "order.csv", "data", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCreatePurchaseOrderFromDocumentHandler_success(t *testing.T) {
+	create := &stubCreatePurchaseOrderFromDocument{}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, create, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/documents", "order.csv", "sku,qty\nA,1", map[string]string{
+		"supplier_id": "supplier-1", "warehouse_id": "warehouse-1", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.NotNil(t, create.gotInput.SupplierID)
+	assert.Equal(t, "supplier-1", *create.gotInput.SupplierID)
+	assert.Equal(t, "order.csv", create.gotInput.FileName)
+}
+
+func TestCreatePurchaseOrderFromDocumentHandler_supplierOmittedIsAllowed(t *testing.T) {
+	create := &stubCreatePurchaseOrderFromDocument{}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, create, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/documents", "order.csv", "sku,qty\nA,1", map[string]string{
+		"warehouse_id": "warehouse-1", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Nil(t, create.gotInput.SupplierID)
+}
+
+func TestCreatePurchaseOrderFromDocumentHandler_propagatesValidationError(t *testing.T) {
+	create := &stubCreatePurchaseOrderFromDocument{err: procurementDomain.ErrMissingRequiredColumns}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, create, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/documents", "order.csv", "bad data", map[string]string{
+		"supplier_id": "supplier-1", "warehouse_id": "warehouse-1", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestLinkLineItemToSkuHandler_success(t *testing.T) {
+	link := &stubLinkLineItemToSKU{}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, link, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/line-item-1/link", map[string]any{
+		"sku_id": "sku-1",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "line-item-1", link.gotInput.LineItemID)
+	assert.Equal(t, "sku-1", link.gotInput.SKUID)
+}
+
+func TestLinkLineItemToSkuHandler_notFound(t *testing.T) {
+	link := &stubLinkLineItemToSKU{err: procurementDomain.ErrLineItemNotFound}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, link, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/missing/link", map[string]any{
+		"sku_id": "sku-1",
+	})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCreateProductAndLinkLineItemHandler_success(t *testing.T) {
+	create := &stubCreateProductAndLinkLineItem{}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, create, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/line-item-1/create-product-and-link", map[string]any{
+		"product_name": "New Widget", "sku_code": "NEW-001", "price_minor_units": 999, "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "line-item-1", create.gotInput.LineItemID)
+	assert.Equal(t, "New Widget", create.gotInput.ProductName)
+	assert.Equal(t, int64(999), create.gotInput.PriceMinorUnits)
+}
+
+func TestCreateProductAndLinkLineItemHandler_duplicateSkuCodeReturns422(t *testing.T) {
+	create := &stubCreateProductAndLinkLineItem{err: pmsDomain.ErrDuplicateSKUCode}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, create, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/line-item-1/create-product-and-link", map[string]any{
+		"product_name": "New Widget", "sku_code": "DUP", "currency_code": "USD",
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestCreateSupplierAndAssignToPurchaseOrderHandler_success(t *testing.T) {
+	create := &stubCreateSupplierAndAssign{}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, create,
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/create-supplier-and-assign", map[string]any{
+		"name": "New Supplier Co",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "po-1", create.gotInput.PurchaseOrderID)
+	assert.Equal(t, "New Supplier Co", create.gotInput.Name)
+}
+
+func TestCreateSupplierAndAssignToPurchaseOrderHandler_notFound(t *testing.T) {
+	create := &stubCreateSupplierAndAssign{err: procurementDomain.ErrPurchaseOrderNotFound}
+	h := procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, create,
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/missing/create-supplier-and-assign", map[string]any{
+		"name": "New Supplier Co",
+	})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUploadInvoiceHandler_success(t *testing.T) {
+	upload := &stubUploadInvoice{}
+	h := newReceivingTestHandler(upload, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{})
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/po-1/invoices", "invoice.csv", "sku,qty\nA,1", nil)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "po-1", upload.gotInput.PurchaseOrderID)
+	assert.Equal(t, "invoice.csv", upload.gotInput.FileName)
+	assert.Contains(t, w.Body.String(), "receiving-job-1")
+}
+
+func TestUploadInvoiceHandler_notFound(t *testing.T) {
+	upload := &stubUploadInvoice{err: procurementDomain.ErrPurchaseOrderNotFound}
+	h := newReceivingTestHandler(upload, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{})
+	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/missing/invoices", "invoice.csv", "data", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListReceivingRecordsHandler_returnsRecords(t *testing.T) {
+	list := &stubListReceivingRecords{out: []procurementDomain.ReceivingRecord{
+		{ID: "receiving-record-1", PurchaseOrderID: "po-1", Status: procurementDomain.ReceivingRecordStatusPendingReview},
+	}}
+	h := newReceivingTestHandler(&stubUploadInvoice{}, list, &stubGetReceivingRecord{}, &stubCompleteReceiving{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders/po-1/receiving-records", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "receiving-record-1")
+}
+
+func TestGetReceivingRecordHandler_returnsRecordAndDiscrepancies(t *testing.T) {
+	lineItemID := "line-item-1"
+	get := &stubGetReceivingRecord{out: &appprocurement.ReceivingRecordDetail{
+		ReceivingRecord: procurementDomain.ReceivingRecord{ID: "receiving-record-1", Status: procurementDomain.ReceivingRecordStatusPendingReview},
+		Discrepancies: []procurementDomain.ReceivingDiscrepancy{
+			{ID: "discrepancy-1", ReceivingRecordID: "receiving-record-1", LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeQuantityMismatch, ExpectedQty: 10, ReceivedQty: 8},
+		},
+	}}
+	h := newReceivingTestHandler(&stubUploadInvoice{}, &stubListReceivingRecords{}, get, &stubCompleteReceiving{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/receiving-records/receiving-record-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "discrepancy-1")
+	assert.Contains(t, w.Body.String(), "quantity_mismatch")
+}
+
+func TestGetReceivingRecordHandler_notFound(t *testing.T) {
+	get := &stubGetReceivingRecord{err: procurementDomain.ErrReceivingRecordNotFound}
+	h := newReceivingTestHandler(&stubUploadInvoice{}, &stubListReceivingRecords{}, get, &stubCompleteReceiving{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/receiving-records/missing", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCompleteReceivingHandler_success(t *testing.T) {
+	complete := &stubCompleteReceiving{}
+	h := newReceivingTestHandler(&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, complete)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/receiving-records/receiving-record-1/complete", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "receiving-record-1", complete.gotInput)
+	assert.Contains(t, w.Body.String(), "applied")
+}
+
+func TestCompleteReceivingHandler_notFound(t *testing.T) {
+	complete := &stubCompleteReceiving{err: procurementDomain.ErrReceivingRecordNotFound}
+	h := newReceivingTestHandler(&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, complete)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/receiving-records/missing/complete", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestStartOrResumeBookingHandler_success(t *testing.T) {
+	start := &stubStartOrResumeBooking{}
+	h := newBookingTestHandler(start, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/booking", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "po-1", start.gotInput.PurchaseOrderID)
+	assert.Contains(t, w.Body.String(), "in_progress")
+}
+
+func TestStartOrResumeBookingHandler_passesWarehouseIdFromBody(t *testing.T) {
+	start := &stubStartOrResumeBooking{}
+	h := newBookingTestHandler(start, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/booking", map[string]any{"warehouse_id": "warehouse-1"})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, start.gotInput.WarehouseID)
+	assert.Equal(t, "warehouse-1", *start.gotInput.WarehouseID)
+}
+
+func TestStartOrResumeBookingHandler_warehouseRequiredReturns422(t *testing.T) {
+	start := &stubStartOrResumeBooking{err: procurementDomain.ErrWarehouseRequired}
+	h := newBookingTestHandler(start, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/booking", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestStartOrResumeBookingHandler_notFound(t *testing.T) {
+	start := &stubStartOrResumeBooking{err: procurementDomain.ErrPurchaseOrderNotFound}
+	h := newBookingTestHandler(start, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/missing/booking", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetBookingHandler_returnsDetail(t *testing.T) {
+	skuID := "sku-1"
+	get := &stubGetBooking{out: &appprocurement.BookingDetail{
+		Booking:   procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusInProgress},
+		LineItems: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: &skuID, Quantity: 10}},
+		Scans:     []procurementDomain.BookingScan{{ID: "scan-1", SKUID: "sku-1", Quantity: 4}},
+	}}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, get, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/bookings/booking-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "scan-1")
+	assert.Contains(t, w.Body.String(), `"quantity":10`)
+}
+
+func TestGetBookingHandler_notFound(t *testing.T) {
+	get := &stubGetBooking{err: procurementDomain.ErrBookingNotFound}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, get, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/bookings/missing", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestScanBookingItemHandler_success(t *testing.T) {
+	scan := &stubScanBookingItem{}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"code": "BARCODE-1", "quantity": 3,
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "booking-1", scan.gotInput.BookingID)
+	assert.Equal(t, "BARCODE-1", scan.gotInput.Code)
+	assert.Equal(t, int64(3), scan.gotInput.Quantity)
+}
+
+func TestScanBookingItemHandler_notActiveReturns422(t *testing.T) {
+	scan := &stubScanBookingItem{err: procurementDomain.ErrBookingNotActive}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"code": "BARCODE-1", "quantity": 3,
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestScanBookingItemHandler_skuNotFoundReturns422(t *testing.T) {
+	scan := &stubScanBookingItem{err: pmsDomain.ErrSKUNotFound}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"code": "UNKNOWN", "quantity": 1,
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestPauseBookingHandler_success(t *testing.T) {
+	pause := &stubPauseBooking{out: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusPaused}}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, pause, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/pause", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "paused")
+}
+
+func TestPauseBookingHandler_notActiveReturns422(t *testing.T) {
+	pause := &stubPauseBooking{err: procurementDomain.ErrBookingNotActive}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, pause, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/pause", nil)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestCompleteBookingHandler_success(t *testing.T) {
+	complete := &stubCompleteBooking{out: &appprocurement.CompleteBookingResult{
+		Booking:      procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusCompleted},
+		MissingItems: []appprocurement.MissingBookingItem{{LineItemID: "line-1", RawDescription: "Widget A", ExpectedQty: 10, ScannedQty: 6}},
+	}}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, complete)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/complete", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Widget A")
+	assert.Contains(t, w.Body.String(), `"expected_qty":10`)
+}
+
+func TestCompleteBookingHandler_notFound(t *testing.T) {
+	complete := &stubCompleteBooking{err: procurementDomain.ErrBookingNotFound}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, complete)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/missing/complete", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}

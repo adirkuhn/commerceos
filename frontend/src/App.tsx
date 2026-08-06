@@ -1,6 +1,7 @@
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { CallbackPage } from './auth/CallbackPage'
+import ScannerApp from './scanner/ScannerApp'
 import { AppProvider, useApp } from './context/AppContext'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
@@ -21,6 +22,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
+const SCANNER_PATH = '/scanner'
 
 function AppContent() {
   const { activeNav } = useApp()
@@ -62,7 +64,13 @@ function AppContent() {
 function AppShell() {
   const { isAuthenticated } = useAuth()
   const isCallback = window.location.pathname === CALLBACK_PATH
+  const isScanner = window.location.pathname === SCANNER_PATH
 
+  // The scanner device pairs with its own short-lived token (see
+  // ./scanner/useScannerAuth) and never goes through lm2 login -- checked
+  // before isAuthenticated so a scanner device with no admin session still
+  // reaches the pairing screen instead of LoginPage.
+  if (isScanner) return <ScannerApp />
   if (isCallback) return <CallbackPage />
   if (!isAuthenticated) return <LoginPage />
 

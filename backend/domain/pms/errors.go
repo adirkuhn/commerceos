@@ -20,10 +20,11 @@ var (
 	// ErrSaleEndDateRequiresSalePrice guards SKU.SaleEndDate: it can only
 	// be set alongside a SalePriceMinorUnits.
 	ErrSaleEndDateRequiresSalePrice = errors.New("sale end date requires a sale price to be set")
-	ErrMediaNotFound                  = errors.New("media not found")
-	ErrUnsupportedMediaType           = errors.New("unsupported file type")
-	ErrMediaTargetRequired            = errors.New("media must be attached to a product or a variant")
+	ErrMediaNotFound                = errors.New("media not found")
+	ErrUnsupportedMediaType         = errors.New("unsupported file type")
+	ErrMediaTargetRequired          = errors.New("media must be attached to a product or a variant")
 	// ErrFeaturedMediaProductMismatch guards a variant's FeaturedMediaID:
 	// it must reference a Media row belonging to the variant's own product.
 	ErrFeaturedMediaProductMismatch = errors.New("featured media does not belong to this variant's product")
+	ErrBarcodeAliasNotFound         = errors.New("barcode alias not found")
 )

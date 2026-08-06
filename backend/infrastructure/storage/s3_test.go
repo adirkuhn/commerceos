@@ -25,6 +25,11 @@ type stubS3Client struct {
 	removeBucket string
 	removeKey    string
 	removeErr    error
+
+	getCalled bool
+	getBucket string
+	getKey    string
+	getErr    error
 }
 
 func (s *stubS3Client) PutObject(_ context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
@@ -47,6 +52,23 @@ func (s *stubS3Client) RemoveObject(_ context.Context, bucketName, objectName st
 	s.removeBucket = bucketName
 	s.removeKey = objectName
 	return s.removeErr
+}
+
+// GetObject only records the call and returns a zero-value *minio.Object --
+// minio.Object's fields are all unexported (constructed internally by the
+// real SDK client via a network round-trip), so a stub can't fake a working
+// readable body. That means this stub can only verify Get's routing logic
+// (does it ask the client for the right bucket/key), not the byte stream --
+// end-to-end read-back is exercised live against the real MinIO container
+// this repo already runs in docker-compose, not here.
+func (s *stubS3Client) GetObject(_ context.Context, bucketName, objectName string, _ minio.GetObjectOptions) (*minio.Object, error) {
+	s.getCalled = true
+	s.getBucket = bucketName
+	s.getKey = objectName
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	return &minio.Object{}, nil
 }
 
 func newS3Storage(client s3PutRemover, bucket, publicBaseURL string) *S3Storage {
@@ -141,6 +163,29 @@ func TestS3Storage_Delete_wrapsClientError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "bucket unreachable")
+}
+
+func TestS3Storage_Get_requestsObjectByKey(t *testing.T) {
+	client := &stubS3Client{}
+	s := newS3Storage(client, "product-media", "https://media.example.com")
+
+	rc, err := s.Get(context.Background(), "https://media.example.com/tenant-1/abc.jpg")
+
+	require.NoError(t, err)
+	require.NotNil(t, rc)
+	assert.True(t, client.getCalled)
+	assert.Equal(t, "product-media", client.getBucket)
+	assert.Equal(t, "tenant-1/abc.jpg", client.getKey)
+}
+
+func TestS3Storage_Get_wrapsClientError(t *testing.T) {
+	client := &stubS3Client{getErr: errors.New("object not found")}
+	s := newS3Storage(client, "product-media", "https://media.example.com")
+
+	_, err := s.Get(context.Background(), "https://media.example.com/tenant-1/abc.jpg")
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "object not found")
 }
 
 func TestNewS3Storage_trimsTrailingSlashFromPublicBaseURL(t *testing.T) {

@@ -185,6 +185,18 @@ paths:
           $ref: '#/components/responses/Error'
 
   /inventory/skus/{skuId}/movements:
+    get:
+      operationId: listStockMovements
+      summary: Full movement ledger for a SKU (append-only, oldest first)
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementListResponse'
     post:
       operationId: recordStockMovement
       summary: >-
@@ -257,6 +269,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransferStockResultResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/skus/{skuId}/receive:
+    post:
+      operationId: receiveStock
+      summary: >-
+        Atomically book received stock — optionally creates a new batch
+        (when batch_id is omitted) and always records a receipt movement,
+        in one transaction. Used by the procurement receiving-review flow
+        and the scanner booking app.
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiveStockRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiveStockResultResponse'
         '422':
           $ref: '#/components/responses/Error'
 
@@ -449,6 +487,15 @@ components:
           nullable: true
         error: { nullable: true }
 
+    StockMovementListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockMovement'
+        error: { nullable: true }
+
     StockLevel:
       type: object
       required: [sku_id, total, syncable]
@@ -511,6 +558,36 @@ components:
       properties:
         out: { $ref: '#/components/schemas/StockMovement' }
         in: { $ref: '#/components/schemas/StockMovement' }
+
+    ReceiveStockRequest:
+      type: object
+      required: [warehouse_id, quantity]
+      properties:
+        warehouse_id: { type: string }
+        quantity: { type: integer, format: int64, minimum: 1 }
+        batch_id:
+          type: string
+          nullable: true
+          description: Targets an existing batch. Omit to create a new batch from lot_number/expiry_date.
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+
+    ReceiveStockResult:
+      type: object
+      required: [movement]
+      properties:
+        batch:
+          $ref: '#/components/schemas/Batch'
+          nullable: true
+        movement: { $ref: '#/components/schemas/StockMovement' }
+
+    ReceiveStockResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReceiveStockResult' }
+        error: { nullable: true }
 
     TransferStockResultResponse:
       type: object

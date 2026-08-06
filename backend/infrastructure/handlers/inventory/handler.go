@@ -51,6 +51,9 @@ type getSKUStockLevelUC interface {
 type recordStockMovementUC interface {
 	Execute(ctx context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error)
 }
+type listStockMovementsUC interface {
+	Execute(ctx context.Context, skuID string) ([]invDomain.StockMovement, error)
+}
 type recordRecountUC interface {
 	Execute(ctx context.Context, in appinventory.RecordRecountInput) (*invDomain.StockMovement, error)
 }
@@ -59,6 +62,9 @@ type transferStockUC interface {
 }
 type markDamagedOrLostUC interface {
 	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
+}
+type receiveStockUC interface {
+	Execute(ctx context.Context, in appinventory.ReceiveStockInput) (*appinventory.ReceiveStockResult, error)
 }
 type listExpiringBatchesUC interface {
 	Execute(ctx context.Context, withinDays int) ([]invDomain.ExpiringBatch, error)
@@ -81,6 +87,8 @@ type Handler struct {
 	transferStock       transferStockUC
 	markDamagedOrLost   markDamagedOrLostUC
 	listExpiringBatches listExpiringBatchesUC
+	listStockMovements  listStockMovementsUC
+	receiveStock        receiveStockUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -99,6 +107,8 @@ func NewHandler(
 	transferStock transferStockUC,
 	markDamagedOrLost markDamagedOrLostUC,
 	listExpiringBatches listExpiringBatchesUC,
+	listStockMovements listStockMovementsUC,
+	receiveStock receiveStockUC,
 ) *Handler {
 	return &Handler{
 		listWarehouses:      listWarehouses,
@@ -115,6 +125,8 @@ func NewHandler(
 		transferStock:       transferStock,
 		markDamagedOrLost:   markDamagedOrLost,
 		listExpiringBatches: listExpiringBatches,
+		listStockMovements:  listStockMovements,
+		receiveStock:        receiveStock,
 	}
 }
 
@@ -142,6 +154,8 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
+		appinventory.NewListStockMovementsUseCase(db, movementRepo),
+		appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
 }
@@ -307,6 +321,18 @@ func (h *Handler) ListExpiringBatches(c *gin.Context, params geninventory.ListEx
 	c.JSON(http.StatusOK, geninventory.ExpiringBatchListResponse{Data: &resp})
 }
 
+func (h *Handler) ListStockMovements(c *gin.Context, skuId geninventory.SkuId) {
+	movements, err := h.listStockMovements.Execute(c.Request.Context(), skuId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]geninventory.StockMovement, len(movements))
+	for i, m := range movements {
+		resp[i] = toGenStockMovement(m)
+	}
+	c.JSON(http.StatusOK, geninventory.StockMovementListResponse{Data: &resp})
+}
+
 func (h *Handler) RecordStockMovement(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.RecordStockMovementRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -381,6 +407,29 @@ func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
 	}
 	resp := toGenStockMovement(*movement)
 	c.JSON(http.StatusCreated, geninventory.StockMovementResponse{Data: &resp})
+}
+
+func (h *Handler) ReceiveStock(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.ReceiveStockRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.receiveStock.Execute(c.Request.Context(), appinventory.ReceiveStockInput{
+		SKUID: skuId, WarehouseID: req.WarehouseId, Quantity: req.Quantity, BatchID: req.BatchId,
+		LotNumber: strPtrOr(req.LotNumber), ExpiryDate: genDateToTimePtr(req.ExpiryDate),
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	var batch *geninventory.Batch
+	if result.Batch != nil {
+		b := toGenBatch(*result.Batch)
+		batch = &b
+	}
+	resp := geninventory.ReceiveStockResult{Batch: batch, Movement: toGenStockMovement(*result.Movement)}
+	c.JSON(http.StatusCreated, geninventory.ReceiveStockResultResponse{Data: &resp})
 }
 
 // ── Domain → generated-type mappers ──────────────────────────────────────────

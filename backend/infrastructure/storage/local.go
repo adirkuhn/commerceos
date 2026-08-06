@@ -63,3 +63,14 @@ func (s *LocalStorage) Delete(_ context.Context, url string) error {
 	}
 	return nil
 }
+
+// Get re-opens a previously-saved file for reading. The caller owns the
+// returned ReadCloser and must Close it.
+func (s *LocalStorage) Get(_ context.Context, url string) (io.ReadCloser, error) {
+	rel := strings.TrimPrefix(url, s.baseURL+"/")
+	f, err := os.Open(filepath.Join(s.baseDir, rel))
+	if err != nil {
+		return nil, fmt.Errorf("localStorage.Get: %w", err)
+	}
+	return f, nil
+}

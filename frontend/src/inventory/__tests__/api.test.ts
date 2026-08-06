@@ -208,6 +208,18 @@ describe('recordStockMovement', () => {
   })
 })
 
+describe('listStockMovements', () => {
+  it('calls correct endpoint', async () => {
+    mockFetch([sampleMovement])
+    const result = await api.listStockMovements(TOKEN, 'sku-1')
+    expect(result).toEqual([sampleMovement])
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/inventory/skus/sku-1/movements',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})
+
 describe('recordRecount', () => {
   it('returns the movement when the count changed', async () => {
     mockFetch(sampleMovement)
@@ -245,6 +257,25 @@ describe('markDamagedOrLost', () => {
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/inventory/skus/sku-1/mark-damaged-lost')
     expect(opts.method).toBe('POST')
     expect(JSON.parse(opts.body as string)).toEqual(input)
+  })
+})
+
+describe('receiveStock', () => {
+  it('sends the input in body to the correct endpoint', async () => {
+    const result = { batch: { ...sampleBatch, id: 'batch-1' }, movement: sampleMovement }
+    mockFetch(result, 201)
+    const input = { warehouse_id: 'wh-1', quantity: 8, lot_number: 'LOT-1' }
+    const got = await api.receiveStock(TOKEN, 'sku-1', input)
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/inventory/skus/sku-1/receive')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual(input)
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'quantity must be positive')
+    await expect(api.receiveStock(TOKEN, 'sku-1', { warehouse_id: 'wh-1', quantity: 0 })).rejects.toThrow('quantity must be positive')
   })
 })
 

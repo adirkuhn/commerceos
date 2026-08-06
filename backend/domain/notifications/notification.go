@@ -13,6 +13,26 @@ const (
 	TypeImportStarted   Type = "import.started"
 	TypeImportCompleted Type = "import.completed"
 	TypeImportFailed    Type = "import.failed"
+
+	// TypeDocumentParsingCompleted/Failed are fired by cmd/scheduler's
+	// DocumentParsingJob runner (see application/procurement) once a
+	// supplier PO/invoice document has been parsed and matched.
+	TypeDocumentParsingCompleted Type = "procurement.document_parsing.completed"
+	TypeDocumentParsingFailed    Type = "procurement.document_parsing.failed"
+	// TypePurchaseOrderNeedsReview is a more specific completed-but-needs-
+	// attention variant, fired instead of TypeDocumentParsingCompleted when
+	// the parsed document left one or more line items unmatched.
+	TypePurchaseOrderNeedsReview Type = "procurement.purchase_order.needs_review"
+
+	// TypeReceivingParsingCompleted/Failed are fired by cmd/scheduler's
+	// ReceivingParsingJob runner (see application/procurement) once a
+	// supplier invoice has been parsed and diffed against its purchase order.
+	TypeReceivingParsingCompleted Type = "procurement.receiving_parsing.completed"
+	TypeReceivingParsingFailed    Type = "procurement.receiving_parsing.failed"
+	// TypeReceivingDiscrepanciesFound is a more specific completed-but-needs-
+	// attention variant, fired instead of TypeReceivingParsingCompleted when
+	// the invoice diff produced one or more discrepancies to review.
+	TypeReceivingDiscrepanciesFound Type = "procurement.receiving.discrepancies_found"
 )
 
 type Notification struct {

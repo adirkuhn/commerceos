@@ -1,6 +1,7 @@
 package pms_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"testing"
@@ -137,4 +138,8 @@ func (s *stubFileStorage) Delete(_ context.Context, url string) error {
 	}
 	s.deletedURL = url
 	return nil
+}
+
+func (s *stubFileStorage) Get(_ context.Context, url string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(s.savedData)), nil
 }

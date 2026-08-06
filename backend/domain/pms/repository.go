@@ -42,6 +42,10 @@ type SKURepository interface {
 	Create(ctx context.Context, s *SKU) error
 	FindByID(ctx context.Context, id string) (*SKU, error)
 	FindByCode(ctx context.Context, code string) (*SKU, error)
+	// FindByBarcode is used by the scanner app to resolve a scanned unit
+	// barcode straight to a SKU. Returns ErrSKUNotFound when nothing
+	// matches -- same as FindByCode, no separate error type needed.
+	FindByBarcode(ctx context.Context, barcode string) (*SKU, error)
 	ListByVariant(ctx context.Context, variantID string) ([]SKU, error)
 	Update(ctx context.Context, s *SKU) error
 	Delete(ctx context.Context, id string) error
@@ -57,6 +61,15 @@ type MediaRepository interface {
 	FindByID(ctx context.Context, id string) (*Media, error)
 	ListByProduct(ctx context.Context, productID string) ([]Media, error)
 	Update(ctx context.Context, m *Media) error
+	Delete(ctx context.Context, id string) error
+}
+
+// BarcodeAliasRepository backs the scanner app's case/box-barcode
+// resolution -- see BarcodeAlias.
+type BarcodeAliasRepository interface {
+	Create(ctx context.Context, a *BarcodeAlias) error
+	FindByCode(ctx context.Context, code string) (*BarcodeAlias, error)
+	ListBySKU(ctx context.Context, skuID string) ([]BarcodeAlias, error)
 	Delete(ctx context.Context, id string) error
 }
 

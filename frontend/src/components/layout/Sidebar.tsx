@@ -1,6 +1,6 @@
 import {
-  LayoutDashboard, Package, Settings, Plug, Warehouse, History, Boxes,
-  // ShoppingCart, ScanBarcode, Truck, Factory, ShoppingBag,
+  LayoutDashboard, Package, Settings, Plug, Warehouse, History, Boxes, Truck, ShoppingBag,
+  // ShoppingCart, ScanBarcode,
   // BarChart3, Users,
   ChevronRight, Zap,
 } from 'lucide-react'
@@ -25,8 +25,8 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
   // { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
-  // { id: 'suppliers', label: 'Suppliers', icon: Factory },
-  // { id: 'procurement', label: 'Procurement', icon: ShoppingBag, badge: '3', badgeColor: 'amber' },
+  { id: 'suppliers', label: 'Suppliers', icon: Truck },
+  { id: 'procurement', label: 'Procurement', icon: ShoppingBag },
   { id: 'integrations', label: 'Integrations', icon: Plug, badge: '1', badgeColor: 'red' },
   { id: 'sync-log', label: 'Sync History', icon: History },
   // { id: 'shipping', label: 'Shipping', icon: Truck },

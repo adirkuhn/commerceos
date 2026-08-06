@@ -105,6 +105,21 @@ export interface TransferStockResult {
   in: StockMovement
 }
 
+export interface ReceiveStockInput {
+  warehouse_id: string
+  quantity: number
+  batch_id?: string | null
+  lot_number?: string
+  expiry_date?: string | null
+  reason?: string
+  occurred_at?: string
+}
+
+export interface ReceiveStockResult {
+  batch?: Batch | null
+  movement: StockMovement
+}
+
 export interface MarkDamagedOrLostInput {
   warehouse_id: string
   batch_id?: string | null

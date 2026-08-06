@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,6 +57,31 @@ func TestLocalStorage_deleteRemovesTheFile(t *testing.T) {
 	entries, err := os.ReadDir(filepath.Join(dir, "tenant-1"))
 	require.NoError(t, err)
 	require.Empty(t, entries)
+}
+
+func TestLocalStorage_getReadsBackWhatWasSaved(t *testing.T) {
+	dir := t.TempDir()
+	s := storage.NewLocalStorage(dir, "https://api.example.com/api/v1/uploads")
+
+	url, err := s.Save(context.Background(), "tenant-1", "photo.jpg", strings.NewReader("fake-image-bytes"))
+	require.NoError(t, err)
+
+	rc, err := s.Get(context.Background(), url)
+	require.NoError(t, err)
+	defer rc.Close()
+
+	data, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	require.Equal(t, "fake-image-bytes", string(data))
+}
+
+func TestLocalStorage_getOfMissingFileReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	s := storage.NewLocalStorage(dir, "https://api.example.com/api/v1/uploads")
+
+	_, err := s.Get(context.Background(), "https://api.example.com/api/v1/uploads/tenant-1/does-not-exist.jpg")
+
+	require.Error(t, err)
 }
 
 func TestLocalStorage_deleteOfMissingFileIsNotAnError(t *testing.T) {

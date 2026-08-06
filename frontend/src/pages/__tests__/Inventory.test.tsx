@@ -24,6 +24,7 @@ vi.mock('../../inventory/api', () => ({
   deleteBatch: vi.fn(),
   getSKUStockLevel: vi.fn(),
   recordStockMovement: vi.fn(),
+  listStockMovements: vi.fn(),
   recordRecount: vi.fn(),
   transferStock: vi.fn(),
   markDamagedOrLost: vi.fn(),
@@ -230,5 +231,31 @@ describe('Inventory page', () => {
     await user.click(within(modal).getByRole('button', { name: /save/i }))
 
     expect(await within(modal).findByText('sale price cannot exceed regular price')).toBeInTheDocument()
+  })
+
+  it('opens the movement history page for a SKU and can navigate back', async () => {
+    const movement: StockMovement = {
+      id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
+      type: 'receipt', quantity_delta: 22, reason: 'woocommerce import', occurred_at: '2026-08-03T17:07:18Z', created_at: '2026-08-03T17:07:18Z',
+    }
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([movement])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /^History$/ }))
+
+    expect(await screen.findByText('Movement History')).toBeInTheDocument()
+    expect(inventoryApi.listStockMovements).toHaveBeenCalledWith('test-token', 'sku-1')
+    expect(await screen.findByText('Receipt')).toBeInTheDocument()
+    expect(screen.getByText('LOT-1')).toBeInTheDocument()
+    expect(screen.getByText('+22')).toBeInTheDocument()
+    expect(screen.getByText('woocommerce import')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Inventory/ }))
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(screen.queryByText('Movement History')).not.toBeInTheDocument()
   })
 })

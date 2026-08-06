@@ -532,6 +532,21 @@ func (r *SKURepo) FindByCode(ctx context.Context, code string) (*pmsDomain.SKU, 
 	return toSKUDomain(m), nil
 }
 
+func (r *SKURepo) FindByBarcode(ctx context.Context, barcode string) (*pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m skuModel
+	if err := tx.Where("barcode = ?", barcode).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pmsDomain.ErrSKUNotFound
+		}
+		return nil, fmt.Errorf("skuRepo.FindByBarcode: %w", err)
+	}
+	return toSKUDomain(m), nil
+}
+
 func (r *SKURepo) ListByVariant(ctx context.Context, variantID string) ([]pmsDomain.SKU, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {

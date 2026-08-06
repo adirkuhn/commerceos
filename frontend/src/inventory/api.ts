@@ -3,7 +3,7 @@ import type {
   Batch, CreateBatchInput, UpdateBatchInput,
   StockMovement, StockLevel,
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, TransferStockResult, MarkDamagedOrLostInput,
-  ExpiringBatch,
+  ExpiringBatch, ReceiveStockInput, ReceiveStockResult,
 } from './types'
 
 function base(): string {
@@ -82,6 +82,10 @@ export function recordStockMovement(token: string, skuId: string, input: RecordS
   return request<StockMovement>(`${base()}/skus/${skuId}/movements`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
+export function listStockMovements(token: string, skuId: string): Promise<StockMovement[]> {
+  return request<StockMovement[]>(`${base()}/skus/${skuId}/movements`, { method: 'GET' }, token)
+}
+
 // data is null when the count matched and nothing changed.
 export function recordRecount(token: string, skuId: string, input: RecordRecountInput): Promise<StockMovement | null> {
   return request<StockMovement | null>(`${base()}/skus/${skuId}/recount`, { method: 'POST', body: JSON.stringify(input) }, token)
@@ -93,6 +97,10 @@ export function transferStock(token: string, skuId: string, input: TransferStock
 
 export function markDamagedOrLost(token: string, skuId: string, input: MarkDamagedOrLostInput): Promise<StockMovement> {
   return request<StockMovement>(`${base()}/skus/${skuId}/mark-damaged-lost`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function receiveStock(token: string, skuId: string, input: ReceiveStockInput): Promise<ReceiveStockResult> {
+  return request<ReceiveStockResult>(`${base()}/skus/${skuId}/receive`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 // ── Reports ───────────────────────────────────────────────────────────────────

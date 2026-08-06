@@ -204,12 +204,38 @@ func (s *stubListExpiringBatches) Execute(_ context.Context, _ int) ([]invDomain
 	return s.out, s.err
 }
 
+type stubListStockMovements struct {
+	out []invDomain.StockMovement
+	err error
+}
+
+func (s *stubListStockMovements) Execute(_ context.Context, _ string) ([]invDomain.StockMovement, error) {
+	return s.out, s.err
+}
+
+type stubReceiveStock struct {
+	out      *appinventory.ReceiveStockResult
+	err      error
+	gotInput appinventory.ReceiveStockInput
+}
+
+func (s *stubReceiveStock) Execute(_ context.Context, in appinventory.ReceiveStockInput) (*appinventory.ReceiveStockResult, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, Type: invDomain.MovementTypeReceipt, QuantityDelta: in.Quantity}}, nil
+}
+
 func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, update *stubUpdateWarehouse, del *stubDeleteWarehouse) *inventoryhandler.Handler {
 	return inventoryhandler.NewHandler(
 		list, create, update, del,
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
-		&stubListExpiringBatches{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 	)
 }
 
@@ -220,11 +246,20 @@ func newBatchTestHandler(
 	stockLevel *stubGetSKUStockLevel, recordMovement *stubRecordStockMovement, recordRecount *stubRecordRecount,
 	transfer *stubTransferStock, markDamagedOrLost *stubMarkDamagedOrLost,
 ) *inventoryhandler.Handler {
+	return newBatchTestHandlerWithReceive(createBatch, updateBatch, deleteBatch, listBatches,
+		stockLevel, recordMovement, recordRecount, transfer, markDamagedOrLost, &stubReceiveStock{})
+}
+
+func newBatchTestHandlerWithReceive(
+	createBatch *stubCreateBatch, updateBatch *stubUpdateBatch, deleteBatch *stubDeleteBatch, listBatches *stubListBatches,
+	stockLevel *stubGetSKUStockLevel, recordMovement *stubRecordStockMovement, recordRecount *stubRecordRecount,
+	transfer *stubTransferStock, markDamagedOrLost *stubMarkDamagedOrLost, receiveStock *stubReceiveStock,
+) *inventoryhandler.Handler {
 	return inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		createBatch, updateBatch, deleteBatch, listBatches,
 		stockLevel, recordMovement, recordRecount, transfer, markDamagedOrLost,
-		&stubListExpiringBatches{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, receiveStock,
 	)
 }
 
@@ -412,12 +447,31 @@ func TestListExpiringBatchesHandler_returnsBatches(t *testing.T) {
 		&stubListExpiringBatches{out: []invDomain.ExpiringBatch{
 			{BatchID: "batch-1", SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", ExpiryDate: expiry, Quantity: 5},
 		}},
+		&stubListStockMovements{}, &stubReceiveStock{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/batches/expiring-soon?within_days=10", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"sku_code":"SKU-1"`)
 	assert.Contains(t, w.Body.String(), `"product_name":"Widget"`)
+}
+
+func TestListStockMovementsHandler_returnsMovements(t *testing.T) {
+	h := inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{},
+		&stubListStockMovements{out: []invDomain.StockMovement{
+			{ID: "movement-1", SKUID: "sku-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10},
+		}},
+		&stubReceiveStock{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/skus/sku-1/movements", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"id":"movement-1"`)
+	assert.Contains(t, w.Body.String(), `"quantity_delta":10`)
 }
 
 func TestRecordStockMovementHandler_success(t *testing.T) {
@@ -508,6 +562,33 @@ func TestMarkDamagedOrLostHandler_rejectsInvalidType(t *testing.T) {
 		&stubMarkDamagedOrLost{err: invDomain.ErrInvalidMovementType})
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/mark-damaged-lost",
 		map[string]any{"warehouse_id": "wh-1", "quantity": 2, "type": "damaged"})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestReceiveStockHandler_success(t *testing.T) {
+	receive := &stubReceiveStock{out: &appinventory.ReceiveStockResult{
+		Batch:    &invDomain.Batch{ID: "batch-1", SKUID: "sku-1", WarehouseID: "wh-1"},
+		Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: "sku-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10},
+	}}
+	h := newBatchTestHandlerWithReceive(&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{}, receive)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/receive",
+		map[string]any{"warehouse_id": "wh-1", "quantity": 10, "lot_number": "LOT-1"})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, "sku-1", receive.gotInput.SKUID)
+	require.Equal(t, int64(10), receive.gotInput.Quantity)
+	assert.Contains(t, w.Body.String(), "batch-1")
+	assert.Contains(t, w.Body.String(), "movement-1")
+}
+
+func TestReceiveStockHandler_rejectsInvalidQuantity(t *testing.T) {
+	h := newBatchTestHandlerWithReceive(&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubReceiveStock{err: invDomain.ErrInvalidQuantity})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/receive",
+		map[string]any{"warehouse_id": "wh-1", "quantity": 1})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

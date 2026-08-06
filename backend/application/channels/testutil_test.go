@@ -338,6 +338,9 @@ func (s *stubChannelsSKURepo) FindByCode(_ context.Context, code string) (*pmsDo
 	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
+func (s *stubChannelsSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, pmsDomain.ErrSKUNotFound
+}
 func (s *stubChannelsSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
 	return s.byVariant[variantID], nil
 }

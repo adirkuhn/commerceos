@@ -13,18 +13,26 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	genia "github.com/adirkuhn/commerceos/api/iam"
-	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
+	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
+	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
+	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
+	genscanning "github.com/adirkuhn/commerceos/api/scanning"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
+	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
-	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
+	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
+	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
+	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
+	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
+	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
@@ -151,6 +159,58 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	notificationshandler.Register(notificationsGroup, db)
+
+	suppliersSpec, err := gensuppliers.GetSpec()
+	if err != nil {
+		log.Fatalf("suppliers: load openapi spec: %v", err)
+	}
+	// Own sub-group so the suppliers-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	suppliersGroup := v1.Group("")
+	suppliersGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(suppliersSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	supplierhandler.Register(suppliersGroup, db)
+
+	procurementSpec, err := genprocurement.GetSpec()
+	if err != nil {
+		log.Fatalf("procurement: load openapi spec: %v", err)
+	}
+	// Own sub-group so the procurement-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	procurementGroup := v1.Group("")
+	procurementGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(procurementSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	procurementhandler.Register(procurementGroup, db, fileStorage)
+
+	scanningSpec, err := genscanning.GetSpec()
+	if err != nil {
+		log.Fatalf("scanning: load openapi spec: %v", err)
+	}
+	// Authenticated (JWT via v1) but deliberately NOT admin-restricted --
+	// see api/scanning/generate.go's doc comment: any authenticated role
+	// should be able to pair their own scanner.
+	scanningGroup := v1.Group("")
+	scanningGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(scanningSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	scanninghandler.Register(scanningGroup, db)
+
+	// Scanner claim is the one genuinely public, unauthenticated route in
+	// this API -- mounted on its own /api/v1 group with no JWT middleware,
+	// same reasoning as the /api/v1/uploads static mount below (both need
+	// to be reachable before any token exists). See
+	// api/scannerauth/generate.go's doc comment.
+	scannerauthSpec, err := genscannerauth.GetSpec()
+	if err != nil {
+		log.Fatalf("scannerauth: load openapi spec: %v", err)
+	}
+	scannerauthGroup := r.Group("/api/v1")
+	scannerauthGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(scannerauthSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	scannerauthhandler.Register(scannerauthGroup, db, []byte(cfg.JWTSecret))
 
 	// Uploaded product images — public, unauthenticated (product images are
 	// meant to be publicly viewable, same as any storefront/CDN asset).

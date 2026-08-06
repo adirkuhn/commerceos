@@ -1,0 +1,91 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Scanner Pairing API
+  version: "1.0"
+  description: >
+    Authenticated desktop-side pairing: generate a short-lived code, poll
+    whether it's been claimed by a handheld scanner. All routes are
+    JWT-protected but open to every authenticated role -- claiming a code
+    only ever mints a token with the exact same claims the generating user
+    already had, so there's no privilege escalation to guard against here.
+servers:
+  - url: /api/v1
+
+paths:
+  /iam/scanner-pairing:
+    post:
+      operationId: generatePairingCode
+      summary: Generate a short-lived pairing code for a handheld scanner to claim
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerPairingCodeResponse'
+
+  /iam/scanner-pairing/{id}:
+    get:
+      operationId: getPairingCodeStatus
+      summary: Poll whether a generated pairing code has been claimed yet
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScannerPairingCodeResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ScannerPairingCodeStatus:
+      type: string
+      enum: [pending, claimed]
+
+    ScannerPairingCode:
+      type: object
+      required: [id, tenant_id, code, status, expires_at, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        code: { type: string, description: The short code to display/scan -- never re-shown once claimed. }
+        status: { $ref: '#/components/schemas/ScannerPairingCodeStatus' }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        claimed_at: { type: string, format: date-time, nullable: true }
+
+    ScannerPairingCodeResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ScannerPairingCode' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

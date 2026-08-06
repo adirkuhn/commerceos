@@ -1,0 +1,50 @@
+package procurement
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
+	"github.com/adirkuhn/commerceos/internal/tenant"
+	"gorm.io/gorm"
+)
+
+type AddPurchaseOrderLineItemInput struct {
+	PurchaseOrderID    string
+	SKUID              *string
+	RawSKU             string
+	RawDescription     string
+	Quantity           int64
+	UnitCostMinorUnits int64
+}
+
+type AddPurchaseOrderLineItemUseCase struct {
+	db           *gorm.DB
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
+}
+
+func NewAddPurchaseOrderLineItemUseCase(db *gorm.DB, lineItemRepo procurementDomain.PurchaseOrderLineItemRepository) *AddPurchaseOrderLineItemUseCase {
+	return &AddPurchaseOrderLineItemUseCase{db: db, lineItemRepo: lineItemRepo}
+}
+
+func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPurchaseOrderLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	if in.Quantity <= 0 {
+		return nil, fmt.Errorf("addPurchaseOrderLineItem: %w", procurementDomain.ErrInvalidQuantity)
+	}
+
+	var li procurementDomain.PurchaseOrderLineItem
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		now := time.Now()
+		li = procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, SKUID: in.SKUID, RawSKU: in.RawSKU,
+			RawDescription: in.RawDescription, Quantity: in.Quantity, UnitCostMinorUnits: in.UnitCostMinorUnits,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		return uc.lineItemRepo.Create(ctx, &li)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("addPurchaseOrderLineItem: %w", err)
+	}
+	return &li, nil
+}

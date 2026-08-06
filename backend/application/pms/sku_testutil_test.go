@@ -57,6 +57,9 @@ func (s *stubSKURepo) FindByCode(_ context.Context, _ string) (*pmsDomain.SKU, e
 	}
 	return s.findByCodeResult, s.findByCodeErr
 }
+func (s *stubSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, pmsDomain.ErrSKUNotFound
+}
 func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
 	return nil, nil
 }

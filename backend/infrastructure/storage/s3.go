@@ -18,6 +18,7 @@ import (
 type s3PutRemover interface {
 	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
 	RemoveObject(ctx context.Context, bucketName, objectName string, opts minio.RemoveObjectOptions) error
+	GetObject(ctx context.Context, bucketName, objectName string, opts minio.GetObjectOptions) (*minio.Object, error)
 }
 
 // S3Storage adapts the domain's pms.FileStorage port to an S3-compatible
@@ -66,4 +67,15 @@ func (s *S3Storage) Delete(ctx context.Context, url string) error {
 		return fmt.Errorf("s3Storage.Delete: %w", err)
 	}
 	return nil
+}
+
+// Get re-fetches a previously-saved object. The caller owns the returned
+// ReadCloser and must Close it.
+func (s *S3Storage) Get(ctx context.Context, url string) (io.ReadCloser, error) {
+	key := strings.TrimPrefix(url, s.publicBaseURL+"/")
+	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("s3Storage.Get: %w", err)
+	}
+	return obj, nil
 }

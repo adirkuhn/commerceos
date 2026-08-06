@@ -18,11 +18,15 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
+	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
+	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/pdf"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
@@ -41,6 +45,15 @@ const pollInterval = 60 * time.Second
 // are user-triggered (the "Import" button) and should start promptly, not
 // wait up to a full minute the way a periodic sync schedule can afford to.
 const importJobPollInterval = 5 * time.Second
+
+// documentParsingJobPollInterval mirrors importJobPollInterval: a supplier
+// document upload is also user-triggered and should start parsing promptly.
+const documentParsingJobPollInterval = 5 * time.Second
+
+// receivingParsingJobPollInterval mirrors documentParsingJobPollInterval: a
+// supplier invoice upload is also user-triggered and should start parsing
+// promptly.
+const receivingParsingJobPollInterval = 5 * time.Second
 
 // buildFileStorage mirrors cmd/api/main.go's helper of the same name —
 // each binary wires its own dependencies (no shared main-package library
@@ -119,6 +132,32 @@ func main() {
 	)
 	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
 
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	documentRepo := repositories.NewPurchaseOrderDocumentRepo(db)
+	parsingJobRepo := repositories.NewDocumentParsingJobRepo(db)
+	aliasRepo := repositories.NewSupplierProductAliasRepo(db)
+	matchUC := procurementapp.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	pdfExtractor := pdf.NewLedongthucExtractor()
+	// aiParser stays nil when OPENAI_API_KEY isn't set — PDFs then fail
+	// clearly with procurement.ErrAIParsingNotConfigured instead of the
+	// job crashing; CSV/XLSX parsing and exact-SKU/alias matching both
+	// work with no AI configured at all.
+	var aiParser procurementDomain.AIDocumentParser
+	if cfg.OpenAIAPIKey != "" {
+		aiParser = ai.NewOpenAIDocumentParser(cfg.OpenAIAPIKey)
+	}
+	runDocumentParsingJobUC := procurementapp.NewRunDocumentParsingJobUseCase(
+		db, poRepo, lineItemRepo, documentRepo, matchUC, fileStorage, pdfExtractor, aiParser,
+	)
+
+	receivingRecordRepo := repositories.NewReceivingRecordRepo(db)
+	receivingJobRepo := repositories.NewReceivingParsingJobRepo(db)
+	discrepancyRepo := repositories.NewReceivingDiscrepancyRepo(db)
+	runReceivingParsingJobUC := procurementapp.NewRunReceivingParsingJobUseCase(
+		db, receivingRecordRepo, lineItemRepo, discrepancyRepo, fileStorage, pdfExtractor, aiParser,
+	)
+
 	processedEventRepo := repositories.NewProcessedEventRepo(db)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
@@ -168,11 +207,17 @@ func main() {
 	// permanently blocks any further import for the connection. Recover
 	// once at startup, before polling begins.
 	recoverOrphanedImportJobs(ctx, db, importJobRepo)
+	recoverOrphanedDocumentParsingJobs(ctx, db, parsingJobRepo)
+	recoverOrphanedReceivingParsingJobs(ctx, db, receivingJobRepo)
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	importJobTicker := time.NewTicker(importJobPollInterval)
 	defer importJobTicker.Stop()
+	documentParsingJobTicker := time.NewTicker(documentParsingJobPollInterval)
+	defer documentParsingJobTicker.Stop()
+	receivingParsingJobTicker := time.NewTicker(receivingParsingJobPollInterval)
+	defer receivingParsingJobTicker.Stop()
 
 	log.Println("scheduler started")
 	for {
@@ -185,6 +230,10 @@ func main() {
 			runExpiredSalePrices(ctx, db, skuRepo, expireSalePriceUC)
 		case <-importJobTicker.C:
 			runPendingImportJobs(ctx, db, importJobRepo, importUC, notifyUC)
+		case <-documentParsingJobTicker.C:
+			runPendingDocumentParsingJobs(ctx, db, parsingJobRepo, runDocumentParsingJobUC, notifyUC)
+		case <-receivingParsingJobTicker.C:
+			runPendingReceivingParsingJobs(ctx, db, receivingJobRepo, runReceivingParsingJobUC, notifyUC)
 		}
 	}
 }
@@ -359,6 +408,187 @@ func runImportJob(
 	}
 	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportCompleted, "Import completed",
 		fmt.Sprintf("Imported %d products (%d already linked, %d skipped)", result.Imported, result.AlreadyLinked, result.SkippedType))
+}
+
+// recoverOrphanedDocumentParsingJobs mirrors recoverOrphanedImportJobs for
+// DocumentParsingJob -- see that function's comment for the full rationale.
+func recoverOrphanedDocumentParsingJobs(ctx context.Context, db *gorm.DB, jobRepo procurementDomain.DocumentParsingJobRepository) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+	var recovered int64
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "interrupted: scheduler restarted while this job was running", time.Now())
+		return err
+	})
+	if err != nil {
+		log.Printf("recover orphaned document parsing jobs: %v", err)
+		return
+	}
+	if recovered > 0 {
+		log.Printf("recovered %d orphaned document parsing job(s) left running by a previous scheduler process", recovered)
+	}
+}
+
+// runPendingDocumentParsingJobs mirrors runPendingImportJobs for
+// DocumentParsingJob -- same cross-tenant/SuperAdmin poll shape.
+func runPendingDocumentParsingJobs(
+	ctx context.Context, db *gorm.DB, jobRepo procurementDomain.DocumentParsingJobRepository,
+	runUC *procurementapp.RunDocumentParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+
+	var pending []procurementDomain.DocumentParsingJob
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		pending, err = jobRepo.ListPending(ctx)
+		return err
+	})
+	if err != nil {
+		log.Printf("list pending document parsing jobs: %v", err)
+		return
+	}
+
+	for _, job := range pending {
+		runDocumentParsingJob(adminCtx, db, jobRepo, runUC, notifyUC, job)
+	}
+}
+
+// runDocumentParsingJob runs a single pending job under its own tenant's
+// identity and always leaves it in a terminal state (completed/failed) plus
+// a matching notification, even on failure -- same shape as runImportJob.
+func runDocumentParsingJob(
+	adminCtx context.Context, db *gorm.DB, jobRepo procurementDomain.DocumentParsingJobRepository,
+	runUC *procurementapp.RunDocumentParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	job procurementDomain.DocumentParsingJob,
+) {
+	runCtx := tenant.WithTenantID(adminCtx, job.TenantID)
+
+	startedAt := time.Now()
+	if err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkRunning(ctx, job.ID, startedAt)
+	}); err != nil {
+		log.Printf("mark document parsing job %s running: %v", job.ID, err)
+		return
+	}
+
+	needsReview, err := runUC.Execute(runCtx, job)
+	finishedAt := time.Now()
+
+	if err != nil {
+		log.Printf("document parsing job %s: %v", job.ID, err)
+		if markErr := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+			return jobRepo.MarkFailed(ctx, job.ID, err.Error(), finishedAt)
+		}); markErr != nil {
+			log.Printf("mark document parsing job %s failed: %v", job.ID, markErr)
+		}
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeDocumentParsingFailed, "Document parsing failed", err.Error())
+		return
+	}
+
+	if markErr := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkCompleted(ctx, job.ID, finishedAt)
+	}); markErr != nil {
+		log.Printf("mark document parsing job %s completed: %v", job.ID, markErr)
+	}
+
+	if needsReview {
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypePurchaseOrderNeedsReview, "Purchase order needs review",
+			"Some line items couldn't be matched to a product automatically — review and link them.")
+		return
+	}
+	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeDocumentParsingCompleted, "Document parsed",
+		"All line items were matched to products automatically.")
+}
+
+// recoverOrphanedReceivingParsingJobs mirrors recoverOrphanedDocumentParsingJobs
+// for ReceivingParsingJob -- see recoverOrphanedImportJobs's comment for the
+// full rationale.
+func recoverOrphanedReceivingParsingJobs(ctx context.Context, db *gorm.DB, jobRepo procurementDomain.ReceivingParsingJobRepository) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+	var recovered int64
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "interrupted: scheduler restarted while this job was running", time.Now())
+		return err
+	})
+	if err != nil {
+		log.Printf("recover orphaned receiving parsing jobs: %v", err)
+		return
+	}
+	if recovered > 0 {
+		log.Printf("recovered %d orphaned receiving parsing job(s) left running by a previous scheduler process", recovered)
+	}
+}
+
+// runPendingReceivingParsingJobs mirrors runPendingDocumentParsingJobs for
+// ReceivingParsingJob -- same cross-tenant/SuperAdmin poll shape.
+func runPendingReceivingParsingJobs(
+	ctx context.Context, db *gorm.DB, jobRepo procurementDomain.ReceivingParsingJobRepository,
+	runUC *procurementapp.RunReceivingParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+
+	var pending []procurementDomain.ReceivingParsingJob
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		pending, err = jobRepo.ListPending(ctx)
+		return err
+	})
+	if err != nil {
+		log.Printf("list pending receiving parsing jobs: %v", err)
+		return
+	}
+
+	for _, job := range pending {
+		runReceivingParsingJob(adminCtx, db, jobRepo, runUC, notifyUC, job)
+	}
+}
+
+// runReceivingParsingJob runs a single pending job under its own tenant's
+// identity and always leaves it in a terminal state (completed/failed) plus
+// a matching notification, even on failure -- same shape as runDocumentParsingJob.
+func runReceivingParsingJob(
+	adminCtx context.Context, db *gorm.DB, jobRepo procurementDomain.ReceivingParsingJobRepository,
+	runUC *procurementapp.RunReceivingParsingJobUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	job procurementDomain.ReceivingParsingJob,
+) {
+	runCtx := tenant.WithTenantID(adminCtx, job.TenantID)
+
+	startedAt := time.Now()
+	if err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkRunning(ctx, job.ID, startedAt)
+	}); err != nil {
+		log.Printf("mark receiving parsing job %s running: %v", job.ID, err)
+		return
+	}
+
+	discrepancyCount, err := runUC.Execute(runCtx, job)
+	finishedAt := time.Now()
+
+	if err != nil {
+		log.Printf("receiving parsing job %s: %v", job.ID, err)
+		if markErr := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+			return jobRepo.MarkFailed(ctx, job.ID, err.Error(), finishedAt)
+		}); markErr != nil {
+			log.Printf("mark receiving parsing job %s failed: %v", job.ID, markErr)
+		}
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingParsingFailed, "Invoice parsing failed", err.Error())
+		return
+	}
+
+	if markErr := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkCompleted(ctx, job.ID, finishedAt)
+	}); markErr != nil {
+		log.Printf("mark receiving parsing job %s completed: %v", job.ID, markErr)
+	}
+
+	if discrepancyCount > 0 {
+		notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingDiscrepanciesFound, "Receiving discrepancies found",
+			fmt.Sprintf("The invoice didn't fully match the purchase order (%d discrepancies) — review and reconcile.", discrepancyCount))
+		return
+	}
+	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeReceivingParsingCompleted, "Invoice parsed",
+		"The invoice matched the purchase order exactly.")
 }
 
 // notifyBestEffort never aborts the caller — a notification failing to

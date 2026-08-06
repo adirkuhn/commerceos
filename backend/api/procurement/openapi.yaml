@@ -1,0 +1,870 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Procurement API
+  description: Purchase order CRUD with nested line items (domain/procurement).
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /procurement/purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      summary: List purchase orders for the current tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderListResponse'
+    post:
+      operationId: createPurchaseOrder
+      summary: Create a purchase order (always starts as draft)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseOrderRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}:
+    get:
+      operationId: getPurchaseOrder
+      summary: Get a purchase order with its line items
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: updatePurchaseOrder
+      summary: Update a purchase order's header fields (incl. status)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePurchaseOrderRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deletePurchaseOrder
+      summary: Delete a purchase order (cascades its line items)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/line-items:
+    post:
+      operationId: addPurchaseOrderLineItem
+      summary: Add a line item to a purchase order
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItemResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/documents:
+    post:
+      operationId: attachDocumentToPurchaseOrder
+      summary: Upload a PDF/CSV/XLSX document and attach it to an existing purchase order for parsing
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentParsingJobResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/documents:
+    post:
+      operationId: createPurchaseOrderFromDocument
+      summary: Upload a PDF/CSV/XLSX document to create a new draft purchase order from it. supplier_id is optional -- omit it to send the PO straight to needs_review for a human to link or create a supplier.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, currency_code]
+              properties:
+                file: { type: string, format: binary }
+                supplier_id: { type: string }
+                # Omit to leave it unset -- assigned later, at the first
+                # booking/receiving action against this PO.
+                warehouse_id: { type: string }
+                currency_code: { type: string, minLength: 3, maxLength: 3 }
+                expected_date: { type: string, format: date }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentParsingJobResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/create-supplier-and-assign:
+    post:
+      operationId: createSupplierAndAssignToPurchaseOrder
+      summary: Review UI action -- create a new supplier from a PO that was uploaded without one, and assign it
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSupplierAndAssignRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-order-line-items/{id}:
+    patch:
+      operationId: updatePurchaseOrderLineItem
+      summary: Update a purchase order line item
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLineItemRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItemResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: removePurchaseOrderLineItem
+      summary: Remove a purchase order line item
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-order-line-items/{id}/link:
+    post:
+      operationId: linkLineItemToSku
+      summary: Review UI action -- link an unmatched line item to an existing SKU, learning the correction for next time
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkLineItemRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItemResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-order-line-items/{id}/create-product-and-link:
+    post:
+      operationId: createProductAndLinkLineItem
+      summary: Review UI action -- create a new product/SKU from an unmatched line item and link it
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductAndLinkLineItemRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItemResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/invoices:
+    post:
+      operationId: uploadInvoice
+      summary: Upload a supplier invoice (PDF/CSV/XLSX) against an existing purchase order for parsing + reconciliation
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingParsingJobResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/receiving-records:
+    get:
+      operationId: listReceivingRecords
+      summary: List receiving records (invoice uploads) for a purchase order
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingRecordListResponse'
+
+  /procurement/receiving-records/{id}:
+    get:
+      operationId: getReceivingRecord
+      summary: Get a receiving record with its discrepancies, for the review UI
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingRecordDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /procurement/receiving-records/{id}/complete:
+    post:
+      operationId: completeReceiving
+      summary: Review UI action -- mark a receiving record applied once a human has reviewed its discrepancies and booked stock
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingRecordResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/booking:
+    post:
+      operationId: startOrResumeBooking
+      summary: Scanner app -- start a new booking session for this PO, or resume its existing in_progress/paused one. warehouse_id is required the first time (when the PO has none yet) and ignored afterward.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartOrResumeBookingRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/bookings/{id}:
+    get:
+      operationId: getBooking
+      summary: Scanner app -- get a booking with its PO line items and scan history, for the progress view
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /procurement/bookings/{id}/scan:
+    post:
+      operationId: scanBookingItem
+      summary: Scanner app -- resolve a scanned barcode/box-alias to a SKU and book received stock for it
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanBookingItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanBookingItemResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/bookings/{id}/pause:
+    post:
+      operationId: pauseBooking
+      summary: Scanner app -- pause an in-progress booking
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/bookings/{id}/complete:
+    post:
+      operationId: completeBooking
+      summary: Scanner app -- finish a booking; returns a missing-items report if any PO line wasn't fully scanned. completed_by is taken from the caller's own JWT claims, not the request body.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteBookingResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    PurchaseOrderStatus:
+      type: string
+      enum: [draft, sent, partially_received, received, cancelled, needs_review]
+
+    PurchaseOrder:
+      type: object
+      required: [id, tenant_id, status, currency_code, notes, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        # Nil when uploaded without a supplier picked up front -- the PO
+        # starts needs_review until one is linked or created via the review
+        # UI's one-click "create supplier" action.
+        supplier_id: { type: string, nullable: true }
+        # Nil until stock is actually received against this PO -- assigned
+        # at the first booking/receiving action, never required up front.
+        warehouse_id: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/PurchaseOrderStatus' }
+        currency_code: { type: string }
+        expected_date: { type: string, format: date, nullable: true }
+        notes: { type: string }
+        # Informational only, from AI-parsing a PDF upload with no supplier
+        # picked up front -- empty string means no suggestion. Never
+        # overwrites supplier_id/currency_code; the review UI pre-fills
+        # from these but a human still has to confirm.
+        suggested_supplier_name: { type: string }
+        suggested_currency_code: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PurchaseOrderLineItem:
+      type: object
+      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, quantity, unit_cost_minor_units, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        purchase_order_id: { type: string }
+        sku_id: { type: string, nullable: true }
+        raw_sku: { type: string }
+        raw_description: { type: string }
+        quantity: { type: integer, format: int64 }
+        unit_cost_minor_units: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PurchaseOrderDetail:
+      type: object
+      required: [purchase_order, line_items]
+      properties:
+        purchase_order: { $ref: '#/components/schemas/PurchaseOrder' }
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLineItem'
+
+    CreatePurchaseOrderRequest:
+      type: object
+      required: [supplier_id, currency_code]
+      properties:
+        supplier_id: { type: string }
+        warehouse_id: { type: string, nullable: true }
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+        expected_date: { type: string, format: date, nullable: true }
+        notes: { type: string }
+
+    UpdatePurchaseOrderRequest:
+      type: object
+      required: [supplier_id, status, currency_code]
+      properties:
+        supplier_id: { type: string }
+        warehouse_id: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/PurchaseOrderStatus' }
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+        expected_date: { type: string, format: date, nullable: true }
+        notes: { type: string }
+
+    AddLineItemRequest:
+      type: object
+      required: [raw_description, quantity, unit_cost_minor_units]
+      properties:
+        sku_id: { type: string, nullable: true }
+        raw_sku: { type: string }
+        raw_description: { type: string }
+        quantity: { type: integer, format: int64, minimum: 1 }
+        unit_cost_minor_units: { type: integer, format: int64, minimum: 0 }
+
+    UpdateLineItemRequest:
+      type: object
+      required: [raw_description, quantity, unit_cost_minor_units]
+      properties:
+        sku_id: { type: string, nullable: true }
+        raw_sku: { type: string }
+        raw_description: { type: string }
+        quantity: { type: integer, format: int64, minimum: 1 }
+        unit_cost_minor_units: { type: integer, format: int64, minimum: 0 }
+
+    PurchaseOrderResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PurchaseOrder' }
+        error: { nullable: true }
+
+    PurchaseOrderListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrder'
+        error: { nullable: true }
+
+    PurchaseOrderDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PurchaseOrderDetail' }
+        error: { nullable: true }
+
+    LineItemResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
+        error: { nullable: true }
+
+    DocumentParsingJobStatus:
+      type: string
+      enum: [pending, running, completed, failed]
+
+    DocumentParsingJob:
+      type: object
+      required: [id, tenant_id, purchase_order_id, document_id, status, error_message, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        purchase_order_id: { type: string }
+        document_id: { type: string }
+        status: { $ref: '#/components/schemas/DocumentParsingJobStatus' }
+        error_message: { type: string }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+
+    DocumentParsingJobResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/DocumentParsingJob' }
+        error: { nullable: true }
+
+    CreateSupplierAndAssignRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+
+    LinkLineItemRequest:
+      type: object
+      required: [sku_id]
+      properties:
+        sku_id: { type: string }
+
+    CreateProductAndLinkLineItemRequest:
+      type: object
+      required: [product_name, sku_code, currency_code]
+      properties:
+        product_name: { type: string }
+        sku_code: { type: string }
+        barcode: { type: string }
+        price_minor_units: { type: integer, format: int64, minimum: 0 }
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+
+    ReceivingParsingJobStatus:
+      type: string
+      enum: [pending, running, completed, failed]
+
+    ReceivingParsingJob:
+      type: object
+      required: [id, tenant_id, receiving_record_id, status, error_message, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        receiving_record_id: { type: string }
+        status: { $ref: '#/components/schemas/ReceivingParsingJobStatus' }
+        error_message: { type: string }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+
+    ReceivingParsingJobResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReceivingParsingJob' }
+        error: { nullable: true }
+
+    ReceivingRecordStatus:
+      type: string
+      enum: [pending_review, applied]
+
+    ReceivingRecord:
+      type: object
+      required: [id, tenant_id, purchase_order_id, invoice_file_url, invoice_file_name, content_type, status, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        purchase_order_id: { type: string }
+        invoice_file_url: { type: string }
+        invoice_file_name: { type: string }
+        content_type: { type: string }
+        status: { $ref: '#/components/schemas/ReceivingRecordStatus' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ReceivingRecordResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReceivingRecord' }
+        error: { nullable: true }
+
+    ReceivingRecordListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceivingRecord'
+        error: { nullable: true }
+
+    DiscrepancyType:
+      type: string
+      enum: [quantity_mismatch, missing_item, unexpected_item, expiry_mismatch]
+
+    ReceivingDiscrepancy:
+      type: object
+      required: [id, tenant_id, receiving_record_id, type, expected_qty, received_qty, details, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        receiving_record_id: { type: string }
+        line_item_id:
+          type: string
+          nullable: true
+          description: Nil for unexpected_item, since there's no PO line item to point at.
+        type: { $ref: '#/components/schemas/DiscrepancyType' }
+        expected_qty: { type: integer, format: int64 }
+        received_qty: { type: integer, format: int64 }
+        details: { type: string }
+        created_at: { type: string, format: date-time }
+
+    ReceivingRecordDetail:
+      type: object
+      required: [receiving_record, discrepancies]
+      properties:
+        receiving_record: { $ref: '#/components/schemas/ReceivingRecord' }
+        discrepancies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceivingDiscrepancy'
+
+    ReceivingRecordDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReceivingRecordDetail' }
+        error: { nullable: true }
+
+    BookingStatus:
+      type: string
+      enum: [in_progress, paused, completed]
+
+    Booking:
+      type: object
+      required: [id, tenant_id, purchase_order_id, status, started_at, completed_by]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        purchase_order_id: { type: string }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        started_at: { type: string, format: date-time }
+        paused_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+        completed_by: { type: string }
+
+    StartOrResumeBookingRequest:
+      type: object
+      properties:
+        warehouse_id: { type: string }
+
+    BookingResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Booking' }
+        error: { nullable: true }
+
+    BookingScan:
+      type: object
+      required: [id, tenant_id, booking_id, sku_id, quantity, scanned_at, scanned_by]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        booking_id: { type: string }
+        sku_id: { type: string }
+        batch_id: { type: string, nullable: true }
+        quantity: { type: integer, format: int64 }
+        scanned_at: { type: string, format: date-time }
+        scanned_by: { type: string }
+
+    BookingDetail:
+      type: object
+      required: [booking, line_items, scans]
+      properties:
+        booking: { $ref: '#/components/schemas/Booking' }
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLineItem'
+        scans:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingScan'
+
+    BookingDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BookingDetail' }
+        error: { nullable: true }
+
+    ScanBookingItemRequest:
+      type: object
+      required: [code, quantity]
+      properties:
+        code: { type: string, description: Raw scanned text -- a unit barcode or a case/box barcode alias. }
+        quantity: { type: integer, format: int64, minimum: 1 }
+        batch_id: { type: string, nullable: true }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+
+    ScanBookingItemResult:
+      type: object
+      required: [scan]
+      properties:
+        batch:
+          $ref: '#/components/schemas/Batch'
+          nullable: true
+        scan: { $ref: '#/components/schemas/BookingScan' }
+
+    ScanBookingItemResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ScanBookingItemResult' }
+        error: { nullable: true }
+
+    Batch:
+      type: object
+      required: [id, tenant_id, sku_id, warehouse_id, lot_number, received_at, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        sku_id: { type: string }
+        warehouse_id: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+        received_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    MissingBookingItem:
+      type: object
+      required: [line_item_id, raw_description, expected_qty, scanned_qty]
+      properties:
+        line_item_id: { type: string }
+        raw_description: { type: string }
+        expected_qty: { type: integer, format: int64 }
+        scanned_qty: { type: integer, format: int64 }
+
+    CompleteBookingResult:
+      type: object
+      required: [booking, missing_items]
+      properties:
+        booking: { $ref: '#/components/schemas/Booking' }
+        missing_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingBookingItem'
+
+    CompleteBookingResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CompleteBookingResult' }
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
