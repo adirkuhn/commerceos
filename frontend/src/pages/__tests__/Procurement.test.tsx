@@ -122,13 +122,13 @@ function lineItem(overrides: Partial<PurchaseOrderLineItem> = {}): PurchaseOrder
 }
 
 function detail(overrides: Partial<PurchaseOrderDetail> = {}): PurchaseOrderDetail {
-  return { purchase_order: po(), line_items: [], ...overrides }
+  return { purchase_order: po(), line_items: [], documents: [], ...overrides }
 }
 
 function product(overrides: Partial<Product> = {}): Product {
   return {
     id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
-    slug: 'widget-product', description: '', status: 'active', has_variants: false,
+    slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
     created_at: '', updated_at: '',
     ...overrides,
   }
@@ -475,6 +475,35 @@ describe('Purchase order edit with line items', () => {
     await userEvent.upload(fileInput, file)
 
     expect(await screen.findByText('AI document parsing is not configured')).toBeInTheDocument()
+  })
+})
+
+describe('Documents', () => {
+  it('shows a link to each uploaded document', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', created_at: '',
+      }],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    const link = await screen.findByText('invoice.pdf')
+    expect(link.closest('a')).toHaveAttribute('href', 'https://uploads.example.com/tenant-1/abc.pdf')
+  })
+
+  it('does not render a Documents section when there are none', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail())
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByLabelText('Supplier')
+
+    expect(screen.queryByText('Documents')).not.toBeInTheDocument()
   })
 })
 

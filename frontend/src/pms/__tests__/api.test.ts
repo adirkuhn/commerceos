@@ -31,7 +31,7 @@ const sampleCategory: Category = {
 
 const sampleProduct: Product = {
   id: 'p1', tenant_id: 't1', name: 'Widget', slug: 'widget', description: '',
-  status: 'active', has_variants: false, created_at: '2026-07-29T00:00:00Z', updated_at: '2026-07-29T00:00:00Z',
+  status: 'active', has_variants: false, tags: [], created_at: '2026-07-29T00:00:00Z', updated_at: '2026-07-29T00:00:00Z',
 }
 
 const sampleVariant: Variant = {

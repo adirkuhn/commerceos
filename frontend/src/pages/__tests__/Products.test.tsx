@@ -42,7 +42,7 @@ import * as integrationsApi from '../../integrations/api'
 function product(overrides: Partial<Product> = {}): Product {
   return {
     id: 'prod-1', tenant_id: 't1', name: 'T-Shirt', slug: 't-shirt',
-    description: '', status: 'active', has_variants: false, created_at: '', updated_at: '',
+    description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '',
     ...overrides,
   }
 }
@@ -352,6 +352,60 @@ describe('creating a new product', () => {
   })
 })
 
+describe('Tags', () => {
+  it('adds a tag on Enter and removes it via its remove button', async () => {
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    const tagsInput = screen.getByLabelText('Tags')
+    await userEvent.type(tagsInput, 'summer{Enter}')
+    expect(screen.getByText('summer')).toBeInTheDocument()
+    expect(tagsInput).toHaveValue('')
+
+    await userEvent.click(screen.getByLabelText('Remove tag summer'))
+    expect(screen.queryByText('summer')).not.toBeInTheDocument()
+  })
+
+  it('adds a tag on comma and ignores a duplicate', async () => {
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    const tagsInput = screen.getByLabelText('Tags')
+    await userEvent.type(tagsInput, 'sale,sale,')
+    expect(screen.getAllByText('sale')).toHaveLength(1)
+  })
+
+  it('sends the entered tags on create', async () => {
+    const created = product({ id: 'new-prod-3' })
+    vi.mocked(pmsApi.createProduct).mockResolvedValue(created)
+    vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'new-var-3', product_id: 'new-prod-3' })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: created, variants: [] })
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Tagged Shirt')
+    await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'TAGGEDSHIRT-1')
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
+    await userEvent.type(screen.getByLabelText('Tags'), 'summer{Enter}sale{Enter}')
+    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+
+    await waitFor(() => expect(pmsApi.createProduct).toHaveBeenCalled())
+    expect(pmsApi.createProduct).toHaveBeenCalledWith('test-token', expect.objectContaining({ tags: ['summer', 'sale'] }))
+  })
+
+  it('prefills existing tags when editing a product', async () => {
+    const detail: ProductDetail = { product: product({ tags: ['summer', 'sale'] }), variants: [] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText('summer')).toBeInTheDocument()
+    expect(screen.getByText('sale')).toBeInTheDocument()
+  })
+})
+
 describe('WooCommerce tab', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<AppProvider><Products /></AppProvider>)
@@ -521,7 +575,7 @@ describe('product edit page chrome', () => {
     render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    for (const label of ['Vendor', 'Collections', 'Tags', 'Page title', 'Meta description']) {
+    for (const label of ['Vendor', 'Collections', 'Page title', 'Meta description']) {
       const field = screen.getByLabelText(label)
       expect(field).toBeInTheDocument()
       expect(field).toBeDisabled()

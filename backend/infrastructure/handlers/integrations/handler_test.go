@@ -15,10 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	integrationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 )
 
@@ -222,6 +224,68 @@ func (s *stubDisconnectAIConnection) Execute(_ context.Context) error {
 	return s.err
 }
 
+type stubListSalesChannels struct {
+	out []channelsDomain.SalesChannel
+	err error
+}
+
+func (s *stubListSalesChannels) Execute(_ context.Context) ([]channelsDomain.SalesChannel, error) {
+	return s.out, s.err
+}
+
+type stubCreateSalesChannel struct {
+	out *channelsDomain.SalesChannel
+	err error
+	in  appchannels.CreateSalesChannelInput
+}
+
+func (s *stubCreateSalesChannel) Execute(_ context.Context, in appchannels.CreateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
+	s.in = in
+	return s.out, s.err
+}
+
+type stubUpdateSalesChannel struct {
+	out *channelsDomain.SalesChannel
+	err error
+	in  appchannels.UpdateSalesChannelInput
+}
+
+func (s *stubUpdateSalesChannel) Execute(_ context.Context, in appchannels.UpdateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
+	s.in = in
+	return s.out, s.err
+}
+
+type stubDeleteSalesChannel struct {
+	err error
+	id  string
+}
+
+func (s *stubDeleteSalesChannel) Execute(_ context.Context, id string) error {
+	s.id = id
+	return s.err
+}
+
+type stubListSalesChannelProducts struct {
+	out   []appchannels.ProductEnrollment
+	total int64
+	err   error
+}
+
+func (s *stubListSalesChannelProducts) Execute(_ context.Context, _ appchannels.ListProductsWithChannelEnrollmentInput) ([]appchannels.ProductEnrollment, int64, error) {
+	return s.out, s.total, s.err
+}
+
+type stubSetProductChannelOverride struct {
+	out *channelsDomain.SalesChannelProductOverride
+	err error
+	in  appchannels.SetProductChannelOverrideInput
+}
+
+func (s *stubSetProductChannelOverride) Execute(_ context.Context, in appchannels.SetProductChannelOverrideInput) (*channelsDomain.SalesChannelProductOverride, error) {
+	s.in = in
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func newTestHandler(
@@ -235,7 +299,8 @@ func newTestHandler(
 	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn,
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
 		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
-		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{})
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
 }
 
 // newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
@@ -247,6 +312,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -258,6 +324,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -269,6 +336,7 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -281,6 +349,7 @@ func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integra
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -293,6 +362,7 @@ func newListSyncLogsTestHandler(listLogs *stubListSyncLogs) *integrationshandler
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -306,6 +376,7 @@ func newListAllSyncLogsTestHandler(listAll *stubListAllSyncLogs) *integrationsha
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll,
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -659,6 +730,7 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 		&stubDisconnectConnection{}, &stubTestConnection{}, importUC, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -673,6 +745,7 @@ func newAIConnectionTestHandler(
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		get, connect, disconnect,
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 	)
 }
 
@@ -855,4 +928,153 @@ func TestListAllSyncLogsHandler_defaultsPageAndPerPage(t *testing.T) {
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/sync-logs", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
+}
+
+// newSalesChannelTestHandler builds a Handler for the sales-channel routes
+// specifically — every other use case is a harmless zero-value stub.
+func newSalesChannelTestHandler(
+	list *stubListSalesChannels,
+	create *stubCreateSalesChannel,
+	update *stubUpdateSalesChannel,
+	del *stubDeleteSalesChannel,
+	listProducts *stubListSalesChannelProducts,
+	setOverride *stubSetProductChannelOverride,
+) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		list, create, update, del, listProducts, setOverride,
+	)
+}
+
+func TestListSalesChannelsHandler_returnsChannels(t *testing.T) {
+	h := newSalesChannelTestHandler(&stubListSalesChannels{out: []channelsDomain.SalesChannel{
+		{ID: "chan-1", Name: "My Woo Store", Type: channelsDomain.ChannelTypeWooCommerce, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
+	}}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/sales-channels", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "My Woo Store")
+}
+
+func TestCreateSalesChannelHandler_returns201WithChannel(t *testing.T) {
+	create := &stubCreateSalesChannel{out: &channelsDomain.SalesChannel{
+		ID: "chan-1", Name: "My Woo Store", Type: channelsDomain.ChannelTypeWooCommerce, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+	}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, create, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.CreateSalesChannelRequest{
+		Name: "My Woo Store", Type: genintegrations.ChannelType(channelsDomain.ChannelTypeWooCommerce),
+		EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll),
+	}
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sales-channels", body)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), "My Woo Store")
+	assert.Equal(t, channelsDomain.EnrollmentModeAll, create.in.EnrollmentMode)
+}
+
+func TestCreateSalesChannelHandler_returns422OnInvalidEnrollmentMode(t *testing.T) {
+	create := &stubCreateSalesChannel{err: channelsDomain.ErrInvalidEnrollmentMode}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, create, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.CreateSalesChannelRequest{Name: "Bad", Type: genintegrations.ChannelType(channelsDomain.ChannelTypeWooCommerce), EnrollmentMode: "bogus"}
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sales-channels", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdateSalesChannelHandler_returnsUpdatedChannel(t *testing.T) {
+	update := &stubUpdateSalesChannel{out: &channelsDomain.SalesChannel{ID: "chan-1", Name: "Renamed", EnrollmentMode: channelsDomain.EnrollmentModeAll}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, update, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.UpdateSalesChannelRequest{Name: "Renamed", EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll), Active: true}
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/sales-channels/chan-1", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Renamed")
+	assert.Equal(t, "chan-1", update.in.ID)
+}
+
+func TestUpdateSalesChannelHandler_returns404WhenChannelNotFound(t *testing.T) {
+	update := &stubUpdateSalesChannel{err: channelsDomain.ErrSalesChannelNotFound}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, update, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.UpdateSalesChannelRequest{Name: "Renamed", EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll)}
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/sales-channels/missing", body)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeleteSalesChannelHandler_returns200(t *testing.T) {
+	del := &stubDeleteSalesChannel{}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, del, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodDelete, "/api/v1/integrations/sales-channels/chan-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "chan-1", del.id)
+}
+
+func TestListSalesChannelProductsHandler_returnsProductsWithEnrollment(t *testing.T) {
+	category := "cat-1"
+	listProducts := &stubListSalesChannelProducts{
+		out: []appchannels.ProductEnrollment{
+			{Product: pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CategoryID: &category, Tags: []string{"summer"}}, Enrolled: true},
+		},
+		total: 1,
+	}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, listProducts, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/sales-channels/chan-1/products?page=1&per_page=20", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "T-Shirt")
+	assert.Contains(t, w.Body.String(), `"enrolled":true`)
+	assert.Contains(t, w.Body.String(), `"total":1`)
+}
+
+func TestSetSalesChannelProductOverrideHandler_returns200(t *testing.T) {
+	setOverride := &stubSetProductChannelOverride{out: &channelsDomain.SalesChannelProductOverride{}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, setOverride)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.SetSalesChannelProductOverrideRequest{Included: true}
+	w := doRequest(r, http.MethodPut, "/api/v1/integrations/sales-channels/chan-1/products/p1/override", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, setOverride.in.Included)
+	assert.Equal(t, "chan-1", setOverride.in.ChannelID)
+	assert.Equal(t, "p1", setOverride.in.ProductID)
+}
+
+func TestSetSalesChannelProductOverrideHandler_returns404WhenProductNotFound(t *testing.T) {
+	setOverride := &stubSetProductChannelOverride{err: pmsDomain.ErrProductNotFound}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, setOverride)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.SetSalesChannelProductOverrideRequest{Included: true}
+	w := doRequest(r, http.MethodPut, "/api/v1/integrations/sales-channels/chan-1/products/missing/override", body)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }

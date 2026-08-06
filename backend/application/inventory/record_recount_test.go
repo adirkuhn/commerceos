@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,6 +11,19 @@ import (
 	appinv "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 )
+
+func TestRecordRecount_rejectsNegativeCountedQuantity(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	uc := appinv.NewRecordRecountUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordRecountInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", CountedQuantity: -1, OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInvalidQuantity))
+	require.Empty(t, movementRepo.created)
+}
 
 func TestRecordRecount_createsAdjustmentForBatchScopedDifference(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{byBatch: []invDomain.StockMovement{

@@ -35,9 +35,21 @@ export interface PurchaseOrderLineItem {
   updated_at: string
 }
 
+export interface PurchaseOrderDocument {
+  id: string
+  purchase_order_id: string
+  // Already a directly fetchable URL (see backend pms.FileStorage.Save) --
+  // no separate download endpoint needed, just link straight to it.
+  file_url: string
+  file_name: string
+  content_type: string
+  created_at: string
+}
+
 export interface PurchaseOrderDetail {
   purchase_order: PurchaseOrder
   line_items: PurchaseOrderLineItem[]
+  documents: PurchaseOrderDocument[]
 }
 
 export interface CreatePurchaseOrderInput {

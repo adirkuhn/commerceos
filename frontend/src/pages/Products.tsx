@@ -211,8 +211,8 @@ interface ProductEditorProps {
   productId: string | null
   categories: Category[]
   onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
-  onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean }) => Promise<Product>
-  onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean }) => Promise<Product>
+  onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; tags?: string[] }) => Promise<Product>
+  onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; tags?: string[] }) => Promise<Product>
   onClose: () => void
 }
 
@@ -226,6 +226,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const [description, setDescription] = useState(existing?.description ?? '')
   const [categoryId, setCategoryId] = useState<string>(existing?.category_id ?? '')
   const [status, setStatus] = useState<ProductStatus>(existing?.status ?? 'draft')
+  const [tags, setTags] = useState<string[]>(existing?.tags ?? [])
+  const [tagInput, setTagInput] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
@@ -269,6 +271,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
     setDescription(existing.description)
     setCategoryId(existing.category_id ?? '')
     setStatus(existing.status)
+    setTags(existing.tags ?? [])
     setVariantsMode(existing.has_variants)
     const variants = detail.detail?.variants ?? []
     if (variants.length === 1) {
@@ -294,12 +297,27 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const singleVariant: VariantWithSKUs | null =
     !variantsMode && detail.detail?.variants.length === 1 ? detail.detail.variants[0] : null
 
+  const addTag = (raw: string) => {
+    const value = raw.trim()
+    if (value && !tags.includes(value)) setTags(prev => [...prev, value])
+    setTagInput('')
+  }
+  const removeTag = (value: string) => setTags(prev => prev.filter(t => t !== value))
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag(tagInput)
+    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+      removeTag(tags[tags.length - 1])
+    }
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError('')
     setSaving(true)
     try {
-      const payload = { name, description, category_id: categoryId || null, status, has_variants: variantsMode }
+      const payload = { name, description, category_id: categoryId || null, status, has_variants: variantsMode, tags }
       // A virtual SKU never ships, so it can never carry weight/dimensions
       // (enforced server-side too — see ErrVirtualSKUCannotHaveDimensions).
       const dimensions = isVirtual
@@ -401,7 +419,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
     setEnableVariantsError('')
     setEnablingVariants(true)
     try {
-      await onUpdate(savedProductId, { name, description, category_id: categoryId || null, status, has_variants: true })
+      await onUpdate(savedProductId, { name, description, category_id: categoryId || null, status, has_variants: true, tags })
       setVariantsMode(true)
     } catch (err) {
       setEnableVariantsError(err instanceof Error ? err.message : 'Failed to enable variants')
@@ -518,6 +536,35 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                   value={description} onChange={e => setDescription(e.target.value)} rows={3}
                   className={inputClass}
                 />
+              </div>
+              <div>
+                <label htmlFor="product-tags" className={labelClass}>Tags</label>
+                <div className={clsx(inputClass, 'flex flex-wrap items-center gap-1.5 h-auto min-h-[2.25rem] py-1.5')}>
+                  {tags.map(tag => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] dark:bg-[#2D3748] bg-gray-100 dark:text-gray-300 text-gray-700"
+                    >
+                      {tag}
+                      <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>
+                        <X size={10} className="dark:text-gray-500 text-gray-400" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id="product-tags"
+                    type="text"
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={handleTagInputKeyDown}
+                    onBlur={() => addTag(tagInput)}
+                    placeholder={tags.length === 0 ? 'summer, sale…' : ''}
+                    className="flex-1 min-w-[6rem] bg-transparent outline-none text-xs dark:text-gray-300 text-gray-700"
+                  />
+                </div>
+                <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                  Press Enter or comma to add. Used by Sales Channels' "by tag" enrollment rule.
+                </p>
               </div>
             </FormCard>
 
@@ -715,11 +762,6 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               <div className="pt-4">
                 <label htmlFor="product-collections" className={labelClass}>Collections</label>
                 <input id="product-collections" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
-              </div>
-
-              <div className="pt-4">
-                <label htmlFor="product-tags" className={labelClass}>Tags</label>
-                <input id="product-tags" disabled placeholder="Coming soon" className={clsx(inputClass, 'cursor-not-allowed opacity-60')} />
               </div>
             </div>
 

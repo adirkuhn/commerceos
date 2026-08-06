@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { Connection, SyncSchedule, ProductChannelListing, SyncLogEntry, APIResponse } from '../types'
+import type { Connection, SyncSchedule, ProductChannelListing, SyncLogEntry, APIResponse, SalesChannel, SalesChannelProductEnrollment } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -357,5 +357,137 @@ describe('listAllSyncLogs', () => {
   it('throws on failure', async () => {
     mockFetchError('INTERNAL', 'internal server error', 500)
     await expect(api.listAllSyncLogs(TOKEN)).rejects.toThrow('internal server error')
+  })
+})
+
+const sampleChannel: SalesChannel = {
+  id: 'chan-1',
+  name: 'My Woo Store',
+  type: 'woocommerce',
+  connection_id: 'conn-1',
+  enrollment_mode: 'all',
+  active: true,
+  created_at: '2026-08-01T00:00:00Z',
+  updated_at: '2026-08-01T00:00:00Z',
+}
+
+describe('listSalesChannels', () => {
+  it('returns array of channels', async () => {
+    mockFetch([sampleChannel])
+    const result = await api.listSalesChannels(TOKEN)
+    expect(result).toEqual([sampleChannel])
+  })
+
+  it('calls the correct endpoint', async () => {
+    mockFetch([])
+    await api.listSalesChannels(TOKEN)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})
+
+describe('createSalesChannel', () => {
+  it('sends the payload to the correct endpoint', async () => {
+    mockFetch(sampleChannel)
+    await api.createSalesChannel(TOKEN, {
+      name: 'My Woo Store', type: 'woocommerce', connectionId: 'conn-1', enrollmentMode: 'all',
+    })
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({
+      name: 'My Woo Store', type: 'woocommerce', connection_id: 'conn-1', enrollment_mode: 'all',
+    })
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'connection is required for this channel type', 422)
+    await expect(api.createSalesChannel(TOKEN, { name: 'x', type: 'woocommerce', enrollmentMode: 'all' })).rejects.toThrow(
+      'connection is required for this channel type',
+    )
+  })
+})
+
+describe('updateSalesChannel', () => {
+  it('sends the payload to the correct endpoint', async () => {
+    mockFetch({ ...sampleChannel, name: 'Renamed' })
+    await api.updateSalesChannel(TOKEN, 'chan-1', {
+      name: 'Renamed', connectionId: 'conn-1', enrollmentMode: 'tag', enrollmentTag: 'summer', active: true,
+    })
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels/chan-1')
+    expect(opts.method).toBe('PATCH')
+    expect(JSON.parse(opts.body as string)).toEqual({
+      name: 'Renamed', connection_id: 'conn-1', enrollment_mode: 'tag', enrollment_tag: 'summer', active: true,
+    })
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'sales channel not found', 404)
+    await expect(api.updateSalesChannel(TOKEN, 'missing', { name: 'x', enrollmentMode: 'all', active: true })).rejects.toThrow(
+      'sales channel not found',
+    )
+  })
+})
+
+describe('deleteSalesChannel', () => {
+  it('calls the correct endpoint with DELETE', async () => {
+    mockFetch(null)
+    await api.deleteSalesChannel(TOKEN, 'chan-1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels/chan-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+})
+
+const sampleEnrollment: SalesChannelProductEnrollment = {
+  product: { id: 'p1', name: 'T-Shirt', slug: 't-shirt', category_id: 'cat-1', tags: ['summer'] },
+  enrolled: true,
+}
+
+function mockChannelProductsFetch(data: SalesChannelProductEnrollment[], total: number) {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ data, total, error: null }),
+  }))
+}
+
+describe('listSalesChannelProducts', () => {
+  it('returns items and total', async () => {
+    mockChannelProductsFetch([sampleEnrollment], 1)
+    const result = await api.listSalesChannelProducts(TOKEN, 'chan-1')
+    expect(result).toEqual({ items: [sampleEnrollment], total: 1 })
+  })
+
+  it('sends search/page/per_page as query params', async () => {
+    mockChannelProductsFetch([], 0)
+    await api.listSalesChannelProducts(TOKEN, 'chan-1', { search: 'shirt', page: 2, perPage: 20 })
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels/chan-1/products?search=shirt&page=2&per_page=20')
+  })
+
+  it('throws on failure', async () => {
+    mockFetchError('NOT_FOUND', 'sales channel not found', 404)
+    await expect(api.listSalesChannelProducts(TOKEN, 'missing')).rejects.toThrow('sales channel not found')
+  })
+})
+
+describe('setSalesChannelProductOverride', () => {
+  it('sends included in body to the correct endpoint', async () => {
+    mockFetch(null)
+    await api.setSalesChannelProductOverride(TOKEN, 'chan-1', 'p1', true)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels/chan-1/products/p1/override')
+    expect(opts.method).toBe('PUT')
+    expect(JSON.parse(opts.body as string)).toEqual({ included: true })
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'product not found', 404)
+    await expect(api.setSalesChannelProductOverride(TOKEN, 'chan-1', 'missing', true)).rejects.toThrow('product not found')
   })
 })

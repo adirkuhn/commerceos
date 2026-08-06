@@ -186,7 +186,7 @@ func NewHandler(
 		addLineItem: addLineItem, updateLineItem: updateLineItem, removeLineItem: removeLineItem,
 		attachDocument: attachDocument, getDocumentParsingJob: getDocumentParsingJob, getReceivingParsingJob: getReceivingParsingJob,
 		createPurchaseOrderFromDoc: createPurchaseOrderFromDoc,
-		linkLineItemToSKU: linkLineItemToSKU, createProductAndLink: createProductAndLink,
+		linkLineItemToSKU:          linkLineItemToSKU, createProductAndLink: createProductAndLink,
 		createSupplierAndAssign: createSupplierAndAssign,
 		uploadInvoice:           uploadInvoice,
 		listReceivingRecords:    listReceivingRecords,
@@ -234,7 +234,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	h := NewHandler(
 		appprocurement.NewListPurchaseOrdersUseCase(db, poRepo),
 		createPurchaseOrderUC,
-		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo),
+		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo, documentRepo),
 		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo),
 		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo),
 		appprocurement.NewAddPurchaseOrderLineItemUseCase(db, lineItemRepo),
@@ -246,7 +246,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewCreatePurchaseOrderFromDocumentUseCase(createPurchaseOrderUC, attachDocumentUC),
 		linkLineItemToSKUUC,
 		appprocurement.NewCreateProductAndLinkLineItemUseCase(
-			pmsapp.NewCreateProductUseCase(db, productRepo),
+			pmsapp.NewCreateProductUseCase(db, productRepo, outboxRepo),
 			pmsapp.NewCreateVariantUseCase(db, productRepo, variantRepo),
 			pmsapp.NewCreateSKUUseCase(db, variantRepo, skuRepo),
 			linkLineItemToSKUUC,
@@ -310,9 +310,14 @@ func (h *Handler) GetPurchaseOrder(c *gin.Context, id genprocurement.Id) {
 	for i, li := range detail.LineItems {
 		lineItems[i] = toGenLineItem(li)
 	}
+	documents := make([]genprocurement.PurchaseOrderDocument, len(detail.Documents))
+	for i, d := range detail.Documents {
+		documents[i] = toGenDocument(d)
+	}
 	resp := genprocurement.PurchaseOrderDetail{
 		PurchaseOrder: toGenPurchaseOrder(detail.PurchaseOrder),
 		LineItems:     lineItems,
+		Documents:     documents,
 	}
 	c.JSON(http.StatusOK, genprocurement.PurchaseOrderDetailResponse{Data: &resp})
 }
@@ -697,6 +702,13 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 		Id: li.ID, TenantId: li.TenantID, PurchaseOrderId: li.PurchaseOrderID, SkuId: li.SKUID, RawSku: li.RawSKU,
 		RawDescription: li.RawDescription, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
+	}
+}
+
+func toGenDocument(d procurementDomain.PurchaseOrderDocument) genprocurement.PurchaseOrderDocument {
+	return genprocurement.PurchaseOrderDocument{
+		Id: d.ID, PurchaseOrderId: d.PurchaseOrderID, FileUrl: d.FileURL, FileName: d.FileName,
+		ContentType: d.ContentType, CreatedAt: d.CreatedAt,
 	}
 }
 

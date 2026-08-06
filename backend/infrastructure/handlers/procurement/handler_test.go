@@ -511,6 +511,24 @@ func TestGetPurchaseOrderHandler_includesParsingSuggestions(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"suggested_currency_code":"EUR"`)
 }
 
+// TestGetPurchaseOrderHandler_includesDocuments is the fix for "no way to
+// view the uploaded document" -- PurchaseOrderDocument.FileURL was always
+// stored but never made it into any API response.
+func TestGetPurchaseOrderHandler_includesDocuments(t *testing.T) {
+	get := &stubGetPurchaseOrder{out: &appprocurement.PurchaseOrderDetail{
+		PurchaseOrder: procurementDomain.PurchaseOrder{ID: "po-1"},
+		Documents: []procurementDomain.PurchaseOrderDocument{
+			{ID: "document-1", PurchaseOrderID: "po-1", FileURL: "https://uploads.example.com/tenant-1/abc.pdf", FileName: "invoice.pdf", ContentType: "application/pdf"},
+		},
+	}}
+	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, get, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders/po-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"file_url":"https://uploads.example.com/tenant-1/abc.pdf"`)
+	assert.Contains(t, w.Body.String(), `"file_name":"invoice.pdf"`)
+}
+
 func TestGetPurchaseOrderHandler_notFound(t *testing.T) {
 	get := &stubGetPurchaseOrder{err: procurementDomain.ErrPurchaseOrderNotFound}
 	h := newTestHandler(&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, get, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})

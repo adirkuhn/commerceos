@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -17,15 +18,17 @@ type CreateProductInput struct {
 	CategoryID  *string
 	Status      pmsDomain.ProductStatus
 	HasVariants bool
+	Tags        []string
 }
 
 type CreateProductUseCase struct {
 	db          *gorm.DB
 	productRepo pmsDomain.ProductRepository
+	outboxRepo  outbox.Repository
 }
 
-func NewCreateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository) *CreateProductUseCase {
-	return &CreateProductUseCase{db: db, productRepo: productRepo}
+func NewCreateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, outboxRepo outbox.Repository) *CreateProductUseCase {
+	return &CreateProductUseCase{db: db, productRepo: productRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *CreateProductUseCase) Execute(ctx context.Context, in CreateProductInput) (*pmsDomain.Product, error) {
@@ -49,10 +52,14 @@ func (uc *CreateProductUseCase) Execute(ctx context.Context, in CreateProductInp
 			Description: in.Description,
 			Status:      in.Status,
 			HasVariants: in.HasVariants,
+			Tags:        in.Tags,
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		}
-		return uc.productRepo.Create(ctx, &product)
+		if err := uc.productRepo.Create(ctx, &product); err != nil {
+			return err
+		}
+		return enqueueProductChanged(ctx, uc.outboxRepo, product.ID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createProduct: %w", err)

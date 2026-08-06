@@ -61,6 +61,14 @@ func (uc *RecordStockMovementUseCase) Execute(ctx context.Context, in RecordStoc
 
 	var movement invDomain.StockMovement
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		movements, err := uc.movementRepo.ListBySKU(ctx, in.SKUID)
+		if err != nil {
+			return err
+		}
+		if err := requireSufficientStock(movements, in.WarehouseID, in.BatchID, in.QuantityDelta); err != nil {
+			return err
+		}
+
 		now := time.Now()
 		movement = invDomain.StockMovement{
 			TenantID:      tenant.IDFromContext(ctx),

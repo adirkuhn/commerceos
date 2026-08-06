@@ -1,37 +1,33 @@
 // Package pdf adapts a PDF text-extraction library to the
 // procurement.PDFTextExtractor port. Kept as its own thin adapter package
-// (rather than calling ledongthuc/pdf straight from application code) so the
+// (rather than calling gxpdf straight from application code) so the
 // underlying library can be swapped later without touching anything above
-// the port -- LedongthucExtractor is the only thing that knows which
-// library is in use.
+// the port -- GxPDFExtractor is the only thing that knows which library is
+// in use.
 package pdf
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 
-	"github.com/ledongthuc/pdf"
+	"github.com/coregx/gxpdf"
 )
 
-type LedongthucExtractor struct{}
+type GxPDFExtractor struct{}
 
-func NewLedongthucExtractor() *LedongthucExtractor {
-	return &LedongthucExtractor{}
+func NewGxPDFExtractor() *GxPDFExtractor {
+	return &GxPDFExtractor{}
 }
 
-func (e *LedongthucExtractor) ExtractText(data []byte) (string, error) {
-	r, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+func (e *GxPDFExtractor) ExtractText(data []byte) (string, error) {
+	doc, err := gxpdf.OpenFromBytes(data)
 	if err != nil {
-		return "", fmt.Errorf("ledongthucExtractor: open: %w", err)
+		return "", fmt.Errorf("gxpdfExtractor: open: %w", err)
 	}
-	textReader, err := r.GetPlainText()
-	if err != nil {
-		return "", fmt.Errorf("ledongthucExtractor: extract: %w", err)
+	defer doc.Close()
+
+	var text string
+	for _, page := range doc.Pages() {
+		text += page.ExtractText()
 	}
-	text, err := io.ReadAll(textReader)
-	if err != nil {
-		return "", fmt.Errorf("ledongthucExtractor: read: %w", err)
-	}
-	return string(text), nil
+	return text, nil
 }

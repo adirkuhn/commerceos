@@ -19,7 +19,7 @@ import { notifyProductsChanged } from '../../../pms/productsBus'
 function product(id: string): Product {
   return {
     id, tenant_id: 't1', name: `Product ${id}`, slug: `product-${id}`,
-    description: '', status: 'active', has_variants: false, created_at: '', updated_at: '',
+    description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '',
   }
 }
 

@@ -179,6 +179,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	variantRepo := repositories.NewVariantRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
+	listingRepo := repositories.NewProductChannelListingRepo(db)
 
 	h := NewHandler(
 		apppms.NewListCategoriesUseCase(db, categoryRepo),
@@ -186,10 +187,10 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewUpdateCategoryUseCase(db, categoryRepo),
 		apppms.NewDeleteCategoryUseCase(db, categoryRepo),
 		apppms.NewListProductsUseCase(db, productRepo),
-		apppms.NewCreateProductUseCase(db, productRepo),
+		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo),
-		apppms.NewDeleteProductUseCase(db, productRepo),
+		apppms.NewDeleteProductUseCase(db, productRepo, listingRepo, outboxRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
 		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo),
 		apppms.NewDeleteVariantUseCase(db, variantRepo),
@@ -296,12 +297,17 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	if req.Description != nil {
 		description = *req.Description
 	}
+	var tags []string
+	if req.Tags != nil {
+		tags = *req.Tags
+	}
 	product, err := h.createProduct.Execute(c.Request.Context(), apppms.CreateProductInput{
 		Name:        req.Name,
 		Description: description,
 		CategoryID:  req.CategoryId,
 		Status:      pmsDomain.ProductStatus(req.Status),
 		HasVariants: req.HasVariants != nil && *req.HasVariants,
+		Tags:        tags,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -329,6 +335,10 @@ func (h *Handler) UpdateProduct(c *gin.Context, id genpms.Id) {
 	if req.Description != nil {
 		description = *req.Description
 	}
+	var tags []string
+	if req.Tags != nil {
+		tags = *req.Tags
+	}
 	product, err := h.updateProduct.Execute(c.Request.Context(), apppms.UpdateProductInput{
 		ID:          id,
 		Name:        req.Name,
@@ -336,6 +346,7 @@ func (h *Handler) UpdateProduct(c *gin.Context, id genpms.Id) {
 		CategoryID:  req.CategoryId,
 		Status:      pmsDomain.ProductStatus(req.Status),
 		HasVariants: req.HasVariants != nil && *req.HasVariants,
+		Tags:        tags,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -573,6 +584,7 @@ func toGenProduct(p pmsDomain.Product) genpms.Product {
 		Description: p.Description,
 		Status:      genpms.ProductStatus(p.Status),
 		HasVariants: p.HasVariants,
+		Tags:        p.Tags,
 		CreatedAt:   p.CreatedAt,
 		UpdatedAt:   p.UpdatedAt,
 	}

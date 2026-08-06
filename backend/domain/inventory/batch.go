@@ -20,4 +20,12 @@ type Batch struct {
 	ReceivedAt  time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// Quantity is transient -- populated by ListBatchesUseCase from the
+	// StockMovement ledger, never persisted on the batch row itself (see
+	// the type doc comment above).
+	Quantity int64
+	// IsGeneralLedger marks a synthesized row (ID/LotNumber/ExpiryDate all
+	// zero-value) representing a warehouse's un-lotted stock rather than a
+	// real batch -- see ListBatchesUseCase.
+	IsGeneralLedger bool
 }

@@ -70,6 +70,126 @@ paths:
               schema:
                 $ref: '#/components/schemas/EmptyResponse'
 
+  /integrations/sales-channels:
+    get:
+      operationId: listSalesChannels
+      summary: List the tenant's sales channels
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelListResponse'
+    post:
+      operationId: createSalesChannel
+      summary: Create a sales channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSalesChannelRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/sales-channels/{id}:
+    patch:
+      operationId: updateSalesChannel
+      summary: >
+        Update a sales channel -- rename it, re-point its connection, or
+        change its default enrollment rule. "Add all"/"add by tag"/"add by
+        category" bulk actions are just enrollment_mode changes here, no
+        per-product rows written.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSalesChannelRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteSalesChannel
+      summary: Delete a sales channel -- never delists products already pushed to the channel's connection
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /integrations/sales-channels/{id}/products:
+    get:
+      operationId: listSalesChannelProducts
+      summary: List the tenant's products with their live-computed enrollment status for this channel
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelProductListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /integrations/sales-channels/{id}/products/{productId}/override:
+    put:
+      operationId: setSalesChannelProductOverride
+      summary: Force-include ("add") or force-exclude ("remove") one product for this channel, regardless of its default enrollment rule
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSalesChannelProductOverrideRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}:
     delete:
       operationId: deleteConnection
@@ -450,6 +570,103 @@ components:
           allOf: [{ $ref: '#/components/schemas/AIConnection' }]
           nullable: true
         error: { nullable: true }
+
+    ChannelType:
+      type: string
+      enum: [woocommerce, internal]
+
+    EnrollmentMode:
+      type: string
+      enum: [all, category, tag, manual]
+
+    SalesChannel:
+      type: object
+      required: [id, name, type, enrollment_mode, active, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { $ref: '#/components/schemas/ChannelType' }
+        connection_id: { type: string, nullable: true }
+        enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
+        enrollment_category_id: { type: string, nullable: true }
+        enrollment_tag: { type: string }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateSalesChannelRequest:
+      type: object
+      required: [name, type, enrollment_mode]
+      properties:
+        name: { type: string, minLength: 1 }
+        type: { $ref: '#/components/schemas/ChannelType' }
+        connection_id: { type: string }
+        enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
+        enrollment_category_id: { type: string }
+        enrollment_tag: { type: string }
+
+    UpdateSalesChannelRequest:
+      type: object
+      required: [name, enrollment_mode, active]
+      properties:
+        name: { type: string, minLength: 1 }
+        connection_id: { type: string }
+        enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
+        enrollment_category_id: { type: string }
+        enrollment_tag: { type: string }
+        active: { type: boolean }
+
+    SalesChannelResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesChannel' }
+        error: { nullable: true }
+
+    SalesChannelListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SalesChannel' }
+        error: { nullable: true }
+
+    # Thin projection, not api/pms's full Product -- OpenAPI specs are
+    # compiled independently per module (see generate.go in each api/*
+    # package), so this spec can't $ref a schema defined in api/pms's; only
+    # what the product-picker UI needs is duplicated here.
+    SalesChannelProduct:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        category_id: { type: string, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+
+    SalesChannelProductEnrollment:
+      type: object
+      required: [product, enrolled]
+      properties:
+        product: { $ref: '#/components/schemas/SalesChannelProduct' }
+        enrolled: { type: boolean }
+
+    SalesChannelProductListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SalesChannelProductEnrollment' }
+        error: { nullable: true }
+        total: { type: integer }
+
+    SetSalesChannelProductOverrideRequest:
+      type: object
+      required: [included]
+      properties:
+        included: { type: boolean }
 
     ManualConnectWooCommerceRequest:
       type: object

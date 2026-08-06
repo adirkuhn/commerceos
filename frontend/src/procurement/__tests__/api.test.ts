@@ -93,7 +93,7 @@ describe('createPurchaseOrder', () => {
 
 describe('getPurchaseOrder', () => {
   it('returns the purchase order detail', async () => {
-    const detail: PurchaseOrderDetail = { purchase_order: samplePO, line_items: [sampleLineItem] }
+    const detail: PurchaseOrderDetail = { purchase_order: samplePO, line_items: [sampleLineItem], documents: [] }
     mockFetch(detail)
     const result = await api.getPurchaseOrder(TOKEN, 'po-1')
     expect(result).toEqual(detail)

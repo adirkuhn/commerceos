@@ -545,13 +545,28 @@ components:
 
     PurchaseOrderDetail:
       type: object
-      required: [purchase_order, line_items]
+      required: [purchase_order, line_items, documents]
       properties:
         purchase_order: { $ref: '#/components/schemas/PurchaseOrder' }
         line_items:
           type: array
           items:
             $ref: '#/components/schemas/PurchaseOrderLineItem'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderDocument'
+
+    PurchaseOrderDocument:
+      type: object
+      required: [id, purchase_order_id, file_url, file_name, content_type, created_at]
+      properties:
+        id: { type: string }
+        purchase_order_id: { type: string }
+        file_url: { type: string }
+        file_name: { type: string }
+        content_type: { type: string }
+        created_at: { type: string, format: date-time }
 
     CreatePurchaseOrderRequest:
       type: object

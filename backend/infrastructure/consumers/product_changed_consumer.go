@@ -21,17 +21,23 @@ type productSyncer interface {
 
 const productChangedConsumerName = "product-changed-sync"
 
-// ProductChangedConsumer reacts to pms.product.changed by re-pushing the
-// product to every channel it's already linked to. Idempotent via
+// ProductChangedConsumer reacts to pms.product.changed in two steps: first
+// enroller creates a ProductChannelListing for every SalesChannel this
+// product newly matches (the *first* link -- see
+// application/channels.EnrollProductInChannelsUseCase, which is what makes
+// a brand-new product actually reach WooCommerce instead of only ever
+// being pushed by a manual action), then syncer re-pushes current field
+// values to every listing that (now) exists. Idempotent via
 // ProcessedEventRepository: JetStream is at-least-once delivery, so
 // redelivery of an event already fully handled must be a safe no-op.
 type ProductChangedConsumer struct {
 	processed events.ProcessedEventRepository
+	enroller  productSyncer
 	syncer    productSyncer
 }
 
-func NewProductChangedConsumer(processed events.ProcessedEventRepository, syncer productSyncer) *ProductChangedConsumer {
-	return &ProductChangedConsumer{processed: processed, syncer: syncer}
+func NewProductChangedConsumer(processed events.ProcessedEventRepository, enroller, syncer productSyncer) *ProductChangedConsumer {
+	return &ProductChangedConsumer{processed: processed, enroller: enroller, syncer: syncer}
 }
 
 // Handle is the NATS message handler — wire it up via a JetStream durable
@@ -57,6 +63,12 @@ func (c *ProductChangedConsumer) Handle(msg *nats.Msg) {
 	}
 	if alreadyDone {
 		_ = msg.Ack()
+		return
+	}
+
+	if err := c.enroller.Execute(ctx, event.ProductID); err != nil {
+		log.Printf("productChangedConsumer: enroll product %s: %v", event.ProductID, err)
+		_ = msg.Nak()
 		return
 	}
 

@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -13,6 +15,36 @@ import (
 )
 
 // ── GORM models ──────────────────────────────────────────────────────────────
+
+// stringSlice is a zero-dependency []string <-> jsonb Scanner/Valuer --
+// avoids pulling in a Postgres-array driver type for the one column that
+// needs it (products.tags).
+type stringSlice []string
+
+func (s stringSlice) Value() (driver.Value, error) {
+	if len(s) == 0 {
+		return "[]", nil
+	}
+	b, err := json.Marshal([]string(s))
+	return string(b), err
+}
+
+func (s *stringSlice) Scan(value any) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+	var b []byte
+	switch v := value.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	default:
+		return fmt.Errorf("stringSlice.Scan: unsupported type %T", value)
+	}
+	return json.Unmarshal(b, (*[]string)(s))
+}
 
 type categoryModel struct {
 	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
@@ -34,8 +66,9 @@ type productModel struct {
 	Name        string `gorm:"not null"`
 	Slug        string `gorm:"not null"`
 	Description string
-	Status      string `gorm:"not null"`
-	HasVariants bool   `gorm:"not null"`
+	Status      string      `gorm:"not null"`
+	HasVariants bool        `gorm:"not null"`
+	Tags        stringSlice `gorm:"type:jsonb;not null;default:'[]'"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -226,6 +259,7 @@ func (r *ProductRepo) Create(ctx context.Context, p *pmsDomain.Product) error {
 		Description: p.Description,
 		Status:      string(p.Status),
 		HasVariants: p.HasVariants,
+		Tags:        stringSlice(p.Tags),
 		CreatedAt:   p.CreatedAt,
 		UpdatedAt:   p.UpdatedAt,
 	}
@@ -310,6 +344,10 @@ func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
 	if err != nil {
 		return err
 	}
+	tagsValue, err := stringSlice(p.Tags).Value()
+	if err != nil {
+		return fmt.Errorf("productRepo.Update: %w", err)
+	}
 	if err := tx.Model(&productModel{}).Where("id = ?", p.ID).
 		Updates(map[string]any{
 			"category_id":  p.CategoryID,
@@ -317,6 +355,7 @@ func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
 			"description":  p.Description,
 			"status":       string(p.Status),
 			"has_variants": p.HasVariants,
+			"tags":         tagsValue,
 			"updated_at":   p.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("productRepo.Update: %w", err)
@@ -345,6 +384,7 @@ func toProductDomain(m productModel) *pmsDomain.Product {
 		Description: m.Description,
 		Status:      pmsDomain.ProductStatus(m.Status),
 		HasVariants: m.HasVariants,
+		Tags:        []string(m.Tags),
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}

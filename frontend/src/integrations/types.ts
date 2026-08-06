@@ -109,6 +109,35 @@ export interface AIConnection {
   created_at: string
 }
 
+export type ChannelType = 'woocommerce' | 'internal'
+export type EnrollmentMode = 'all' | 'category' | 'tag' | 'manual'
+
+export interface SalesChannel {
+  id: string
+  name: string
+  type: ChannelType
+  connection_id?: string | null
+  enrollment_mode: EnrollmentMode
+  enrollment_category_id?: string | null
+  enrollment_tag?: string | null
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SalesChannelProduct {
+  id: string
+  name: string
+  slug: string
+  category_id?: string | null
+  tags?: string[]
+}
+
+export interface SalesChannelProductEnrollment {
+  product: SalesChannelProduct
+  enrolled: boolean
+}
+
 export interface APIError {
   code: string
   message: string

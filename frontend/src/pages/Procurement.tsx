@@ -15,7 +15,7 @@ import * as procurementApi from '../procurement/api'
 import * as inventoryApi from '../inventory/api'
 import { PairScannerModal } from '../scanner/PairScannerModal'
 import type {
-  PurchaseOrder, PurchaseOrderStatus, PurchaseOrderLineItem,
+  PurchaseOrder, PurchaseOrderStatus, PurchaseOrderLineItem, PurchaseOrderDocument,
   CreatePurchaseOrderInput, UpdatePurchaseOrderInput, AddLineItemInput, UpdateLineItemInput,
   ReceivingRecord, ReceivingRecordDetail, ReceivingDiscrepancy, DiscrepancyType,
 } from '../procurement/types'
@@ -566,6 +566,10 @@ function PurchaseOrderEditPage({ purchaseOrderId, onCreate, onClose }: PurchaseO
             />
           )}
 
+          {!isNew && effectiveId && (detail?.documents.length ?? 0) > 0 && (
+            <DocumentsSection documents={detail!.documents} />
+          )}
+
           {!isNew && effectiveId && (
             <LineItemsSection
               purchaseOrderId={effectiveId}
@@ -644,6 +648,32 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, onAssigned }: M
         </button>
       </form>
       {error && <p className="text-[10px] text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+// ── Documents ────────────────────────────────────────────────────────────────
+
+function DocumentsSection({ documents }: { documents: PurchaseOrderDocument[] }) {
+  return (
+    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Documents</h3>
+      </div>
+      <div className="divide-y dark:divide-[#2D3748] divide-gray-200">
+        {documents.map(doc => (
+          <a
+            key={doc.id}
+            href={doc.file_url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#111827]/50 hover:bg-gray-50 transition-colors"
+          >
+            <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
+            <span className="truncate">{doc.file_name}</span>
+          </a>
+        ))}
+      </div>
     </div>
   )
 }

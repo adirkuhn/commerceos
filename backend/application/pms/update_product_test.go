@@ -45,6 +45,19 @@ func TestUpdateProduct_allowsEnablingHasVariantsRegardlessOfVariantCount(t *test
 	require.True(t, product.HasVariants)
 }
 
+func TestUpdateProduct_updatesTags(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Tags: []string{"old"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+		ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Tags: []string{"summer", "sale"},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"summer", "sale"}, product.Tags)
+}
+
 func TestUpdateProduct_raisesProductChangedEvent(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{existing: nil}

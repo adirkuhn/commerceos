@@ -369,6 +369,20 @@ func TestListBatchesHandler_returnsBatches(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "LOT-1")
 }
 
+func TestListBatchesHandler_includesQuantityAndGeneralLedgerRow(t *testing.T) {
+	h := newBatchTestHandler(&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{},
+		&stubListBatches{out: []invDomain.Batch{
+			{WarehouseID: "wh-1", IsGeneralLedger: true, Quantity: 0},
+			{ID: "batch-1", LotNumber: "LOT-1", Quantity: 82},
+		}},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/skus/sku-1/batches", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"is_general_ledger":true`)
+	assert.Contains(t, w.Body.String(), `"quantity":82`)
+}
+
 func TestCreateBatchHandler_success(t *testing.T) {
 	create := &stubCreateBatch{}
 	h := newBatchTestHandler(create, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
@@ -492,6 +506,15 @@ func TestRecordStockMovementHandler_rejectsInvalidQuantity(t *testing.T) {
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{err: invDomain.ErrInvalidQuantity}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{})
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/movements",
 		map[string]any{"warehouse_id": "wh-1", "type": "receipt", "quantity_delta": -3})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestRecordStockMovementHandler_rejectsInsufficientStock(t *testing.T) {
+	h := newBatchTestHandler(&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{err: invDomain.ErrInsufficientStock}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/movements",
+		map[string]any{"warehouse_id": "wh-1", "type": "sale", "quantity_delta": -18})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

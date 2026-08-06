@@ -36,6 +36,10 @@ func NewRecordRecountUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRe
 // (and no error) when the count already matches — there's nothing to
 // correct, and QuantityDelta=0 movements are rejected by the domain anyway.
 func (uc *RecordRecountUseCase) Execute(ctx context.Context, in RecordRecountInput) (*invDomain.StockMovement, error) {
+	if in.CountedQuantity < 0 {
+		return nil, fmt.Errorf("recordRecount: %w", invDomain.ErrInvalidQuantity)
+	}
+
 	var movement *invDomain.StockMovement
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var current int64

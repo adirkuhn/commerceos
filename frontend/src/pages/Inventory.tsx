@@ -640,39 +640,46 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
         <table className="w-full text-[10px]">
           <thead className="dark:bg-[#111827] bg-gray-100">
             <tr>
-              {['Lot', 'Warehouse', 'Expiry', ''].map(h => (
+              {['Lot', 'Warehouse', 'Qty', 'Expiry', ''].map(h => (
                 <th key={h} className="px-2.5 py-1.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {batches.map(b => (
-              <tr key={b.id}>
-                <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">{b.lot_number || '—'}</td>
+              <tr key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id} className={clsx(b.is_general_ledger && 'dark:bg-[#111827]/40 bg-gray-100/60')}>
+                <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">
+                  {b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}
+                </td>
                 <td className="px-2.5 py-1.5 dark:text-gray-400 text-gray-500">{warehouses.find(w => w.id === b.warehouse_id)?.name ?? b.warehouse_id}</td>
+                <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">{b.quantity}</td>
                 <td className="px-2.5 py-1.5">
-                  <span className={clsx(
-                    'font-mono',
-                    isExpired(b.expiry_date) ? 'text-red-400' : isExpiringSoon(b.expiry_date) ? 'text-amber-400' : 'dark:text-gray-400 text-gray-500',
-                  )}>
-                    {formatDate(b.expiry_date)}
-                  </span>
+                  {!b.is_general_ledger && (
+                    <span className={clsx(
+                      'font-mono',
+                      isExpired(b.expiry_date) ? 'text-red-400' : isExpiringSoon(b.expiry_date) ? 'text-amber-400' : 'dark:text-gray-400 text-gray-500',
+                    )}>
+                      {formatDate(b.expiry_date)}
+                    </span>
+                  )}
                 </td>
                 <td className="px-2.5 py-1.5">
-                  <div className="flex items-center justify-end gap-2">
-                    <button type="button" onClick={() => setModal({ edit: b })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
-                      <Edit3 size={11} />
-                    </button>
-                    <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:text-red-400">
-                      <Trash2 size={11} />
-                    </button>
-                  </div>
+                  {!b.is_general_ledger && (
+                    <div className="flex items-center justify-end gap-2">
+                      <button type="button" onClick={() => setModal({ edit: b })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
+                        <Edit3 size={11} />
+                      </button>
+                      <button type="button" onClick={() => handleDeleteBatch(b.id)} aria-label={`Delete batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:text-red-400">
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
             {batches.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">No batches — all stock is in the general ledger.</td>
+                <td colSpan={5} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">No batches — all stock is in the general ledger.</td>
               </tr>
             )}
           </tbody>

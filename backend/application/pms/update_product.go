@@ -18,6 +18,7 @@ type UpdateProductInput struct {
 	CategoryID  *string
 	Status      pmsDomain.ProductStatus
 	HasVariants bool
+	Tags        []string
 }
 
 type UpdateProductUseCase struct {
@@ -55,6 +56,7 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 		existing.CategoryID = in.CategoryID
 		existing.Status = in.Status
 		existing.HasVariants = in.HasVariants
+		existing.Tags = in.Tags
 		existing.UpdatedAt = time.Now()
 		if err := uc.productRepo.Update(ctx, existing); err != nil {
 			return err

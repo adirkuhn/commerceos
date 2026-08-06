@@ -23,6 +23,8 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
+func strPtr(s string) *string { return &s }
+
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy
 // however many tenant.WithTenant Begin/set_config/Commit sequences the test
 // needs — same pattern as application/pms and application/inventory's
@@ -92,6 +94,9 @@ type stubWooClient struct {
 	downloadErr    error
 	downloadImage  []byte // defaults to a small placeholder if nil
 	downloadType   string // defaults to "image/jpeg" if ""
+
+	deleteProductCalled []string
+	deleteProductErr    error
 }
 
 type stubStockUpdate struct {
@@ -139,6 +144,11 @@ func (s *stubWooClient) UpdateProduct(_ context.Context, externalID string, p in
 	}
 	p.ID = externalID
 	return &p, nil
+}
+
+func (s *stubWooClient) DeleteProduct(_ context.Context, externalID string) error {
+	s.deleteProductCalled = append(s.deleteProductCalled, externalID)
+	return s.deleteProductErr
 }
 
 func (s *stubWooClient) ListCategories(_ context.Context) ([]integrationsDomain.WooCategory, error) {
@@ -521,6 +531,83 @@ func (s *stubImportJobRepo) MarkFailed(_ context.Context, _ string, _ string, _ 
 }
 func (s *stubImportJobRepo) MarkOrphanedRunningAsFailed(_ context.Context, _ string, _ time.Time) (int64, error) {
 	return 0, nil
+}
+
+// ── sales channel stubs ──────────────────────────────────────────────────────
+
+type stubSalesChannelRepo struct {
+	created    []channelsDomain.SalesChannel
+	createErr  error
+	findResult *channelsDomain.SalesChannel
+	findErr    error
+	list       []channelsDomain.SalesChannel
+	listErr    error
+	updated    []channelsDomain.SalesChannel
+	updateErr  error
+	deleted    []string
+	deleteErr  error
+}
+
+func (s *stubSalesChannelRepo) Create(_ context.Context, c *channelsDomain.SalesChannel) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	c.ID = "channel-1"
+	s.created = append(s.created, *c)
+	return nil
+}
+func (s *stubSalesChannelRepo) FindByID(_ context.Context, _ string) (*channelsDomain.SalesChannel, error) {
+	return s.findResult, s.findErr
+}
+func (s *stubSalesChannelRepo) ListByTenant(_ context.Context) ([]channelsDomain.SalesChannel, error) {
+	return s.list, s.listErr
+}
+func (s *stubSalesChannelRepo) Update(_ context.Context, c *channelsDomain.SalesChannel) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *c)
+	return nil
+}
+func (s *stubSalesChannelRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
+
+type stubSalesChannelProductOverrideRepo struct {
+	upserted   []channelsDomain.SalesChannelProductOverride
+	upsertErr  error
+	findResult *channelsDomain.SalesChannelProductOverride
+	findErr    error
+	byChannel  []channelsDomain.SalesChannelProductOverride
+	listErr    error
+	deleted    []string
+	deleteErr  error
+}
+
+func (s *stubSalesChannelProductOverrideRepo) Upsert(_ context.Context, o *channelsDomain.SalesChannelProductOverride) error {
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	o.ID = "override-1"
+	s.upserted = append(s.upserted, *o)
+	return nil
+}
+func (s *stubSalesChannelProductOverrideRepo) FindByChannelAndProduct(_ context.Context, _, _ string) (*channelsDomain.SalesChannelProductOverride, error) {
+	return s.findResult, s.findErr
+}
+func (s *stubSalesChannelProductOverrideRepo) ListByChannel(_ context.Context, _ string) ([]channelsDomain.SalesChannelProductOverride, error) {
+	return s.byChannel, s.listErr
+}
+func (s *stubSalesChannelProductOverrideRepo) Delete(_ context.Context, channelID, _ string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, channelID)
+	return nil
 }
 
 type stubNotifier struct {

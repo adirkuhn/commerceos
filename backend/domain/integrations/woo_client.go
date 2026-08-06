@@ -92,6 +92,10 @@ type WooClient interface {
 	// JSON tags, so explicitly clearing a previously-true flag back to
 	// false does not round-trip — a pre-existing library limitation.
 	UpdateProduct(ctx context.Context, externalProductID string, p WooProduct) (*WooProduct, error)
+	// DeleteProduct permanently removes a product from the store, identified
+	// by its external (Woo) id. Used to clean up a channel listing after the
+	// product has been deleted on the CommerceOS side.
+	DeleteProduct(ctx context.Context, externalProductID string) error
 	// ListCategories returns every category in the store, flat — callers
 	// reconstruct the tree themselves via ParentExternalID. Used by import
 	// to preserve Woo's category hierarchy instead of importing everything

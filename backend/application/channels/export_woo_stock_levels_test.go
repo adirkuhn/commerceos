@@ -123,4 +123,3 @@ func TestExportWooStockLevels_wrapsConnectionNotFound(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, errors.Is(err, integrationsDomain.ErrConnectionNotFound))
 }
-

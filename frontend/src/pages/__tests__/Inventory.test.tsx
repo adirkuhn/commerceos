@@ -35,7 +35,7 @@ import * as inventoryApi from '../../inventory/api'
 
 const product: Product = {
   id: 'prod-1', tenant_id: 't1', name: 'Widget', slug: 'widget',
-  description: '', status: 'active', has_variants: false, created_at: '', updated_at: '',
+  description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '',
 }
 
 const sku = {
@@ -59,6 +59,7 @@ const batch: Batch = {
   id: 'batch-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1',
   lot_number: 'LOT-1', expiry_date: null, received_at: '2026-01-01T00:00:00Z',
   created_at: '', updated_at: '',
+  quantity: 0, is_general_ledger: false,
 }
 
 const level: StockLevel = { sku_id: 'sku-1', total: 10, syncable: 10 }
@@ -145,6 +146,57 @@ describe('Inventory page', () => {
     await waitFor(() => {
       expect(screen.getByTestId('stock-level')).toHaveTextContent('Total: 10')
     })
+  })
+
+  it('shows the item count per batch', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([{ ...batch, quantity: 82 }])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    const row = (await screen.findByText('LOT-1')).closest('tr')!
+    expect(within(row).getByText('82')).toBeInTheDocument()
+  })
+
+  it('shows a general ledger row first, ahead of real batches, with no edit/delete actions', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([
+      { ...batch, id: '', lot_number: '', is_general_ledger: true, quantity: 0 },
+      { ...batch, quantity: 82 },
+    ])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await screen.findByText('General ledger')
+    const qtyHeader = screen.getByText('Qty')
+    const batchTable = qtyHeader.closest('table')!
+    const rows = within(batchTable).getAllByRole('row').slice(1) // drop header row
+    expect(rows).toHaveLength(2)
+    expect(rows[0].textContent).toContain('General ledger')
+    expect(rows[1].textContent).toContain('LOT-1')
+    expect(within(rows[0]).queryByLabelText(/Edit batch/)).not.toBeInTheDocument()
+    expect(within(rows[0]).queryByLabelText(/Delete batch/)).not.toBeInTheDocument()
+  })
+
+  it('surfaces an insufficient-stock error instead of failing silently', async () => {
+    vi.mocked(inventoryApi.recordStockMovement).mockRejectedValue(new Error('insufficient stock for this batch/ledger'))
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /adjust/i }))
+    const dialog = await screen.findByText('Adjust Stock')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/quantity/i), '5')
+    await user.click(within(modal).getByRole('button', { name: /record/i }))
+
+    expect(await within(modal).findByText('insufficient stock for this batch/ledger')).toBeInTheDocument()
   })
 
   it('recording a stock adjustment calls the API with the signed delta and refreshes the level', async () => {

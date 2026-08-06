@@ -76,7 +76,9 @@ func TestRecordStockMovement_acceptsPositiveReceipt(t *testing.T) {
 }
 
 func TestRecordStockMovement_acceptsNegativeSale(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
 	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
@@ -88,7 +90,9 @@ func TestRecordStockMovement_acceptsNegativeSale(t *testing.T) {
 }
 
 func TestRecordStockMovement_adjustmentAllowsNegative(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
 	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
@@ -108,7 +112,9 @@ func TestRecordStockMovement_adjustmentAllowsPositive(t *testing.T) {
 }
 
 func TestRecordStockMovement_acceptsNegativeDamaged(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
 	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
@@ -132,7 +138,9 @@ func TestRecordStockMovement_rejectsPositiveDamaged(t *testing.T) {
 }
 
 func TestRecordStockMovement_acceptsNegativeLost(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
 	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
@@ -141,6 +149,51 @@ func TestRecordStockMovement_acceptsNegativeLost(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int64(-1), m.QuantityDelta)
+}
+
+func TestRecordStockMovement_rejectsSaleWithNoStockInScope(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -1, OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
+	require.Empty(t, movementRepo.created)
+}
+
+func TestRecordStockMovement_rejectsRemovalExceedingScopeStock(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 5},
+	}}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -6, OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
+}
+
+// TestRecordStockMovement_batchStockDoesNotCoverGeneralLedgerRemoval is the
+// exact reported bug: stock booked into a batch must not be usable to cover
+// a removal from the general (un-lotted) ledger for the same SKU/warehouse.
+func TestRecordStockMovement_batchStockDoesNotCoverGeneralLedgerRemoval(t *testing.T) {
+	batchID := "batch-l100"
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID, QuantityDelta: 100},
+	}}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", BatchID: nil, Type: invDomain.MovementTypeSale, QuantityDelta: -18, OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
 }
 
 func TestRecordStockMovement_rejectsPositiveLost(t *testing.T) {

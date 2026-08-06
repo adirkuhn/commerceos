@@ -414,7 +414,7 @@ components:
 
     Batch:
       type: object
-      required: [id, tenant_id, sku_id, warehouse_id, lot_number, received_at, created_at, updated_at]
+      required: [id, tenant_id, sku_id, warehouse_id, lot_number, received_at, created_at, updated_at, quantity, is_general_ledger]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -425,6 +425,13 @@ components:
         received_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        # Computed from the StockMovement ledger, never stored -- see
+        # ListBatchesUseCase.
+        quantity: { type: integer, format: int64 }
+        # True for a synthesized row representing a warehouse's un-lotted
+        # ("general ledger") stock rather than a real batch -- id/lot_number/
+        # expiry_date/received_at are all zero-value on those rows.
+        is_general_ledger: { type: boolean }
 
     CreateBatchRequest:
       type: object

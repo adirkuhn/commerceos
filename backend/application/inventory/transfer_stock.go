@@ -51,6 +51,14 @@ func (uc *TransferStockUseCase) Execute(ctx context.Context, in TransferStockInp
 		tenantID := tenant.IDFromContext(ctx)
 		now := time.Now()
 
+		movements, err := uc.movementRepo.ListBySKU(ctx, in.SKUID)
+		if err != nil {
+			return err
+		}
+		if err := requireSufficientStock(movements, in.FromWarehouseID, in.FromBatchID, -in.Quantity); err != nil {
+			return err
+		}
+
 		out := invDomain.StockMovement{
 			TenantID:      tenantID,
 			SKUID:         in.SKUID,

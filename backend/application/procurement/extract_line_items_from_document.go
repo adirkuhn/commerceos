@@ -66,6 +66,14 @@ func extractLineItemsFromDocument(
 	if err != nil {
 		return extractedDocumentInfo{}, err
 	}
+	// A populated supplier_name with an empty line_items array is a valid
+	// AI response shape (the schema requires both fields but doesn't
+	// forbid an empty array) -- without this guard that silently "succeeds"
+	// with a correct supplier suggestion and zero line items, same failure
+	// mode ParseStructuredDocument already guards against for CSV/XLSX.
+	if len(result.LineItems) == 0 {
+		return extractedDocumentInfo{}, procurementDomain.ErrNoLineItemsExtracted
+	}
 	return extractedDocumentInfo{
 		LineItems: result.LineItems, SuggestedSupplierName: result.SupplierName, SuggestedCurrencyCode: currencyCode,
 	}, nil

@@ -396,7 +396,7 @@ components:
 
     Product:
       type: object
-      required: [id, tenant_id, name, slug, description, status, has_variants, created_at, updated_at]
+      required: [id, tenant_id, name, slug, description, status, has_variants, tags, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -412,6 +412,11 @@ components:
             (each with its own SKU) or as a single flat product. Once true
             with 2+ variants, cannot be set back to false without first
             reducing to at most 1 variant.
+        # Free-form labels -- drives channels.SalesChannel's "by tag"
+        # enrollment rule (see api/channels).
+        tags:
+          type: array
+          items: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -541,6 +546,9 @@ components:
         category_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/ProductStatus' }
         has_variants: { type: boolean, default: false }
+        tags:
+          type: array
+          items: { type: string }
 
     UpdateProductRequest:
       type: object
@@ -551,6 +559,9 @@ components:
         category_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/ProductStatus' }
         has_variants: { type: boolean, default: false }
+        tags:
+          type: array
+          items: { type: string }
 
     CreateVariantRequest:
       type: object

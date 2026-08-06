@@ -22,13 +22,14 @@ var (
 	// ErrAIParsingNotConfigured means a PDF needs the AI path but no
 	// AIDocumentParser adapter was wired up (no API key configured).
 	ErrAIParsingNotConfigured = errors.New("AI document parsing is not configured")
-	// ErrNoLineItemsExtracted means a quantity column was found but every
-	// data row failed to parse against it (bad values, or the column was
-	// mismatched to a synonym that doesn't actually hold quantities) --
-	// distinct from ErrMissingRequiredColumns (no column found at all), so
-	// this always surfaces as a failed job instead of silently succeeding
-	// with zero line items.
-	ErrNoLineItemsExtracted    = errors.New("no line items could be extracted: quantity column was found but no row parsed")
+	// ErrNoLineItemsExtracted means a document was successfully read but
+	// zero line items came out of it -- for the deterministic CSV/XLSX
+	// path, a quantity column was found but every data row failed to parse
+	// against it (distinct from ErrMissingRequiredColumns, no column found
+	// at all); for the AI/PDF path, the model returned an empty
+	// line_items array. Either way this always surfaces as a failed job
+	// instead of silently succeeding with zero line items.
+	ErrNoLineItemsExtracted    = errors.New("no line items could be extracted from the document")
 	ErrReceivingRecordNotFound = errors.New("receiving record not found")
 	ErrBookingNotFound         = errors.New("booking not found")
 	// ErrBookingNotActive guards actions (scan, pause, complete) against a

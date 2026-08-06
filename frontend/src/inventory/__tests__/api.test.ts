@@ -111,6 +111,7 @@ const sampleBatch: Batch = {
   id: 'batch-1', tenant_id: 'tenant-1', sku_id: 'sku-1', warehouse_id: 'wh-1',
   lot_number: 'LOT-1', expiry_date: '2026-12-01', received_at: '2026-07-26T00:00:00Z',
   created_at: '2026-07-26T00:00:00Z', updated_at: '2026-07-26T00:00:00Z',
+  quantity: 0, is_general_ledger: false,
 }
 
 const sampleMovement: StockMovement = {

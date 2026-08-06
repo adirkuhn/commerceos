@@ -226,6 +226,8 @@ type stubDocumentRepo struct {
 	findErr    error
 	createErr  error
 	created    []procurementDomain.PurchaseOrderDocument
+	byPO       []procurementDomain.PurchaseOrderDocument
+	listErr    error
 }
 
 func (s *stubDocumentRepo) Create(_ context.Context, doc *procurementDomain.PurchaseOrderDocument) error {
@@ -240,7 +242,7 @@ func (s *stubDocumentRepo) FindByID(_ context.Context, _ string) (*procurementDo
 	return s.findResult, s.findErr
 }
 func (s *stubDocumentRepo) ListByPurchaseOrder(_ context.Context, _ string) ([]procurementDomain.PurchaseOrderDocument, error) {
-	return nil, nil
+	return s.byPO, s.listErr
 }
 
 type stubParsingJobRepo struct {

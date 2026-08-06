@@ -26,7 +26,9 @@ func TestTransferStock_rejectsNonPositiveQuantity(t *testing.T) {
 }
 
 func TestTransferStock_createsMatchingOutAndInMovements(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-a", BatchID: strPtr("batch-a"), QuantityDelta: 10},
+	}}
 	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	result, err := uc.Execute(context.Background(), appinv.TransferStockInput{
@@ -50,8 +52,42 @@ func TestTransferStock_createsMatchingOutAndInMovements(t *testing.T) {
 	require.Equal(t, "batch-b", *result.In.BatchID)
 }
 
+func TestTransferStock_rejectsWhenSourceLacksEnoughStock(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-a", QuantityDelta: 2},
+	}}
+	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.TransferStockInput{
+		SKUID: "sku-1", Quantity: 5, FromWarehouseID: "wh-a", ToWarehouseID: "wh-b", OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
+	require.Empty(t, movementRepo.created)
+}
+
+// TestTransferStock_destinationStockDoesNotCoverSourceRemoval mirrors the
+// general-ledger/batch scope bug: stock at the destination warehouse must
+// never be usable to cover a transfer_out at the source.
+func TestTransferStock_destinationStockDoesNotCoverSourceRemoval(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-b", QuantityDelta: 100},
+	}}
+	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.TransferStockInput{
+		SKUID: "sku-1", Quantity: 5, FromWarehouseID: "wh-a", ToWarehouseID: "wh-b", OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
+}
+
 func TestTransferStock_raisesStockChangedEvent(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-a", QuantityDelta: 10},
+	}}
 	outboxRepo := &stubOutboxRepo{}
 	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, outboxRepo)
 
@@ -64,7 +100,10 @@ func TestTransferStock_raisesStockChangedEvent(t *testing.T) {
 }
 
 func TestTransferStock_propagatesRepoErrorAndCreatesNothingFurther(t *testing.T) {
-	movementRepo := &stubStockMovementRepo{createErr: errors.New("db down")}
+	movementRepo := &stubStockMovementRepo{
+		bySKU:     []invDomain.StockMovement{{SKUID: "sku-1", WarehouseID: "wh-a", QuantityDelta: 10}},
+		createErr: errors.New("db down"),
+	}
 	uc := appinv.NewTransferStockUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.TransferStockInput{

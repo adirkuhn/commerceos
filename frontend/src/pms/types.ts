@@ -21,6 +21,10 @@ export interface Product {
   description: string
   status: ProductStatus
   has_variants: boolean
+  // Free-form labels this tenant assigns to the product -- used by a Sales
+  // Channel's "by tag" enrollment rule to decide which products auto-sync
+  // to that channel.
+  tags: string[]
   created_at: string
   updated_at: string
 }
@@ -78,6 +82,7 @@ export interface CreateProductPayload {
   category_id?: string | null
   status: ProductStatus
   has_variants?: boolean
+  tags?: string[]
 }
 
 export type UpdateProductPayload = CreateProductPayload

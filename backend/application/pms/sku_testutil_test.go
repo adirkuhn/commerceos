@@ -13,12 +13,14 @@ import (
 // event only care that Enqueue was called (via `calls`), not that it
 // actually persists anything.
 type stubOutboxRepo struct {
-	calls []string // subjects enqueued
-	err   error
+	calls    []string // subjects enqueued
+	payloads [][]byte // one per call, same order as calls
+	err      error
 }
 
-func (s *stubOutboxRepo) Enqueue(_ context.Context, subject, _ string, _ []byte, _ time.Time) error {
+func (s *stubOutboxRepo) Enqueue(_ context.Context, subject, _ string, payload []byte, _ time.Time) error {
 	s.calls = append(s.calls, subject)
+	s.payloads = append(s.payloads, payload)
 	return s.err
 }
 func (s *stubOutboxRepo) FetchPending(_ context.Context, _ int) ([]outbox.Message, error) {

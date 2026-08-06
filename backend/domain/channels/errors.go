@@ -32,4 +32,16 @@ var (
 	// backstop if two requests race.
 	ErrImportJobAlreadyActive = errors.New("an import is already running for this connection")
 	ErrImportJobNotFound      = errors.New("import job not found")
+	ErrSalesChannelNotFound   = errors.New("sales channel not found")
+	ErrInvalidChannelType     = errors.New("invalid sales channel type")
+	ErrInvalidEnrollmentMode  = errors.New("invalid enrollment mode")
+	// ErrConnectionRequired guards a channel type where
+	// ChannelType.RequiresConnection() is true (every type implemented
+	// today) against being created/updated with no ConnectionID.
+	ErrConnectionRequired = errors.New("a connection is required for this channel type")
+	// ErrEnrollmentCategoryRequired/ErrEnrollmentTagRequired guard
+	// EnrollmentModeCategory/EnrollmentModeTag against being set with no
+	// category/tag to match against.
+	ErrEnrollmentCategoryRequired = errors.New("a category is required for category-based enrollment")
+	ErrEnrollmentTagRequired      = errors.New("a tag is required for tag-based enrollment")
 )

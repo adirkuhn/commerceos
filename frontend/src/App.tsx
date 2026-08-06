@@ -13,6 +13,7 @@ import Warehouses from './pages/Warehouses'
 import Orders from './pages/Orders'
 import Picking from './pages/Picking'
 import Integrations from './pages/Integrations'
+import SalesChannels from './pages/SalesChannels'
 import SyncLog from './pages/SyncLog'
 import Users from './pages/Users'
 import Suppliers from './pages/Suppliers'
@@ -36,6 +37,7 @@ function AppContent() {
       case 'orders': return <Orders />
       case 'picking': return <Picking />
       case 'integrations': return <Integrations />
+      case 'sales-channels': return <SalesChannels />
       case 'sync-log': return <SyncLog />
       case 'users': return <Users />
       case 'suppliers': return <Suppliers />

@@ -161,6 +161,30 @@ func TestRunDocumentParsingJob_doesNotWriteSuggestionsWhenSupplierAlreadySet(t *
 	assert.Empty(t, poRepo.suggestionsSet, "a PO that already has a supplier doesn't need a suggestion")
 }
 
+// TestRunDocumentParsingJob_pdfWithEmptyAIResult_failsInsteadOfSilentlySucceeding
+// is the actual fix for "supplier gets suggested but line items never
+// parse" -- the AI/PDF path used to accept an empty line_items array from
+// the model as a successful parse (job marked Completed with a correct
+// supplier suggestion and zero line items, no error anywhere), unlike the
+// deterministic CSV/XLSX path which already guards this via
+// ErrNoLineItemsExtracted.
+func TestRunDocumentParsingJob_pdfWithEmptyAIResult_failsInsteadOfSilentlySucceeding(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.pdf", FileName: "order.pdf", ContentType: "application/pdf"}
+	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: nil}
+	poRepo := &stubPurchaseOrderRepo{findResult: po}
+	documentRepo := &stubDocumentRepo{findResult: doc}
+	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
+	pdfExtractor := &stubPDFTextExtractor{text: "Invoice from Acme Corp"}
+	aiParser := &stubAIDocumentParser{out: nil, supplierName: "Acme Corp"}
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+
+	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
+
+	assert.ErrorIs(t, err, procurementDomain.ErrNoLineItemsExtracted)
+	assert.Empty(t, poRepo.suggestionsSet, "must fail before ever writing the (correct but incomplete) supplier suggestion")
+}
+
 func TestRunDocumentParsingJob_propagatesDocumentNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	documentRepo := &stubDocumentRepo{findErr: procurementDomain.ErrDocumentNotFound}

@@ -147,7 +147,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewCreateBatchUseCase(db, batchRepo),
 		appinventory.NewUpdateBatchUseCase(db, batchRepo),
 		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo),
-		appinventory.NewListBatchesUseCase(db, batchRepo),
+		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo),
 		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo),
 		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
@@ -457,6 +457,7 @@ func toGenBatch(b invDomain.Batch) geninventory.Batch {
 		Id: b.ID, TenantId: b.TenantID, SkuId: b.SKUID, WarehouseId: b.WarehouseID,
 		LotNumber: b.LotNumber, ExpiryDate: timePtrToGenDate(b.ExpiryDate),
 		ReceivedAt: b.ReceivedAt, CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt,
+		Quantity: b.Quantity, IsGeneralLedger: b.IsGeneralLedger,
 	}
 }
 
@@ -514,7 +515,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, invDomain.ErrWarehouseNotFound), errors.Is(err, invDomain.ErrBatchNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
-	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType):
+	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType),
+		errors.Is(err, invDomain.ErrInsufficientStock):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, invDomain.ErrBatchHasMovements):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())

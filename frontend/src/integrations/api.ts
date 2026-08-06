@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -186,4 +186,107 @@ export async function listAllSyncLogs(token: string, params: ListAllSyncLogsPara
     throw new Error(body.error?.message ?? `HTTP ${res.status}`)
   }
   return { entries: body.data ?? [], total: body.total ?? 0 }
+}
+
+export function listSalesChannels(token: string): Promise<SalesChannel[]> {
+  return request<SalesChannel[]>(`${base()}/sales-channels`, { method: 'GET' }, token)
+}
+
+export interface SalesChannelPayload {
+  name: string
+  type: ChannelType
+  connectionId?: string | null
+  enrollmentMode: EnrollmentMode
+  enrollmentCategoryId?: string | null
+  enrollmentTag?: string | null
+}
+
+export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
+  return request<SalesChannel>(
+    `${base()}/sales-channels`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.name,
+        type: payload.type,
+        connection_id: payload.connectionId || undefined,
+        enrollment_mode: payload.enrollmentMode,
+        enrollment_category_id: payload.enrollmentCategoryId || undefined,
+        enrollment_tag: payload.enrollmentTag || undefined,
+      }),
+    },
+    token,
+  )
+}
+
+export interface UpdateSalesChannelPayload {
+  name: string
+  connectionId?: string | null
+  enrollmentMode: EnrollmentMode
+  enrollmentCategoryId?: string | null
+  enrollmentTag?: string | null
+  active: boolean
+}
+
+export function updateSalesChannel(token: string, id: string, payload: UpdateSalesChannelPayload): Promise<SalesChannel> {
+  return request<SalesChannel>(
+    `${base()}/sales-channels/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: payload.name,
+        connection_id: payload.connectionId || undefined,
+        enrollment_mode: payload.enrollmentMode,
+        enrollment_category_id: payload.enrollmentCategoryId || undefined,
+        enrollment_tag: payload.enrollmentTag || undefined,
+        active: payload.active,
+      }),
+    },
+    token,
+  )
+}
+
+export function deleteSalesChannel(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/sales-channels/${id}`, { method: 'DELETE' }, token)
+}
+
+export interface ListSalesChannelProductsParams {
+  search?: string
+  page?: number
+  perPage?: number
+}
+
+export interface ListSalesChannelProductsResult {
+  items: SalesChannelProductEnrollment[]
+  total: number
+}
+
+// Enrolled is computed live server-side on every call (never stored per
+// product) — a channel's enrollment rule changing is reflected here
+// immediately, no backfill needed.
+export async function listSalesChannelProducts(token: string, channelId: string, params: ListSalesChannelProductsParams = {}): Promise<ListSalesChannelProductsResult> {
+  const qs = new URLSearchParams()
+  if (params.search) qs.set('search', params.search)
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  const query = qs.toString()
+
+  const res = await fetch(`${base()}/sales-channels/${channelId}/products${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<SalesChannelProductEnrollment[]> & { total?: number } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { items: body.data ?? [], total: body.total ?? 0 }
+}
+
+// Force-include ("add") or force-exclude ("remove") one product for this
+// channel, regardless of its default enrollment rule.
+export function setSalesChannelProductOverride(token: string, channelId: string, productId: string, included: boolean): Promise<null> {
+  return request<null>(
+    `${base()}/sales-channels/${channelId}/products/${productId}/override`,
+    { method: 'PUT', body: JSON.stringify({ included }) },
+    token,
+  )
 }

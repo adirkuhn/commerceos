@@ -39,6 +39,12 @@ export interface Batch {
   received_at: string
   created_at: string
   updated_at: string
+  // Computed from the stock movement ledger, never stored -- see the
+  // backend's ListBatchesUseCase.
+  quantity: number
+  // True for a synthesized row representing a warehouse's un-lotted
+  // ("general ledger") stock rather than a real batch.
+  is_general_ledger: boolean
 }
 
 export interface CreateBatchInput {

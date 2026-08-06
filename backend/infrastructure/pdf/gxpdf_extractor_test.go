@@ -13,10 +13,19 @@ import (
 // buildMinimalPDF hand-assembles the smallest valid single-page PDF
 // containing the given text in a content stream, computing the xref byte
 // offsets as it writes -- there's no PDF-writing library in this repo
-// (excelize/ledongthuc are both read-only), and pulling one in just to
-// generate a test fixture would be a much bigger dependency than the ~40
-// lines this takes.
+// (excelize/gxpdf are both read-only), and pulling one in just to generate
+// a test fixture would be a much bigger dependency than the ~40 lines this
+// takes.
 func buildMinimalPDF(t *testing.T, text string) []byte {
+	t.Helper()
+	return buildMinimalPDFWithHeader(t, "%PDF-1.4\n", text)
+}
+
+// buildMinimalPDFWithHeader is buildMinimalPDF with the header line
+// swappable -- offsets are computed *after* writing whatever header is
+// given, so a non-standard-length header (see the trailing-space
+// regression test below) doesn't desync the xref table.
+func buildMinimalPDFWithHeader(t *testing.T, header, text string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	offsets := make([]int, 0, 5)
@@ -28,7 +37,7 @@ func buildMinimalPDF(t *testing.T, text string) []byte {
 		offsets = append(offsets, buf.Len())
 	}
 
-	write("%PDF-1.4\n")
+	write(header)
 
 	startObj()
 	write("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
@@ -57,9 +66,9 @@ func buildMinimalPDF(t *testing.T, text string) []byte {
 	return buf.Bytes()
 }
 
-func TestLedongthucExtractor_ExtractText_returnsTheDocumentsText(t *testing.T) {
+func TestGxPDFExtractor_ExtractText_returnsTheDocumentsText(t *testing.T) {
 	data := buildMinimalPDF(t, "Hello World")
-	extractor := pdfadapter.NewLedongthucExtractor()
+	extractor := pdfadapter.NewGxPDFExtractor()
 
 	text, err := extractor.ExtractText(data)
 
@@ -67,10 +76,27 @@ func TestLedongthucExtractor_ExtractText_returnsTheDocumentsText(t *testing.T) {
 	assert.Contains(t, text, "Hello World")
 }
 
-func TestLedongthucExtractor_ExtractText_returnsErrorForInvalidPDF(t *testing.T) {
-	extractor := pdfadapter.NewLedongthucExtractor()
+func TestGxPDFExtractor_ExtractText_returnsErrorForInvalidPDF(t *testing.T) {
+	extractor := pdfadapter.NewGxPDFExtractor()
 
 	_, err := extractor.ExtractText([]byte("this is not a pdf"))
 
 	assert.Error(t, err)
+}
+
+// This is the actual bug that motivated swapping away from ledongthuc/pdf:
+// some real-world PDF generators emit a header like "%PDF-1.7 \n" (a
+// trailing space before the newline) -- spec-legal (the header line is a
+// comment, free-form after the version), but ledongthuc/pdf's header check
+// demanded the byte right after the version be exactly \r or \n and
+// rejected the file outright with "not a PDF file: invalid header" even
+// though the rest of the document was perfectly well-formed.
+func TestGxPDFExtractor_ExtractText_toleratesTrailingSpaceInHeader(t *testing.T) {
+	data := buildMinimalPDFWithHeader(t, "%PDF-1.7 \n", "Hello World")
+	extractor := pdfadapter.NewGxPDFExtractor()
+
+	text, err := extractor.ExtractText(data)
+
+	require.NoError(t, err)
+	assert.Contains(t, text, "Hello World")
 }

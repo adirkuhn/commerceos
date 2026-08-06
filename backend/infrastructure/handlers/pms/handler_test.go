@@ -323,6 +323,18 @@ func TestUpdateProduct_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Widget v2")
 }
 
+func TestCreateProduct_returnsTags(t *testing.T) {
+	s := &stubs{createProduct: stubCreateProduct{out: &pmsDomain.Product{
+		ID: "p1", Name: "Widget", Status: pmsDomain.ProductStatusDraft, Tags: []string{"summer", "sale"},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/products", map[string]any{
+		"name": "Widget", "status": "draft", "tags": []string{"summer", "sale"},
+	})
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), "summer")
+	assert.Contains(t, w.Body.String(), "sale")
+}
+
 func TestDeleteProduct_success(t *testing.T) {
 	s := &stubs{}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/products/p1", nil)

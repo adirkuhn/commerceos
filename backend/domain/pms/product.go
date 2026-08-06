@@ -19,6 +19,10 @@ type Product struct {
 	Description string
 	Status      ProductStatus
 	HasVariants bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// Tags is free-form labels a tenant assigns to a product -- used by
+	// SalesChannel's "by tag" enrollment rule (see domain/channels) to
+	// decide which products auto-sync to a channel.
+	Tags      []string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

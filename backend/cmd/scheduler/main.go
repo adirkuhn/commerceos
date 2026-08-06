@@ -138,7 +138,7 @@ func main() {
 	parsingJobRepo := repositories.NewDocumentParsingJobRepo(db)
 	aliasRepo := repositories.NewSupplierProductAliasRepo(db)
 	matchUC := procurementapp.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
-	pdfExtractor := pdf.NewLedongthucExtractor()
+	pdfExtractor := pdf.NewGxPDFExtractor()
 	// aiParserResolver looks up each job's own tenant's AIConnection (see
 	// integrations.AIConnection) and builds the matching adapter -- resolves
 	// to nil when the tenant hasn't configured a provider, so PDFs then fail
@@ -162,7 +162,10 @@ func main() {
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 	)
-	productChangedConsumer := consumers.NewProductChangedConsumer(processedEventRepo, syncProductUC)
+	salesChannelRepo := repositories.NewSalesChannelRepo(db)
+	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
+	enrollProductUC := channelsapp.NewEnrollProductInChannelsUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushUC)
+	productChangedConsumer := consumers.NewProductChangedConsumer(processedEventRepo, enrollProductUC, syncProductUC)
 	// Durable name persists this subscription's delivery cursor in
 	// JetStream across scheduler restarts — a redeploy resumes from where
 	// it left off instead of replaying (or losing) everything.
@@ -172,6 +175,15 @@ func main() {
 		log.Fatalf("subscribe pms.product.changed: %v", err)
 	}
 	defer productChangedSub.Unsubscribe()
+
+	deleteProductFromChannelsUC := channelsapp.NewDeleteProductFromChannelsUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
+	productDeletedConsumer := consumers.NewProductDeletedConsumer(processedEventRepo, deleteProductFromChannelsUC)
+	productDeletedSub, err := js.Subscribe(events.ProductDeleted{}.EventName(), productDeletedConsumer.Handle,
+		nats.Durable("product-deleted-scheduler"), nats.ManualAck())
+	if err != nil {
+		log.Fatalf("subscribe pms.product.deleted: %v", err)
+	}
+	defer productDeletedSub.Unsubscribe()
 
 	syncStockUC := channelsapp.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret,

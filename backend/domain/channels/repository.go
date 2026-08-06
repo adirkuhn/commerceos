@@ -36,6 +36,27 @@ type SyncScheduleRepository interface {
 	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error
 }
 
+type SalesChannelRepository interface {
+	Create(ctx context.Context, c *SalesChannel) error
+	FindByID(ctx context.Context, id string) (*SalesChannel, error)
+	ListByTenant(ctx context.Context) ([]SalesChannel, error)
+	Update(ctx context.Context, c *SalesChannel) error
+	Delete(ctx context.Context, id string) error
+}
+
+// SalesChannelProductOverrideRepository is upsert-shaped per (ChannelID,
+// ProductID) -- at most one override per product per channel, so a repeat
+// "add"/"remove" action overwrites the prior override rather than
+// accumulating rows.
+type SalesChannelProductOverrideRepository interface {
+	Upsert(ctx context.Context, o *SalesChannelProductOverride) error
+	FindByChannelAndProduct(ctx context.Context, channelID, productID string) (*SalesChannelProductOverride, error)
+	// ListByChannel returns every override for a channel -- used to compute
+	// enrollment in bulk for the channel's product picker.
+	ListByChannel(ctx context.Context, channelID string) ([]SalesChannelProductOverride, error)
+	Delete(ctx context.Context, channelID, productID string) error
+}
+
 type ImportJobRepository interface {
 	Create(ctx context.Context, j *ImportJob) error
 	// HasActiveForConnection checks for an existing pending/running job —

@@ -78,6 +78,14 @@ const categoriesPerPage = 100
 // ListCategories pages through /wc/v3/products/categories directly — see
 // the comment on wooClient's storeURL/consumerKey/consumerSecret fields for
 // why this isn't going through the wrapped library.
+func (c *wooClient) DeleteProduct(ctx context.Context, externalProductID string) error {
+	// force=true: a soft "move to trash" would leave the product findable
+	// (and re-orderable) on the store -- a CommerceOS-side delete should
+	// remove it outright, not park it in the trash.
+	_, _, err := c.client.Products.Delete(ctx, externalProductID, &wc.DeleteProductParams{Force: "true"})
+	return err
+}
+
 func (c *wooClient) ListCategories(ctx context.Context) ([]integrationsDomain.WooCategory, error) {
 	var out []integrationsDomain.WooCategory
 	for page := 1; page <= maxCategoryPages; page++ {
