@@ -41,13 +41,6 @@ type Config struct {
 	// are served from (bucket must allow public reads) — e.g. a domain
 	// pointed at the MinIO/S3 endpoint or a CDN in front of it.
 	S3PublicBaseURL string
-	// OpenAIAPIKey enables the procurement document-parsing job's AI path
-	// (unstructured PDFs) when set — see infrastructure/ai. Deliberately
-	// optional: CSV/XLSX parsing and the exact-SKU/alias matching pipeline
-	// both work with no AI configured at all, per the plan's "do what's
-	// possible without AI in code" decision. Empty means PDFs fail with
-	// procurement.ErrAIParsingNotConfigured instead of the scheduler crashing.
-	OpenAIAPIKey string
 }
 
 func Load() Config {
@@ -69,7 +62,6 @@ func Load() Config {
 		S3Bucket:                     os.Getenv("S3_BUCKET"),
 		S3UseSSL:                     envOr("S3_USE_SSL", "false") == "true",
 		S3PublicBaseURL:              os.Getenv("S3_PUBLIC_BASE_URL"),
-		OpenAIAPIKey:                 os.Getenv("OPENAI_API_KEY"),
 	}
 }
 

@@ -22,11 +22,13 @@ vi.mock('../../procurement/api', () => ({
   updateLineItem: vi.fn(),
   removeLineItem: vi.fn(),
   attachDocumentToPurchaseOrder: vi.fn(),
+  getDocumentParsingJob: vi.fn(),
   createPurchaseOrderFromDocument: vi.fn(),
   linkLineItemToSku: vi.fn(),
   createProductAndLinkLineItem: vi.fn(),
   createSupplierAndAssignToPurchaseOrder: vi.fn(),
   uploadInvoice: vi.fn(),
+  getReceivingParsingJob: vi.fn(),
   listReceivingRecords: vi.fn(),
   getReceivingRecord: vi.fn(),
   completeReceiving: vi.fn(),
@@ -136,7 +138,7 @@ function receivingRecord(overrides: Partial<import('../../procurement/types').Re
   return {
     id: 'receiving-record-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1',
     invoice_file_url: 'https://example.com/invoice.csv', invoice_file_name: 'invoice.csv', content_type: 'text/csv',
-    status: 'pending_review', created_at: '', updated_at: '',
+    status: 'pending_review', is_potential_duplicate: false, created_at: '', updated_at: '',
     ...overrides,
   }
 }
@@ -437,6 +439,10 @@ describe('Purchase order edit with line items', () => {
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
     })
+    // Never resolves within the test -- keeps the job in-flight so the
+    // "parsing" indicator stays visible long enough to assert on, same as
+    // it would while cmd/scheduler is still working on the real job.
+    vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
 
     render(<Procurement />)
     await userEvent.click(await screen.findByText('Acme Foods'))
@@ -448,6 +454,27 @@ describe('Purchase order edit with line items', () => {
 
     await waitFor(() => expect(procurementApi.attachDocumentToPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1', file))
     expect(await screen.findByText('Parsing document…')).toBeInTheDocument()
+  })
+
+  it('surfaces the parsing job error instead of failing silently', async () => {
+    vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getDocumentParsingJob).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
+      status: 'failed', error_message: 'AI document parsing is not configured', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    const file = new File(['%PDF-1.4'], 'invoice.pdf', { type: 'application/pdf' })
+    const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
+    await userEvent.upload(fileInput, file)
+
+    expect(await screen.findByText('AI document parsing is not configured')).toBeInTheDocument()
   })
 })
 
@@ -583,6 +610,9 @@ describe('Receiving', () => {
       id: 'receiving-job-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
       status: 'pending', error_message: '', created_at: '',
     })
+    // Never resolves within the test -- keeps the job in-flight so the
+    // "parsing" indicator stays visible long enough to assert on.
+    vi.mocked(procurementApi.getReceivingParsingJob).mockImplementation(() => new Promise(() => {}))
 
     render(<Procurement />)
     await userEvent.click(await screen.findByText('Acme Foods'))
@@ -593,6 +623,26 @@ describe('Receiving', () => {
 
     expect(await screen.findByText('Parsing invoice…')).toBeInTheDocument()
     await waitFor(() => expect(procurementApi.uploadInvoice).toHaveBeenCalledWith('test-token', 'po-1', file))
+  })
+
+  it('surfaces the invoice parsing job error instead of failing silently', async () => {
+    vi.mocked(procurementApi.uploadInvoice).mockResolvedValue({
+      id: 'receiving-job-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getReceivingParsingJob).mockResolvedValue({
+      id: 'receiving-job-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+      status: 'failed', error_message: 'AI document parsing is not configured', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    const file = new File(['%PDF-1.4'], 'invoice.pdf', { type: 'application/pdf' })
+    await userEvent.upload(screen.getByLabelText('Upload invoice'), file)
+
+    expect(await screen.findByText('AI document parsing is not configured')).toBeInTheDocument()
   })
 
   it('lists receiving records and expands one to show discrepancies', async () => {
@@ -613,6 +663,25 @@ describe('Receiving', () => {
 
     expect(await screen.findByText('Quantity mismatch')).toBeInTheDocument()
     expect(screen.getByText('expected 10, invoice shows 8')).toBeInTheDocument()
+  })
+
+  it('shows a possible duplicate badge for a flagged receiving record', async () => {
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord({ is_potential_duplicate: true })])
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    expect(await screen.findByText('Possible duplicate')).toBeInTheDocument()
+  })
+
+  it('does not show a duplicate badge for a normal receiving record', async () => {
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord({ is_potential_duplicate: false })])
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.csv')
+
+    expect(screen.queryByText('Possible duplicate')).not.toBeInTheDocument()
   })
 
   it('receives stock for a discrepancy line linked to a SKU', async () => {

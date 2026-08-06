@@ -186,6 +186,42 @@ func (s *stubListAllSyncLogs) Execute(_ context.Context, _, _ int) ([]appchannel
 	return s.out, s.total, s.err
 }
 
+type stubGetAIConnection struct {
+	out *integrationsDomain.AIConnection
+	err error
+}
+
+func (s *stubGetAIConnection) Execute(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	return s.out, s.err
+}
+
+type stubConnectAIProvider struct {
+	out      *integrationsDomain.AIConnection
+	err      error
+	gotInput appintegrations.ConnectAIProviderInput
+}
+
+func (s *stubConnectAIProvider) Execute(_ context.Context, in appintegrations.ConnectAIProviderInput) (*integrationsDomain.AIConnection, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &integrationsDomain.AIConnection{ID: "ai-conn-1", Provider: in.Provider, Status: integrationsDomain.StatusConnected}, nil
+}
+
+type stubDisconnectAIConnection struct {
+	err   error
+	calls int
+}
+
+func (s *stubDisconnectAIConnection) Execute(_ context.Context) error {
+	s.calls++
+	return s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func newTestHandler(
@@ -198,7 +234,8 @@ func newTestHandler(
 ) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn,
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
-		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{})
+		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{})
 }
 
 // newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
@@ -209,6 +246,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 	)
 }
 
@@ -219,6 +257,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 	)
 }
 
@@ -229,6 +268,7 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 	)
 }
 
@@ -240,6 +280,7 @@ func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integra
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 	)
 }
 
@@ -251,6 +292,7 @@ func newListSyncLogsTestHandler(listLogs *stubListSyncLogs) *integrationshandler
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 	)
 }
 
@@ -263,6 +305,7 @@ func newListAllSyncLogsTestHandler(listAll *stubListAllSyncLogs) *integrationsha
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll,
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 	)
 }
 
@@ -280,7 +323,7 @@ func doRequest(rg *gin.Engine, method, path string, body any) *httptest.Response
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-func TestCatalogHandler_returnsWooCommerceOnly(t *testing.T) {
+func TestCatalogHandler_returnsWooCommerceAndAI(t *testing.T) {
 	h := newTestHandler(&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{}, &stubDisconnectConnection{}, &stubTestConnection{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
@@ -288,7 +331,72 @@ func TestCatalogHandler_returnsWooCommerceOnly(t *testing.T) {
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/catalog", nil)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "woocommerce")
+	assert.Contains(t, w.Body.String(), `"provider":"ai"`)
 	assert.NotContains(t, w.Body.String(), "shopify")
+}
+
+func TestGetAIConnectionHandler_returnsNullWhenNotConfigured(t *testing.T) {
+	h := newAIConnectionTestHandler(&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/ai", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"data":null`)
+}
+
+func TestGetAIConnectionHandler_returnsConfiguredConnection(t *testing.T) {
+	get := &stubGetAIConnection{out: &integrationsDomain.AIConnection{
+		ID: "ai-conn-1", Provider: integrationsDomain.AIProviderAnthropic, Status: integrationsDomain.StatusConnected,
+	}}
+	h := newAIConnectionTestHandler(get, &stubConnectAIProvider{}, &stubDisconnectAIConnection{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/ai", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "anthropic")
+}
+
+func TestConnectAIProviderHandler_success(t *testing.T) {
+	connect := &stubConnectAIProvider{}
+	h := newAIConnectionTestHandler(&stubGetAIConnection{}, connect, &stubDisconnectAIConnection{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/ai", map[string]any{
+		"provider": "openai", "api_key": "sk-test", "model": "gpt-4o",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, integrationsDomain.AIProviderOpenAI, connect.gotInput.Provider)
+	assert.Equal(t, "sk-test", connect.gotInput.APIKey)
+	assert.Equal(t, "gpt-4o", connect.gotInput.Model)
+}
+
+func TestConnectAIProviderHandler_propagatesValidationError(t *testing.T) {
+	connect := &stubConnectAIProvider{err: integrationsDomain.ErrAPIKeyRequired}
+	h := newAIConnectionTestHandler(&stubGetAIConnection{}, connect, &stubDisconnectAIConnection{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/ai", map[string]any{"provider": "anthropic"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestDisconnectAIProviderHandler_success(t *testing.T) {
+	disconnect := &stubDisconnectAIConnection{}
+	h := newAIConnectionTestHandler(&stubGetAIConnection{}, &stubConnectAIProvider{}, disconnect)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodDelete, "/api/v1/integrations/ai", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, 1, disconnect.calls)
 }
 
 func TestListConnectionsHandler_neverLeaksSecret(t *testing.T) {
@@ -550,6 +658,21 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, importUC, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+	)
+}
+
+// newAIConnectionTestHandler builds a Handler for the AI connection routes
+// specifically — every other use case is a harmless zero-value stub.
+func newAIConnectionTestHandler(
+	get *stubGetAIConnection, connect *stubConnectAIProvider, disconnect *stubDisconnectAIConnection,
+) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		get, connect, disconnect,
 	)
 }
 

@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, APIResponse } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -125,6 +125,39 @@ export async function getProductChannelListing(token: string, connectionId: stri
 
 export function listSyncLogs(token: string, connectionId: string, productId: string): Promise<SyncLogEntry[]> {
   return request<SyncLogEntry[]>(`${base()}/connections/${connectionId}/listings/${productId}/sync-logs`, { method: 'GET' }, token)
+}
+
+// Returns null (not an error) when the tenant hasn't configured an AI
+// provider yet -- that's the common/default state, not a failure.
+export function getAIConnection(token: string): Promise<AIConnection | null> {
+  return request<AIConnection | null>(`${base()}/ai`, { method: 'GET' }, token)
+}
+
+export interface ConnectAIProviderPayload {
+  provider: AIProvider
+  apiKey?: string
+  baseUrl?: string
+  model?: string
+}
+
+export function connectAIProvider(token: string, payload: ConnectAIProviderPayload): Promise<AIConnection> {
+  return request<AIConnection>(
+    `${base()}/ai`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        provider: payload.provider,
+        api_key: payload.apiKey || undefined,
+        base_url: payload.baseUrl || undefined,
+        model: payload.model || undefined,
+      }),
+    },
+    token,
+  )
+}
+
+export function disconnectAIProvider(token: string): Promise<null> {
+  return request<null>(`${base()}/ai`, { method: 'DELETE' }, token)
 }
 
 export interface ListAllSyncLogsParams {

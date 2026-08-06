@@ -98,6 +98,17 @@ export interface SyncLogEntry {
   store_url?: string
 }
 
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama'
+
+export interface AIConnection {
+  id: string
+  provider: AIProvider
+  base_url?: string | null
+  model?: string | null
+  status: 'connected' | 'error'
+  created_at: string
+}
+
 export interface APIError {
   code: string
   message: string

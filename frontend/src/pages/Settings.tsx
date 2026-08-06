@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import {
   Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard, Plug,
-  ChevronRight, Check, AlertTriangle,
+  ChevronRight, Check, AlertTriangle, Bot, X,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
+import { useAIConnection } from '../integrations/hooks/useAIConnection'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
-import type { Connection } from '../integrations/types'
+import type { Connection, AIProvider } from '../integrations/types'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 
 interface SettingSection {
@@ -307,6 +308,8 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
         <p className="text-xs dark:text-gray-500 text-gray-400">Connected external services. Configure sync schedules for each.</p>
       </div>
 
+      <AIIntegrationCard />
+
       {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
       {error && <p className="text-xs text-red-400">{error}</p>}
 
@@ -341,6 +344,187 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic (Claude)',
+  gemini: 'Google Gemini',
+  ollama: 'Ollama (self-hosted)',
+}
+
+// AI is a separate integration shape from Connection (WooCommerce etc.) --
+// one row per tenant, no store URL/OAuth, just a provider + credential --
+// so it gets its own card and configure flow rather than joining the
+// Connection list above.
+function AIIntegrationCard() {
+  const { token } = useAuth()
+  const { connection, loading, error, connect, disconnect } = useAIConnection(token ?? '')
+  const [configuring, setConfiguring] = useState(false)
+  const [provider, setProvider] = useState<AIProvider>('openai')
+  const [apiKey, setApiKey] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [model, setModel] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
+
+  const openConfigure = () => {
+    setProvider(connection?.provider ?? 'openai')
+    setApiKey('')
+    setBaseUrl(connection?.base_url ?? '')
+    setModel(connection?.model ?? '')
+    setFormError('')
+    setConfiguring(true)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setFormError('')
+    try {
+      await connect({ provider, apiKey, baseUrl, model })
+      setConfiguring(false)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDisconnect = async () => {
+    if (!window.confirm('Disconnect AI provider? Procurement PDF document parsing will stop working until reconfigured.')) return
+    await disconnect()
+  }
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white shrink-0">
+            <Bot size={14} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-medium dark:text-gray-200 text-gray-800">AI</p>
+              {connection && (
+                <span className={clsx('px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize', STATUS_STYLES[connection.status])}>
+                  {connection.status}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+              {loading ? 'Loading…' : connection
+                ? AI_PROVIDER_LABELS[connection.provider]
+                : 'Used for procurement document parsing (PDF invoices). Not configured.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={openConfigure}
+            className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+          >
+            {connection ? 'Configure' : 'Connect'}
+          </button>
+          {connection && (
+            <button
+              onClick={handleDisconnect}
+              className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <p className="mt-2 text-[10px] text-red-400">{error}</p>}
+
+      {configuring && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setConfiguring(false)} />
+          <div className="relative w-full max-w-sm dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Configure AI</h3>
+              <button onClick={() => setConfiguring(false)} aria-label="Close">
+                <X size={14} className="dark:text-gray-500 text-gray-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSave} className="space-y-3">
+              <div>
+                <label htmlFor="ai-provider" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  Provider
+                </label>
+                <select
+                  id="ai-provider"
+                  value={provider}
+                  onChange={e => setProvider(e.target.value as AIProvider)}
+                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {(Object.keys(AI_PROVIDER_LABELS) as AIProvider[]).map(p => (
+                    <option key={p} value={p}>{AI_PROVIDER_LABELS[p]}</option>
+                  ))}
+                </select>
+              </div>
+              {provider !== 'ollama' && (
+                <div>
+                  <label htmlFor="ai-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    API Key
+                  </label>
+                  <input
+                    id="ai-api-key"
+                    type="password"
+                    required
+                    autoFocus
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+              <div>
+                <label htmlFor="ai-base-url" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  {provider === 'ollama' ? 'Server URL' : 'Base URL (optional)'}
+                </label>
+                <input
+                  id="ai-base-url"
+                  type="url"
+                  required={provider === 'ollama'}
+                  autoFocus={provider === 'ollama'}
+                  value={baseUrl}
+                  onChange={e => setBaseUrl(e.target.value)}
+                  placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://...'}
+                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="ai-model" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  Model (optional)
+                </label>
+                <input
+                  id="ai-model"
+                  type="text"
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                  placeholder="Uses the provider's default"
+                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              {formError && (
+                <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

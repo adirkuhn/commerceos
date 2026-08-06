@@ -78,6 +78,12 @@ type removeLineItemUC interface {
 type attachDocumentToPurchaseOrderUC interface {
 	Execute(ctx context.Context, in appprocurement.AttachDocumentToPurchaseOrderInput) (*procurementDomain.DocumentParsingJob, error)
 }
+type getDocumentParsingJobUC interface {
+	Execute(ctx context.Context, id string) (*procurementDomain.DocumentParsingJob, error)
+}
+type getReceivingParsingJobUC interface {
+	Execute(ctx context.Context, id string) (*procurementDomain.ReceivingParsingJob, error)
+}
 type createPurchaseOrderFromDocumentUC interface {
 	Execute(ctx context.Context, in appprocurement.CreatePurchaseOrderFromDocumentInput) (*procurementDomain.DocumentParsingJob, error)
 }
@@ -130,6 +136,8 @@ type Handler struct {
 	updateLineItem             updateLineItemUC
 	removeLineItem             removeLineItemUC
 	attachDocument             attachDocumentToPurchaseOrderUC
+	getDocumentParsingJob      getDocumentParsingJobUC
+	getReceivingParsingJob     getReceivingParsingJobUC
 	createPurchaseOrderFromDoc createPurchaseOrderFromDocumentUC
 	linkLineItemToSKU          linkLineItemToSKUUC
 	createProductAndLink       createProductAndLinkLineItemUC
@@ -156,6 +164,8 @@ func NewHandler(
 	updateLineItem updateLineItemUC,
 	removeLineItem removeLineItemUC,
 	attachDocument attachDocumentToPurchaseOrderUC,
+	getDocumentParsingJob getDocumentParsingJobUC,
+	getReceivingParsingJob getReceivingParsingJobUC,
 	createPurchaseOrderFromDoc createPurchaseOrderFromDocumentUC,
 	linkLineItemToSKU linkLineItemToSKUUC,
 	createProductAndLink createProductAndLinkLineItemUC,
@@ -174,7 +184,8 @@ func NewHandler(
 		listPurchaseOrders: listPurchaseOrders, createPurchaseOrder: createPurchaseOrder,
 		getPurchaseOrder: getPurchaseOrder, updatePurchaseOrder: updatePurchaseOrder, deletePurchaseOrder: deletePurchaseOrder,
 		addLineItem: addLineItem, updateLineItem: updateLineItem, removeLineItem: removeLineItem,
-		attachDocument: attachDocument, createPurchaseOrderFromDoc: createPurchaseOrderFromDoc,
+		attachDocument: attachDocument, getDocumentParsingJob: getDocumentParsingJob, getReceivingParsingJob: getReceivingParsingJob,
+		createPurchaseOrderFromDoc: createPurchaseOrderFromDoc,
 		linkLineItemToSKU: linkLineItemToSKU, createProductAndLink: createProductAndLink,
 		createSupplierAndAssign: createSupplierAndAssign,
 		uploadInvoice:           uploadInvoice,
@@ -230,6 +241,8 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewUpdatePurchaseOrderLineItemUseCase(db, lineItemRepo),
 		appprocurement.NewRemovePurchaseOrderLineItemUseCase(db, lineItemRepo),
 		attachDocumentUC,
+		appprocurement.NewGetDocumentParsingJobUseCase(db, jobRepo),
+		appprocurement.NewGetReceivingParsingJobUseCase(db, receivingJobRepo),
 		appprocurement.NewCreatePurchaseOrderFromDocumentUseCase(createPurchaseOrderUC, attachDocumentUC),
 		linkLineItemToSKUUC,
 		appprocurement.NewCreateProductAndLinkLineItemUseCase(
@@ -396,6 +409,24 @@ func (h *Handler) AttachDocumentToPurchaseOrder(c *gin.Context, id genprocuremen
 	}
 	resp := toGenDocumentParsingJob(*job)
 	c.JSON(http.StatusCreated, genprocurement.DocumentParsingJobResponse{Data: &resp})
+}
+
+func (h *Handler) GetDocumentParsingJob(c *gin.Context, id genprocurement.Id) {
+	job, err := h.getDocumentParsingJob.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenDocumentParsingJob(*job)
+	c.JSON(http.StatusOK, genprocurement.DocumentParsingJobResponse{Data: &resp})
+}
+
+func (h *Handler) GetReceivingParsingJob(c *gin.Context, id genprocurement.Id) {
+	job, err := h.getReceivingParsingJob.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenReceivingParsingJob(*job)
+	c.JSON(http.StatusOK, genprocurement.ReceivingParsingJobResponse{Data: &resp})
 }
 
 func (h *Handler) CreatePurchaseOrderFromDocument(c *gin.Context) {
@@ -681,7 +712,8 @@ func toGenReceivingRecord(r procurementDomain.ReceivingRecord) genprocurement.Re
 	return genprocurement.ReceivingRecord{
 		Id: r.ID, TenantId: r.TenantID, PurchaseOrderId: r.PurchaseOrderID,
 		InvoiceFileUrl: r.InvoiceFileURL, InvoiceFileName: r.InvoiceFileName, ContentType: r.ContentType,
-		Status: genprocurement.ReceivingRecordStatus(r.Status), CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		Status: genprocurement.ReceivingRecordStatus(r.Status), IsPotentialDuplicate: r.IsPotentialDuplicate,
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 }
 
@@ -730,11 +762,12 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, procurementDomain.ErrPurchaseOrderNotFound), errors.Is(err, procurementDomain.ErrLineItemNotFound),
 		errors.Is(err, procurementDomain.ErrDocumentNotFound), errors.Is(err, procurementDomain.ErrReceivingRecordNotFound),
-		errors.Is(err, procurementDomain.ErrBookingNotFound):
+		errors.Is(err, procurementDomain.ErrBookingNotFound), errors.Is(err, procurementDomain.ErrParsingJobNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, procurementDomain.ErrInvalidQuantity), errors.Is(err, procurementDomain.ErrUnsupportedFileType),
 		errors.Is(err, procurementDomain.ErrMissingRequiredColumns), errors.Is(err, procurementDomain.ErrPDFHasNoExtractableText),
 		errors.Is(err, procurementDomain.ErrAIParsingNotConfigured), errors.Is(err, procurementDomain.ErrLineItemAlreadyLinked),
+		errors.Is(err, procurementDomain.ErrNoLineItemsExtracted),
 		errors.Is(err, procurementDomain.ErrBookingNotActive), errors.Is(err, procurementDomain.ErrWarehouseRequired),
 		errors.Is(err, invDomain.ErrInvalidQuantity),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),

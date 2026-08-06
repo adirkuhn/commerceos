@@ -351,6 +351,7 @@ const sampleReceivingRecord: import('../types').ReceivingRecord = {
   invoice_file_name: 'invoice.csv',
   content_type: 'text/csv',
   status: 'pending_review',
+  is_potential_duplicate: false,
   created_at: '2026-08-05T00:00:00Z',
   updated_at: '2026-08-05T00:00:00Z',
 }

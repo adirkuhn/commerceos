@@ -161,6 +161,9 @@ func rowsToLineItems(rows [][]string) ([]procurementDomain.ExtractedLineItem, er
 			ExpiryDate:         expiryDate,
 		})
 	}
+	if len(items) == 0 && len(rows) > 1 {
+		return nil, procurementDomain.ErrNoLineItemsExtracted
+	}
 	return items, nil
 }
 

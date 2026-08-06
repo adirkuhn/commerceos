@@ -79,6 +79,17 @@ func TestParseStructuredDocument_CSV_skipsRowsWithInvalidQuantity(t *testing.T) 
 	assert.Equal(t, "WID-003", items[0].RawSKU)
 }
 
+func TestParseStructuredDocument_CSV_allRowsInvalidQuantityReturnsError(t *testing.T) {
+	csvData := "SKU,Description,Quantity,Unit Cost\n" +
+		"WID-001,Widget A,ten,5.00\n" +
+		"WID-002,Widget B,0,5.00\n"
+
+	_, err := appprocurement.ParseStructuredDocument("text/csv", "order.csv", []byte(csvData))
+
+	assert.ErrorIs(t, err, procurementDomain.ErrNoLineItemsExtracted,
+		"a quantity column that was detected but never parses must fail loudly, not silently return zero items")
+}
+
 func TestParseStructuredDocument_CSV_missingUnitCostDefaultsToZero(t *testing.T) {
 	csvData := "SKU,Description,Quantity\n" +
 		"WID-001,Widget A,10\n"

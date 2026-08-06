@@ -19,5 +19,12 @@ var (
 	// ErrNoTenantContext fires when the request's JWT carries no tenant at
 	// all — should not happen in practice (lm2 always resolves a company on
 	// login), kept as a defensive guard.
-	ErrNoTenantContext = errors.New("no tenant in request context")
+	ErrNoTenantContext      = errors.New("no tenant in request context")
+	ErrAIConnectionNotFound = errors.New("ai connection not found")
+	// ErrAPIKeyRequired guards providers other than Ollama, which needs no
+	// credential (self-hosted, reachable via BaseURL alone).
+	ErrAPIKeyRequired = errors.New("an API key is required for this provider")
+	// ErrBaseURLRequired guards AIProviderOllama, which has no fixed
+	// default endpoint the way hosted providers do.
+	ErrBaseURLRequired = errors.New("a base URL is required for this provider")
 )

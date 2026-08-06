@@ -166,6 +166,22 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/document-parsing-jobs/{id}:
+    get:
+      operationId: getDocumentParsingJob
+      summary: Poll a document parsing job's status -- terminal states carry error_message on failure
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentParsingJobResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /procurement/purchase-orders/{id}/create-supplier-and-assign:
     post:
       operationId: createSupplierAndAssignToPurchaseOrder
@@ -301,6 +317,22 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/receiving-parsing-jobs/{id}:
+    get:
+      operationId: getReceivingParsingJob
+      summary: Poll a receiving (invoice) parsing job's status -- terminal states carry error_message on failure
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingParsingJobResponse'
+        '404':
           $ref: '#/components/responses/Error'
 
   /procurement/purchase-orders/{id}/receiving-records:
@@ -664,7 +696,7 @@ components:
 
     ReceivingRecord:
       type: object
-      required: [id, tenant_id, purchase_order_id, invoice_file_url, invoice_file_name, content_type, status, created_at, updated_at]
+      required: [id, tenant_id, purchase_order_id, invoice_file_url, invoice_file_name, content_type, status, is_potential_duplicate, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -673,6 +705,10 @@ components:
         invoice_file_name: { type: string }
         content_type: { type: string }
         status: { $ref: '#/components/schemas/ReceivingRecordStatus' }
+        # True when another invoice with identical file content was already
+        # uploaded against this same PO, or another PO for the same
+        # supplier -- a hint for the reviewer, never blocks the upload.
+        is_potential_duplicate: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

@@ -30,8 +30,18 @@ type ReceivingRecord struct {
 	InvoiceFileName string
 	ContentType     string
 	Status          ReceivingRecordStatus
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// ContentHash is the sha256 (hex) of the uploaded file's bytes --
+	// UploadInvoiceUseCase computes it once at upload time to check for
+	// duplicates, see IsPotentialDuplicate.
+	ContentHash string
+	// IsPotentialDuplicate is set at creation when another invoice with the
+	// same ContentHash already exists for this PO or another PO of the
+	// same supplier -- a hint for the reviewer, never blocks the upload,
+	// and never recomputed after the fact (a later dedup is the new row's
+	// problem to flag, not the original's).
+	IsPotentialDuplicate bool
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 type ReceivingParsingJobStatus string

@@ -73,3 +73,21 @@ func (m *OutboxRepo) MarkPublished(ctx context.Context, id uint) error {
 func (m *OutboxRepo) MarkFailed(ctx context.Context, id uint) error {
 	panic("not implemented in mock")
 }
+
+// AIConnectionRepo mock
+
+type AIConnectionRepo struct {
+	GetFn    func(ctx context.Context) (*integrations.AIConnection, error)
+	UpsertFn func(ctx context.Context, c *integrations.AIConnection) error
+	DeleteFn func(ctx context.Context) error
+}
+
+func (m *AIConnectionRepo) Get(ctx context.Context) (*integrations.AIConnection, error) {
+	return m.GetFn(ctx)
+}
+func (m *AIConnectionRepo) Upsert(ctx context.Context, c *integrations.AIConnection) error {
+	return m.UpsertFn(ctx, c)
+}
+func (m *AIConnectionRepo) Delete(ctx context.Context) error {
+	return m.DeleteFn(ctx)
+}

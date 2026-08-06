@@ -130,6 +130,7 @@ export interface ReceivingRecord {
   invoice_file_name: string
   content_type: string
   status: ReceivingRecordStatus
+  is_potential_duplicate: boolean
   created_at: string
   updated_at: string
 }

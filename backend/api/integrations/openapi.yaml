@@ -30,6 +30,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConnectionListResponse'
 
+  /integrations/ai:
+    get:
+      operationId: getAIConnection
+      summary: Get the tenant's configured AI provider (for procurement document parsing), if any
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConnectionResponse'
+    post:
+      operationId: connectAIProvider
+      summary: Configure (or switch) the tenant's AI provider -- overwrites any existing configuration, only one is active at a time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectAIProviderRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConnectionResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: disconnectAIProvider
+      summary: Remove the tenant's AI provider configuration
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
   /integrations/connections/{id}:
     delete:
       operationId: deleteConnection
@@ -371,6 +411,44 @@ components:
           type: object
           properties:
             authorize_url: { type: string }
+        error: { nullable: true }
+
+    AIProvider:
+      type: string
+      enum: [openai, anthropic, gemini, ollama]
+
+    AIConnection:
+      type: object
+      required: [id, provider, status, created_at]
+      description: Never includes the stored API key -- credentials must never round-trip to the frontend.
+      properties:
+        id: { type: string }
+        provider: { $ref: '#/components/schemas/AIProvider' }
+        # Only set for Ollama (self-hosted endpoint) or a proxy/private
+        # endpoint for the other providers -- empty means "use the
+        # provider's default".
+        base_url: { type: string }
+        model: { type: string }
+        status: { $ref: '#/components/schemas/ConnectionStatus' }
+        created_at: { type: string, format: date-time }
+
+    ConnectAIProviderRequest:
+      type: object
+      required: [provider]
+      properties:
+        provider: { $ref: '#/components/schemas/AIProvider' }
+        # Required for every provider except ollama (self-hosted, no key).
+        api_key: { type: string }
+        # Required for ollama (the tenant's self-hosted instance URL).
+        base_url: { type: string }
+        model: { type: string }
+
+    AIConnectionResponse:
+      type: object
+      properties:
+        data:
+          allOf: [{ $ref: '#/components/schemas/AIConnection' }]
+          nullable: true
         error: { nullable: true }
 
     ManualConnectWooCommerceRequest:

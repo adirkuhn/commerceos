@@ -139,23 +139,23 @@ func main() {
 	aliasRepo := repositories.NewSupplierProductAliasRepo(db)
 	matchUC := procurementapp.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
 	pdfExtractor := pdf.NewLedongthucExtractor()
-	// aiParser stays nil when OPENAI_API_KEY isn't set — PDFs then fail
-	// clearly with procurement.ErrAIParsingNotConfigured instead of the
-	// job crashing; CSV/XLSX parsing and exact-SKU/alias matching both
-	// work with no AI configured at all.
-	var aiParser procurementDomain.AIDocumentParser
-	if cfg.OpenAIAPIKey != "" {
-		aiParser = ai.NewOpenAIDocumentParser(cfg.OpenAIAPIKey)
-	}
+	// aiParserResolver looks up each job's own tenant's AIConnection (see
+	// integrations.AIConnection) and builds the matching adapter -- resolves
+	// to nil when the tenant hasn't configured a provider, so PDFs then fail
+	// clearly with procurement.ErrAIParsingNotConfigured instead of the job
+	// crashing; CSV/XLSX parsing and exact-SKU/alias matching both work with
+	// no AI configured at all.
+	aiConnRepo := repositories.NewAIConnectionRepo(db)
+	aiParserResolver := ai.NewParserResolver(db, aiConnRepo, cfg.IntegrationsEncryptionSecret)
 	runDocumentParsingJobUC := procurementapp.NewRunDocumentParsingJobUseCase(
-		db, poRepo, lineItemRepo, documentRepo, matchUC, fileStorage, pdfExtractor, aiParser,
+		db, poRepo, lineItemRepo, documentRepo, matchUC, fileStorage, pdfExtractor, aiParserResolver,
 	)
 
 	receivingRecordRepo := repositories.NewReceivingRecordRepo(db)
 	receivingJobRepo := repositories.NewReceivingParsingJobRepo(db)
 	discrepancyRepo := repositories.NewReceivingDiscrepancyRepo(db)
 	runReceivingParsingJobUC := procurementapp.NewRunReceivingParsingJobUseCase(
-		db, receivingRecordRepo, lineItemRepo, discrepancyRepo, fileStorage, pdfExtractor, aiParser,
+		db, receivingRecordRepo, lineItemRepo, discrepancyRepo, fileStorage, pdfExtractor, aiParserResolver,
 	)
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)

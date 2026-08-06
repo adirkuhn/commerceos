@@ -8,6 +8,13 @@ type DocumentInput struct {
 	FileName    string
 	ContentType string
 	Data        []byte
+	// ExtractedText is the PDF's text layer, already pulled by
+	// PDFTextExtractor upstream (see extractLineItemsFromDocument) --
+	// OpenAI/Anthropic/Gemini ignore it and ingest Data natively (PDF
+	// input), but a local Ollama model has no reliable native PDF/vision
+	// support, so its adapter prompts on this instead. Empty when the PDF
+	// had no extractable text layer.
+	ExtractedText string
 }
 
 // DocumentExtractionResult is what an AIDocumentParser pulls out of an
@@ -38,4 +45,15 @@ type AIDocumentParser interface {
 // it through the same deterministic matching the CSV/XLSX path uses).
 type PDFTextExtractor interface {
 	ExtractText(data []byte) (string, error)
+}
+
+// AIParserResolver resolves whichever AIDocumentParser the tenant active in
+// ctx has configured (see integrations.AIConnection) -- replaces a single
+// process-wide AIDocumentParser instance built from one env var, since
+// different tenants can now each pick their own provider. Returns nil, nil
+// (not an error) when the tenant hasn't configured one, same contract as
+// integrations.AIConnectionRepository.Get; callers treat that the same way
+// they used to treat a nil AIDocumentParser (ErrAIParsingNotConfigured).
+type AIParserResolver interface {
+	Resolve(ctx context.Context) (AIDocumentParser, error)
 }

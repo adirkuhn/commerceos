@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { ReceivingRecord } from '../types'
+import type { ReceivingParsingJob, ReceivingRecord } from '../types'
 import * as api from '../api'
 
 interface UseReceivingRecordsState {
@@ -10,7 +10,7 @@ interface UseReceivingRecordsState {
 
 interface UseReceivingRecordsActions {
   refresh: () => void
-  upload: (file: File) => Promise<void>
+  upload: (file: File) => Promise<ReceivingParsingJob>
 }
 
 // purchaseOrderId is null while creating a new PO -- there's nothing to
@@ -40,10 +40,9 @@ export function useReceivingRecords(token: string, purchaseOrderId: string | nul
   useEffect(() => { load() }, [load])
 
   const upload = useCallback(async (file: File) => {
-    if (!purchaseOrderId) return
-    await api.uploadInvoice(token, purchaseOrderId, file)
-    await load()
-  }, [token, purchaseOrderId, load])
+    if (!purchaseOrderId) throw new Error('Cannot upload an invoice before the purchase order has been saved')
+    return api.uploadInvoice(token, purchaseOrderId, file)
+  }, [token, purchaseOrderId])
 
   return { records, loading, error, refresh: load, upload }
 }

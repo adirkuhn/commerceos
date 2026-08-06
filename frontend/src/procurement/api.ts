@@ -83,6 +83,10 @@ export function attachDocumentToPurchaseOrder(token: string, purchaseOrderId: st
   return requestMultipart<DocumentParsingJob>(`${base()}/purchase-orders/${purchaseOrderId}/documents`, formData, token)
 }
 
+export function getDocumentParsingJob(token: string, id: string): Promise<DocumentParsingJob> {
+  return request<DocumentParsingJob>(`${base()}/document-parsing-jobs/${id}`, { method: 'GET' }, token)
+}
+
 export function createPurchaseOrderFromDocument(token: string, input: CreatePurchaseOrderFromDocumentInput): Promise<DocumentParsingJob> {
   const formData = new FormData()
   formData.append('file', input.file)
@@ -111,6 +115,10 @@ export function uploadInvoice(token: string, purchaseOrderId: string, file: File
   const formData = new FormData()
   formData.append('file', file)
   return requestMultipart<ReceivingParsingJob>(`${base()}/purchase-orders/${purchaseOrderId}/invoices`, formData, token)
+}
+
+export function getReceivingParsingJob(token: string, id: string): Promise<ReceivingParsingJob> {
+  return request<ReceivingParsingJob>(`${base()}/receiving-parsing-jobs/${id}`, { method: 'GET' }, token)
 }
 
 export function listReceivingRecords(token: string, purchaseOrderId: string): Promise<ReceivingRecord[]> {

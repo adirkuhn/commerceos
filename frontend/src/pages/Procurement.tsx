@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, QrCode } from 'lucide-react'
+import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, QrCode, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
 import { usePurchaseOrderDetail } from '../procurement/hooks/usePurchaseOrderDetail'
 import { useReceivingRecords } from '../procurement/hooks/useReceivingRecords'
+import { pollParsingJob } from '../procurement/pollParsingJob'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
@@ -680,13 +681,17 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, onAdd, onU
     setUploadError('')
     setUploadStatus('uploading')
     try {
-      await procurementApi.attachDocumentToPurchaseOrder(token ?? '', purchaseOrderId, file)
+      const job = await procurementApi.attachDocumentToPurchaseOrder(token ?? '', purchaseOrderId, file)
       setUploadStatus('parsing')
-      // The scheduler polls every ~5s -- one refresh after that window picks
-      // up the extracted line items without building a full polling loop.
-      setTimeout(() => { onRefresh(); setUploadStatus('idle') }, 6000)
+      const finalJob = await pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', job.id))
+      if (finalJob.status === 'failed') {
+        setUploadError(finalJob.error_message || 'Failed to parse document')
+      } else {
+        onRefresh()
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to upload document')
+    } finally {
       setUploadStatus('idle')
     }
   }
@@ -958,14 +963,16 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
     setUploadError('')
     setUploadStatus('uploading')
     try {
-      await upload(file)
+      const job = await upload(file)
       setUploadStatus('parsing')
-      // The scheduler polls every ~5s -- one refresh after that window picks
-      // up the discrepancies without building a full polling loop (same
-      // approach as LineItemsSection's document upload).
-      setTimeout(() => { refresh(); setUploadStatus('idle') }, 6000)
+      const finalJob = await pollParsingJob(() => procurementApi.getReceivingParsingJob(token ?? '', job.id))
+      if (finalJob.status === 'failed') {
+        setUploadError(finalJob.error_message || 'Failed to parse invoice')
+      }
+      refresh()
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to upload invoice')
+    } finally {
       setUploadStatus('idle')
     }
   }
@@ -1005,6 +1012,14 @@ function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onAssignWa
             >
               <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
               <span className="flex-1 text-xs dark:text-gray-200 text-gray-800 truncate">{record.invoice_file_name}</span>
+              {record.is_potential_duplicate && (
+                <span
+                  title="Another invoice with identical file content was already uploaded for this supplier"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                >
+                  <AlertTriangle size={10} /> Possible duplicate
+                </span>
+              )}
               <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', RECEIVING_STATUS_STYLE[record.status])}>
                 {record.status.replace('_', ' ')}
               </span>

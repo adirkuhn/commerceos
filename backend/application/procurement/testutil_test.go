@@ -244,8 +244,10 @@ func (s *stubDocumentRepo) ListByPurchaseOrder(_ context.Context, _ string) ([]p
 }
 
 type stubParsingJobRepo struct {
-	createErr error
-	created   []procurementDomain.DocumentParsingJob
+	createErr  error
+	created    []procurementDomain.DocumentParsingJob
+	findResult *procurementDomain.DocumentParsingJob
+	findErr    error
 }
 
 func (s *stubParsingJobRepo) Create(_ context.Context, job *procurementDomain.DocumentParsingJob) error {
@@ -257,7 +259,7 @@ func (s *stubParsingJobRepo) Create(_ context.Context, job *procurementDomain.Do
 	return nil
 }
 func (s *stubParsingJobRepo) FindByID(_ context.Context, _ string) (*procurementDomain.DocumentParsingJob, error) {
-	return nil, nil
+	return s.findResult, s.findErr
 }
 func (s *stubParsingJobRepo) ListPending(_ context.Context) ([]procurementDomain.DocumentParsingJob, error) {
 	return nil, nil
@@ -301,13 +303,18 @@ func (s *stubFileStorage) Get(_ context.Context, _ string) (io.ReadCloser, error
 }
 
 type stubReceivingRecordRepo struct {
-	findResult *procurementDomain.ReceivingRecord
-	findErr    error
-	byPO       []procurementDomain.ReceivingRecord
-	createErr  error
-	created    []procurementDomain.ReceivingRecord
-	updateErr  error
-	updated    []procurementDomain.ReceivingRecord
+	findResult             *procurementDomain.ReceivingRecord
+	findErr                error
+	byPO                   []procurementDomain.ReceivingRecord
+	createErr              error
+	created                []procurementDomain.ReceivingRecord
+	updateErr              error
+	updated                []procurementDomain.ReceivingRecord
+	duplicateCandidates    []procurementDomain.ReceivingRecord
+	duplicateErr           error
+	gotDuplicateHash       string
+	gotDuplicatePOID       string
+	gotDuplicateSupplierID *string
 }
 
 func (s *stubReceivingRecordRepo) Create(_ context.Context, r *procurementDomain.ReceivingRecord) error {
@@ -323,6 +330,10 @@ func (s *stubReceivingRecordRepo) FindByID(_ context.Context, _ string) (*procur
 }
 func (s *stubReceivingRecordRepo) ListByPurchaseOrder(_ context.Context, _ string) ([]procurementDomain.ReceivingRecord, error) {
 	return s.byPO, nil
+}
+func (s *stubReceivingRecordRepo) FindDuplicateCandidates(_ context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]procurementDomain.ReceivingRecord, error) {
+	s.gotDuplicateHash, s.gotDuplicatePOID, s.gotDuplicateSupplierID = contentHash, purchaseOrderID, supplierID
+	return s.duplicateCandidates, s.duplicateErr
 }
 func (s *stubReceivingRecordRepo) Update(_ context.Context, r *procurementDomain.ReceivingRecord) error {
 	if s.updateErr != nil {
@@ -351,8 +362,10 @@ func (s *stubReceivingDiscrepancyRepo) ListByReceivingRecord(_ context.Context, 
 }
 
 type stubReceivingParsingJobRepo struct {
-	createErr error
-	created   []procurementDomain.ReceivingParsingJob
+	createErr  error
+	created    []procurementDomain.ReceivingParsingJob
+	findResult *procurementDomain.ReceivingParsingJob
+	findErr    error
 }
 
 func (s *stubReceivingParsingJobRepo) Create(_ context.Context, job *procurementDomain.ReceivingParsingJob) error {
@@ -364,7 +377,7 @@ func (s *stubReceivingParsingJobRepo) Create(_ context.Context, job *procurement
 	return nil
 }
 func (s *stubReceivingParsingJobRepo) FindByID(_ context.Context, _ string) (*procurementDomain.ReceivingParsingJob, error) {
-	return nil, nil
+	return s.findResult, s.findErr
 }
 func (s *stubReceivingParsingJobRepo) ListPending(_ context.Context) ([]procurementDomain.ReceivingParsingJob, error) {
 	return nil, nil
@@ -404,6 +417,19 @@ func (s *stubAIDocumentParser) ExtractLineItems(_ context.Context, doc procureme
 		return procurementDomain.DocumentExtractionResult{}, s.err
 	}
 	return procurementDomain.DocumentExtractionResult{LineItems: s.out, SupplierName: s.supplierName}, nil
+}
+
+// stubAIParserResolver wraps a fixed AIDocumentParser (nil for "AI not
+// configured") -- RunDocumentParsingJobUseCase/RunReceivingParsingJobUseCase
+// resolve per job instead of taking a parser directly, so tests wrap
+// whatever stubAIDocumentParser they want in one of these.
+type stubAIParserResolver struct {
+	parser procurementDomain.AIDocumentParser
+	err    error
+}
+
+func (s *stubAIParserResolver) Resolve(_ context.Context) (procurementDomain.AIDocumentParser, error) {
+	return s.parser, s.err
 }
 
 type stubBookingRepo struct {

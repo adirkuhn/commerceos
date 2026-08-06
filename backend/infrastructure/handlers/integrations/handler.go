@@ -70,6 +70,15 @@ type listSyncLogsUC interface {
 type listAllSyncLogsUC interface {
 	Execute(ctx context.Context, page, perPage int) ([]appchannels.SyncLogEntryWithNames, int64, error)
 }
+type getAIConnectionUC interface {
+	Execute(ctx context.Context) (*integrationsDomain.AIConnection, error)
+}
+type connectAIProviderUC interface {
+	Execute(ctx context.Context, in appintegrations.ConnectAIProviderInput) (*integrationsDomain.AIConnection, error)
+}
+type disconnectAIConnectionUC interface {
+	Execute(ctx context.Context) error
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +98,9 @@ type Handler struct {
 	getProductChannelListing getProductChannelListingUC
 	listSyncLogs             listSyncLogsUC
 	listAllSyncLogs          listAllSyncLogsUC
+	getAIConnection          getAIConnectionUC
+	connectAIProvider        connectAIProviderUC
+	disconnectAIConnection   disconnectAIConnectionUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -108,6 +120,9 @@ func NewHandler(
 	getProductChannelListing getProductChannelListingUC,
 	listSyncLogs listSyncLogsUC,
 	listAllSyncLogs listAllSyncLogsUC,
+	getAIConnection getAIConnectionUC,
+	connectAIProvider connectAIProviderUC,
+	disconnectAIConnection disconnectAIConnectionUC,
 ) *Handler {
 	return &Handler{
 		listConnections:          listConnections,
@@ -125,6 +140,9 @@ func NewHandler(
 		getProductChannelListing: getProductChannelListing,
 		listSyncLogs:             listSyncLogs,
 		listAllSyncLogs:          listAllSyncLogs,
+		getAIConnection:          getAIConnection,
+		connectAIProvider:        connectAIProvider,
+		disconnectAIConnection:   disconnectAIConnection,
 	}
 }
 
@@ -169,6 +187,7 @@ func Register(
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	importJobRepo := repositories.NewImportJobRepo(db)
 	notificationRepo := repositories.NewNotificationRepo(db)
+	aiConnRepo := repositories.NewAIConnectionRepo(db)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -192,6 +211,9 @@ func Register(
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
 		appchannels.NewListSyncLogsUseCase(db, listingRepo, syncLogRepo),
 		appchannels.NewListAllSyncLogsUseCase(db, syncLogRepo, productRepo, connRepo),
+		appintegrations.NewGetAIConnectionUseCase(db, aiConnRepo),
+		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
+		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -202,6 +224,7 @@ func Register(
 func (h *Handler) ListCatalog(c *gin.Context) {
 	middleware.OK(c, []genintegrations.CatalogEntry{
 		{Provider: string(integrationsDomain.ProviderWooCommerce), Name: "WooCommerce"},
+		{Provider: "ai", Name: "AI"},
 	})
 }
 
@@ -215,6 +238,50 @@ func (h *Handler) ListConnections(c *gin.Context) {
 		resp[i] = toGenConnection(conn)
 	}
 	middleware.OK(c, resp)
+}
+
+func (h *Handler) GetAIConnection(c *gin.Context) {
+	conn, err := h.getAIConnection.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	if conn == nil {
+		middleware.OK(c, nil)
+		return
+	}
+	resp := toGenAIConnection(*conn)
+	middleware.OK(c, &resp)
+}
+
+func (h *Handler) ConnectAIProvider(c *gin.Context) {
+	var req genintegrations.ConnectAIProviderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	in := appintegrations.ConnectAIProviderInput{Provider: integrationsDomain.AIProvider(req.Provider)}
+	if req.ApiKey != nil {
+		in.APIKey = *req.ApiKey
+	}
+	if req.BaseUrl != nil {
+		in.BaseURL = *req.BaseUrl
+	}
+	if req.Model != nil {
+		in.Model = *req.Model
+	}
+	conn, err := h.connectAIProvider.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenAIConnection(*conn)
+	middleware.OK(c, &resp)
+}
+
+func (h *Handler) DisconnectAIProvider(c *gin.Context) {
+	if err := mapError(c, h.disconnectAIConnection.Execute(c.Request.Context())); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
 }
 
 func (h *Handler) StartWooConnect(c *gin.Context) {
@@ -478,6 +545,20 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 	}
 }
 
+func toGenAIConnection(c integrationsDomain.AIConnection) genintegrations.AIConnection {
+	resp := genintegrations.AIConnection{
+		Id: c.ID, Provider: genintegrations.AIProvider(c.Provider),
+		Status: genintegrations.ConnectionStatus(c.Status), CreatedAt: c.CreatedAt,
+	}
+	if c.BaseURL != "" {
+		resp.BaseUrl = &c.BaseURL
+	}
+	if c.Model != "" {
+		resp.Model = &c.Model
+	}
+	return resp
+}
+
 func toGenListing(l channelsDomain.ProductChannelListing) genintegrations.ProductChannelListing {
 	return genintegrations.ProductChannelListing{
 		Id:           l.ID,
@@ -547,7 +628,9 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStoreURLInvalid):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
-	case errors.Is(err, integrationsDomain.ErrProviderNotSupported):
+	case errors.Is(err, integrationsDomain.ErrProviderNotSupported),
+		errors.Is(err, integrationsDomain.ErrAPIKeyRequired),
+		errors.Is(err, integrationsDomain.ErrBaseURLRequired):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct),
 		errors.Is(err, channelsDomain.ErrInvalidSyncEntityType),

@@ -63,6 +63,11 @@ type ReceivingRecordRepository interface {
 	FindByID(ctx context.Context, id string) (*ReceivingRecord, error)
 	ListByPurchaseOrder(ctx context.Context, purchaseOrderID string) ([]ReceivingRecord, error)
 	Update(ctx context.Context, r *ReceivingRecord) error
+	// FindDuplicateCandidates returns existing records with the same
+	// contentHash scoped to purchaseOrderID or (when supplierID is non-nil)
+	// any other PO belonging to the same supplier -- used by
+	// UploadInvoiceUseCase to flag IsPotentialDuplicate before Create.
+	FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]ReceivingRecord, error)
 }
 
 type ReceivingDiscrepancyRepository interface {

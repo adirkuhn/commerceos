@@ -24,9 +24,13 @@ type RunDocumentParsingJobUseCase struct {
 	matchUC      *MatchExtractedLineItemsUseCase
 	storage      pmsDomain.FileStorage
 	pdfExtractor procurementDomain.PDFTextExtractor
-	// aiParser is nil when no AI provider is configured -- PDFs then fail
-	// clearly with ErrAIParsingNotConfigured instead of the job crashing.
-	aiParser procurementDomain.AIDocumentParser
+	// aiParserResolver looks up whichever AIDocumentParser the job's own
+	// tenant has configured (see integrations.AIConnection) -- resolving
+	// per job instead of once at process startup, since different tenants
+	// can each pick their own provider. Resolves to nil when the tenant
+	// hasn't configured one, and PDFs then fail clearly with
+	// ErrAIParsingNotConfigured instead of the job crashing.
+	aiParserResolver procurementDomain.AIParserResolver
 }
 
 func NewRunDocumentParsingJobUseCase(
@@ -37,11 +41,11 @@ func NewRunDocumentParsingJobUseCase(
 	matchUC *MatchExtractedLineItemsUseCase,
 	storage pmsDomain.FileStorage,
 	pdfExtractor procurementDomain.PDFTextExtractor,
-	aiParser procurementDomain.AIDocumentParser,
+	aiParserResolver procurementDomain.AIParserResolver,
 ) *RunDocumentParsingJobUseCase {
 	return &RunDocumentParsingJobUseCase{
 		db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, documentRepo: documentRepo,
-		matchUC: matchUC, storage: storage, pdfExtractor: pdfExtractor, aiParser: aiParser,
+		matchUC: matchUC, storage: storage, pdfExtractor: pdfExtractor, aiParserResolver: aiParserResolver,
 	}
 }
 
@@ -75,7 +79,7 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 		return false, fmt.Errorf("runDocumentParsingJob: %w", err)
 	}
 
-	extracted, err := extractLineItemsFromDocument(ctx, uc.pdfExtractor, uc.aiParser, doc.ContentType, doc.FileName, data)
+	extracted, err := extractLineItemsFromDocument(ctx, uc.pdfExtractor, uc.aiParserResolver, doc.ContentType, doc.FileName, data)
 	if err != nil {
 		return false, fmt.Errorf("runDocumentParsingJob: %w", err)
 	}

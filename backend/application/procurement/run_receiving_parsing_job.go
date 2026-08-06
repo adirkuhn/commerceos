@@ -33,7 +33,9 @@ type RunReceivingParsingJobUseCase struct {
 	discrepancyRepo procurementDomain.ReceivingDiscrepancyRepository
 	storage         pmsDomain.FileStorage
 	pdfExtractor    procurementDomain.PDFTextExtractor
-	aiParser        procurementDomain.AIDocumentParser
+	// aiParserResolver mirrors RunDocumentParsingJobUseCase's field -- see
+	// its doc comment.
+	aiParserResolver procurementDomain.AIParserResolver
 }
 
 func NewRunReceivingParsingJobUseCase(
@@ -43,11 +45,11 @@ func NewRunReceivingParsingJobUseCase(
 	discrepancyRepo procurementDomain.ReceivingDiscrepancyRepository,
 	storage pmsDomain.FileStorage,
 	pdfExtractor procurementDomain.PDFTextExtractor,
-	aiParser procurementDomain.AIDocumentParser,
+	aiParserResolver procurementDomain.AIParserResolver,
 ) *RunReceivingParsingJobUseCase {
 	return &RunReceivingParsingJobUseCase{
 		db: db, recRepo: recRepo, lineItemRepo: lineItemRepo,
-		discrepancyRepo: discrepancyRepo, storage: storage, pdfExtractor: pdfExtractor, aiParser: aiParser,
+		discrepancyRepo: discrepancyRepo, storage: storage, pdfExtractor: pdfExtractor, aiParserResolver: aiParserResolver,
 	}
 }
 
@@ -80,7 +82,7 @@ func (uc *RunReceivingParsingJobUseCase) Execute(ctx context.Context, job procur
 		return 0, fmt.Errorf("runReceivingParsingJob: %w", err)
 	}
 
-	extracted, err := extractLineItemsFromDocument(ctx, uc.pdfExtractor, uc.aiParser, rec.ContentType, rec.InvoiceFileName, data)
+	extracted, err := extractLineItemsFromDocument(ctx, uc.pdfExtractor, uc.aiParserResolver, rec.ContentType, rec.InvoiceFileName, data)
 	if err != nil {
 		return 0, fmt.Errorf("runReceivingParsingJob: %w", err)
 	}

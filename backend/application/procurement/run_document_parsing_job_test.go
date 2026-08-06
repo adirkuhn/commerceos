@@ -70,7 +70,7 @@ func TestRunDocumentParsingJob_pdfDocument_usesAIWhenTextExtracted(t *testing.T)
 	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500},
 	}}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, aiParser)
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	needsReview, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -91,7 +91,7 @@ func TestRunDocumentParsingJob_pdfWithNoExtractableText_failsWithoutCallingAI(t 
 	storage := &stubFileStorage{getData: []byte("%PDF-scanned-image")}
 	pdfExtractor := &stubPDFTextExtractor{text: "   "}
 	aiParser := &stubAIDocumentParser{}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, aiParser)
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -107,7 +107,7 @@ func TestRunDocumentParsingJob_pdfWithoutAIConfigured_failsClearly(t *testing.T)
 	documentRepo := &stubDocumentRepo{findResult: doc}
 	storage := &stubFileStorage{getData: []byte("%PDF-with-text")}
 	pdfExtractor := &stubPDFTextExtractor{text: "some real text"}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, nil)
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -128,7 +128,7 @@ func TestRunDocumentParsingJob_supplierlessPDF_writesSuggestedSupplierAndCurrenc
 		out:          []procurementDomain.ExtractedLineItem{{RawSKU: "ANT001", RawDescription: "Guarana Antarctica", Quantity: 42, UnitCostMinorUnits: 136}},
 		supplierName: "PEDAÇOS DO BRASIL, LDA.",
 	}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, aiParser)
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -153,7 +153,7 @@ func TestRunDocumentParsingJob_doesNotWriteSuggestionsWhenSupplierAlreadySet(t *
 		out:          []procurementDomain.ExtractedLineItem{{RawSKU: "ANT001", RawDescription: "Guarana Antarctica", Quantity: 42, UnitCostMinorUnits: 136}},
 		supplierName: "PEDAÇOS DO BRASIL, LDA.",
 	}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, aiParser)
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 

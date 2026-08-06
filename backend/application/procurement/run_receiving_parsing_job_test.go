@@ -129,7 +129,7 @@ func TestRunReceivingParsingJob_pdfWithNoAIParserConfiguredReturnsError(t *testi
 	recRepo.findResult.InvoiceFileName = "invoice.pdf"
 	storage.getData = []byte("not extractable as csv")
 	pdfExtractor := &stubPDFTextExtractor{text: "Widget A x10"}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, nil)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 
@@ -146,7 +146,7 @@ func TestRunReceivingParsingJob_pdfUsesAIParserWhenConfigured(t *testing.T) {
 	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10},
 	}}
-	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, aiParser)
+	uc := appprocurement.NewRunReceivingParsingJobUseCase(db, recRepo, lineItemRepo, discrepancyRepo, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	count, err := uc.Execute(context.Background(), procurementDomain.ReceivingParsingJob{ID: "job-1", ReceivingRecordID: "receiving-record-1"})
 

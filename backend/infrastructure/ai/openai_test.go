@@ -73,6 +73,7 @@ func TestOpenAIDocumentParser_ExtractLineItems_returnsErrorOnAPIError(t *testing
 
 func TestOpenAIDocumentParser_ExtractLineItems_returnsErrorWhenNoOutputText(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"output": []map[string]any{}})
 	}))
 	defer server.Close()
@@ -88,6 +89,7 @@ func TestOpenAIDocumentParser_ExtractLineItems_returnsErrorWhenNoOutputText(t *t
 
 func TestOpenAIDocumentParser_ExtractLineItems_returnsErrorOnMalformedLineItemsJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"output": []map[string]any{
 				{"type": "message", "content": []map[string]any{{"type": "output_text", "text": "not json"}}},
@@ -106,6 +108,7 @@ func TestOpenAIDocumentParser_ExtractLineItems_returnsErrorOnMalformedLineItemsJ
 
 func TestOpenAIDocumentParser_ExtractLineItems_emptyLineItemsReturnsEmptySlice(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"output": []map[string]any{
 				{"type": "message", "content": []map[string]any{{"type": "output_text", "text": `{"line_items":[]}`}}},

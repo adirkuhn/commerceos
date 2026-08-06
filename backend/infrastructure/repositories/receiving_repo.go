@@ -15,15 +15,17 @@ import (
 // ── GORM models ──────────────────────────────────────────────────────────────
 
 type receivingRecordModel struct {
-	ID              string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID        string `gorm:"not null;type:uuid"`
-	PurchaseOrderID string `gorm:"column:purchase_order_id;not null;type:uuid"`
-	InvoiceFileURL  string `gorm:"column:invoice_file_url;not null"`
-	InvoiceFileName string `gorm:"column:invoice_file_name;not null;default:''"`
-	ContentType     string `gorm:"column:content_type;not null;default:''"`
-	Status          string `gorm:"not null;default:'pending_review'"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                   string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID             string `gorm:"not null;type:uuid"`
+	PurchaseOrderID      string `gorm:"column:purchase_order_id;not null;type:uuid"`
+	InvoiceFileURL       string `gorm:"column:invoice_file_url;not null"`
+	InvoiceFileName      string `gorm:"column:invoice_file_name;not null;default:''"`
+	ContentType          string `gorm:"column:content_type;not null;default:''"`
+	Status               string `gorm:"not null;default:'pending_review'"`
+	ContentHash          string `gorm:"column:content_hash;not null;default:''"`
+	IsPotentialDuplicate bool   `gorm:"column:is_potential_duplicate;not null;default:false"`
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 func (receivingRecordModel) TableName() string { return "receiving_records" }
@@ -77,7 +79,8 @@ func (r *ReceivingRecordRepo) Create(ctx context.Context, rec *procurementDomain
 	m := receivingRecordModel{
 		TenantID: rec.TenantID, PurchaseOrderID: rec.PurchaseOrderID,
 		InvoiceFileURL: rec.InvoiceFileURL, InvoiceFileName: rec.InvoiceFileName, ContentType: rec.ContentType,
-		Status: string(rec.Status), CreatedAt: rec.CreatedAt, UpdatedAt: rec.UpdatedAt,
+		Status: string(rec.Status), ContentHash: rec.ContentHash, IsPotentialDuplicate: rec.IsPotentialDuplicate,
+		CreatedAt: rec.CreatedAt, UpdatedAt: rec.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("receivingRecordRepo.Create: %w", err)
@@ -133,8 +136,39 @@ func toReceivingRecordDomain(m receivingRecordModel) *procurementDomain.Receivin
 	return &procurementDomain.ReceivingRecord{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID,
 		InvoiceFileURL: m.InvoiceFileURL, InvoiceFileName: m.InvoiceFileName, ContentType: m.ContentType,
-		Status: procurementDomain.ReceivingRecordStatus(m.Status), CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		Status:      procurementDomain.ReceivingRecordStatus(m.Status),
+		ContentHash: m.ContentHash, IsPotentialDuplicate: m.IsPotentialDuplicate,
+		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
+}
+
+// FindDuplicateCandidates matches ReceivingRecordRepository's doc comment:
+// same contentHash, scoped to purchaseOrderID itself or (when supplierID is
+// non-nil) any other PO belonging to that supplier -- the join covers the
+// second half, the OR covers the first without needing one for a nil
+// supplier.
+func (r *ReceivingRecordRepo) FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]procurementDomain.ReceivingRecord, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := tx.Table("receiving_records AS rr").
+		Joins("JOIN purchase_orders AS po ON po.id = rr.purchase_order_id").
+		Where("rr.content_hash = ? AND rr.content_hash != ''", contentHash)
+	if supplierID != nil {
+		q = q.Where("(rr.purchase_order_id = ? OR po.supplier_id = ?)", purchaseOrderID, *supplierID)
+	} else {
+		q = q.Where("rr.purchase_order_id = ?", purchaseOrderID)
+	}
+	var rows []receivingRecordModel
+	if err := q.Select("rr.*").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("receivingRecordRepo.FindDuplicateCandidates: %w", err)
+	}
+	out := make([]procurementDomain.ReceivingRecord, len(rows))
+	for i, row := range rows {
+		out[i] = *toReceivingRecordDomain(row)
+	}
+	return out, nil
 }
 
 // ── ReceivingDiscrepancyRepo ─────────────────────────────────────────────────

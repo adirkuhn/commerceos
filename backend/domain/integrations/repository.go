@@ -9,3 +9,15 @@ type ConnectionRepository interface {
 	Update(ctx context.Context, c *Connection) error
 	Delete(ctx context.Context, id string) error
 }
+
+// AIConnectionRepository mirrors settings.Repository's shape (Get/Upsert,
+// no explicit tenant ID -- RLS + ctx scope every call to the current
+// tenant) since AIConnection is likewise unique per tenant: one row, always
+// upserted in place, never a second row per provider switch.
+type AIConnectionRepository interface {
+	// Get returns nil, nil (not an error) when the tenant hasn't configured
+	// an AI provider yet -- that's the common/default state, not a fault.
+	Get(ctx context.Context) (*AIConnection, error)
+	Upsert(ctx context.Context, c *AIConnection) error
+	Delete(ctx context.Context) error
+}

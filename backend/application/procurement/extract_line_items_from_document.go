@@ -29,7 +29,7 @@ type extractedDocumentInfo struct {
 func extractLineItemsFromDocument(
 	ctx context.Context,
 	pdfExtractor procurementDomain.PDFTextExtractor,
-	aiParser procurementDomain.AIDocumentParser,
+	aiParserResolver procurementDomain.AIParserResolver,
 	contentType, fileName string,
 	data []byte,
 ) (extractedDocumentInfo, error) {
@@ -50,11 +50,18 @@ func extractLineItemsFromDocument(
 	}
 	currencyCode, _ := DetectCurrencyCode(text)
 
+	if aiParserResolver == nil {
+		return extractedDocumentInfo{}, procurementDomain.ErrAIParsingNotConfigured
+	}
+	aiParser, err := aiParserResolver.Resolve(ctx)
+	if err != nil {
+		return extractedDocumentInfo{}, err
+	}
 	if aiParser == nil {
 		return extractedDocumentInfo{}, procurementDomain.ErrAIParsingNotConfigured
 	}
 	result, err := aiParser.ExtractLineItems(ctx, procurementDomain.DocumentInput{
-		FileName: fileName, ContentType: contentType, Data: data,
+		FileName: fileName, ContentType: contentType, Data: data, ExtractedText: text,
 	})
 	if err != nil {
 		return extractedDocumentInfo{}, err

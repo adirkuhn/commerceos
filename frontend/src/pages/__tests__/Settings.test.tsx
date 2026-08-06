@@ -15,6 +15,9 @@ vi.mock('../../integrations/api', () => ({
   upsertSyncSchedules: vi.fn(),
   deleteAllImportedProducts: vi.fn(),
   updateConnectionSettings: vi.fn(),
+  getAIConnection: vi.fn(),
+  connectAIProvider: vi.fn(),
+  disconnectAIProvider: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -41,6 +44,7 @@ function wooConnection(overrides: Partial<Connection> = {}): Connection {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
+  vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '', updated_at: '',
@@ -85,6 +89,89 @@ describe('Settings > Integrations overview', () => {
 
     expect(await screen.findByText('Sync schedule')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'https://mystore.com' })).toBeInTheDocument()
+  })
+})
+
+describe('Settings > Integrations > AI', () => {
+  it('shows not configured and a Connect button when no AI provider is set up', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+
+    expect(await screen.findByText(/Not configured/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument()
+  })
+
+  it('shows the configured provider and status', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
+      id: 'ai-conn-1', provider: 'anthropic', status: 'connected', created_at: '',
+    })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+
+    expect(await screen.findByText('Anthropic (Claude)')).toBeInTheDocument()
+    expect(screen.getByText('connected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Configure' })).toBeInTheDocument()
+  })
+
+  it('connects a hosted provider with an API key', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.connectAIProvider).mockResolvedValue({
+      id: 'ai-conn-1', provider: 'openai', status: 'connected', created_at: '',
+    })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
+    await userEvent.type(screen.getByLabelText('API Key'), 'sk-test-key')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
+      provider: 'openai', apiKey: 'sk-test-key', baseUrl: '', model: '',
+    }))
+  })
+
+  it('requires a server URL instead of an API key for Ollama', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
+    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'ollama')
+
+    expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Server URL')).toBeInTheDocument()
+  })
+
+  it('shows an error if connecting fails', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.connectAIProvider).mockRejectedValue(new Error('an API key is required for this provider'))
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
+    await userEvent.type(screen.getByLabelText('API Key'), 'sk-test')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('an API key is required for this provider')).toBeInTheDocument()
+  })
+
+  it('disconnects after confirming', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
+      id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
+    })
+    vi.mocked(integrationsApi.disconnectAIProvider).mockResolvedValue(null)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
+
+    await waitFor(() => expect(integrationsApi.disconnectAIProvider).toHaveBeenCalledWith('test-token'))
   })
 })
 

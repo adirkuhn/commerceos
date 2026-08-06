@@ -1,7 +1,10 @@
 package procurement
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"time"
@@ -44,10 +47,13 @@ func NewUploadInvoiceUseCase(
 
 func (uc *UploadInvoiceUseCase) Execute(ctx context.Context, in UploadInvoiceInput) (*procurementDomain.ReceivingParsingJob, error) {
 	var tenantID string
+	var supplierID *string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if _, err := uc.poRepo.FindByID(ctx, in.PurchaseOrderID); err != nil {
+		po, err := uc.poRepo.FindByID(ctx, in.PurchaseOrderID)
+		if err != nil {
 			return err
 		}
+		supplierID = po.SupplierID
 		tenantID = tenant.IDFromContext(ctx)
 		return nil
 	})
@@ -55,18 +61,34 @@ func (uc *UploadInvoiceUseCase) Execute(ctx context.Context, in UploadInvoiceInp
 		return nil, fmt.Errorf("uploadInvoice: %w", err)
 	}
 
-	url, err := uc.storage.Save(ctx, tenantID, in.FileName, in.Data)
+	// Buffered (not streamed) so the same bytes can be hashed for duplicate
+	// detection and then handed to storage -- invoices are small enough
+	// (PDF/CSV/XLSX) that this isn't a memory concern.
+	data, err := io.ReadAll(in.Data)
+	if err != nil {
+		return nil, fmt.Errorf("uploadInvoice: %w", err)
+	}
+	contentHash := sha256.Sum256(data)
+	contentHashHex := hex.EncodeToString(contentHash[:])
+
+	url, err := uc.storage.Save(ctx, tenantID, in.FileName, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("uploadInvoice: %w", err)
 	}
 
 	var job procurementDomain.ReceivingParsingJob
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		duplicates, err := uc.recRepo.FindDuplicateCandidates(ctx, contentHashHex, in.PurchaseOrderID, supplierID)
+		if err != nil {
+			return err
+		}
 		now := time.Now()
 		rec := procurementDomain.ReceivingRecord{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID,
 			InvoiceFileURL: url, InvoiceFileName: in.FileName, ContentType: in.ContentType,
-			Status: procurementDomain.ReceivingRecordStatusPendingReview, CreatedAt: now, UpdatedAt: now,
+			Status:      procurementDomain.ReceivingRecordStatusPendingReview,
+			ContentHash: contentHashHex, IsPotentialDuplicate: len(duplicates) > 0,
+			CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.recRepo.Create(ctx, &rec); err != nil {
 			return err
