@@ -116,7 +116,7 @@ export default function Procurement() {
         purchaseOrderId={editingId === 'new' ? null : editingId}
         initialParsingJobId={editingId === 'new' ? null : pendingParsingJobId}
         onCreate={create}
-        onClose={() => { setEditingId(null); setPendingParsingJobId(null) }}
+        onClose={() => { setEditingId(null); setPendingParsingJobId(null); refresh() }}
       />
     )
   }

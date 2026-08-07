@@ -490,6 +490,33 @@ describe('Purchase order edit with line items', () => {
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument()
   })
 
+  it('re-fetches the list on returning to it, so a status change made on the edit page is not left stale', async () => {
+    // First list load shows the PO as draft -- after editing status to
+    // 'sent' and going back, the list must be re-fetched (not read from
+    // whatever it loaded on first mount) to show the new status.
+    vi.mocked(procurementApi.listPurchaseOrders)
+      .mockResolvedValueOnce([po({ status: 'draft' })])
+      .mockResolvedValueOnce([po({ status: 'sent' })])
+    vi.mocked(procurementApi.updatePurchaseOrder).mockResolvedValue(po({ status: 'sent' }))
+
+    render(<Procurement />)
+    const draftRow = (await screen.findByText('Acme Foods')).closest('tr')!
+    expect(within(draftRow).getByText('draft')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Acme Foods'))
+    await screen.findByText('Widget A')
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'sent')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(procurementApi.updatePurchaseOrder).toHaveBeenCalledWith(
+      'test-token', 'po-1', expect.objectContaining({ status: 'sent' }),
+    ))
+    await userEvent.click(screen.getByRole('button', { name: 'Purchase Orders' }))
+
+    expect(procurementApi.listPurchaseOrders).toHaveBeenCalledTimes(2)
+    const row = (await screen.findByText('Acme Foods')).closest('tr')!
+    expect(within(row).getByText('sent')).toBeInTheDocument()
+  })
+
   it('uploading a document to an existing PO shows a parsing indicator', async () => {
     vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
