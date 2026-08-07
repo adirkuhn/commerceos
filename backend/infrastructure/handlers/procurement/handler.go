@@ -708,6 +708,7 @@ func toGenPurchaseOrder(po procurementDomain.PurchaseOrder) genprocurement.Purch
 		Status: genprocurement.PurchaseOrderStatus(po.Status), CurrencyCode: po.CurrencyCode,
 		ExpectedDate: timePtrToGenDate(po.ExpectedDate), Notes: po.Notes,
 		SuggestedSupplierName: &po.SuggestedSupplierName, SuggestedCurrencyCode: &po.SuggestedCurrencyCode,
+		IsPotentialDuplicate: po.IsPotentialDuplicate, DuplicateOfPurchaseOrderId: po.DuplicateOfPurchaseOrderID,
 		CreatedAt: po.CreatedAt, UpdatedAt: po.UpdatedAt,
 	}
 }

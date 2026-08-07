@@ -34,10 +34,12 @@ func TestAttachDocumentToPurchaseOrder_savesDocumentAndEnqueuesJob(t *testing.T)
 	assert.Equal(t, "sku,qty\nA,1", string(storage.savedData))
 }
 
-func TestAttachDocumentToPurchaseOrder_flagsPotentialDuplicate_whenMatchFound(t *testing.T) {
+func TestAttachDocumentToPurchaseOrder_flagsDocumentAsDuplicate_onSamePOReupload(t *testing.T) {
 	db := newMockGormDBN(t, 2)
-	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1")}}
-	documentRepo := &stubDocumentRepo{duplicateCandidates: []procurementDomain.PurchaseOrderDocument{{ID: "document-0"}}}
+	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
+	documentRepo := &stubDocumentRepo{duplicateCandidates: []procurementDomain.PurchaseOrderDocument{
+		{ID: "document-0", PurchaseOrderID: "po-1"},
+	}}
 	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubParsingJobRepo{}, &stubFileStorage{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
@@ -49,8 +51,26 @@ func TestAttachDocumentToPurchaseOrder_flagsPotentialDuplicate_whenMatchFound(t 
 	assert.True(t, documentRepo.created[0].IsPotentialDuplicate)
 	assert.NotEmpty(t, documentRepo.created[0].ContentHash)
 	assert.Equal(t, "po-1", documentRepo.gotDuplicatePOID)
-	require.NotNil(t, documentRepo.gotDuplicateSupplierID)
-	assert.Equal(t, "supplier-1", *documentRepo.gotDuplicateSupplierID)
+	assert.Empty(t, poRepo.duplicatesSet, "a re-upload onto the same PO is a duplicate document, not a duplicate PO")
+}
+
+func TestAttachDocumentToPurchaseOrder_marksPurchaseOrderAsDuplicate_whenMatchIsOnADifferentPO(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-2"}}
+	documentRepo := &stubDocumentRepo{duplicateCandidates: []procurementDomain.PurchaseOrderDocument{
+		{ID: "document-0", PurchaseOrderID: "po-1"},
+	}}
+	uc := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, &stubParsingJobRepo{}, &stubFileStorage{})
+
+	_, err := uc.Execute(context.Background(), appprocurement.AttachDocumentToPurchaseOrderInput{
+		PurchaseOrderID: "po-2", FileName: "invoice.pdf", ContentType: "application/pdf", Data: strings.NewReader("%PDF-1.4 fake bytes"),
+	})
+
+	require.NoError(t, err)
+	assert.True(t, documentRepo.created[0].IsPotentialDuplicate)
+	require.Len(t, poRepo.duplicatesSet, 1)
+	assert.Equal(t, "po-2", poRepo.duplicatesSet[0].id)
+	assert.Equal(t, "po-1", poRepo.duplicatesSet[0].duplicateOfPurchaseOrderID)
 }
 
 func TestAttachDocumentToPurchaseOrder_notFlaggedAsDuplicate_whenNoMatchFound(t *testing.T) {
@@ -66,6 +86,7 @@ func TestAttachDocumentToPurchaseOrder_notFlaggedAsDuplicate_whenNoMatchFound(t 
 	require.NoError(t, err)
 	require.Len(t, documentRepo.created, 1)
 	assert.False(t, documentRepo.created[0].IsPotentialDuplicate)
+	assert.Empty(t, poRepo.duplicatesSet)
 }
 
 func TestAttachDocumentToPurchaseOrder_propagatesPurchaseOrderNotFound(t *testing.T) {

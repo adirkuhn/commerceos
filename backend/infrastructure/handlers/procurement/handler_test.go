@@ -486,6 +486,17 @@ func TestListPurchaseOrdersHandler_returnsPurchaseOrders(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "po-1")
 }
 
+func TestListPurchaseOrdersHandler_includesDuplicateFlag(t *testing.T) {
+	h := newTestHandler(&stubListPurchaseOrders{out: []procurementDomain.PurchaseOrder{
+		{ID: "po-2", IsPotentialDuplicate: true, DuplicateOfPurchaseOrderID: strPtr("po-1")},
+	}}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/procurement/purchase-orders", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"is_potential_duplicate":true`)
+	assert.Contains(t, w.Body.String(), `"duplicate_of_purchase_order_id":"po-1"`)
+}
+
 func TestCreatePurchaseOrderHandler_success(t *testing.T) {
 	create := &stubCreatePurchaseOrder{}
 	h := newTestHandler(&stubListPurchaseOrders{}, create, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{}, &stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{})

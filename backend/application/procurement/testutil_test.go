@@ -73,6 +73,13 @@ type stubPurchaseOrderRepo struct {
 	deleted        []string
 	suggestionsErr error
 	suggestionsSet []suggestionUpdate
+	duplicateErr   error
+	duplicatesSet  []duplicateMark
+}
+
+type duplicateMark struct {
+	id                         string
+	duplicateOfPurchaseOrderID string
 }
 
 type suggestionUpdate struct {
@@ -114,6 +121,13 @@ func (s *stubPurchaseOrderRepo) UpdateSuggestions(_ context.Context, id string, 
 		return s.suggestionsErr
 	}
 	s.suggestionsSet = append(s.suggestionsSet, suggestionUpdate{id: id, supplierName: supplierName, currencyCode: currencyCode})
+	return nil
+}
+func (s *stubPurchaseOrderRepo) MarkPotentialDuplicate(_ context.Context, id, duplicateOfPurchaseOrderID string) error {
+	if s.duplicateErr != nil {
+		return s.duplicateErr
+	}
+	s.duplicatesSet = append(s.duplicatesSet, duplicateMark{id: id, duplicateOfPurchaseOrderID: duplicateOfPurchaseOrderID})
 	return nil
 }
 
@@ -222,19 +236,18 @@ func (s *stubAliasRepo) FindBySupplierAndRawKey(_ context.Context, supplierID, r
 }
 
 type stubDocumentRepo struct {
-	findResult             *procurementDomain.PurchaseOrderDocument
-	findErr                error
-	createErr              error
-	created                []procurementDomain.PurchaseOrderDocument
-	byPO                   []procurementDomain.PurchaseOrderDocument
-	listErr                error
-	deleted                []string
-	deleteErr              error
-	duplicateCandidates    []procurementDomain.PurchaseOrderDocument
-	duplicateErr           error
-	gotDuplicateHash       string
-	gotDuplicatePOID       string
-	gotDuplicateSupplierID *string
+	findResult          *procurementDomain.PurchaseOrderDocument
+	findErr             error
+	createErr           error
+	created             []procurementDomain.PurchaseOrderDocument
+	byPO                []procurementDomain.PurchaseOrderDocument
+	listErr             error
+	deleted             []string
+	deleteErr           error
+	duplicateCandidates []procurementDomain.PurchaseOrderDocument
+	duplicateErr        error
+	gotDuplicateHash    string
+	gotDuplicatePOID    string
 }
 
 func (s *stubDocumentRepo) Create(_ context.Context, doc *procurementDomain.PurchaseOrderDocument) error {
@@ -258,10 +271,9 @@ func (s *stubDocumentRepo) Delete(_ context.Context, id string) error {
 	s.deleted = append(s.deleted, id)
 	return nil
 }
-func (s *stubDocumentRepo) FindDuplicateCandidates(_ context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]procurementDomain.PurchaseOrderDocument, error) {
+func (s *stubDocumentRepo) FindDuplicateCandidates(_ context.Context, contentHash, purchaseOrderID string) ([]procurementDomain.PurchaseOrderDocument, error) {
 	s.gotDuplicateHash = contentHash
 	s.gotDuplicatePOID = purchaseOrderID
-	s.gotDuplicateSupplierID = supplierID
 	return s.duplicateCandidates, s.duplicateErr
 }
 

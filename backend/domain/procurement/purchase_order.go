@@ -43,8 +43,16 @@ type PurchaseOrder struct {
 	// CurrencyCode directly.
 	SuggestedSupplierName string
 	SuggestedCurrencyCode string
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	// IsPotentialDuplicate/DuplicateOfPurchaseOrderID are set when a
+	// document attached to this PO has the same content hash as a
+	// document already attached to a *different* PO (see
+	// AttachDocumentToPurchaseOrderUseCase) -- tenant-wide, not scoped to
+	// supplier, since the same file can land on two supplier-less POs
+	// before either has one assigned.
+	IsPotentialDuplicate       bool
+	DuplicateOfPurchaseOrderID *string
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
 }
 
 type PurchaseOrderLineItem struct {

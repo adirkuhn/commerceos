@@ -220,6 +220,15 @@ export default function Procurement() {
                       <Sparkles size={11} /> Missing supplier
                     </p>
                   )}
+                  {po.is_potential_duplicate && (
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); if (po.duplicate_of_purchase_order_id) setEditingId(po.duplicate_of_purchase_order_id) }}
+                      className="flex items-center gap-1 mt-0.5 text-[10px] font-medium text-red-400 hover:underline"
+                    >
+                      <AlertTriangle size={10} /> Possible duplicate order
+                    </button>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(po.warehouse_id) ?? '—'}</td>
                 <td className="px-3 py-2.5">

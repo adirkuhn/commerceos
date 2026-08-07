@@ -520,7 +520,7 @@ components:
 
     PurchaseOrder:
       type: object
-      required: [id, tenant_id, status, currency_code, notes, created_at, updated_at]
+      required: [id, tenant_id, status, currency_code, notes, is_potential_duplicate, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -541,6 +541,12 @@ components:
         # from these but a human still has to confirm.
         suggested_supplier_name: { type: string }
         suggested_currency_code: { type: string }
+        # Set when a document attached to this PO has the same content as a
+        # document attached to a *different* PO -- tenant-wide, not
+        # scoped to supplier (see PurchaseOrderDocument.is_potential_duplicate
+        # for the per-document version of this check).
+        is_potential_duplicate: { type: boolean }
+        duplicate_of_purchase_order_id: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

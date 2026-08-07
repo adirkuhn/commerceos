@@ -10,7 +10,7 @@ import (
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 )
 
-const defaultGeminiModel = "gemini-2.5-flash"
+const defaultGeminiModel = "gemini-3.6-flash"
 
 // GeminiDocumentParser calls Gemini's generateContent API, which accepts
 // PDF input natively as an inline_data part -- same "no separate OCR step"

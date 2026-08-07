@@ -95,6 +95,7 @@ function po(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
     id: 'po-1', tenant_id: 'tenant-1', supplier_id: 'supplier-1', warehouse_id: 'warehouse-1',
     status: 'draft', currency_code: 'USD', expected_date: null, notes: '',
+    is_potential_duplicate: false,
     created_at: '', updated_at: '',
     ...overrides,
   }
@@ -222,6 +223,27 @@ describe('Purchase orders list', () => {
     await userEvent.click(await screen.findByTitle('Delete'))
 
     expect(procurementApi.deletePurchaseOrder).not.toHaveBeenCalled()
+  })
+
+  it('shows a duplicate-order badge and opens the other PO when clicked', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([
+      po({ id: 'po-2', is_potential_duplicate: true, duplicate_of_purchase_order_id: 'po-1' }),
+    ])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-1' }) }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Possible duplicate order'))
+
+    await waitFor(() => expect(procurementApi.getPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1'))
+  })
+
+  it('does not show a duplicate-order badge for a normal PO', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+
+    render(<Procurement />)
+    await screen.findByText('Acme Foods')
+
+    expect(screen.queryByText('Possible duplicate order')).not.toBeInTheDocument()
   })
 })
 

@@ -15,6 +15,12 @@ type PurchaseOrderRepository interface {
 	// -- deliberately separate from Update so it can never be reached by the
 	// header-save flow, which knows nothing about these fields.
 	UpdateSuggestions(ctx context.Context, id string, supplierName, currencyCode string) error
+	// MarkPotentialDuplicate writes only IsPotentialDuplicate/
+	// DuplicateOfPurchaseOrderID -- same narrow-write rationale as
+	// UpdateSuggestions, called by AttachDocumentToPurchaseOrderUseCase
+	// when a newly-attached document's content hash matches one already on
+	// a different PO.
+	MarkPotentialDuplicate(ctx context.Context, id, duplicateOfPurchaseOrderID string) error
 }
 
 // PurchaseOrderLineItemRepository is a sub-resource repository, same shape
@@ -32,10 +38,13 @@ type PurchaseOrderDocumentRepository interface {
 	FindByID(ctx context.Context, id string) (*PurchaseOrderDocument, error)
 	ListByPurchaseOrder(ctx context.Context, purchaseOrderID string) ([]PurchaseOrderDocument, error)
 	Delete(ctx context.Context, id string) error
-	// FindDuplicateCandidates matches ReceivingRecordRepository's method of
-	// the same name: same contentHash, scoped to purchaseOrderID itself or
-	// (when supplierID is non-nil) any other PO belonging to that supplier.
-	FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]PurchaseOrderDocument, error)
+	// FindDuplicateCandidates returns every existing document (on any PO in
+	// the tenant, RLS-scoped) with the same contentHash -- tenant-wide, not
+	// scoped to purchaseOrderID or supplier, since the same file can be
+	// uploaded to two supplier-less POs before either has one assigned.
+	// purchaseOrderID is still passed so callers can tell a same-PO
+	// re-upload apart from a genuine cross-PO duplicate.
+	FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string) ([]PurchaseOrderDocument, error)
 }
 
 // DocumentParsingJobRepository mirrors channels.ImportJobRepository's

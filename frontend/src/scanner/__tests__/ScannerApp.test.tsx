@@ -45,7 +45,8 @@ function makeJWT(exp: number): string {
 function po(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
     id: 'po-1', tenant_id: 'tenant-1', supplier_id: 'supplier-1', warehouse_id: 'warehouse-1',
-    status: 'sent', currency_code: 'USD', expected_date: null, notes: '', created_at: '', updated_at: '',
+    status: 'sent', currency_code: 'USD', expected_date: null, notes: '',
+    is_potential_duplicate: false, created_at: '', updated_at: '',
     ...overrides,
   }
 }

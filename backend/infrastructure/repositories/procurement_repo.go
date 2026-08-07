@@ -16,18 +16,20 @@ import (
 // ── GORM models ──────────────────────────────────────────────────────────────
 
 type purchaseOrderModel struct {
-	ID                    string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID              string  `gorm:"not null;type:uuid"`
-	SupplierID            *string `gorm:"column:supplier_id;type:uuid"`
-	WarehouseID           *string `gorm:"column:warehouse_id;type:uuid"`
-	Status                string  `gorm:"not null;default:'draft'"`
-	CurrencyCode          string  `gorm:"not null;default:'USD'"`
-	ExpectedDate          *time.Time
-	Notes                 string `gorm:"not null;default:''"`
-	SuggestedSupplierName string `gorm:"not null;default:''"`
-	SuggestedCurrencyCode string `gorm:"not null;default:''"`
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	ID                         string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                   string  `gorm:"not null;type:uuid"`
+	SupplierID                 *string `gorm:"column:supplier_id;type:uuid"`
+	WarehouseID                *string `gorm:"column:warehouse_id;type:uuid"`
+	Status                     string  `gorm:"not null;default:'draft'"`
+	CurrencyCode               string  `gorm:"not null;default:'USD'"`
+	ExpectedDate               *time.Time
+	Notes                      string  `gorm:"not null;default:''"`
+	SuggestedSupplierName      string  `gorm:"not null;default:''"`
+	SuggestedCurrencyCode      string  `gorm:"not null;default:''"`
+	IsPotentialDuplicate       bool    `gorm:"column:is_potential_duplicate;not null;default:false"`
+	DuplicateOfPurchaseOrderID *string `gorm:"column:duplicate_of_purchase_order_id;type:uuid"`
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
 }
 
 func (purchaseOrderModel) TableName() string { return "purchase_orders" }
@@ -144,6 +146,21 @@ func (r *PurchaseOrderRepo) UpdateSuggestions(ctx context.Context, id string, su
 	return nil
 }
 
+func (r *PurchaseOrderRepo) MarkPotentialDuplicate(ctx context.Context, id, duplicateOfPurchaseOrderID string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&purchaseOrderModel{}).Where("id = ?", id).
+		Updates(map[string]any{
+			"is_potential_duplicate":         true,
+			"duplicate_of_purchase_order_id": duplicateOfPurchaseOrderID,
+		}).Error; err != nil {
+		return fmt.Errorf("purchaseOrderRepo.MarkPotentialDuplicate: %w", err)
+	}
+	return nil
+}
+
 func (r *PurchaseOrderRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -161,6 +178,7 @@ func toPurchaseOrderDomain(m purchaseOrderModel) *procurementDomain.PurchaseOrde
 		Status: procurementDomain.PurchaseOrderStatus(m.Status), CurrencyCode: m.CurrencyCode,
 		ExpectedDate: m.ExpectedDate, Notes: m.Notes,
 		SuggestedSupplierName: m.SuggestedSupplierName, SuggestedCurrencyCode: m.SuggestedCurrencyCode,
+		IsPotentialDuplicate: m.IsPotentialDuplicate, DuplicateOfPurchaseOrderID: m.DuplicateOfPurchaseOrderID,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
@@ -359,21 +377,16 @@ func (r *PurchaseOrderDocumentRepo) Delete(ctx context.Context, id string) error
 // FindDuplicateCandidates matches ReceivingRecordRepo's method of the same
 // name: same contentHash, scoped to purchaseOrderID itself or (when
 // supplierID is non-nil) any other PO belonging to that supplier.
-func (r *PurchaseOrderDocumentRepo) FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]procurementDomain.PurchaseOrderDocument, error) {
+func (r *PurchaseOrderDocumentRepo) FindDuplicateCandidates(ctx context.Context, contentHash, _ string) ([]procurementDomain.PurchaseOrderDocument, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	q := tx.Table("purchase_order_documents AS pod").
-		Joins("JOIN purchase_orders AS po ON po.id = pod.purchase_order_id").
-		Where("pod.content_hash = ? AND pod.content_hash != ''", contentHash)
-	if supplierID != nil {
-		q = q.Where("(pod.purchase_order_id = ? OR po.supplier_id = ?)", purchaseOrderID, *supplierID)
-	} else {
-		q = q.Where("pod.purchase_order_id = ?", purchaseOrderID)
-	}
+	// Tenant-wide (RLS already scopes this to the current tenant) -- not
+	// filtered by purchaseOrderID or supplier, since the same file can be
+	// uploaded to two supplier-less POs before either has one assigned.
 	var rows []purchaseOrderDocumentModel
-	if err := q.Select("pod.*").Find(&rows).Error; err != nil {
+	if err := tx.Where("content_hash = ? AND content_hash != ''", contentHash).Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("purchaseOrderDocumentRepo.FindDuplicateCandidates: %w", err)
 	}
 	out := make([]procurementDomain.PurchaseOrderDocument, len(rows))

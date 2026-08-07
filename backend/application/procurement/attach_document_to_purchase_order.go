@@ -48,13 +48,10 @@ func NewAttachDocumentToPurchaseOrderUseCase(
 
 func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in AttachDocumentToPurchaseOrderInput) (*procurementDomain.DocumentParsingJob, error) {
 	var tenantID string
-	var supplierID *string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		po, err := uc.poRepo.FindByID(ctx, in.PurchaseOrderID)
-		if err != nil {
+		if _, err := uc.poRepo.FindByID(ctx, in.PurchaseOrderID); err != nil {
 			return err
 		}
-		supplierID = po.SupplierID
 		tenantID = tenant.IDFromContext(ctx)
 		return nil
 	})
@@ -80,7 +77,7 @@ func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in 
 
 	var job procurementDomain.DocumentParsingJob
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		duplicates, err := uc.documentRepo.FindDuplicateCandidates(ctx, contentHashHex, in.PurchaseOrderID, supplierID)
+		duplicates, err := uc.documentRepo.FindDuplicateCandidates(ctx, contentHashHex, in.PurchaseOrderID)
 		if err != nil {
 			return err
 		}
@@ -93,6 +90,19 @@ func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in 
 		if err := uc.documentRepo.Create(ctx, &doc); err != nil {
 			return err
 		}
+
+		// A duplicate on this same PO (e.g. the same file re-attached) only
+		// flags the document -- the PO itself is only a "duplicate PO" when
+		// the match belongs to a genuinely different PO.
+		for _, d := range duplicates {
+			if d.PurchaseOrderID != in.PurchaseOrderID {
+				if err := uc.poRepo.MarkPotentialDuplicate(ctx, in.PurchaseOrderID, d.PurchaseOrderID); err != nil {
+					return err
+				}
+				break
+			}
+		}
+
 		job = procurementDomain.DocumentParsingJob{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, DocumentID: doc.ID,
 			Status: procurementDomain.DocumentParsingJobPending, CreatedAt: now,

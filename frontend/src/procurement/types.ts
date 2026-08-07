@@ -18,6 +18,11 @@ export interface PurchaseOrder {
   // set only while supplier_id is nil -- '' means no suggestion.
   suggested_supplier_name?: string
   suggested_currency_code?: string
+  // Set when a document attached to this PO has the same content as a
+  // document attached to a *different* PO -- tenant-wide, not scoped to
+  // supplier.
+  is_potential_duplicate: boolean
+  duplicate_of_purchase_order_id?: string | null
   created_at: string
   updated_at: string
 }
