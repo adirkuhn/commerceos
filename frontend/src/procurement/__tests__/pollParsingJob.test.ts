@@ -26,10 +26,39 @@ describe('pollParsingJob', () => {
     expect(result.error_message).toBe('AI document parsing is not configured')
   })
 
-  it('throws a timeout error when maxAttempts is exhausted without a terminal status', async () => {
-    const fetchJob = vi.fn().mockResolvedValue({ status: 'running', error_message: '' })
+  it('keeps polling indefinitely -- a slow-but-working parse never throws a timeout', async () => {
+    const fetchJob = vi.fn()
+    for (let i = 0; i < 25; i++) {
+      fetchJob.mockResolvedValueOnce({ status: 'running', error_message: '' })
+    }
+    fetchJob.mockResolvedValueOnce({ status: 'completed', error_message: '' })
 
-    await expect(pollParsingJob(fetchJob, { intervalMs: 0, maxAttempts: 3 })).rejects.toThrow(/timed out/i)
-    expect(fetchJob).toHaveBeenCalledTimes(3)
+    const result = await pollParsingJob(fetchJob, { intervalMs: 0 })
+
+    expect(result.status).toBe('completed')
+    expect(fetchJob).toHaveBeenCalledTimes(26)
+  })
+
+  it('calls onSlow once after slowAfterMs elapses without a terminal status', async () => {
+    const fetchJob = vi.fn()
+      .mockResolvedValueOnce({ status: 'pending', error_message: '' })
+      .mockResolvedValueOnce({ status: 'pending', error_message: '' })
+      .mockResolvedValueOnce({ status: 'pending', error_message: '' })
+      .mockResolvedValueOnce({ status: 'pending', error_message: '' })
+      .mockResolvedValueOnce({ status: 'completed', error_message: '' })
+    const onSlow = vi.fn()
+
+    await pollParsingJob(fetchJob, { intervalMs: 10, slowAfterMs: 20, onSlow })
+
+    expect(onSlow).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call onSlow when the job resolves before slowAfterMs', async () => {
+    const fetchJob = vi.fn().mockResolvedValueOnce({ status: 'completed', error_message: '' })
+    const onSlow = vi.fn()
+
+    await pollParsingJob(fetchJob, { intervalMs: 10, slowAfterMs: 20, onSlow })
+
+    expect(onSlow).not.toHaveBeenCalled()
   })
 })

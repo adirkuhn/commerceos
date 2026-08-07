@@ -7,24 +7,31 @@ const TERMINAL_STATUSES: ParsingJobLike['status'][] = ['completed', 'failed']
 
 export interface PollParsingJobOptions {
   intervalMs?: number
-  maxAttempts?: number
+  // How long to wait with no terminal status before firing onSlow once, so
+  // the UI can say "still working" instead of a bare spinner.
+  slowAfterMs?: number
+  onSlow?: () => void
 }
 
-// Polls fetchJob until it reaches a terminal status (completed/failed) --
-// cmd/scheduler picks up parsing jobs on a ~5s cycle, so the default
-// interval/attempts give it several cycles to finish before giving up,
-// instead of the fixed 6s blind wait this replaces (which never checked
-// the job at all, so a failed parse looked identical to a successful one).
+// Polls fetchJob until it reaches a terminal status (completed/failed).
+// cmd/scheduler picks up parsing jobs on a ~5s cycle and AI extraction has
+// no fixed upper bound, so this polls indefinitely rather than giving up
+// after N attempts -- a slow-but-working parse should never surface as an
+// error just because the frontend got impatient.
 export async function pollParsingJob<T extends ParsingJobLike>(
   fetchJob: () => Promise<T>,
-  { intervalMs = 1500, maxAttempts = 20 }: PollParsingJobOptions = {},
+  { intervalMs = 1500, slowAfterMs = 20000, onSlow }: PollParsingJobOptions = {},
 ): Promise<T> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  let elapsedMs = 0
+  let slowNoticeFired = false
+  for (;;) {
     const job = await fetchJob()
     if (TERMINAL_STATUSES.includes(job.status)) return job
-    if (attempt < maxAttempts - 1) {
-      await new Promise(resolve => setTimeout(resolve, intervalMs))
+    if (!slowNoticeFired && elapsedMs >= slowAfterMs) {
+      slowNoticeFired = true
+      onSlow?.()
     }
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
+    elapsedMs += intervalMs
   }
-  throw new Error('Timed out waiting for the document to finish parsing')
 }

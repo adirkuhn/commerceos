@@ -727,6 +727,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
   const [editingLineId, setEditingLineId] = useState<string | null>(null)
   const [reviewingLineId, setReviewingLineId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'parsing'>(initialParsingJobId ? 'parsing' : 'idle')
+  const [parsingSlow, setParsingSlow] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -737,7 +738,10 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
   useEffect(() => {
     if (!initialParsingJobId) return
     let cancelled = false
-    pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', initialParsingJobId))
+    pollParsingJob(
+      () => procurementApi.getDocumentParsingJob(token ?? '', initialParsingJobId),
+      { onSlow: () => { if (!cancelled) setParsingSlow(true) } },
+    )
       .then(finalJob => {
         if (cancelled) return
         if (finalJob.status === 'failed') {
@@ -749,7 +753,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         if (!cancelled) setUploadError(err instanceof Error ? err.message : 'Failed to parse document')
       })
       .finally(() => {
-        if (!cancelled) setUploadStatus('idle')
+        if (!cancelled) { setUploadStatus('idle'); setParsingSlow(false) }
       })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -784,7 +788,10 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
     try {
       const job = await procurementApi.attachDocumentToPurchaseOrder(token ?? '', purchaseOrderId, file)
       setUploadStatus('parsing')
-      const finalJob = await pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', job.id))
+      const finalJob = await pollParsingJob(
+        () => procurementApi.getDocumentParsingJob(token ?? '', job.id),
+        { onSlow: () => setParsingSlow(true) },
+      )
       if (finalJob.status === 'failed') {
         setUploadError(friendlyParsingError(finalJob.error_message))
       }
@@ -796,6 +803,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
       setUploadError(err instanceof Error ? err.message : 'Failed to upload document')
     } finally {
       setUploadStatus('idle')
+      setParsingSlow(false)
     }
   }
 
@@ -811,7 +819,8 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
           )}
           {uploadStatus === 'parsing' && (
             <span className="flex items-center gap-1 text-[10px] text-amber-400">
-              <Loader2 size={11} className="animate-spin" /> Parsing document…
+              <Loader2 size={11} className="animate-spin" />
+              {parsingSlow ? 'Still parsing… this can take a bit longer' : 'Parsing document…'}
             </span>
           )}
           <input ref={fileInputRef} type="file" aria-label="Upload document" accept=".pdf,.csv,.xlsx" className="hidden" onChange={handleFileSelected} />
