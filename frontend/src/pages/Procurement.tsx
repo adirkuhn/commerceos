@@ -21,7 +21,6 @@ import type {
   ReceivingRecord, ReceivingRecordDetail, ReceivingDiscrepancy, DiscrepancyType,
 } from '../procurement/types'
 import type { SKU } from '../pms/types'
-import type { Supplier } from '../suppliers/types'
 import type { Warehouse } from '../inventory/types'
 
 const STATUS_TABS: (PurchaseOrderStatus | 'all')[] = ['all', 'draft', 'sent', 'partially_received', 'received', 'needs_review', 'cancelled']
@@ -163,8 +162,6 @@ export default function Procurement() {
 
       {uploadModalOpen && (
         <CreateFromDocumentModal
-          suppliers={suppliers}
-          warehouses={warehouses}
           onClose={() => setUploadModalOpen(false)}
           onCreated={async poId => {
             setUploadModalOpen(false)
@@ -268,54 +265,50 @@ export default function Procurement() {
 // ── Create-from-document modal ──────────────────────────────────────────────
 
 interface CreateFromDocumentModalProps {
-  suppliers: Supplier[]
-  warehouses: Warehouse[]
   onClose: () => void
   onCreated: (purchaseOrderId: string) => void
 }
 
-function CreateFromDocumentModal({ suppliers, warehouses, onClose, onCreated }: CreateFromDocumentModalProps) {
+// Deliberately just a file picker -- supplier/warehouse/currency/expected
+// date were removable friction: supplier and line items both come from the
+// same document parse (no need to pick a supplier up front, the PO starts
+// needs_review with a suggestion if one can't be matched), warehouse is
+// never needed until receiving, and currency defaults from the tenant's
+// own system-settings default.
+function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModalProps) {
   const { token } = useAuth()
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
-  const [supplierId, setSupplierId] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [currencyCode, setCurrencyCode] = useState('USD')
-  const [expectedDate, setExpectedDate] = useState(todayDateString())
   const [file, setFile] = useState<File | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing'>('idle')
   const [formError, setFormError] = useState('')
-  const currencyTouched = useRef(false)
-
-  // Seeds the currency from the tenant's system-settings default once it
-  // loads -- a ref (not a dependency the user's own pick could clobber)
-  // tracks whether they've since chosen one manually, same "prefill without
-  // fighting user edits" pattern as PurchaseOrderEditPage's header fields.
-  useEffect(() => {
-    if (!currencyTouched.current && tenantSettings?.default_currency) {
-      setCurrencyCode(tenantSettings.default_currency)
-    }
-  }, [tenantSettings])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!file) return
     setFormError('')
-    setSaving(true)
+    setStatus('uploading')
     try {
       const job = await procurementApi.createPurchaseOrderFromDocument(token ?? '', {
-        supplier_id: supplierId || undefined, warehouse_id: warehouseId || undefined, currency_code: currencyCode,
-        expected_date: expectedDate || undefined, file,
+        currency_code: tenantSettings?.default_currency || 'USD', file,
       })
+      setStatus('parsing')
+      // Wait for parsing to finish before navigating to the new PO -- the
+      // document and its line items/supplier suggestion are extracted in
+      // the same pass, but that parse runs async in the background
+      // (cmd/scheduler). Without waiting here, the user landed on an
+      // apparently-empty PO and re-uploaded the same file believing the
+      // first attempt silently failed. A poll timeout still navigates --
+      // the PO exists either way, and any parse failure already shows a
+      // clear message with a path to add line items manually.
+      await pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', job.id)).catch(() => null)
       onCreated(job.purchase_order_id)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to upload document')
-    } finally {
-      setSaving(false)
+      setStatus('idle')
     }
   }
 
   const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -328,50 +321,26 @@ function CreateFromDocumentModal({ suppliers, warehouses, onClose, onCreated }: 
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <p className="text-[11px] dark:text-gray-500 text-gray-400">
-            Upload a supplier PDF, CSV, or XLSX. Line items are extracted and matched to products automatically —
-            anything that can't be matched will need review.
+            Upload a supplier PDF, CSV, or XLSX. Supplier and line items are extracted and matched to products
+            automatically — anything that can't be matched will need review.
           </p>
-          <div>
-            <label htmlFor="upload-supplier" className={labelClass}>Supplier (optional)</label>
-            <select id="upload-supplier" value={supplierId} onChange={e => setSupplierId(e.target.value)} className={inputClass}>
-              <option value="">No supplier — figure it out during review</option>
-              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="upload-warehouse" className={labelClass}>Warehouse (optional)</label>
-            <select id="upload-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-              <option value="">Not set — assign when receiving</option>
-              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="upload-currency" className={labelClass}>Currency</label>
-              <select id="upload-currency" required value={currencyCode} onChange={e => { currencyTouched.current = true; setCurrencyCode(e.target.value) }} className={inputClass}>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="upload-expected-date" className={labelClass}>Expected date</label>
-              <input id="upload-expected-date" type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)} className={inputClass} />
-            </div>
-          </div>
           <div>
             <label htmlFor="upload-file" className={labelClass}>Document</label>
             <input id="upload-file" type="file" accept=".pdf,.csv,.xlsx"
+              disabled={status !== 'idle'}
               onChange={e => setFile(e.target.files?.[0] ?? null)}
-              className="w-full text-xs dark:text-gray-300 text-gray-700 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-medium file:cursor-pointer" />
+              className="w-full text-xs dark:text-gray-300 text-gray-700 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-medium file:cursor-pointer disabled:opacity-50" />
           </div>
+          {status === 'parsing' && <p className="text-[11px] text-amber-400">Parsing document…</p>}
           {formError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>}
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button type="submit" disabled={saving || !file}
+            <button type="submit" disabled={status !== 'idle' || !file}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
-              {saving ? 'Uploading…' : 'Upload & Create'}
+              {status === 'uploading' ? 'Uploading…' : status === 'parsing' ? 'Parsing…' : 'Upload & Create'}
             </button>
           </div>
         </form>
