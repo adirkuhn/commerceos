@@ -242,7 +242,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		createPurchaseOrderUC,
 		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo, documentRepo),
 		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo),
-		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo),
+		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, documentRepo),
 		appprocurement.NewAddPurchaseOrderLineItemUseCase(db, lineItemRepo),
 		appprocurement.NewUpdatePurchaseOrderLineItemUseCase(db, lineItemRepo),
 		appprocurement.NewRemovePurchaseOrderLineItemUseCase(db, lineItemRepo),

@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
@@ -333,4 +335,159 @@ func TestSupplierProductAliasRepo_Integration_UpsertAndFind(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, otherSKUID, found.SKUID)
+}
+
+// TestPurchaseOrderDocumentRepo_Integration_DuplicateDetectionAcrossManyPOs
+// reproduces a real report: upload the same file content into 5 separate
+// POs (like AttachDocumentToPurchaseOrderUseCase does per PO), and every
+// PO after the first must come back flagged -- not just the second one.
+// Runs against real Postgres to catch anything a stub-based unit test
+// (fixed duplicateCandidates list) can't: the repo's tenant-wide
+// FindDuplicateCandidates query has to keep finding every prior match as
+// the document set grows, not just the first.
+func TestPurchaseOrderDocumentRepo_Integration_DuplicateDetectionAcrossManyPOs(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	docRepo := repositories.NewPurchaseOrderDocumentRepo(db)
+	const contentHash = "same-file-hash"
+
+	var poIDs []string
+	for i := 0; i < 5; i++ {
+		var poID string
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			now := time.Now()
+			po := procurementDomain.PurchaseOrder{
+				TenantID: tenant.IDFromContext(ctx), Status: procurementDomain.PurchaseOrderStatusNeedsReview,
+				CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+			}
+			if err := poRepo.Create(ctx, &po); err != nil {
+				return err
+			}
+			poID = po.ID
+
+			// Same shape as AttachDocumentToPurchaseOrderUseCase.Execute:
+			// look up duplicates *before* creating this PO's own document
+			// row (so it never matches itself), then mark the PO if any
+			// match belongs to a different PO.
+			duplicates, err := docRepo.FindDuplicateCandidates(ctx, contentHash, poID)
+			if err != nil {
+				return err
+			}
+			doc := procurementDomain.PurchaseOrderDocument{
+				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID,
+				FileURL: "https://example.com/order.pdf", FileName: "order.pdf", ContentType: "application/pdf",
+				ContentHash: contentHash, IsPotentialDuplicate: len(duplicates) > 0, CreatedAt: now,
+			}
+			if err := docRepo.Create(ctx, &doc); err != nil {
+				return err
+			}
+			for _, d := range duplicates {
+				if d.PurchaseOrderID != poID {
+					if err := poRepo.MarkPotentialDuplicate(ctx, poID, d.PurchaseOrderID); err != nil {
+						return err
+					}
+					break
+				}
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		poIDs = append(poIDs, poID)
+	}
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for i, poID := range poIDs {
+			po, err := poRepo.FindByID(ctx, poID)
+			if err != nil {
+				return err
+			}
+			if i == 0 {
+				assert.False(t, po.IsPotentialDuplicate, "the first upload has nothing to be a duplicate of")
+			} else {
+				assert.True(t, po.IsPotentialDuplicate, "PO #%d (uploaded after %d earlier POs with the same file) must be flagged", i+1, i)
+				assert.NotNil(t, po.DuplicateOfPurchaseOrderID, "PO #%d", i+1)
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// TestDeletePurchaseOrder_Integration_RepointsRemainingDuplicatesAfterDelete
+// is the second half of the same report: after deleting the PO another one
+// was flagged as a duplicate of, the survivor must not go stuck-flagged
+// with a dangling pointer (ON DELETE SET NULL clears the FK but not
+// IsPotentialDuplicate on its own) -- DeletePurchaseOrderUseCase has to
+// recompute it.
+func TestDeletePurchaseOrder_Integration_RepointsRemainingDuplicatesAfterDelete(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	docRepo := repositories.NewPurchaseOrderDocumentRepo(db)
+	deleteUC := appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, docRepo)
+	const contentHash = "same-file-hash"
+
+	var poIDs []string
+	for i := 0; i < 3; i++ {
+		var poID string
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			now := time.Now()
+			po := procurementDomain.PurchaseOrder{
+				TenantID: tenant.IDFromContext(ctx), Status: procurementDomain.PurchaseOrderStatusNeedsReview,
+				CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+			}
+			if err := poRepo.Create(ctx, &po); err != nil {
+				return err
+			}
+			poID = po.ID
+
+			duplicates, err := docRepo.FindDuplicateCandidates(ctx, contentHash, poID)
+			if err != nil {
+				return err
+			}
+			doc := procurementDomain.PurchaseOrderDocument{
+				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID,
+				FileURL: "https://example.com/order.pdf", FileName: "order.pdf", ContentType: "application/pdf",
+				ContentHash: contentHash, IsPotentialDuplicate: len(duplicates) > 0, CreatedAt: now,
+			}
+			if err := docRepo.Create(ctx, &doc); err != nil {
+				return err
+			}
+			for _, d := range duplicates {
+				if d.PurchaseOrderID != poID {
+					if err := poRepo.MarkPotentialDuplicate(ctx, poID, d.PurchaseOrderID); err != nil {
+						return err
+					}
+					break
+				}
+			}
+			return nil
+		})
+		require.NoError(t, err)
+		poIDs = append(poIDs, poID)
+	}
+
+	// Delete the first PO -- at least one of the other two necessarily
+	// points at it (duplicate resolution order against Postgres isn't
+	// guaranteed, so which one isn't asserted, only that both survivors
+	// stay correctly flagged against each other afterward).
+	require.NoError(t, deleteUC.Execute(ctx, poIDs[0]))
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for _, poID := range poIDs[1:] {
+			po, err := poRepo.FindByID(ctx, poID)
+			if err != nil {
+				return err
+			}
+			assert.True(t, po.IsPotentialDuplicate, "PO %s must still be flagged -- it still shares content with the other surviving PO", poID)
+			if po.DuplicateOfPurchaseOrderID != nil {
+				assert.NotEqual(t, poIDs[0], *po.DuplicateOfPurchaseOrderID, "must not point at the now-deleted PO")
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }

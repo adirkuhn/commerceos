@@ -10,23 +10,68 @@ import (
 )
 
 type DeletePurchaseOrderUseCase struct {
-	db     *gorm.DB
-	poRepo procurementDomain.PurchaseOrderRepository
+	db           *gorm.DB
+	poRepo       procurementDomain.PurchaseOrderRepository
+	documentRepo procurementDomain.PurchaseOrderDocumentRepository
 }
 
-func NewDeletePurchaseOrderUseCase(db *gorm.DB, poRepo procurementDomain.PurchaseOrderRepository) *DeletePurchaseOrderUseCase {
-	return &DeletePurchaseOrderUseCase{db: db, poRepo: poRepo}
+func NewDeletePurchaseOrderUseCase(
+	db *gorm.DB,
+	poRepo procurementDomain.PurchaseOrderRepository,
+	documentRepo procurementDomain.PurchaseOrderDocumentRepository,
+) *DeletePurchaseOrderUseCase {
+	return &DeletePurchaseOrderUseCase{db: db, poRepo: poRepo, documentRepo: documentRepo}
 }
 
+// Execute deletes the PO, then repairs any *other* PO that was pointing at
+// it as a duplicate -- the FK (ON DELETE SET NULL) clears
+// DuplicateOfPurchaseOrderID automatically, but IsPotentialDuplicate would
+// otherwise stay stuck true with a dangling reference. Each dependent is
+// re-pointed at another surviving PO that still shares one of its
+// documents' content hash, or has its flag cleared entirely if none remain.
 func (uc *DeletePurchaseOrderUseCase) Execute(ctx context.Context, id string) error {
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if _, err := uc.poRepo.FindByID(ctx, id); err != nil {
 			return err
 		}
-		return uc.poRepo.Delete(ctx, id)
+		dependents, err := uc.poRepo.FindDuplicatesOf(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := uc.poRepo.Delete(ctx, id); err != nil {
+			return err
+		}
+		for _, dep := range dependents {
+			if err := uc.recomputeDuplicateStatus(ctx, dep.ID); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("deletePurchaseOrder: %w", err)
 	}
 	return nil
+}
+
+func (uc *DeletePurchaseOrderUseCase) recomputeDuplicateStatus(ctx context.Context, purchaseOrderID string) error {
+	docs, err := uc.documentRepo.ListByPurchaseOrder(ctx, purchaseOrderID)
+	if err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		if doc.ContentHash == "" {
+			continue
+		}
+		candidates, err := uc.documentRepo.FindDuplicateCandidates(ctx, doc.ContentHash, purchaseOrderID)
+		if err != nil {
+			return err
+		}
+		for _, c := range candidates {
+			if c.PurchaseOrderID != purchaseOrderID {
+				return uc.poRepo.MarkPotentialDuplicate(ctx, purchaseOrderID, c.PurchaseOrderID)
+			}
+		}
+	}
+	return uc.poRepo.ClearPotentialDuplicate(ctx, purchaseOrderID)
 }

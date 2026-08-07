@@ -161,6 +161,37 @@ func (r *PurchaseOrderRepo) MarkPotentialDuplicate(ctx context.Context, id, dupl
 	return nil
 }
 
+func (r *PurchaseOrderRepo) ClearPotentialDuplicate(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&purchaseOrderModel{}).Where("id = ?", id).
+		Updates(map[string]any{
+			"is_potential_duplicate":         false,
+			"duplicate_of_purchase_order_id": nil,
+		}).Error; err != nil {
+		return fmt.Errorf("purchaseOrderRepo.ClearPotentialDuplicate: %w", err)
+	}
+	return nil
+}
+
+func (r *PurchaseOrderRepo) FindDuplicatesOf(ctx context.Context, id string) ([]procurementDomain.PurchaseOrder, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []purchaseOrderModel
+	if err := tx.Where("duplicate_of_purchase_order_id = ?", id).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("purchaseOrderRepo.FindDuplicatesOf: %w", err)
+	}
+	out := make([]procurementDomain.PurchaseOrder, len(rows))
+	for i, row := range rows {
+		out[i] = *toPurchaseOrderDomain(row)
+	}
+	return out, nil
+}
+
 func (r *PurchaseOrderRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

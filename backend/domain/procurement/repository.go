@@ -21,6 +21,16 @@ type PurchaseOrderRepository interface {
 	// when a newly-attached document's content hash matches one already on
 	// a different PO.
 	MarkPotentialDuplicate(ctx context.Context, id, duplicateOfPurchaseOrderID string) error
+	// ClearPotentialDuplicate is MarkPotentialDuplicate's inverse -- same
+	// narrow-write rationale, called by DeletePurchaseOrderUseCase when a
+	// PO's only remaining duplicate match no longer exists.
+	ClearPotentialDuplicate(ctx context.Context, id string) error
+	// FindDuplicatesOf returns every PO currently pointing at id via
+	// DuplicateOfPurchaseOrderID -- deleting a PO nulls that column (ON
+	// DELETE SET NULL) but leaves IsPotentialDuplicate stuck true unless
+	// something recomputes it; DeletePurchaseOrderUseCase uses this list to
+	// do that (re-point to another surviving duplicate, or clear the flag).
+	FindDuplicatesOf(ctx context.Context, id string) ([]PurchaseOrder, error)
 }
 
 // PurchaseOrderLineItemRepository is a sub-resource repository, same shape

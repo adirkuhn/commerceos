@@ -62,19 +62,23 @@ func newMockGormDBN(t *testing.T, n int) *gorm.DB {
 // ── Stub repos ────────────────────────────────────────────────────────────────
 
 type stubPurchaseOrderRepo struct {
-	purchaseOrders []procurementDomain.PurchaseOrder
-	findResult     *procurementDomain.PurchaseOrder
-	findErr        error
-	createErr      error
-	createCalled   bool
-	updateErr      error
-	updated        []procurementDomain.PurchaseOrder
-	deleteErr      error
-	deleted        []string
-	suggestionsErr error
-	suggestionsSet []suggestionUpdate
-	duplicateErr   error
-	duplicatesSet  []duplicateMark
+	purchaseOrders  []procurementDomain.PurchaseOrder
+	findResult      *procurementDomain.PurchaseOrder
+	findErr         error
+	createErr       error
+	createCalled    bool
+	updateErr       error
+	updated         []procurementDomain.PurchaseOrder
+	deleteErr       error
+	deleted         []string
+	suggestionsErr  error
+	suggestionsSet  []suggestionUpdate
+	duplicateErr    error
+	duplicatesSet   []duplicateMark
+	clearErr        error
+	cleared         []string
+	duplicatesOf    map[string][]procurementDomain.PurchaseOrder
+	duplicatesOfErr error
 }
 
 type duplicateMark struct {
@@ -129,6 +133,19 @@ func (s *stubPurchaseOrderRepo) MarkPotentialDuplicate(_ context.Context, id, du
 	}
 	s.duplicatesSet = append(s.duplicatesSet, duplicateMark{id: id, duplicateOfPurchaseOrderID: duplicateOfPurchaseOrderID})
 	return nil
+}
+func (s *stubPurchaseOrderRepo) ClearPotentialDuplicate(_ context.Context, id string) error {
+	if s.clearErr != nil {
+		return s.clearErr
+	}
+	s.cleared = append(s.cleared, id)
+	return nil
+}
+func (s *stubPurchaseOrderRepo) FindDuplicatesOf(_ context.Context, id string) ([]procurementDomain.PurchaseOrder, error) {
+	if s.duplicatesOfErr != nil {
+		return nil, s.duplicatesOfErr
+	}
+	return s.duplicatesOf[id], nil
 }
 
 type stubLineItemRepo struct {
