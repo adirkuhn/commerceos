@@ -234,7 +234,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	outboxRepo := repositories.NewOutboxRepository(db)
 
 	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo)
-	attachDocumentUC := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, jobRepo, fileStorage)
+	attachDocumentUC := appprocurement.NewAttachDocumentToPurchaseOrderUseCase(db, poRepo, documentRepo, lineItemRepo, jobRepo, fileStorage)
 	linkLineItemToSKUUC := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
 
 	h := NewHandler(

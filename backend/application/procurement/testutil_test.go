@@ -62,9 +62,13 @@ func newMockGormDBN(t *testing.T, n int) *gorm.DB {
 // ── Stub repos ────────────────────────────────────────────────────────────────
 
 type stubPurchaseOrderRepo struct {
-	purchaseOrders  []procurementDomain.PurchaseOrder
-	findResult      *procurementDomain.PurchaseOrder
-	findErr         error
+	purchaseOrders []procurementDomain.PurchaseOrder
+	findResult     *procurementDomain.PurchaseOrder
+	findErr        error
+	// byID, when set, answers FindByID per-id -- lets a single stub stand
+	// in for more than one PO (e.g. "this PO" vs. "the one it duplicates"),
+	// unlike findResult which answers every call the same way.
+	byID            map[string]*procurementDomain.PurchaseOrder
 	createErr       error
 	createCalled    bool
 	updateErr       error
@@ -100,7 +104,12 @@ func (s *stubPurchaseOrderRepo) Create(_ context.Context, po *procurementDomain.
 	po.ID = "po-1"
 	return nil
 }
-func (s *stubPurchaseOrderRepo) FindByID(_ context.Context, _ string) (*procurementDomain.PurchaseOrder, error) {
+func (s *stubPurchaseOrderRepo) FindByID(_ context.Context, id string) (*procurementDomain.PurchaseOrder, error) {
+	if s.byID != nil {
+		if po, ok := s.byID[id]; ok {
+			return po, nil
+		}
+	}
 	return s.findResult, s.findErr
 }
 func (s *stubPurchaseOrderRepo) List(_ context.Context) ([]procurementDomain.PurchaseOrder, error) {
@@ -154,6 +163,7 @@ type stubLineItemRepo struct {
 	findErr      error
 	createErr    error
 	createCalled bool
+	created      []procurementDomain.PurchaseOrderLineItem
 	updateErr    error
 	updated      []procurementDomain.PurchaseOrderLineItem
 	deleteErr    error
@@ -166,6 +176,7 @@ func (s *stubLineItemRepo) Create(_ context.Context, li *procurementDomain.Purch
 		return s.createErr
 	}
 	li.ID = "line-item-1"
+	s.created = append(s.created, *li)
 	return nil
 }
 func (s *stubLineItemRepo) FindByID(_ context.Context, _ string) (*procurementDomain.PurchaseOrderLineItem, error) {
