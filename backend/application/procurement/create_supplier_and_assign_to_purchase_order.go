@@ -43,6 +43,7 @@ type CreateSupplierAndAssignToPurchaseOrderUseCase struct {
 	createSupplier     createSupplierForAssignUC
 	poRepo             procurementDomain.PurchaseOrderRepository
 	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
+	aliasRepo          procurementDomain.SupplierProductAliasRepository
 }
 
 func NewCreateSupplierAndAssignToPurchaseOrderUseCase(
@@ -51,9 +52,10 @@ func NewCreateSupplierAndAssignToPurchaseOrderUseCase(
 	createSupplier createSupplierForAssignUC,
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
+	aliasRepo procurementDomain.SupplierProductAliasRepository,
 ) *CreateSupplierAndAssignToPurchaseOrderUseCase {
 	return &CreateSupplierAndAssignToPurchaseOrderUseCase{
-		db: db, findSupplierByName: findSupplierByName, createSupplier: createSupplier, poRepo: poRepo, lineItemRepo: lineItemRepo,
+		db: db, findSupplierByName: findSupplierByName, createSupplier: createSupplier, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo,
 	}
 }
 
@@ -94,8 +96,20 @@ func (uc *CreateSupplierAndAssignToPurchaseOrderUseCase) Execute(ctx context.Con
 			return err
 		}
 		po = *existing
-		if err := revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, &po); err != nil {
+		// The supplier is only known now -- the parse-time matching pass
+		// (MatchExtractedLineItemsUseCase) had no supplierID to check
+		// learned aliases against, so give it a second chance now.
+		aliasMatched, err := resyncAliasMatchedLineItems(ctx, uc.lineItemRepo, uc.aliasRepo, po.ID, supplier.ID)
+		if err != nil {
 			return err
+		}
+		// An alias is a guess, not a confirmation -- if it just filled the
+		// PO's last gap, don't let that silently revert it out of
+		// needs_review. The human still has to look and explicitly save.
+		if !aliasMatched {
+			if err := revertPurchaseOrderFromReviewIfFullyResolved(ctx, uc.poRepo, uc.lineItemRepo, &po); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

@@ -44,6 +44,9 @@ func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in Up
 		existing.RawDescription = in.RawDescription
 		existing.Quantity = in.Quantity
 		existing.UnitCostMinorUnits = in.UnitCostMinorUnits
+		// An explicit save through this form is a human touch -- overrides
+		// any unreviewed alias guess this item may have carried in with.
+		existing.SKUAutoLinkedFromAlias = false
 		existing.UpdatedAt = time.Now()
 		if err := uc.lineItemRepo.Update(ctx, existing); err != nil {
 			return err

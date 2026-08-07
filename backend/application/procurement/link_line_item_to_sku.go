@@ -50,6 +50,9 @@ func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItem
 
 		now := time.Now()
 		existing.SKUID = &in.SKUID
+		// Explicit human confirmation -- overrides any unreviewed alias
+		// guess this item may have carried in with.
+		existing.SKUAutoLinkedFromAlias = false
 		existing.UpdatedAt = now
 		if err := uc.lineItemRepo.Update(ctx, existing); err != nil {
 			return err

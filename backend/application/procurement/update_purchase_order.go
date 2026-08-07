@@ -21,12 +21,19 @@ type UpdatePurchaseOrderInput struct {
 }
 
 type UpdatePurchaseOrderUseCase struct {
-	db     *gorm.DB
-	poRepo procurementDomain.PurchaseOrderRepository
+	db           *gorm.DB
+	poRepo       procurementDomain.PurchaseOrderRepository
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
+	aliasRepo    procurementDomain.SupplierProductAliasRepository
 }
 
-func NewUpdatePurchaseOrderUseCase(db *gorm.DB, poRepo procurementDomain.PurchaseOrderRepository) *UpdatePurchaseOrderUseCase {
-	return &UpdatePurchaseOrderUseCase{db: db, poRepo: poRepo}
+func NewUpdatePurchaseOrderUseCase(
+	db *gorm.DB,
+	poRepo procurementDomain.PurchaseOrderRepository,
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
+	aliasRepo procurementDomain.SupplierProductAliasRepository,
+) *UpdatePurchaseOrderUseCase {
+	return &UpdatePurchaseOrderUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, aliasRepo: aliasRepo}
 }
 
 func (uc *UpdatePurchaseOrderUseCase) Execute(ctx context.Context, in UpdatePurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
@@ -36,6 +43,10 @@ func (uc *UpdatePurchaseOrderUseCase) Execute(ctx context.Context, in UpdatePurc
 		if err != nil {
 			return err
 		}
+		// Picking a different supplier invalidates any not-yet-reviewed
+		// alias guess made under the old one -- redo those against the new
+		// supplier's own learned aliases rather than leaving a stale SKU.
+		supplierChanged := in.SupplierID != nil && (existing.SupplierID == nil || *existing.SupplierID != *in.SupplierID)
 		existing.SupplierID = in.SupplierID
 		existing.WarehouseID = in.WarehouseID
 		existing.Status = in.Status
@@ -47,6 +58,11 @@ func (uc *UpdatePurchaseOrderUseCase) Execute(ctx context.Context, in UpdatePurc
 			return err
 		}
 		po = *existing
+		if supplierChanged {
+			if _, err := resyncAliasMatchedLineItems(ctx, uc.lineItemRepo, uc.aliasRepo, po.ID, *in.SupplierID); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {

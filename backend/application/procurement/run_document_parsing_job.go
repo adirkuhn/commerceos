@@ -111,7 +111,8 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID, SKUID: m.SKUID,
 				RawSKU: m.Extracted.RawSKU, RawDescription: m.Extracted.RawDescription,
 				Quantity: m.Extracted.Quantity, UnitCostMinorUnits: m.Extracted.UnitCostMinorUnits,
-				CreatedAt: now, UpdatedAt: now,
+				SKUAutoLinkedFromAlias: m.MatchSource == MatchSourceAlias,
+				CreatedAt:              now, UpdatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &li); err != nil {
 				return err

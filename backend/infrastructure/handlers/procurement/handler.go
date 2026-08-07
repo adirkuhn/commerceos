@@ -241,7 +241,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewListPurchaseOrdersUseCase(db, poRepo),
 		createPurchaseOrderUC,
 		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo, documentRepo),
-		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo),
+		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo, lineItemRepo, aliasRepo),
 		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, documentRepo),
 		appprocurement.NewAddPurchaseOrderLineItemUseCase(db, lineItemRepo),
 		appprocurement.NewUpdatePurchaseOrderLineItemUseCase(db, lineItemRepo),
@@ -258,7 +258,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 			linkLineItemToSKUUC,
 		),
 		appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(
-			db, supplierRepo, suppliersapp.NewCreateSupplierUseCase(db, supplierRepo), poRepo, lineItemRepo,
+			db, supplierRepo, suppliersapp.NewCreateSupplierUseCase(db, supplierRepo), poRepo, lineItemRepo, aliasRepo,
 		),
 		appprocurement.NewUploadInvoiceUseCase(db, poRepo, receivingRecordRepo, receivingJobRepo, fileStorage),
 		appprocurement.NewListReceivingRecordsUseCase(db, receivingRecordRepo),

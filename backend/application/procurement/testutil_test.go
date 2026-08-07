@@ -190,6 +190,13 @@ func (s *stubLineItemRepo) Update(_ context.Context, li *procurementDomain.Purch
 		return s.updateErr
 	}
 	s.updated = append(s.updated, *li)
+	// Mirrors a real repo: a subsequent ListByPurchaseOrder in the same
+	// use case (e.g. the needs_review revert check) must see this change.
+	for i := range s.byPO {
+		if s.byPO[i].ID == li.ID {
+			s.byPO[i] = *li
+		}
+	}
 	return nil
 }
 func (s *stubLineItemRepo) Delete(_ context.Context, id string) error {

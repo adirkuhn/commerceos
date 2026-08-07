@@ -35,16 +35,17 @@ type purchaseOrderModel struct {
 func (purchaseOrderModel) TableName() string { return "purchase_orders" }
 
 type purchaseOrderLineItemModel struct {
-	ID                 string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID           string  `gorm:"not null;type:uuid"`
-	PurchaseOrderID    string  `gorm:"column:purchase_order_id;not null;type:uuid"`
-	SKUID              *string `gorm:"column:sku_id"`
-	RawSKU             string  `gorm:"column:raw_sku;not null;default:''"`
-	RawDescription     string  `gorm:"not null;default:''"`
-	Quantity           int64   `gorm:"not null"`
-	UnitCostMinorUnits int64   `gorm:"not null;default:0"`
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                     string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID               string  `gorm:"not null;type:uuid"`
+	PurchaseOrderID        string  `gorm:"column:purchase_order_id;not null;type:uuid"`
+	SKUID                  *string `gorm:"column:sku_id"`
+	RawSKU                 string  `gorm:"column:raw_sku;not null;default:''"`
+	RawDescription         string  `gorm:"not null;default:''"`
+	Quantity               int64   `gorm:"not null"`
+	UnitCostMinorUnits     int64   `gorm:"not null;default:0"`
+	SKUAutoLinkedFromAlias bool    `gorm:"column:sku_auto_linked_from_alias;not null;default:false"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 func (purchaseOrderLineItemModel) TableName() string { return "purchase_order_line_items" }
@@ -238,7 +239,8 @@ func (r *PurchaseOrderLineItemRepo) Create(ctx context.Context, li *procurementD
 	m := purchaseOrderLineItemModel{
 		TenantID: li.TenantID, PurchaseOrderID: li.PurchaseOrderID, SKUID: li.SKUID, RawSKU: li.RawSKU,
 		RawDescription: li.RawDescription, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
-		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
+		SKUAutoLinkedFromAlias: li.SKUAutoLinkedFromAlias,
+		CreatedAt:              li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("purchaseOrderLineItemRepo.Create: %w", err)
@@ -285,12 +287,13 @@ func (r *PurchaseOrderLineItemRepo) Update(ctx context.Context, li *procurementD
 	}
 	if err := tx.Model(&purchaseOrderLineItemModel{}).Where("id = ?", li.ID).
 		Updates(map[string]any{
-			"sku_id":                li.SKUID,
-			"raw_sku":               li.RawSKU,
-			"raw_description":       li.RawDescription,
-			"quantity":              li.Quantity,
-			"unit_cost_minor_units": li.UnitCostMinorUnits,
-			"updated_at":            li.UpdatedAt,
+			"sku_id":                     li.SKUID,
+			"raw_sku":                    li.RawSKU,
+			"raw_description":            li.RawDescription,
+			"quantity":                   li.Quantity,
+			"unit_cost_minor_units":      li.UnitCostMinorUnits,
+			"sku_auto_linked_from_alias": li.SKUAutoLinkedFromAlias,
+			"updated_at":                 li.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("purchaseOrderLineItemRepo.Update: %w", err)
 	}
@@ -312,7 +315,8 @@ func toLineItemDomain(m purchaseOrderLineItemModel) *procurementDomain.PurchaseO
 	return &procurementDomain.PurchaseOrderLineItem{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID, SKUID: m.SKUID, RawSKU: m.RawSKU,
 		RawDescription: m.RawDescription, Quantity: m.Quantity, UnitCostMinorUnits: m.UnitCostMinorUnits,
-		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		SKUAutoLinkedFromAlias: m.SKUAutoLinkedFromAlias,
+		CreatedAt:              m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
 

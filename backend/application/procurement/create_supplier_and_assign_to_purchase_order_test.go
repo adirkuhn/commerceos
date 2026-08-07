@@ -51,7 +51,7 @@ func TestCreateSupplierAndAssignToPurchaseOrder_createsAndAssigns(t *testing.T) 
 	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: nil, Status: procurementDomain.PurchaseOrderStatusNeedsReview}
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{}}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo)
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo, &stubAliasRepo{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", Name: "New Supplier Co",
@@ -72,7 +72,7 @@ func TestCreateSupplierAndAssignToPurchaseOrder_reusesExistingSupplierInsteadOfC
 	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: nil, Status: procurementDomain.PurchaseOrderStatusNeedsReview}
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{}}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo)
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo, &stubAliasRepo{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", Name: "PEDAÇOS DO BRASIL, LDA.",
@@ -92,7 +92,7 @@ func TestCreateSupplierAndAssignToPurchaseOrder_revertsToDraftWhenAllLineItemsAl
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	skuID := "sku-1"
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-item-1", SKUID: &skuID}}}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo)
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo, &stubAliasRepo{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", Name: "New Supplier Co",
@@ -109,7 +109,7 @@ func TestCreateSupplierAndAssignToPurchaseOrder_staysNeedsReviewWhenLineItemsSti
 	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: nil, Status: procurementDomain.PurchaseOrderStatusNeedsReview}
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-item-1", SKUID: nil}}}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo)
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo, &stubAliasRepo{})
 
 	result, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{
 		PurchaseOrderID: "po-1", Name: "New Supplier Co",
@@ -119,11 +119,40 @@ func TestCreateSupplierAndAssignToPurchaseOrder_staysNeedsReviewWhenLineItemsSti
 	assert.Equal(t, procurementDomain.PurchaseOrderStatusNeedsReview, result.Status, "still missing a matched line item")
 }
 
+func TestCreateSupplierAndAssignToPurchaseOrder_autoLinksUnmatchedLineItemsFromLearnedAliasesOnceSupplierIsKnown(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	findSupplierByName := &stubFindSupplierByNameForAssignUC{result: &suppliersDomain.Supplier{ID: "supplier-9", Name: "Pedaços do Brasil, Lda."}}
+	createSupplier := &stubCreateSupplierForAssignUC{}
+	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: nil, Status: procurementDomain.PurchaseOrderStatusNeedsReview}
+	poRepo := &stubPurchaseOrderRepo{findResult: po}
+	// Simulates the AI parse having run before the supplier was known:
+	// this line item is unmatched even though a previous PO already taught
+	// the system the mapping for this exact supplier + raw text.
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-item-1", RawSKU: "PT-1234", SKUID: nil},
+	}}
+	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
+		"supplier-9|pt-1234": {SupplierID: "supplier-9", RawKey: "pt-1234", SKUID: "sku-learned-1"},
+	}}
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, lineItemRepo, aliasRepo)
+
+	result, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{
+		PurchaseOrderID: "po-1", Name: "PEDAÇOS DO BRASIL, LDA.",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.updated, 1)
+	require.NotNil(t, lineItemRepo.updated[0].SKUID)
+	assert.Equal(t, "sku-learned-1", *lineItemRepo.updated[0].SKUID)
+	assert.True(t, lineItemRepo.updated[0].SKUAutoLinkedFromAlias)
+	assert.Equal(t, procurementDomain.PurchaseOrderStatusNeedsReview, result.Status, "an alias is a guess, not a confirmation -- must not silently revert out of needs_review")
+}
+
 func TestCreateSupplierAndAssignToPurchaseOrder_propagatesFindSupplierByNameError(t *testing.T) {
 	db := newMockGormDB(t)
 	findSupplierByName := &stubFindSupplierByNameForAssignUC{err: errors.New("db unavailable")}
 	createSupplier := &stubCreateSupplierForAssignUC{}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, &stubPurchaseOrderRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubAliasRepo{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{PurchaseOrderID: "po-1", Name: "X"})
 
@@ -135,7 +164,7 @@ func TestCreateSupplierAndAssignToPurchaseOrder_propagatesCreateSupplierError(t 
 	db := newMockGormDB(t)
 	findSupplierByName := &stubFindSupplierByNameForAssignUC{}
 	createSupplier := &stubCreateSupplierForAssignUC{err: errors.New("duplicate supplier name")}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, &stubPurchaseOrderRepo{}, &stubLineItemRepo{})
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubAliasRepo{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{PurchaseOrderID: "po-1", Name: "X"})
 
@@ -147,7 +176,7 @@ func TestCreateSupplierAndAssignToPurchaseOrder_propagatesPurchaseOrderNotFound(
 	findSupplierByName := &stubFindSupplierByNameForAssignUC{}
 	createSupplier := &stubCreateSupplierForAssignUC{}
 	poRepo := &stubPurchaseOrderRepo{findErr: procurementDomain.ErrPurchaseOrderNotFound}
-	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, &stubLineItemRepo{})
+	uc := appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(db, findSupplierByName, createSupplier, poRepo, &stubLineItemRepo{}, &stubAliasRepo{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.CreateSupplierAndAssignToPurchaseOrderInput{PurchaseOrderID: "missing", Name: "X"})
 

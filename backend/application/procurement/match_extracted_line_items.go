@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
@@ -87,6 +88,69 @@ func (uc *MatchExtractedLineItemsUseCase) Execute(ctx context.Context, supplierI
 		matched = append(matched, m)
 	}
 	return matched, nil
+}
+
+// resyncAliasMatchedLineItems re-checks a PO's line items against the given
+// supplier's learned aliases and returns whether it changed anything. Two
+// calling situations, same logic either way:
+//
+//   - Supplier just confirmed on a needs_review PO: the parse-time matching
+//     pass (MatchExtractedLineItemsUseCase.Execute) ran before the PO had a
+//     supplier -- an AI-uploaded document's normal case, since the supplier
+//     is only assigned afterwards via the review flow -- so its alias
+//     lookup had no supplierID to check against and left these unmatched.
+//   - Supplier changed to a different one: any item still carrying an
+//     unreviewed alias guess from the old supplier needs to be re-evaluated
+//     against the new supplier's aliases, not left showing a stale guess.
+//
+// Only items with no confirmed link, or whose current link itself came from
+// an unreviewed alias guess (SKUAutoLinkedFromAlias), are touched -- an
+// exact-SKU match or an explicit human link (see LinkLineItemToSKUUseCase,
+// UpdatePurchaseOrderLineItemUseCase) is never revisited here.
+func resyncAliasMatchedLineItems(
+	ctx context.Context,
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
+	aliasRepo procurementDomain.SupplierProductAliasRepository,
+	purchaseOrderID, supplierID string,
+) (bool, error) {
+	items, err := lineItemRepo.ListByPurchaseOrder(ctx, purchaseOrderID)
+	if err != nil {
+		return false, fmt.Errorf("resyncAliasMatchedLineItems: %w", err)
+	}
+	changed := false
+	for _, item := range items {
+		if item.SKUID != nil && !item.SKUAutoLinkedFromAlias {
+			continue
+		}
+
+		var newSKUID *string
+		if rawKey := NormalizeRawKey(item.RawSKU, item.RawDescription); rawKey != "" {
+			alias, err := aliasRepo.FindBySupplierAndRawKey(ctx, supplierID, rawKey)
+			if err != nil {
+				return false, fmt.Errorf("resyncAliasMatchedLineItems: %w", err)
+			}
+			if alias != nil {
+				id := alias.SKUID
+				newSKUID = &id
+			}
+		}
+
+		if item.SKUID == nil && newSKUID == nil {
+			continue
+		}
+		if item.SKUID != nil && newSKUID != nil && *item.SKUID == *newSKUID {
+			continue
+		}
+
+		item.SKUID = newSKUID
+		item.SKUAutoLinkedFromAlias = newSKUID != nil
+		item.UpdatedAt = time.Now()
+		if err := lineItemRepo.Update(ctx, &item); err != nil {
+			return false, fmt.Errorf("resyncAliasMatchedLineItems: %w", err)
+		}
+		changed = true
+	}
+	return changed, nil
 }
 
 // NormalizeRawKey produces the lookup key used for both writing and reading

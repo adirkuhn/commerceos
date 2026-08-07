@@ -37,6 +37,48 @@ func TestRunDocumentParsingJob_structuredDocument_createsLineItems(t *testing.T)
 	assert.True(t, needsReview)
 }
 
+func TestRunDocumentParsingJob_flagsAliasMatchedLineItemsAsAutoLinked(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.csv", FileName: "order.csv", ContentType: "text/csv"}
+	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusDraft}
+	poRepo := &stubPurchaseOrderRepo{findResult: po}
+	lineItemRepo := &stubCountingLineItemRepo{}
+	documentRepo := &stubDocumentRepo{findResult: doc}
+	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
+		"supplier-1|wid-002": {SupplierID: "supplier-1", RawKey: "wid-002", SKUID: "sku-learned-1"},
+	}}
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, aliasRepo)
+	storage := &stubFileStorage{getData: []byte("SKU,Description,Quantity,Unit Cost\nWID-002,Widget B,3,12.50\n")}
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, &stubPDFTextExtractor{}, nil)
+
+	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 1)
+	require.NotNil(t, lineItemRepo.created[0].SKUID)
+	assert.Equal(t, "sku-learned-1", *lineItemRepo.created[0].SKUID)
+	assert.True(t, lineItemRepo.created[0].SKUAutoLinkedFromAlias, "an alias match is a guess, not a confirmed link")
+}
+
+func TestRunDocumentParsingJob_doesNotFlagExactSKUMatchesAsAutoLinked(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.csv", FileName: "order.csv", ContentType: "text/csv"}
+	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusDraft}
+	poRepo := &stubPurchaseOrderRepo{findResult: po}
+	lineItemRepo := &stubCountingLineItemRepo{}
+	documentRepo := &stubDocumentRepo{findResult: doc}
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubAliasRepo{})
+	storage := &stubFileStorage{getData: []byte("SKU,Description,Quantity,Unit Cost\nWID-001,Widget A,10,5.00\n")}
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, &stubPDFTextExtractor{}, nil)
+
+	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 1)
+	assert.False(t, lineItemRepo.created[0].SKUAutoLinkedFromAlias, "exact-SKU matches are unambiguous and supplier-independent -- never revisited")
+}
+
 func TestRunDocumentParsingJob_setsNeedsReviewWhenAnyLineItemUnmatched(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.csv", FileName: "order.csv", ContentType: "text/csv"}

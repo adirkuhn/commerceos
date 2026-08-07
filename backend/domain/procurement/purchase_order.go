@@ -74,6 +74,16 @@ type PurchaseOrderLineItem struct {
 	// UnitCostMinorUnits is the smallest-currency-unit cost per unit, same
 	// convention as pms.SKU.PriceMinorUnits.
 	UnitCostMinorUnits int64
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// SKUAutoLinkedFromAlias is true when SKUID came from a learned
+	// SupplierProductAlias guess rather than an exact-SKU match or an
+	// explicit human link via the review UI. Exact-SKU matches never set
+	// this (the code on the document is unambiguous, and matching is
+	// supplier-independent so a supplier change can't invalidate it).
+	// LinkLineItemToSKUUseCase clears it the moment a human confirms/
+	// overrides the link. A supplier change on the PO clears SKUID and
+	// re-runs the alias lookup against the new supplier for any item still
+	// flagged true (see applyLearnedAliasesToUnmatchedLineItems).
+	SKUAutoLinkedFromAlias bool
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
