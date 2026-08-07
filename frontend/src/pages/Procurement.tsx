@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, QrCode, AlertTriangle } from 'lucide-react'
+import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, QrCode, AlertTriangle, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
@@ -79,6 +79,11 @@ export default function Procurement() {
 
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | 'all'>('all')
   const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  // Set alongside editingId right after a document-upload create -- the PO
+  // page picks this up once (see LineItemsSection's initialParsingJobId) to
+  // poll the still-in-flight parse and show a spinner instead of the
+  // create flow blocking on it.
+  const [pendingParsingJobId, setPendingParsingJobId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState('')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [pairScannerOpen, setPairScannerOpen] = useState(false)
@@ -108,8 +113,9 @@ export default function Procurement() {
     return (
       <PurchaseOrderEditPage
         purchaseOrderId={editingId === 'new' ? null : editingId}
+        initialParsingJobId={editingId === 'new' ? null : pendingParsingJobId}
         onCreate={create}
-        onClose={() => setEditingId(null)}
+        onClose={() => { setEditingId(null); setPendingParsingJobId(null) }}
       />
     )
   }
@@ -163,9 +169,10 @@ export default function Procurement() {
       {uploadModalOpen && (
         <CreateFromDocumentModal
           onClose={() => setUploadModalOpen(false)}
-          onCreated={async poId => {
+          onCreated={async (poId, jobId) => {
             setUploadModalOpen(false)
             await refresh()
+            setPendingParsingJobId(jobId)
             setEditingId(poId)
           }}
         />
@@ -266,7 +273,7 @@ export default function Procurement() {
 
 interface CreateFromDocumentModalProps {
   onClose: () => void
-  onCreated: (purchaseOrderId: string) => void
+  onCreated: (purchaseOrderId: string, parsingJobId: string) => void
 }
 
 // Deliberately just a file picker -- supplier/warehouse/currency/expected
@@ -279,7 +286,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
   const { token } = useAuth()
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
   const [file, setFile] = useState<File | null>(null)
-  const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing'>('idle')
+  const [status, setStatus] = useState<'idle' | 'uploading'>('idle')
   const [formError, setFormError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
@@ -291,17 +298,13 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
       const job = await procurementApi.createPurchaseOrderFromDocument(token ?? '', {
         currency_code: tenantSettings?.default_currency || 'USD', file,
       })
-      setStatus('parsing')
-      // Wait for parsing to finish before navigating to the new PO -- the
-      // document and its line items/supplier suggestion are extracted in
-      // the same pass, but that parse runs async in the background
-      // (cmd/scheduler). Without waiting here, the user landed on an
-      // apparently-empty PO and re-uploaded the same file believing the
-      // first attempt silently failed. A poll timeout still navigates --
-      // the PO exists either way, and any parse failure already shows a
-      // clear message with a path to add line items manually.
-      await pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', job.id)).catch(() => null)
-      onCreated(job.purchase_order_id)
+      // Navigate immediately instead of blocking here on the parse --
+      // it runs async in the background (cmd/scheduler) and can take a
+      // few seconds; the PO page itself shows the parsing indicator and
+      // picks up line items/supplier as soon as it finishes (see
+      // LineItemsSection's initialParsingJobId), so there's no need to
+      // freeze this modal waiting for it.
+      onCreated(job.purchase_order_id, job.id)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to upload document')
       setStatus('idle')
@@ -331,7 +334,6 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
               onChange={e => setFile(e.target.files?.[0] ?? null)}
               className="w-full text-xs dark:text-gray-300 text-gray-700 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-medium file:cursor-pointer disabled:opacity-50" />
           </div>
-          {status === 'parsing' && <p className="text-[11px] text-amber-400">Parsing document…</p>}
           {formError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>}
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={onClose}
@@ -340,7 +342,7 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
             </button>
             <button type="submit" disabled={status !== 'idle' || !file}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
-              {status === 'uploading' ? 'Uploading…' : status === 'parsing' ? 'Parsing…' : 'Upload & Create'}
+              {status === 'uploading' ? 'Uploading…' : 'Upload & Create'}
             </button>
           </div>
         </form>
@@ -353,11 +355,15 @@ function CreateFromDocumentModal({ onClose, onCreated }: CreateFromDocumentModal
 
 interface PurchaseOrderEditPageProps {
   purchaseOrderId: string | null
+  // Set only right after a document-upload create -- lets LineItemsSection
+  // pick up the still-in-flight parse and poll it instead of showing an
+  // empty list until the user manually refreshes.
+  initialParsingJobId?: string | null
   onCreate: (input: CreatePurchaseOrderInput) => Promise<PurchaseOrder>
   onClose: () => void
 }
 
-function PurchaseOrderEditPage({ purchaseOrderId, onCreate, onClose }: PurchaseOrderEditPageProps) {
+function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate, onClose }: PurchaseOrderEditPageProps) {
   const { token } = useAuth()
   const { suppliers } = useSuppliers(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
@@ -568,6 +574,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, onCreate, onClose }: PurchaseO
               purchaseOrderId={effectiveId}
               lineItems={detail?.line_items ?? []}
               currencyCode={currencyCode}
+              initialParsingJobId={initialParsingJobId}
               onAdd={addLineItem}
               onUpdate={updateLineItem}
               onRemove={removeLineItem}
@@ -704,20 +711,49 @@ interface LineItemsSectionProps {
   purchaseOrderId: string
   lineItems: PurchaseOrderLineItem[]
   currencyCode: string
+  // Set only right after a document-upload create -- picked up once (on
+  // mount) to poll that already-in-flight parse instead of the create flow
+  // blocking on it.
+  initialParsingJobId?: string | null
   onAdd: (input: AddLineItemInput) => Promise<void>
   onUpdate: (id: string, input: UpdateLineItemInput) => Promise<void>
   onRemove: (id: string) => Promise<void>
   onRefresh: () => void
 }
 
-function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, onAdd, onUpdate, onRemove, onRefresh }: LineItemsSectionProps) {
+function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialParsingJobId, onAdd, onUpdate, onRemove, onRefresh }: LineItemsSectionProps) {
   const { token } = useAuth()
   const [adding, setAdding] = useState(false)
   const [editingLineId, setEditingLineId] = useState<string | null>(null)
   const [reviewingLineId, setReviewingLineId] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'parsing'>('idle')
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'parsing'>(initialParsingJobId ? 'parsing' : 'idle')
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Picks up a parse that was already kicked off by the create-from-document
+  // flow -- runs once (initialParsingJobId only has a value on the very
+  // first mount right after that create, and this component isn't reused
+  // across different POs without unmounting first).
+  useEffect(() => {
+    if (!initialParsingJobId) return
+    let cancelled = false
+    pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', initialParsingJobId))
+      .then(finalJob => {
+        if (cancelled) return
+        if (finalJob.status === 'failed') {
+          setUploadError(friendlyParsingError(finalJob.error_message))
+        }
+        onRefresh()
+      })
+      .catch(err => {
+        if (!cancelled) setUploadError(err instanceof Error ? err.message : 'Failed to parse document')
+      })
+      .finally(() => {
+        if (!cancelled) setUploadStatus('idle')
+      })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialParsingJobId])
 
   async function handleRemove(id: string) {
     if (!window.confirm('Remove this line item?')) return
@@ -768,8 +804,16 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, onAdd, onU
       <div className="flex items-center justify-between px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
         <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Line Items</h3>
         <div className="flex items-center gap-2">
-          {uploadStatus === 'uploading' && <span className="text-[10px] dark:text-gray-500 text-gray-400">Uploading…</span>}
-          {uploadStatus === 'parsing' && <span className="text-[10px] text-amber-400">Parsing document…</span>}
+          {uploadStatus === 'uploading' && (
+            <span className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400">
+              <Loader2 size={11} className="animate-spin" /> Uploading…
+            </span>
+          )}
+          {uploadStatus === 'parsing' && (
+            <span className="flex items-center gap-1 text-[10px] text-amber-400">
+              <Loader2 size={11} className="animate-spin" /> Parsing document…
+            </span>
+          )}
           <input ref={fileInputRef} type="file" aria-label="Upload document" accept=".pdf,.csv,.xlsx" className="hidden" onChange={handleFileSelected} />
           <button
             type="button"

@@ -323,7 +323,48 @@ describe('Upload document to create a PO', () => {
     expect(screen.getByRole('button', { name: 'Upload & Create' })).toBeDisabled()
   })
 
-  it('uploads the document, waits for parsing to finish, then navigates to the newly created PO', async () => {
+  it('navigates to the newly created PO immediately, without waiting for the background parse', async () => {
+    vi.mocked(procurementApi.createPurchaseOrderFromDocument).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-new', document_id: 'document-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-new' }) }))
+    // Never resolves within the test -- if navigation were still blocking
+    // on this, the test would time out waiting for the PO page instead of
+    // finding it right away.
+    vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
+    const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
+    await userEvent.upload(screen.getByLabelText('Document'), file)
+    await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
+
+    await waitFor(() => expect(procurementApi.createPurchaseOrderFromDocument).toHaveBeenCalledWith('test-token', {
+      currency_code: 'USD', file,
+    }))
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument()
+  })
+
+  it('shows a parsing indicator on the new PO while the background parse is still running', async () => {
+    vi.mocked(procurementApi.createPurchaseOrderFromDocument).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-new', document_id: 'document-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ purchase_order: po({ id: 'po-new' }) }))
+    vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
+    const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
+    await userEvent.upload(screen.getByLabelText('Document'), file)
+    await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
+
+    expect(await screen.findByText('Parsing document…')).toBeInTheDocument()
+    expect(procurementApi.getDocumentParsingJob).toHaveBeenCalledWith('test-token', 'job-1')
+  })
+
+  it('picks up line items on the new PO once the background parse finishes', async () => {
     vi.mocked(procurementApi.createPurchaseOrderFromDocument).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-new', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
@@ -342,31 +383,9 @@ describe('Upload document to create a PO', () => {
     await userEvent.upload(screen.getByLabelText('Document'), file)
     await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
 
-    await waitFor(() => expect(procurementApi.createPurchaseOrderFromDocument).toHaveBeenCalledWith('test-token', {
-      currency_code: 'USD', file,
-    }))
-    await waitFor(() => expect(procurementApi.getDocumentParsingJob).toHaveBeenCalledWith('test-token', 'job-1'))
-    // Lands on the PO with its line items already there -- no second
-    // upload needed to see what the first one extracted.
+    // No second upload needed to see what the first one extracted -- the
+    // PO page itself picks it up once the background parse completes.
     expect(await screen.findByText('Widget A')).toBeInTheDocument()
-  })
-
-  it('shows a parsing indicator while waiting for the job', async () => {
-    vi.mocked(procurementApi.createPurchaseOrderFromDocument).mockResolvedValue({
-      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-new', document_id: 'document-1',
-      status: 'pending', error_message: '', created_at: '',
-    })
-    // Never resolves within the test -- keeps the job in-flight so the
-    // "Parsing…" indicator stays visible long enough to assert on.
-    vi.mocked(procurementApi.getDocumentParsingJob).mockImplementation(() => new Promise(() => {}))
-
-    render(<Procurement />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Upload Document' }))
-    const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
-    await userEvent.upload(screen.getByLabelText('Document'), file)
-    await userEvent.click(screen.getByRole('button', { name: 'Upload & Create' }))
-
-    expect(await screen.findByText('Parsing document…')).toBeInTheDocument()
   })
 
   it('shows an error if the upload fails', async () => {
