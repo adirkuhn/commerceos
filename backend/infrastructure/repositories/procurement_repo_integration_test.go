@@ -329,6 +329,91 @@ func TestPurchaseOrderLineItemRepo_Integration_CreateListUpdateDeleteAndCascade(
 	require.ErrorIs(t, err, procurementDomain.ErrLineItemNotFound, "line item must be gone once its PO is deleted (ON DELETE CASCADE)")
 }
 
+// TestPurchaseOrderLineItemRepo_Integration_ListOrderSurvivesUpdateWithTiedCreatedAt
+// reproduces the reported bug: a document-parsing batch stamps every line
+// item with the exact same CreatedAt (see RunDocumentParsingJobUseCase), so
+// sorting by created_at alone leaves ties for Postgres to break by physical
+// row order -- which an UPDATE (e.g. linking a SKU) can silently change by
+// relocating the updated row's tuple. Position must keep the order stable
+// across that update.
+func TestPurchaseOrderLineItemRepo_Integration_ListOrderSurvivesUpdateWithTiedCreatedAt(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	supplierRepo := repositories.NewSupplierRepo(db)
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	var poID string
+	var lineItems []procurementDomain.PurchaseOrderLineItem
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := supplierRepo.Create(ctx, supplier); err != nil {
+			return err
+		}
+
+		po := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &po); err != nil {
+			return err
+		}
+		poID = po.ID
+
+		// Same CreatedAt for every row -- exactly what the parse-time batch
+		// insert does.
+		for i, desc := range []string{"Widget A", "Widget B", "Widget C"} {
+			li := procurementDomain.PurchaseOrderLineItem{
+				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID, Position: int64(i),
+				RawDescription: desc, Quantity: 1, CreatedAt: now, UpdatedAt: now,
+			}
+			if err := lineItemRepo.Create(ctx, &li); err != nil {
+				return err
+			}
+			lineItems = append(lineItems, li)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var before []procurementDomain.PurchaseOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		before, err = lineItemRepo.ListByPurchaseOrder(ctx, poID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, before, 3)
+	assert.Equal(t, []string{"Widget A", "Widget B", "Widget C"}, []string{before[0].RawDescription, before[1].RawDescription, before[2].RawDescription})
+
+	// Link the middle item to a SKU -- same write LinkLineItemToSKUUseCase
+	// does, the trigger for the reported reordering.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		middle := lineItems[1]
+		middle.SKUID = &skuID
+		middle.UpdatedAt = time.Now()
+		return lineItemRepo.Update(ctx, &middle)
+	})
+	require.NoError(t, err)
+
+	var after []procurementDomain.PurchaseOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		after, err = lineItemRepo.ListByPurchaseOrder(ctx, poID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, after, 3)
+	assert.Equal(t, []string{"Widget A", "Widget B", "Widget C"}, []string{after[0].RawDescription, after[1].RawDescription, after[2].RawDescription},
+		"order must survive an update to one of the tied-timestamp rows")
+}
+
 func TestPurchaseOrderLineItemRepo_Integration_LineTypeRoundTrips(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

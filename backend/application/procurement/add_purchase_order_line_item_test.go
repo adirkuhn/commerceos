@@ -40,6 +40,49 @@ func TestAddPurchaseOrderLineItem_manuallyAddedItemIsConfirmedImmediately(t *tes
 	require.True(t, li.LineTypeConfirmed, "a human typed this in directly -- no ambiguity to review")
 }
 
+func TestAddPurchaseOrderLineItem_setsPositionAfterExistingItems(t *testing.T) {
+	repo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "li-1", Position: 0}, {ID: "li-2", Position: 1},
+	}}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(2), li.Position)
+}
+
+func TestAddPurchaseOrderLineItem_setsPositionZeroWhenNoExistingItems(t *testing.T) {
+	repo := &stubLineItemRepo{}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(0), li.Position)
+}
+
+func TestAddPurchaseOrderLineItem_setsPositionAfterMaxWhenAnEarlierItemWasDeleted(t *testing.T) {
+	// li-1 (position 0) was deleted -- only position 2 remains. Next
+	// position must be max+1 (3), not len(existing) (1), so the new item
+	// still lands last instead of colliding with an existing one.
+	repo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "li-3", Position: 2},
+	}}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(3), li.Position)
+}
+
 func TestAddPurchaseOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
 	repo := &stubLineItemRepo{}
 	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)

@@ -39,6 +39,9 @@ export interface PurchaseOrderLineItem {
   sku_id?: string | null
   raw_sku: string
   raw_description: string
+  // Ordinal place on the source document -- API list responses are always
+  // sorted by this.
+  position: number
   quantity: number
   unit_cost_minor_units: number
   line_type: LineItemType

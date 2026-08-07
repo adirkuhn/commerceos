@@ -730,7 +730,7 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 	}
 	return genprocurement.PurchaseOrderLineItem{
 		Id: li.ID, TenantId: li.TenantID, PurchaseOrderId: li.PurchaseOrderID, SkuId: li.SKUID, RawSku: li.RawSKU,
-		RawDescription: li.RawDescription, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
+		RawDescription: li.RawDescription, Position: li.Position, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		LineType: genprocurement.LineItemType(lineType), LineTypeConfirmed: li.LineTypeConfirmed,
 		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}

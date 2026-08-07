@@ -560,7 +560,7 @@ components:
 
     PurchaseOrderLineItem:
       type: object
-      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, quantity, unit_cost_minor_units, line_type, line_type_confirmed, created_at, updated_at]
+      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, position, quantity, unit_cost_minor_units, line_type, line_type_confirmed, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -568,6 +568,9 @@ components:
         sku_id: { type: string, nullable: true }
         raw_sku: { type: string }
         raw_description: { type: string }
+        # Ordinal place on the source document -- list responses are always
+        # sorted by this (see PurchaseOrderLineItemRepo.ListByPurchaseOrder).
+        position: { type: integer, format: int64 }
         quantity: { type: integer, format: int64 }
         unit_cost_minor_units: { type: integer, format: int64 }
         line_type: { $ref: '#/components/schemas/LineItemType' }

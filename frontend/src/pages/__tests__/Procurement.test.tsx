@@ -122,7 +122,7 @@ function warehouse(overrides: Partial<Warehouse> = {}): Warehouse {
 function lineItem(overrides: Partial<PurchaseOrderLineItem> = {}): PurchaseOrderLineItem {
   return {
     id: 'line-item-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', sku_id: null, raw_sku: '',
-    raw_description: 'Widget A', quantity: 10, unit_cost_minor_units: 500,
+    raw_description: 'Widget A', position: 0, quantity: 10, unit_cost_minor_units: 500,
     line_type: 'product', line_type_confirmed: true,
     created_at: '', updated_at: '',
     ...overrides,

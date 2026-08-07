@@ -70,6 +70,13 @@ type PurchaseOrderLineItem struct {
 	// alias.go) for next time.
 	RawSKU         string
 	RawDescription string
+	// Position is the line's ordinal place on the source document (or, for a
+	// manually-added item, the order it was appended in). ListByPurchaseOrder
+	// sorts by this, not CreatedAt -- a parse-time batch stamps every item
+	// with the same CreatedAt, so relying on that for order broke as soon as
+	// a later UPDATE (e.g. LinkLineItemToSKUUseCase) relocated a row's
+	// physical storage and Postgres's tie-break order shifted underneath it.
+	Position       int64
 	Quantity       int64
 	// UnitCostMinorUnits is the smallest-currency-unit cost per unit, same
 	// convention as pms.SKU.PriceMinorUnits.

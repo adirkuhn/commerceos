@@ -41,6 +41,7 @@ type purchaseOrderLineItemModel struct {
 	SKUID                  *string `gorm:"column:sku_id"`
 	RawSKU                 string  `gorm:"column:raw_sku;not null;default:''"`
 	RawDescription         string  `gorm:"not null;default:''"`
+	Position               int64   `gorm:"column:position;not null;default:0"`
 	Quantity               int64   `gorm:"not null"`
 	UnitCostMinorUnits     int64   `gorm:"not null;default:0"`
 	SKUAutoLinkedFromAlias bool    `gorm:"column:sku_auto_linked_from_alias;not null;default:false"`
@@ -240,7 +241,7 @@ func (r *PurchaseOrderLineItemRepo) Create(ctx context.Context, li *procurementD
 	}
 	m := purchaseOrderLineItemModel{
 		TenantID: li.TenantID, PurchaseOrderID: li.PurchaseOrderID, SKUID: li.SKUID, RawSKU: li.RawSKU,
-		RawDescription: li.RawDescription, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
+		RawDescription: li.RawDescription, Position: li.Position, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		SKUAutoLinkedFromAlias: li.SKUAutoLinkedFromAlias,
 		LineType:               string(li.LineType),
 		LineTypeConfirmed:      li.LineTypeConfirmed,
@@ -274,7 +275,7 @@ func (r *PurchaseOrderLineItemRepo) ListByPurchaseOrder(ctx context.Context, pur
 		return nil, err
 	}
 	var rows []purchaseOrderLineItemModel
-	if err := tx.Where("purchase_order_id = ?", purchaseOrderID).Order("created_at asc").Find(&rows).Error; err != nil {
+	if err := tx.Where("purchase_order_id = ?", purchaseOrderID).Order("position asc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("purchaseOrderLineItemRepo.ListByPurchaseOrder: %w", err)
 	}
 	out := make([]procurementDomain.PurchaseOrderLineItem, len(rows))
@@ -320,7 +321,7 @@ func (r *PurchaseOrderLineItemRepo) Delete(ctx context.Context, id string) error
 func toLineItemDomain(m purchaseOrderLineItemModel) *procurementDomain.PurchaseOrderLineItem {
 	return &procurementDomain.PurchaseOrderLineItem{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID, SKUID: m.SKUID, RawSKU: m.RawSKU,
-		RawDescription: m.RawDescription, Quantity: m.Quantity, UnitCostMinorUnits: m.UnitCostMinorUnits,
+		RawDescription: m.RawDescription, Position: m.Position, Quantity: m.Quantity, UnitCostMinorUnits: m.UnitCostMinorUnits,
 		SKUAutoLinkedFromAlias: m.SKUAutoLinkedFromAlias,
 		LineType:               procurementDomain.LineItemType(m.LineType),
 		LineTypeConfirmed:      m.LineTypeConfirmed,
