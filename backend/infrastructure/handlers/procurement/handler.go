@@ -258,7 +258,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 			linkLineItemToSKUUC,
 		),
 		appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(
-			db, suppliersapp.NewCreateSupplierUseCase(db, supplierRepo), poRepo, lineItemRepo,
+			db, supplierRepo, suppliersapp.NewCreateSupplierUseCase(db, supplierRepo), poRepo, lineItemRepo,
 		),
 		appprocurement.NewUploadInvoiceUseCase(db, poRepo, receivingRecordRepo, receivingJobRepo, fileStorage),
 		appprocurement.NewListReceivingRecordsUseCase(db, receivingRecordRepo),

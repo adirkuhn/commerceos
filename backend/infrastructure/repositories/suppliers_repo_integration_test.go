@@ -76,6 +76,43 @@ func TestSupplierRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 	require.ErrorIs(t, err, suppliersDomain.ErrSupplierNotFound)
 }
 
+func TestSupplierRepo_Integration_FindByNameIsCaseInsensitiveAndTrimmed(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSupplierRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		s := suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Pedaços do Brasil, Lda.",
+			Status: suppliersDomain.SupplierStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &s)
+	})
+	require.NoError(t, err)
+
+	var found *suppliersDomain.Supplier
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByName(ctx, "  PEDAÇOS DO BRASIL, LDA.  ")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "Pedaços do Brasil, Lda.", found.Name)
+}
+
+func TestSupplierRepo_Integration_FindByNameNotFound(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSupplierRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := repo.FindByName(ctx, "Nobody Ever Registered This Supplier")
+		return err
+	})
+	require.ErrorIs(t, err, suppliersDomain.ErrSupplierNotFound)
+}
+
 func TestSupplierRepo_Integration_FindByIDNotFound(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

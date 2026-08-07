@@ -32,15 +32,17 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 // ── Stub repo ────────────────────────────────────────────────────────────────
 
 type stubSupplierRepo struct {
-	suppliers    []suppliersDomain.Supplier
-	findResult   *suppliersDomain.Supplier
-	findErr      error
-	createErr    error
-	createCalled bool
-	updateErr    error
-	updated      []suppliersDomain.Supplier
-	deleteErr    error
-	deleted      []string
+	suppliers        []suppliersDomain.Supplier
+	findResult       *suppliersDomain.Supplier
+	findErr          error
+	findByNameResult *suppliersDomain.Supplier
+	findByNameErr    error
+	createErr        error
+	createCalled     bool
+	updateErr        error
+	updated          []suppliersDomain.Supplier
+	deleteErr        error
+	deleted          []string
 }
 
 func (s *stubSupplierRepo) Create(_ context.Context, sup *suppliersDomain.Supplier) error {
@@ -53,6 +55,12 @@ func (s *stubSupplierRepo) Create(_ context.Context, sup *suppliersDomain.Suppli
 }
 func (s *stubSupplierRepo) FindByID(_ context.Context, _ string) (*suppliersDomain.Supplier, error) {
 	return s.findResult, s.findErr
+}
+func (s *stubSupplierRepo) FindByName(_ context.Context, _ string) (*suppliersDomain.Supplier, error) {
+	if s.findByNameResult == nil && s.findByNameErr == nil {
+		return nil, suppliersDomain.ErrSupplierNotFound
+	}
+	return s.findByNameResult, s.findByNameErr
 }
 func (s *stubSupplierRepo) List(_ context.Context) ([]suppliersDomain.Supplier, error) {
 	return s.suppliers, nil

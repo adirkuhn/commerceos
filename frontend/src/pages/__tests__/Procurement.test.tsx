@@ -800,6 +800,30 @@ describe('Missing supplier review', () => {
       'test-token', 'po-1', { name: 'Corrected Name' },
     ))
   })
+
+  it('offers to assign, not create, when the suggested name matches an existing supplier', async () => {
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier({ name: 'Pedaços do Brasil, Lda.' })])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      purchase_order: po({ supplier_id: null, status: 'needs_review', suggested_supplier_name: 'PEDAÇOS DO BRASIL, LDA.' }),
+      line_items: [],
+    }))
+    vi.mocked(procurementApi.createSupplierAndAssignToPurchaseOrder).mockResolvedValue(
+      po({ supplier_id: 'supplier-1', status: 'draft' }),
+    )
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Missing supplier'))
+
+    expect(await screen.findByText(/Matches existing supplier "Pedaços do Brasil, Lda\."/)).toBeInTheDocument()
+    const assignButton = screen.getByRole('button', { name: 'Assign existing supplier' })
+    expect(assignButton).toBeInTheDocument()
+
+    await userEvent.click(assignButton)
+
+    await waitFor(() => expect(procurementApi.createSupplierAndAssignToPurchaseOrder).toHaveBeenCalledWith(
+      'test-token', 'po-1', { name: 'PEDAÇOS DO BRASIL, LDA.' },
+    ))
+  })
 })
 
 describe('Receiving', () => {

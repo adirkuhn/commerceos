@@ -7,6 +7,7 @@ import { usePurchaseOrderDetail } from '../procurement/hooks/usePurchaseOrderDet
 import { useReceivingRecords } from '../procurement/hooks/useReceivingRecords'
 import { pollParsingJob } from '../procurement/pollParsingJob'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
+import type { Supplier } from '../suppliers/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { useProducts } from '../pms/hooks/useProducts'
@@ -561,6 +562,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
             <MissingSupplierReview
               purchaseOrderId={effectiveId}
               suggestedName={po.suggested_supplier_name ?? ''}
+              suppliers={suppliers}
               onAssigned={supplierId => { setSupplierId(supplierId); refreshDetail() }}
             />
           )}
@@ -602,14 +604,24 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
 interface MissingSupplierReviewProps {
   purchaseOrderId: string
   suggestedName: string
+  suppliers: Supplier[]
   onAssigned: (supplierId: string) => void
 }
 
-function MissingSupplierReview({ purchaseOrderId, suggestedName, onAssigned }: MissingSupplierReviewProps) {
+// Case-insensitive, whitespace-trimmed match -- mirrors the backend's
+// FindByName lookup (LOWER(TRIM(name)) = LOWER(TRIM(?))) so what this shows
+// is exactly what submitting will actually do.
+function normalizeSupplierName(name: string): string {
+  return name.trim().toLowerCase()
+}
+
+function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAssigned }: MissingSupplierReviewProps) {
   const { token } = useAuth()
   const [name, setName] = useState(suggestedName)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const matchedSupplier = suppliers.find(s => normalizeSupplierName(s.name) === normalizeSupplierName(name))
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -636,6 +648,11 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, onAssigned }: M
       {suggestedName && (
         <p className="text-[11px] text-blue-400">Suggested from the uploaded document — edit if it's wrong.</p>
       )}
+      {matchedSupplier && (
+        <p className="text-[11px] text-emerald-400">
+          Matches existing supplier "{matchedSupplier.name}" — this will assign it, not create a new one.
+        </p>
+      )}
       <form onSubmit={handleCreate} className="flex items-center gap-2">
         <input
           aria-label="New supplier name" required value={name} onChange={e => setName(e.target.value)}
@@ -644,7 +661,7 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, onAssigned }: M
         />
         <button type="submit" disabled={saving || !name.trim()}
           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
-          {saving ? 'Creating…' : 'Create & Assign'}
+          {saving ? (matchedSupplier ? 'Assigning…' : 'Creating…') : (matchedSupplier ? 'Assign existing supplier' : 'Create & Assign')}
         </button>
       </form>
       {error && <p className="text-[10px] text-red-400">{error}</p>}

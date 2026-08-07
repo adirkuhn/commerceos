@@ -2,6 +2,7 @@ package procurement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,11 +18,16 @@ type CreateSupplierAndAssignToPurchaseOrderInput struct {
 	Name            string
 }
 
-// Narrow interface at point of use (ISP) so this composition is unit
-// testable without a real DB -- *suppliersapp.CreateSupplierUseCase
-// satisfies this structurally, no adapter needed in production wiring.
+// Narrow interfaces at point of use (ISP) so this composition is unit
+// testable without a real DB -- *suppliersapp.CreateSupplierUseCase and
+// *repositories.SupplierRepo satisfy these structurally, no adapter needed
+// in production wiring.
 type createSupplierForAssignUC interface {
 	Execute(ctx context.Context, in suppliersapp.CreateSupplierInput) (*suppliersDomain.Supplier, error)
+}
+
+type findSupplierByNameForAssignUC interface {
+	FindByName(ctx context.Context, name string) (*suppliersDomain.Supplier, error)
 }
 
 // CreateSupplierAndAssignToPurchaseOrderUseCase is the review UI's "this
@@ -32,27 +38,48 @@ type createSupplierForAssignUC interface {
 // CreateProductAndLinkLineItemUseCase's shape for the equivalent
 // missing-product case.
 type CreateSupplierAndAssignToPurchaseOrderUseCase struct {
-	db             *gorm.DB
-	createSupplier createSupplierForAssignUC
-	poRepo         procurementDomain.PurchaseOrderRepository
-	lineItemRepo   procurementDomain.PurchaseOrderLineItemRepository
+	db                 *gorm.DB
+	findSupplierByName findSupplierByNameForAssignUC
+	createSupplier     createSupplierForAssignUC
+	poRepo             procurementDomain.PurchaseOrderRepository
+	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
 }
 
 func NewCreateSupplierAndAssignToPurchaseOrderUseCase(
 	db *gorm.DB,
+	findSupplierByName findSupplierByNameForAssignUC,
 	createSupplier createSupplierForAssignUC,
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 ) *CreateSupplierAndAssignToPurchaseOrderUseCase {
-	return &CreateSupplierAndAssignToPurchaseOrderUseCase{db: db, createSupplier: createSupplier, poRepo: poRepo, lineItemRepo: lineItemRepo}
+	return &CreateSupplierAndAssignToPurchaseOrderUseCase{
+		db: db, findSupplierByName: findSupplierByName, createSupplier: createSupplier, poRepo: poRepo, lineItemRepo: lineItemRepo,
+	}
 }
 
 func (uc *CreateSupplierAndAssignToPurchaseOrderUseCase) Execute(ctx context.Context, in CreateSupplierAndAssignToPurchaseOrderInput) (*procurementDomain.PurchaseOrder, error) {
-	supplier, err := uc.createSupplier.Execute(ctx, suppliersapp.CreateSupplierInput{
-		Name: in.Name, Status: suppliersDomain.SupplierStatusActive,
+	// A name typed here (or suggested by AI parsing) may already match an
+	// existing supplier -- reuse it instead of minting a duplicate row.
+	var supplier *suppliersDomain.Supplier
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		found, err := uc.findSupplierByName.FindByName(ctx, in.Name)
+		if err != nil && !errors.Is(err, suppliersDomain.ErrSupplierNotFound) {
+			return err
+		}
+		supplier = found
+		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createSupplierAndAssignToPurchaseOrder: %w", err)
+	}
+
+	if supplier == nil {
+		supplier, err = uc.createSupplier.Execute(ctx, suppliersapp.CreateSupplierInput{
+			Name: in.Name, Status: suppliersDomain.SupplierStatusActive,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("createSupplierAndAssignToPurchaseOrder: %w", err)
+		}
 	}
 
 	var po procurementDomain.PurchaseOrder

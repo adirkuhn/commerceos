@@ -76,6 +76,21 @@ func (r *SupplierRepo) FindByID(ctx context.Context, id string) (*suppliersDomai
 	return toSupplierDomain(m), nil
 }
 
+func (r *SupplierRepo) FindByName(ctx context.Context, name string) (*suppliersDomain.Supplier, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m supplierModel
+	if err := tx.Where("LOWER(TRIM(name)) = LOWER(TRIM(?))", name).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, suppliersDomain.ErrSupplierNotFound
+		}
+		return nil, fmt.Errorf("supplierRepo.FindByName: %w", err)
+	}
+	return toSupplierDomain(m), nil
+}
+
 func (r *SupplierRepo) List(ctx context.Context) ([]suppliersDomain.Supplier, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
