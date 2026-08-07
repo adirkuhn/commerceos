@@ -76,13 +76,20 @@ func (r *SupplierRepo) FindByID(ctx context.Context, id string) (*suppliersDomai
 	return toSupplierDomain(m), nil
 }
 
+// normalizedNameSQL lower-cases, strips periods/commas (AI-extracted text
+// and manually-typed names disagree on trailing punctuation for legal
+// suffixes like "Lda."/"Lda", "Ltd."/"Ltd"), and collapses whitespace runs
+// -- without touching letters, so accented characters (e.g. "ç") survive.
+const normalizedNameSQL = `TRIM(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(%s), '[.,]', '', 'g'), '\s+', ' ', 'g'))`
+
 func (r *SupplierRepo) FindByName(ctx context.Context, name string) (*suppliersDomain.Supplier, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var m supplierModel
-	if err := tx.Where("LOWER(TRIM(name)) = LOWER(TRIM(?))", name).First(&m).Error; err != nil {
+	where := fmt.Sprintf(normalizedNameSQL, "name") + " = " + fmt.Sprintf(normalizedNameSQL, "?")
+	if err := tx.Where(where, name).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, suppliersDomain.ErrSupplierNotFound
 		}

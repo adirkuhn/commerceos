@@ -828,28 +828,45 @@ describe('Missing supplier review', () => {
     ))
   })
 
-  it('offers to assign, not create, when the suggested name matches an existing supplier', async () => {
-    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier({ name: 'Pedaços do Brasil, Lda.' })])
+  it('pre-selects the matching supplier and collapses the create-new box, when the suggestion matches an existing supplier', async () => {
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier({ id: 'supplier-9', name: 'Pedaços do Brasil, Lda.' })])
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       purchase_order: po({ supplier_id: null, status: 'needs_review', suggested_supplier_name: 'PEDAÇOS DO BRASIL, LDA.' }),
       line_items: [],
     }))
     vi.mocked(procurementApi.createSupplierAndAssignToPurchaseOrder).mockResolvedValue(
-      po({ supplier_id: 'supplier-1', status: 'draft' }),
+      po({ supplier_id: 'supplier-9', status: 'draft' }),
     )
 
     render(<Procurement />)
     await userEvent.click(await screen.findByText('Missing supplier'))
 
-    expect(await screen.findByText(/Matches existing supplier "Pedaços do Brasil, Lda\."/)).toBeInTheDocument()
-    const assignButton = screen.getByRole('button', { name: 'Assign existing supplier' })
-    expect(assignButton).toBeInTheDocument()
+    expect(await screen.findByLabelText('Supplier')).toHaveValue('supplier-9')
+    expect(screen.getByText(/Suggested from the uploaded document — confirm to assign\./)).toBeInTheDocument()
+    expect(screen.queryByLabelText('New supplier name')).not.toBeInTheDocument()
+    expect(screen.queryByText(/this purchase order has no supplier/)).not.toBeInTheDocument()
 
-    await userEvent.click(assignButton)
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(procurementApi.createSupplierAndAssignToPurchaseOrder).toHaveBeenCalledWith(
-      'test-token', 'po-1', { name: 'PEDAÇOS DO BRASIL, LDA.' },
+      'test-token', 'po-1', { name: 'Pedaços do Brasil, Lda.' },
     ))
+  })
+
+  it('still matches when the suggestion has trailing punctuation the stored supplier name lacks', async () => {
+    // Reproduces a real report: AI extraction produced "LDA." while the
+    // supplier was manually saved as "LDA" (no period).
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier({ id: 'supplier-9', name: 'PEDAÇOS DO BRASIL, LDA' })])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      purchase_order: po({ supplier_id: null, status: 'needs_review', suggested_supplier_name: 'PEDAÇOS DO BRASIL, LDA.' }),
+      line_items: [],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Missing supplier'))
+
+    expect(await screen.findByLabelText('Supplier')).toHaveValue('supplier-9')
+    expect(screen.queryByLabelText('New supplier name')).not.toBeInTheDocument()
   })
 })
 

@@ -101,6 +101,34 @@ func TestSupplierRepo_Integration_FindByNameIsCaseInsensitiveAndTrimmed(t *testi
 	require.Equal(t, "Pedaços do Brasil, Lda.", found.Name)
 }
 
+// Reproduces a real report: AI-extracted text included a trailing period
+// on the legal-suffix abbreviation ("LDA.") that the manually-typed
+// supplier record never had ("LDA") -- must still match.
+func TestSupplierRepo_Integration_FindByNameTruncatesTrailingPunctuationDifferences(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSupplierRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		s := suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "PEDAÇOS DO BRASIL, LDA",
+			Status: suppliersDomain.SupplierStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &s)
+	})
+	require.NoError(t, err)
+
+	var found *suppliersDomain.Supplier
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByName(ctx, "PEDAÇOS DO BRASIL, LDA.")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "PEDAÇOS DO BRASIL, LDA", found.Name)
+}
+
 func TestSupplierRepo_Integration_FindByNameNotFound(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

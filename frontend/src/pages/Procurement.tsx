@@ -375,6 +375,13 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
 
   const po = detail?.purchase_order ?? null
 
+  // AI-suggested supplier name matched against the existing supplier list --
+  // when it matches, the dropdown pre-selects it and a Confirm control takes
+  // over instead of the "create a new supplier" box (see MissingSupplierReview).
+  const suggestedSupplierMatch = po?.suggested_supplier_name
+    ? suppliers.find(s => normalizeSupplierName(s.name) === normalizeSupplierName(po.suggested_supplier_name!))
+    : undefined
+
   const [supplierId, setSupplierId] = useState(po?.supplier_id ?? '')
   const [warehouseId, setWarehouseId] = useState(po?.warehouse_id ?? '')
   const [status, setStatus] = useState<PurchaseOrderStatus>(po?.status ?? 'draft')
@@ -412,6 +419,35 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
   }, [po])
 
   const isNew = purchaseOrderId === null && createdId === null
+
+  // Pre-selects the dropdown once the AI suggestion resolves to an existing
+  // supplier -- separate from the field-seeding effect above because
+  // `suppliers` loads on its own async timer, often after that effect's
+  // one-shot-per-PO guard has already fired. Guarded the same way so it
+  // doesn't fight a choice the user already made.
+  const suggestedSupplierPreselectedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!po || po.supplier_id || !suggestedSupplierMatch) return
+    if (suggestedSupplierPreselectedFor.current === po.id) return
+    suggestedSupplierPreselectedFor.current = po.id
+    setSupplierId(suggestedSupplierMatch.id)
+  }, [po, suggestedSupplierMatch])
+
+  const [confirmingSuggestedSupplier, setConfirmingSuggestedSupplier] = useState(false)
+  async function handleConfirmSuggestedSupplier() {
+    if (!effectiveId || !suggestedSupplierMatch) return
+    setFormError('')
+    setConfirmingSuggestedSupplier(true)
+    try {
+      const updated = await procurementApi.createSupplierAndAssignToPurchaseOrder(token ?? '', effectiveId, { name: suggestedSupplierMatch.name })
+      if (updated.supplier_id) setSupplierId(updated.supplier_id)
+      await refreshDetail()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to confirm supplier')
+    } finally {
+      setConfirmingSuggestedSupplier(false)
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -509,7 +545,17 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="po-supplier" className={labelClass}>Supplier</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="po-supplier" className={labelClass + ' mb-0'}>Supplier</label>
+                    {suggestedSupplierMatch && !po?.supplier_id && (
+                      <button
+                        type="button" onClick={handleConfirmSuggestedSupplier} disabled={confirmingSuggestedSupplier}
+                        className="text-[10px] font-semibold text-blue-400 hover:underline disabled:opacity-50"
+                      >
+                        {confirmingSuggestedSupplier ? 'Confirming…' : 'Confirm'}
+                      </button>
+                    )}
+                  </div>
                   <select
                     id="po-supplier" required value={supplierId} onChange={e => setSupplierId(e.target.value)}
                     className={inputClass}
@@ -517,6 +563,9 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
                     <option value="">Select supplier…</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
+                  {suggestedSupplierMatch && !po?.supplier_id && (
+                    <p className="text-[10px] text-blue-400 mt-1">Suggested from the uploaded document — confirm to assign.</p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="po-warehouse" className={labelClass}>Warehouse (optional)</label>
@@ -558,7 +607,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, onCreate,
             </div>
           </form>
 
-          {!isNew && effectiveId && po && !po.supplier_id && (
+          {!isNew && effectiveId && po && !po.supplier_id && !suggestedSupplierMatch && (
             <MissingSupplierReview
               purchaseOrderId={effectiveId}
               suggestedName={po.suggested_supplier_name ?? ''}
@@ -608,11 +657,13 @@ interface MissingSupplierReviewProps {
   onAssigned: (supplierId: string) => void
 }
 
-// Case-insensitive, whitespace-trimmed match -- mirrors the backend's
-// FindByName lookup (LOWER(TRIM(name)) = LOWER(TRIM(?))) so what this shows
-// is exactly what submitting will actually do.
+// Mirrors the backend's FindByName lookup exactly, so what this shows is
+// what submitting will actually do: lower-case, strip periods/commas
+// (AI-extracted text and manually-typed names disagree on trailing
+// punctuation for legal suffixes like "Lda."/"Lda"), collapse whitespace
+// runs -- but leave letters (incl. accented ones) untouched.
 function normalizeSupplierName(name: string): string {
-  return name.trim().toLowerCase()
+  return name.toLowerCase().replace(/[.,]/g, '').replace(/\s+/g, ' ').trim()
 }
 
 function MissingSupplierReview({ purchaseOrderId, suggestedName, suppliers, onAssigned }: MissingSupplierReviewProps) {
