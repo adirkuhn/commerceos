@@ -123,6 +123,7 @@ function lineItem(overrides: Partial<PurchaseOrderLineItem> = {}): PurchaseOrder
   return {
     id: 'line-item-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', sku_id: null, raw_sku: '',
     raw_description: 'Widget A', quantity: 10, unit_cost_minor_units: 500,
+    line_type: 'product', line_type_confirmed: true,
     created_at: '', updated_at: '',
     ...overrides,
   }
@@ -431,7 +432,60 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(screen.getByTitle('Save'))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', {
-      sku_id: null, raw_description: 'Widget B', quantity: 5, unit_cost_minor_units: 1250,
+      sku_id: null, raw_description: 'Widget B', quantity: 5, unit_cost_minor_units: 1250, line_type: 'product',
+    }))
+  })
+
+  it('adds a shipping charge with no SKU picker, since it is not a product', async () => {
+    vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', raw_description: 'Shipping', quantity: 1, line_type: 'shipping' }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    await userEvent.click(screen.getByRole('button', { name: /Add Line Item/ }))
+    await userEvent.type(screen.getByLabelText('Line item description'), 'Shipping')
+    await userEvent.selectOptions(screen.getByLabelText('Line item type'), 'shipping')
+    expect(screen.queryByRole('button', { name: /Link product/ })).not.toBeInTheDocument()
+    await userEvent.clear(screen.getByLabelText('Unit cost'))
+    await userEvent.type(screen.getByLabelText('Unit cost'), '15.00')
+    await userEvent.click(screen.getByTitle('Save'))
+
+    await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', {
+      sku_id: null, raw_description: 'Shipping', quantity: 1, unit_cost_minor_units: 1500, line_type: 'shipping',
+    }))
+  })
+
+  it('shows a charge row without a SKU picker or a needs-review flag', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem(), lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, line_type: 'shipping', line_type_confirmed: true })],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    const shippingLabels = await screen.findAllByText('Shipping')
+    const row = shippingLabels[0].closest('tr')!
+    expect(within(row).getAllByText('Shipping').length).toBe(2)
+    expect(within(row).queryByText('Needs review')).not.toBeInTheDocument()
+    expect(within(row).getByText('—')).toBeInTheDocument()
+  })
+
+  it('shows a Confirm action for an unconfirmed AI-classified charge row, and saves on click', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, unit_cost_minor_units: 1500, line_type: 'shipping', line_type_confirmed: false })],
+    }))
+    vi.mocked(procurementApi.updateLineItem).mockResolvedValue(lineItem({
+      id: 'line-item-2', raw_description: 'Shipping', line_type: 'shipping', line_type_confirmed: true,
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(procurementApi.updateLineItem).toHaveBeenCalledWith('test-token', 'line-item-2', {
+      sku_id: null, raw_sku: '', raw_description: 'Shipping', quantity: 10, unit_cost_minor_units: 1500, line_type: 'shipping',
     }))
   })
 

@@ -103,7 +103,9 @@ func revertPurchaseOrderFromReviewIfFullyResolved(
 		return err
 	}
 	for _, item := range items {
-		if item.SKUID == nil {
+		// A charge row (shipping/discount/fee/credit note) never needs a
+		// SKU -- doesn't block the PO from leaving needs_review.
+		if item.SKUID == nil && item.LineType.IsProduct() {
 			return nil
 		}
 	}

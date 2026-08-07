@@ -54,6 +54,14 @@ func (uc *MatchExtractedLineItemsUseCase) Execute(ctx context.Context, supplierI
 	for _, item := range extracted {
 		m := MatchedLineItem{Extracted: item, MatchSource: MatchSourceUnmatched}
 
+		// A charge row (shipping/discount/fee/credit note) isn't a product
+		// -- there's nothing to match it against, and it must never be
+		// left "unmatched" waiting for a SKU link that will never come.
+		if !item.LineType.IsProduct() {
+			matched = append(matched, m)
+			continue
+		}
+
 		if item.RawSKU != "" {
 			sku, err := uc.skuRepo.FindByCode(ctx, item.RawSKU)
 			if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
@@ -119,6 +127,10 @@ func resyncAliasMatchedLineItems(
 	}
 	changed := false
 	for _, item := range items {
+		// A charge row never gets a SKU, alias-sourced or otherwise.
+		if !item.LineType.IsProduct() {
+			continue
+		}
 		if item.SKUID != nil && !item.SKUAutoLinkedFromAlias {
 			continue
 		}

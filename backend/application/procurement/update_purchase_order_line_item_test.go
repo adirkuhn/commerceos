@@ -23,6 +23,22 @@ func TestUpdatePurchaseOrderLineItem_updatesFields(t *testing.T) {
 	require.Equal(t, "Widget v2", li.RawDescription)
 }
 
+func TestUpdatePurchaseOrderLineItem_confirmsLineTypeOnExplicitSave(t *testing.T) {
+	repo := &stubLineItemRepo{findResult: &procurementDomain.PurchaseOrderLineItem{
+		ID: "line-item-1", Quantity: 1, LineType: procurementDomain.LineItemTypeShipping, LineTypeConfirmed: false,
+	}}
+	uc := appprocurement.NewUpdatePurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.UpdatePurchaseOrderLineItemInput{
+		ID: "line-item-1", RawDescription: "Freight", Quantity: 1, UnitCostMinorUnits: 1500,
+		LineType: procurementDomain.LineItemTypeShipping,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, procurementDomain.LineItemTypeShipping, li.LineType)
+	require.True(t, li.LineTypeConfirmed, "an explicit save through this form confirms the AI's guess (or the human's correction)")
+}
+
 func TestUpdatePurchaseOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
 	repo := &stubLineItemRepo{findResult: &procurementDomain.PurchaseOrderLineItem{ID: "line-item-1"}}
 	uc := appprocurement.NewUpdatePurchaseOrderLineItemUseCase(newMockGormDB(t), repo)

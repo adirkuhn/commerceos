@@ -46,6 +46,8 @@ const sampleLineItem: PurchaseOrderLineItem = {
   raw_description: 'Widget A',
   quantity: 10,
   unit_cost_minor_units: 500,
+  line_type: 'product',
+  line_type_confirmed: true,
   created_at: '2026-08-05T00:00:00Z',
   updated_at: '2026-08-05T00:00:00Z',
 }

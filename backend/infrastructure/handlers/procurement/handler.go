@@ -42,6 +42,13 @@ func timePtrToGenDate(t *time.Time) *openapi_types.Date {
 	return &openapi_types.Date{Time: *t}
 }
 
+func lineTypeOr(t *genprocurement.LineItemType) procurementDomain.LineItemType {
+	if t == nil {
+		return ""
+	}
+	return procurementDomain.LineItemType(*t)
+}
+
 func strPtrOr(s *string) string {
 	if s == nil {
 		return ""
@@ -364,7 +371,7 @@ func (h *Handler) AddPurchaseOrderLineItem(c *gin.Context, id genprocurement.Id)
 	}
 	li, err := h.addLineItem.Execute(c.Request.Context(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: id, SKUID: req.SkuId, RawSKU: strPtrOr(req.RawSku), RawDescription: req.RawDescription,
-		Quantity: req.Quantity, UnitCostMinorUnits: req.UnitCostMinorUnits,
+		Quantity: req.Quantity, UnitCostMinorUnits: req.UnitCostMinorUnits, LineType: lineTypeOr(req.LineType),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -381,7 +388,7 @@ func (h *Handler) UpdatePurchaseOrderLineItem(c *gin.Context, id genprocurement.
 	}
 	li, err := h.updateLineItem.Execute(c.Request.Context(), appprocurement.UpdatePurchaseOrderLineItemInput{
 		ID: id, SKUID: req.SkuId, RawSKU: strPtrOr(req.RawSku), RawDescription: req.RawDescription,
-		Quantity: req.Quantity, UnitCostMinorUnits: req.UnitCostMinorUnits,
+		Quantity: req.Quantity, UnitCostMinorUnits: req.UnitCostMinorUnits, LineType: lineTypeOr(req.LineType),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -714,9 +721,17 @@ func toGenPurchaseOrder(po procurementDomain.PurchaseOrder) genprocurement.Purch
 }
 
 func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.PurchaseOrderLineItem {
+	// LineType's zero value ("") means product (see IsProduct) but isn't
+	// itself a valid LineItemType enum value on the wire -- substitute the
+	// explicit value so the response always satisfies the schema.
+	lineType := li.LineType
+	if lineType == "" {
+		lineType = procurementDomain.LineItemTypeProduct
+	}
 	return genprocurement.PurchaseOrderLineItem{
 		Id: li.ID, TenantId: li.TenantID, PurchaseOrderId: li.PurchaseOrderID, SkuId: li.SKUID, RawSku: li.RawSKU,
 		RawDescription: li.RawDescription, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
+		LineType: genprocurement.LineItemType(lineType), LineTypeConfirmed: li.LineTypeConfirmed,
 		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}
 }

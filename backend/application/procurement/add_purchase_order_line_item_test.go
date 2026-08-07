@@ -26,6 +26,20 @@ func TestAddPurchaseOrderLineItem_setsFields(t *testing.T) {
 	require.True(t, repo.createCalled)
 }
 
+func TestAddPurchaseOrderLineItem_manuallyAddedItemIsConfirmedImmediately(t *testing.T) {
+	repo := &stubLineItemRepo{}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Shipping", Quantity: 1, UnitCostMinorUnits: 1500,
+		LineType: procurementDomain.LineItemTypeShipping,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, procurementDomain.LineItemTypeShipping, li.LineType)
+	require.True(t, li.LineTypeConfirmed, "a human typed this in directly -- no ambiguity to review")
+}
+
 func TestAddPurchaseOrderLineItem_rejectsNonPositiveQuantity(t *testing.T) {
 	repo := &stubLineItemRepo{}
 	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)

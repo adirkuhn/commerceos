@@ -51,6 +51,12 @@ func (p *OpenAIDocumentParser) WithModel(model string) *OpenAIDocumentParser {
 	return p
 }
 
+// extractLineItemsPrompt is the shared instruction text across all four
+// provider adapters -- Anthropic/Ollama append their own tool-call/
+// document-text suffix, see their respective ExtractLineItems.
+const extractLineItemsPrompt = "Extract every line item from this purchase order document. Return the SKU/barcode if printed, the description, the quantity, and the unit cost in minor currency units (cents). Also return the name of the supplier company that issued this document (the letterhead/sender, not the addressee/buyer) -- empty string if there's no clear one. " +
+	"For each line item, also classify it with line_type: \"product\" for an actual item being purchased, or one of \"shipping\", \"discount\", \"credit_note\", \"fee\", \"other_charge\" for a non-product row like a delivery fee, a discount/rebate line, a credit note, or any other charge/adjustment that isn't an item being bought -- those must never be classified as \"product\"."
+
 var lineItemsJSONSchema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
@@ -63,8 +69,15 @@ var lineItemsJSONSchema = map[string]any{
 					"raw_description":       map[string]any{"type": "string"},
 					"quantity":              map[string]any{"type": "integer"},
 					"unit_cost_minor_units": map[string]any{"type": "integer"},
+					// line_type: "product" for an actual item being
+					// purchased; anything else is a charge that must never
+					// be sent through product matching.
+					"line_type": map[string]any{
+						"type": "string",
+						"enum": []string{"product", "shipping", "discount", "credit_note", "fee", "other_charge"},
+					},
 				},
-				"required":             []string{"raw_sku", "raw_description", "quantity", "unit_cost_minor_units"},
+				"required":             []string{"raw_sku", "raw_description", "quantity", "unit_cost_minor_units", "line_type"},
 				"additionalProperties": false,
 			},
 		},
@@ -87,6 +100,38 @@ type extractedLineItemPayload struct {
 	RawDescription     string `json:"raw_description"`
 	Quantity           int64  `json:"quantity"`
 	UnitCostMinorUnits int64  `json:"unit_cost_minor_units"`
+	LineType           string `json:"line_type"`
+}
+
+// validLineTypes guards against a model returning something outside the
+// schema's enum despite Strict/tool-forced output (seen in practice with
+// local Ollama models, which don't enforce the JSON schema server-side) --
+// falls back to "" (product, see LineItemType.IsProduct) rather than
+// persisting a value the rest of the app doesn't recognize.
+var validLineTypes = map[string]procurementDomain.LineItemType{
+	string(procurementDomain.LineItemTypeProduct):     procurementDomain.LineItemTypeProduct,
+	string(procurementDomain.LineItemTypeShipping):    procurementDomain.LineItemTypeShipping,
+	string(procurementDomain.LineItemTypeDiscount):    procurementDomain.LineItemTypeDiscount,
+	string(procurementDomain.LineItemTypeCreditNote):  procurementDomain.LineItemTypeCreditNote,
+	string(procurementDomain.LineItemTypeFee):         procurementDomain.LineItemTypeFee,
+	string(procurementDomain.LineItemTypeOtherCharge): procurementDomain.LineItemTypeOtherCharge,
+}
+
+// toExtractedLineItems converts the shared payload shape into domain
+// objects -- used by all four provider adapters so the line_type
+// validation/fallback lives in exactly one place.
+func toExtractedLineItems(payload []extractedLineItemPayload) []procurementDomain.ExtractedLineItem {
+	items := make([]procurementDomain.ExtractedLineItem, 0, len(payload))
+	for _, li := range payload {
+		items = append(items, procurementDomain.ExtractedLineItem{
+			RawSKU:             li.RawSKU,
+			RawDescription:     li.RawDescription,
+			Quantity:           li.Quantity,
+			UnitCostMinorUnits: li.UnitCostMinorUnits,
+			LineType:           validLineTypes[li.LineType],
+		})
+	}
+	return items
 }
 
 func (p *OpenAIDocumentParser) ExtractLineItems(ctx context.Context, doc procurementDomain.DocumentInput) (procurementDomain.DocumentExtractionResult, error) {
@@ -98,7 +143,7 @@ func (p *OpenAIDocumentParser) ExtractLineItems(ctx context.Context, doc procure
 			OfInputItemList: responses.ResponseInputParam{
 				responses.ResponseInputItemParamOfMessage(responses.ResponseInputMessageContentListParam{
 					{OfInputText: &responses.ResponseInputTextParam{
-						Text: "Extract every line item from this purchase order document. Return the SKU/barcode if printed, the description, the quantity, and the unit cost in minor currency units (cents). Also return the name of the supplier company that issued this document (the letterhead/sender, not the addressee/buyer) -- empty string if there's no clear one.",
+						Text: extractLineItemsPrompt,
 					}},
 					{OfInputFile: &responses.ResponseInputFileParam{
 						Filename: openai.String(doc.FileName),
@@ -129,14 +174,6 @@ func (p *OpenAIDocumentParser) ExtractLineItems(ctx context.Context, doc procure
 		return procurementDomain.DocumentExtractionResult{}, fmt.Errorf("openAIDocumentParser: unmarshal line items: %w", err)
 	}
 
-	items := make([]procurementDomain.ExtractedLineItem, 0, len(payload.LineItems))
-	for _, li := range payload.LineItems {
-		items = append(items, procurementDomain.ExtractedLineItem{
-			RawSKU:             li.RawSKU,
-			RawDescription:     li.RawDescription,
-			Quantity:           li.Quantity,
-			UnitCostMinorUnits: li.UnitCostMinorUnits,
-		})
-	}
+	items := toExtractedLineItems(payload.LineItems)
 	return procurementDomain.DocumentExtractionResult{LineItems: items, SupplierName: payload.SupplierName}, nil
 }

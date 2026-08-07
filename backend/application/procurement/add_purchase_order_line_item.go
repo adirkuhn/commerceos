@@ -17,6 +17,8 @@ type AddPurchaseOrderLineItemInput struct {
 	RawDescription     string
 	Quantity           int64
 	UnitCostMinorUnits int64
+	// LineType defaults to product (see LineItemType.IsProduct) when empty.
+	LineType procurementDomain.LineItemType
 }
 
 type AddPurchaseOrderLineItemUseCase struct {
@@ -39,6 +41,9 @@ func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPu
 		li = procurementDomain.PurchaseOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, SKUID: in.SKUID, RawSKU: in.RawSKU,
 			RawDescription: in.RawDescription, Quantity: in.Quantity, UnitCostMinorUnits: in.UnitCostMinorUnits,
+			// A human is adding this line item directly -- no ambiguity to
+			// review, confirmed immediately.
+			LineType: in.LineType, LineTypeConfirmed: true,
 			CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.lineItemRepo.Create(ctx, &li)

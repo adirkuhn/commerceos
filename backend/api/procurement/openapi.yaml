@@ -550,9 +550,17 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
+    # product: an actual item being purchased, needs a SKU match. Anything
+    # else is a charge/adjustment row that must never be forced through SKU
+    # matching -- empty string is treated as product (see
+    # domain/procurement.LineItemType.IsProduct).
+    LineItemType:
+      type: string
+      enum: [product, shipping, discount, credit_note, fee, other_charge]
+
     PurchaseOrderLineItem:
       type: object
-      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, quantity, unit_cost_minor_units, created_at, updated_at]
+      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, quantity, unit_cost_minor_units, line_type, line_type_confirmed, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -562,6 +570,11 @@ components:
         raw_description: { type: string }
         quantity: { type: integer, format: int64 }
         unit_cost_minor_units: { type: integer, format: int64 }
+        line_type: { $ref: '#/components/schemas/LineItemType' }
+        # False when line_type came from the AI's classification and a
+        # human hasn't reviewed it yet -- see LinkLineItemToSKUUseCase's
+        # doc comment for the analogous sku_auto_linked_from_alias idea.
+        line_type_confirmed: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -625,6 +638,7 @@ components:
         raw_description: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
         unit_cost_minor_units: { type: integer, format: int64, minimum: 0 }
+        line_type: { $ref: '#/components/schemas/LineItemType' }
 
     UpdateLineItemRequest:
       type: object
@@ -635,6 +649,7 @@ components:
         raw_description: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
         unit_cost_minor_units: { type: integer, format: int64, minimum: 0 }
+        line_type: { $ref: '#/components/schemas/LineItemType' }
 
     PurchaseOrderResponse:
       type: object

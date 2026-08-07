@@ -73,6 +73,29 @@ func TestLinkLineItemToSKU_leavesPOInNeedsReviewWhenOtherItemsStillUnmatched(t *
 	assert.Empty(t, poRepo.updated, "PO must stay needs_review while another line item is still unmatched")
 }
 
+func TestLinkLineItemToSKU_revertsPOEvenWithAnUnmatchedChargeRow(t *testing.T) {
+	db := newMockGormDB(t)
+	linkedSKUID := "sku-2"
+	li1 := procurementDomain.PurchaseOrderLineItem{ID: "line-item-1", PurchaseOrderID: "po-1", RawDescription: "Widget A"}
+	// Never linked, never will be -- a shipping charge, not a product.
+	shippingLine := procurementDomain.PurchaseOrderLineItem{
+		ID: "line-item-2", PurchaseOrderID: "po-1", RawDescription: "Shipping", LineType: procurementDomain.LineItemTypeShipping,
+	}
+	po := procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusNeedsReview}
+	poRepo := &stubPurchaseOrderRepo{findResult: &po}
+	li1AfterLink := li1
+	li1AfterLink.SKUID = &linkedSKUID
+	lineItemRepo := &stubLineItemRepo{findResult: &li1, byPO: []procurementDomain.PurchaseOrderLineItem{li1AfterLink, shippingLine}}
+	aliasRepo := &stubAliasRepo{}
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+
+	_, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-2"})
+
+	require.NoError(t, err)
+	require.Len(t, poRepo.updated, 1, "the shipping row must never block leaving needs_review")
+	assert.Equal(t, procurementDomain.PurchaseOrderStatusDraft, poRepo.updated[0].Status)
+}
+
 func TestLinkLineItemToSKU_doesNotTouchPOStatusWhenNotInNeedsReview(t *testing.T) {
 	db := newMockGormDB(t)
 	li := procurementDomain.PurchaseOrderLineItem{ID: "line-item-1", PurchaseOrderID: "po-1", RawDescription: "Widget A"}

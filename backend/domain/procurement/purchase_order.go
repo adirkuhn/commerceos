@@ -84,6 +84,17 @@ type PurchaseOrderLineItem struct {
 	// re-runs the alias lookup against the new supplier for any item still
 	// flagged true (see applyLearnedAliasesToUnmatchedLineItems).
 	SKUAutoLinkedFromAlias bool
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	// LineType classifies this row (see LineItemType) -- charge-type rows
+	// (shipping/discount/fee/credit_note/other_charge) never need a SKU
+	// match. Set from the AI's classification at parse time (or left ""/
+	// product for the CSV/XLSX path and manually-added items), correctable
+	// via the review UI same as SKUID.
+	LineType LineItemType
+	// LineTypeConfirmed is false when LineType came from the AI's guess,
+	// true once a human has explicitly picked/confirmed it (manually-added
+	// line items are confirmed immediately -- there's no ambiguity to
+	// review when the human just typed it in themselves).
+	LineTypeConfirmed bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }

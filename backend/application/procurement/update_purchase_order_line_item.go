@@ -17,6 +17,8 @@ type UpdatePurchaseOrderLineItemInput struct {
 	RawDescription     string
 	Quantity           int64
 	UnitCostMinorUnits int64
+	// LineType defaults to product (see LineItemType.IsProduct) when empty.
+	LineType procurementDomain.LineItemType
 }
 
 type UpdatePurchaseOrderLineItemUseCase struct {
@@ -44,9 +46,12 @@ func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in Up
 		existing.RawDescription = in.RawDescription
 		existing.Quantity = in.Quantity
 		existing.UnitCostMinorUnits = in.UnitCostMinorUnits
+		existing.LineType = in.LineType
 		// An explicit save through this form is a human touch -- overrides
-		// any unreviewed alias guess this item may have carried in with.
+		// any unreviewed alias guess this item may have carried in with,
+		// and confirms the (possibly AI-suggested) line type.
 		existing.SKUAutoLinkedFromAlias = false
+		existing.LineTypeConfirmed = true
 		existing.UpdatedAt = time.Now()
 		if err := uc.lineItemRepo.Update(ctx, existing); err != nil {
 			return err

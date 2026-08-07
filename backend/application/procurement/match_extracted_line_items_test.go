@@ -129,6 +129,40 @@ func TestMatchExtractedLineItems_multipleItemsMixedOutcomes(t *testing.T) {
 	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[2].MatchSource)
 }
 
+func TestMatchExtractedLineItems_chargeRowsSkipMatchingEntirely(t *testing.T) {
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"SHIP": {ID: "sku-should-never-be-used", SKUCode: "SHIP"}}}
+	aliasRepo := &stubAliasRepo{}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawSKU: "SHIP", RawDescription: "Shipping", Quantity: 1, UnitCostMinorUnits: 1500, LineType: procurementDomain.LineItemTypeShipping},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[0].MatchSource)
+	assert.Nil(t, matched[0].SKUID)
+	assert.False(t, aliasRepo.findCalled, "a charge row has nothing to look up an alias for")
+}
+
+func TestMatchExtractedLineItems_mixOfProductAndChargeRows(t *testing.T) {
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
+	aliasRepo := &stubAliasRepo{}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500, LineType: procurementDomain.LineItemTypeProduct},
+		{RawDescription: "Discount", Quantity: 1, UnitCostMinorUnits: -200, LineType: procurementDomain.LineItemTypeDiscount},
+		{RawDescription: "Handling Fee", Quantity: 1, UnitCostMinorUnits: 300, LineType: procurementDomain.LineItemTypeFee},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, matched, 3)
+	assert.Equal(t, appprocurement.MatchSourceExactSKU, matched[0].MatchSource)
+	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[1].MatchSource)
+	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[2].MatchSource)
+}
+
 func TestNormalizeRawKey_prefersRawSKUAndNormalizesCase(t *testing.T) {
 	assert.Equal(t, "abc-123", appprocurement.NormalizeRawKey("  ABC-123  ", "ignored description"))
 	assert.Equal(t, "widget a", appprocurement.NormalizeRawKey("", "  Widget A  "))

@@ -44,6 +44,8 @@ type purchaseOrderLineItemModel struct {
 	Quantity               int64   `gorm:"not null"`
 	UnitCostMinorUnits     int64   `gorm:"not null;default:0"`
 	SKUAutoLinkedFromAlias bool    `gorm:"column:sku_auto_linked_from_alias;not null;default:false"`
+	LineType               string  `gorm:"column:line_type;not null;default:''"`
+	LineTypeConfirmed      bool    `gorm:"column:line_type_confirmed;not null;default:false"`
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
@@ -240,6 +242,8 @@ func (r *PurchaseOrderLineItemRepo) Create(ctx context.Context, li *procurementD
 		TenantID: li.TenantID, PurchaseOrderID: li.PurchaseOrderID, SKUID: li.SKUID, RawSKU: li.RawSKU,
 		RawDescription: li.RawDescription, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		SKUAutoLinkedFromAlias: li.SKUAutoLinkedFromAlias,
+		LineType:               string(li.LineType),
+		LineTypeConfirmed:      li.LineTypeConfirmed,
 		CreatedAt:              li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -293,6 +297,8 @@ func (r *PurchaseOrderLineItemRepo) Update(ctx context.Context, li *procurementD
 			"quantity":                   li.Quantity,
 			"unit_cost_minor_units":      li.UnitCostMinorUnits,
 			"sku_auto_linked_from_alias": li.SKUAutoLinkedFromAlias,
+			"line_type":                  string(li.LineType),
+			"line_type_confirmed":        li.LineTypeConfirmed,
 			"updated_at":                 li.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("purchaseOrderLineItemRepo.Update: %w", err)
@@ -316,6 +322,8 @@ func toLineItemDomain(m purchaseOrderLineItemModel) *procurementDomain.PurchaseO
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID, SKUID: m.SKUID, RawSKU: m.RawSKU,
 		RawDescription: m.RawDescription, Quantity: m.Quantity, UnitCostMinorUnits: m.UnitCostMinorUnits,
 		SKUAutoLinkedFromAlias: m.SKUAutoLinkedFromAlias,
+		LineType:               procurementDomain.LineItemType(m.LineType),
+		LineTypeConfirmed:      m.LineTypeConfirmed,
 		CreatedAt:              m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

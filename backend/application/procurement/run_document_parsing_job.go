@@ -112,12 +112,15 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 				RawSKU: m.Extracted.RawSKU, RawDescription: m.Extracted.RawDescription,
 				Quantity: m.Extracted.Quantity, UnitCostMinorUnits: m.Extracted.UnitCostMinorUnits,
 				SKUAutoLinkedFromAlias: m.MatchSource == MatchSourceAlias,
+				LineType:               m.Extracted.LineType,
 				CreatedAt:              now, UpdatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &li); err != nil {
 				return err
 			}
-			if m.SKUID == nil {
+			// A charge row (shipping/discount/fee/credit note) is never
+			// "unmatched" -- it was never supposed to have a SKU.
+			if m.SKUID == nil && li.LineType.IsProduct() {
 				hasUnmatched = true
 			}
 		}

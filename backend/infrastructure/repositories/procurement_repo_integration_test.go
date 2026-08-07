@@ -329,6 +329,69 @@ func TestPurchaseOrderLineItemRepo_Integration_CreateListUpdateDeleteAndCascade(
 	require.ErrorIs(t, err, procurementDomain.ErrLineItemNotFound, "line item must be gone once its PO is deleted (ON DELETE CASCADE)")
 }
 
+func TestPurchaseOrderLineItemRepo_Integration_LineTypeRoundTrips(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	supplierRepo := repositories.NewSupplierRepo(db)
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	var lineItem procurementDomain.PurchaseOrderLineItem
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := supplierRepo.Create(ctx, supplier); err != nil {
+			return err
+		}
+		po := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &po); err != nil {
+			return err
+		}
+		lineItem = procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID,
+			RawDescription: "Shipping", Quantity: 1, UnitCostMinorUnits: 1500,
+			LineType: procurementDomain.LineItemTypeShipping, LineTypeConfirmed: false,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &lineItem)
+	})
+	require.NoError(t, err)
+
+	var found *procurementDomain.PurchaseOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = lineItemRepo.FindByID(ctx, lineItem.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, found.SKUID, "a charge row has no SKU")
+	require.Equal(t, procurementDomain.LineItemTypeShipping, found.LineType)
+	require.False(t, found.LineTypeConfirmed)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found.LineTypeConfirmed = true
+		found.UpdatedAt = time.Now()
+		return lineItemRepo.Update(ctx, found)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = lineItemRepo.FindByID(ctx, lineItem.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, found.LineTypeConfirmed)
+}
+
 func TestPurchaseOrderLineItemRepo_Integration_SKUAutoLinkedFromAliasRoundTrips(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

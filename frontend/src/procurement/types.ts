@@ -27,6 +27,11 @@ export interface PurchaseOrder {
   updated_at: string
 }
 
+// LineItemType: 'product' (or '', treated the same) is an actual item that
+// needs a SKU match. Anything else is a charge/adjustment row that must
+// never be forced through product matching.
+export type LineItemType = '' | 'product' | 'shipping' | 'discount' | 'credit_note' | 'fee' | 'other_charge'
+
 export interface PurchaseOrderLineItem {
   id: string
   tenant_id: string
@@ -36,6 +41,10 @@ export interface PurchaseOrderLineItem {
   raw_description: string
   quantity: number
   unit_cost_minor_units: number
+  line_type: LineItemType
+  // False when line_type came from the AI's classification and hasn't been
+  // reviewed by a human yet.
+  line_type_confirmed: boolean
   created_at: string
   updated_at: string
 }
@@ -84,6 +93,7 @@ export interface AddLineItemInput {
   raw_description: string
   quantity: number
   unit_cost_minor_units: number
+  line_type?: LineItemType
 }
 
 export type UpdateLineItemInput = AddLineItemInput

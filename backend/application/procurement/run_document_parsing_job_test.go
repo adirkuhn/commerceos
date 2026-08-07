@@ -79,6 +79,33 @@ func TestRunDocumentParsingJob_doesNotFlagExactSKUMatchesAsAutoLinked(t *testing
 	assert.False(t, lineItemRepo.created[0].SKUAutoLinkedFromAlias, "exact-SKU matches are unambiguous and supplier-independent -- never revisited")
 }
 
+func TestRunDocumentParsingJob_chargeRowNeverTriggersNeedsReview(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.pdf", FileName: "order.pdf", ContentType: "application/pdf"}
+	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusDraft}
+	poRepo := &stubPurchaseOrderRepo{findResult: po}
+	lineItemRepo := &stubCountingLineItemRepo{}
+	documentRepo := &stubDocumentRepo{findResult: doc}
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubAliasRepo{})
+	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
+	pdfExtractor := &stubPDFTextExtractor{text: "PO #123\nWidget A x10 @ $5.00\nShipping $15.00"}
+	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
+		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500, LineType: procurementDomain.LineItemTypeProduct},
+		{RawDescription: "Shipping", Quantity: 1, UnitCostMinorUnits: 1500, LineType: procurementDomain.LineItemTypeShipping},
+	}}
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+
+	needsReview, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 2)
+	assert.Equal(t, procurementDomain.LineItemTypeShipping, lineItemRepo.created[1].LineType)
+	assert.Nil(t, lineItemRepo.created[1].SKUID)
+	assert.False(t, needsReview, "a fully-matched product plus an unmatched charge row must not require review")
+	assert.Empty(t, poRepo.updated, "must stay draft -- the shipping row is not an unmatched product")
+}
+
 func TestRunDocumentParsingJob_setsNeedsReviewWhenAnyLineItemUnmatched(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.csv", FileName: "order.csv", ContentType: "text/csv"}

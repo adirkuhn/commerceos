@@ -19,7 +19,7 @@ import { PairScannerModal } from '../scanner/PairScannerModal'
 import type {
   PurchaseOrder, PurchaseOrderStatus, PurchaseOrderLineItem, PurchaseOrderDocument,
   CreatePurchaseOrderInput, UpdatePurchaseOrderInput, AddLineItemInput, UpdateLineItemInput,
-  ReceivingRecord, ReceivingRecordDetail, ReceivingDiscrepancy, DiscrepancyType,
+  ReceivingRecord, ReceivingRecordDetail, ReceivingDiscrepancy, DiscrepancyType, LineItemType,
 } from '../procurement/types'
 import type { SKU } from '../pms/types'
 import type { Warehouse } from '../inventory/types'
@@ -44,6 +44,21 @@ const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
   return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
+}
+
+// '' and 'product' both mean "an actual item" -- everything else is a
+// charge/adjustment row that must never be forced through SKU matching.
+const LINE_TYPE_LABELS: Record<Exclude<LineItemType, ''>, string> = {
+  product: 'Product',
+  shipping: 'Shipping',
+  discount: 'Discount',
+  credit_note: 'Credit Note',
+  fee: 'Fee',
+  other_charge: 'Other Charge',
+}
+
+function isChargeLineType(type: LineItemType): boolean {
+  return type !== '' && type !== 'product'
 }
 
 // Backend's exact wording for procurementDomain.ErrAIParsingNotConfigured
@@ -919,6 +934,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         <thead>
           <tr className="dark:bg-[#111827]/30 bg-gray-50">
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Description</th>
+            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Type</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Linked SKU</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Qty</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Unit Cost</th>
@@ -928,10 +944,11 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         </thead>
         <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
           {lineItems.length === 0 && !adding && (
-            <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No line items yet</td></tr>
+            <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No line items yet</td></tr>
           )}
-          {lineItems.map(li => (
-            editingLineId === li.id ? (
+          {lineItems.map(li => {
+            const isCharge = isChargeLineType(li.line_type)
+            return editingLineId === li.id ? (
               <LineItemFormRow
                 key={li.id}
                 initial={li}
@@ -941,10 +958,32 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
               />
             ) : (
               <Fragment key={li.id}>
-                <tr className={clsx('transition-colors', li.sku_id ? 'hover:dark:bg-[#2D3748]/30 hover:bg-gray-50' : 'dark:bg-amber-500/5 bg-amber-50/40')}>
+                <tr className={clsx('transition-colors', li.sku_id || isCharge ? 'hover:dark:bg-[#2D3748]/30 hover:bg-gray-50' : 'dark:bg-amber-500/5 bg-amber-50/40')}>
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{li.raw_description}</td>
                   <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">
-                    {li.sku_id ? (
+                    {isCharge && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px]">{LINE_TYPE_LABELS[li.line_type as Exclude<LineItemType, ''>]}</span>
+                        {!li.line_type_confirmed && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdate(li.id, {
+                              sku_id: li.sku_id ?? null, raw_sku: li.raw_sku, raw_description: li.raw_description,
+                              quantity: li.quantity, unit_cost_minor_units: li.unit_cost_minor_units, line_type: li.line_type,
+                            })}
+                            title="AI-classified -- confirm this is correct"
+                            className="text-[10px] font-medium text-blue-400 hover:underline"
+                          >
+                            Confirm
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">
+                    {isCharge ? (
+                      <span className="text-[10px]">—</span>
+                    ) : li.sku_id ? (
                       <span className="font-mono text-[10px]">{li.sku_id}</span>
                     ) : (
                       <button
@@ -984,7 +1023,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                 </tr>
                 {reviewingLineId === li.id && (
                   <tr>
-                    <td colSpan={6} className="px-4 pb-3 dark:bg-amber-500/5 bg-amber-50/40">
+                    <td colSpan={7} className="px-4 pb-3 dark:bg-amber-500/5 bg-amber-50/40">
                       <ReviewUnmatchedLineItem
                         lineItem={li}
                         onResolved={() => { setReviewingLineId(null); onRefresh() }}
@@ -995,7 +1034,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                 )}
               </Fragment>
             )
-          ))}
+          })}
           {adding && (
             <LineItemFormRow
               currencyCode={currencyCode}
@@ -1021,9 +1060,11 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
   const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
   const [unitCost, setUnitCost] = useState(initial ? (initial.unit_cost_minor_units / 100).toFixed(2) : '0.00')
   const [skuId, setSkuId] = useState<string | null>(initial?.sku_id ?? null)
+  const [lineType, setLineType] = useState<LineItemType>(initial?.line_type || 'product')
   const [saving, setSaving] = useState(false)
   const [rowError, setRowError] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const isCharge = isChargeLineType(lineType)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1031,10 +1072,13 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
     setSaving(true)
     try {
       await onSubmit({
-        sku_id: skuId,
+        // A charge row (shipping/discount/fee/credit note) never has a
+        // SKU, even if one was picked before switching the type.
+        sku_id: isCharge ? null : skuId,
         raw_description: description,
         quantity: parseInt(quantity, 10),
         unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
+        line_type: lineType,
       })
     } catch (err) {
       setRowError(err instanceof Error ? err.message : 'Failed to save line item')
@@ -1055,7 +1099,19 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
           />
         </td>
         <td className="px-4 py-2">
-          {skuId ? (
+          <select
+            aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
+            className={cellInput}
+          >
+            {(Object.keys(LINE_TYPE_LABELS) as Exclude<LineItemType, ''>[]).map(t => (
+              <option key={t} value={t}>{LINE_TYPE_LABELS[t]}</option>
+            ))}
+          </select>
+        </td>
+        <td className="px-4 py-2">
+          {isCharge ? (
+            <span className="text-[10px] dark:text-gray-500 text-gray-400">—</span>
+          ) : skuId ? (
             <div className="flex items-center gap-1">
               <span className="font-mono text-[10px] dark:text-gray-300 text-gray-600 truncate">{skuId}</span>
               <button type="button" onClick={() => setSkuId(null)} title="Unlink">
@@ -1107,11 +1163,11 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
         </td>
       </tr>
       {rowError && (
-        <tr><td colSpan={6} className="px-4 pb-2"><p className="text-[10px] text-red-400">{rowError}</p></td></tr>
+        <tr><td colSpan={7} className="px-4 pb-2"><p className="text-[10px] text-red-400">{rowError}</p></td></tr>
       )}
       {pickerOpen && (
         <tr>
-          <td colSpan={6} className="px-4 pb-3">
+          <td colSpan={7} className="px-4 pb-3">
             <ProductSkuPicker
               onSelect={(sku, label) => { setSkuId(sku.id); if (!description) setDescription(label); setPickerOpen(false) }}
               onClose={() => setPickerOpen(false)}

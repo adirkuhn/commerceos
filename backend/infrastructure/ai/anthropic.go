@@ -60,7 +60,7 @@ func (p *AnthropicDocumentParser) ExtractLineItems(ctx context.Context, doc proc
 		MaxTokens: 4096,
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(
-				anthropic.NewTextBlock("Extract every line item from this purchase order document. Return the SKU/barcode if printed, the description, the quantity, and the unit cost in minor currency units (cents). Also return the name of the supplier company that issued this document (the letterhead/sender, not the addressee/buyer) -- empty string if there's no clear one. Call the extract_line_items tool with the result."),
+				anthropic.NewTextBlock(extractLineItemsPrompt+" Call the extract_line_items tool with the result."),
 				anthropic.NewDocumentBlock(anthropic.Base64PDFSourceParam{Data: base64.StdEncoding.EncodeToString(doc.Data)}),
 			),
 		},
@@ -87,15 +87,7 @@ func (p *AnthropicDocumentParser) ExtractLineItems(ctx context.Context, doc proc
 		if err := json.Unmarshal(block.Input, &payload); err != nil {
 			return procurementDomain.DocumentExtractionResult{}, fmt.Errorf("anthropicDocumentParser: unmarshal line items: %w", err)
 		}
-		items := make([]procurementDomain.ExtractedLineItem, 0, len(payload.LineItems))
-		for _, li := range payload.LineItems {
-			items = append(items, procurementDomain.ExtractedLineItem{
-				RawSKU:             li.RawSKU,
-				RawDescription:     li.RawDescription,
-				Quantity:           li.Quantity,
-				UnitCostMinorUnits: li.UnitCostMinorUnits,
-			})
-		}
+		items := toExtractedLineItems(payload.LineItems)
 		return procurementDomain.DocumentExtractionResult{LineItems: items, SupplierName: payload.SupplierName}, nil
 	}
 	return procurementDomain.DocumentExtractionResult{}, fmt.Errorf("anthropicDocumentParser: no %s tool_use block found in response", extractLineItemsToolName)
