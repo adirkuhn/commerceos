@@ -43,6 +43,10 @@ export interface PurchaseOrderDocument {
   file_url: string
   file_name: string
   content_type: string
+  // Set when another document with the same content already exists on
+  // this PO or another PO from the same supplier -- not a block, just a
+  // heads-up.
+  is_potential_duplicate: boolean
   created_at: string
 }
 

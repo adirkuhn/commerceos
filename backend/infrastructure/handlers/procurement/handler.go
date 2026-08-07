@@ -78,6 +78,9 @@ type removeLineItemUC interface {
 type attachDocumentToPurchaseOrderUC interface {
 	Execute(ctx context.Context, in appprocurement.AttachDocumentToPurchaseOrderInput) (*procurementDomain.DocumentParsingJob, error)
 }
+type deletePurchaseOrderDocumentUC interface {
+	Execute(ctx context.Context, id string) error
+}
 type getDocumentParsingJobUC interface {
 	Execute(ctx context.Context, id string) (*procurementDomain.DocumentParsingJob, error)
 }
@@ -127,30 +130,31 @@ type completeBookingUC interface {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listPurchaseOrders         listPurchaseOrdersUC
-	createPurchaseOrder        createPurchaseOrderUC
-	getPurchaseOrder           getPurchaseOrderUC
-	updatePurchaseOrder        updatePurchaseOrderUC
-	deletePurchaseOrder        deletePurchaseOrderUC
-	addLineItem                addLineItemUC
-	updateLineItem             updateLineItemUC
-	removeLineItem             removeLineItemUC
-	attachDocument             attachDocumentToPurchaseOrderUC
-	getDocumentParsingJob      getDocumentParsingJobUC
-	getReceivingParsingJob     getReceivingParsingJobUC
-	createPurchaseOrderFromDoc createPurchaseOrderFromDocumentUC
-	linkLineItemToSKU          linkLineItemToSKUUC
-	createProductAndLink       createProductAndLinkLineItemUC
-	createSupplierAndAssign    createSupplierAndAssignUC
-	uploadInvoice              uploadInvoiceUC
-	listReceivingRecords       listReceivingRecordsUC
-	getReceivingRecord         getReceivingRecordUC
-	completeReceiving          completeReceivingUC
-	startOrResumeBooking       startOrResumeBookingUC
-	getBooking                 getBookingUC
-	scanBookingItem            scanBookingItemUC
-	pauseBooking               pauseBookingUC
-	completeBooking            completeBookingUC
+	listPurchaseOrders          listPurchaseOrdersUC
+	createPurchaseOrder         createPurchaseOrderUC
+	getPurchaseOrder            getPurchaseOrderUC
+	updatePurchaseOrder         updatePurchaseOrderUC
+	deletePurchaseOrder         deletePurchaseOrderUC
+	addLineItem                 addLineItemUC
+	updateLineItem              updateLineItemUC
+	removeLineItem              removeLineItemUC
+	attachDocument              attachDocumentToPurchaseOrderUC
+	getDocumentParsingJob       getDocumentParsingJobUC
+	getReceivingParsingJob      getReceivingParsingJobUC
+	createPurchaseOrderFromDoc  createPurchaseOrderFromDocumentUC
+	linkLineItemToSKU           linkLineItemToSKUUC
+	createProductAndLink        createProductAndLinkLineItemUC
+	createSupplierAndAssign     createSupplierAndAssignUC
+	uploadInvoice               uploadInvoiceUC
+	listReceivingRecords        listReceivingRecordsUC
+	getReceivingRecord          getReceivingRecordUC
+	completeReceiving           completeReceivingUC
+	startOrResumeBooking        startOrResumeBookingUC
+	getBooking                  getBookingUC
+	scanBookingItem             scanBookingItemUC
+	pauseBooking                pauseBookingUC
+	completeBooking             completeBookingUC
+	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -179,6 +183,7 @@ func NewHandler(
 	scanBookingItem scanBookingItemUC,
 	pauseBooking pauseBookingUC,
 	completeBooking completeBookingUC,
+	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
 ) *Handler {
 	return &Handler{
 		listPurchaseOrders: listPurchaseOrders, createPurchaseOrder: createPurchaseOrder,
@@ -187,16 +192,17 @@ func NewHandler(
 		attachDocument: attachDocument, getDocumentParsingJob: getDocumentParsingJob, getReceivingParsingJob: getReceivingParsingJob,
 		createPurchaseOrderFromDoc: createPurchaseOrderFromDoc,
 		linkLineItemToSKU:          linkLineItemToSKU, createProductAndLink: createProductAndLink,
-		createSupplierAndAssign: createSupplierAndAssign,
-		uploadInvoice:           uploadInvoice,
-		listReceivingRecords:    listReceivingRecords,
-		getReceivingRecord:      getReceivingRecord,
-		completeReceiving:       completeReceiving,
-		startOrResumeBooking:    startOrResumeBooking,
-		getBooking:              getBooking,
-		scanBookingItem:         scanBookingItem,
-		pauseBooking:            pauseBooking,
-		completeBooking:         completeBooking,
+		createSupplierAndAssign:     createSupplierAndAssign,
+		uploadInvoice:               uploadInvoice,
+		listReceivingRecords:        listReceivingRecords,
+		getReceivingRecord:          getReceivingRecord,
+		completeReceiving:           completeReceiving,
+		startOrResumeBooking:        startOrResumeBooking,
+		getBooking:                  getBooking,
+		scanBookingItem:             scanBookingItem,
+		pauseBooking:                pauseBooking,
+		completeBooking:             completeBooking,
+		deletePurchaseOrderDocument: deletePurchaseOrderDocument,
 	}
 }
 
@@ -266,6 +272,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
+		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
 	)
 	genprocurement.RegisterHandlers(rg, h)
 }
@@ -414,6 +421,14 @@ func (h *Handler) AttachDocumentToPurchaseOrder(c *gin.Context, id genprocuremen
 	}
 	resp := toGenDocumentParsingJob(*job)
 	c.JSON(http.StatusCreated, genprocurement.DocumentParsingJobResponse{Data: &resp})
+}
+
+func (h *Handler) DeletePurchaseOrderDocument(c *gin.Context, id genprocurement.Id) {
+	err := h.deletePurchaseOrderDocument.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genprocurement.EmptyResponse{})
 }
 
 func (h *Handler) GetDocumentParsingJob(c *gin.Context, id genprocurement.Id) {
@@ -708,7 +723,7 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 func toGenDocument(d procurementDomain.PurchaseOrderDocument) genprocurement.PurchaseOrderDocument {
 	return genprocurement.PurchaseOrderDocument{
 		Id: d.ID, PurchaseOrderId: d.PurchaseOrderID, FileUrl: d.FileURL, FileName: d.FileName,
-		ContentType: d.ContentType, CreatedAt: d.CreatedAt,
+		ContentType: d.ContentType, IsPotentialDuplicate: d.IsPotentialDuplicate, CreatedAt: d.CreatedAt,
 	}
 }
 

@@ -137,6 +137,22 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/purchase-order-documents/{id}:
+    delete:
+      operationId: deletePurchaseOrderDocument
+      summary: Delete an uploaded purchase order document (and its stored file). Does not affect any line items already created from it.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /procurement/purchase-orders/documents:
     post:
       operationId: createPurchaseOrderFromDocument
@@ -559,13 +575,18 @@ components:
 
     PurchaseOrderDocument:
       type: object
-      required: [id, purchase_order_id, file_url, file_name, content_type, created_at]
+      required: [id, purchase_order_id, file_url, file_name, content_type, is_potential_duplicate, created_at]
       properties:
         id: { type: string }
         purchase_order_id: { type: string }
         file_url: { type: string }
         file_name: { type: string }
         content_type: { type: string }
+        # Set when another document with the same content hash already
+        # exists on this PO or another PO from the same supplier -- not a
+        # block, just a heads-up (same convention as ReceivingRecord's
+        # is_potential_duplicate).
+        is_potential_duplicate: { type: boolean }
         created_at: { type: string, format: date-time }
 
     CreatePurchaseOrderRequest:

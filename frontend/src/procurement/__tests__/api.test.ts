@@ -230,6 +230,22 @@ describe('attachDocumentToPurchaseOrder', () => {
   })
 })
 
+describe('deletePurchaseOrderDocument', () => {
+  it('calls the correct endpoint with DELETE', async () => {
+    mockFetch(null)
+    await api.deletePurchaseOrderDocument(TOKEN, 'document-1')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/procurement/purchase-order-documents/document-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('throws on not found', async () => {
+    mockFetchError('NOT_FOUND', 'purchase order document not found', 404)
+    await expect(api.deletePurchaseOrderDocument(TOKEN, 'missing')).rejects.toThrow('purchase order document not found')
+  })
+})
+
 describe('createPurchaseOrderFromDocument', () => {
   it('posts a multipart form with the file and header fields', async () => {
     mockFetch(sampleJob, 201)

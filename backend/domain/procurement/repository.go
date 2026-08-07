@@ -31,6 +31,11 @@ type PurchaseOrderDocumentRepository interface {
 	Create(ctx context.Context, doc *PurchaseOrderDocument) error
 	FindByID(ctx context.Context, id string) (*PurchaseOrderDocument, error)
 	ListByPurchaseOrder(ctx context.Context, purchaseOrderID string) ([]PurchaseOrderDocument, error)
+	Delete(ctx context.Context, id string) error
+	// FindDuplicateCandidates matches ReceivingRecordRepository's method of
+	// the same name: same contentHash, scoped to purchaseOrderID itself or
+	// (when supplierID is non-nil) any other PO belonging to that supplier.
+	FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]PurchaseOrderDocument, error)
 }
 
 // DocumentParsingJobRepository mirrors channels.ImportJobRepository's

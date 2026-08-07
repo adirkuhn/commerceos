@@ -12,5 +12,12 @@ type PurchaseOrderDocument struct {
 	FileURL         string
 	FileName        string
 	ContentType     string
-	CreatedAt       time.Time
+	// ContentHash/IsPotentialDuplicate mirror ReceivingRecord's duplicate
+	// detection (see ReceivingRecordRepository.FindDuplicateCandidates) --
+	// IsPotentialDuplicate is set at creation when another document with
+	// the same sha256 content hash already exists on this PO or (when the
+	// PO has a supplier) any other PO belonging to that supplier.
+	ContentHash          string
+	IsPotentialDuplicate bool
+	CreatedAt            time.Time
 }

@@ -270,13 +270,15 @@ func toLineItemDomain(m purchaseOrderLineItemModel) *procurementDomain.PurchaseO
 // ── PurchaseOrderDocumentRepo ────────────────────────────────────────────────
 
 type purchaseOrderDocumentModel struct {
-	ID              string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID        string `gorm:"not null;type:uuid"`
-	PurchaseOrderID string `gorm:"column:purchase_order_id;not null;type:uuid"`
-	FileURL         string `gorm:"column:file_url;not null"`
-	FileName        string `gorm:"column:file_name;not null;default:''"`
-	ContentType     string `gorm:"column:content_type;not null;default:''"`
-	CreatedAt       time.Time
+	ID                   string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID             string `gorm:"not null;type:uuid"`
+	PurchaseOrderID      string `gorm:"column:purchase_order_id;not null;type:uuid"`
+	FileURL              string `gorm:"column:file_url;not null"`
+	FileName             string `gorm:"column:file_name;not null;default:''"`
+	ContentType          string `gorm:"column:content_type;not null;default:''"`
+	ContentHash          string `gorm:"column:content_hash;not null;default:''"`
+	IsPotentialDuplicate bool   `gorm:"column:is_potential_duplicate;not null;default:false"`
+	CreatedAt            time.Time
 }
 
 func (purchaseOrderDocumentModel) TableName() string { return "purchase_order_documents" }
@@ -302,7 +304,8 @@ func (r *PurchaseOrderDocumentRepo) Create(ctx context.Context, doc *procurement
 	}
 	m := purchaseOrderDocumentModel{
 		TenantID: doc.TenantID, PurchaseOrderID: doc.PurchaseOrderID, FileURL: doc.FileURL,
-		FileName: doc.FileName, ContentType: doc.ContentType, CreatedAt: doc.CreatedAt,
+		FileName: doc.FileName, ContentType: doc.ContentType,
+		ContentHash: doc.ContentHash, IsPotentialDuplicate: doc.IsPotentialDuplicate, CreatedAt: doc.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("purchaseOrderDocumentRepo.Create: %w", err)
@@ -342,10 +345,49 @@ func (r *PurchaseOrderDocumentRepo) ListByPurchaseOrder(ctx context.Context, pur
 	return out, nil
 }
 
+func (r *PurchaseOrderDocumentRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&purchaseOrderDocumentModel{}).Error; err != nil {
+		return fmt.Errorf("purchaseOrderDocumentRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+// FindDuplicateCandidates matches ReceivingRecordRepo's method of the same
+// name: same contentHash, scoped to purchaseOrderID itself or (when
+// supplierID is non-nil) any other PO belonging to that supplier.
+func (r *PurchaseOrderDocumentRepo) FindDuplicateCandidates(ctx context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]procurementDomain.PurchaseOrderDocument, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := tx.Table("purchase_order_documents AS pod").
+		Joins("JOIN purchase_orders AS po ON po.id = pod.purchase_order_id").
+		Where("pod.content_hash = ? AND pod.content_hash != ''", contentHash)
+	if supplierID != nil {
+		q = q.Where("(pod.purchase_order_id = ? OR po.supplier_id = ?)", purchaseOrderID, *supplierID)
+	} else {
+		q = q.Where("pod.purchase_order_id = ?", purchaseOrderID)
+	}
+	var rows []purchaseOrderDocumentModel
+	if err := q.Select("pod.*").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("purchaseOrderDocumentRepo.FindDuplicateCandidates: %w", err)
+	}
+	out := make([]procurementDomain.PurchaseOrderDocument, len(rows))
+	for i, row := range rows {
+		out[i] = *toDocumentDomain(row)
+	}
+	return out, nil
+}
+
 func toDocumentDomain(m purchaseOrderDocumentModel) *procurementDomain.PurchaseOrderDocument {
 	return &procurementDomain.PurchaseOrderDocument{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID,
-		FileURL: m.FileURL, FileName: m.FileName, ContentType: m.ContentType, CreatedAt: m.CreatedAt,
+		FileURL: m.FileURL, FileName: m.FileName, ContentType: m.ContentType,
+		ContentHash: m.ContentHash, IsPotentialDuplicate: m.IsPotentialDuplicate, CreatedAt: m.CreatedAt,
 	}
 }
 

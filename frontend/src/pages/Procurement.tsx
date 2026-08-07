@@ -13,6 +13,7 @@ import { useProducts } from '../pms/hooks/useProducts'
 import * as pmsApi from '../pms/api'
 import * as procurementApi from '../procurement/api'
 import * as inventoryApi from '../inventory/api'
+import * as integrationsApi from '../integrations/api'
 import { PairScannerModal } from '../scanner/PairScannerModal'
 import type {
   PurchaseOrder, PurchaseOrderStatus, PurchaseOrderLineItem, PurchaseOrderDocument,
@@ -43,6 +44,20 @@ const STATUS_STYLE: Record<PurchaseOrderStatus, string> = {
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
   return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
+}
+
+// Backend's exact wording for procurementDomain.ErrAIParsingNotConfigured
+// (application/procurement/extract_line_items_from_document.go) -- swapped
+// for a friendlier message pointing at the manual-entry fallback that's
+// already available right below (the "+ Add Line Item" button never
+// depends on a successful parse).
+const AI_NOT_CONFIGURED_MESSAGE = 'AI document parsing is not configured'
+
+function friendlyParsingError(errorMessage: string): string {
+  if (errorMessage === AI_NOT_CONFIGURED_MESSAGE) {
+    return 'No AI provider is configured, so this document couldn’t auto-parse into line items. The document is saved below — add line items manually, or connect an AI provider in Settings → Integrations.'
+  }
+  return errorMessage || 'Failed to parse document'
 }
 
 const RECEIVING_STATUS_STYLE: Record<ReceivingRecord['status'], string> = {
@@ -371,7 +386,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, onCreate, onClose }: PurchaseO
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
   const [createdId, setCreatedId] = useState<string | null>(null)
   const effectiveId = purchaseOrderId ?? createdId
-  const { detail, error: detailError, refresh: refreshDetail, updateHeader, addLineItem, updateLineItem, removeLineItem } = usePurchaseOrderDetail(token ?? '', effectiveId)
+  const { detail, error: detailError, refresh: refreshDetail, updateHeader, addLineItem, updateLineItem, removeLineItem, deleteDocument } = usePurchaseOrderDetail(token ?? '', effectiveId)
 
   const po = detail?.purchase_order ?? null
 
@@ -567,7 +582,7 @@ function PurchaseOrderEditPage({ purchaseOrderId, onCreate, onClose }: PurchaseO
           )}
 
           {!isNew && effectiveId && (detail?.documents.length ?? 0) > 0 && (
-            <DocumentsSection documents={detail!.documents} />
+            <DocumentsSection documents={detail!.documents} onDelete={deleteDocument} />
           )}
 
           {!isNew && effectiveId && (
@@ -654,7 +669,24 @@ function MissingSupplierReview({ purchaseOrderId, suggestedName, onAssigned }: M
 
 // ── Documents ────────────────────────────────────────────────────────────────
 
-function DocumentsSection({ documents }: { documents: PurchaseOrderDocument[] }) {
+interface DocumentsSectionProps {
+  documents: PurchaseOrderDocument[]
+  onDelete: (id: string) => Promise<void>
+}
+
+function DocumentsSection({ documents, onDelete }: DocumentsSectionProps) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function handleDelete(doc: PurchaseOrderDocument) {
+    if (!window.confirm(`Delete "${doc.file_name}"? This does not affect any line items already created from it.`)) return
+    setDeletingId(doc.id)
+    try {
+      await onDelete(doc.id)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
       <div className="px-4 py-3 dark:bg-[#111827]/50 bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
@@ -662,16 +694,26 @@ function DocumentsSection({ documents }: { documents: PurchaseOrderDocument[] })
       </div>
       <div className="divide-y dark:divide-[#2D3748] divide-gray-200">
         {documents.map(doc => (
-          <a
-            key={doc.id}
-            href={doc.file_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#111827]/50 hover:bg-gray-50 transition-colors"
-          >
+          <div key={doc.id} className="flex items-center gap-2 px-4 py-2.5 text-xs dark:text-gray-300 text-gray-700">
             <FileText size={13} className="dark:text-gray-500 text-gray-400 shrink-0" />
-            <span className="truncate">{doc.file_name}</span>
-          </a>
+            <a href={doc.file_url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate hover:underline">
+              {doc.file_name}
+            </a>
+            {doc.is_potential_duplicate && (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-amber-400 bg-amber-500/10 shrink-0">
+                <AlertTriangle size={10} /> Possible duplicate
+              </span>
+            )}
+            <button
+              type="button"
+              title="Delete"
+              onClick={() => handleDelete(doc)}
+              disabled={deletingId === doc.id}
+              className="p-1 rounded dark:text-gray-500 text-gray-400 hover:text-red-400 disabled:opacity-50 transition-colors shrink-0"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         ))}
       </div>
     </div>
@@ -708,6 +750,21 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, onAdd, onU
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+
+    // Only PDFs need AI to parse (CSV/XLSX go through the deterministic
+    // path) -- warn up front rather than let the upload silently fail to
+    // extract anything, so the user knows manual entry is the fallback.
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (isPDF) {
+      const aiConnection = await integrationsApi.getAIConnection(token ?? '').catch(() => null)
+      if (!aiConnection && !window.confirm(
+        'No AI provider is configured for this workspace, so this PDF won’t auto-parse into line items. ' +
+        'You can still upload it and add line items manually below. Continue?',
+      )) {
+        return
+      }
+    }
+
     setUploadError('')
     setUploadStatus('uploading')
     try {
@@ -715,10 +772,12 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, onAdd, onU
       setUploadStatus('parsing')
       const finalJob = await pollParsingJob(() => procurementApi.getDocumentParsingJob(token ?? '', job.id))
       if (finalJob.status === 'failed') {
-        setUploadError(finalJob.error_message || 'Failed to parse document')
-      } else {
-        onRefresh()
+        setUploadError(friendlyParsingError(finalJob.error_message))
       }
+      // Always refresh, even on a failed parse -- the document itself was
+      // still saved and should show up in the Documents section so it can
+      // be opened for manual entry.
+      onRefresh()
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to upload document')
     } finally {

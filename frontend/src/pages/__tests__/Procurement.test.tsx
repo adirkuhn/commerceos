@@ -22,6 +22,7 @@ vi.mock('../../procurement/api', () => ({
   updateLineItem: vi.fn(),
   removeLineItem: vi.fn(),
   attachDocumentToPurchaseOrder: vi.fn(),
+  deletePurchaseOrderDocument: vi.fn(),
   getDocumentParsingJob: vi.fn(),
   createPurchaseOrderFromDocument: vi.fn(),
   linkLineItemToSku: vi.fn(),
@@ -78,12 +79,17 @@ vi.mock('../../pms/api', () => ({
   deleteProduct: vi.fn(),
 }))
 
+vi.mock('../../integrations/api', () => ({
+  getAIConnection: vi.fn(),
+}))
+
 import * as procurementApi from '../../procurement/api'
 import * as suppliersApi from '../../suppliers/api'
 import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
 import * as scannerApi from '../../scanner/api'
 import * as settingsApi from '../../settings/api'
+import * as integrationsApi from '../../integrations/api'
 
 function po(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
@@ -158,6 +164,12 @@ beforeEach(() => {
   // applies -- individual tests override this to verify the real default.
   vi.mocked(settingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '', updated_at: '',
+  })
+  // Configured by default so existing PDF-upload tests aren't interrupted
+  // by the "no AI configured" confirm prompt -- tests for that prompt
+  // specifically override this to null.
+  vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
+    id: 'ai-conn-1', provider: 'openai', status: 'connected', created_at: '',
   })
 })
 
@@ -456,7 +468,7 @@ describe('Purchase order edit with line items', () => {
     expect(await screen.findByText('Parsing document…')).toBeInTheDocument()
   })
 
-  it('surfaces the parsing job error instead of failing silently', async () => {
+  it('surfaces a friendly message when AI parsing is not configured, pointing at manual entry', async () => {
     vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
@@ -474,7 +486,73 @@ describe('Purchase order edit with line items', () => {
     const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
     await userEvent.upload(fileInput, file)
 
-    expect(await screen.findByText('AI document parsing is not configured')).toBeInTheDocument()
+    expect(await screen.findByText(/add line items manually/)).toBeInTheDocument()
+    expect(screen.queryByText('AI document parsing is not configured')).not.toBeInTheDocument()
+  })
+
+  it('warns before uploading a PDF when no AI provider is configured, and still uploads if confirmed', async () => {
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getDocumentParsingJob).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
+      status: 'completed', error_message: '', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    const file = new File(['%PDF-1.4'], 'invoice.pdf', { type: 'application/pdf' })
+    const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
+    await userEvent.upload(fileInput, file)
+
+    expect(window.confirm).toHaveBeenCalled()
+    await waitFor(() => expect(procurementApi.attachDocumentToPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1', file))
+  })
+
+  it('does not upload a PDF when the no-AI warning is dismissed', async () => {
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    vi.stubGlobal('confirm', vi.fn(() => false))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    const file = new File(['%PDF-1.4'], 'invoice.pdf', { type: 'application/pdf' })
+    const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
+    await userEvent.upload(fileInput, file)
+
+    expect(window.confirm).toHaveBeenCalled()
+    expect(procurementApi.attachDocumentToPurchaseOrder).not.toHaveBeenCalled()
+  })
+
+  it('does not warn before uploading a CSV, since it never needs AI', async () => {
+    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    const confirmSpy = vi.fn(() => true)
+    vi.stubGlobal('confirm', confirmSpy)
+    vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
+      status: 'pending', error_message: '', created_at: '',
+    })
+    vi.mocked(procurementApi.getDocumentParsingJob).mockResolvedValue({
+      id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
+      status: 'completed', error_message: '', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    const file = new File(['sku,qty\nA,1'], 'order.csv', { type: 'text/csv' })
+    const fileInput = document.querySelector('input[type="file"][accept=".pdf,.csv,.xlsx"]') as HTMLInputElement
+    await userEvent.upload(fileInput, file)
+
+    await waitFor(() => expect(procurementApi.attachDocumentToPurchaseOrder).toHaveBeenCalledWith('test-token', 'po-1', file))
+    expect(confirmSpy).not.toHaveBeenCalled()
   })
 })
 
@@ -484,7 +562,7 @@ describe('Documents', () => {
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       documents: [{
         id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
-        file_name: 'invoice.pdf', content_type: 'application/pdf', created_at: '',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: false, created_at: '',
       }],
     }))
 
@@ -504,6 +582,58 @@ describe('Documents', () => {
     await screen.findByLabelText('Supplier')
 
     expect(screen.queryByText('Documents')).not.toBeInTheDocument()
+  })
+
+  it('shows a "possible duplicate" badge when flagged', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: true, created_at: '',
+      }],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    expect(await screen.findByText('Possible duplicate')).toBeInTheDocument()
+  })
+
+  it('deletes a document after confirming', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: false, created_at: '',
+      }],
+    }))
+    vi.mocked(procurementApi.deletePurchaseOrderDocument).mockResolvedValue(null)
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.pdf')
+    await userEvent.click(screen.getByTitle('Delete'))
+
+    await waitFor(() => expect(procurementApi.deletePurchaseOrderDocument).toHaveBeenCalledWith('test-token', 'document-1'))
+  })
+
+  it('does not delete when the confirm dialog is dismissed', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      documents: [{
+        id: 'document-1', purchase_order_id: 'po-1', file_url: 'https://uploads.example.com/tenant-1/abc.pdf',
+        file_name: 'invoice.pdf', content_type: 'application/pdf', is_potential_duplicate: false, created_at: '',
+      }],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.pdf')
+    await userEvent.click(screen.getByTitle('Delete'))
+
+    expect(procurementApi.deletePurchaseOrderDocument).not.toHaveBeenCalled()
   })
 })
 

@@ -14,6 +14,7 @@ interface UsePurchaseOrderDetailActions {
   addLineItem: (input: AddLineItemInput) => Promise<void>
   updateLineItem: (id: string, input: UpdateLineItemInput) => Promise<void>
   removeLineItem: (id: string) => Promise<void>
+  deleteDocument: (id: string) => Promise<void>
 }
 
 // purchaseOrderId is null while creating a new PO (no line items to manage
@@ -64,5 +65,10 @@ export function usePurchaseOrderDetail(token: string, purchaseOrderId: string | 
     await load()
   }, [token, load])
 
-  return { detail, loading, error, refresh: load, updateHeader, addLineItem, updateLineItem, removeLineItem }
+  const deleteDocument = useCallback(async (id: string) => {
+    await api.deletePurchaseOrderDocument(token, id)
+    await load()
+  }, [token, load])
+
+  return { detail, loading, error, refresh: load, updateHeader, addLineItem, updateLineItem, removeLineItem, deleteDocument }
 }

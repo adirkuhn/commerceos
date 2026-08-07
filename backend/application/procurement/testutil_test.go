@@ -222,12 +222,19 @@ func (s *stubAliasRepo) FindBySupplierAndRawKey(_ context.Context, supplierID, r
 }
 
 type stubDocumentRepo struct {
-	findResult *procurementDomain.PurchaseOrderDocument
-	findErr    error
-	createErr  error
-	created    []procurementDomain.PurchaseOrderDocument
-	byPO       []procurementDomain.PurchaseOrderDocument
-	listErr    error
+	findResult             *procurementDomain.PurchaseOrderDocument
+	findErr                error
+	createErr              error
+	created                []procurementDomain.PurchaseOrderDocument
+	byPO                   []procurementDomain.PurchaseOrderDocument
+	listErr                error
+	deleted                []string
+	deleteErr              error
+	duplicateCandidates    []procurementDomain.PurchaseOrderDocument
+	duplicateErr           error
+	gotDuplicateHash       string
+	gotDuplicatePOID       string
+	gotDuplicateSupplierID *string
 }
 
 func (s *stubDocumentRepo) Create(_ context.Context, doc *procurementDomain.PurchaseOrderDocument) error {
@@ -243,6 +250,19 @@ func (s *stubDocumentRepo) FindByID(_ context.Context, _ string) (*procurementDo
 }
 func (s *stubDocumentRepo) ListByPurchaseOrder(_ context.Context, _ string) ([]procurementDomain.PurchaseOrderDocument, error) {
 	return s.byPO, s.listErr
+}
+func (s *stubDocumentRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}
+func (s *stubDocumentRepo) FindDuplicateCandidates(_ context.Context, contentHash, purchaseOrderID string, supplierID *string) ([]procurementDomain.PurchaseOrderDocument, error) {
+	s.gotDuplicateHash = contentHash
+	s.gotDuplicatePOID = purchaseOrderID
+	s.gotDuplicateSupplierID = supplierID
+	return s.duplicateCandidates, s.duplicateErr
 }
 
 type stubParsingJobRepo struct {
@@ -278,11 +298,13 @@ func (s *stubParsingJobRepo) MarkOrphanedRunningAsFailed(_ context.Context, _ st
 }
 
 type stubFileStorage struct {
-	savedData []byte
-	savedURL  string
-	saveErr   error
-	getData   []byte
-	getErr    error
+	savedData  []byte
+	savedURL   string
+	saveErr    error
+	getData    []byte
+	getErr     error
+	deletedURL string
+	deleteErr  error
 }
 
 func (s *stubFileStorage) Save(_ context.Context, _, _ string, data io.Reader) (string, error) {
@@ -296,7 +318,13 @@ func (s *stubFileStorage) Save(_ context.Context, _, _ string, data io.Reader) (
 	}
 	return "https://example.com/tenant-1/doc.csv", nil
 }
-func (s *stubFileStorage) Delete(_ context.Context, _ string) error { return nil }
+func (s *stubFileStorage) Delete(_ context.Context, url string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deletedURL = url
+	return nil
+}
 func (s *stubFileStorage) Get(_ context.Context, _ string) (io.ReadCloser, error) {
 	if s.getErr != nil {
 		return nil, s.getErr

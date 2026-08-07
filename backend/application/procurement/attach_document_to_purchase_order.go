@@ -1,7 +1,10 @@
 package procurement
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"time"
@@ -45,10 +48,13 @@ func NewAttachDocumentToPurchaseOrderUseCase(
 
 func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in AttachDocumentToPurchaseOrderInput) (*procurementDomain.DocumentParsingJob, error) {
 	var tenantID string
+	var supplierID *string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if _, err := uc.poRepo.FindByID(ctx, in.PurchaseOrderID); err != nil {
+		po, err := uc.poRepo.FindByID(ctx, in.PurchaseOrderID)
+		if err != nil {
 			return err
 		}
+		supplierID = po.SupplierID
 		tenantID = tenant.IDFromContext(ctx)
 		return nil
 	})
@@ -56,17 +62,33 @@ func (uc *AttachDocumentToPurchaseOrderUseCase) Execute(ctx context.Context, in 
 		return nil, fmt.Errorf("attachDocumentToPurchaseOrder: %w", err)
 	}
 
-	url, err := uc.storage.Save(ctx, tenantID, in.FileName, in.Data)
+	// Buffered (not streamed) so the same bytes can be hashed for duplicate
+	// detection and then handed to storage -- same tradeoff
+	// UploadInvoiceUseCase makes; documents are small enough (PDF/CSV/XLSX)
+	// that this isn't a memory concern.
+	data, err := io.ReadAll(in.Data)
+	if err != nil {
+		return nil, fmt.Errorf("attachDocumentToPurchaseOrder: %w", err)
+	}
+	contentHash := sha256.Sum256(data)
+	contentHashHex := hex.EncodeToString(contentHash[:])
+
+	url, err := uc.storage.Save(ctx, tenantID, in.FileName, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("attachDocumentToPurchaseOrder: %w", err)
 	}
 
 	var job procurementDomain.DocumentParsingJob
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		duplicates, err := uc.documentRepo.FindDuplicateCandidates(ctx, contentHashHex, in.PurchaseOrderID, supplierID)
+		if err != nil {
+			return err
+		}
 		now := time.Now()
 		doc := procurementDomain.PurchaseOrderDocument{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID,
-			FileURL: url, FileName: in.FileName, ContentType: in.ContentType, CreatedAt: now,
+			FileURL: url, FileName: in.FileName, ContentType: in.ContentType,
+			ContentHash: contentHashHex, IsPotentialDuplicate: len(duplicates) > 0, CreatedAt: now,
 		}
 		if err := uc.documentRepo.Create(ctx, &doc); err != nil {
 			return err

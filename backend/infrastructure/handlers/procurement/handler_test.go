@@ -152,6 +152,16 @@ func (s *stubRemoveLineItem) Execute(_ context.Context, id string) error {
 	return s.err
 }
 
+type stubDeletePurchaseOrderDocument struct {
+	err   error
+	calls []string
+}
+
+func (s *stubDeletePurchaseOrderDocument) Execute(_ context.Context, id string) error {
+	s.calls = append(s.calls, id)
+	return s.err
+}
+
 type stubAttachDocument struct {
 	out      *procurementDomain.DocumentParsingJob
 	err      error
@@ -381,7 +391,7 @@ func newTestHandler(
 		&stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{},
 		&stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
-		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{})
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{}, &stubDeletePurchaseOrderDocument{})
 }
 
 // newParsingJobTestHandler builds a Handler for the document/receiving
@@ -397,6 +407,21 @@ func newParsingJobTestHandler(
 		&stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
+	)
+}
+
+// newDeleteDocumentTestHandler builds a Handler for the delete-document
+// route specifically -- every other use case is a harmless zero-value stub.
+func newDeleteDocumentTestHandler(del *stubDeletePurchaseOrderDocument) *procurementhandler.Handler {
+	return procurementhandler.NewHandler(
+		&stubListPurchaseOrders{}, &stubCreatePurchaseOrder{}, &stubGetPurchaseOrder{}, &stubUpdatePurchaseOrder{}, &stubDeletePurchaseOrder{},
+		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{},
+		&stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{},
+		&stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
+		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
+		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		del,
 	)
 }
 
@@ -413,6 +438,7 @@ func newBookingTestHandler(
 		&stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		startOrResumeBooking, getBooking, scanBookingItem, pauseBooking, completeBooking,
+		&stubDeletePurchaseOrderDocument{},
 	)
 }
 
@@ -429,6 +455,7 @@ func newReceivingTestHandler(
 		&stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		uploadInvoice, listReceivingRecords, getReceivingRecord, completeReceiving,
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 }
 
@@ -617,6 +644,7 @@ func TestAttachDocumentToPurchaseOrderHandler_success(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, attach, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/po-1/documents", "order.csv", "sku,qty\nA,1", nil)
 
@@ -647,8 +675,26 @@ func TestAttachDocumentToPurchaseOrderHandler_notFound(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, attach, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/missing/documents", "order.csv", "data", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeletePurchaseOrderDocumentHandler_success(t *testing.T) {
+	del := &stubDeletePurchaseOrderDocument{}
+	h := newDeleteDocumentTestHandler(del)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/procurement/purchase-order-documents/document-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"document-1"}, del.calls)
+}
+
+func TestDeletePurchaseOrderDocumentHandler_notFound(t *testing.T) {
+	del := &stubDeletePurchaseOrderDocument{err: procurementDomain.ErrDocumentNotFound}
+	h := newDeleteDocumentTestHandler(del)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/procurement/purchase-order-documents/missing", nil)
 
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
@@ -700,6 +746,7 @@ func TestCreatePurchaseOrderFromDocumentHandler_success(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, create, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/documents", "order.csv", "sku,qty\nA,1", map[string]string{
 		"supplier_id": "supplier-1", "warehouse_id": "warehouse-1", "currency_code": "USD",
@@ -718,6 +765,7 @@ func TestCreatePurchaseOrderFromDocumentHandler_supplierOmittedIsAllowed(t *test
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, create, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/documents", "order.csv", "sku,qty\nA,1", map[string]string{
 		"warehouse_id": "warehouse-1", "currency_code": "USD",
@@ -734,6 +782,7 @@ func TestCreatePurchaseOrderFromDocumentHandler_propagatesValidationError(t *tes
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, create, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doMultipartRequest(newTestRouter(h), "/api/v1/procurement/purchase-orders/documents", "order.csv", "bad data", map[string]string{
 		"supplier_id": "supplier-1", "warehouse_id": "warehouse-1", "currency_code": "USD",
@@ -749,6 +798,7 @@ func TestLinkLineItemToSkuHandler_success(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, link, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/line-item-1/link", map[string]any{
 		"sku_id": "sku-1",
@@ -766,6 +816,7 @@ func TestLinkLineItemToSkuHandler_notFound(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, link, &stubCreateProductAndLinkLineItem{}, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/missing/link", map[string]any{
 		"sku_id": "sku-1",
@@ -781,6 +832,7 @@ func TestCreateProductAndLinkLineItemHandler_success(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, create, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/line-item-1/create-product-and-link", map[string]any{
 		"product_name": "New Widget", "sku_code": "NEW-001", "price_minor_units": 999, "currency_code": "USD",
@@ -799,6 +851,7 @@ func TestCreateProductAndLinkLineItemHandler_duplicateSkuCodeReturns422(t *testi
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, create, &stubCreateSupplierAndAssign{},
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-order-line-items/line-item-1/create-product-and-link", map[string]any{
 		"product_name": "New Widget", "sku_code": "DUP", "currency_code": "USD",
@@ -814,6 +867,7 @@ func TestCreateSupplierAndAssignToPurchaseOrderHandler_success(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, create,
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/po-1/create-supplier-and-assign", map[string]any{
 		"name": "New Supplier Co",
@@ -831,6 +885,7 @@ func TestCreateSupplierAndAssignToPurchaseOrderHandler_notFound(t *testing.T) {
 		&stubAddLineItem{}, &stubUpdateLineItem{}, &stubRemoveLineItem{}, &stubAttachDocument{}, &stubGetDocumentParsingJob{}, &stubGetReceivingParsingJob{}, &stubCreatePurchaseOrderFromDocument{}, &stubLinkLineItemToSKU{}, &stubCreateProductAndLinkLineItem{}, create,
 		&stubUploadInvoice{}, &stubListReceivingRecords{}, &stubGetReceivingRecord{}, &stubCompleteReceiving{},
 		&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, &stubCompleteBooking{},
+		&stubDeletePurchaseOrderDocument{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/purchase-orders/missing/create-supplier-and-assign", map[string]any{
 		"name": "New Supplier Co",

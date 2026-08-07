@@ -83,6 +83,10 @@ export function attachDocumentToPurchaseOrder(token: string, purchaseOrderId: st
   return requestMultipart<DocumentParsingJob>(`${base()}/purchase-orders/${purchaseOrderId}/documents`, formData, token)
 }
 
+export function deletePurchaseOrderDocument(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/purchase-order-documents/${id}`, { method: 'DELETE' }, token)
+}
+
 export function getDocumentParsingJob(token: string, id: string): Promise<DocumentParsingJob> {
   return request<DocumentParsingJob>(`${base()}/document-parsing-jobs/${id}`, { method: 'GET' }, token)
 }
