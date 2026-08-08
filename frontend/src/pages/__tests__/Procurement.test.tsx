@@ -502,6 +502,21 @@ describe('Purchase order edit with line items', () => {
     expect(await screen.findByText('-10.00 USD')).toBeInTheDocument()
   })
 
+  it('shows product name and SKU code, not the raw sku_id, when editing an already-linked line item', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ sku_id: 'sku-1', product_name: 'Acme Widget', sku_code: 'WID-001' })],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText('Acme Widget — WID-001')).toBeInTheDocument()
+    expect(screen.queryByText('sku-1')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Units per purchased item')).toBeInTheDocument()
+    expect(screen.getByText('Units/purchased item')).toBeInTheDocument()
+  })
+
   it('shows a charge row without a SKU picker or a needs-review flag', async () => {
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       line_items: [lineItem(), lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, line_type: 'shipping', line_type_confirmed: true })],

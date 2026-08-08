@@ -1115,6 +1115,12 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
   const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
   const [unitCost, setUnitCost] = useState(initial ? (initial.unit_cost_minor_units / 100).toFixed(2) : '0.00')
   const [skuId, setSkuId] = useState<string | null>(initial?.sku_id ?? null)
+  // Friendly "Product Name — SKU code" for display -- falls back to null
+  // (renders the raw id) only when the initial item has no resolved name,
+  // e.g. the linked SKU was deleted after linking.
+  const [skuLabel, setSkuLabel] = useState<string | null>(
+    initial?.sku_id && initial.product_name ? `${initial.product_name} — ${initial.sku_code}` : null,
+  )
   const [unitsPerPurchasedItem, setUnitsPerPurchasedItem] = useState(initial ? String(initial.units_per_purchased_item) : '1')
   const [lineType, setLineType] = useState<LineItemType>(initial?.line_type || 'product')
   const [saving, setSaving] = useState(false)
@@ -1149,13 +1155,13 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
   return (
     <>
       <tr className="dark:bg-[#111827]/40 bg-blue-50/30">
-        <td className="px-4 py-2">
+        <td className="px-4 py-2 align-top">
           <input
             aria-label="Line item description" required value={description} onChange={e => setDescription(e.target.value)}
             className={cellInput} placeholder="Description"
           />
         </td>
-        <td className="px-4 py-2">
+        <td className="px-4 py-2 align-top">
           <select
             aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
             className={clsx(cellInput, 'text-sm py-1.5 min-w-[110px]')}
@@ -1165,21 +1171,34 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             ))}
           </select>
         </td>
-        <td className="px-4 py-2">
+        <td className="px-4 py-2 align-top">
           {isCharge ? (
             <span className="text-[10px] dark:text-gray-500 text-gray-400">—</span>
           ) : skuId ? (
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-[10px] dark:text-gray-300 text-gray-600 truncate">{skuId}</span>
-              <button type="button" onClick={() => setSkuId(null)} title="Unlink">
-                <X size={11} className="dark:text-gray-500 text-gray-400" />
-              </button>
-              <input
-                aria-label="Units per purchased item" type="number" min="1" step="1"
-                value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
-                title="Units per purchased item -- e.g. 36 if a purchased box holds 36 of this SKU"
-                className="w-12 px-1 py-0.5 text-[10px] rounded dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
-              />
+            <div className="w-40 space-y-1">
+              <div className="flex items-center gap-1 min-w-0">
+                <span
+                  className={clsx('text-[10px] min-w-0 truncate', skuLabel ? 'dark:text-gray-300 text-gray-600' : 'font-mono dark:text-gray-400 text-gray-500')}
+                  title={skuLabel ?? skuId}
+                >
+                  {skuLabel ?? skuId}
+                </span>
+                <button type="button" onClick={() => { setSkuId(null); setSkuLabel(null) }} title="Unlink" className="shrink-0">
+                  <X size={11} className="dark:text-gray-500 text-gray-400" />
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                <label htmlFor={`units-per-item-${initial?.id ?? 'new'}`} className="text-[9px] whitespace-nowrap dark:text-gray-500 text-gray-400">
+                  Units/purchased item
+                </label>
+                <input
+                  id={`units-per-item-${initial?.id ?? 'new'}`}
+                  aria-label="Units per purchased item" type="number" min="1" step="1"
+                  value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
+                  title="How many stock units one purchased item holds -- e.g. 36 if this line is a box of 36 units"
+                  className="w-12 shrink-0 px-1 py-0.5 text-[10px] rounded dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
             </div>
           ) : (
             <button
@@ -1191,25 +1210,25 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
             </button>
           )}
         </td>
-        <td className="px-4 py-2">
+        <td className="px-4 py-2 align-top">
           <input
             aria-label="Quantity" type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)}
             className={clsx(cellInput, 'w-16')}
           />
         </td>
-        <td className="px-4 py-2">
+        <td className="px-4 py-2 align-top">
           <input
             aria-label="Unit cost" type="number" min="0" step="0.01" required value={unitCost} onChange={e => setUnitCost(e.target.value)}
             className={clsx(cellInput, 'w-20')}
           />
         </td>
-        <td className="px-4 py-2 dark:text-gray-400 text-gray-500">
+        <td className="px-4 py-2 align-top dark:text-gray-400 text-gray-500">
           {(signedLineItemAmount({
             line_type: lineType, quantity: parseInt(quantity || '0', 10),
             unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
           }) / 100).toFixed(2)}
         </td>
-        <td className="px-4 py-2">
+        <td className="px-4 py-2 align-top">
           <div className="flex items-center gap-1">
             <button
               type="button" disabled={saving} onClick={handleSubmit}
@@ -1235,7 +1254,11 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
         <tr>
           <td colSpan={7} className="px-4 pb-3">
             <ProductSkuPicker
-              onSelect={(sku, label) => { setSkuId(sku.id); if (!description) setDescription(label); setPickerOpen(false) }}
+              onSelect={(sku, label) => {
+                setSkuId(sku.id); setSkuLabel(label)
+                if (!description) setDescription(label)
+                setPickerOpen(false)
+              }}
               onClose={() => setPickerOpen(false)}
             />
           </td>
