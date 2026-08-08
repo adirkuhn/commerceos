@@ -1150,121 +1150,137 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
     }
   }
 
-  const cellInput = 'w-full px-2 py-1 text-xs rounded dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+  const idPrefix = initial?.id ?? 'new'
 
   return (
-    <>
-      <tr className="dark:bg-[#111827]/40 bg-blue-50/30">
-        <td className="px-4 py-2 align-top">
-          <input
-            aria-label="Line item description" required value={description} onChange={e => setDescription(e.target.value)}
-            className={cellInput} placeholder="Description"
-          />
-        </td>
-        <td className="px-4 py-2 align-top">
-          <select
-            aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
-            className={clsx(cellInput, 'text-sm py-1.5 min-w-[110px]')}
-          >
-            {(Object.keys(LINE_TYPE_LABELS) as Exclude<LineItemType, ''>[]).map(t => (
-              <option key={t} value={t}>{LINE_TYPE_LABELS[t]}</option>
-            ))}
-          </select>
-        </td>
-        <td className="px-4 py-2 align-top">
-          {isCharge ? (
-            <span className="text-[10px] dark:text-gray-500 text-gray-400">—</span>
-          ) : skuId ? (
-            <div className="w-40 space-y-1">
-              <div className="flex items-center gap-1 min-w-0">
-                <span
-                  className={clsx('text-[10px] min-w-0 truncate', skuLabel ? 'dark:text-gray-300 text-gray-600' : 'font-mono dark:text-gray-400 text-gray-500')}
-                  title={skuLabel ?? skuId}
+    <tr className="dark:bg-[#111827]/40 bg-blue-50/30">
+      <td colSpan={7} className="px-4 py-3">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="col-span-2">
+              <label htmlFor={`li-description-${idPrefix}`} className={labelClass}>Description</label>
+              <input
+                id={`li-description-${idPrefix}`}
+                aria-label="Line item description" required value={description} onChange={e => setDescription(e.target.value)}
+                className={inputClass} placeholder="Description"
+              />
+            </div>
+            <div>
+              <label htmlFor={`li-type-${idPrefix}`} className={labelClass}>Type</label>
+              <select
+                id={`li-type-${idPrefix}`}
+                aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
+                className={inputClass}
+              >
+                {(Object.keys(LINE_TYPE_LABELS) as Exclude<LineItemType, ''>[]).map(t => (
+                  <option key={t} value={t}>{LINE_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`li-quantity-${idPrefix}`} className={labelClass}>Quantity</label>
+              <input
+                id={`li-quantity-${idPrefix}`}
+                aria-label="Quantity" type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="col-span-2">
+              <span className={labelClass}>Linked product</span>
+              {isCharge ? (
+                <p className="text-xs dark:text-gray-500 text-gray-400 py-2">— (charge rows don't link to a product)</p>
+              ) : skuId ? (
+                <div className="flex items-center gap-2 py-1">
+                  <span
+                    className={clsx('text-xs truncate', skuLabel ? 'dark:text-gray-200 text-gray-800' : 'font-mono dark:text-gray-400 text-gray-500')}
+                    title={skuLabel ?? skuId}
+                  >
+                    {skuLabel ?? skuId}
+                  </span>
+                  <button
+                    type="button" onClick={() => { setSkuId(null); setSkuLabel(null) }}
+                    className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 shrink-0"
+                  >
+                    <X size={11} /> Unlink
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="flex items-center gap-1 text-xs dark:text-blue-400 text-blue-600 hover:underline py-2"
                 >
-                  {skuLabel ?? skuId}
-                </span>
-                <button type="button" onClick={() => { setSkuId(null); setSkuLabel(null) }} title="Unlink" className="shrink-0">
-                  <X size={11} className="dark:text-gray-500 text-gray-400" />
+                  <Search size={12} /> Link product
                 </button>
-              </div>
-              <div className="flex items-center gap-1">
-                <label htmlFor={`units-per-item-${initial?.id ?? 'new'}`} className="text-[9px] whitespace-nowrap dark:text-gray-500 text-gray-400">
-                  Units/purchased item
-                </label>
+              )}
+            </div>
+            {!isCharge && skuId && (
+              <div>
+                <label htmlFor={`li-units-per-item-${idPrefix}`} className={labelClass}>Units per purchased item</label>
                 <input
-                  id={`units-per-item-${initial?.id ?? 'new'}`}
+                  id={`li-units-per-item-${idPrefix}`}
                   aria-label="Units per purchased item" type="number" min="1" step="1"
                   value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
-                  title="How many stock units one purchased item holds -- e.g. 36 if this line is a box of 36 units"
-                  className="w-12 shrink-0 px-1 py-0.5 text-[10px] rounded dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                  className={inputClass}
                 />
+                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                  Stock units one purchased item holds — e.g. 36 if this line is a box of 36 units.
+                </p>
               </div>
+            )}
+
+            <div>
+              <label htmlFor={`li-unit-cost-${idPrefix}`} className={labelClass}>Unit cost</label>
+              <input
+                id={`li-unit-cost-${idPrefix}`}
+                aria-label="Unit cost" type="number" min="0" step="0.01" required value={unitCost} onChange={e => setUnitCost(e.target.value)}
+                className={inputClass}
+              />
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="flex items-center gap-1 text-[10px] dark:text-blue-400 text-blue-600 hover:underline"
-            >
-              <Search size={10} /> Link product
-            </button>
+            <div>
+              <span className={labelClass}>Total</span>
+              <p className="px-3 py-2 text-xs dark:text-gray-300 text-gray-700">
+                {(signedLineItemAmount({
+                  line_type: lineType, quantity: parseInt(quantity || '0', 10),
+                  unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
+                }) / 100).toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          {rowError && <p className="text-[10px] text-red-400 mt-2">{rowError}</p>}
+
+          {pickerOpen && (
+            <div className="mt-3">
+              <ProductSkuPicker
+                onSelect={(sku, label) => {
+                  setSkuId(sku.id); setSkuLabel(label)
+                  if (!description) setDescription(label)
+                  setPickerOpen(false)
+                }}
+                onClose={() => setPickerOpen(false)}
+              />
+            </div>
           )}
-        </td>
-        <td className="px-4 py-2 align-top">
-          <input
-            aria-label="Quantity" type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)}
-            className={clsx(cellInput, 'w-16')}
-          />
-        </td>
-        <td className="px-4 py-2 align-top">
-          <input
-            aria-label="Unit cost" type="number" min="0" step="0.01" required value={unitCost} onChange={e => setUnitCost(e.target.value)}
-            className={clsx(cellInput, 'w-20')}
-          />
-        </td>
-        <td className="px-4 py-2 align-top dark:text-gray-400 text-gray-500">
-          {(signedLineItemAmount({
-            line_type: lineType, quantity: parseInt(quantity || '0', 10),
-            unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
-          }) / 100).toFixed(2)}
-        </td>
-        <td className="px-4 py-2 align-top">
-          <div className="flex items-center gap-1">
+
+          <div className="flex items-center gap-2 mt-3">
             <button
               type="button" disabled={saving} onClick={handleSubmit}
-              className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
-              title="Save"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              <Check size={12} className="text-green-400" />
+              <Check size={12} /> Save Line
             </button>
             <button
               type="button" onClick={onCancel}
-              className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
-              title="Cancel"
+              className="px-3 py-1.5 rounded-lg text-xs dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100"
             >
-              <X size={12} className="dark:text-gray-400 text-gray-500" />
+              Cancel
             </button>
           </div>
-        </td>
-      </tr>
-      {rowError && (
-        <tr><td colSpan={7} className="px-4 pb-2"><p className="text-[10px] text-red-400">{rowError}</p></td></tr>
-      )}
-      {pickerOpen && (
-        <tr>
-          <td colSpan={7} className="px-4 pb-3">
-            <ProductSkuPicker
-              onSelect={(sku, label) => {
-                setSkuId(sku.id); setSkuLabel(label)
-                if (!description) setDescription(label)
-                setPickerOpen(false)
-              }}
-              onClose={() => setPickerOpen(false)}
-            />
-          </td>
-        </tr>
-      )}
-    </>
+      </td>
+    </tr>
   )
 }
 

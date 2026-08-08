@@ -437,7 +437,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.type(screen.getByLabelText('Quantity'), '5')
     await userEvent.clear(screen.getByLabelText('Unit cost'))
     await userEvent.type(screen.getByLabelText('Unit cost'), '12.50')
-    await userEvent.click(screen.getByTitle('Save'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Line' }))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', {
       sku_id: null, raw_description: 'Widget B', quantity: 5, units_per_purchased_item: 1, unit_cost_minor_units: 1250, line_type: 'product',
@@ -455,7 +455,7 @@ describe('Purchase order edit with line items', () => {
     expect(addButtons).toHaveLength(2)
     await userEvent.click(addButtons[1])
     await userEvent.type(screen.getByLabelText('Line item description'), 'Widget B')
-    await userEvent.click(screen.getByTitle('Save'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Line' }))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', expect.objectContaining({
       raw_description: 'Widget B',
@@ -475,7 +475,7 @@ describe('Purchase order edit with line items', () => {
     expect(screen.queryByRole('button', { name: /Link product/ })).not.toBeInTheDocument()
     await userEvent.clear(screen.getByLabelText('Unit cost'))
     await userEvent.type(screen.getByLabelText('Unit cost'), '15.00')
-    await userEvent.click(screen.getByTitle('Save'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Line' }))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', {
       sku_id: null, raw_description: 'Shipping', quantity: 1, units_per_purchased_item: 1, unit_cost_minor_units: 1500, line_type: 'shipping',
@@ -514,7 +514,6 @@ describe('Purchase order edit with line items', () => {
     expect(await screen.findByText('Acme Widget — WID-001')).toBeInTheDocument()
     expect(screen.queryByText('sku-1')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Units per purchased item')).toBeInTheDocument()
-    expect(screen.getByText('Units/purchased item')).toBeInTheDocument()
   })
 
   it('shows a charge row without a SKU picker or a needs-review flag', async () => {
@@ -612,7 +611,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(await screen.findByText('WID-001'))
 
     expect(screen.queryByPlaceholderText('Search products by name…')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByTitle('Save'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Line' }))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', expect.objectContaining({
       sku_id: 'sku-1',
