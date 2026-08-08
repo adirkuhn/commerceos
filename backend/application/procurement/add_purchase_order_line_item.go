@@ -16,7 +16,11 @@ type AddPurchaseOrderLineItemInput struct {
 	RawSKU             string
 	RawDescription     string
 	Quantity           int64
-	UnitCostMinorUnits int64
+	// UnitsPerPurchasedItem defaults to 1 (an ordinary line) when zero --
+	// see PurchaseOrderLineItem's doc comment for the case/box scenario
+	// that needs it set higher.
+	UnitsPerPurchasedItem int64
+	UnitCostMinorUnits    int64
 	// LineType defaults to product (see LineItemType.IsProduct) when empty.
 	LineType procurementDomain.LineItemType
 }
@@ -33,6 +37,12 @@ func NewAddPurchaseOrderLineItemUseCase(db *gorm.DB, lineItemRepo procurementDom
 func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPurchaseOrderLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
 	if in.Quantity <= 0 {
 		return nil, fmt.Errorf("addPurchaseOrderLineItem: %w", procurementDomain.ErrInvalidQuantity)
+	}
+	unitsPerPurchasedItem := in.UnitsPerPurchasedItem
+	if unitsPerPurchasedItem == 0 {
+		unitsPerPurchasedItem = 1
+	} else if unitsPerPurchasedItem < 0 {
+		return nil, fmt.Errorf("addPurchaseOrderLineItem: %w", procurementDomain.ErrInvalidUnitsPerPurchasedItem)
 	}
 
 	var li procurementDomain.PurchaseOrderLineItem
@@ -55,6 +65,7 @@ func (uc *AddPurchaseOrderLineItemUseCase) Execute(ctx context.Context, in AddPu
 		li = procurementDomain.PurchaseOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: in.PurchaseOrderID, SKUID: in.SKUID, RawSKU: in.RawSKU,
 			RawDescription: in.RawDescription, Position: nextPosition, Quantity: in.Quantity, UnitCostMinorUnits: in.UnitCostMinorUnits,
+				UnitsPerPurchasedItem: unitsPerPurchasedItem,
 			// A human is adding this line item directly -- no ambiguity to
 			// review, confirmed immediately.
 			LineType: in.LineType, LineTypeConfirmed: true,

@@ -1005,6 +1005,11 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                       li.product_name ? (
                         <span className="text-[10px]">
                           {li.product_name} <span className="font-mono dark:text-gray-500 text-gray-400">— {li.sku_code}</span>
+                          {li.units_per_purchased_item > 1 && (
+                            <span className="ml-1 text-amber-400" title="Units per purchased item">
+                              × {li.units_per_purchased_item}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="font-mono text-[10px]">{li.sku_id}</span>
@@ -1110,6 +1115,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
   const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : '1')
   const [unitCost, setUnitCost] = useState(initial ? (initial.unit_cost_minor_units / 100).toFixed(2) : '0.00')
   const [skuId, setSkuId] = useState<string | null>(initial?.sku_id ?? null)
+  const [unitsPerPurchasedItem, setUnitsPerPurchasedItem] = useState(initial ? String(initial.units_per_purchased_item) : '1')
   const [lineType, setLineType] = useState<LineItemType>(initial?.line_type || 'product')
   const [saving, setSaving] = useState(false)
   const [rowError, setRowError] = useState('')
@@ -1127,6 +1133,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
         sku_id: isCharge ? null : skuId,
         raw_description: description,
         quantity: parseInt(quantity, 10),
+        units_per_purchased_item: isCharge ? 1 : parseInt(unitsPerPurchasedItem || '1', 10),
         unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
         line_type: lineType,
       })
@@ -1167,6 +1174,12 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
               <button type="button" onClick={() => setSkuId(null)} title="Unlink">
                 <X size={11} className="dark:text-gray-500 text-gray-400" />
               </button>
+              <input
+                aria-label="Units per purchased item" type="number" min="1" step="1"
+                value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
+                title="Units per purchased item -- e.g. 36 if a purchased box holds 36 of this SKU"
+                className="w-12 px-1 py-0.5 text-[10px] rounded dark:bg-[#0B1220] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+              />
             </div>
           ) : (
             <button
@@ -1584,6 +1597,7 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
   const [productName, setProductName] = useState(lineItem.raw_description)
   const [skuCode, setSkuCode] = useState(lineItem.raw_sku)
   const [price, setPrice] = useState('0.00')
+  const [unitsPerPurchasedItem, setUnitsPerPurchasedItem] = useState('1')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -1591,7 +1605,9 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
     setError('')
     setSaving(true)
     try {
-      await procurementApi.linkLineItemToSku(token ?? '', lineItem.id, { sku_id: sku.id })
+      await procurementApi.linkLineItemToSku(token ?? '', lineItem.id, {
+        sku_id: sku.id, units_per_purchased_item: parseInt(unitsPerPurchasedItem || '1', 10),
+      })
       onResolved()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to link line item')
@@ -1641,7 +1657,20 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
       )}
 
       {mode === 'link' && (
-        <ProductSkuPicker onSelect={sku => handleLink(sku)} onClose={() => setMode('choose')} />
+        <div className="space-y-2">
+          <div>
+            <label htmlFor={`review-units-per-item-${lineItem.id}`} className={labelClass}>
+              Units per purchased item
+            </label>
+            <input
+              id={`review-units-per-item-${lineItem.id}`} type="number" min="1" step="1"
+              value={unitsPerPurchasedItem} onChange={e => setUnitsPerPurchasedItem(e.target.value)}
+              title="e.g. 36 if this line's purchased item is a box holding 36 of the linked product"
+              className={clsx(inputClass, 'w-24')}
+            />
+          </div>
+          <ProductSkuPicker onSelect={sku => handleLink(sku)} onClose={() => setMode('choose')} />
+        </div>
       )}
 
       {mode === 'create' && (

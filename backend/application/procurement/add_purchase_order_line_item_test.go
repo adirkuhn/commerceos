@@ -26,6 +26,47 @@ func TestAddPurchaseOrderLineItem_setsFields(t *testing.T) {
 	require.True(t, repo.createCalled)
 }
 
+func TestAddPurchaseOrderLineItem_defaultsUnitsPerPurchasedItemToOne(t *testing.T) {
+	repo := &stubLineItemRepo{}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 10, UnitCostMinorUnits: 500,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1), li.UnitsPerPurchasedItem)
+}
+
+// TestAddPurchaseOrderLineItem_persistsUnitsPerPurchasedItem is the "case of
+// a product" edge case: a supplier's box line links to the individual unit
+// SKU, with an explicit multiplier for how many stock units one purchased
+// box represents (e.g. 36 for "Rapadurinha 36x25gr" linked to the 25g unit).
+func TestAddPurchaseOrderLineItem_persistsUnitsPerPurchasedItem(t *testing.T) {
+	repo := &stubLineItemRepo{}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	li, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitCostMinorUnits: 3600,
+		UnitsPerPurchasedItem: 36,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(36), li.UnitsPerPurchasedItem)
+}
+
+func TestAddPurchaseOrderLineItem_rejectsNegativeUnitsPerPurchasedItem(t *testing.T) {
+	repo := &stubLineItemRepo{}
+	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appprocurement.AddPurchaseOrderLineItemInput{
+		PurchaseOrderID: "po-1", RawDescription: "Widget", Quantity: 1, UnitCostMinorUnits: 500,
+		UnitsPerPurchasedItem: -1,
+	})
+
+	require.ErrorIs(t, err, procurementDomain.ErrInvalidUnitsPerPurchasedItem)
+}
+
 func TestAddPurchaseOrderLineItem_manuallyAddedItemIsConfirmedImmediately(t *testing.T) {
 	repo := &stubLineItemRepo{}
 	uc := appprocurement.NewAddPurchaseOrderLineItemUseCase(newMockGormDB(t), repo)

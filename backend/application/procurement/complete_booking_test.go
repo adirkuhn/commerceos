@@ -53,6 +53,45 @@ func TestCompleteBooking_reportsMissingItemsWhenUnderScanned(t *testing.T) {
 	assert.Equal(t, procurementDomain.BookingStatusCompleted, result.Booking.Status)
 }
 
+// TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem is the "case
+// of a product" edge case: a PO line for 1 purchased box (linked to the
+// unit SKU with UnitsPerPurchasedItem 36) expects 36 scanned units, not 1 --
+// scanning only 30 individual units must still show as missing 6, and
+// scanning all 36 must show no gap.
+func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) {
+	db := newMockGormDB(t)
+	skuID := "sku-unit-1"
+	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-1", SKUID: &skuID, RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitsPerPurchasedItem: 36},
+	}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-unit-1", Quantity: 30}}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, result.MissingItems, 1)
+	assert.Equal(t, int64(36), result.MissingItems[0].ExpectedQty, "1 box * 36 units/box")
+	assert.Equal(t, int64(30), result.MissingItems[0].ScannedQty)
+}
+
+func TestCompleteBooking_noMissingItemsWhenAllUnitsOfACaseAreScanned(t *testing.T) {
+	db := newMockGormDB(t)
+	skuID := "sku-unit-1"
+	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-1", SKUID: &skuID, RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitsPerPurchasedItem: 36},
+	}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-unit-1", Quantity: 36}}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, result.MissingItems)
+}
+
 func TestCompleteBooking_rejectsAlreadyCompletedBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusCompleted}}

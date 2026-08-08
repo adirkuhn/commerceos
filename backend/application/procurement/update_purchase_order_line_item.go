@@ -16,7 +16,11 @@ type UpdatePurchaseOrderLineItemInput struct {
 	RawSKU             string
 	RawDescription     string
 	Quantity           int64
-	UnitCostMinorUnits int64
+	// UnitsPerPurchasedItem defaults to 1 (an ordinary line) when zero --
+	// see PurchaseOrderLineItem's doc comment for the case/box scenario
+	// that needs it set higher.
+	UnitsPerPurchasedItem int64
+	UnitCostMinorUnits    int64
 	// LineType defaults to product (see LineItemType.IsProduct) when empty.
 	LineType procurementDomain.LineItemType
 }
@@ -34,6 +38,12 @@ func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in Up
 	if in.Quantity <= 0 {
 		return nil, fmt.Errorf("updatePurchaseOrderLineItem: %w", procurementDomain.ErrInvalidQuantity)
 	}
+	unitsPerPurchasedItem := in.UnitsPerPurchasedItem
+	if unitsPerPurchasedItem == 0 {
+		unitsPerPurchasedItem = 1
+	} else if unitsPerPurchasedItem < 0 {
+		return nil, fmt.Errorf("updatePurchaseOrderLineItem: %w", procurementDomain.ErrInvalidUnitsPerPurchasedItem)
+	}
 
 	var li procurementDomain.PurchaseOrderLineItem
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -45,6 +55,7 @@ func (uc *UpdatePurchaseOrderLineItemUseCase) Execute(ctx context.Context, in Up
 		existing.RawSKU = in.RawSKU
 		existing.RawDescription = in.RawDescription
 		existing.Quantity = in.Quantity
+		existing.UnitsPerPurchasedItem = unitsPerPurchasedItem
 		existing.UnitCostMinorUnits = in.UnitCostMinorUnits
 		existing.LineType = in.LineType
 		// An explicit save through this form is a human touch -- overrides

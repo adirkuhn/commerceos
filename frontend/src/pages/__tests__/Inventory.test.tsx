@@ -27,6 +27,7 @@ vi.mock('../../inventory/api', () => ({
   listStockMovements: vi.fn(),
   recordRecount: vi.fn(),
   transferStock: vi.fn(),
+  splitCaseIntoUnits: vi.fn(),
   markDamagedOrLost: vi.fn(),
 }))
 
@@ -283,6 +284,45 @@ describe('Inventory page', () => {
     await user.click(within(modal).getByRole('button', { name: /save/i }))
 
     expect(await within(modal).findByText('sale price cannot exceed regular price')).toBeInTheDocument()
+  })
+
+  it('does not show a Split case action for an ordinary SKU', async () => {
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    expect(screen.queryByRole('button', { name: /Split case/i })).not.toBeInTheDocument()
+  })
+
+  it('splits case stock into units for a SKU configured as a case of another product', async () => {
+    const caseSku = { ...sku, case_of_sku_id: 'sku-unit-1', units_per_case: 36 }
+    const caseDetail: ProductDetail = {
+      product,
+      variants: [{ ...detail.variants[0], skus: [caseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(caseDetail)
+    vi.mocked(inventoryApi.splitCaseIntoUnits).mockResolvedValue({
+      case_out: { id: 'mv-out', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null, type: 'split_out', quantity_delta: -2, reason: '', occurred_at: '', created_at: '' },
+      unit_in: { id: 'mv-in', tenant_id: 't1', sku_id: 'sku-unit-1', warehouse_id: 'wh-1', batch_id: null, type: 'split_in', quantity_delta: 72, reason: '', occurred_at: '', created_at: '' },
+    })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /Split case/i }))
+    const dialog = await screen.findByText('Split Case Into Units')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/cases to split/i), '2')
+    await user.click(within(modal).getByRole('button', { name: /^Split$/ }))
+
+    await waitFor(() => {
+      expect(inventoryApi.splitCaseIntoUnits).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', cases_to_split: 2,
+      }))
+    })
   })
 
   it('opens the movement history page for a SKU and can navigate back', async () => {

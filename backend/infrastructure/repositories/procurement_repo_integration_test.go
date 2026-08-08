@@ -614,6 +614,131 @@ func TestPurchaseOrderLineItemRepo_Integration_SKUAutoLinkedFromAliasRoundTrips(
 	require.False(t, found.SKUAutoLinkedFromAlias, "an explicit human link must clear the auto-linked flag")
 }
 
+// TestPurchaseOrderLineItemRepo_Integration_UnitsPerPurchasedItemRoundTrips
+// is the "box of a product" edge case (migration 044): a line item's
+// multiplier (a supplier's box maps to N stock units of the linked SKU)
+// round-trips through Create/FindByID/Update against real Postgres.
+func TestPurchaseOrderLineItemRepo_Integration_UnitsPerPurchasedItemRoundTrips(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	supplierRepo := repositories.NewSupplierRepo(db)
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	var lineItem procurementDomain.PurchaseOrderLineItem
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := supplierRepo.Create(ctx, supplier); err != nil {
+			return err
+		}
+		po := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &po); err != nil {
+			return err
+		}
+		lineItem = procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID, SKUID: &skuID,
+			RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitsPerPurchasedItem: 36, UnitCostMinorUnits: 3600,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &lineItem)
+	})
+	require.NoError(t, err)
+
+	var found *procurementDomain.PurchaseOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = lineItemRepo.FindByID(ctx, lineItem.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(36), found.UnitsPerPurchasedItem)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		found.UnitsPerPurchasedItem = 12
+		found.UpdatedAt = time.Now()
+		return lineItemRepo.Update(ctx, found)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = lineItemRepo.FindByID(ctx, lineItem.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(12), found.UnitsPerPurchasedItem)
+}
+
+// TestSupplierProductAliasRepo_Integration_UnitsPerPurchasedItemRoundTrips
+// is the learned side of the "box of a product" edge case: Upsert writes
+// the multiplier alongside the SKU link, and a second Upsert for the same
+// (tenant, supplier, raw_key) updates it rather than leaving the old value.
+func TestSupplierProductAliasRepo_Integration_UnitsPerPurchasedItemRoundTrips(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	supplierRepo := repositories.NewSupplierRepo(db)
+	aliasRepo := repositories.NewSupplierProductAliasRepo(db)
+	skuID, _ := seedProductSKUWarehouse(t, db, ctx)
+
+	var supplierID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := supplierRepo.Create(ctx, supplier); err != nil {
+			return err
+		}
+		supplierID = supplier.ID
+		alias := procurementDomain.SupplierProductAlias{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: supplierID, RawKey: "rapadurinha 36x25gr",
+			SKUID: skuID, UnitsPerPurchasedItem: 36, CreatedAt: now, UpdatedAt: now,
+		}
+		return aliasRepo.Upsert(ctx, &alias)
+	})
+	require.NoError(t, err)
+
+	var found *procurementDomain.SupplierProductAlias
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = aliasRepo.FindBySupplierAndRawKey(ctx, supplierID, "rapadurinha 36x25gr")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(36), found.UnitsPerPurchasedItem)
+
+	// A second link with a corrected multiplier must update in place, not
+	// create a duplicate or leave the stale value.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		alias := procurementDomain.SupplierProductAlias{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: supplierID, RawKey: "rapadurinha 36x25gr",
+			SKUID: skuID, UnitsPerPurchasedItem: 12, CreatedAt: now, UpdatedAt: now,
+		}
+		return aliasRepo.Upsert(ctx, &alias)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = aliasRepo.FindBySupplierAndRawKey(ctx, supplierID, "rapadurinha 36x25gr")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(12), found.UnitsPerPurchasedItem)
+}
+
 // TestPurchaseOrderRepo_Integration_RLSHidesOtherTenantsPurchaseOrders is
 // routed through commerceos_app (not the migration-owning superuser) -- RLS
 // is never enforced against a superuser regardless of policy.

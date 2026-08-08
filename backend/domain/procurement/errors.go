@@ -6,11 +6,15 @@ var (
 	ErrPurchaseOrderNotFound = errors.New("purchase order not found")
 	ErrLineItemNotFound      = errors.New("purchase order line item not found")
 	// ErrInvalidQuantity guards PurchaseOrderLineItem.Quantity: must be positive.
-	ErrInvalidQuantity       = errors.New("quantity must be positive")
-	ErrDocumentNotFound      = errors.New("purchase order document not found")
-	ErrParsingJobNotFound    = errors.New("document parsing job not found")
-	ErrUnsupportedFileType   = errors.New("unsupported file type: must be pdf, csv, or xlsx")
-	ErrLineItemAlreadyLinked = errors.New("line item is already linked to a sku")
+	ErrInvalidQuantity = errors.New("quantity must be positive")
+	// ErrInvalidUnitsPerPurchasedItem guards
+	// PurchaseOrderLineItem.UnitsPerPurchasedItem: must be positive when
+	// explicitly provided (zero/unset defaults to 1 instead of erroring).
+	ErrInvalidUnitsPerPurchasedItem = errors.New("units per purchased item must be positive")
+	ErrDocumentNotFound             = errors.New("purchase order document not found")
+	ErrParsingJobNotFound           = errors.New("document parsing job not found")
+	ErrUnsupportedFileType          = errors.New("unsupported file type: must be pdf, csv, or xlsx")
+	ErrLineItemAlreadyLinked        = errors.New("line item is already linked to a sku")
 	// ErrMissingRequiredColumns is returned by the deterministic CSV/XLSX
 	// parser when it can't find a quantity column and a description-or-sku
 	// column in the header row.

@@ -66,6 +66,41 @@ func TestMatchExtractedLineItems_aliasMatchWhenNoExactSKU(t *testing.T) {
 	assert.Equal(t, "sku-2", *matched[0].SKUID)
 }
 
+// TestMatchExtractedLineItems_aliasMatchCarriesOverUnitsPerPurchasedItem is
+// the "case of a product" edge case: once a human has linked "Rapadurinha
+// 36x25gr" to the unit SKU with a 36x multiplier, the next document with
+// the same raw text must auto-link with that multiplier too, not just the
+// SKU.
+func TestMatchExtractedLineItems_aliasMatchCarriesOverUnitsPerPurchasedItem(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
+		"supplier-1|rapadurinha 36x25gr": {SKUID: "sku-unit-1", UnitsPerPurchasedItem: 36},
+	}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitCostMinorUnits: 3600},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, appprocurement.MatchSourceAlias, matched[0].MatchSource)
+	assert.Equal(t, int64(36), matched[0].UnitsPerPurchasedItem)
+}
+
+func TestMatchExtractedLineItems_exactSKUAndNameMatchesDefaultUnitsPerPurchasedItemToOne(t *testing.T) {
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, appprocurement.MatchSourceExactSKU, matched[0].MatchSource)
+	assert.Equal(t, int64(1), matched[0].UnitsPerPurchasedItem, "no learned multiplier available for a fresh exact-SKU match")
+}
+
 func TestMatchExtractedLineItems_aliasKeyedByRawSKUWhenPresent(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{

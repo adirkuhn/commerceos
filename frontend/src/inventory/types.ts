@@ -27,7 +27,7 @@ export interface WarehouseInput {
   active?: boolean
 }
 
-export type MovementType = 'receipt' | 'sale' | 'adjustment' | 'transfer_out' | 'transfer_in' | 'damaged' | 'lost'
+export type MovementType = 'receipt' | 'sale' | 'adjustment' | 'transfer_out' | 'transfer_in' | 'damaged' | 'lost' | 'split_out' | 'split_in'
 
 export interface Batch {
   id: string
@@ -109,6 +109,19 @@ export interface TransferStockInput {
 export interface TransferStockResult {
   out: StockMovement
   in: StockMovement
+}
+
+export interface SplitCaseIntoUnitsInput {
+  warehouse_id: string
+  batch_id?: string | null
+  cases_to_split: number
+  reason?: string
+  occurred_at?: string
+}
+
+export interface SplitCaseIntoUnitsResult {
+  case_out: StockMovement
+  unit_in: StockMovement
 }
 
 export interface ReceiveStockInput {

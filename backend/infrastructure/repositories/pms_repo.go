@@ -105,6 +105,8 @@ type skuModel struct {
 	HeightMM            *int64
 	IsVirtual           bool   `gorm:"not null"`
 	TracksExpiry        bool   `gorm:"not null"`
+	CaseOfSKUID         *string `gorm:"column:case_of_sku_id"`
+	UnitsPerCase        *int64
 	Status              string `gorm:"not null"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -562,6 +564,8 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		HeightMM:            s.HeightMM,
 		IsVirtual:           s.IsVirtual,
 		TracksExpiry:        s.TracksExpiry,
+		CaseOfSKUID:         s.CaseOfSKUID,
+		UnitsPerCase:        s.UnitsPerCase,
 		Status:              string(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
@@ -652,6 +656,8 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"height_mm":              s.HeightMM,
 			"is_virtual":             s.IsVirtual,
 			"tracks_expiry":          s.TracksExpiry,
+			"case_of_sku_id":         s.CaseOfSKUID,
+			"units_per_case":         s.UnitsPerCase,
 			"status":                 string(s.Status),
 			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
@@ -705,6 +711,8 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		HeightMM:            m.HeightMM,
 		IsVirtual:           m.IsVirtual,
 		TracksExpiry:        m.TracksExpiry,
+		CaseOfSKUID:         m.CaseOfSKUID,
+		UnitsPerCase:        m.UnitsPerCase,
 		Status:              pmsDomain.SKUStatus(m.Status),
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,

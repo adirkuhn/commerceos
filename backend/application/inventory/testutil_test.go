@@ -12,6 +12,7 @@ import (
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/domain/outbox"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
 // stubOutboxRepo is a no-op outbox — tests that need a stock-changing use
@@ -156,4 +157,30 @@ func (s *stubStockMovementRepo) ListBySKU(_ context.Context, _ string) ([]invDom
 }
 func (s *stubStockMovementRepo) ListByBatch(_ context.Context, _ string) ([]invDomain.StockMovement, error) {
 	return s.byBatch, nil
+}
+
+// stubSKURepo implements pms.SKURepository -- only FindByID is exercised
+// (by SplitCaseIntoUnitsUseCase), the rest are unused no-ops.
+type stubSKURepo struct {
+	findByIDResult *pmsDomain.SKU
+	findByIDErr    error
+}
+
+func (s *stubSKURepo) Create(_ context.Context, _ *pmsDomain.SKU) error { return nil }
+func (s *stubSKURepo) FindByID(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return s.findByIDResult, s.findByIDErr
+}
+func (s *stubSKURepo) FindByCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, pmsDomain.ErrSKUNotFound
+}
+func (s *stubSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, pmsDomain.ErrSKUNotFound
+}
+func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}
+func (s *stubSKURepo) Update(_ context.Context, _ *pmsDomain.SKU) error { return nil }
+func (s *stubSKURepo) Delete(_ context.Context, _ string) error        { return nil }
+func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
 }

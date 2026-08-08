@@ -110,7 +110,7 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 			li := procurementDomain.PurchaseOrderLineItem{
 				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID, SKUID: m.SKUID,
 				RawSKU: m.Extracted.RawSKU, RawDescription: m.Extracted.RawDescription, Position: int64(i),
-				Quantity: m.Extracted.Quantity, UnitCostMinorUnits: m.Extracted.UnitCostMinorUnits,
+				Quantity: m.Extracted.Quantity, UnitsPerPurchasedItem: m.UnitsPerPurchasedItem, UnitCostMinorUnits: m.Extracted.UnitCostMinorUnits,
 				SKUAutoLinkedFromAlias: m.MatchSource == MatchSourceAlias,
 				LineType:               m.Extracted.LineType,
 				CreatedAt:              now, UpdatedAt: now,

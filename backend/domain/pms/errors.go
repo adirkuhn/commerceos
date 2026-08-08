@@ -27,4 +27,16 @@ var (
 	// it must reference a Media row belonging to the variant's own product.
 	ErrFeaturedMediaProductMismatch = errors.New("featured media does not belong to this variant's product")
 	ErrBarcodeAliasNotFound         = errors.New("barcode alias not found")
+	// ErrCaseOfSKURequiresUnitsPerCase guards SKU.CaseOfSKUID/UnitsPerCase:
+	// both must be set together, or neither.
+	ErrCaseOfSKURequiresUnitsPerCase = errors.New("case_of_sku_id and units_per_case must be set together")
+	// ErrCaseOfSKUCannotBeSelf guards against a SKU declaring itself as its
+	// own case-of relationship.
+	ErrCaseOfSKUCannotBeSelf = errors.New("a SKU cannot be a case of itself")
+	// ErrCaseOfSKUCannotChain guards against a case SKU pointing at another
+	// case SKU -- the relationship is depth-limited to one level.
+	ErrCaseOfSKUCannotChain = errors.New("a case SKU cannot itself be a case of another case SKU")
+	// ErrUnitsPerCaseMustBePositive guards SKU.UnitsPerCase: a case of zero
+	// or negative units isn't one.
+	ErrUnitsPerCaseMustBePositive = errors.New("units_per_case must be positive")
 )

@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import {
   Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
-  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History,
+  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -395,6 +395,84 @@ function TransferModal({
   )
 }
 
+// ── Split case into units (see pms.SKU.case_of_sku_id) ──────────────────────
+
+function SplitCaseModal({
+  warehouses, batches, onSave, onClose,
+}: {
+  warehouses: { id: string; name: string }[]
+  batches: Batch[]
+  onSave: (input: { warehouse_id: string; batch_id?: string | null; cases_to_split: number; reason?: string }) => Promise<unknown>
+  onClose: () => void
+}) {
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState('')
+  const [casesToSplit, setCasesToSplit] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    const n = parseInt(casesToSplit, 10)
+    if (Number.isNaN(n) || n <= 0) {
+      setError('Enter a positive number of cases')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, cases_to_split: n, reason })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to split case stock')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Split Case Into Units" onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+          One-way: the cases you split leave stock, and that many times the case size arrives as units of the linked product. This can't be undone by re-assembling units back into cases.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={labelClass} htmlFor="split-warehouse">Warehouse</label>
+            <select id="split-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="split-batch">Batch</label>
+            <select id="split-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+              <option value="">General ledger</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="split-cases">Cases to split</label>
+          <input id="split-cases" type="number" min={1} value={casesToSplit} onChange={e => setCasesToSplit(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="split-reason">Reason (optional)</label>
+          <input id="split-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Splitting…' : 'Split'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Mark damaged / lost ───────────────────────────────────────────────────────
 
 function DamagedLostModal({
@@ -552,12 +630,12 @@ function PriceModal({ sku, onSave, onClose }: {
 
 // ── Per-SKU stock panel ───────────────────────────────────────────────────────
 
-type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
+type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
 
 function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: {
   token: string; sku: SKU; warehouses: { id: string; name: string }[]; onSKUUpdated: () => void; onViewHistory: (sku: SKU) => void
 }) {
-  const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, markDamagedOrLost } =
+  const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, markDamagedOrLost } =
     useSKUStock(token, sku.id)
   const [modal, setModal] = useState<ActiveModal>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -627,6 +705,11 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
           <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
             <ArrowRightLeft size={11} /> Transfer
           </button>
+          {sku.case_of_sku_id && (
+            <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+              <Boxes size={11} /> Split case
+            </button>
+          )}
           <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-red-400 hover:dark:bg-[#2D3748] hover:bg-gray-100">
             <PackageMinus size={11} /> Damaged/Lost
           </button>
@@ -701,6 +784,9 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
       )}
       {modal === 'transfer' && (
         <TransferModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)} onSave={transfer} />
+      )}
+      {modal === 'split-case' && (
+        <SplitCaseModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)} onSave={splitCase} />
       )}
       {modal === 'damaged-lost' && (
         <DamagedLostModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
@@ -838,6 +924,7 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
 const MOVEMENT_TYPE_LABEL: Record<MovementType, string> = {
   receipt: 'Receipt', sale: 'Sale', adjustment: 'Adjustment',
   transfer_out: 'Transfer out', transfer_in: 'Transfer in', damaged: 'Damaged', lost: 'Lost',
+  split_out: 'Case split (out)', split_in: 'Case split (in)',
 }
 
 function formatDateTime(iso: string): string {

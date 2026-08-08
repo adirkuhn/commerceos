@@ -254,6 +254,33 @@ func TestStockMovementRepo_Integration_DBRejectsZeroDeltaAndBadType(t *testing.T
 	require.Error(t, err)
 }
 
+// TestStockMovementRepo_Integration_SplitTypesPassDBCheckConstraint is
+// migration 045: the stock_movements_type_check constraint must accept
+// split_out/split_in (SplitCaseIntoUnitsUseCase's pair), same as it already
+// accepts every other MovementType.
+func TestStockMovementRepo_Integration_SplitTypesPassDBCheckConstraint(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	caseSKUID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	movementRepo := repositories.NewStockMovementRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		splitOut := invDomain.StockMovement{
+			TenantID: tenant.IDFromContext(ctx), SKUID: caseSKUID, WarehouseID: warehouseID,
+			Type: invDomain.MovementTypeSplitOut, QuantityDelta: -2, OccurredAt: time.Now(), CreatedAt: time.Now(),
+		}
+		if err := movementRepo.Create(ctx, &splitOut); err != nil {
+			return err
+		}
+		splitIn := invDomain.StockMovement{
+			TenantID: tenant.IDFromContext(ctx), SKUID: caseSKUID, WarehouseID: warehouseID,
+			Type: invDomain.MovementTypeSplitIn, QuantityDelta: 72, OccurredAt: time.Now(), CreatedAt: time.Now(),
+		}
+		return movementRepo.Create(ctx, &splitIn)
+	})
+	require.NoError(t, err)
+}
+
 func TestBatchRepo_Integration_ListExpiringSoon(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

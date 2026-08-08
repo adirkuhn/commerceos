@@ -13,6 +13,12 @@ import (
 type LinkLineItemToSKUInput struct {
 	LineItemID string
 	SKUID      string
+	// UnitsPerPurchasedItem defaults to 1 (an ordinary link) when zero --
+	// see PurchaseOrderLineItem's doc comment for the case/box scenario
+	// that needs it set higher. Written onto both the line item and the
+	// learned SupplierProductAlias, so the same supplier text carries the
+	// multiplier forward automatically next time.
+	UnitsPerPurchasedItem int64
 }
 
 // LinkLineItemToSKUUseCase is the review UI's "link to the correct product"
@@ -37,6 +43,13 @@ func NewLinkLineItemToSKUUseCase(
 }
 
 func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItemToSKUInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	unitsPerPurchasedItem := in.UnitsPerPurchasedItem
+	if unitsPerPurchasedItem == 0 {
+		unitsPerPurchasedItem = 1
+	} else if unitsPerPurchasedItem < 0 {
+		return nil, fmt.Errorf("linkLineItemToSKU: %w", procurementDomain.ErrInvalidUnitsPerPurchasedItem)
+	}
+
 	var li procurementDomain.PurchaseOrderLineItem
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.lineItemRepo.FindByID(ctx, in.LineItemID)
@@ -50,6 +63,7 @@ func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItem
 
 		now := time.Now()
 		existing.SKUID = &in.SKUID
+		existing.UnitsPerPurchasedItem = unitsPerPurchasedItem
 		// Explicit human confirmation -- overrides any unreviewed alias
 		// guess this item may have carried in with.
 		existing.SKUAutoLinkedFromAlias = false
@@ -66,7 +80,8 @@ func (uc *LinkLineItemToSKUUseCase) Execute(ctx context.Context, in LinkLineItem
 		if rawKey != "" && po.SupplierID != nil {
 			alias := procurementDomain.SupplierProductAlias{
 				TenantID: tenant.IDFromContext(ctx), SupplierID: *po.SupplierID, RawKey: rawKey, SKUID: in.SKUID,
-				CreatedAt: now, UpdatedAt: now,
+				UnitsPerPurchasedItem: unitsPerPurchasedItem,
+				CreatedAt:             now, UpdatedAt: now,
 			}
 			if err := uc.aliasRepo.Upsert(ctx, &alias); err != nil {
 				return err

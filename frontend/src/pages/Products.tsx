@@ -15,7 +15,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, VariantWithSKUs, Media } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, VariantWithSKUs, Media, SKU } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
@@ -263,6 +263,12 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const [lengthMM, setLengthMM] = useState('')
   const [widthMM, setWidthMM] = useState('')
   const [heightMM, setHeightMM] = useState('')
+  // Case-pack relationship (see pms.SKU.CaseOfSKUID) -- only editable once
+  // the SKU already exists, since it links to another already-existing SKU.
+  const [caseOfSKUID, setCaseOfSKUID] = useState<string | null>(null)
+  const [caseOfSKULabel, setCaseOfSKULabel] = useState('')
+  const [unitsPerCase, setUnitsPerCase] = useState('')
+  const [casePickerOpen, setCasePickerOpen] = useState(false)
 
   // Sync local form state once the product detail loads (edit mode) — runs once.
   const [hydrated, setHydrated] = useState(false)
@@ -289,6 +295,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         setLengthMM(sku.length_mm != null ? String(sku.length_mm) : '')
         setWidthMM(sku.width_mm != null ? String(sku.width_mm) : '')
         setHeightMM(sku.height_mm != null ? String(sku.height_mm) : '')
+        setCaseOfSKUID(sku.case_of_sku_id ?? null)
+        setUnitsPerCase(sku.units_per_case != null ? String(sku.units_per_case) : '')
       }
     }
     setHydrated(true)
@@ -296,6 +304,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
 
   const singleVariant: VariantWithSKUs | null =
     !variantsMode && detail.detail?.variants.length === 1 ? detail.detail.variants[0] : null
+  const currentSku = singleVariant?.skus?.[0] ?? null
 
   const addTag = (raw: string) => {
     const value = raw.trim()
@@ -364,6 +373,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
+              case_of_sku_id: caseOfSKUID,
+              units_per_case: caseOfSKUID ? parseIntOrUndefined(unitsPerCase) ?? null : null,
               status: skuStatus,
             })
           } else if (skuCode) {
@@ -666,6 +677,50 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                     </select>
                   </div>
                 </div>
+              </FormCard>
+            )}
+
+            {showFlatSKU && currentSku && (
+              <FormCard
+                title="Case pack"
+                description="If a supplier sells this as a sealed case/box of another product in your catalog, link it here — lets you split case stock into unit stock later."
+              >
+                {caseOfSKUID ? (
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-xs dark:text-gray-200 text-gray-800">
+                      Case of <span className="font-medium">{caseOfSKULabel || caseOfSKUID}</span>
+                    </span>
+                    <div className="w-24">
+                      <label htmlFor="product-units-per-case" className={labelClass}>Units/case</label>
+                      <input
+                        id="product-units-per-case"
+                        type="number" step="1" min="1" required value={unitsPerCase} onChange={e => setUnitsPerCase(e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setCaseOfSKUID(null); setCaseOfSKULabel(''); setUnitsPerCase('') }}
+                      className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : casePickerOpen ? (
+                  <CaseOfSKUPicker
+                    excludeSKUID={currentSku.id}
+                    onSelect={(sku, label) => { setCaseOfSKUID(sku.id); setCaseOfSKULabel(label); setCasePickerOpen(false) }}
+                    onClose={() => setCasePickerOpen(false)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setCasePickerOpen(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <Search size={12} /> This is a case of another product
+                  </button>
+                )}
               </FormCard>
             )}
 
@@ -1145,6 +1200,87 @@ function VariantsSection({ detail, productId }: VariantsSectionProps) {
           <p className="text-[10px] dark:text-gray-500 text-gray-400">Add a SKU (price/barcode) to the variant after creating it.</p>
         </div>
       )}
+    </div>
+  )
+}
+
+interface CaseOfSKUPickerProps {
+  // The SKU being edited can't be a case of itself -- filtered out of the
+  // results client-side (the backend also rejects it, see
+  // ErrCaseOfSKUCannotBeSelf, but hiding it up front avoids a round trip).
+  excludeSKUID: string
+  onSelect: (sku: SKU, label: string) => void
+  onClose: () => void
+}
+
+function CaseOfSKUPicker({ excludeSKUID, onSelect, onClose }: CaseOfSKUPickerProps) {
+  const { token } = useAuth()
+  const [query, setQuery] = useState('')
+  const { products } = useProducts(token ?? '', { search: query, perPage: 5 })
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null)
+  const [skus, setSkus] = useState<SKU[]>([])
+  const [loadingSkus, setLoadingSkus] = useState(false)
+
+  async function toggleProduct(productId: string) {
+    if (expandedProductId === productId) {
+      setExpandedProductId(null)
+      return
+    }
+    setExpandedProductId(productId)
+    setLoadingSkus(true)
+    try {
+      const detail = await pmsApi.getProduct(token ?? '', productId)
+      setSkus(detail.variants.flatMap(v => v.skus ?? []).filter(s => s.id !== excludeSKUID))
+    } finally {
+      setLoadingSkus(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B1220] bg-white p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 dark:text-gray-500 text-gray-400" />
+          <input
+            autoFocus value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Search products by name…"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <button type="button" onClick={onClose} title="Close">
+          <X size={14} className="dark:text-gray-500 text-gray-400" />
+        </button>
+      </div>
+      <div className="max-h-48 overflow-auto space-y-1">
+        {products.length === 0 && <p className="text-[10px] dark:text-gray-500 text-gray-400 px-1">No matching products</p>}
+        {products.map(p => (
+          <div key={p.id}>
+            <button
+              type="button"
+              onClick={() => toggleProduct(p.id)}
+              className="w-full text-left px-2 py-1.5 text-xs rounded dark:hover:bg-[#1F2937] hover:bg-gray-50 dark:text-gray-200 text-gray-800"
+            >
+              {p.name}
+            </button>
+            {expandedProductId === p.id && (
+              <div className="pl-4 space-y-0.5">
+                {loadingSkus && <p className="text-[10px] dark:text-gray-500 text-gray-400">Loading…</p>}
+                {!loadingSkus && skus.length === 0 && <p className="text-[10px] dark:text-gray-500 text-gray-400">No other SKUs on this product</p>}
+                {!loadingSkus && skus.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onSelect(s, `${p.name} — ${s.sku_code}`)}
+                    className="w-full flex items-center justify-between text-left px-2 py-1 text-[10px] rounded dark:hover:bg-[#1F2937] hover:bg-gray-50"
+                  >
+                    <span className="font-mono dark:text-gray-300 text-gray-600">{s.sku_code}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

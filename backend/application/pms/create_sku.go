@@ -25,6 +25,8 @@ type CreateSKUInput struct {
 	HeightMM            *int64
 	IsVirtual           bool
 	TracksExpiry        bool
+	CaseOfSKUID         *string
+	UnitsPerCase        *int64
 	Status              pmsDomain.SKUStatus
 }
 
@@ -48,6 +50,9 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 	if err := validateSaleEndDate(in.SaleEndDate, in.SalePriceMinorUnits); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
+	if err := validateCasePackShape(in.CaseOfSKUID, in.UnitsPerCase); err != nil {
+		return nil, fmt.Errorf("createSKU: %w", err)
+	}
 
 	var sku pmsDomain.SKU
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -61,6 +66,12 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 		}
 		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 			return err
+		}
+
+		if in.CaseOfSKUID != nil {
+			if err := validateCaseOfSKU(ctx, uc.skuRepo, "", *in.CaseOfSKUID); err != nil {
+				return err
+			}
 		}
 
 		now := time.Now()
@@ -79,6 +90,8 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 			HeightMM:            in.HeightMM,
 			IsVirtual:           in.IsVirtual,
 			TracksExpiry:        in.TracksExpiry,
+			CaseOfSKUID:         in.CaseOfSKUID,
+			UnitsPerCase:        in.UnitsPerCase,
 			Status:              in.Status,
 			CreatedAt:           now,
 			UpdatedAt:           now,
@@ -121,6 +134,39 @@ func validateVirtualDimensions(isVirtual bool, weightGrams, lengthMM, widthMM, h
 	}
 	if weightGrams != nil || lengthMM != nil || widthMM != nil || heightMM != nil {
 		return pmsDomain.ErrVirtualSKUCannotHaveDimensions
+	}
+	return nil
+}
+
+// validateCasePackShape is the shared invariant for CreateSKU/UpdateSKU:
+// CaseOfSKUID and UnitsPerCase are set together or not at all, and
+// UnitsPerCase (when set) must be positive.
+func validateCasePackShape(caseOfSKUID *string, unitsPerCase *int64) error {
+	if (caseOfSKUID == nil) != (unitsPerCase == nil) {
+		return pmsDomain.ErrCaseOfSKURequiresUnitsPerCase
+	}
+	if unitsPerCase != nil && *unitsPerCase <= 0 {
+		return pmsDomain.ErrUnitsPerCaseMustBePositive
+	}
+	return nil
+}
+
+// validateCaseOfSKU is the shared invariant for CreateSKU/UpdateSKU once
+// CaseOfSKUID is non-nil: the referenced SKU must exist (ErrSKUNotFound
+// propagates as-is), can't be the SKU itself (selfID is "" for a not-yet-
+// created SKU, which can never equal a real caseOfSKUID), and can't itself
+// already be a case of another SKU (see ErrCaseOfSKUCannotChain -- keeps
+// the relationship one level deep).
+func validateCaseOfSKU(ctx context.Context, skuRepo pmsDomain.SKURepository, selfID, caseOfSKUID string) error {
+	if selfID != "" && selfID == caseOfSKUID {
+		return pmsDomain.ErrCaseOfSKUCannotBeSelf
+	}
+	target, err := skuRepo.FindByID(ctx, caseOfSKUID)
+	if err != nil {
+		return err
+	}
+	if target.CaseOfSKUID != nil {
+		return pmsDomain.ErrCaseOfSKUCannotChain
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ import type {
   Batch, StockLevel, StockMovement,
   CreateBatchInput, UpdateBatchInput,
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, MarkDamagedOrLostInput,
+  SplitCaseIntoUnitsInput, SplitCaseIntoUnitsResult,
 } from '../types'
 import * as api from '../api'
 
@@ -21,6 +22,7 @@ interface UseSKUStockActions {
   adjust: (input: RecordStockMovementInput) => Promise<StockMovement>
   recount: (input: RecordRecountInput) => Promise<StockMovement | null>
   transfer: (input: TransferStockInput) => Promise<void>
+  splitCase: (input: SplitCaseIntoUnitsInput) => Promise<SplitCaseIntoUnitsResult>
   markDamagedOrLost: (input: MarkDamagedOrLostInput) => Promise<StockMovement>
 }
 
@@ -104,5 +106,12 @@ export function useSKUStock(token: string, skuId: string | null): UseSKUStockSta
     return movement
   }, [token, skuId, load])
 
-  return { level, batches, loading, error, refresh: load, addBatch, editBatch, removeBatch, adjust, recount, transfer, markDamagedOrLost }
+  const splitCase = useCallback(async (input: SplitCaseIntoUnitsInput): Promise<SplitCaseIntoUnitsResult> => {
+    if (!skuId) throw new Error('no SKU selected')
+    const result = await api.splitCaseIntoUnits(token, skuId, input)
+    await load()
+    return result
+  }, [token, skuId, load])
+
+  return { level, batches, loading, error, refresh: load, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, markDamagedOrLost }
 }

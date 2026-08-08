@@ -93,6 +93,19 @@ type PurchaseOrderLineItem struct {
 	// physical storage and Postgres's tie-break order shifted underneath it.
 	Position int64
 	Quantity int64
+	// UnitsPerPurchasedItem is "how many stock units does one purchased
+	// item represent" -- almost always 1. Set above 1 when the supplier
+	// sells a case/box that isn't itself a catalog product (e.g. a
+	// supplier's "Rapadurinha 36x25gr" line is linked to the individual
+	// 25g unit SKU with this set to 36, rather than the box having its own
+	// SKU). Money is unaffected -- UnitCostMinorUnits/PO totals are always
+	// per purchased item, this only scales the stock side of receiving
+	// (see CompleteBookingUseCase's ExpectedQty, which multiplies by this).
+	// Distinct from pms.SKU.UnitsPerCase, which is a catalog relationship
+	// between two real SKUs (a box that IS its own product) used to split
+	// case-stock into unit-stock later -- this field exists for the case
+	// where no such box-SKU exists in the catalog at all.
+	UnitsPerPurchasedItem int64
 	// UnitCostMinorUnits is the smallest-currency-unit cost per unit, same
 	// convention as pms.SKU.PriceMinorUnits.
 	UnitCostMinorUnits int64
@@ -119,4 +132,17 @@ type PurchaseOrderLineItem struct {
 	LineTypeConfirmed bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+// EffectiveUnitsPerPurchasedItem treats an unset/zero UnitsPerPurchasedItem
+// as 1 (the DB column is NOT NULL DEFAULT 1 and every write path already
+// defaults zero to 1 -- this only guards a zero-value Go struct built
+// directly, e.g. in a test, from silently zeroing out expected-quantity
+// math instead of just meaning "no multiplier"). Always use this, not the
+// raw field, wherever the value feeds a calculation.
+func (li PurchaseOrderLineItem) EffectiveUnitsPerPurchasedItem() int64 {
+	if li.UnitsPerPurchasedItem <= 0 {
+		return 1
+	}
+	return li.UnitsPerPurchasedItem
 }

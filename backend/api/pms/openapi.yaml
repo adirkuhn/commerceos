@@ -498,6 +498,12 @@ components:
         tracks_expiry:
           type: boolean
           description: Whether this SKU's inventory batches carry a meaningful expiry date — advisory only, doesn't block creating a batch without one.
+        # case_of_sku_id/units_per_case are both null unless this SKU is a
+        # sealed case/box of another SKU -- always set together. Used to
+        # split case-stock into unit-stock later (see the inventory
+        # module's split-case endpoint).
+        case_of_sku_id: { type: string, nullable: true }
+        units_per_case: { type: integer, format: int64, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -594,6 +600,8 @@ components:
         height_mm: { type: integer, format: int64, minimum: 0, nullable: true }
         is_virtual: { type: boolean, default: false }
         tracks_expiry: { type: boolean, default: false }
+        case_of_sku_id: { type: string, nullable: true }
+        units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     UpdateSKURequest:
@@ -611,6 +619,8 @@ components:
         height_mm: { type: integer, format: int64, minimum: 0, nullable: true }
         is_virtual: { type: boolean, default: false }
         tracks_expiry: { type: boolean, default: false }
+        case_of_sku_id: { type: string, nullable: true }
+        units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     CategoryResponse:

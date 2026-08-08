@@ -3,7 +3,7 @@ import type {
   Batch, CreateBatchInput, UpdateBatchInput,
   StockMovement, StockLevel,
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, TransferStockResult, MarkDamagedOrLostInput,
-  ExpiringBatch, ReceiveStockInput, ReceiveStockResult,
+  ExpiringBatch, ReceiveStockInput, ReceiveStockResult, SplitCaseIntoUnitsInput, SplitCaseIntoUnitsResult,
 } from './types'
 
 function base(): string {
@@ -97,6 +97,10 @@ export function transferStock(token: string, skuId: string, input: TransferStock
 
 export function markDamagedOrLost(token: string, skuId: string, input: MarkDamagedOrLostInput): Promise<StockMovement> {
   return request<StockMovement>(`${base()}/skus/${skuId}/mark-damaged-lost`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function splitCaseIntoUnits(token: string, skuId: string, input: SplitCaseIntoUnitsInput): Promise<SplitCaseIntoUnitsResult> {
+  return request<SplitCaseIntoUnitsResult>(`${base()}/skus/${skuId}/split-case`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 export function receiveStock(token: string, skuId: string, input: ReceiveStockInput): Promise<ReceiveStockResult> {

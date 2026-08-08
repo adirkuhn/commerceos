@@ -24,6 +24,8 @@ type UpdateSKUInput struct {
 	HeightMM            *int64
 	IsVirtual           bool
 	TracksExpiry        bool
+	CaseOfSKUID         *string
+	UnitsPerCase        *int64
 	Status              pmsDomain.SKUStatus
 }
 
@@ -51,12 +53,20 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 	if err := validateSaleEndDate(in.SaleEndDate, in.SalePriceMinorUnits); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
+	if err := validateCasePackShape(in.CaseOfSKUID, in.UnitsPerCase); err != nil {
+		return nil, fmt.Errorf("updateSKU: %w", err)
+	}
 
 	var sku pmsDomain.SKU
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.skuRepo.FindByID(ctx, in.ID)
 		if err != nil {
 			return err
+		}
+		if in.CaseOfSKUID != nil {
+			if err := validateCaseOfSKU(ctx, uc.skuRepo, in.ID, *in.CaseOfSKUID); err != nil {
+				return err
+			}
 		}
 		existing.Barcode = in.Barcode
 		existing.PriceMinorUnits = in.PriceMinorUnits
@@ -69,6 +79,8 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		existing.HeightMM = in.HeightMM
 		existing.IsVirtual = in.IsVirtual
 		existing.TracksExpiry = in.TracksExpiry
+		existing.CaseOfSKUID = in.CaseOfSKUID
+		existing.UnitsPerCase = in.UnitsPerCase
 		existing.Status = in.Status
 		existing.UpdatedAt = time.Now()
 		if err := uc.skuRepo.Update(ctx, existing); err != nil {

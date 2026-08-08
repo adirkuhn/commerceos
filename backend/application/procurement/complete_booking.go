@@ -77,9 +77,15 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 			if li.SKUID != nil {
 				scannedQty = scannedBySKU[*li.SKUID]
 			}
-			if scannedQty < li.Quantity {
+			// BookingScan.Quantity is already in stock-unit terms (a
+			// case-barcode scan credits UnitsPerScan units at once, see
+			// ScanBookingItemUseCase) -- li.Quantity is purchased-item
+			// terms, so it must be scaled by UnitsPerPurchasedItem before
+			// comparing the two (see PurchaseOrderLineItem's doc comment).
+			expectedQty := li.Quantity * li.EffectiveUnitsPerPurchasedItem()
+			if scannedQty < expectedQty {
 				result.MissingItems = append(result.MissingItems, MissingBookingItem{
-					LineItemID: li.ID, RawDescription: li.RawDescription, ExpectedQty: li.Quantity, ScannedQty: scannedQty,
+					LineItemID: li.ID, RawDescription: li.RawDescription, ExpectedQty: expectedQty, ScannedQty: scannedQty,
 				})
 			}
 		}

@@ -13,6 +13,7 @@ import (
 )
 
 func int64Ptr(v int64) *int64 { return &v }
+func strPtr(v string) *string { return &v }
 
 func TestCreateSKU_rejectsDimensionsOnVirtualSKU(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
@@ -113,6 +114,91 @@ func TestCreateSKU_allowsSaleEndDateWithSalePrice(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, endDate, *sku.SaleEndDate)
+}
+
+func TestCreateSKU_persistsCasePackRelationship(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-unit-1"}}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-CASE-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(36),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "sku-unit-1", *sku.CaseOfSKUID)
+	require.Equal(t, int64(36), *sku.UnitsPerCase)
+}
+
+func TestCreateSKU_rejectsCaseOfSKUIDWithoutUnitsPerCase(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-unit-1"),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrCaseOfSKURequiresUnitsPerCase))
+}
+
+func TestCreateSKU_rejectsUnitsPerCaseWithoutCaseOfSKUID(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, UnitsPerCase: int64Ptr(36),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrCaseOfSKURequiresUnitsPerCase))
+}
+
+func TestCreateSKU_rejectsNonPositiveUnitsPerCase(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(0),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrUnitsPerCaseMustBePositive))
+}
+
+func TestCreateSKU_rejectsCaseOfSKUIDThatIsItselfACase(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-already-a-case", CaseOfSKUID: strPtr("sku-deeper"), UnitsPerCase: int64Ptr(12)}}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-already-a-case"), UnitsPerCase: int64Ptr(36),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrCaseOfSKUCannotChain))
+}
+
+func TestCreateSKU_rejectsCaseOfSKUIDThatDoesNotExist(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("missing-sku"), UnitsPerCase: int64Ptr(36),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrSKUNotFound))
 }
 
 func TestCreateSKU_persistsTracksExpiry(t *testing.T) {

@@ -178,6 +178,26 @@ func (s *stubTransferStock) Execute(_ context.Context, in appinventory.TransferS
 	}, nil
 }
 
+type stubSplitCaseIntoUnits struct {
+	out      *appinventory.SplitCaseIntoUnitsResult
+	err      error
+	gotInput appinventory.SplitCaseIntoUnitsInput
+}
+
+func (s *stubSplitCaseIntoUnits) Execute(_ context.Context, in appinventory.SplitCaseIntoUnitsInput) (*appinventory.SplitCaseIntoUnitsResult, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appinventory.SplitCaseIntoUnitsResult{
+		CaseOutMovement: invDomain.StockMovement{ID: "movement-case-out", Type: invDomain.MovementTypeSplitOut, QuantityDelta: -in.CasesToSplit},
+		UnitInMovement:  invDomain.StockMovement{ID: "movement-unit-in", Type: invDomain.MovementTypeSplitIn, QuantityDelta: in.CasesToSplit},
+	}, nil
+}
+
 type stubMarkDamagedOrLost struct {
 	out      *invDomain.StockMovement
 	err      error
@@ -234,7 +254,7 @@ func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, updat
 	return inventoryhandler.NewHandler(
 		list, create, update, del,
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 	)
 }
@@ -258,8 +278,17 @@ func newBatchTestHandlerWithReceive(
 	return inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		createBatch, updateBatch, deleteBatch, listBatches,
-		stockLevel, recordMovement, recordRecount, transfer, markDamagedOrLost,
+		stockLevel, recordMovement, recordRecount, transfer, &stubSplitCaseIntoUnits{}, markDamagedOrLost,
 		&stubListExpiringBatches{}, &stubListStockMovements{}, receiveStock,
+	)
+}
+
+func newSplitCaseTestHandler(split *stubSplitCaseIntoUnits) *inventoryhandler.Handler {
+	return inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, split, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 	)
 }
 
@@ -457,7 +486,7 @@ func TestListExpiringBatchesHandler_returnsBatches(t *testing.T) {
 	h := inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{out: []invDomain.ExpiringBatch{
 			{BatchID: "batch-1", SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", ExpiryDate: expiry, Quantity: 5},
 		}},
@@ -474,7 +503,7 @@ func TestListStockMovementsHandler_returnsMovements(t *testing.T) {
 	h := inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{},
 		&stubListStockMovements{out: []invDomain.StockMovement{
 			{ID: "movement-1", SKUID: "sku-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10},
@@ -565,6 +594,28 @@ func TestTransferStockHandler_general_ledger_toBatch(t *testing.T) {
 	require.Nil(t, transfer.gotInput.FromBatchID, "nil FromBatchID means moving out of the general ledger")
 	require.NotNil(t, transfer.gotInput.ToBatchID)
 	require.Equal(t, "batch-1", *transfer.gotInput.ToBatchID)
+}
+
+func TestSplitCaseIntoUnitsHandler_success(t *testing.T) {
+	split := &stubSplitCaseIntoUnits{}
+	h := newSplitCaseTestHandler(split)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-case-1/split-case",
+		map[string]any{"warehouse_id": "wh-1", "cases_to_split": 2})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, "sku-case-1", split.gotInput.CaseSKUID)
+	require.Equal(t, int64(2), split.gotInput.CasesToSplit)
+	assert.Contains(t, w.Body.String(), "movement-case-out")
+	assert.Contains(t, w.Body.String(), "movement-unit-in")
+}
+
+func TestSplitCaseIntoUnitsHandler_notACaseReturns422(t *testing.T) {
+	split := &stubSplitCaseIntoUnits{err: invDomain.ErrSKUIsNotACase}
+	h := newSplitCaseTestHandler(split)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/split-case",
+		map[string]any{"warehouse_id": "wh-1", "cases_to_split": 1})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestMarkDamagedOrLostHandler_success(t *testing.T) {

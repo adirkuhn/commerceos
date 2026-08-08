@@ -56,6 +56,16 @@ func strPtrOr(s *string) string {
 	return *s
 }
 
+// int64PtrOr unwraps an optional integer request field to 0 -- the
+// use-case layer treats 0 as "not specified, use the default" for fields
+// like UnitsPerPurchasedItem (see AddPurchaseOrderLineItemUseCase).
+func int64PtrOr(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
 // ── Use-case interfaces (defined at point of use — ISP) ──────────────────────
 
 type listPurchaseOrdersUC interface {
@@ -371,7 +381,8 @@ func (h *Handler) AddPurchaseOrderLineItem(c *gin.Context, id genprocurement.Id)
 	}
 	li, err := h.addLineItem.Execute(c.Request.Context(), appprocurement.AddPurchaseOrderLineItemInput{
 		PurchaseOrderID: id, SKUID: req.SkuId, RawSKU: strPtrOr(req.RawSku), RawDescription: req.RawDescription,
-		Quantity: req.Quantity, UnitCostMinorUnits: req.UnitCostMinorUnits, LineType: lineTypeOr(req.LineType),
+		Quantity: req.Quantity, UnitsPerPurchasedItem: int64PtrOr(req.UnitsPerPurchasedItem),
+		UnitCostMinorUnits: req.UnitCostMinorUnits, LineType: lineTypeOr(req.LineType),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -388,7 +399,8 @@ func (h *Handler) UpdatePurchaseOrderLineItem(c *gin.Context, id genprocurement.
 	}
 	li, err := h.updateLineItem.Execute(c.Request.Context(), appprocurement.UpdatePurchaseOrderLineItemInput{
 		ID: id, SKUID: req.SkuId, RawSKU: strPtrOr(req.RawSku), RawDescription: req.RawDescription,
-		Quantity: req.Quantity, UnitCostMinorUnits: req.UnitCostMinorUnits, LineType: lineTypeOr(req.LineType),
+		Quantity: req.Quantity, UnitsPerPurchasedItem: int64PtrOr(req.UnitsPerPurchasedItem),
+		UnitCostMinorUnits: req.UnitCostMinorUnits, LineType: lineTypeOr(req.LineType),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -504,7 +516,7 @@ func (h *Handler) LinkLineItemToSku(c *gin.Context, id genprocurement.Id) {
 		return
 	}
 	li, err := h.linkLineItemToSKU.Execute(c.Request.Context(), appprocurement.LinkLineItemToSKUInput{
-		LineItemID: id, SKUID: req.SkuId,
+		LineItemID: id, SKUID: req.SkuId, UnitsPerPurchasedItem: int64PtrOr(req.UnitsPerPurchasedItem),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -732,7 +744,7 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 	return genprocurement.PurchaseOrderLineItem{
 		Id: li.ID, TenantId: li.TenantID, PurchaseOrderId: li.PurchaseOrderID, SkuId: li.SKUID, RawSku: li.RawSKU,
 		RawDescription: li.RawDescription, Position: li.Position, ProductName: li.ProductName, SkuCode: li.SKUCode,
-		Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
+		Quantity: li.Quantity, UnitsPerPurchasedItem: li.UnitsPerPurchasedItem, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		LineType: genprocurement.LineItemType(lineType), LineTypeConfirmed: li.LineTypeConfirmed,
 		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}

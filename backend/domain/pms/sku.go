@@ -47,6 +47,21 @@ type SKU struct {
 	// with no expiry regardless of this flag (e.g. general-ledger stock,
 	// or a lot whose expiry just isn't known yet).
 	TracksExpiry bool
+	// CaseOfSKUID/UnitsPerCase are both nil unless this SKU represents a
+	// sealed case/box of another SKU (e.g. a 36-unit case of "Rapadurinha
+	// de Minas 25g") -- always set together (see
+	// ErrCaseOfSKURequiresUnitsPerCase). Depth-limited to one level: the
+	// referenced SKU can't itself be a case of yet another SKU (see
+	// ErrCaseOfSKUCannotChain) -- keeps stock-split math (see
+	// inventory.SplitCaseIntoUnitsUseCase) a single multiplication instead
+	// of a walk up an arbitrary chain. This is purely a catalog
+	// relationship for later splitting case-stock into unit-stock -- it
+	// does not affect how a case SKU is priced, sold, or matched during
+	// procurement (see procurement.PurchaseOrderLineItem.UnitsPerPurchasedItem
+	// for the separate, unrelated "supplier sells in bulk but we don't
+	// stock the bulk unit at all" case).
+	CaseOfSKUID  *string
+	UnitsPerCase *int64
 	Status       SKUStatus
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

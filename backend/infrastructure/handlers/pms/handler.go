@@ -444,6 +444,8 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 		HeightMM:            req.HeightMm,
 		IsVirtual:           req.IsVirtual != nil && *req.IsVirtual,
 		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
+		CaseOfSKUID:         req.CaseOfSkuId,
+		UnitsPerCase:        req.UnitsPerCase,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
@@ -476,6 +478,8 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 		HeightMM:            req.HeightMm,
 		IsVirtual:           req.IsVirtual != nil && *req.IsVirtual,
 		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
+		CaseOfSKUID:         req.CaseOfSkuId,
+		UnitsPerCase:        req.UnitsPerCase,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
@@ -624,6 +628,8 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		HeightMm:            s.HeightMM,
 		IsVirtual:           s.IsVirtual,
 		TracksExpiry:        s.TracksExpiry,
+		CaseOfSkuId:         s.CaseOfSKUID,
+		UnitsPerCase:        s.UnitsPerCase,
 		Status:              genpms.SKUStatus(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,

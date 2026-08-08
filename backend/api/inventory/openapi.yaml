@@ -247,6 +247,32 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /inventory/skus/{skuId}/split-case:
+    post:
+      operationId: splitCaseIntoUnits
+      summary: >-
+        Convert sealed-case stock into individual-unit stock — skuId must be
+        configured as a case of another SKU (see the pms module's
+        case_of_sku_id/units_per_case). One-way: cases leave stock, that
+        many times units_per_case units of the case's own SKU arrive.
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplitCaseIntoUnitsRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SplitCaseIntoUnitsResultResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /inventory/skus/{skuId}/transfer:
     post:
       operationId: transferStock
@@ -410,7 +436,7 @@ components:
 
     MovementType:
       type: string
-      enum: [receipt, sale, adjustment, transfer_out, transfer_in, damaged, lost]
+      enum: [receipt, sale, adjustment, transfer_out, transfer_in, damaged, lost, split_out, split_in]
 
     Batch:
       type: object
@@ -600,6 +626,32 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/TransferStockResult' }
+        error: { nullable: true }
+
+    SplitCaseIntoUnitsRequest:
+      type: object
+      required: [warehouse_id, cases_to_split]
+      properties:
+        warehouse_id: { type: string }
+        batch_id:
+          type: string
+          nullable: true
+          description: Null splits from the un-lotted, general-ledger case stock.
+        cases_to_split: { type: integer, format: int64, minimum: 1 }
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+
+    SplitCaseIntoUnitsResult:
+      type: object
+      required: [case_out, unit_in]
+      properties:
+        case_out: { $ref: '#/components/schemas/StockMovement' }
+        unit_in: { $ref: '#/components/schemas/StockMovement' }
+
+    SplitCaseIntoUnitsResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SplitCaseIntoUnitsResult' }
         error: { nullable: true }
 
     MarkDamagedOrLostRequest:

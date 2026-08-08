@@ -566,7 +566,7 @@ components:
 
     PurchaseOrderLineItem:
       type: object
-      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, position, quantity, unit_cost_minor_units, line_type, line_type_confirmed, created_at, updated_at]
+      required: [id, tenant_id, purchase_order_id, raw_sku, raw_description, position, quantity, units_per_purchased_item, unit_cost_minor_units, line_type, line_type_confirmed, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -583,6 +583,11 @@ components:
         product_name: { type: string, nullable: true }
         sku_code: { type: string, nullable: true }
         quantity: { type: integer, format: int64 }
+        # How many stock units one purchased item represents -- almost
+        # always 1. Above 1 when the supplier sells a case/box that isn't
+        # itself a catalog product (see
+        # domain/procurement.PurchaseOrderLineItem's doc comment).
+        units_per_purchased_item: { type: integer, format: int64 }
         unit_cost_minor_units: { type: integer, format: int64 }
         line_type: { $ref: '#/components/schemas/LineItemType' }
         # False when line_type came from the AI's classification and a
@@ -651,6 +656,9 @@ components:
         raw_sku: { type: string }
         raw_description: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
+        # Defaults to 1 when omitted/zero -- see PurchaseOrderLineItem's
+        # units_per_purchased_item doc comment.
+        units_per_purchased_item: { type: integer, format: int64, minimum: 1 }
         unit_cost_minor_units: { type: integer, format: int64, minimum: 0 }
         line_type: { $ref: '#/components/schemas/LineItemType' }
 
@@ -662,6 +670,7 @@ components:
         raw_sku: { type: string }
         raw_description: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
+        units_per_purchased_item: { type: integer, format: int64, minimum: 1 }
         unit_cost_minor_units: { type: integer, format: int64, minimum: 0 }
         line_type: { $ref: '#/components/schemas/LineItemType' }
 
@@ -727,6 +736,9 @@ components:
       required: [sku_id]
       properties:
         sku_id: { type: string }
+        # Defaults to 1 when omitted/zero -- see PurchaseOrderLineItem's
+        # units_per_purchased_item doc comment.
+        units_per_purchased_item: { type: integer, format: int64, minimum: 1 }
 
     CreateProductAndLinkLineItemRequest:
       type: object

@@ -12,6 +12,12 @@ const (
 	MovementTypeTransferIn  MovementType = "transfer_in"  // arriving at a warehouse/batch
 	MovementTypeDamaged     MovementType = "damaged"      // written off — damaged goods
 	MovementTypeLost        MovementType = "lost"         // written off — lost/missing goods
+	// MovementTypeSplitOut/MovementTypeSplitIn are always written in the
+	// same pair, by SplitCaseIntoUnitsUseCase: N of a case SKU leave stock
+	// (split_out) and N*UnitsPerCase of its unit SKU arrive (split_in) --
+	// two SKUs, one atomic conversion, see pms.SKU.CaseOfSKUID.
+	MovementTypeSplitOut MovementType = "split_out"
+	MovementTypeSplitIn  MovementType = "split_in"
 )
 
 // StockMovement is one immutable ledger entry. Current stock for a SKU (or

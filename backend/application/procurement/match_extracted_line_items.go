@@ -26,6 +26,13 @@ type MatchedLineItem struct {
 	Extracted   procurementDomain.ExtractedLineItem
 	SKUID       *string
 	MatchSource MatchSource
+	// UnitsPerPurchasedItem is 1 for every match source except Alias, which
+	// carries over whatever multiplier was learned on that alias (see
+	// PurchaseOrderLineItem's doc comment) -- exact-SKU and name matches
+	// have no learned multiplier to go on yet, so they start at 1 and a
+	// human corrects it via the review UI, same as any other unmatched
+	// item's first-time link.
+	UnitsPerPurchasedItem int64
 }
 
 // MatchExtractedLineItemsUseCase implements the matching pipeline described
@@ -74,7 +81,7 @@ func NewMatchExtractedLineItemsUseCase(
 func (uc *MatchExtractedLineItemsUseCase) Execute(ctx context.Context, supplierID string, extracted []procurementDomain.ExtractedLineItem) ([]MatchedLineItem, error) {
 	matched := make([]MatchedLineItem, 0, len(extracted))
 	for _, item := range extracted {
-		m := MatchedLineItem{Extracted: item, MatchSource: MatchSourceUnmatched}
+		m := MatchedLineItem{Extracted: item, MatchSource: MatchSourceUnmatched, UnitsPerPurchasedItem: 1}
 
 		// A charge row (shipping/discount/fee/credit note) isn't a product
 		// -- there's nothing to match it against, and it must never be
@@ -111,6 +118,7 @@ func (uc *MatchExtractedLineItemsUseCase) Execute(ctx context.Context, supplierI
 					id := alias.SKUID
 					m.SKUID = &id
 					m.MatchSource = MatchSourceAlias
+					m.UnitsPerPurchasedItem = alias.UnitsPerPurchasedItem
 				}
 			}
 		}
@@ -321,6 +329,7 @@ func resyncAliasMatchedLineItems(
 		}
 
 		var newSKUID *string
+		var newUnitsPerPurchasedItem int64 = 1
 		if rawKey := NormalizeRawKey(item.RawSKU, item.RawDescription); rawKey != "" {
 			alias, err := aliasRepo.FindBySupplierAndRawKey(ctx, supplierID, rawKey)
 			if err != nil {
@@ -329,6 +338,7 @@ func resyncAliasMatchedLineItems(
 			if alias != nil {
 				id := alias.SKUID
 				newSKUID = &id
+				newUnitsPerPurchasedItem = alias.UnitsPerPurchasedItem
 			}
 		}
 
@@ -341,6 +351,7 @@ func resyncAliasMatchedLineItems(
 
 		item.SKUID = newSKUID
 		item.SKUAutoLinkedFromAlias = newSKUID != nil
+		item.UnitsPerPurchasedItem = newUnitsPerPurchasedItem
 		item.UpdatedAt = time.Now()
 		if err := lineItemRepo.Update(ctx, &item); err != nil {
 			return false, fmt.Errorf("resyncAliasMatchedLineItems: %w", err)

@@ -43,6 +43,7 @@ type purchaseOrderLineItemModel struct {
 	RawDescription         string  `gorm:"not null;default:''"`
 	Position               int64   `gorm:"column:position;not null;default:0"`
 	Quantity               int64   `gorm:"not null"`
+	UnitsPerPurchasedItem  int64   `gorm:"column:units_per_purchased_item;not null;default:1"`
 	UnitCostMinorUnits     int64   `gorm:"not null;default:0"`
 	SKUAutoLinkedFromAlias bool    `gorm:"column:sku_auto_linked_from_alias;not null;default:false"`
 	LineType               string  `gorm:"column:line_type;not null;default:''"`
@@ -242,6 +243,7 @@ func (r *PurchaseOrderLineItemRepo) Create(ctx context.Context, li *procurementD
 	m := purchaseOrderLineItemModel{
 		TenantID: li.TenantID, PurchaseOrderID: li.PurchaseOrderID, SKUID: li.SKUID, RawSKU: li.RawSKU,
 		RawDescription: li.RawDescription, Position: li.Position, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
+		UnitsPerPurchasedItem:  li.UnitsPerPurchasedItem,
 		SKUAutoLinkedFromAlias: li.SKUAutoLinkedFromAlias,
 		LineType:               string(li.LineType),
 		LineTypeConfirmed:      li.LineTypeConfirmed,
@@ -296,6 +298,7 @@ func (r *PurchaseOrderLineItemRepo) Update(ctx context.Context, li *procurementD
 			"raw_sku":                    li.RawSKU,
 			"raw_description":            li.RawDescription,
 			"quantity":                   li.Quantity,
+			"units_per_purchased_item":   li.UnitsPerPurchasedItem,
 			"unit_cost_minor_units":      li.UnitCostMinorUnits,
 			"sku_auto_linked_from_alias": li.SKUAutoLinkedFromAlias,
 			"line_type":                  string(li.LineType),
@@ -356,6 +359,7 @@ func toLineItemDomain(m purchaseOrderLineItemModel) *procurementDomain.PurchaseO
 	return &procurementDomain.PurchaseOrderLineItem{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID, SKUID: m.SKUID, RawSKU: m.RawSKU,
 		RawDescription: m.RawDescription, Position: m.Position, Quantity: m.Quantity, UnitCostMinorUnits: m.UnitCostMinorUnits,
+		UnitsPerPurchasedItem:  m.UnitsPerPurchasedItem,
 		SKUAutoLinkedFromAlias: m.SKUAutoLinkedFromAlias,
 		LineType:               procurementDomain.LineItemType(m.LineType),
 		LineTypeConfirmed:      m.LineTypeConfirmed,
@@ -623,13 +627,14 @@ func toParsingJobDomain(m documentParsingJobModel) *procurementDomain.DocumentPa
 // ── SupplierProductAliasRepo ─────────────────────────────────────────────────
 
 type supplierProductAliasModel struct {
-	ID         string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID   string `gorm:"not null;type:uuid"`
-	SupplierID string `gorm:"column:supplier_id;not null;type:uuid"`
-	RawKey     string `gorm:"column:raw_key;not null"`
-	SKUID      string `gorm:"column:sku_id;not null;type:uuid"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID                    string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID              string `gorm:"not null;type:uuid"`
+	SupplierID            string `gorm:"column:supplier_id;not null;type:uuid"`
+	RawKey                string `gorm:"column:raw_key;not null"`
+	SKUID                 string `gorm:"column:sku_id;not null;type:uuid"`
+	UnitsPerPurchasedItem int64  `gorm:"column:units_per_purchased_item;not null;default:1"`
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 func (supplierProductAliasModel) TableName() string { return "supplier_product_aliases" }
@@ -657,11 +662,12 @@ func (r *SupplierProductAliasRepo) Upsert(ctx context.Context, alias *procuremen
 	}
 	m := supplierProductAliasModel{
 		TenantID: alias.TenantID, SupplierID: alias.SupplierID, RawKey: alias.RawKey, SKUID: alias.SKUID,
-		CreatedAt: alias.CreatedAt, UpdatedAt: alias.UpdatedAt,
+		UnitsPerPurchasedItem: alias.UnitsPerPurchasedItem,
+		CreatedAt:             alias.CreatedAt, UpdatedAt: alias.UpdatedAt,
 	}
 	if err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "supplier_id"}, {Name: "raw_key"}},
-		DoUpdates: clause.AssignmentColumns([]string{"sku_id", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"sku_id", "units_per_purchased_item", "updated_at"}),
 	}).Create(&m).Error; err != nil {
 		return fmt.Errorf("supplierProductAliasRepo.Upsert: %w", err)
 	}
@@ -687,6 +693,7 @@ func (r *SupplierProductAliasRepo) FindBySupplierAndRawKey(ctx context.Context, 
 func toAliasDomain(m supplierProductAliasModel) *procurementDomain.SupplierProductAlias {
 	return &procurementDomain.SupplierProductAlias{
 		ID: m.ID, TenantID: m.TenantID, SupplierID: m.SupplierID, RawKey: m.RawKey, SKUID: m.SKUID,
-		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		UnitsPerPurchasedItem: m.UnitsPerPurchasedItem,
+		CreatedAt:             m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

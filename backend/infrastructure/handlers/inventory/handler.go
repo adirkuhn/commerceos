@@ -15,6 +15,7 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/domain/outbox"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -60,6 +61,9 @@ type recordRecountUC interface {
 type transferStockUC interface {
 	Execute(ctx context.Context, in appinventory.TransferStockInput) (*appinventory.TransferStockResult, error)
 }
+type splitCaseIntoUnitsUC interface {
+	Execute(ctx context.Context, in appinventory.SplitCaseIntoUnitsInput) (*appinventory.SplitCaseIntoUnitsResult, error)
+}
 type markDamagedOrLostUC interface {
 	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
 }
@@ -85,6 +89,7 @@ type Handler struct {
 	recordStockMovement recordStockMovementUC
 	recordRecount       recordRecountUC
 	transferStock       transferStockUC
+	splitCaseIntoUnits  splitCaseIntoUnitsUC
 	markDamagedOrLost   markDamagedOrLostUC
 	listExpiringBatches listExpiringBatchesUC
 	listStockMovements  listStockMovementsUC
@@ -105,6 +110,7 @@ func NewHandler(
 	recordStockMovement recordStockMovementUC,
 	recordRecount recordRecountUC,
 	transferStock transferStockUC,
+	splitCaseIntoUnits splitCaseIntoUnitsUC,
 	markDamagedOrLost markDamagedOrLostUC,
 	listExpiringBatches listExpiringBatchesUC,
 	listStockMovements listStockMovementsUC,
@@ -123,6 +129,7 @@ func NewHandler(
 		recordStockMovement: recordStockMovement,
 		recordRecount:       recordRecount,
 		transferStock:       transferStock,
+		splitCaseIntoUnits:  splitCaseIntoUnits,
 		markDamagedOrLost:   markDamagedOrLost,
 		listExpiringBatches: listExpiringBatches,
 		listStockMovements:  listStockMovements,
@@ -138,6 +145,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -152,6 +160,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
+		appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, movementRepo, outboxRepo),
 		appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
 		appinventory.NewListStockMovementsUseCase(db, movementRepo),
@@ -391,6 +400,25 @@ func (h *Handler) TransferStock(c *gin.Context, skuId geninventory.SkuId) {
 	c.JSON(http.StatusCreated, geninventory.TransferStockResultResponse{Data: &resp})
 }
 
+func (h *Handler) SplitCaseIntoUnits(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.SplitCaseIntoUnitsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.splitCaseIntoUnits.Execute(c.Request.Context(), appinventory.SplitCaseIntoUnitsInput{
+		CaseSKUID: skuId, WarehouseID: req.WarehouseId, BatchID: req.BatchId, CasesToSplit: req.CasesToSplit,
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := geninventory.SplitCaseIntoUnitsResult{
+		CaseOut: toGenStockMovement(result.CaseOutMovement), UnitIn: toGenStockMovement(result.UnitInMovement),
+	}
+	c.JSON(http.StatusCreated, geninventory.SplitCaseIntoUnitsResultResponse{Data: &resp})
+}
+
 func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.MarkDamagedOrLostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -516,8 +544,10 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, invDomain.ErrWarehouseNotFound), errors.Is(err, invDomain.ErrBatchNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType),
-		errors.Is(err, invDomain.ErrInsufficientStock):
+		errors.Is(err, invDomain.ErrInsufficientStock), errors.Is(err, invDomain.ErrSKUIsNotACase):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, pmsDomain.ErrSKUNotFound):
+		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, invDomain.ErrBatchHasMovements):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	default:

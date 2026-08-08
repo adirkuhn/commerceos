@@ -44,6 +44,11 @@ export interface SKU {
   width_mm?: number | null
   height_mm?: number | null
   is_virtual: boolean
+  // Both null unless this SKU is a sealed case/box of another SKU -- set
+  // together or not at all. See the inventory module's split-case action
+  // for converting case stock into unit stock.
+  case_of_sku_id?: string | null
+  units_per_case?: number | null
   status: SKUStatus
   created_at: string
   updated_at: string
@@ -106,6 +111,8 @@ export interface CreateSKUPayload {
   width_mm?: number | null
   height_mm?: number | null
   is_virtual?: boolean
+  case_of_sku_id?: string | null
+  units_per_case?: number | null
   status: SKUStatus
 }
 
@@ -120,6 +127,8 @@ export interface UpdateSKUPayload {
   width_mm?: number | null
   height_mm?: number | null
   is_virtual?: boolean
+  case_of_sku_id?: string | null
+  units_per_case?: number | null
   status: SKUStatus
 }
 

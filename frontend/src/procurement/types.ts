@@ -50,6 +50,11 @@ export interface PurchaseOrderLineItem {
   product_name?: string | null
   sku_code?: string | null
   quantity: number
+  // How many stock units one purchased item represents -- almost always 1.
+  // Above 1 when the supplier sells a case/box that isn't itself a catalog
+  // product (e.g. "Rapadurinha 36x25gr" linked to the individual 25g unit
+  // SKU with this set to 36).
+  units_per_purchased_item: number
   unit_cost_minor_units: number
   line_type: LineItemType
   // False when line_type came from the AI's classification and hasn't been
@@ -102,6 +107,8 @@ export interface AddLineItemInput {
   raw_sku?: string
   raw_description: string
   quantity: number
+  // Defaults to 1 server-side when omitted.
+  units_per_purchased_item?: number
   unit_cost_minor_units: number
   line_type?: LineItemType
 }
@@ -134,6 +141,8 @@ export interface CreatePurchaseOrderFromDocumentInput {
 
 export interface LinkLineItemInput {
   sku_id: string
+  // Defaults to 1 server-side when omitted.
+  units_per_purchased_item?: number
 }
 
 export interface CreateSupplierAndAssignInput {

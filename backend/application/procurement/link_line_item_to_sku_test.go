@@ -32,6 +32,47 @@ func TestLinkLineItemToSKU_setsSKUIDAndWritesAlias(t *testing.T) {
 	assert.Equal(t, "sku-1", aliasRepo.upserted[0].SKUID)
 }
 
+// TestLinkLineItemToSKU_persistsUnitsPerPurchasedItemOnLineItemAndAlias is
+// the "case of a product" edge case: linking a supplier's box line to the
+// individual unit SKU with an explicit multiplier writes it onto both the
+// line item and the learned alias, so the same supplier text carries the
+// multiplier forward automatically next time.
+func TestLinkLineItemToSKU_persistsUnitsPerPurchasedItemOnLineItemAndAlias(t *testing.T) {
+	db := newMockGormDB(t)
+	li := procurementDomain.PurchaseOrderLineItem{ID: "line-item-1", PurchaseOrderID: "po-1", RawDescription: "Rapadurinha 36x25gr"}
+	po := procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusNeedsReview}
+	poRepo := &stubPurchaseOrderRepo{findResult: &po}
+	lineItemRepo := &stubLineItemRepo{findResult: &li, byPO: []procurementDomain.PurchaseOrderLineItem{li}}
+	aliasRepo := &stubAliasRepo{}
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+
+	result, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{
+		LineItemID: "line-item-1", SKUID: "sku-unit-1", UnitsPerPurchasedItem: 36,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(36), result.UnitsPerPurchasedItem)
+	require.Len(t, aliasRepo.upserted, 1)
+	assert.Equal(t, int64(36), aliasRepo.upserted[0].UnitsPerPurchasedItem)
+}
+
+func TestLinkLineItemToSKU_defaultsUnitsPerPurchasedItemToOne(t *testing.T) {
+	db := newMockGormDB(t)
+	li := procurementDomain.PurchaseOrderLineItem{ID: "line-item-1", PurchaseOrderID: "po-1", RawDescription: "Widget A"}
+	po := procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusNeedsReview}
+	poRepo := &stubPurchaseOrderRepo{findResult: &po}
+	lineItemRepo := &stubLineItemRepo{findResult: &li, byPO: []procurementDomain.PurchaseOrderLineItem{li}}
+	aliasRepo := &stubAliasRepo{}
+	uc := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
+
+	result, err := uc.Execute(context.Background(), appprocurement.LinkLineItemToSKUInput{LineItemID: "line-item-1", SKUID: "sku-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), result.UnitsPerPurchasedItem)
+	require.Len(t, aliasRepo.upserted, 1)
+	assert.Equal(t, int64(1), aliasRepo.upserted[0].UnitsPerPurchasedItem)
+}
+
 func TestLinkLineItemToSKU_revertsPOFromNeedsReviewWhenAllItemsLinked(t *testing.T) {
 	db := newMockGormDB(t)
 	skuID := "sku-already-linked"

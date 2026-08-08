@@ -112,6 +112,78 @@ func TestUpdateSKU_canClearSaleEndDateBackToNil(t *testing.T) {
 	require.Nil(t, sku.SaleEndDate)
 }
 
+func TestUpdateSKU_persistsCasePackRelationship(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-unit-1"}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-case-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(36),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "sku-unit-1", *sku.CaseOfSKUID)
+	require.Equal(t, int64(36), *sku.UnitsPerCase)
+}
+
+func TestUpdateSKU_rejectsCaseOfSKUIDWithoutUnitsPerCase(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-unit-1"),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrCaseOfSKURequiresUnitsPerCase))
+}
+
+func TestUpdateSKU_rejectsSelfReferentialCaseOfSKUID(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-1"), UnitsPerCase: int64Ptr(36),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrCaseOfSKUCannotBeSelf))
+}
+
+func TestUpdateSKU_rejectsCaseOfSKUIDThatIsItselfACase(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-already-a-case", CaseOfSKUID: strPtr("sku-deeper"), UnitsPerCase: int64Ptr(12)}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, CaseOfSKUID: strPtr("sku-already-a-case"), UnitsPerCase: int64Ptr(36),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrCaseOfSKUCannotChain))
+}
+
+func TestUpdateSKU_canClearCasePackRelationshipBackToNil(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(36)}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, sku.CaseOfSKUID)
+	require.Nil(t, sku.UnitsPerCase)
+}
+
 func TestUpdateSKU_persistsTracksExpiry(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	variantRepo := &stubVariantRepo{}

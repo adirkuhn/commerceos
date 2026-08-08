@@ -122,7 +122,7 @@ function warehouse(overrides: Partial<Warehouse> = {}): Warehouse {
 function lineItem(overrides: Partial<PurchaseOrderLineItem> = {}): PurchaseOrderLineItem {
   return {
     id: 'line-item-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', sku_id: null, raw_sku: '',
-    raw_description: 'Widget A', position: 0, quantity: 10, unit_cost_minor_units: 500,
+    raw_description: 'Widget A', position: 0, quantity: 10, units_per_purchased_item: 1, unit_cost_minor_units: 500,
     line_type: 'product', line_type_confirmed: true,
     created_at: '', updated_at: '',
     ...overrides,
@@ -440,7 +440,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(screen.getByTitle('Save'))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', {
-      sku_id: null, raw_description: 'Widget B', quantity: 5, unit_cost_minor_units: 1250, line_type: 'product',
+      sku_id: null, raw_description: 'Widget B', quantity: 5, units_per_purchased_item: 1, unit_cost_minor_units: 1250, line_type: 'product',
     }))
   })
 
@@ -478,7 +478,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(screen.getByTitle('Save'))
 
     await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', {
-      sku_id: null, raw_description: 'Shipping', quantity: 1, unit_cost_minor_units: 1500, line_type: 'shipping',
+      sku_id: null, raw_description: 'Shipping', quantity: 1, units_per_purchased_item: 1, unit_cost_minor_units: 1500, line_type: 'shipping',
     }))
   })
 
@@ -872,7 +872,44 @@ describe('Reviewing unmatched line items', () => {
     await userEvent.click(await screen.findByText('Widget Product'))
     await userEvent.click(await screen.findByText('WID-001'))
 
-    await waitFor(() => expect(procurementApi.linkLineItemToSku).toHaveBeenCalledWith('test-token', 'line-item-unmatched', { sku_id: 'sku-1' }))
+    await waitFor(() => expect(procurementApi.linkLineItemToSku).toHaveBeenCalledWith('test-token', 'line-item-unmatched', { sku_id: 'sku-1', units_per_purchased_item: 1 }))
+  })
+
+  // "case of a product" edge case: a supplier's box line (e.g.
+  // "Rapadurinha 36x25gr") links to the individual unit SKU with an
+  // explicit multiplier for how many stock units one purchased box holds.
+  it('links an unmatched item with a units-per-purchased-item multiplier for a case/box line', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ id: 'line-item-unmatched', sku_id: null, raw_sku: 'BAR019', raw_description: 'Rapadurinha 36x25gr' })],
+    }))
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product({ name: 'Rapadurinha de Minas 25g' })], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product({ name: 'Rapadurinha de Minas 25g' }),
+      variants: [{
+        id: 'variant-1', tenant_id: 'tenant-1', product_id: 'product-1', name: 'Default', position: 0,
+        created_at: '', updated_at: '',
+        skus: [{
+          id: 'sku-unit-1', tenant_id: 'tenant-1', variant_id: 'variant-1', sku_code: '7896289400005',
+          price_minor_units: 100, currency_code: 'USD', is_virtual: false, status: 'active',
+          created_at: '', updated_at: '',
+        }],
+      }],
+    } satisfies ProductDetail)
+    vi.mocked(procurementApi.linkLineItemToSku).mockResolvedValue(lineItem({ id: 'line-item-unmatched', sku_id: 'sku-unit-1', units_per_purchased_item: 36 }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await userEvent.click(await screen.findByText('Needs review'))
+    await userEvent.click(screen.getByRole('button', { name: /Link to existing product/ }))
+    await userEvent.clear(screen.getByLabelText('Units per purchased item'))
+    await userEvent.type(screen.getByLabelText('Units per purchased item'), '36')
+    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Rapadurinha')
+    await userEvent.click(await screen.findByText('Rapadurinha de Minas 25g'))
+    await userEvent.click(await screen.findByText('7896289400005'))
+
+    await waitFor(() => expect(procurementApi.linkLineItemToSku).toHaveBeenCalledWith('test-token', 'line-item-unmatched', {
+      sku_id: 'sku-unit-1', units_per_purchased_item: 36,
+    }))
   })
 
   it('creates a new product and links an unmatched item', async () => {
