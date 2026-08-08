@@ -477,6 +477,80 @@ func TestPurchaseOrderLineItemRepo_Integration_LineTypeRoundTrips(t *testing.T) 
 	require.True(t, found.LineTypeConfirmed)
 }
 
+// TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders is the "PO
+// total" feature's aggregate query: quantity*unit_cost_minor_units summed
+// per PO, one query for many POs at once -- including a discount row (a
+// negative unit cost, so it must subtract) and a PO with no line items at
+// all (must come back 0, not be missing from the caller's perspective, per
+// SumByPurchaseOrders' doc comment -- ListPurchaseOrdersUseCase defaults a
+// missing map entry to 0, so either representation works for it, but this
+// still pins the actual returned shape).
+func TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	supplierRepo := repositories.NewSupplierRepo(db)
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	var poWithItemsID, emptyPOID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := supplierRepo.Create(ctx, supplier); err != nil {
+			return err
+		}
+
+		poWithItems := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &poWithItems); err != nil {
+			return err
+		}
+		poWithItemsID = poWithItems.ID
+
+		emptyPO := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &emptyPO); err != nil {
+			return err
+		}
+		emptyPOID = emptyPO.ID
+
+		product := procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poWithItemsID, SKUID: &skuID,
+			RawDescription: "Widget", Quantity: 10, UnitCostMinorUnits: 500, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := lineItemRepo.Create(ctx, &product); err != nil {
+			return err
+		}
+		discount := procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poWithItemsID,
+			RawDescription: "Discount", Quantity: 1, UnitCostMinorUnits: -1000,
+			LineType: procurementDomain.LineItemTypeDiscount, CreatedAt: now, UpdatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &discount)
+	})
+	require.NoError(t, err)
+
+	var totals map[string]int64
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		totals, err = lineItemRepo.SumByPurchaseOrders(ctx, []string{poWithItemsID, emptyPOID})
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(4000), totals[poWithItemsID], "10*500 + 1*-1000")
+	_, hasEmpty := totals[emptyPOID]
+	assert.False(t, hasEmpty, "a PO with no line items has no row in the aggregate result")
+}
+
 func TestPurchaseOrderLineItemRepo_Integration_SKUAutoLinkedFromAliasRoundTrips(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

@@ -10,12 +10,17 @@ import (
 )
 
 type ListPurchaseOrdersUseCase struct {
-	db     *gorm.DB
-	poRepo procurementDomain.PurchaseOrderRepository
+	db           *gorm.DB
+	poRepo       procurementDomain.PurchaseOrderRepository
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
 }
 
-func NewListPurchaseOrdersUseCase(db *gorm.DB, poRepo procurementDomain.PurchaseOrderRepository) *ListPurchaseOrdersUseCase {
-	return &ListPurchaseOrdersUseCase{db: db, poRepo: poRepo}
+func NewListPurchaseOrdersUseCase(
+	db *gorm.DB,
+	poRepo procurementDomain.PurchaseOrderRepository,
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
+) *ListPurchaseOrdersUseCase {
+	return &ListPurchaseOrdersUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo}
 }
 
 func (uc *ListPurchaseOrdersUseCase) Execute(ctx context.Context) ([]procurementDomain.PurchaseOrder, error) {
@@ -23,7 +28,22 @@ func (uc *ListPurchaseOrdersUseCase) Execute(ctx context.Context) ([]procurement
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		purchaseOrders, err = uc.poRepo.List(ctx)
-		return err
+		if err != nil {
+			return err
+		}
+
+		ids := make([]string, len(purchaseOrders))
+		for i, po := range purchaseOrders {
+			ids[i] = po.ID
+		}
+		totals, err := uc.lineItemRepo.SumByPurchaseOrders(ctx, ids)
+		if err != nil {
+			return err
+		}
+		for i := range purchaseOrders {
+			purchaseOrders[i].TotalMinorUnits = totals[purchaseOrders[i].ID]
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listPurchaseOrders: %w", err)

@@ -168,6 +168,8 @@ type stubLineItemRepo struct {
 	updated      []procurementDomain.PurchaseOrderLineItem
 	deleteErr    error
 	deleted      []string
+	sumByPO      map[string]int64
+	sumErr       error
 }
 
 func (s *stubLineItemRepo) Create(_ context.Context, li *procurementDomain.PurchaseOrderLineItem) error {
@@ -206,6 +208,15 @@ func (s *stubLineItemRepo) Delete(_ context.Context, id string) error {
 	s.deleted = append(s.deleted, id)
 	return nil
 }
+func (s *stubLineItemRepo) SumByPurchaseOrders(_ context.Context, _ []string) (map[string]int64, error) {
+	if s.sumErr != nil {
+		return nil, s.sumErr
+	}
+	if s.sumByPO != nil {
+		return s.sumByPO, nil
+	}
+	return map[string]int64{}, nil
+}
 
 // stubSKURepo implements pms.SKURepository -- FindByCode is exercised by the
 // document-matching pipeline, FindByBarcode by the scanner booking flow,
@@ -214,6 +225,7 @@ type stubSKURepo struct {
 	byCode    map[string]*pmsDomain.SKU
 	byBarcode map[string]*pmsDomain.SKU
 	findByIDs map[string]*pmsDomain.SKU
+	byVariant map[string][]pmsDomain.SKU
 }
 
 func (s *stubSKURepo) Create(_ context.Context, _ *pmsDomain.SKU) error { return nil }
@@ -235,14 +247,79 @@ func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDoma
 	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
-func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
-	return nil, nil
+func (s *stubSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
+	return s.byVariant[variantID], nil
 }
 func (s *stubSKURepo) Update(_ context.Context, _ *pmsDomain.SKU) error { return nil }
 func (s *stubSKURepo) Delete(_ context.Context, _ string) error         { return nil }
 func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
 	return nil, nil
 }
+
+// stubProductRepo implements pms.ProductRepository -- only List (the
+// name-search matching step uses) and FindByID are exercised; the rest are
+// unused no-ops.
+type stubProductRepo struct {
+	listResult  []pmsDomain.Product
+	listErr     error
+	byID        map[string]*pmsDomain.Product
+	gotFilter   pmsDomain.ProductFilter
+	tokenResult []pmsDomain.Product
+	tokenErr    error
+	gotTokens   []string
+}
+
+func (s *stubProductRepo) Create(_ context.Context, _ *pmsDomain.Product) error { return nil }
+func (s *stubProductRepo) FindByID(_ context.Context, id string) (*pmsDomain.Product, error) {
+	if p, ok := s.byID[id]; ok {
+		return p, nil
+	}
+	return nil, pmsDomain.ErrProductNotFound
+}
+func (s *stubProductRepo) FindBySlug(_ context.Context, _ string) (*pmsDomain.Product, error) {
+	return nil, pmsDomain.ErrProductNotFound
+}
+func (s *stubProductRepo) List(_ context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
+	s.gotFilter = filter
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
+	return s.listResult, int64(len(s.listResult)), nil
+}
+func (s *stubProductRepo) Update(_ context.Context, _ *pmsDomain.Product) error { return nil }
+func (s *stubProductRepo) Delete(_ context.Context, _ string) error             { return nil }
+func (s *stubProductRepo) SearchByAnyNameToken(_ context.Context, tokens []string, _ int) ([]pmsDomain.Product, error) {
+	s.gotTokens = tokens
+	if s.tokenErr != nil {
+		return nil, s.tokenErr
+	}
+	return s.tokenResult, nil
+}
+
+// stubVariantRepo implements pms.VariantRepository -- only ListByProduct
+// (the name-search matching step uses) is exercised; the rest are unused
+// no-ops.
+type stubVariantRepo struct {
+	byProduct map[string][]pmsDomain.Variant
+	byID      map[string]*pmsDomain.Variant
+	listErr   error
+}
+
+func (s *stubVariantRepo) Create(_ context.Context, _ *pmsDomain.Variant) error { return nil }
+func (s *stubVariantRepo) FindByID(_ context.Context, id string) (*pmsDomain.Variant, error) {
+	if v, ok := s.byID[id]; ok {
+		return v, nil
+	}
+	return nil, pmsDomain.ErrVariantNotFound
+}
+func (s *stubVariantRepo) ListByProduct(_ context.Context, productID string) ([]pmsDomain.Variant, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.byProduct[productID], nil
+}
+func (s *stubVariantRepo) Update(_ context.Context, _ *pmsDomain.Variant) error { return nil }
+func (s *stubVariantRepo) Delete(_ context.Context, _ string) error             { return nil }
 
 type stubAliasRepo struct {
 	byKey      map[string]*procurementDomain.SupplierProductAlias

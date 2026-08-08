@@ -18,6 +18,15 @@ type ProductRepository interface {
 	List(ctx context.Context, filter ProductFilter) ([]Product, int64, error)
 	Update(ctx context.Context, p *Product) error
 	Delete(ctx context.Context, id string) error
+	// SearchByAnyNameToken returns every product whose (case/accent
+	// -insensitive) name contains at least one of tokens -- a deliberately
+	// wide candidate net. It exists for procurement's fuzzy name-matching
+	// step (see procurement.MatchExtractedLineItemsUseCase): real-world
+	// document text and a catalog's canonical product name rarely contain
+	// each other verbatim (word order, brand suffixes, pack-size text all
+	// differ), so an exact-phrase Search can't find the candidates at all.
+	// Real scoring/ranking of the results happens in Go, not SQL.
+	SearchByAnyNameToken(ctx context.Context, tokens []string, limit int) ([]Product, error)
 }
 
 type ProductFilter struct {

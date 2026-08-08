@@ -23,6 +23,9 @@ export interface PurchaseOrder {
   // supplier.
   is_potential_duplicate: boolean
   duplicate_of_purchase_order_id?: string | null
+  // Computed, never edited directly -- sum of quantity*unit_cost_minor_units
+  // across every line item (products and charge rows alike).
+  total_minor_units: number
   created_at: string
   updated_at: string
 }
@@ -42,6 +45,10 @@ export interface PurchaseOrderLineItem {
   // Ordinal place on the source document -- API list responses are always
   // sorted by this.
   position: number
+  // product_name/sku_code are display-only -- set only when sku_id is
+  // linked (by GetPurchaseOrder), null otherwise.
+  product_name?: string | null
+  sku_code?: string | null
   quantity: number
   unit_cost_minor_units: number
   line_type: LineItemType

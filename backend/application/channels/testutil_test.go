@@ -290,6 +290,9 @@ func (s *stubChannelsProductRepo) Delete(_ context.Context, id string) error {
 	s.deleted = append(s.deleted, id)
 	return nil
 }
+func (s *stubChannelsProductRepo) SearchByAnyNameToken(_ context.Context, _ []string, _ int) ([]pmsDomain.Product, error) {
+	return nil, nil
+}
 
 type stubChannelsVariantRepo struct {
 	created        []pmsDomain.Variant

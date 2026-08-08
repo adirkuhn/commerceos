@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -337,6 +338,36 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		products[i] = *toProductDomain(row)
 	}
 	return products, total, nil
+}
+
+func (r *ProductRepo) SearchByAnyNameToken(ctx context.Context, tokens []string, limit int) ([]pmsDomain.Product, error) {
+	if len(tokens) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+
+	conds := make([]string, len(tokens))
+	args := make([]any, len(tokens))
+	for i, t := range tokens {
+		conds[i] = "unaccent(name) ILIKE unaccent(?)"
+		args[i] = "%" + t + "%"
+	}
+	var rows []productModel
+	if err := tx.Model(&productModel{}).Where(strings.Join(conds, " OR "), args...).
+		Order("name asc").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("productRepo.SearchByAnyNameToken: %w", err)
+	}
+	products := make([]pmsDomain.Product, len(rows))
+	for i, row := range rows {
+		products[i] = *toProductDomain(row)
+	}
+	return products, nil
 }
 
 func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {

@@ -211,15 +211,16 @@ export default function Procurement() {
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Expected</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Currency</th>
+              <th className="px-3 py-2.5 text-right font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Total</th>
               <th className="px-3 py-2.5 w-16" />
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No purchase orders yet</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No purchase orders yet</td></tr>
             )}
             {filtered.map(po => (
               <tr
@@ -258,6 +259,9 @@ export default function Procurement() {
                 </td>
                 <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{po.expected_date ?? '—'}</td>
                 <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{po.currency_code}</td>
+                <td className="px-3 py-2.5 text-right dark:text-gray-200 text-gray-800 font-medium">
+                  {formatMoney(po.total_minor_units, po.currency_code)}
+                </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -984,7 +988,13 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                     {isCharge ? (
                       <span className="text-[10px]">—</span>
                     ) : li.sku_id ? (
-                      <span className="font-mono text-[10px]">{li.sku_id}</span>
+                      li.product_name ? (
+                        <span className="text-[10px]">
+                          {li.product_name} <span className="font-mono dark:text-gray-500 text-gray-400">— {li.sku_code}</span>
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[10px]">{li.sku_id}</span>
+                      )
                     ) : (
                       <button
                         type="button"
@@ -1043,6 +1053,19 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             />
           )}
         </tbody>
+        {lineItems.length > 0 && (
+          <tfoot>
+            <tr className="border-t dark:border-[#2D3748] border-gray-200 font-medium">
+              <td colSpan={5} className="px-4 py-2.5 text-right dark:text-gray-400 text-gray-500 uppercase tracking-wider text-[10px]">
+                Total
+              </td>
+              <td className="px-4 py-2.5 dark:text-gray-100 text-gray-900">
+                {formatMoney(lineItems.reduce((sum, li) => sum + li.unit_cost_minor_units * li.quantity, 0), currencyCode)}
+              </td>
+              <td className="px-4 py-2.5" />
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   )

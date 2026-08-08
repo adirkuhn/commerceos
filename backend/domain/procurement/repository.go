@@ -41,6 +41,12 @@ type PurchaseOrderLineItemRepository interface {
 	ListByPurchaseOrder(ctx context.Context, purchaseOrderID string) ([]PurchaseOrderLineItem, error)
 	Update(ctx context.Context, li *PurchaseOrderLineItem) error
 	Delete(ctx context.Context, id string) error
+	// SumByPurchaseOrders returns quantity*unit_cost_minor_units summed per
+	// PO, keyed by purchase_order_id -- used by ListPurchaseOrdersUseCase to
+	// attach PurchaseOrder.TotalMinorUnits to every row in one query instead
+	// of loading every PO's full line items. A PO with no rows in the
+	// result has zero line items (sum is 0, not present in the map).
+	SumByPurchaseOrders(ctx context.Context, purchaseOrderIDs []string) (map[string]int64, error)
 }
 
 type PurchaseOrderDocumentRepository interface {

@@ -520,7 +520,7 @@ components:
 
     PurchaseOrder:
       type: object
-      required: [id, tenant_id, status, currency_code, notes, is_potential_duplicate, created_at, updated_at]
+      required: [id, tenant_id, status, currency_code, notes, is_potential_duplicate, total_minor_units, created_at, updated_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -547,6 +547,12 @@ components:
         # for the per-document version of this check).
         is_potential_duplicate: { type: boolean }
         duplicate_of_purchase_order_id: { type: string, nullable: true }
+        # Computed, never persisted -- sum of quantity*unit_cost_minor_units
+        # across every line item (products and charge rows alike, so
+        # shipping/fees add and discounts subtract). Populated by
+        # ListPurchaseOrders and GetPurchaseOrder; 0 for a PO with no line
+        # items.
+        total_minor_units: { type: integer, format: int64 }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -571,6 +577,11 @@ components:
         # Ordinal place on the source document -- list responses are always
         # sorted by this (see PurchaseOrderLineItemRepo.ListByPurchaseOrder).
         position: { type: integer, format: int64 }
+        # product_name/sku_code are display-only -- populated only by
+        # GetPurchaseOrder (when sku_id is set), null everywhere else. Lets
+        # the UI show "Product Name — SKU code" instead of a bare sku_id.
+        product_name: { type: string, nullable: true }
+        sku_code: { type: string, nullable: true }
         quantity: { type: integer, format: int64 }
         unit_cost_minor_units: { type: integer, format: int64 }
         line_type: { $ref: '#/components/schemas/LineItemType' }

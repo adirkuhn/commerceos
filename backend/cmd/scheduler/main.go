@@ -137,7 +137,7 @@ func main() {
 	documentRepo := repositories.NewPurchaseOrderDocumentRepo(db)
 	parsingJobRepo := repositories.NewDocumentParsingJobRepo(db)
 	aliasRepo := repositories.NewSupplierProductAliasRepo(db)
-	matchUC := procurementapp.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	matchUC := procurementapp.NewMatchExtractedLineItemsUseCase(skuRepo, productRepo, variantRepo, aliasRepo)
 	pdfExtractor := pdf.NewGxPDFExtractor()
 	// aiParserResolver looks up each job's own tenant's AIConnection (see
 	// integrations.AIConnection) and builds the matching adapter -- resolves

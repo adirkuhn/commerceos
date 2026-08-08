@@ -52,6 +52,9 @@ func (s *stubMediaProductRepo) List(_ context.Context, _ pmsDomain.ProductFilter
 }
 func (s *stubMediaProductRepo) Update(_ context.Context, _ *pmsDomain.Product) error { return nil }
 func (s *stubMediaProductRepo) Delete(_ context.Context, _ string) error             { return nil }
+func (s *stubMediaProductRepo) SearchByAnyNameToken(_ context.Context, _ []string, _ int) ([]pmsDomain.Product, error) {
+	return nil, nil
+}
 
 type stubMediaVariantRepo struct {
 	variant *pmsDomain.Variant

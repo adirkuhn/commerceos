@@ -307,6 +307,33 @@ func (r *PurchaseOrderLineItemRepo) Update(ctx context.Context, li *procurementD
 	return nil
 }
 
+func (r *PurchaseOrderLineItemRepo) SumByPurchaseOrders(ctx context.Context, purchaseOrderIDs []string) (map[string]int64, error) {
+	totals := make(map[string]int64, len(purchaseOrderIDs))
+	if len(purchaseOrderIDs) == 0 {
+		return totals, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	type sumRow struct {
+		PurchaseOrderID string
+		Total           int64
+	}
+	var rows []sumRow
+	if err := tx.Model(&purchaseOrderLineItemModel{}).
+		Select("purchase_order_id, SUM(quantity * unit_cost_minor_units) AS total").
+		Where("purchase_order_id IN ?", purchaseOrderIDs).
+		Group("purchase_order_id").
+		Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("purchaseOrderLineItemRepo.SumByPurchaseOrders: %w", err)
+	}
+	for _, row := range rows {
+		totals[row.PurchaseOrderID] = row.Total
+	}
+	return totals, nil
+}
+
 func (r *PurchaseOrderLineItemRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

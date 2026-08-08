@@ -245,9 +245,9 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	linkLineItemToSKUUC := appprocurement.NewLinkLineItemToSKUUseCase(db, poRepo, lineItemRepo, aliasRepo)
 
 	h := NewHandler(
-		appprocurement.NewListPurchaseOrdersUseCase(db, poRepo),
+		appprocurement.NewListPurchaseOrdersUseCase(db, poRepo, lineItemRepo),
 		createPurchaseOrderUC,
-		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo, documentRepo),
+		appprocurement.NewGetPurchaseOrderUseCase(db, poRepo, lineItemRepo, documentRepo, skuRepo, variantRepo, productRepo),
 		appprocurement.NewUpdatePurchaseOrderUseCase(db, poRepo, lineItemRepo, aliasRepo),
 		appprocurement.NewDeletePurchaseOrderUseCase(db, poRepo, documentRepo),
 		appprocurement.NewAddPurchaseOrderLineItemUseCase(db, lineItemRepo),
@@ -716,7 +716,8 @@ func toGenPurchaseOrder(po procurementDomain.PurchaseOrder) genprocurement.Purch
 		ExpectedDate: timePtrToGenDate(po.ExpectedDate), Notes: po.Notes,
 		SuggestedSupplierName: &po.SuggestedSupplierName, SuggestedCurrencyCode: &po.SuggestedCurrencyCode,
 		IsPotentialDuplicate: po.IsPotentialDuplicate, DuplicateOfPurchaseOrderId: po.DuplicateOfPurchaseOrderID,
-		CreatedAt: po.CreatedAt, UpdatedAt: po.UpdatedAt,
+		TotalMinorUnits: po.TotalMinorUnits,
+		CreatedAt:       po.CreatedAt, UpdatedAt: po.UpdatedAt,
 	}
 }
 
@@ -730,7 +731,8 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 	}
 	return genprocurement.PurchaseOrderLineItem{
 		Id: li.ID, TenantId: li.TenantID, PurchaseOrderId: li.PurchaseOrderID, SkuId: li.SKUID, RawSku: li.RawSKU,
-		RawDescription: li.RawDescription, Position: li.Position, Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
+		RawDescription: li.RawDescription, Position: li.Position, ProductName: li.ProductName, SkuCode: li.SKUCode,
+		Quantity: li.Quantity, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		LineType: genprocurement.LineItemType(lineType), LineTypeConfirmed: li.LineTypeConfirmed,
 		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}

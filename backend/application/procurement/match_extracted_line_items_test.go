@@ -21,7 +21,7 @@ import (
 func TestMatchExtractedLineItems_emptySupplierIDSkipsAliasLookup(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "UNKNOWN", RawDescription: "Mystery Item", Quantity: 1, UnitCostMinorUnits: 0},
@@ -35,7 +35,7 @@ func TestMatchExtractedLineItems_emptySupplierIDSkipsAliasLookup(t *testing.T) {
 func TestMatchExtractedLineItems_exactSKUMatch(t *testing.T) {
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500},
@@ -53,7 +53,7 @@ func TestMatchExtractedLineItems_aliasMatchWhenNoExactSKU(t *testing.T) {
 	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
 		"supplier-1|acme widget a": {SKUID: "sku-2"},
 	}}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "", RawDescription: "Acme Widget A", Quantity: 5, UnitCostMinorUnits: 300},
@@ -71,7 +71,7 @@ func TestMatchExtractedLineItems_aliasKeyedByRawSKUWhenPresent(t *testing.T) {
 	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
 		"supplier-1|abc-123": {SKUID: "sku-3"},
 	}}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "ABC-123", RawDescription: "Something else entirely", Quantity: 1, UnitCostMinorUnits: 0},
@@ -85,7 +85,7 @@ func TestMatchExtractedLineItems_aliasKeyedByRawSKUWhenPresent(t *testing.T) {
 func TestMatchExtractedLineItems_unmatchedWhenNoSKUOrAlias(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "UNKNOWN", RawDescription: "Mystery Item", Quantity: 1, UnitCostMinorUnits: 0},
@@ -97,10 +97,117 @@ func TestMatchExtractedLineItems_unmatchedWhenNoSKUOrAlias(t *testing.T) {
 	assert.Nil(t, matched[0].SKUID)
 }
 
+// TestMatchExtractedLineItems_nameMatchHandlesRealWorldWordOrderMismatch is
+// the reported bug: doc text "Chá Limão, Gengibre e Mel BARÃO 10 saq." vs
+// catalog "Cha de Limão, Gengibre e Mel - Barão de Cotegipe" -- neither
+// contains the other as a substring (different word order, doc has a
+// pack-size suffix the catalog doesn't, catalog has a brand suffix the doc
+// doesn't), so a containment search finds nothing. Token-overlap scoring
+// must still resolve it against an unrelated decoy product.
+func TestMatchExtractedLineItems_nameMatchHandlesRealWorldWordOrderMismatch(t *testing.T) {
+	skuRepo := &stubSKURepo{byVariant: map[string][]pmsDomain.SKU{"variant-1": {{ID: "sku-tea-1"}}}}
+	productRepo := &stubProductRepo{tokenResult: []pmsDomain.Product{
+		{ID: "product-1", Name: "Cha de Limão, Gengibre e Mel - Barão de Cotegipe"},
+		{ID: "product-2", Name: "Cha de Camomila - Barão de Cotegipe- Validade 26/09/25"},
+	}}
+	variantRepo := &stubVariantRepo{byProduct: map[string][]pmsDomain.Variant{"product-1": {{ID: "variant-1", ProductID: "product-1"}}}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, productRepo, variantRepo, &stubAliasRepo{})
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawSKU: "BAR019", RawDescription: "Chá Limão, Gengibre e Mel BARÃO 10 saq.", Quantity: 1, UnitCostMinorUnits: 0},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, matched, 1)
+	assert.Equal(t, appprocurement.MatchSourceName, matched[0].MatchSource)
+	require.NotNil(t, matched[0].SKUID)
+	assert.Equal(t, "sku-tea-1", *matched[0].SKUID)
+}
+
+func TestMatchExtractedLineItems_nameMatchSkippedWhenNoCandidateClearlyWins(t *testing.T) {
+	skuRepo := &stubSKURepo{byVariant: map[string][]pmsDomain.SKU{"variant-1": {{ID: "sku-1"}}, "variant-2": {{ID: "sku-2"}}}}
+	// Two products near-identically named -- neither should win a coin-flip.
+	productRepo := &stubProductRepo{tokenResult: []pmsDomain.Product{
+		{ID: "product-1", Name: "Generic Widget Blue"},
+		{ID: "product-2", Name: "Generic Widget Red"},
+	}}
+	variantRepo := &stubVariantRepo{byProduct: map[string][]pmsDomain.Variant{
+		"product-1": {{ID: "variant-1"}}, "product-2": {{ID: "variant-2"}},
+	}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, productRepo, variantRepo, &stubAliasRepo{})
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawDescription: "Generic Widget", Quantity: 1, UnitCostMinorUnits: 0},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[0].MatchSource, "no clear winner between similarly-scoring products must not auto-link")
+	assert.Nil(t, matched[0].SKUID)
+}
+
+func TestMatchExtractedLineItems_nameMatchSkippedWhenBestCandidateScoresTooLow(t *testing.T) {
+	productRepo := &stubProductRepo{tokenResult: []pmsDomain.Product{
+		{ID: "product-1", Name: "Completely Unrelated Product Line"},
+	}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, productRepo, &stubVariantRepo{}, &stubAliasRepo{})
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawDescription: "Blue Widget", Quantity: 1, UnitCostMinorUnits: 0},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[0].MatchSource, "a low-overlap candidate must not auto-link just for being the only one returned")
+	assert.Nil(t, matched[0].SKUID)
+}
+
+func TestMatchExtractedLineItems_nameMatchSkippedWhenProductHasMultipleSKUs(t *testing.T) {
+	skuRepo := &stubSKURepo{byVariant: map[string][]pmsDomain.SKU{
+		"variant-small": {{ID: "sku-small"}}, "variant-large": {{ID: "sku-large"}},
+	}}
+	productRepo := &stubProductRepo{tokenResult: []pmsDomain.Product{{ID: "product-1", Name: "Cotton T-Shirt"}}}
+	variantRepo := &stubVariantRepo{byProduct: map[string][]pmsDomain.Variant{
+		"product-1": {{ID: "variant-small"}, {ID: "variant-large"}},
+	}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, productRepo, variantRepo, &stubAliasRepo{})
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawDescription: "Cotton T-Shirt", Quantity: 1, UnitCostMinorUnits: 0},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, appprocurement.MatchSourceUnmatched, matched[0].MatchSource, "a multi-variant product can't be safely narrowed to one SKU by name alone")
+	assert.Nil(t, matched[0].SKUID)
+}
+
+func TestMatchExtractedLineItems_nameMatchNotAttemptedWhenAliasAlreadyMatched(t *testing.T) {
+	productRepo := &stubProductRepo{tokenResult: []pmsDomain.Product{{ID: "product-1", Name: "Widget A"}}}
+	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{"supplier-1|widget a": {SKUID: "sku-2"}}}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, productRepo, &stubVariantRepo{}, aliasRepo)
+
+	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawDescription: "Widget A", Quantity: 1, UnitCostMinorUnits: 0},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, appprocurement.MatchSourceAlias, matched[0].MatchSource)
+	assert.Nil(t, productRepo.gotTokens, "name search must not even run once an earlier step already matched")
+}
+
+func TestMatchExtractedLineItems_propagatesProductRepoError(t *testing.T) {
+	productRepo := &stubProductRepo{tokenErr: errors.New("db down")}
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, productRepo, &stubVariantRepo{}, &stubAliasRepo{})
+
+	_, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
+		{RawDescription: "Widget A", Quantity: 1, UnitCostMinorUnits: 0},
+	})
+
+	require.Error(t, err)
+}
+
 func TestMatchExtractedLineItems_propagatesSKURepoError(t *testing.T) {
 	skuRepo := &erroringSKURepo{err: errors.New("db down")}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	_, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 1, UnitCostMinorUnits: 0},
@@ -114,7 +221,7 @@ func TestMatchExtractedLineItems_multipleItemsMixedOutcomes(t *testing.T) {
 	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
 		"supplier-1|widget b": {SKUID: "sku-2"},
 	}}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500},
@@ -132,7 +239,7 @@ func TestMatchExtractedLineItems_multipleItemsMixedOutcomes(t *testing.T) {
 func TestMatchExtractedLineItems_chargeRowsSkipMatchingEntirely(t *testing.T) {
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"SHIP": {ID: "sku-should-never-be-used", SKUCode: "SHIP"}}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "SHIP", RawDescription: "Shipping", Quantity: 1, UnitCostMinorUnits: 1500, LineType: procurementDomain.LineItemTypeShipping},
@@ -148,7 +255,7 @@ func TestMatchExtractedLineItems_chargeRowsSkipMatchingEntirely(t *testing.T) {
 func TestMatchExtractedLineItems_mixOfProductAndChargeRows(t *testing.T) {
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
 	aliasRepo := &stubAliasRepo{}
-	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	uc := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 
 	matched, err := uc.Execute(context.Background(), "supplier-1", []procurementDomain.ExtractedLineItem{
 		{RawSKU: "WID-001", RawDescription: "Widget A", Quantity: 10, UnitCostMinorUnits: 500, LineType: procurementDomain.LineItemTypeProduct},

@@ -20,7 +20,7 @@ func TestRunDocumentParsingJob_structuredDocument_createsLineItems(t *testing.T)
 	documentRepo := &stubDocumentRepo{findResult: doc}
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
 	aliasRepo := &stubAliasRepo{}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, aliasRepo)
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 	storage := &stubFileStorage{getData: []byte("SKU,Description,Quantity,Unit Cost\nWID-001,Widget A,10,5.00\nWID-002,Widget B,3,12.50\n")}
 	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, &stubPDFTextExtractor{}, nil)
 
@@ -49,7 +49,7 @@ func TestRunDocumentParsingJob_flagsAliasMatchedLineItemsAsAutoLinked(t *testing
 	aliasRepo := &stubAliasRepo{byKey: map[string]*procurementDomain.SupplierProductAlias{
 		"supplier-1|wid-002": {SupplierID: "supplier-1", RawKey: "wid-002", SKUID: "sku-learned-1"},
 	}}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, aliasRepo)
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, aliasRepo)
 	storage := &stubFileStorage{getData: []byte("SKU,Description,Quantity,Unit Cost\nWID-002,Widget B,3,12.50\n")}
 	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, &stubPDFTextExtractor{}, nil)
 
@@ -70,7 +70,7 @@ func TestRunDocumentParsingJob_doesNotFlagExactSKUMatchesAsAutoLinked(t *testing
 	lineItemRepo := &stubCountingLineItemRepo{}
 	documentRepo := &stubDocumentRepo{findResult: doc}
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubAliasRepo{})
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
 	storage := &stubFileStorage{getData: []byte("SKU,Description,Quantity,Unit Cost\nWID-001,Widget A,10,5.00\n")}
 	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, &stubPDFTextExtractor{}, nil)
 
@@ -89,7 +89,7 @@ func TestRunDocumentParsingJob_chargeRowNeverTriggersNeedsReview(t *testing.T) {
 	lineItemRepo := &stubCountingLineItemRepo{}
 	documentRepo := &stubDocumentRepo{findResult: doc}
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubAliasRepo{})
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
 	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
 	pdfExtractor := &stubPDFTextExtractor{text: "PO #123\nWidget A x10 @ $5.00\nShipping $15.00"}
 	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
@@ -115,7 +115,7 @@ func TestRunDocumentParsingJob_setsNeedsReviewWhenAnyLineItemUnmatched(t *testin
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	lineItemRepo := &stubCountingLineItemRepo{}
 	documentRepo := &stubDocumentRepo{findResult: doc}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{})
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
 	storage := &stubFileStorage{getData: []byte("SKU,Description,Quantity,Unit Cost\nUNKNOWN,Mystery,1,0\n")}
 	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, &stubPDFTextExtractor{}, nil)
 
@@ -135,7 +135,7 @@ func TestRunDocumentParsingJob_pdfDocument_usesAIWhenTextExtracted(t *testing.T)
 	lineItemRepo := &stubCountingLineItemRepo{}
 	documentRepo := &stubDocumentRepo{findResult: doc}
 	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"WID-001": {ID: "sku-1", SKUCode: "WID-001"}}}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubAliasRepo{})
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
 	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
 	pdfExtractor := &stubPDFTextExtractor{text: "PO #123\nWidget A x10 @ $5.00"}
 	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
@@ -162,7 +162,7 @@ func TestRunDocumentParsingJob_pdfWithNoExtractableText_failsWithoutCallingAI(t 
 	storage := &stubFileStorage{getData: []byte("%PDF-scanned-image")}
 	pdfExtractor := &stubPDFTextExtractor{text: "   "}
 	aiParser := &stubAIDocumentParser{}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -178,7 +178,7 @@ func TestRunDocumentParsingJob_pdfWithoutAIConfigured_failsClearly(t *testing.T)
 	documentRepo := &stubDocumentRepo{findResult: doc}
 	storage := &stubFileStorage{getData: []byte("%PDF-with-text")}
 	pdfExtractor := &stubPDFTextExtractor{text: "some real text"}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{})
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -192,7 +192,7 @@ func TestRunDocumentParsingJob_supplierlessPDF_writesSuggestedSupplierAndCurrenc
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	lineItemRepo := &stubCountingLineItemRepo{}
 	documentRepo := &stubDocumentRepo{findResult: doc}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{})
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
 	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
 	pdfExtractor := &stubPDFTextExtractor{text: "Confirmação de Encomenda\nMoeda EUR\nPEDAÇOS DO BRASIL, LDA."}
 	aiParser := &stubAIDocumentParser{
@@ -217,7 +217,7 @@ func TestRunDocumentParsingJob_doesNotWriteSuggestionsWhenSupplierAlreadySet(t *
 	poRepo := &stubPurchaseOrderRepo{findResult: po}
 	lineItemRepo := &stubCountingLineItemRepo{}
 	documentRepo := &stubDocumentRepo{findResult: doc}
-	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{})
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
 	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
 	pdfExtractor := &stubPDFTextExtractor{text: "Moeda EUR"}
 	aiParser := &stubAIDocumentParser{
@@ -248,7 +248,7 @@ func TestRunDocumentParsingJob_pdfWithEmptyAIResult_failsInsteadOfSilentlySuccee
 	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
 	pdfExtractor := &stubPDFTextExtractor{text: "Invoice from Acme Corp"}
 	aiParser := &stubAIDocumentParser{out: nil, supplierName: "Acme Corp"}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{}), storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
 
@@ -259,7 +259,7 @@ func TestRunDocumentParsingJob_pdfWithEmptyAIResult_failsInsteadOfSilentlySuccee
 func TestRunDocumentParsingJob_propagatesDocumentNotFound(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	documentRepo := &stubDocumentRepo{findErr: procurementDomain.ErrDocumentNotFound}
-	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubAliasRepo{}), &stubFileStorage{}, &stubPDFTextExtractor{}, nil)
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, documentRepo, appprocurement.NewMatchExtractedLineItemsUseCase(&stubSKURepo{}, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{}), &stubFileStorage{}, &stubPDFTextExtractor{}, nil)
 
 	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", DocumentID: "missing"})
 
@@ -288,3 +288,6 @@ func (s *stubCountingLineItemRepo) Update(_ context.Context, _ *procurementDomai
 	return nil
 }
 func (s *stubCountingLineItemRepo) Delete(_ context.Context, _ string) error { return nil }
+func (s *stubCountingLineItemRepo) SumByPurchaseOrders(_ context.Context, _ []string) (map[string]int64, error) {
+	return map[string]int64{}, nil
+}

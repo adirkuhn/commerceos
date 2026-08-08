@@ -2,8 +2,10 @@ package procurement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -25,6 +27,9 @@ type GetPurchaseOrderUseCase struct {
 	poRepo       procurementDomain.PurchaseOrderRepository
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
 	documentRepo procurementDomain.PurchaseOrderDocumentRepository
+	skuRepo      pmsDomain.SKURepository
+	variantRepo  pmsDomain.VariantRepository
+	productRepo  pmsDomain.ProductRepository
 }
 
 func NewGetPurchaseOrderUseCase(
@@ -32,8 +37,14 @@ func NewGetPurchaseOrderUseCase(
 	poRepo procurementDomain.PurchaseOrderRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	documentRepo procurementDomain.PurchaseOrderDocumentRepository,
+	skuRepo pmsDomain.SKURepository,
+	variantRepo pmsDomain.VariantRepository,
+	productRepo pmsDomain.ProductRepository,
 ) *GetPurchaseOrderUseCase {
-	return &GetPurchaseOrderUseCase{db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, documentRepo: documentRepo}
+	return &GetPurchaseOrderUseCase{
+		db: db, poRepo: poRepo, lineItemRepo: lineItemRepo, documentRepo: documentRepo,
+		skuRepo: skuRepo, variantRepo: variantRepo, productRepo: productRepo,
+	}
 }
 
 func (uc *GetPurchaseOrderUseCase) Execute(ctx context.Context, id string) (*PurchaseOrderDetail, error) {
@@ -49,7 +60,16 @@ func (uc *GetPurchaseOrderUseCase) Execute(ctx context.Context, id string) (*Pur
 		if err != nil {
 			return err
 		}
+		if err := uc.attachProductDisplayNames(ctx, lineItems); err != nil {
+			return err
+		}
 		detail.LineItems = lineItems
+
+		var total int64
+		for _, li := range lineItems {
+			total += li.Quantity * li.UnitCostMinorUnits
+		}
+		detail.PurchaseOrder.TotalMinorUnits = total
 
 		documents, err := uc.documentRepo.ListByPurchaseOrder(ctx, id)
 		if err != nil {
@@ -62,4 +82,42 @@ func (uc *GetPurchaseOrderUseCase) Execute(ctx context.Context, id string) (*Pur
 		return nil, fmt.Errorf("getPurchaseOrder: %w", err)
 	}
 	return &detail, nil
+}
+
+// attachProductDisplayNames fills in ProductName/SKUCode (display-only, see
+// PurchaseOrderLineItem's doc comment) for every linked item, in place. Not
+// found is tolerated (leaves the pair nil, item still renders by its raw
+// text) rather than failing the whole PO fetch -- a SKU a line item points
+// at existing at link time doesn't guarantee it still does by the time this
+// runs. Any other repository error still propagates.
+func (uc *GetPurchaseOrderUseCase) attachProductDisplayNames(ctx context.Context, items []procurementDomain.PurchaseOrderLineItem) error {
+	for i := range items {
+		if items[i].SKUID == nil {
+			continue
+		}
+		sku, err := uc.skuRepo.FindByID(ctx, *items[i].SKUID)
+		if err != nil {
+			if errors.Is(err, pmsDomain.ErrSKUNotFound) {
+				continue
+			}
+			return err
+		}
+		variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
+		if err != nil {
+			if errors.Is(err, pmsDomain.ErrVariantNotFound) {
+				continue
+			}
+			return err
+		}
+		product, err := uc.productRepo.FindByID(ctx, variant.ProductID)
+		if err != nil {
+			if errors.Is(err, pmsDomain.ErrProductNotFound) {
+				continue
+			}
+			return err
+		}
+		items[i].SKUCode = &sku.SKUCode
+		items[i].ProductName = &product.Name
+	}
+	return nil
 }

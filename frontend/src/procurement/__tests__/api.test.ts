@@ -29,6 +29,7 @@ const samplePO: PurchaseOrder = {
   supplier_id: 'supplier-1',
   warehouse_id: 'warehouse-1',
   is_potential_duplicate: false,
+  total_minor_units: 0,
   status: 'draft',
   currency_code: 'USD',
   expected_date: null,

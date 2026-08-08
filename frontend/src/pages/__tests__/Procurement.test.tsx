@@ -95,7 +95,7 @@ function po(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
     id: 'po-1', tenant_id: 'tenant-1', supplier_id: 'supplier-1', warehouse_id: 'warehouse-1',
     status: 'draft', currency_code: 'USD', expected_date: null, notes: '',
-    is_potential_duplicate: false,
+    is_potential_duplicate: false, total_minor_units: 0,
     created_at: '', updated_at: '',
     ...overrides,
   }
@@ -189,6 +189,14 @@ describe('Purchase orders list', () => {
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument()
     expect(screen.getByText('Main Warehouse')).toBeInTheDocument()
     expect(screen.getByText('draft', { selector: 'span' })).toBeInTheDocument()
+  })
+
+  it('shows each purchase order total on the main list', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po({ total_minor_units: 13000, currency_code: 'EUR' })])
+
+    render(<Procurement />)
+
+    expect(await screen.findByText('130.00 EUR')).toBeInTheDocument()
   })
 
   it('filters by status tab', async () => {
@@ -456,6 +464,22 @@ describe('Purchase order edit with line items', () => {
     }))
   })
 
+  it('shows a grand total row summing every line item, charges included', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [
+        lineItem({ id: 'line-item-1', quantity: 10, unit_cost_minor_units: 500 }), // 5000
+        lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, quantity: 1, unit_cost_minor_units: 1500, line_type: 'shipping', line_type_confirmed: true }), // 1500
+        lineItem({ id: 'line-item-3', raw_description: 'Discount', sku_id: null, quantity: 1, unit_cost_minor_units: -1000, line_type: 'discount', line_type_confirmed: true }), // -1000
+      ],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    expect(await screen.findByText('55.00 USD')).toBeInTheDocument()
+  })
+
   it('shows a charge row without a SKU picker or a needs-review flag', async () => {
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       line_items: [lineItem(), lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, line_type: 'shipping', line_type_confirmed: true })],
@@ -469,6 +493,30 @@ describe('Purchase order edit with line items', () => {
     expect(within(row).getAllByText('Shipping').length).toBe(2)
     expect(within(row).queryByText('Needs review')).not.toBeInTheDocument()
     expect(within(row).getByText('—')).toBeInTheDocument()
+  })
+
+  it('shows a linked line item as product name and SKU code, not the raw SKU id', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ sku_id: 'sku-1', product_name: 'Acme Widget', sku_code: 'WID-001' })],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    expect(await screen.findByText('Acme Widget')).toBeInTheDocument()
+    expect(screen.getByText('— WID-001')).toBeInTheDocument()
+    expect(screen.queryByText('sku-1')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the raw SKU id when a linked item has no resolved product name', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ sku_id: 'sku-orphaned', product_name: null, sku_code: null })],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    expect(await screen.findByText('sku-orphaned')).toBeInTheDocument()
   })
 
   it('shows a Confirm action for an unconfirmed AI-classified charge row, and saves on click', async () => {

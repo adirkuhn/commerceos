@@ -51,6 +51,13 @@ type PurchaseOrder struct {
 	// before either has one assigned.
 	IsPotentialDuplicate       bool
 	DuplicateOfPurchaseOrderID *string
+	// TotalMinorUnits is display-only, never persisted on this table -- the
+	// sum of quantity*unit_cost_minor_units across every line item
+	// (products and charge rows alike, so shipping/fees add and discounts
+	// subtract, same as the per-line "Total" column already shown in the
+	// review UI). ListPurchaseOrdersUseCase and GetPurchaseOrderUseCase
+	// compute and attach it; PurchaseOrderRepo.Create/Update never write it.
+	TotalMinorUnits            int64
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -64,6 +71,14 @@ type PurchaseOrderLineItem struct {
 	// document-parsing pipeline when it can't confidently match (see
 	// PurchaseOrderStatusNeedsReview).
 	SKUID *string
+	// ProductName/SKUCode are display-only -- never persisted on this table,
+	// never set by the repository. GetPurchaseOrderUseCase fills them in
+	// (via pms's ProductRepository/VariantRepository/SKURepository) after
+	// loading a PO's line items, purely so the review table can show a
+	// linked item as "Product Name — SKU code" instead of a bare SKU UUID.
+	// Nil whenever SKUID is nil, or the use case didn't populate them.
+	ProductName *string
+	SKUCode     *string
 	// RawSKU is the SKU/barcode text as printed on the source document, if
 	// any -- kept separate from RawDescription so a manual link made in the
 	// review UI can write an accurate SupplierProductAlias.RawKey (see
@@ -76,8 +91,8 @@ type PurchaseOrderLineItem struct {
 	// with the same CreatedAt, so relying on that for order broke as soon as
 	// a later UPDATE (e.g. LinkLineItemToSKUUseCase) relocated a row's
 	// physical storage and Postgres's tie-break order shifted underneath it.
-	Position       int64
-	Quantity       int64
+	Position int64
+	Quantity int64
 	// UnitCostMinorUnits is the smallest-currency-unit cost per unit, same
 	// convention as pms.SKU.PriceMinorUnits.
 	UnitCostMinorUnits int64

@@ -36,6 +36,9 @@ func (s *stubProductRepo) List(_ context.Context, filter pmsDomain.ProductFilter
 }
 func (s *stubProductRepo) Update(_ context.Context, _ *pmsDomain.Product) error { return nil }
 func (s *stubProductRepo) Delete(_ context.Context, _ string) error             { return nil }
+func (s *stubProductRepo) SearchByAnyNameToken(_ context.Context, _ []string, _ int) ([]pmsDomain.Product, error) {
+	return nil, nil
+}
 
 type stubVariantRepo struct {
 	existing     []pmsDomain.Variant
