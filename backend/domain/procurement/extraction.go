@@ -25,6 +25,18 @@ func (t LineItemType) IsProduct() bool {
 	return t == "" || t == LineItemTypeProduct
 }
 
+// IsReduction reports whether this type's amount should subtract from the
+// PO total rather than add to it. UnitCostMinorUnits is always entered as a
+// non-negative amount (see AddLineItemRequest/UpdateLineItemRequest's
+// openapi minimum:0) -- a human types "10.00" for a $10 discount, not
+// "-10.00" -- so total calculations (GetPurchaseOrderUseCase,
+// PurchaseOrderLineItemRepo.SumByPurchaseOrders, and the frontend's
+// equivalents) must flip the sign for these types themselves rather than
+// rely on the stored value ever being negative.
+func (t LineItemType) IsReduction() bool {
+	return t == LineItemTypeDiscount || t == LineItemTypeCreditNote
+}
+
 // ExtractedLineItem is one row parsed out of a supplier document, before
 // matching against the product catalog (Phase 3) or diffing against a PO's
 // line items (Phase 4 receiving). Produced by either the deterministic

@@ -431,7 +431,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
-    await userEvent.click(screen.getByRole('button', { name: /Add Line Item/ }))
+    await userEvent.click(screen.getAllByRole('button', { name: /Add Line Item/ })[0])
     await userEvent.type(screen.getByLabelText('Line item description'), 'Widget B')
     await userEvent.clear(screen.getByLabelText('Quantity'))
     await userEvent.type(screen.getByLabelText('Quantity'), '5')
@@ -444,6 +444,24 @@ describe('Purchase order edit with line items', () => {
     }))
   })
 
+  it('adds a line item from the button at the end of the list, not just the toolbar one', async () => {
+    vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', raw_description: 'Widget B', quantity: 5 }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('Widget A')
+
+    const addButtons = screen.getAllByRole('button', { name: /Add Line Item/ })
+    expect(addButtons).toHaveLength(2)
+    await userEvent.click(addButtons[1])
+    await userEvent.type(screen.getByLabelText('Line item description'), 'Widget B')
+    await userEvent.click(screen.getByTitle('Save'))
+
+    await waitFor(() => expect(procurementApi.addLineItem).toHaveBeenCalledWith('test-token', 'po-1', expect.objectContaining({
+      raw_description: 'Widget B',
+    })))
+  })
+
   it('adds a shipping charge with no SKU picker, since it is not a product', async () => {
     vi.mocked(procurementApi.addLineItem).mockResolvedValue(lineItem({ id: 'line-item-2', raw_description: 'Shipping', quantity: 1, line_type: 'shipping' }))
 
@@ -451,7 +469,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
-    await userEvent.click(screen.getByRole('button', { name: /Add Line Item/ }))
+    await userEvent.click(screen.getAllByRole('button', { name: /Add Line Item/ })[0])
     await userEvent.type(screen.getByLabelText('Line item description'), 'Shipping')
     await userEvent.selectOptions(screen.getByLabelText('Line item type'), 'shipping')
     expect(screen.queryByRole('button', { name: /Link product/ })).not.toBeInTheDocument()
@@ -464,12 +482,15 @@ describe('Purchase order edit with line items', () => {
     }))
   })
 
-  it('shows a grand total row summing every line item, charges included', async () => {
+  it('shows a grand total row summing every line item, discounts subtracting', async () => {
+    // unit_cost_minor_units is always stored non-negative -- a $10.00
+    // discount is entered as 1000, not -1000, and the total calc itself
+    // must flip the sign for line_type 'discount'/'credit_note'.
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
       line_items: [
         lineItem({ id: 'line-item-1', quantity: 10, unit_cost_minor_units: 500 }), // 5000
-        lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, quantity: 1, unit_cost_minor_units: 1500, line_type: 'shipping', line_type_confirmed: true }), // 1500
-        lineItem({ id: 'line-item-3', raw_description: 'Discount', sku_id: null, quantity: 1, unit_cost_minor_units: -1000, line_type: 'discount', line_type_confirmed: true }), // -1000
+        lineItem({ id: 'line-item-2', raw_description: 'Shipping', sku_id: null, quantity: 1, unit_cost_minor_units: 1500, line_type: 'shipping', line_type_confirmed: true }), // +1500
+        lineItem({ id: 'line-item-3', raw_description: 'Discount', sku_id: null, quantity: 1, unit_cost_minor_units: 1000, line_type: 'discount', line_type_confirmed: true }), // -1000
       ],
     }))
 
@@ -478,6 +499,7 @@ describe('Purchase order edit with line items', () => {
     await screen.findByText('Widget A')
 
     expect(await screen.findByText('55.00 USD')).toBeInTheDocument()
+    expect(await screen.findByText('-10.00 USD')).toBeInTheDocument()
   })
 
   it('shows a charge row without a SKU picker or a needs-review flag', async () => {
@@ -568,7 +590,7 @@ describe('Purchase order edit with line items', () => {
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Widget A')
 
-    await userEvent.click(screen.getByRole('button', { name: /Add Line Item/ }))
+    await userEvent.click(screen.getAllByRole('button', { name: /Add Line Item/ })[0])
     await userEvent.click(screen.getByRole('button', { name: /Link product/ }))
     await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
     await userEvent.click(await screen.findByText('Widget Product'))

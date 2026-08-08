@@ -480,11 +480,13 @@ func TestPurchaseOrderLineItemRepo_Integration_LineTypeRoundTrips(t *testing.T) 
 // TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders is the "PO
 // total" feature's aggregate query: quantity*unit_cost_minor_units summed
 // per PO, one query for many POs at once -- including a discount row (a
-// negative unit cost, so it must subtract) and a PO with no line items at
-// all (must come back 0, not be missing from the caller's perspective, per
-// SumByPurchaseOrders' doc comment -- ListPurchaseOrdersUseCase defaults a
-// missing map entry to 0, so either representation works for it, but this
-// still pins the actual returned shape).
+// non-negative unit cost, per AddLineItemRequest's openapi minimum:0 --
+// SumByPurchaseOrders itself must flip the sign for line_type=discount, see
+// its doc comment) and a PO with no line items at all (must come back 0,
+// not be missing from the caller's perspective, per SumByPurchaseOrders'
+// doc comment -- ListPurchaseOrdersUseCase defaults a missing map entry to
+// 0, so either representation works for it, but this still pins the actual
+// returned shape).
 func TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
@@ -532,7 +534,7 @@ func TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders(t *testing.T)
 		}
 		discount := procurementDomain.PurchaseOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poWithItemsID,
-			RawDescription: "Discount", Quantity: 1, UnitCostMinorUnits: -1000,
+			RawDescription: "Discount", Quantity: 1, UnitCostMinorUnits: 1000,
 			LineType: procurementDomain.LineItemTypeDiscount, CreatedAt: now, UpdatedAt: now,
 		}
 		return lineItemRepo.Create(ctx, &discount)
@@ -546,7 +548,7 @@ func TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders(t *testing.T)
 		return err
 	})
 	require.NoError(t, err)
-	require.Equal(t, int64(4000), totals[poWithItemsID], "10*500 + 1*-1000")
+	require.Equal(t, int64(4000), totals[poWithItemsID], "10*500 - 1*1000 (discount subtracts even though its own unit cost is stored positive)")
 	_, hasEmpty := totals[emptyPOID]
 	assert.False(t, hasEmpty, "a PO with no line items has no row in the aggregate result")
 }

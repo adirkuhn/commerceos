@@ -77,23 +77,38 @@ func TestGetPurchaseOrder_unlinkedLineItemHasNilProductDisplayFields(t *testing.
 }
 
 // TestGetPurchaseOrder_computesTotalFromLineItems is the "PO total on the
-// edit screen" feature: quantity*unit_cost summed across every line item
-// (products and charge rows alike, so shipping adds and a discount's
-// negative unit cost subtracts), reusing the line items already loaded for
-// the detail response instead of a second query.
+// edit screen" feature: quantity*unit_cost summed across every line item.
+// unit_cost_minor_units is always stored non-negative (openapi
+// minimum:0) -- a discount/credit_note row's own value is a positive
+// amount, and the total calc itself must flip the sign for those types
+// (see LineItemType.IsReduction), not rely on a negative stored value.
 func TestGetPurchaseOrder_computesTotalFromLineItems(t *testing.T) {
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
-		{ID: "li-1", Quantity: 10, UnitCostMinorUnits: 500},       // 5000
-		{ID: "li-2", Quantity: 1, UnitCostMinorUnits: 1500},       // 1500 shipping
-		{ID: "li-3", Quantity: 1, UnitCostMinorUnits: -1000},      // -1000 discount
+		{ID: "li-1", Quantity: 10, UnitCostMinorUnits: 500},                                                   // product, 5000
+		{ID: "li-2", Quantity: 1, UnitCostMinorUnits: 1500, LineType: procurementDomain.LineItemTypeShipping}, // adds 1500
+		{ID: "li-3", Quantity: 1, UnitCostMinorUnits: 1000, LineType: procurementDomain.LineItemTypeDiscount}, // subtracts 1000
 	}}
 	uc := appprocurement.NewGetPurchaseOrderUseCase(newMockGormDB(t), poRepo, lineItemRepo, &stubDocumentRepo{}, &stubSKURepo{}, &stubVariantRepo{}, &stubProductRepo{})
 
 	detail, err := uc.Execute(context.Background(), "po-1")
 
 	require.NoError(t, err)
-	require.Equal(t, int64(5500), detail.PurchaseOrder.TotalMinorUnits)
+	require.Equal(t, int64(5500), detail.PurchaseOrder.TotalMinorUnits, "5000 + 1500 - 1000")
+}
+
+func TestGetPurchaseOrder_creditNoteAlsoSubtractsFromTotal(t *testing.T) {
+	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1"}}
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "li-1", Quantity: 10, UnitCostMinorUnits: 500},
+		{ID: "li-2", Quantity: 1, UnitCostMinorUnits: 750, LineType: procurementDomain.LineItemTypeCreditNote},
+	}}
+	uc := appprocurement.NewGetPurchaseOrderUseCase(newMockGormDB(t), poRepo, lineItemRepo, &stubDocumentRepo{}, &stubSKURepo{}, &stubVariantRepo{}, &stubProductRepo{})
+
+	detail, err := uc.Execute(context.Background(), "po-1")
+
+	require.NoError(t, err)
+	require.Equal(t, int64(4250), detail.PurchaseOrder.TotalMinorUnits, "5000 - 750")
 }
 
 func TestGetPurchaseOrder_propagatesNotFound(t *testing.T) {

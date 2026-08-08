@@ -320,9 +320,16 @@ func (r *PurchaseOrderLineItemRepo) SumByPurchaseOrders(ctx context.Context, pur
 		PurchaseOrderID string
 		Total           int64
 	}
+	// unit_cost_minor_units is always stored non-negative (see
+	// AddLineItemRequest/UpdateLineItemRequest's openapi minimum:0) -- a
+	// discount/credit_note row's amount subtracts from the total, so it must
+	// be negated here rather than relying on a negative stored value (see
+	// procurementDomain.LineItemType.IsReduction, and
+	// GetPurchaseOrderUseCase's Go-side equivalent for the single-PO path).
 	var rows []sumRow
 	if err := tx.Model(&purchaseOrderLineItemModel{}).
-		Select("purchase_order_id, SUM(quantity * unit_cost_minor_units) AS total").
+		Select("purchase_order_id, SUM(CASE WHEN line_type IN (?, ?) THEN -(quantity * unit_cost_minor_units) ELSE quantity * unit_cost_minor_units END) AS total",
+			string(procurementDomain.LineItemTypeDiscount), string(procurementDomain.LineItemTypeCreditNote)).
 		Where("purchase_order_id IN ?", purchaseOrderIDs).
 		Group("purchase_order_id").
 		Scan(&rows).Error; err != nil {

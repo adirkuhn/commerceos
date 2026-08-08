@@ -61,6 +61,20 @@ function isChargeLineType(type: LineItemType): boolean {
   return type !== '' && type !== 'product'
 }
 
+// isReductionLineType mirrors backend LineItemType.IsReduction --
+// unit_cost_minor_units is always entered as a non-negative amount (the
+// "Unit cost" field has min="0"), so a discount/credit_note row's amount
+// must be subtracted from the total here rather than relying on the stored
+// value ever being negative.
+function isReductionLineType(type: LineItemType): boolean {
+  return type === 'discount' || type === 'credit_note'
+}
+
+function signedLineItemAmount(li: Pick<PurchaseOrderLineItem, 'line_type' | 'quantity' | 'unit_cost_minor_units'>): number {
+  const amount = li.unit_cost_minor_units * li.quantity
+  return isReductionLineType(li.line_type) ? -amount : amount
+}
+
 // Backend's exact wording for procurementDomain.ErrAIParsingNotConfigured
 // (application/procurement/extract_line_items_from_document.go) -- swapped
 // for a friendlier message pointing at the manual-entry fallback that's
@@ -1008,7 +1022,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{li.quantity}</td>
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{formatMoney(li.unit_cost_minor_units, currencyCode)}</td>
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800 font-medium">
-                    {formatMoney(li.unit_cost_minor_units * li.quantity, currencyCode)}
+                    {formatMoney(signedLineItemAmount(li), currencyCode)}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-1">
@@ -1052,6 +1066,19 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
               onCancel={() => setAdding(false)}
             />
           )}
+          {!adding && (
+            <tr>
+              <td colSpan={7} className="px-4 py-2">
+                <button
+                  type="button"
+                  onClick={() => setAdding(true)}
+                  className="flex items-center gap-1 text-[10px] font-medium text-blue-400 hover:underline"
+                >
+                  <Plus size={11} /> Add Line Item
+                </button>
+              </td>
+            </tr>
+          )}
         </tbody>
         {lineItems.length > 0 && (
           <tfoot>
@@ -1060,7 +1087,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                 Total
               </td>
               <td className="px-4 py-2.5 dark:text-gray-100 text-gray-900">
-                {formatMoney(lineItems.reduce((sum, li) => sum + li.unit_cost_minor_units * li.quantity, 0), currencyCode)}
+                {formatMoney(lineItems.reduce((sum, li) => sum + signedLineItemAmount(li), 0), currencyCode)}
               </td>
               <td className="px-4 py-2.5" />
             </tr>
@@ -1124,7 +1151,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
         <td className="px-4 py-2">
           <select
             aria-label="Line item type" value={lineType} onChange={e => setLineType(e.target.value as LineItemType)}
-            className={cellInput}
+            className={clsx(cellInput, 'text-sm py-1.5 min-w-[110px]')}
           >
             {(Object.keys(LINE_TYPE_LABELS) as Exclude<LineItemType, ''>[]).map(t => (
               <option key={t} value={t}>{LINE_TYPE_LABELS[t]}</option>
@@ -1164,7 +1191,10 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
           />
         </td>
         <td className="px-4 py-2 dark:text-gray-400 text-gray-500">
-          {(parseFloat(unitCost || '0') * parseInt(quantity || '0', 10)).toFixed(2)}
+          {(signedLineItemAmount({
+            line_type: lineType, quantity: parseInt(quantity || '0', 10),
+            unit_cost_minor_units: Math.round(parseFloat(unitCost || '0') * 100),
+          }) / 100).toFixed(2)}
         </td>
         <td className="px-4 py-2">
           <div className="flex items-center gap-1">

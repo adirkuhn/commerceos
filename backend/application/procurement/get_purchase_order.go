@@ -67,7 +67,7 @@ func (uc *GetPurchaseOrderUseCase) Execute(ctx context.Context, id string) (*Pur
 
 		var total int64
 		for _, li := range lineItems {
-			total += li.Quantity * li.UnitCostMinorUnits
+			total += lineItemSignedAmount(li)
 		}
 		detail.PurchaseOrder.TotalMinorUnits = total
 
@@ -82,6 +82,18 @@ func (uc *GetPurchaseOrderUseCase) Execute(ctx context.Context, id string) (*Pur
 		return nil, fmt.Errorf("getPurchaseOrder: %w", err)
 	}
 	return &detail, nil
+}
+
+// lineItemSignedAmount is quantity*unit_cost_minor_units, negated for
+// discount/credit_note rows (see LineItemType.IsReduction) -- the PO-total
+// building block shared by GetPurchaseOrderUseCase and (in SQL form)
+// PurchaseOrderLineItemRepo.SumByPurchaseOrders.
+func lineItemSignedAmount(li procurementDomain.PurchaseOrderLineItem) int64 {
+	amount := li.Quantity * li.UnitCostMinorUnits
+	if li.LineType.IsReduction() {
+		return -amount
+	}
+	return amount
 }
 
 // attachProductDisplayNames fills in ProductName/SKUCode (display-only, see
