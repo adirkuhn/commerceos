@@ -64,6 +64,9 @@ type transferStockUC interface {
 type splitCaseIntoUnitsUC interface {
 	Execute(ctx context.Context, in appinventory.SplitCaseIntoUnitsInput) (*appinventory.SplitCaseIntoUnitsResult, error)
 }
+type portionFromBulkUC interface {
+	Execute(ctx context.Context, in appinventory.PortionFromBulkInput) (*appinventory.PortionFromBulkResult, error)
+}
 type markDamagedOrLostUC interface {
 	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
 }
@@ -90,6 +93,7 @@ type Handler struct {
 	recordRecount       recordRecountUC
 	transferStock       transferStockUC
 	splitCaseIntoUnits  splitCaseIntoUnitsUC
+	portionFromBulk     portionFromBulkUC
 	markDamagedOrLost   markDamagedOrLostUC
 	listExpiringBatches listExpiringBatchesUC
 	listStockMovements  listStockMovementsUC
@@ -111,6 +115,7 @@ func NewHandler(
 	recordRecount recordRecountUC,
 	transferStock transferStockUC,
 	splitCaseIntoUnits splitCaseIntoUnitsUC,
+	portionFromBulk portionFromBulkUC,
 	markDamagedOrLost markDamagedOrLostUC,
 	listExpiringBatches listExpiringBatchesUC,
 	listStockMovements listStockMovementsUC,
@@ -130,6 +135,7 @@ func NewHandler(
 		recordRecount:       recordRecount,
 		transferStock:       transferStock,
 		splitCaseIntoUnits:  splitCaseIntoUnits,
+		portionFromBulk:     portionFromBulk,
 		markDamagedOrLost:   markDamagedOrLost,
 		listExpiringBatches: listExpiringBatches,
 		listStockMovements:  listStockMovements,
@@ -161,6 +167,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, movementRepo, outboxRepo),
+		appinventory.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
 		appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
 		appinventory.NewListStockMovementsUseCase(db, movementRepo),
@@ -419,6 +426,25 @@ func (h *Handler) SplitCaseIntoUnits(c *gin.Context, skuId geninventory.SkuId) {
 	c.JSON(http.StatusCreated, geninventory.SplitCaseIntoUnitsResultResponse{Data: &resp})
 }
 
+func (h *Handler) PortionFromBulk(c *gin.Context, skuId geninventory.SkuId) {
+	var req geninventory.PortionFromBulkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.portionFromBulk.Execute(c.Request.Context(), appinventory.PortionFromBulkInput{
+		TargetSKUID: skuId, WarehouseID: req.WarehouseId, BatchID: req.BatchId, WeightGrams: req.WeightGrams,
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := geninventory.PortionFromBulkResult{
+		BulkOut: toGenStockMovement(result.BulkOutMovement), UnitIn: toGenStockMovement(result.UnitInMovement),
+	}
+	c.JSON(http.StatusCreated, geninventory.PortionFromBulkResultResponse{Data: &resp})
+}
+
 func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
 	var req geninventory.MarkDamagedOrLostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -544,7 +570,8 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, invDomain.ErrWarehouseNotFound), errors.Is(err, invDomain.ErrBatchNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType),
-		errors.Is(err, invDomain.ErrInsufficientStock), errors.Is(err, invDomain.ErrSKUIsNotACase):
+		errors.Is(err, invDomain.ErrInsufficientStock), errors.Is(err, invDomain.ErrSKUIsNotACase),
+		errors.Is(err, invDomain.ErrSKUIsNotPortioned):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, pmsDomain.ErrSKUNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())

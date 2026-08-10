@@ -58,13 +58,14 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
-	listing, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
 		ProductID: product.ID, ConnectionID: "conn-1",
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, "555", listing.ExternalID)
-	require.Equal(t, channelsDomain.SyncStatusSynced, listing.SyncStatus)
+	require.Len(t, listings, 1)
+	require.Equal(t, "555", listings[0].ExternalID)
+	require.Equal(t, channelsDomain.SyncStatusSynced, listings[0].SyncStatus)
 	require.Len(t, h.wooClient.createCalled, 1)
 	pushed := h.wooClient.createCalled[0]
 	require.Equal(t, "T-Shirt", pushed.Name)
@@ -106,7 +107,7 @@ func TestPushProductToWoo_returnsExistingListingWithoutRepushing(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	h := newPushHarness(product, variant, sku)
 	existing := channelsDomain.ProductChannelListing{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "999"}
-	h.listingRepo.byProduct[product.ID] = existing
+	h.listingRepo.listByProduct = map[string][]channelsDomain.ProductChannelListing{product.ID: {existing}}
 	stockLevel := &stubStockLevelGetter{}
 
 	uc := appchannels.NewPushProductToWooUseCase(
@@ -114,19 +115,25 @@ func TestPushProductToWoo_returnsExistingListingWithoutRepushing(t *testing.T) {
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
 	)
 
-	listing, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
 		ProductID: product.ID, ConnectionID: "conn-1",
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, "999", listing.ExternalID)
+	require.Len(t, listings, 1)
+	require.Equal(t, "999", listings[0].ExternalID)
 	require.Empty(t, h.wooClient.createCalled)
 }
 
-func TestPushProductToWoo_rejectsProductWithVariants(t *testing.T) {
+// TestPushProductToWoo_rejectsVariantWithoutExactlyOneSKU proves the
+// remaining guard once HasVariants=true products are allowed to push at
+// all: every Variant still needs exactly one sellable SKU, since there's
+// no single price/stock source of truth otherwise.
+func TestPushProductToWoo_rejectsVariantWithoutExactlyOneSKU(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	product.HasVariants = true
 	h := newPushHarness(product, variant, sku)
+	h.skuRepo.byVariant[variant.ID] = nil // no SKU for this variant
 	stockLevel := &stubStockLevelGetter{}
 
 	uc := appchannels.NewPushProductToWooUseCase(
@@ -210,7 +217,9 @@ func TestPushProductToWoo_writesASyncLogEntryForTheNewListing(t *testing.T) {
 func TestPushProductToWoo_doesNotLogWhenAlreadyLinked(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	h := newPushHarness(product, variant, sku)
-	h.listingRepo.byProduct[product.ID] = channelsDomain.ProductChannelListing{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "999"}
+	h.listingRepo.listByProduct = map[string][]channelsDomain.ProductChannelListing{
+		product.ID: {{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "999"}},
+	}
 	stockLevel := &stubStockLevelGetter{}
 
 	uc := appchannels.NewPushProductToWooUseCase(
@@ -222,4 +231,107 @@ func TestPushProductToWoo_doesNotLogWhenAlreadyLinked(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Empty(t, h.syncLogRepo.created, "no push happened, so nothing to log")
+}
+
+// TestPushProductToWoo_pushesEachVariantAsASeparateSimpleProduct is the
+// "commerceos 1 product -> N variants -> woo N products" shape --
+// SyncVariantsAsWooVariations is off, so every Variant becomes its own
+// standalone simple Woo product.
+func TestPushProductToWoo_pushesEachVariantAsASeparateSimpleProduct(t *testing.T) {
+	product, variants, skus := twoVariantProduct(false)
+	h := newMultiVariantSyncHarness(product, variants, skus, nil)
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, listings, 2)
+	require.Len(t, h.wooClient.createCalled, 2)
+	require.Empty(t, h.wooClient.createVariableCalled, "no variable product in separate-products mode")
+	names := []string{h.wooClient.createCalled[0].Name, h.wooClient.createCalled[1].Name}
+	require.ElementsMatch(t, []string{"Carne Seca - 378g", "Carne Seca - 412g"}, names)
+	for _, l := range listings {
+		require.NotNil(t, l.VariantID)
+		require.False(t, l.IsVariation)
+	}
+}
+
+// TestPushProductToWoo_pushesVariantsAsOneVariableProductWithVariations is
+// the "commerceos 1 product -> N variants -> woo 1 product -> N variants"
+// shape -- SyncVariantsAsWooVariations is on, so one Woo variable product
+// is created with one variation per Variant.
+func TestPushProductToWoo_pushesVariantsAsOneVariableProductWithVariations(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	h := newMultiVariantSyncHarness(product, variants, skus, nil)
+	h.wooClient.createVariableWithID = "900"
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, listings, 3) // parent + 2 variations
+	require.Len(t, h.wooClient.createVariableCalled, 1)
+	call := h.wooClient.createVariableCalled[0]
+	require.Equal(t, "Carne Seca", call.Product.Name)
+	require.Equal(t, "Variant", call.AttributeName)
+	require.ElementsMatch(t, []string{"378g", "412g"}, call.AttributeValues)
+	require.Len(t, h.wooClient.createVariationCalled, 2)
+	for _, c := range h.wooClient.createVariationCalled {
+		require.Equal(t, "900", c.ParentExternalID)
+	}
+	require.Empty(t, h.wooClient.createCalled, "no simple products created in variations mode")
+
+	var parentCount int
+	for _, l := range listings {
+		if l.VariantID == nil {
+			parentCount++
+			require.Equal(t, "900", l.ExternalID)
+		} else {
+			require.True(t, l.IsVariation)
+		}
+	}
+	require.Equal(t, 1, parentCount)
+}
+
+// TestPushProductToWoo_variationsMode_onlyCreatesMissingVariations proves
+// per-row idempotency: a parent that already exists (from an earlier
+// partial push) isn't recreated, and a Variant that already has a
+// variation isn't pushed again -- only the genuinely missing row is
+// created.
+func TestPushProductToWoo_variationsMode_onlyCreatesMissingVariations(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	existingParent := channelsDomain.ProductChannelListing{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "900"}
+	existingVariant1 := channelsDomain.ProductChannelListing{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true}
+	h := newMultiVariantSyncHarness(product, variants, skus, []channelsDomain.ProductChannelListing{existingParent, existingVariant1})
+	h.wooClient.createVariationWithID = "902"
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, listings, 3)
+	require.Empty(t, h.wooClient.createVariableCalled, "parent already exists")
+	require.Len(t, h.wooClient.createVariationCalled, 1)
+	require.Equal(t, "900", h.wooClient.createVariationCalled[0].ParentExternalID)
 }

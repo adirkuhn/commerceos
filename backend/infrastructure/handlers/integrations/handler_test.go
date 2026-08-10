@@ -93,15 +93,15 @@ func (s *stubCreateImportJob) Execute(_ context.Context, in appchannels.CreateIm
 }
 
 type stubPushProductToWoo struct {
-	out *channelsDomain.ProductChannelListing
+	out []channelsDomain.ProductChannelListing
 	err error
 }
 
-func (s *stubPushProductToWoo) Execute(_ context.Context, _ appchannels.PushProductToWooInput) (*channelsDomain.ProductChannelListing, error) {
+func (s *stubPushProductToWoo) Execute(_ context.Context, _ appchannels.PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
 	if s.out != nil {
 		return s.out, s.err
 	}
-	return &channelsDomain.ProductChannelListing{}, s.err
+	return []channelsDomain.ProductChannelListing{{}}, s.err
 }
 
 type stubListSyncSchedules struct {

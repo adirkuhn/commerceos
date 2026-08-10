@@ -39,4 +39,15 @@ var (
 	// ErrUnitsPerCaseMustBePositive guards SKU.UnitsPerCase: a case of zero
 	// or negative units isn't one.
 	ErrUnitsPerCaseMustBePositive = errors.New("units_per_case must be positive")
+	// ErrPortionedFromSKUCannotBeSelf guards against a SKU declaring
+	// itself as its own bulk pool.
+	ErrPortionedFromSKUCannotBeSelf = errors.New("a SKU cannot be portioned from itself")
+	// ErrPortionedFromSKUMustTrackWeight guards SKU.PortionedFromSKUID:
+	// the referenced SKU must be a weight pool (TracksWeight=true) --
+	// portioning only makes sense against a bulk lot.
+	ErrPortionedFromSKUMustTrackWeight = errors.New("portioned_from_sku_id must reference a SKU with tracks_weight set")
+	// ErrBulkSKUCannotBePortioned guards against a TracksWeight SKU
+	// itself having a PortionedFromSKUID -- the relationship is
+	// depth-limited to one level, same reasoning as ErrCaseOfSKUCannotChain.
+	ErrBulkSKUCannotBePortioned = errors.New("a bulk (tracks_weight) SKU cannot itself be portioned from another SKU")
 )

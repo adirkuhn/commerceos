@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import {
   Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
-  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes,
+  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes, Scale,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -40,6 +40,13 @@ function parsePriceToMinorUnits(price: string): number {
 function parseOptionalPriceToMinorUnits(price: string): number | null {
   if (price.trim() === '') return null
   return Math.round(parseFloat(price) * 100)
+}
+
+// formatSKUQuantity shows a tracks_weight SKU's stock (stored in grams) as
+// kg for readability -- every other SKU's stock is a plain unit count.
+function formatSKUQuantity(sku: SKU, quantity: number): string {
+  if (sku.tracks_weight) return `${(quantity / 1000).toFixed(2)}kg`
+  return String(quantity)
 }
 
 function formatMinorUnitsAsInput(minorUnits: number): string {
@@ -473,6 +480,94 @@ function SplitCaseModal({
   )
 }
 
+// ── Portion one sellable item from a bulk pool (see pms.SKU.portioned_from_sku_id) ──
+
+function PortionFromBulkModal({
+  warehouses, batches, nominalWeightGrams, onSave, onClose,
+}: {
+  warehouses: { id: string; name: string }[]
+  batches: Batch[]
+  nominalWeightGrams?: number | null
+  onSave: (input: { warehouse_id: string; batch_id?: string | null; weight_grams?: number; reason?: string }) => Promise<unknown>
+  onClose: () => void
+}) {
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
+  const [batchId, setBatchId] = useState('')
+  const [weightGrams, setWeightGrams] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    let weight: number | undefined
+    if (weightGrams.trim() !== '') {
+      const n = parseInt(weightGrams, 10)
+      if (Number.isNaN(n) || n <= 0) {
+        setError('Enter a positive weight in grams, or leave blank to use the nominal weight')
+        return
+      }
+      weight = n
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave({ warehouse_id: warehouseId, batch_id: batchId || null, weight_grams: weight, reason })
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to portion from bulk stock')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title="Add Item From Bulk" onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-[10px] dark:text-gray-500 text-gray-400">
+          Peels one sellable unit off the linked bulk product's weight pool. Repeatable as many times as you like.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={labelClass} htmlFor="portion-warehouse">Warehouse</label>
+            <select id="portion-warehouse" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="portion-batch">Batch</label>
+            <select id="portion-batch" value={batchId} onChange={e => setBatchId(e.target.value)} className={inputClass}>
+              <option value="">General ledger</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.lot_number || b.id}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="portion-weight">
+            Actual weight (grams){nominalWeightGrams != null && ` — defaults to ${nominalWeightGrams}g`}
+          </label>
+          <input
+            id="portion-weight" type="number" min={1} value={weightGrams} onChange={e => setWeightGrams(e.target.value)}
+            placeholder={nominalWeightGrams != null ? String(nominalWeightGrams) : undefined} className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} htmlFor="portion-reason">Reason (optional)</label>
+          <input id="portion-reason" value={reason} onChange={e => setReason(e.target.value)} className={inputClass} />
+        </div>
+        {error && <p className="text-[10px] text-red-500">{error}</p>}
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving} className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? 'Adding…' : 'Add item'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Mark damaged / lost ───────────────────────────────────────────────────────
 
 function DamagedLostModal({
@@ -630,12 +725,12 @@ function PriceModal({ sku, onSave, onClose }: {
 
 // ── Per-SKU stock panel ───────────────────────────────────────────────────────
 
-type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
+type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'portion-from-bulk' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
 
 function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: {
   token: string; sku: SKU; warehouses: { id: string; name: string }[]; onSKUUpdated: () => void; onViewHistory: (sku: SKU) => void
 }) {
-  const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, markDamagedOrLost } =
+  const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
   const [modal, setModal] = useState<ActiveModal>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -689,8 +784,8 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
           </button>
           {level && (
             <span data-testid="stock-level" className="text-[10px] dark:text-gray-400 text-gray-500">
-              Total: <strong className="dark:text-gray-200 text-gray-800">{level.total}</strong>
-              {' · '}Syncable: <strong className="dark:text-gray-200 text-gray-800">{level.syncable}</strong>
+              Total: <strong className="dark:text-gray-200 text-gray-800">{formatSKUQuantity(sku, level.total)}</strong>
+              {' · '}Syncable: <strong className="dark:text-gray-200 text-gray-800">{formatSKUQuantity(sku, level.syncable)}</strong>
             </span>
           )}
           {loading && <span className="text-[10px] dark:text-gray-600 text-gray-400">Loading…</span>}
@@ -708,6 +803,11 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
           {sku.case_of_sku_id && (
             <button type="button" onClick={() => setModal('split-case')} title="Split sealed cases into individual units" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
               <Boxes size={11} /> Split case
+            </button>
+          )}
+          {sku.portioned_from_sku_id && (
+            <button type="button" onClick={() => setModal('portion-from-bulk')} title="Add a sellable item peeled off the linked bulk product" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+              <Scale size={11} /> Add item from bulk
             </button>
           )}
           <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-red-400 hover:dark:bg-[#2D3748] hover:bg-gray-100">
@@ -787,6 +887,12 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
       )}
       {modal === 'split-case' && (
         <SplitCaseModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)} onSave={splitCase} />
+      )}
+      {modal === 'portion-from-bulk' && (
+        <PortionFromBulkModal
+          warehouses={warehouses} batches={batches} nominalWeightGrams={sku.weight_grams}
+          onClose={() => setModal(null)} onSave={portionFromBulk}
+        />
       )}
       {modal === 'damaged-lost' && (
         <DamagedLostModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}

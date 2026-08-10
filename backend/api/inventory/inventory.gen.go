@@ -175,6 +175,30 @@ type MarkDamagedOrLostRequestType string
 // MovementType defines model for MovementType.
 type MovementType string
 
+// PortionFromBulkRequest defines model for PortionFromBulkRequest.
+type PortionFromBulkRequest struct {
+	// BatchId Null portions from the un-lotted, general-ledger bulk stock.
+	BatchId     *string    `json:"batch_id,omitempty"`
+	OccurredAt  *time.Time `json:"occurred_at,omitempty"`
+	Reason      *string    `json:"reason,omitempty"`
+	WarehouseId string     `json:"warehouse_id"`
+
+	// WeightGrams The actual amount consumed for this one physical item (e.g. a scale reading). Omit to default to the target SKU's own nominal weight_grams.
+	WeightGrams *int64 `json:"weight_grams,omitempty"`
+}
+
+// PortionFromBulkResult defines model for PortionFromBulkResult.
+type PortionFromBulkResult struct {
+	BulkOut StockMovement `json:"bulk_out"`
+	UnitIn  StockMovement `json:"unit_in"`
+}
+
+// PortionFromBulkResultResponse defines model for PortionFromBulkResultResponse.
+type PortionFromBulkResultResponse struct {
+	Data  *PortionFromBulkResult `json:"data,omitempty"`
+	Error interface{}            `json:"error,omitempty"`
+}
+
 // ReceiveStockRequest defines model for ReceiveStockRequest.
 type ReceiveStockRequest struct {
 	// BatchId Targets an existing batch. Omit to create a new batch from lot_number/expiry_date.
@@ -385,6 +409,9 @@ type MarkDamagedOrLostJSONRequestBody = MarkDamagedOrLostRequest
 // RecordStockMovementJSONRequestBody defines body for RecordStockMovement for application/json ContentType.
 type RecordStockMovementJSONRequestBody = RecordStockMovementRequest
 
+// PortionFromBulkJSONRequestBody defines body for PortionFromBulk for application/json ContentType.
+type PortionFromBulkJSONRequestBody = PortionFromBulkRequest
+
 // ReceiveStockJSONRequestBody defines body for ReceiveStock for application/json ContentType.
 type ReceiveStockJSONRequestBody = ReceiveStockRequest
 
@@ -429,6 +456,9 @@ type ServerInterface interface {
 	// RecordStockMovement Record a stock movement directly (adjust/receipt/sale) — sign of quantity_delta must match the movement type (see StockMovement schema). For a two-sided warehouse/batch move use /transfer; for write-offs use /mark-damaged-lost; for a recount use /recount.
 	// (POST /inventory/skus/{skuId}/movements)
 	RecordStockMovement(c *gin.Context, skuId SkuId)
+	// PortionFromBulk Peel one sellable unit off a bulk (tracks_weight) SKU's weight pool — skuId must be configured as portioned from a bulk SKU (see the pms module's portioned_from_sku_id). weight_grams (defaults to the target SKU's own nominal weight_grams) leaves the bulk SKU's stock and 1 unit of skuId arrives. Repeatable indefinitely as items are portioned off the same bulk lot over time.
+	// (POST /inventory/skus/{skuId}/portion-from-bulk)
+	PortionFromBulk(c *gin.Context, skuId SkuId)
 	// ReceiveStock Atomically book received stock — optionally creates a new batch (when batch_id is omitted) and always records a receipt movement, in one transaction. Used by the procurement receiving-review flow and the scanner booking app.
 	// (POST /inventory/skus/{skuId}/receive)
 	ReceiveStock(c *gin.Context, skuId SkuId)
@@ -667,6 +697,31 @@ func (siw *ServerInterfaceWrapper) RecordStockMovement(c *gin.Context) {
 	}
 
 	siw.Handler.RecordStockMovement(c, skuId)
+}
+
+// PortionFromBulk operation middleware
+func (siw *ServerInterfaceWrapper) PortionFromBulk(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PortionFromBulk(c, skuId)
 }
 
 // ReceiveStock operation middleware
@@ -911,6 +966,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/inventory/skus/:skuId/movements", wrapper.RecordStockMovement)
 	router.POST(options.BaseURL+"/inventory/skus/:skuId/recount", wrapper.RecordRecount)
 	router.POST(options.BaseURL+"/inventory/skus/:skuId/split-case", wrapper.SplitCaseIntoUnits)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/portion-from-bulk", wrapper.PortionFromBulk)
 	router.POST(options.BaseURL+"/inventory/skus/:skuId/transfer", wrapper.TransferStock)
 	router.POST(options.BaseURL+"/inventory/skus/:skuId/receive", wrapper.ReceiveStock)
 	router.POST(options.BaseURL+"/inventory/skus/:skuId/mark-damaged-lost", wrapper.MarkDamagedOrLost)
@@ -921,54 +977,59 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"UC5zqWUyDm6CCUnZZPky2Nxv/hMAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

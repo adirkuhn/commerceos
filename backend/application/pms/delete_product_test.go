@@ -29,6 +29,9 @@ func (s *stubProductListingRepo) FindByExternalID(_ context.Context, _, _ string
 func (s *stubProductListingRepo) FindByProductAndConnection(_ context.Context, _, _ string) (*channelsDomain.ProductChannelListing, error) {
 	return nil, channelsDomain.ErrListingNotFound
 }
+func (s *stubProductListingRepo) FindByProductVariantAndConnection(_ context.Context, _ string, _ *string, _ string) (*channelsDomain.ProductChannelListing, error) {
+	return nil, channelsDomain.ErrListingNotFound
+}
 func (s *stubProductListingRepo) ListByConnection(_ context.Context, _ string) ([]channelsDomain.ProductChannelListing, error) {
 	return nil, nil
 }
@@ -36,9 +39,13 @@ func (s *stubProductListingRepo) ListByProduct(_ context.Context, productID stri
 	s.deleted = append(s.deleted, productID)
 	return s.byProduct, s.listErr
 }
+func (s *stubProductListingRepo) ListByProductAndConnection(_ context.Context, _, _ string) ([]channelsDomain.ProductChannelListing, error) {
+	return nil, nil
+}
 func (s *stubProductListingRepo) Update(_ context.Context, _ *channelsDomain.ProductChannelListing) error {
 	return nil
 }
+func (s *stubProductListingRepo) Delete(_ context.Context, _ string) error { return nil }
 
 func TestDeleteProduct_raisesProductDeletedEventWithListingSnapshot(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "prod-1"}}

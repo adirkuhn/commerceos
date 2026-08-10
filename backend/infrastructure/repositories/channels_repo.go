@@ -16,13 +16,15 @@ import (
 )
 
 type productChannelListingModel struct {
-	ID            string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID      string `gorm:"not null;type:uuid"`
-	ProductID     string `gorm:"not null;type:uuid"`
-	ConnectionID  string `gorm:"not null;type:uuid"`
-	Provider      string `gorm:"not null"`
-	ExternalID    string `gorm:"not null"`
-	SyncStatus    string `gorm:"not null"`
+	ID            string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID      string  `gorm:"not null;type:uuid"`
+	ProductID     string  `gorm:"not null;type:uuid"`
+	ConnectionID  string  `gorm:"not null;type:uuid"`
+	Provider      string  `gorm:"not null"`
+	ExternalID    string  `gorm:"not null"`
+	VariantID     *string `gorm:"column:variant_id;type:uuid"`
+	IsVariation   bool    `gorm:"column:is_variation;not null;default:false"`
+	SyncStatus    string  `gorm:"not null"`
 	LastSyncedAt  *time.Time
 	LastSyncError string
 	CreatedAt     time.Time
@@ -56,6 +58,8 @@ func (r *ProductChannelListingRepo) Create(ctx context.Context, l *channelsDomai
 		ConnectionID:  l.ConnectionID,
 		Provider:      l.Provider,
 		ExternalID:    l.ExternalID,
+		VariantID:     l.VariantID,
+		IsVariation:   l.IsVariation,
 		SyncStatus:    string(l.SyncStatus),
 		LastSyncedAt:  l.LastSyncedAt,
 		LastSyncError: l.LastSyncError,
@@ -84,19 +88,62 @@ func (r *ProductChannelListingRepo) FindByExternalID(ctx context.Context, connec
 	return toListingDomain(m), nil
 }
 
+// FindByProductAndConnection prefers the product-level row (variant_id
+// IS NULL) when one exists -- NULLS FIRST puts it first regardless of
+// which row happened to be created first -- else returns an arbitrary
+// variant-level row. See the interface doc comment for why "arbitrary" is
+// fine here.
 func (r *ProductChannelListingRepo) FindByProductAndConnection(ctx context.Context, productID, connectionID string) (*channelsDomain.ProductChannelListing, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var m productChannelListingModel
-	if err := tx.Where("product_id = ? AND connection_id = ?", productID, connectionID).First(&m).Error; err != nil {
+	if err := tx.Where("product_id = ? AND connection_id = ?", productID, connectionID).
+		Order("variant_id ASC NULLS FIRST").First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, channelsDomain.ErrListingNotFound
 		}
 		return nil, fmt.Errorf("productChannelListingRepo.FindByProductAndConnection: %w", err)
 	}
 	return toListingDomain(m), nil
+}
+
+func (r *ProductChannelListingRepo) FindByProductVariantAndConnection(ctx context.Context, productID string, variantID *string, connectionID string) (*channelsDomain.ProductChannelListing, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q := tx.Where("product_id = ? AND connection_id = ?", productID, connectionID)
+	if variantID == nil {
+		q = q.Where("variant_id IS NULL")
+	} else {
+		q = q.Where("variant_id = ?", *variantID)
+	}
+	var m productChannelListingModel
+	if err := q.First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, channelsDomain.ErrListingNotFound
+		}
+		return nil, fmt.Errorf("productChannelListingRepo.FindByProductVariantAndConnection: %w", err)
+	}
+	return toListingDomain(m), nil
+}
+
+func (r *ProductChannelListingRepo) ListByProductAndConnection(ctx context.Context, productID, connectionID string) ([]channelsDomain.ProductChannelListing, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []productChannelListingModel
+	if err := tx.Where("product_id = ? AND connection_id = ?", productID, connectionID).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("productChannelListingRepo.ListByProductAndConnection: %w", err)
+	}
+	out := make([]channelsDomain.ProductChannelListing, len(rows))
+	for i, row := range rows {
+		out[i] = *toListingDomain(row)
+	}
+	return out, nil
 }
 
 func (r *ProductChannelListingRepo) ListByConnection(ctx context.Context, connectionID string) ([]channelsDomain.ProductChannelListing, error) {
@@ -144,6 +191,17 @@ func (r *ProductChannelListingRepo) Update(ctx context.Context, l *channelsDomai
 			"updated_at":      l.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("productChannelListingRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *ProductChannelListingRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&productChannelListingModel{}).Error; err != nil {
+		return fmt.Errorf("productChannelListingRepo.Delete: %w", err)
 	}
 	return nil
 }
@@ -843,6 +901,8 @@ func toListingDomain(m productChannelListingModel) *channelsDomain.ProductChanne
 		ConnectionID:  m.ConnectionID,
 		Provider:      m.Provider,
 		ExternalID:    m.ExternalID,
+		VariantID:     m.VariantID,
+		IsVariation:   m.IsVariation,
 		SyncStatus:    channelsDomain.SyncStatus(m.SyncStatus),
 		LastSyncedAt:  m.LastSyncedAt,
 		LastSyncError: m.LastSyncError,

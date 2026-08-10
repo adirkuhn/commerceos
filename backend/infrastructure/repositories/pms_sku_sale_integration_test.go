@@ -57,8 +57,13 @@ func TestSKURepo_Integration_ListWithExpiredSale(t *testing.T) {
 		return skuID
 	}
 
-	yesterday := time.Now().Add(-24 * time.Hour)
-	tomorrow := time.Now().Add(24 * time.Hour)
+	// .UTC() matters: sale_end_date is a DATE column, and pgx's DATE encoder
+	// takes Year/Month/Day straight from time.Time's own Location without
+	// normalizing first. CURRENT_DATE (used by ListWithExpiredSale) is
+	// evaluated in the session's UTC timezone -- a local-zone time.Now()
+	// near midnight lands on the wrong calendar day relative to it.
+	yesterday := time.Now().UTC().Add(-24 * time.Hour)
+	tomorrow := time.Now().UTC().Add(24 * time.Hour)
 
 	expiredA := makeSKU(ctxA, "EXPIRED-A", int64Ptr(800), &yesterday)
 	makeSKU(ctxA, "FUTURE-A", int64Ptr(800), &tomorrow)   // not expired yet -- excluded

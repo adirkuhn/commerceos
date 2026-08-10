@@ -124,6 +124,21 @@ export interface SplitCaseIntoUnitsResult {
   unit_in: StockMovement
 }
 
+export interface PortionFromBulkInput {
+  warehouse_id: string
+  batch_id?: string | null
+  // The actual amount consumed for this one physical item (e.g. a scale
+  // reading). Omit to default to the target SKU's own nominal weight_grams.
+  weight_grams?: number
+  reason?: string
+  occurred_at?: string
+}
+
+export interface PortionFromBulkResult {
+  bulk_out: StockMovement
+  unit_in: StockMovement
+}
+
 export interface ReceiveStockInput {
   warehouse_id: string
   quantity: number

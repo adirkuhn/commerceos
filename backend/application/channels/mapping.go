@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
@@ -189,4 +190,28 @@ func WooSaleFields(sku pmsDomain.SKU) (salePrice, saleEndDate string) {
 		saleEndDate = sku.SaleEndDate.Format(time.DateOnly)
 	}
 	return salePrice, saleEndDate
+}
+
+// wooVariantAttributeName is the single attribute CommerceOS declares on a
+// Woo variable product when SyncVariantsAsWooVariations is on — every
+// Variant becomes one option of this one attribute (e.g. "367g", "412g").
+// CommerceOS doesn't model multiple independent attribute dimensions per
+// product today, so one fixed attribute name is sufficient and avoids
+// inventing schema the domain doesn't have.
+const wooVariantAttributeName = "Variant"
+
+// wooVariationToFields is wooProductToFields' counterpart for a single Woo
+// variation — no name/description/status of its own (inherited from the
+// parent), so the diffable surface is just price/stock/physical fields.
+func wooVariationToFields(v integrationsDomain.WooVariation) map[string]string {
+	return map[string]string{
+		"regular_price":   v.RegularPrice,
+		"sale_price":      v.SalePrice,
+		"sale_end_date":   v.SaleEndDate,
+		"weight":          v.Weight,
+		"length":          v.Dimensions.Length,
+		"width":           v.Dimensions.Width,
+		"height":          v.Dimensions.Height,
+		"attribute_value": v.AttributeValue,
+	}
 }

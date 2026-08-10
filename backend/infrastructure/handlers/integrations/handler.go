@@ -50,7 +50,7 @@ type createImportJobUC interface {
 	Execute(ctx context.Context, in appchannels.CreateImportJobInput) (*channelsDomain.ImportJob, error)
 }
 type pushProductToWooUC interface {
-	Execute(ctx context.Context, in appchannels.PushProductToWooInput) (*channelsDomain.ProductChannelListing, error)
+	Execute(ctx context.Context, in appchannels.PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error)
 }
 type listSyncSchedulesUC interface {
 	Execute(ctx context.Context, connectionID string) ([]channelsDomain.SyncSchedule, error)
@@ -441,13 +441,13 @@ func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "product_id is required")
 		return
 	}
-	listing, err := h.pushProductToWoo.Execute(c.Request.Context(), appchannels.PushProductToWooInput{
+	listings, err := h.pushProductToWoo.Execute(c.Request.Context(), appchannels.PushProductToWooInput{
 		ProductID: req.ProductId, ConnectionID: id,
 	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenListing(*listing))
+	middleware.OK(c, toGenListings(listings))
 }
 
 func (h *Handler) DeleteAllImportedProducts(c *gin.Context, id genintegrations.Id) {
@@ -703,17 +703,28 @@ func toGenAIConnection(c integrationsDomain.AIConnection) genintegrations.AIConn
 }
 
 func toGenListing(l channelsDomain.ProductChannelListing) genintegrations.ProductChannelListing {
+	isVariation := l.IsVariation
 	return genintegrations.ProductChannelListing{
 		Id:           l.ID,
 		ProductId:    l.ProductID,
 		ConnectionId: l.ConnectionID,
 		Provider:     l.Provider,
 		ExternalId:   l.ExternalID,
+		VariantId:    l.VariantID,
+		IsVariation:  &isVariation,
 		SyncStatus:   genintegrations.ProductChannelListingSyncStatus(l.SyncStatus),
 		LastSyncedAt: l.LastSyncedAt,
 		CreatedAt:    l.CreatedAt,
 		UpdatedAt:    l.UpdatedAt,
 	}
+}
+
+func toGenListings(ls []channelsDomain.ProductChannelListing) []genintegrations.ProductChannelListing {
+	out := make([]genintegrations.ProductChannelListing, len(ls))
+	for i, l := range ls {
+		out[i] = toGenListing(l)
+	}
+	return out
 }
 
 func toGenSyncLogEntry(e channelsDomain.SyncLogEntry) genintegrations.SyncLogEntry {

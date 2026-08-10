@@ -31,6 +31,13 @@ type PushProductToWooInput struct {
 	ConnectionID string
 }
 
+// variantPush is one Variant paired with its single sellable SKU — the
+// unit of work for every push mode below.
+type variantPush struct {
+	Variant pmsDomain.Variant
+	SKU     pmsDomain.SKU
+}
+
 type PushProductToWooUseCase struct {
 	db          *gorm.DB
 	connRepo    integrationsDomain.ConnectionRepository
@@ -63,49 +70,68 @@ func NewPushProductToWooUseCase(
 	}
 }
 
-// Execute pushes a single-SKU (has_variants=false) product to WooCommerce as
-// a new "simple" product. Idempotent: if this product is already linked to
-// this connection, returns the existing listing without pushing again.
-func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductToWooInput) (*channelsDomain.ProductChannelListing, error) {
+// Execute pushes a product to WooCommerce, in one of three shapes:
+//
+//   - !HasVariants: a single "simple" product (the one Variant/SKU pair).
+//   - HasVariants && !SyncVariantsAsWooVariations: one standalone simple
+//     product per Variant ("separate-products" mode).
+//   - HasVariants && SyncVariantsAsWooVariations: one "variable" parent
+//     product plus one Woo variation per Variant ("variations" mode).
+//
+// Idempotent per row: a Variant (or the whole product, in the single-SKU
+// case) already linked to this connection is left alone — its existing
+// listing is returned instead of being pushed again. Mode migration for an
+// already-linked product (the flag flipping after the initial push) is
+// SyncProductToChannelsUseCase's job, not this one's.
+func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
 	var conn integrationsDomain.Connection
 	var secret string
 	var product pmsDomain.Product
-	var sku pmsDomain.SKU
-	var existing *channelsDomain.ProductChannelListing
+	var pushes []variantPush
+	var existingParent *channelsDomain.ProductChannelListing
+	existingByVariant := map[string]channelsDomain.ProductChannelListing{}
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if l, err := uc.listingRepo.FindByProductAndConnection(ctx, in.ProductID, in.ConnectionID); err == nil {
-			existing = l
-			return nil
-		} else if !errors.Is(err, channelsDomain.ErrListingNotFound) {
-			return err
-		}
-
 		p, err := uc.productRepo.FindByID(ctx, in.ProductID)
 		if err != nil {
 			return err
 		}
 		product = *p
-		if product.HasVariants {
-			return channelsDomain.ErrCannotPushVariableProduct
-		}
 
 		variants, err := uc.variantRepo.ListByProduct(ctx, in.ProductID)
 		if err != nil {
 			return err
 		}
-		if len(variants) != 1 {
+		if len(variants) == 0 || (!product.HasVariants && len(variants) != 1) {
 			return channelsDomain.ErrCannotPushVariableProduct
 		}
 
-		skus, err := uc.skuRepo.ListByVariant(ctx, variants[0].ID)
-		if err != nil {
-			return err
+		for _, v := range variants {
+			skus, err := uc.skuRepo.ListByVariant(ctx, v.ID)
+			if err != nil {
+				return err
+			}
+			if len(skus) != 1 {
+				return channelsDomain.ErrCannotPushVariableProduct
+			}
+			pushes = append(pushes, variantPush{Variant: v, SKU: skus[0]})
+
+			l, err := uc.listingRepo.FindByProductVariantAndConnection(ctx, in.ProductID, rowVariantID(product, v.ID), in.ConnectionID)
+			if err == nil {
+				existingByVariant[v.ID] = *l
+			} else if !errors.Is(err, channelsDomain.ErrListingNotFound) {
+				return err
+			}
 		}
-		if len(skus) != 1 {
-			return channelsDomain.ErrCannotPushVariableProduct
+
+		if product.HasVariants && product.SyncVariantsAsWooVariations {
+			l, err := uc.listingRepo.FindByProductVariantAndConnection(ctx, in.ProductID, nil, in.ConnectionID)
+			if err == nil {
+				existingParent = l
+			} else if !errors.Is(err, channelsDomain.ErrListingNotFound) {
+				return err
+			}
 		}
-		sku = skus[0]
 
 		c, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
 		if err != nil {
@@ -118,18 +144,143 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 	if err != nil {
 		return nil, fmt.Errorf("pushProductToWoo: %w", err)
 	}
-	if existing != nil {
-		return existing, nil
-	}
 
 	client, err := uc.wooFactory.NewClient(conn.StoreURL.String(), conn.ConsumerKey, secret)
 	if err != nil {
 		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 
+	if !product.HasVariants {
+		if l, ok := existingByVariant[pushes[0].Variant.ID]; ok {
+			return []channelsDomain.ProductChannelListing{l}, nil
+		}
+		return uc.pushSingleSKU(ctx, client, product, pushes[0], in)
+	}
+	if product.SyncVariantsAsWooVariations {
+		return uc.pushVariations(ctx, client, product, pushes, existingParent, existingByVariant, in)
+	}
+	return uc.pushSeparateProducts(ctx, client, product, pushes, existingByVariant, in)
+}
+
+// rowVariantID is the VariantID a listing row for this variant should
+// carry: nil for a single-SKU (!HasVariants) product's one product-level
+// row, the Variant's own ID for every per-variant row (both
+// separate-products and variations modes).
+func rowVariantID(product pmsDomain.Product, variantID string) *string {
+	if !product.HasVariants {
+		return nil
+	}
+	id := variantID
+	return &id
+}
+
+func (uc *PushProductToWooUseCase) pushSingleSKU(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, vp variantPush, in PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
+	wooProduct := uc.buildWooProduct(ctx, product, vp.SKU, product.Name)
+	created, err := client.CreateProduct(ctx, wooProduct)
+	if err != nil {
+		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+	}
+
+	listing, err := uc.createListing(ctx, in, nil, false, created.ID)
+	if err != nil {
+		return nil, err
+	}
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+		channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
+
+	return []channelsDomain.ProductChannelListing{listing}, nil
+}
+
+func (uc *PushProductToWooUseCase) pushSeparateProducts(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, pushes []variantPush, existingByVariant map[string]channelsDomain.ProductChannelListing, in PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
+	var listings []channelsDomain.ProductChannelListing
+	for _, vp := range pushes {
+		if l, ok := existingByVariant[vp.Variant.ID]; ok {
+			listings = append(listings, l)
+			continue
+		}
+
+		name := fmt.Sprintf("%s - %s", product.Name, vp.Variant.Name)
+		wooProduct := uc.buildWooProduct(ctx, product, vp.SKU, name)
+		created, err := client.CreateProduct(ctx, wooProduct)
+		if err != nil {
+			return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+		}
+
+		variantID := vp.Variant.ID
+		listing, err := uc.createListing(ctx, in, &variantID, false, created.ID)
+		if err != nil {
+			return nil, err
+		}
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+			channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
+		listings = append(listings, listing)
+	}
+	return listings, nil
+}
+
+func (uc *PushProductToWooUseCase) pushVariations(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, pushes []variantPush, existingParent *channelsDomain.ProductChannelListing, existingByVariant map[string]channelsDomain.ProductChannelListing, in PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
+	var listings []channelsDomain.ProductChannelListing
+	var parentExternalID string
+
+	if existingParent != nil {
+		parentExternalID = existingParent.ExternalID
+		listings = append(listings, *existingParent)
+	} else {
+		attributeValues := make([]string, len(pushes))
+		for i, vp := range pushes {
+			attributeValues[i] = vp.Variant.Name
+		}
+		parentProduct := integrationsDomain.WooProduct{
+			Name: product.Name, Description: product.Description,
+			Status: MapCommerceStatusToWoo(product.Status),
+		}
+		createdParent, err := client.CreateVariableProduct(ctx, parentProduct, wooVariantAttributeName, attributeValues)
+		if err != nil {
+			return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+		}
+		parentExternalID = createdParent.ID
+
+		parentListing, err := uc.createListing(ctx, in, nil, false, parentExternalID)
+		if err != nil {
+			return nil, err
+		}
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, parentListing, channelsDomain.SyncFlowPush,
+			channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(parentProduct))
+		listings = append(listings, parentListing)
+	}
+
+	for _, vp := range pushes {
+		if l, ok := existingByVariant[vp.Variant.ID]; ok {
+			listings = append(listings, l)
+			continue
+		}
+
+		wooVariation := uc.buildWooVariation(ctx, vp)
+		created, err := client.CreateVariation(ctx, parentExternalID, wooVariation)
+		if err != nil {
+			return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+		}
+
+		variantID := vp.Variant.ID
+		listing, err := uc.createListing(ctx, in, &variantID, true, created.ID)
+		if err != nil {
+			return nil, err
+		}
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+			channelsDomain.SyncLogStatusSuccess, "", wooVariationToFields(wooVariation))
+		listings = append(listings, listing)
+	}
+	return listings, nil
+}
+
+// buildWooProduct assembles the WooProduct payload for a simple product —
+// used for both the single-SKU shape and each row of separate-products
+// mode, which differ only in the name passed in (product name alone vs.
+// "product - variant").
+func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, name string) integrationsDomain.WooProduct {
 	salePrice, saleEndDate := WooSaleFields(sku)
 	wooProduct := integrationsDomain.WooProduct{
-		Name: product.Name, Description: product.Description,
+		Name: name, Description: product.Description,
 		Status: MapCommerceStatusToWoo(product.Status),
 		SKU:    sku.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
 		SalePrice: salePrice, SaleEndDate: saleEndDate,
@@ -146,29 +297,44 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 			wooProduct.StockQuantity = &qty
 		}
 	}
+	return wooProduct
+}
 
-	created, err := client.CreateProduct(ctx, wooProduct)
-	if err != nil {
-		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+// buildWooVariation is buildWooProduct's counterpart for variations mode —
+// no name/description/status (inherited from the parent), plus the
+// attribute option this variation represents.
+func (uc *PushProductToWooUseCase) buildWooVariation(ctx context.Context, vp variantPush) integrationsDomain.WooVariation {
+	salePrice, saleEndDate := WooSaleFields(vp.SKU)
+	variation := integrationsDomain.WooVariation{
+		SKU: vp.SKU.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(vp.SKU.PriceMinorUnits),
+		SalePrice: salePrice, SaleEndDate: saleEndDate,
+		AttributeName: wooVariantAttributeName, AttributeValue: vp.Variant.Name,
 	}
+	if !vp.SKU.IsVirtual {
+		if level, err := uc.stockLevel.Execute(ctx, vp.SKU.ID); err == nil && level != nil {
+			qty := int(level.Syncable)
+			variation.ManageStock = true
+			variation.StockQuantity = &qty
+		}
+	}
+	return variation
+}
 
+func (uc *PushProductToWooUseCase) createListing(ctx context.Context, in PushProductToWooInput, variantID *string, isVariation bool, externalID string) (channelsDomain.ProductChannelListing, error) {
 	var listing channelsDomain.ProductChannelListing
-	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		listing = channelsDomain.ProductChannelListing{
 			TenantID: tenant.IDFromContext(ctx), ProductID: in.ProductID, ConnectionID: in.ConnectionID,
-			Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: created.ID,
+			Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: externalID,
+			VariantID: variantID, IsVariation: isVariation,
 			SyncStatus: channelsDomain.SyncStatusSynced, LastSyncedAt: &now,
 			CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.listingRepo.Create(ctx, &listing)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("pushProductToWoo: %w", err)
+		return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToWoo: %w", err)
 	}
-
-	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
-		channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
-
-	return &listing, nil
+	return listing, nil
 }

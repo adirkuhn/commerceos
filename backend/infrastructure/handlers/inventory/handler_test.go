@@ -198,6 +198,31 @@ func (s *stubSplitCaseIntoUnits) Execute(_ context.Context, in appinventory.Spli
 	}, nil
 }
 
+type stubPortionFromBulk struct {
+	out      *appinventory.PortionFromBulkResult
+	err      error
+	gotInput appinventory.PortionFromBulkInput
+}
+
+func (s *stubPortionFromBulk) Execute(_ context.Context, in appinventory.PortionFromBulkInput) (*appinventory.PortionFromBulkResult, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	weight := in.WeightGrams
+	if weight == nil {
+		w := int64(1)
+		weight = &w
+	}
+	return &appinventory.PortionFromBulkResult{
+		BulkOutMovement: invDomain.StockMovement{ID: "movement-bulk-out", Type: invDomain.MovementTypeSplitOut, QuantityDelta: -*weight},
+		UnitInMovement:  invDomain.StockMovement{ID: "movement-unit-in", Type: invDomain.MovementTypeSplitIn, QuantityDelta: 1},
+	}, nil
+}
+
 type stubMarkDamagedOrLost struct {
 	out      *invDomain.StockMovement
 	err      error
@@ -254,7 +279,7 @@ func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, updat
 	return inventoryhandler.NewHandler(
 		list, create, update, del,
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 	)
 }
@@ -278,7 +303,7 @@ func newBatchTestHandlerWithReceive(
 	return inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		createBatch, updateBatch, deleteBatch, listBatches,
-		stockLevel, recordMovement, recordRecount, transfer, &stubSplitCaseIntoUnits{}, markDamagedOrLost,
+		stockLevel, recordMovement, recordRecount, transfer, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, markDamagedOrLost,
 		&stubListExpiringBatches{}, &stubListStockMovements{}, receiveStock,
 	)
 }
@@ -287,7 +312,7 @@ func newSplitCaseTestHandler(split *stubSplitCaseIntoUnits) *inventoryhandler.Ha
 	return inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, split, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, split, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 	)
 }
@@ -486,7 +511,7 @@ func TestListExpiringBatchesHandler_returnsBatches(t *testing.T) {
 	h := inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{out: []invDomain.ExpiringBatch{
 			{BatchID: "batch-1", SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", ExpiryDate: expiry, Quantity: 5},
 		}},
@@ -503,7 +528,7 @@ func TestListStockMovementsHandler_returnsMovements(t *testing.T) {
 	h := inventoryhandler.NewHandler(
 		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
-		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubMarkDamagedOrLost{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{},
 		&stubListStockMovements{out: []invDomain.StockMovement{
 			{ID: "movement-1", SKUID: "sku-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10},
@@ -614,6 +639,41 @@ func TestSplitCaseIntoUnitsHandler_notACaseReturns422(t *testing.T) {
 	h := newSplitCaseTestHandler(split)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/split-case",
 		map[string]any{"warehouse_id": "wh-1", "cases_to_split": 1})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestPortionFromBulkHandler_success(t *testing.T) {
+	portion := &stubPortionFromBulk{}
+	h := inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{},
+		&stubSplitCaseIntoUnits{}, portion, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-378g/portion-from-bulk",
+		map[string]any{"warehouse_id": "wh-1", "weight_grams": 378})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, "sku-378g", portion.gotInput.TargetSKUID)
+	require.NotNil(t, portion.gotInput.WeightGrams)
+	require.Equal(t, int64(378), *portion.gotInput.WeightGrams)
+	assert.Contains(t, w.Body.String(), "movement-bulk-out")
+	assert.Contains(t, w.Body.String(), "movement-unit-in")
+}
+
+func TestPortionFromBulkHandler_notPortionedReturns422(t *testing.T) {
+	portion := &stubPortionFromBulk{err: invDomain.ErrSKUIsNotPortioned}
+	h := inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{},
+		&stubSplitCaseIntoUnits{}, portion, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+	)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/portion-from-bulk",
+		map[string]any{"warehouse_id": "wh-1"})
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

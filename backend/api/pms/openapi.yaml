@@ -412,6 +412,17 @@ components:
             (each with its own SKU) or as a single flat product. Once true
             with 2+ variants, cannot be set back to false without first
             reducing to at most 1 variant.
+        sync_variants_as_woo_variations:
+          type: boolean
+          description: >
+            Only matters when has_variants is true, and only for channels
+            that support it (WooCommerce today). false (the default): each
+            variant pushes as its own separate simple Woo product. true:
+            all variants push as ONE Woo "variable" product with one Woo
+            variation per variant. Changing this on an already-pushed
+            product is a migration handled by the sync pipeline, not just
+            a field update -- see application/channels'
+            SyncProductToChannelsUseCase.
         # Free-form labels -- drives channels.SalesChannel's "by tag"
         # enrollment rule (see api/channels).
         tags:
@@ -504,6 +515,19 @@ components:
         # module's split-case endpoint).
         case_of_sku_id: { type: string, nullable: true }
         units_per_case: { type: integer, format: int64, nullable: true }
+        tracks_weight:
+          type: boolean
+          description: >-
+            Marks this SKU as a weight pool -- its stock quantity is grams,
+            not whole units (e.g. a 20kg bulk lot booked as one stock-in of
+            20000). See portioned_from_sku_id and the inventory module's
+            portion-from-bulk endpoint.
+        # portioned_from_sku_id is null unless this SKU is a sellable item
+        # peeled off a tracks_weight bulk SKU's pool. Unlike
+        # case_of_sku_id (a fixed 1:1 multiplier), many SKUs can share the
+        # same portioned_from_sku_id, each consuming its own actual
+        # weight.
+        portioned_from_sku_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -552,6 +576,7 @@ components:
         category_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/ProductStatus' }
         has_variants: { type: boolean, default: false }
+        sync_variants_as_woo_variations: { type: boolean, default: false }
         tags:
           type: array
           items: { type: string }
@@ -565,6 +590,7 @@ components:
         category_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/ProductStatus' }
         has_variants: { type: boolean, default: false }
+        sync_variants_as_woo_variations: { type: boolean, default: false }
         tags:
           type: array
           items: { type: string }
@@ -602,6 +628,8 @@ components:
         tracks_expiry: { type: boolean, default: false }
         case_of_sku_id: { type: string, nullable: true }
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
+        tracks_weight: { type: boolean, default: false }
+        portioned_from_sku_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     UpdateSKURequest:
@@ -621,6 +649,8 @@ components:
         tracks_expiry: { type: boolean, default: false }
         case_of_sku_id: { type: string, nullable: true }
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
+        tracks_weight: { type: boolean, default: false }
+        portioned_from_sku_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     CategoryResponse:

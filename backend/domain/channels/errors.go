@@ -4,11 +4,12 @@ import "errors"
 
 var (
 	ErrListingNotFound = errors.New("product channel listing not found")
-	// ErrCannotPushVariableProduct guards push-to-channel: only single-SKU
-	// (has_variants=false) products map onto a WooCommerce "simple"
-	// product today. Pushing a multi-variant product would need Woo
-	// "variable" products + per-variation calls — not built yet.
-	ErrCannotPushVariableProduct = errors.New("products with variants cannot be pushed to a channel yet")
+	// ErrCannotPushVariableProduct guards push/sync: every Variant being
+	// pushed (the product's only Variant, for a single-SKU product, or
+	// each one, for a multi-variant product in either Woo push mode) must
+	// resolve to exactly one sellable SKU. A Variant with zero or 2+ SKUs
+	// has no single price/stock source of truth to push.
+	ErrCannotPushVariableProduct = errors.New("every variant must have exactly one SKU to be pushed to a channel")
 	ErrInvalidSyncEntityType     = errors.New("invalid sync entity type")
 	ErrInvalidSyncDirection      = errors.New("invalid sync direction")
 	ErrInvalidSyncInterval       = errors.New("sync interval must be a positive number of minutes")

@@ -302,12 +302,13 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		tags = *req.Tags
 	}
 	product, err := h.createProduct.Execute(c.Request.Context(), apppms.CreateProductInput{
-		Name:        req.Name,
-		Description: description,
-		CategoryID:  req.CategoryId,
-		Status:      pmsDomain.ProductStatus(req.Status),
-		HasVariants: req.HasVariants != nil && *req.HasVariants,
-		Tags:        tags,
+		Name:                        req.Name,
+		Description:                 description,
+		CategoryID:                  req.CategoryId,
+		Status:                      pmsDomain.ProductStatus(req.Status),
+		HasVariants:                 req.HasVariants != nil && *req.HasVariants,
+		SyncVariantsAsWooVariations: req.SyncVariantsAsWooVariations != nil && *req.SyncVariantsAsWooVariations,
+		Tags:                        tags,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -340,13 +341,14 @@ func (h *Handler) UpdateProduct(c *gin.Context, id genpms.Id) {
 		tags = *req.Tags
 	}
 	product, err := h.updateProduct.Execute(c.Request.Context(), apppms.UpdateProductInput{
-		ID:          id,
-		Name:        req.Name,
-		Description: description,
-		CategoryID:  req.CategoryId,
-		Status:      pmsDomain.ProductStatus(req.Status),
-		HasVariants: req.HasVariants != nil && *req.HasVariants,
-		Tags:        tags,
+		ID:                          id,
+		Name:                        req.Name,
+		Description:                 description,
+		CategoryID:                  req.CategoryId,
+		Status:                      pmsDomain.ProductStatus(req.Status),
+		HasVariants:                 req.HasVariants != nil && *req.HasVariants,
+		SyncVariantsAsWooVariations: req.SyncVariantsAsWooVariations != nil && *req.SyncVariantsAsWooVariations,
+		Tags:                        tags,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -446,6 +448,8 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
 		CaseOfSKUID:         req.CaseOfSkuId,
 		UnitsPerCase:        req.UnitsPerCase,
+		TracksWeight:        req.TracksWeight != nil && *req.TracksWeight,
+		PortionedFromSKUID:  req.PortionedFromSkuId,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
@@ -480,6 +484,8 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
 		CaseOfSKUID:         req.CaseOfSkuId,
 		UnitsPerCase:        req.UnitsPerCase,
+		TracksWeight:        req.TracksWeight != nil && *req.TracksWeight,
+		PortionedFromSKUID:  req.PortionedFromSkuId,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
@@ -579,18 +585,20 @@ func toGenCategory(c pmsDomain.Category) genpms.Category {
 }
 
 func toGenProduct(p pmsDomain.Product) genpms.Product {
+	syncVariantsAsWooVariations := p.SyncVariantsAsWooVariations
 	return genpms.Product{
-		Id:          p.ID,
-		TenantId:    p.TenantID,
-		CategoryId:  p.CategoryID,
-		Name:        p.Name,
-		Slug:        p.Slug,
-		Description: p.Description,
-		Status:      genpms.ProductStatus(p.Status),
-		HasVariants: p.HasVariants,
-		Tags:        p.Tags,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		Id:                          p.ID,
+		TenantId:                    p.TenantID,
+		CategoryId:                  p.CategoryID,
+		Name:                        p.Name,
+		Slug:                        p.Slug,
+		Description:                 p.Description,
+		Status:                      genpms.ProductStatus(p.Status),
+		HasVariants:                 p.HasVariants,
+		SyncVariantsAsWooVariations: &syncVariantsAsWooVariations,
+		Tags:                        p.Tags,
+		CreatedAt:                   p.CreatedAt,
+		UpdatedAt:                   p.UpdatedAt,
 	}
 }
 
@@ -612,6 +620,7 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 	if s.Barcode != "" {
 		barcode = &s.Barcode
 	}
+	tracksWeight := s.TracksWeight
 	return genpms.SKU{
 		Id:                  s.ID,
 		TenantId:            s.TenantID,
@@ -630,6 +639,8 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		TracksExpiry:        s.TracksExpiry,
 		CaseOfSkuId:         s.CaseOfSKUID,
 		UnitsPerCase:        s.UnitsPerCase,
+		TracksWeight:        &tracksWeight,
+		PortionedFromSkuId:  s.PortionedFromSKUID,
 		Status:              genpms.SKUStatus(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
@@ -697,7 +708,14 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrSaleEndDateRequiresSalePrice),
 		errors.Is(err, pmsDomain.ErrUnsupportedMediaType),
 		errors.Is(err, pmsDomain.ErrMediaTargetRequired),
-		errors.Is(err, pmsDomain.ErrFeaturedMediaProductMismatch):
+		errors.Is(err, pmsDomain.ErrFeaturedMediaProductMismatch),
+		errors.Is(err, pmsDomain.ErrCaseOfSKURequiresUnitsPerCase),
+		errors.Is(err, pmsDomain.ErrCaseOfSKUCannotBeSelf),
+		errors.Is(err, pmsDomain.ErrCaseOfSKUCannotChain),
+		errors.Is(err, pmsDomain.ErrUnitsPerCaseMustBePositive),
+		errors.Is(err, pmsDomain.ErrPortionedFromSKUCannotBeSelf),
+		errors.Is(err, pmsDomain.ErrPortionedFromSKUMustTrackWeight),
+		errors.Is(err, pmsDomain.ErrBulkSKUCannotBePortioned):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("pms: unhandled error: %v", err)

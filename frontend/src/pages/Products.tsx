@@ -211,8 +211,8 @@ interface ProductEditorProps {
   productId: string | null
   categories: Category[]
   onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
-  onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; tags?: string[] }) => Promise<Product>
-  onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; tags?: string[] }) => Promise<Product>
+  onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
+  onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
   onClose: () => void
 }
 
@@ -249,6 +249,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   // for an existing product it's the server's own has_variants field —
   // source of truth lives in the DB, not inferred from variant count.
   const [variantsMode, setVariantsMode] = useState(false)
+  // Only matters once variantsMode is true and a WooCommerce store is
+  // connected -- see Product.sync_variants_as_woo_variations for the full
+  // shape this controls.
+  const [syncVariantsAsWooVariations, setSyncVariantsAsWooVariations] = useState(false)
 
   // Simple-mode SKU fields (only relevant when variantsMode is false).
   const [skuCode, setSkuCode] = useState('')
@@ -269,6 +273,12 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const [caseOfSKULabel, setCaseOfSKULabel] = useState('')
   const [unitsPerCase, setUnitsPerCase] = useState('')
   const [casePickerOpen, setCasePickerOpen] = useState(false)
+  // Bulk weight pool (see pms.SKU.TracksWeight/PortionedFromSKUID) -- a SKU
+  // is either a bulk pool itself, or portioned from one, never both.
+  const [tracksWeight, setTracksWeight] = useState(false)
+  const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
+  const [portionedFromLabel, setPortionedFromLabel] = useState('')
+  const [portionPickerOpen, setPortionPickerOpen] = useState(false)
 
   // Sync local form state once the product detail loads (edit mode) — runs once.
   const [hydrated, setHydrated] = useState(false)
@@ -279,6 +289,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
     setStatus(existing.status)
     setTags(existing.tags ?? [])
     setVariantsMode(existing.has_variants)
+    setSyncVariantsAsWooVariations(existing.sync_variants_as_woo_variations ?? false)
     const variants = detail.detail?.variants ?? []
     if (variants.length === 1) {
       const sku = variants[0].skus?.[0]
@@ -297,6 +308,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         setHeightMM(sku.height_mm != null ? String(sku.height_mm) : '')
         setCaseOfSKUID(sku.case_of_sku_id ?? null)
         setUnitsPerCase(sku.units_per_case != null ? String(sku.units_per_case) : '')
+        setTracksWeight(sku.tracks_weight ?? false)
+        setPortionedFromSKUID(sku.portioned_from_sku_id ?? null)
       }
     }
     setHydrated(true)
@@ -326,7 +339,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
     setFormError('')
     setSaving(true)
     try {
-      const payload = { name, description, category_id: categoryId || null, status, has_variants: variantsMode, tags }
+      const payload = {
+        name, description, category_id: categoryId || null, status, has_variants: variantsMode,
+        sync_variants_as_woo_variations: syncVariantsAsWooVariations, tags,
+      }
       // A virtual SKU never ships, so it can never carry weight/dimensions
       // (enforced server-side too — see ErrVirtualSKUCannotHaveDimensions).
       const dimensions = isVirtual
@@ -375,6 +391,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               ...dimensions,
               case_of_sku_id: caseOfSKUID,
               units_per_case: caseOfSKUID ? parseIntOrUndefined(unitsPerCase) ?? null : null,
+              tracks_weight: tracksWeight,
+              portioned_from_sku_id: portionedFromSKUID,
               status: skuStatus,
             })
           } else if (skuCode) {
@@ -590,6 +608,23 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
             <FormCard title="Variants">
               {variantsMode ? (
                 <>
+                  {wooConnection && (
+                    <label className="flex items-start gap-2 mb-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncVariantsAsWooVariations}
+                        onChange={e => setSyncVariantsAsWooVariations(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-[11px] dark:text-gray-400 text-gray-600">
+                        <span className="font-medium dark:text-gray-300 text-gray-800">Sync variants as WooCommerce variations</span>
+                        <br />
+                        On: one Woo product with a variation per variant. Off (default): each variant becomes its own
+                        separate Woo product. Changing this after the product is already synced deletes the old
+                        WooCommerce listing(s) and recreates them in the new shape.
+                      </span>
+                    </label>
+                  )}
                   {savedProductId ? (
                     <VariantsSection detail={detail} productId={savedProductId} />
                   ) : (
@@ -720,6 +755,58 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                   >
                     <Search size={12} /> This is a case of another product
                   </button>
+                )}
+              </FormCard>
+            )}
+
+            {showFlatSKU && currentSku && (
+              <FormCard
+                title="Bulk pool"
+                description="Book a bulk lot once (e.g. 20kg), then peel off individually-weighed sellable items from it over time as they're packaged."
+              >
+                <ToggleRow
+                  label="This is a bulk weight pool (booked in kg, not units)"
+                  checked={tracksWeight}
+                  onChange={() => {
+                    setTracksWeight(v => {
+                      const next = !v
+                      if (next) { setPortionedFromSKUID(null); setPortionedFromLabel('') }
+                      return next
+                    })
+                  }}
+                />
+                {!tracksWeight && (
+                  portionedFromSKUID ? (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="flex-1 text-xs dark:text-gray-200 text-gray-800">
+                        Portioned from <span className="font-medium">{portionedFromLabel || portionedFromSKUID}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setPortionedFromSKUID(null); setPortionedFromLabel('') }}
+                        className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : portionPickerOpen ? (
+                    <div className="mt-2">
+                      <CaseOfSKUPicker
+                        excludeSKUID={currentSku.id}
+                        filterSku={s => !!s.tracks_weight}
+                        onSelect={(sku, label) => { setPortionedFromSKUID(sku.id); setPortionedFromLabel(label); setPortionPickerOpen(false) }}
+                        onClose={() => setPortionPickerOpen(false)}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPortionPickerOpen(true)}
+                      className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors mt-2"
+                    >
+                      <Search size={12} /> This is portioned from a bulk pool
+                    </button>
+                  )
                 )}
               </FormCard>
             )}
@@ -1209,11 +1296,15 @@ interface CaseOfSKUPickerProps {
   // results client-side (the backend also rejects it, see
   // ErrCaseOfSKUCannotBeSelf, but hiding it up front avoids a round trip).
   excludeSKUID: string
+  // Extra client-side filter beyond excludeSKUID -- e.g. only tracks_weight
+  // SKUs when picking a bulk pool to portion from. Hides invalid choices up
+  // front instead of letting the backend reject them after the fact.
+  filterSku?: (sku: SKU) => boolean
   onSelect: (sku: SKU, label: string) => void
   onClose: () => void
 }
 
-function CaseOfSKUPicker({ excludeSKUID, onSelect, onClose }: CaseOfSKUPickerProps) {
+function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: CaseOfSKUPickerProps) {
   const { token } = useAuth()
   const [query, setQuery] = useState('')
   const { products } = useProducts(token ?? '', { search: query, perPage: 5 })
@@ -1230,7 +1321,8 @@ function CaseOfSKUPicker({ excludeSKUID, onSelect, onClose }: CaseOfSKUPickerPro
     setLoadingSkus(true)
     try {
       const detail = await pmsApi.getProduct(token ?? '', productId)
-      setSkus(detail.variants.flatMap(v => v.skus ?? []).filter(s => s.id !== excludeSKUID))
+      const candidates = detail.variants.flatMap(v => v.skus ?? []).filter(s => s.id !== excludeSKUID)
+      setSkus(filterSku ? candidates.filter(filterSku) : candidates)
     } finally {
       setLoadingSkus(false)
     }

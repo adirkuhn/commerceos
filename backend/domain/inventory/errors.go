@@ -18,4 +18,8 @@ var (
 	// have pms.SKU.CaseOfSKUID/UnitsPerCase set (see that field's doc
 	// comment) -- there's nothing to split otherwise.
 	ErrSKUIsNotACase = errors.New("sku is not configured as a case of another sku")
+	// ErrSKUIsNotPortioned guards PortionFromBulkUseCase: the given SKU
+	// must have pms.SKU.PortionedFromSKUID set -- there's no bulk pool to
+	// consume from otherwise.
+	ErrSKUIsNotPortioned = errors.New("sku is not configured as portioned from a bulk sku")
 )

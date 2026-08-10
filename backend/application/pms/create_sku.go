@@ -27,6 +27,8 @@ type CreateSKUInput struct {
 	TracksExpiry        bool
 	CaseOfSKUID         *string
 	UnitsPerCase        *int64
+	TracksWeight        bool
+	PortionedFromSKUID  *string
 	Status              pmsDomain.SKUStatus
 }
 
@@ -53,6 +55,9 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 	if err := validateCasePackShape(in.CaseOfSKUID, in.UnitsPerCase); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
+	if err := validatePortionedFromShape(in.TracksWeight, in.PortionedFromSKUID); err != nil {
+		return nil, fmt.Errorf("createSKU: %w", err)
+	}
 
 	var sku pmsDomain.SKU
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -70,6 +75,11 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 
 		if in.CaseOfSKUID != nil {
 			if err := validateCaseOfSKU(ctx, uc.skuRepo, "", *in.CaseOfSKUID); err != nil {
+				return err
+			}
+		}
+		if in.PortionedFromSKUID != nil {
+			if err := validatePortionedFromSKU(ctx, uc.skuRepo, "", *in.PortionedFromSKUID); err != nil {
 				return err
 			}
 		}
@@ -92,6 +102,8 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 			TracksExpiry:        in.TracksExpiry,
 			CaseOfSKUID:         in.CaseOfSKUID,
 			UnitsPerCase:        in.UnitsPerCase,
+			TracksWeight:        in.TracksWeight,
+			PortionedFromSKUID:  in.PortionedFromSKUID,
 			Status:              in.Status,
 			CreatedAt:           now,
 			UpdatedAt:           now,
@@ -167,6 +179,39 @@ func validateCaseOfSKU(ctx context.Context, skuRepo pmsDomain.SKURepository, sel
 	}
 	if target.CaseOfSKUID != nil {
 		return pmsDomain.ErrCaseOfSKUCannotChain
+	}
+	return nil
+}
+
+// validatePortionedFromShape is the shared invariant for CreateSKU/UpdateSKU:
+// a SKU can't be both a bulk weight pool (TracksWeight) and itself
+// portioned from another one -- keeps the relationship one level deep
+// without needing to walk a chain.
+func validatePortionedFromShape(tracksWeight bool, portionedFromSKUID *string) error {
+	if tracksWeight && portionedFromSKUID != nil {
+		return pmsDomain.ErrBulkSKUCannotBePortioned
+	}
+	return nil
+}
+
+// validatePortionedFromSKU is the shared invariant for CreateSKU/UpdateSKU
+// once PortionedFromSKUID is non-nil: the referenced SKU must exist
+// (ErrSKUNotFound propagates as-is), can't be the SKU itself (selfID is ""
+// for a not-yet-created SKU, which can never equal a real
+// portionedFromSKUID), and must be a weight pool (TracksWeight) --
+// validatePortionedFromShape already guarantees a TracksWeight SKU never
+// has its own PortionedFromSKUID set, so this alone keeps the relationship
+// one level deep.
+func validatePortionedFromSKU(ctx context.Context, skuRepo pmsDomain.SKURepository, selfID, portionedFromSKUID string) error {
+	if selfID != "" && selfID == portionedFromSKUID {
+		return pmsDomain.ErrPortionedFromSKUCannotBeSelf
+	}
+	target, err := skuRepo.FindByID(ctx, portionedFromSKUID)
+	if err != nil {
+		return err
+	}
+	if !target.TracksWeight {
+		return pmsDomain.ErrPortionedFromSKUMustTrackWeight
 	}
 	return nil
 }

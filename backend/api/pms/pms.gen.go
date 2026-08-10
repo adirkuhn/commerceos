@@ -109,12 +109,13 @@ type CreateCategoryRequest struct {
 
 // CreateProductRequest defines model for CreateProductRequest.
 type CreateProductRequest struct {
-	CategoryId  *string       `json:"category_id,omitempty"`
-	Description *string       `json:"description,omitempty"`
-	HasVariants *bool         `json:"has_variants,omitempty"`
-	Name        string        `json:"name"`
-	Status      ProductStatus `json:"status"`
-	Tags        *[]string     `json:"tags,omitempty"`
+	CategoryId                  *string       `json:"category_id,omitempty"`
+	Description                 *string       `json:"description,omitempty"`
+	HasVariants                 *bool         `json:"has_variants,omitempty"`
+	Name                        string        `json:"name"`
+	Status                      ProductStatus `json:"status"`
+	SyncVariantsAsWooVariations *bool         `json:"sync_variants_as_woo_variations,omitempty"`
+	Tags                        *[]string     `json:"tags,omitempty"`
 }
 
 // CreateSKURequest defines model for CreateSKURequest.
@@ -125,12 +126,14 @@ type CreateSKURequest struct {
 	HeightMm            *int64              `json:"height_mm,omitempty"`
 	IsVirtual           *bool               `json:"is_virtual,omitempty"`
 	LengthMm            *int64              `json:"length_mm,omitempty"`
+	PortionedFromSkuId  *string             `json:"portioned_from_sku_id,omitempty"`
 	PriceMinorUnits     int64               `json:"price_minor_units"`
 	SaleEndDate         *openapi_types.Date `json:"sale_end_date,omitempty"`
 	SalePriceMinorUnits *int64              `json:"sale_price_minor_units,omitempty"`
 	SkuCode             string              `json:"sku_code"`
 	Status              SKUStatus           `json:"status"`
 	TracksExpiry        *bool               `json:"tracks_expiry,omitempty"`
+	TracksWeight        *bool               `json:"tracks_weight,omitempty"`
 	UnitsPerCase        *int64              `json:"units_per_case,omitempty"`
 	WeightGrams         *int64              `json:"weight_grams,omitempty"`
 	WidthMm             *int64              `json:"width_mm,omitempty"`
@@ -197,9 +200,12 @@ type Product struct {
 	Name        string        `json:"name"`
 	Slug        string        `json:"slug"`
 	Status      ProductStatus `json:"status"`
-	Tags        []string      `json:"tags"`
-	TenantId    string        `json:"tenant_id"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+
+	// SyncVariantsAsWooVariations Only matters when has_variants is true, and only for channels that support it (WooCommerce today). false (the default): each variant pushes as its own separate simple Woo product. true: all variants push as ONE Woo "variable" product with one Woo variation per variant. Changing this on an already-pushed product is a migration handled by the sync pipeline, not just a field update -- see application/channels' SyncProductToChannelsUseCase.
+	SyncVariantsAsWooVariations *bool     `json:"sync_variants_as_woo_variations,omitempty"`
+	Tags                        []string  `json:"tags"`
+	TenantId                    string    `json:"tenant_id"`
+	UpdatedAt                   time.Time `json:"updated_at"`
 }
 
 // ProductDetail defines model for ProductDetail.
@@ -240,9 +246,10 @@ type SKU struct {
 	Id           string    `json:"id"`
 
 	// IsVirtual Digital/non-shippable SKU. A virtual SKU never has weight or dimensions set.
-	IsVirtual       bool   `json:"is_virtual"`
-	LengthMm        *int64 `json:"length_mm,omitempty"`
-	PriceMinorUnits int64  `json:"price_minor_units"`
+	IsVirtual          bool    `json:"is_virtual"`
+	LengthMm           *int64  `json:"length_mm,omitempty"`
+	PortionedFromSkuId *string `json:"portioned_from_sku_id,omitempty"`
+	PriceMinorUnits    int64   `json:"price_minor_units"`
 
 	// SaleEndDate Sale is active through this date (inclusive); the scheduler clears sale_price_minor_units the day after. Only meaningful alongside sale_price_minor_units.
 	SaleEndDate *openapi_types.Date `json:"sale_end_date,omitempty"`
@@ -254,7 +261,10 @@ type SKU struct {
 	TenantId            string    `json:"tenant_id"`
 
 	// TracksExpiry Whether this SKU's inventory batches carry a meaningful expiry date — advisory only, doesn't block creating a batch without one.
-	TracksExpiry bool      `json:"tracks_expiry"`
+	TracksExpiry bool `json:"tracks_expiry"`
+
+	// TracksWeight Marks this SKU as a weight pool -- its stock quantity is grams, not whole units (e.g. a 20kg bulk lot booked as one stock-in of 20000). See portioned_from_sku_id and the inventory module's portion-from-bulk endpoint.
+	TracksWeight *bool     `json:"tracks_weight,omitempty"`
 	UnitsPerCase *int64    `json:"units_per_case,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	VariantId    string    `json:"variant_id"`
@@ -284,12 +294,13 @@ type UpdateMediaRequest struct {
 
 // UpdateProductRequest defines model for UpdateProductRequest.
 type UpdateProductRequest struct {
-	CategoryId  *string       `json:"category_id,omitempty"`
-	Description *string       `json:"description,omitempty"`
-	HasVariants *bool         `json:"has_variants,omitempty"`
-	Name        string        `json:"name"`
-	Status      ProductStatus `json:"status"`
-	Tags        *[]string     `json:"tags,omitempty"`
+	CategoryId                  *string       `json:"category_id,omitempty"`
+	Description                 *string       `json:"description,omitempty"`
+	HasVariants                 *bool         `json:"has_variants,omitempty"`
+	Name                        string        `json:"name"`
+	Status                      ProductStatus `json:"status"`
+	SyncVariantsAsWooVariations *bool         `json:"sync_variants_as_woo_variations,omitempty"`
+	Tags                        *[]string     `json:"tags,omitempty"`
 }
 
 // UpdateSKURequest defines model for UpdateSKURequest.
@@ -300,11 +311,13 @@ type UpdateSKURequest struct {
 	HeightMm            *int64              `json:"height_mm,omitempty"`
 	IsVirtual           *bool               `json:"is_virtual,omitempty"`
 	LengthMm            *int64              `json:"length_mm,omitempty"`
+	PortionedFromSkuId  *string             `json:"portioned_from_sku_id,omitempty"`
 	PriceMinorUnits     int64               `json:"price_minor_units"`
 	SaleEndDate         *openapi_types.Date `json:"sale_end_date,omitempty"`
 	SalePriceMinorUnits *int64              `json:"sale_price_minor_units,omitempty"`
 	Status              SKUStatus           `json:"status"`
 	TracksExpiry        *bool               `json:"tracks_expiry,omitempty"`
+	TracksWeight        *bool               `json:"tracks_weight,omitempty"`
 	UnitsPerCase        *int64              `json:"units_per_case,omitempty"`
 	WeightGrams         *int64              `json:"weight_grams,omitempty"`
 	WidthMm             *int64              `json:"width_mm,omitempty"`
@@ -977,46 +990,52 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

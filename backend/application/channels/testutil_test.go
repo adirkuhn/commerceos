@@ -97,6 +97,37 @@ type stubWooClient struct {
 
 	deleteProductCalled []string
 	deleteProductErr    error
+
+	createVariableCalled []stubCreateVariableCall
+	createVariableErr    error
+	createVariableWithID string
+
+	createVariationCalled []stubVariationCall
+	createVariationErr    error
+	createVariationWithID string
+
+	updateVariationCalled []stubVariationCall
+	updateVariationErr    error
+
+	deleteVariationCalled []stubDeleteVariationCall
+	deleteVariationErr    error
+}
+
+type stubCreateVariableCall struct {
+	Product         integrationsDomain.WooProduct
+	AttributeName   string
+	AttributeValues []string
+}
+
+type stubVariationCall struct {
+	ParentExternalID    string
+	VariationExternalID string // empty for a Create call
+	Variation           integrationsDomain.WooVariation
+}
+
+type stubDeleteVariationCall struct {
+	ParentExternalID    string
+	VariationExternalID string
 }
 
 type stubStockUpdate struct {
@@ -149,6 +180,47 @@ func (s *stubWooClient) UpdateProduct(_ context.Context, externalID string, p in
 func (s *stubWooClient) DeleteProduct(_ context.Context, externalID string) error {
 	s.deleteProductCalled = append(s.deleteProductCalled, externalID)
 	return s.deleteProductErr
+}
+
+func (s *stubWooClient) CreateVariableProduct(_ context.Context, p integrationsDomain.WooProduct, attributeName string, attributeValues []string) (*integrationsDomain.WooProduct, error) {
+	s.createVariableCalled = append(s.createVariableCalled, stubCreateVariableCall{Product: p, AttributeName: attributeName, AttributeValues: attributeValues})
+	if s.createVariableErr != nil {
+		return nil, s.createVariableErr
+	}
+	id := s.createVariableWithID
+	if id == "" {
+		id = "new-parent-external-id"
+	}
+	p.ID = id
+	p.Type = "variable"
+	return &p, nil
+}
+
+func (s *stubWooClient) CreateVariation(_ context.Context, parentExternalID string, v integrationsDomain.WooVariation) (*integrationsDomain.WooVariation, error) {
+	s.createVariationCalled = append(s.createVariationCalled, stubVariationCall{ParentExternalID: parentExternalID, Variation: v})
+	if s.createVariationErr != nil {
+		return nil, s.createVariationErr
+	}
+	id := s.createVariationWithID
+	if id == "" {
+		id = "new-variation-external-id"
+	}
+	v.ID = id
+	return &v, nil
+}
+
+func (s *stubWooClient) UpdateVariation(_ context.Context, parentExternalID, variationExternalID string, v integrationsDomain.WooVariation) (*integrationsDomain.WooVariation, error) {
+	s.updateVariationCalled = append(s.updateVariationCalled, stubVariationCall{ParentExternalID: parentExternalID, VariationExternalID: variationExternalID, Variation: v})
+	if s.updateVariationErr != nil {
+		return nil, s.updateVariationErr
+	}
+	v.ID = variationExternalID
+	return &v, nil
+}
+
+func (s *stubWooClient) DeleteVariation(_ context.Context, parentExternalID, variationExternalID string) error {
+	s.deleteVariationCalled = append(s.deleteVariationCalled, stubDeleteVariationCall{ParentExternalID: parentExternalID, VariationExternalID: variationExternalID})
+	return s.deleteVariationErr
 }
 
 func (s *stubWooClient) ListCategories(_ context.Context) ([]integrationsDomain.WooCategory, error) {
@@ -372,6 +444,7 @@ type stubListingRepo struct {
 	listByProduct map[string][]channelsDomain.ProductChannelListing
 	created       []channelsDomain.ProductChannelListing
 	updated       []channelsDomain.ProductChannelListing
+	deleted       []string
 	findErr       error
 	listByProdErr error
 }
@@ -411,9 +484,45 @@ func (s *stubListingRepo) ListByProduct(_ context.Context, productID string) ([]
 	}
 	return s.listByProduct[productID], nil
 }
+func (s *stubListingRepo) ListByProductAndConnection(_ context.Context, productID, connectionID string) ([]channelsDomain.ProductChannelListing, error) {
+	if s.listByProdErr != nil {
+		return nil, s.listByProdErr
+	}
+	var out []channelsDomain.ProductChannelListing
+	for _, l := range s.listByProduct[productID] {
+		if l.ConnectionID == connectionID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}
+func (s *stubListingRepo) FindByProductVariantAndConnection(_ context.Context, productID string, variantID *string, connectionID string) (*channelsDomain.ProductChannelListing, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	for _, l := range s.listByProduct[productID] {
+		if l.ConnectionID != connectionID || !sameVariantID(l.VariantID, variantID) {
+			continue
+		}
+		found := l
+		return &found, nil
+	}
+	return nil, channelsDomain.ErrListingNotFound
+}
 func (s *stubListingRepo) Update(_ context.Context, l *channelsDomain.ProductChannelListing) error {
 	s.updated = append(s.updated, *l)
 	return nil
+}
+func (s *stubListingRepo) Delete(_ context.Context, id string) error {
+	s.deleted = append(s.deleted, id)
+	return nil
+}
+
+func sameVariantID(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 type stubSyncLogRepo struct {

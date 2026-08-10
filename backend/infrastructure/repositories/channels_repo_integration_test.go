@@ -150,3 +150,157 @@ func skuIDToProductID(t *testing.T, db *gorm.DB, ctx context.Context, skuID stri
 	require.NoError(t, err)
 	return productID
 }
+
+// skuIDToVariantID is skuIDToProductID's sibling for tests that need the
+// variant id itself (e.g. to set ProductChannelListing.VariantID or to
+// delete the variant and prove the FK's ON DELETE CASCADE).
+func skuIDToVariantID(t *testing.T, db *gorm.DB, ctx context.Context, skuID string) string {
+	t.Helper()
+	skuRepo := repositories.NewSKURepo(db)
+	var variantID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		sku, err := skuRepo.FindByID(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		variantID = sku.VariantID
+		return nil
+	})
+	require.NoError(t, err)
+	return variantID
+}
+
+// TestProductChannelListingRepo_Integration_VariantRowsRoundTrip proves
+// migration 046's variant_id/is_variation columns exist and round-trip
+// through the real repo -- both the nil-VariantID "parent" lookup and the
+// specific-Variant lookup FindByProductVariantAndConnection promises.
+func TestProductChannelListingRepo_Integration_VariantRowsRoundTrip(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, _ := seedProductSKUWarehouse(t, db, ctx)
+	productID := skuIDToProductID(t, db, ctx, skuID)
+	variantID := skuIDToVariantID(t, db, ctx, skuID)
+	connRepo := repositories.NewConnectionRepo(db)
+	listingRepo := repositories.NewProductChannelListingRepo(db)
+
+	var connectionID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL: "https://itest.example.com", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := connRepo.Create(ctx, conn); err != nil {
+			return err
+		}
+		connectionID = conn.ID
+
+		parent := channelsDomain.ProductChannelListing{
+			TenantID: tenant.IDFromContext(ctx), ProductID: productID, ConnectionID: conn.ID,
+			Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900",
+			SyncStatus: channelsDomain.SyncStatusSynced, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := listingRepo.Create(ctx, &parent); err != nil {
+			return err
+		}
+
+		variantRow := channelsDomain.ProductChannelListing{
+			TenantID: tenant.IDFromContext(ctx), ProductID: productID, ConnectionID: conn.ID,
+			Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901",
+			VariantID: &variantID, IsVariation: true,
+			SyncStatus: channelsDomain.SyncStatusSynced, CreatedAt: now, UpdatedAt: now,
+		}
+		return listingRepo.Create(ctx, &variantRow)
+	})
+	require.NoError(t, err)
+
+	var parentFound, variantFound *channelsDomain.ProductChannelListing
+	var all []channelsDomain.ProductChannelListing
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		parentFound, err = listingRepo.FindByProductVariantAndConnection(ctx, productID, nil, connectionID)
+		if err != nil {
+			return err
+		}
+		variantFound, err = listingRepo.FindByProductVariantAndConnection(ctx, productID, &variantID, connectionID)
+		if err != nil {
+			return err
+		}
+		all, err = listingRepo.ListByProductAndConnection(ctx, productID, connectionID)
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "900", parentFound.ExternalID)
+	require.Nil(t, parentFound.VariantID)
+	require.False(t, parentFound.IsVariation)
+
+	require.Equal(t, "901", variantFound.ExternalID)
+	require.NotNil(t, variantFound.VariantID)
+	require.Equal(t, variantID, *variantFound.VariantID)
+	require.True(t, variantFound.IsVariation)
+
+	require.Len(t, all, 2)
+}
+
+// TestProductChannelListingRepo_Integration_VariantDeleteCascadesListingRow
+// proves migration 046's variant_id FK is ON DELETE CASCADE: deleting the
+// Variant a per-variant listing row points at removes that row too,
+// without touching the sibling product-level (parent) row.
+func TestProductChannelListingRepo_Integration_VariantDeleteCascadesListingRow(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, _ := seedProductSKUWarehouse(t, db, ctx)
+	productID := skuIDToProductID(t, db, ctx, skuID)
+	variantID := skuIDToVariantID(t, db, ctx, skuID)
+	connRepo := repositories.NewConnectionRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	listingRepo := repositories.NewProductChannelListingRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL: "https://itest.example.com", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := connRepo.Create(ctx, conn); err != nil {
+			return err
+		}
+
+		parent := channelsDomain.ProductChannelListing{
+			TenantID: tenant.IDFromContext(ctx), ProductID: productID, ConnectionID: conn.ID,
+			Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900",
+			SyncStatus: channelsDomain.SyncStatusSynced, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := listingRepo.Create(ctx, &parent); err != nil {
+			return err
+		}
+
+		variantRow := channelsDomain.ProductChannelListing{
+			TenantID: tenant.IDFromContext(ctx), ProductID: productID, ConnectionID: conn.ID,
+			Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901",
+			VariantID: &variantID, IsVariation: true,
+			SyncStatus: channelsDomain.SyncStatusSynced, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := listingRepo.Create(ctx, &variantRow); err != nil {
+			return err
+		}
+
+		return variantRepo.Delete(ctx, variantID)
+	})
+	require.NoError(t, err)
+
+	var remaining []channelsDomain.ProductChannelListing
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		remaining, err = listingRepo.ListByProduct(ctx, productID)
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Len(t, remaining, 1, "the per-variant row must be gone, cascaded from the variant delete")
+	require.Equal(t, "900", remaining[0].ExternalID)
+	require.Nil(t, remaining[0].VariantID, "the parent row must survive untouched")
+}

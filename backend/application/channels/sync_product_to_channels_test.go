@@ -21,9 +21,14 @@ func newSyncHarness(product pmsDomain.Product, variant pmsDomain.Variant, sku pm
 
 func (h *harness) newSyncUseCase(t *testing.T, n int) *appchannels.SyncProductToChannelsUseCase {
 	t.Helper()
+	return h.newSyncUseCaseWithPusher(t, n, &stubProductPusher{})
+}
+
+func (h *harness) newSyncUseCaseWithPusher(t *testing.T, n int, pusher *stubProductPusher) *appchannels.SyncProductToChannelsUseCase {
+	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.connRepo, h.wooFactory, testEncryptionSecret, pusher,
 	)
 }
 
@@ -155,20 +160,238 @@ func TestSyncProductToChannels_recordsErrorStatusWhenWooUpdateFails_withoutFaili
 	require.Contains(t, h.listingRepo.updated[0].LastSyncError, "woo unreachable")
 }
 
-func TestSyncProductToChannels_skipsListingsWhenProductHasGrownVariants(t *testing.T) {
+// TestSyncProductToChannels_migratesShapeWhenProductHasGrownVariants covers
+// a product pushed while single-SKU, then given variants afterwards: its
+// one legacy listing row (VariantID nil) no longer matches any shape
+// HasVariants=true calls for, so the old Woo product is torn down and the
+// product is re-pushed from scratch via PushProductToWooUseCase in
+// whichever shape SyncVariantsAsWooVariations now calls for.
+func TestSyncProductToChannels_migratesShapeWhenProductHasGrownVariants(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
-	product.HasVariants = true
+	product.HasVariants = true // legacy single-SKU listing is now out of shape
 	listing := channelsDomain.ProductChannelListing{
 		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
 		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
 	}
 	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
-	uc := h.newSyncUseCase(t, 1)
+	pusher := &stubProductPusher{}
+	uc := h.newSyncUseCaseWithPusher(t, 3, pusher)
 
 	err := uc.Execute(context.Background(), product.ID)
 
 	require.NoError(t, err)
-	require.Empty(t, h.wooClient.updateProductCalled)
+	require.Empty(t, h.wooClient.updateProductCalled, "no in-place update -- shape mismatch means tear down and re-push")
+	require.Equal(t, []string{"555"}, h.wooClient.deleteProductCalled)
+	require.Equal(t, []string{"listing-1"}, h.listingRepo.deleted)
+	require.Len(t, pusher.calls, 1)
+	require.Equal(t, product.ID, pusher.calls[0].ProductID)
+	require.Equal(t, "conn-1", pusher.calls[0].ConnectionID)
+}
+
+// twoVariantProduct is the fixture for every variant-sync-mode test below —
+// a HasVariants=true product with two Variant/SKU pairs, e.g. two
+// pack-size variants of the same underlying item.
+func twoVariantProduct(syncAsVariations bool) (pmsDomain.Product, []pmsDomain.Variant, []pmsDomain.SKU) {
+	product := pmsDomain.Product{
+		ID: "product-1", Name: "Carne Seca", Slug: "carne-seca", Description: "Dried salted meat",
+		Status: pmsDomain.ProductStatusActive, HasVariants: true, SyncVariantsAsWooVariations: syncAsVariations,
+	}
+	variants := []pmsDomain.Variant{
+		{ID: "variant-1", ProductID: product.ID, Name: "378g"},
+		{ID: "variant-2", ProductID: product.ID, Name: "412g"},
+	}
+	skus := []pmsDomain.SKU{
+		{ID: "sku-1", VariantID: "variant-1", SKUCode: "CARNE-378", PriceMinorUnits: 2999, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive},
+		{ID: "sku-2", VariantID: "variant-2", SKUCode: "CARNE-412", PriceMinorUnits: 3299, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive},
+	}
+	return product, variants, skus
+}
+
+func newMultiVariantSyncHarness(product pmsDomain.Product, variants []pmsDomain.Variant, skus []pmsDomain.SKU, listings []channelsDomain.ProductChannelListing) *harness {
+	h := newHarness(nil)
+	h.productRepo.byID = map[string]pmsDomain.Product{product.ID: product}
+	h.variantRepo.byProduct = map[string][]pmsDomain.Variant{product.ID: variants}
+	byVariant := map[string][]pmsDomain.SKU{}
+	for _, sku := range skus {
+		byVariant[sku.VariantID] = []pmsDomain.SKU{sku}
+	}
+	h.skuRepo.byVariant = byVariant
+	h.listingRepo.listByProduct = map[string][]channelsDomain.ProductChannelListing{product.ID: listings}
+	return h
+}
+
+// TestSyncProductToChannels_migratesFromSeparateProductsToVariationsWhenFlagTurnsOn
+// is the "commerceos 1 product -> N variants -> woo N products" ->
+// "1 product -> N variants -> woo 1 product -> N variations" case: both
+// separate simple products are deleted from Woo, both old listing rows are
+// deleted, and the product is re-pushed as a variable product.
+func TestSyncProductToChannels_migratesFromSeparateProductsToVariationsWhenFlagTurnsOn(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true) // flag just turned on
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "701", VariantID: strPtr(variants[0].ID)},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "702", VariantID: strPtr(variants[1].ID)},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	pusher := &stubProductPusher{}
+	uc := h.newSyncUseCaseWithPusher(t, 3, pusher)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"701", "702"}, h.wooClient.deleteProductCalled)
+	require.Empty(t, h.wooClient.deleteVariationCalled)
+	require.ElementsMatch(t, []string{"listing-1", "listing-2"}, h.listingRepo.deleted)
+	require.Len(t, pusher.calls, 1)
+	require.Equal(t, product.ID, pusher.calls[0].ProductID)
+}
+
+// TestSyncProductToChannels_migratesFromVariationsToSeparateProductsWhenFlagTurnsOff
+// is the reverse toggle: the parent variable product and every one of its
+// variations are deleted from Woo ("delete all other variants"), all three
+// old listing rows are deleted, and the product is re-pushed as N separate
+// simple products.
+func TestSyncProductToChannels_migratesFromVariationsToSeparateProductsWhenFlagTurnsOff(t *testing.T) {
+	product, variants, skus := twoVariantProduct(false) // flag just turned off
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900"},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "902", VariantID: strPtr(variants[1].ID), IsVariation: true},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	pusher := &stubProductPusher{}
+	uc := h.newSyncUseCaseWithPusher(t, 3, pusher)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.deleteVariationCalled, 2)
+	for _, c := range h.wooClient.deleteVariationCalled {
+		require.Equal(t, "900", c.ParentExternalID)
+	}
+	require.Equal(t, []string{"900"}, h.wooClient.deleteProductCalled)
+	require.ElementsMatch(t, []string{"listing-parent", "listing-1", "listing-2"}, h.listingRepo.deleted)
+	require.Len(t, pusher.calls, 1)
+	require.Equal(t, product.ID, pusher.calls[0].ProductID)
+}
+
+// TestSyncProductToChannels_reTogglingBackMigratesAgain proves toggling
+// twice isn't a no-op the second time either -- flipping back off after an
+// earlier on (or vice versa) still migrates, since actual shape is judged
+// from the listing rows currently on file, not from any memory of a prior
+// state.
+func TestSyncProductToChannels_reTogglingBackMigratesAgain(t *testing.T) {
+	product, variants, skus := twoVariantProduct(false) // toggled back off
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900"},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "902", VariantID: strPtr(variants[1].ID), IsVariation: true},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	pusher := &stubProductPusher{}
+	uc := h.newSyncUseCaseWithPusher(t, 3, pusher)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, pusher.calls, 1, "still migrates even though this is the second flip")
+	require.Equal(t, []string{"900"}, h.wooClient.deleteProductCalled)
+}
+
+// TestSyncProductToChannels_updatesExistingVariationsInPlaceWhenShapeUnchanged
+// is the steady state for variations mode: shape already matches, so every
+// existing variation (and the parent) is updated in place -- no
+// delete/recreate churn on every ordinary product edit.
+func TestSyncProductToChannels_updatesExistingVariationsInPlaceWhenShapeUnchanged(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900"},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "902", VariantID: strPtr(variants[1].ID), IsVariation: true},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	uc := h.newSyncUseCase(t, 6)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1, "parent updated too")
+	require.Equal(t, "900", h.wooClient.updateProductCalled[0].ExternalID)
+	require.Len(t, h.wooClient.updateVariationCalled, 2)
+	require.Empty(t, h.wooClient.createVariationCalled)
+	require.Empty(t, h.wooClient.deleteVariationCalled)
+	require.Empty(t, h.listingRepo.deleted)
+	require.Len(t, h.listingRepo.updated, 2)
+}
+
+// TestSyncProductToChannels_updatesExistingSeparateProductsInPlaceWhenShapeUnchanged
+// is separate-products mode's equivalent steady state.
+func TestSyncProductToChannels_updatesExistingSeparateProductsInPlaceWhenShapeUnchanged(t *testing.T) {
+	product, variants, skus := twoVariantProduct(false)
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "701", VariantID: strPtr(variants[0].ID)},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "702", VariantID: strPtr(variants[1].ID)},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	uc := h.newSyncUseCase(t, 6)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 2)
+	require.Empty(t, h.wooClient.createCalled)
+	require.Empty(t, h.wooClient.deleteProductCalled)
+	require.Empty(t, h.listingRepo.deleted)
+	require.Len(t, h.listingRepo.updated, 2)
+}
+
+// TestSyncProductToChannels_createsVariationForNewlyAddedVariant covers a
+// third Variant added to an already-linked variations-mode product: only
+// the new one gets a CreateVariation call, the existing two are untouched
+// creates (only updated).
+func TestSyncProductToChannels_createsRowForNewlyAddedVariant(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900"},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true},
+		// variant-2 has no listing yet -- added after the initial push.
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	h.wooClient.createVariationWithID = "903"
+	uc := h.newSyncUseCase(t, 6)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createVariationCalled, 1)
+	require.Equal(t, "900", h.wooClient.createVariationCalled[0].ParentExternalID)
+	require.Equal(t, "412g", h.wooClient.createVariationCalled[0].Variation.AttributeValue)
+	require.Len(t, h.wooClient.updateVariationCalled, 1, "the pre-existing variant-1 row is updated, not recreated")
+	require.Len(t, h.listingRepo.created, 1)
+	require.Equal(t, "903", h.listingRepo.created[0].ExternalID)
+}
+
+// TestSyncProductToChannels_deletesVariationForRemovedVariant covers the
+// opposite edge: a Variant deleted from the product removes its Woo
+// variation and listing row too, without disturbing its siblings.
+func TestSyncProductToChannels_deletesVariationForRemovedVariant(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	remainingVariant := variants[:1] // variant-2 was deleted from the product
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900"},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "902", VariantID: strPtr(variants[1].ID), IsVariation: true},
+	}
+	h := newMultiVariantSyncHarness(product, remainingVariant, skus, listings)
+	uc := h.newSyncUseCase(t, 5)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.deleteVariationCalled, 1)
+	require.Equal(t, "902", h.wooClient.deleteVariationCalled[0].VariationExternalID)
+	require.Equal(t, "900", h.wooClient.deleteVariationCalled[0].ParentExternalID)
+	require.Equal(t, []string{"listing-2"}, h.listingRepo.deleted)
+	require.Len(t, h.wooClient.updateVariationCalled, 1, "the surviving variant-1 row is still synced")
 }
 
 func TestSyncProductToChannels_skipsListingsForUnimplementedProviders(t *testing.T) {

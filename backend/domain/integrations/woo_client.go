@@ -46,6 +46,30 @@ type WooProductDimensions struct {
 	Height string
 }
 
+// WooVariation is the subset of a WooCommerce product variation this
+// codebase maps to. Distinct from WooProduct: a variation has no name,
+// description, images, or categories of its own -- it inherits all of
+// that from its parent product. Only price/stock/physical attributes and
+// which attribute option it represents are per-variation.
+type WooVariation struct {
+	ID            string
+	SKU           string
+	RegularPrice  string
+	SalePrice     string
+	SaleEndDate   string
+	ManageStock   bool
+	StockQuantity *int
+	Weight        string
+	Dimensions    WooProductDimensions
+	// AttributeName/AttributeValue select which of the parent product's
+	// declared attribute options this variation represents -- e.g.
+	// "Weight"/"367g". AttributeValue must already be listed in that
+	// attribute's Options on the parent (see CreateVariableProduct) --
+	// CreateVariation adds it there automatically if it isn't yet.
+	AttributeName  string
+	AttributeValue string
+}
+
 type WooProductImage struct {
 	URL string
 	Alt string
@@ -92,6 +116,25 @@ type WooClient interface {
 	// JSON tags, so explicitly clearing a previously-true flag back to
 	// false does not round-trip — a pre-existing library limitation.
 	UpdateProduct(ctx context.Context, externalProductID string, p WooProduct) (*WooProduct, error)
+	// CreateVariableProduct creates the PARENT product with type "variable"
+	// and declares one variation-attribute (attributeName) with the given
+	// possible values -- must be called before any CreateVariation call
+	// for this product. p.SKU/RegularPrice/SalePrice/ManageStock/
+	// StockQuantity are ignored: a variable product's parent carries none
+	// of those, only its variations do.
+	CreateVariableProduct(ctx context.Context, p WooProduct, attributeName string, attributeValues []string) (*WooProduct, error)
+	// CreateVariation creates a new variation under an existing variable
+	// product (parentExternalID). If v.AttributeValue isn't already
+	// declared in the parent's attribute options, the parent is updated
+	// first to add it -- WooCommerce rejects a variation whose attribute
+	// value isn't declared on the parent.
+	CreateVariation(ctx context.Context, parentExternalID string, v WooVariation) (*WooVariation, error)
+	// UpdateVariation pushes this codebase's current view of one variation
+	// to an already-created Woo variation, identified by its external id.
+	UpdateVariation(ctx context.Context, parentExternalID, variationExternalID string, v WooVariation) (*WooVariation, error)
+	// DeleteVariation permanently removes one variation from its parent
+	// variable product.
+	DeleteVariation(ctx context.Context, parentExternalID, variationExternalID string) error
 	// DeleteProduct permanently removes a product from the store, identified
 	// by its external (Woo) id. Used to clean up a channel listing after the
 	// product has been deleted on the CommerceOS side.

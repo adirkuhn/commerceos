@@ -4,6 +4,7 @@ import type {
   StockMovement, StockLevel,
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, TransferStockResult, MarkDamagedOrLostInput,
   ExpiringBatch, ReceiveStockInput, ReceiveStockResult, SplitCaseIntoUnitsInput, SplitCaseIntoUnitsResult,
+  PortionFromBulkInput, PortionFromBulkResult,
 } from './types'
 
 function base(): string {
@@ -101,6 +102,10 @@ export function markDamagedOrLost(token: string, skuId: string, input: MarkDamag
 
 export function splitCaseIntoUnits(token: string, skuId: string, input: SplitCaseIntoUnitsInput): Promise<SplitCaseIntoUnitsResult> {
   return request<SplitCaseIntoUnitsResult>(`${base()}/skus/${skuId}/split-case`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function portionFromBulk(token: string, skuId: string, input: PortionFromBulkInput): Promise<PortionFromBulkResult> {
+  return request<PortionFromBulkResult>(`${base()}/skus/${skuId}/portion-from-bulk`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 export function receiveStock(token: string, skuId: string, input: ReceiveStockInput): Promise<ReceiveStockResult> {

@@ -310,11 +310,14 @@ paths:
               $ref: '#/components/schemas/PushProductToWooRequest'
       responses:
         '200':
-          description: ok
+          description: >-
+            ok -- one listing for a single-SKU product, or one array entry
+            per pushed row (the parent + N variations, or N separate
+            products) for a multi-variant product.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductChannelListingResponse'
+                $ref: '#/components/schemas/ProductChannelListingsResponse'
         '404':
           $ref: '#/components/responses/Error'
         '422':
@@ -744,6 +747,13 @@ components:
         connection_id: { type: string }
         provider: { type: string }
         external_id: { type: string }
+        # variant_id is null for the product-level row: either a legacy
+        # single-SKU simple product, or the parent of a Woo variable
+        # product. Set for a per-variant row -- either its own standalone
+        # simple Woo product, or (when is_variation is true) a variation
+        # nested under the sibling product-level row's external_id.
+        variant_id: { type: string, nullable: true }
+        is_variation: { type: boolean }
         sync_status: { type: string, enum: [pending, synced, error] }
         last_synced_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
@@ -754,6 +764,15 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/ProductChannelListing'
+        error: { nullable: true }
+
+    ProductChannelListingsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductChannelListing'
         error: { nullable: true }
 
     FieldChange:

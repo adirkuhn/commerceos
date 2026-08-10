@@ -184,6 +184,90 @@ func TestUpdateSKU_canClearCasePackRelationshipBackToNil(t *testing.T) {
 	require.Nil(t, sku.UnitsPerCase)
 }
 
+func TestUpdateSKU_persistsTracksWeight(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-bulk-1", PriceMinorUnits: 0, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, TracksWeight: true,
+	})
+
+	require.NoError(t, err)
+	require.True(t, sku.TracksWeight)
+}
+
+func TestUpdateSKU_persistsPortionedFromRelationship(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-bulk-1", TracksWeight: true}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-378g", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PortionedFromSKUID: strPtr("sku-bulk-1"),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "sku-bulk-1", *sku.PortionedFromSKUID)
+}
+
+func TestUpdateSKU_rejectsSelfReferentialPortionedFromSKUID(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", TracksWeight: true}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PortionedFromSKUID: strPtr("sku-1"),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrPortionedFromSKUCannotBeSelf))
+}
+
+func TestUpdateSKU_rejectsBulkSKUThatIsAlsoPortionedFromAnother(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, TracksWeight: true, PortionedFromSKUID: strPtr("sku-bulk-1"),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrBulkSKUCannotBePortioned))
+}
+
+func TestUpdateSKU_rejectsPortionedFromSKUThatDoesNotTrackWeight(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-not-bulk", TracksWeight: false}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PortionedFromSKUID: strPtr("sku-not-bulk"),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrPortionedFromSKUMustTrackWeight))
+}
+
+func TestUpdateSKU_canClearPortionedFromRelationshipBackToNil(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", PortionedFromSKUID: strPtr("sku-bulk-1")}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, sku.PortionedFromSKUID)
+}
+
 func TestUpdateSKU_persistsTracksExpiry(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	variantRepo := &stubVariantRepo{}

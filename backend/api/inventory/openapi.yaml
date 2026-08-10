@@ -273,6 +273,34 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /inventory/skus/{skuId}/portion-from-bulk:
+    post:
+      operationId: portionFromBulk
+      summary: >-
+        Peel one sellable unit off a bulk (tracks_weight) SKU's weight pool
+        — skuId must be configured as portioned from a bulk SKU (see the
+        pms module's portioned_from_sku_id). weight_grams (defaults to the
+        target SKU's own nominal weight_grams) leaves the bulk SKU's stock
+        and 1 unit of skuId arrives. Repeatable indefinitely as items are
+        portioned off the same bulk lot over time.
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortionFromBulkRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortionFromBulkResultResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /inventory/skus/{skuId}/transfer:
     post:
       operationId: transferStock
@@ -652,6 +680,39 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SplitCaseIntoUnitsResult' }
+        error: { nullable: true }
+
+    PortionFromBulkRequest:
+      type: object
+      required: [warehouse_id]
+      properties:
+        warehouse_id: { type: string }
+        batch_id:
+          type: string
+          nullable: true
+          description: Null portions from the un-lotted, general-ledger bulk stock.
+        weight_grams:
+          type: integer
+          format: int64
+          minimum: 1
+          description: >-
+            The actual amount consumed for this one physical item (e.g. a
+            scale reading). Omit to default to the target SKU's own
+            nominal weight_grams.
+        reason: { type: string }
+        occurred_at: { type: string, format: date-time }
+
+    PortionFromBulkResult:
+      type: object
+      required: [bulk_out, unit_in]
+      properties:
+        bulk_out: { $ref: '#/components/schemas/StockMovement' }
+        unit_in: { $ref: '#/components/schemas/StockMovement' }
+
+    PortionFromBulkResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PortionFromBulkResult' }
         error: { nullable: true }
 
     MarkDamagedOrLostRequest:

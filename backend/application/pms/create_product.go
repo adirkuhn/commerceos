@@ -13,12 +13,13 @@ import (
 )
 
 type CreateProductInput struct {
-	Name        string
-	Description string
-	CategoryID  *string
-	Status      pmsDomain.ProductStatus
-	HasVariants bool
-	Tags        []string
+	Name                         string
+	Description                  string
+	CategoryID                   *string
+	Status                       pmsDomain.ProductStatus
+	HasVariants                  bool
+	SyncVariantsAsWooVariations  bool
+	Tags                         []string
 }
 
 type CreateProductUseCase struct {
@@ -45,16 +46,17 @@ func (uc *CreateProductUseCase) Execute(ctx context.Context, in CreateProductInp
 
 		now := time.Now()
 		product = pmsDomain.Product{
-			TenantID:    tenant.IDFromContext(ctx),
-			CategoryID:  in.CategoryID,
-			Name:        in.Name,
-			Slug:        slug,
-			Description: in.Description,
-			Status:      in.Status,
-			HasVariants: in.HasVariants,
-			Tags:        in.Tags,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			TenantID:                    tenant.IDFromContext(ctx),
+			CategoryID:                  in.CategoryID,
+			Name:                        in.Name,
+			Slug:                        slug,
+			Description:                 in.Description,
+			Status:                      in.Status,
+			HasVariants:                 in.HasVariants,
+			SyncVariantsAsWooVariations: in.SyncVariantsAsWooVariations,
+			Tags:                        in.Tags,
+			CreatedAt:                   now,
+			UpdatedAt:                   now,
 		}
 		if err := uc.productRepo.Create(ctx, &product); err != nil {
 			return err

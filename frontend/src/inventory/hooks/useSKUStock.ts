@@ -4,6 +4,7 @@ import type {
   CreateBatchInput, UpdateBatchInput,
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, MarkDamagedOrLostInput,
   SplitCaseIntoUnitsInput, SplitCaseIntoUnitsResult,
+  PortionFromBulkInput, PortionFromBulkResult,
 } from '../types'
 import * as api from '../api'
 
@@ -23,6 +24,7 @@ interface UseSKUStockActions {
   recount: (input: RecordRecountInput) => Promise<StockMovement | null>
   transfer: (input: TransferStockInput) => Promise<void>
   splitCase: (input: SplitCaseIntoUnitsInput) => Promise<SplitCaseIntoUnitsResult>
+  portionFromBulk: (input: PortionFromBulkInput) => Promise<PortionFromBulkResult>
   markDamagedOrLost: (input: MarkDamagedOrLostInput) => Promise<StockMovement>
 }
 
@@ -113,5 +115,12 @@ export function useSKUStock(token: string, skuId: string | null): UseSKUStockSta
     return result
   }, [token, skuId, load])
 
-  return { level, batches, loading, error, refresh: load, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, markDamagedOrLost }
+  const portionFromBulk = useCallback(async (input: PortionFromBulkInput): Promise<PortionFromBulkResult> => {
+    if (!skuId) throw new Error('no SKU selected')
+    const result = await api.portionFromBulk(token, skuId, input)
+    await load()
+    return result
+  }, [token, skuId, load])
+
+  return { level, batches, loading, error, refresh: load, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost }
 }

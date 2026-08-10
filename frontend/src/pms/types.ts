@@ -21,6 +21,14 @@ export interface Product {
   description: string
   status: ProductStatus
   has_variants: boolean
+  // Only matters when has_variants is true, and only for channels that
+  // support it (WooCommerce today). false (default): each variant pushes
+  // as its own separate simple Woo product. true: all variants push as ONE
+  // Woo "variable" product with one Woo variation per variant. Toggling
+  // this on an already-pushed product triggers a migration (old external
+  // representation deleted, recreated in the new shape) rather than a
+  // plain field update.
+  sync_variants_as_woo_variations?: boolean
   // Free-form labels this tenant assigns to the product -- used by a Sales
   // Channel's "by tag" enrollment rule to decide which products auto-sync
   // to that channel.
@@ -49,6 +57,14 @@ export interface SKU {
   // for converting case stock into unit stock.
   case_of_sku_id?: string | null
   units_per_case?: number | null
+  // tracks_weight marks this SKU as a weight pool: its stock quantity is
+  // grams, not whole units (e.g. a 20kg bulk lot booked as one stock-in
+  // of 20000).
+  tracks_weight?: boolean
+  // portioned_from_sku_id is set when this SKU is a sellable item peeled
+  // off a tracks_weight bulk SKU's pool -- see the inventory module's
+  // portion-from-bulk action.
+  portioned_from_sku_id?: string | null
   status: SKUStatus
   created_at: string
   updated_at: string
@@ -87,6 +103,7 @@ export interface CreateProductPayload {
   category_id?: string | null
   status: ProductStatus
   has_variants?: boolean
+  sync_variants_as_woo_variations?: boolean
   tags?: string[]
 }
 
@@ -113,6 +130,8 @@ export interface CreateSKUPayload {
   is_virtual?: boolean
   case_of_sku_id?: string | null
   units_per_case?: number | null
+  tracks_weight?: boolean
+  portioned_from_sku_id?: string | null
   status: SKUStatus
 }
 
@@ -129,6 +148,8 @@ export interface UpdateSKUPayload {
   is_virtual?: boolean
   case_of_sku_id?: string | null
   units_per_case?: number | null
+  tracks_weight?: boolean
+  portioned_from_sku_id?: string | null
   status: SKUStatus
 }
 

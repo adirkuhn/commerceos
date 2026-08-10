@@ -8,13 +8,33 @@ import (
 type ProductChannelListingRepository interface {
 	Create(ctx context.Context, l *ProductChannelListing) error
 	FindByExternalID(ctx context.Context, connectionID, externalID string) (*ProductChannelListing, error)
+	// FindByProductAndConnection returns one representative listing for
+	// this (product, connection) pair if any row exists — the
+	// product-level row (VariantID nil) when one exists, else an
+	// arbitrary variant-level row. Answers "is this product linked to this
+	// connection at all" for idempotency/status checks that don't care
+	// which specific row they get back. Callers that need every variant's
+	// own listing use ListByProductAndConnection.
 	FindByProductAndConnection(ctx context.Context, productID, connectionID string) (*ProductChannelListing, error)
+	// FindByProductVariantAndConnection looks up one specific row —
+	// variantID nil means the product-level row (whole simple product, or
+	// the parent of a variable product).
+	FindByProductVariantAndConnection(ctx context.Context, productID string, variantID *string, connectionID string) (*ProductChannelListing, error)
 	ListByConnection(ctx context.Context, connectionID string) ([]ProductChannelListing, error)
 	// ListByProduct returns every channel this product is linked to, across
 	// all connections — used to fan a single product change out to every
 	// channel it's synced to.
 	ListByProduct(ctx context.Context, productID string) ([]ProductChannelListing, error)
+	// ListByProductAndConnection returns every listing row (product-level
+	// and/or per-variant) for one product on one connection — used by the
+	// sync-mode migration to enumerate everything that needs tearing down
+	// when the actual shape on the channel no longer matches the product's
+	// current SyncVariantsAsWooVariations flag.
+	ListByProductAndConnection(ctx context.Context, productID, connectionID string) ([]ProductChannelListing, error)
 	Update(ctx context.Context, l *ProductChannelListing) error
+	// Delete removes one listing row — used to tear down a stale
+	// representation during a sync-mode migration.
+	Delete(ctx context.Context, id string) error
 }
 
 // SyncLogRepository is insert-only, no-op-free by design — a sync log

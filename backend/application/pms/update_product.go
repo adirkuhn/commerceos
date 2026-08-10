@@ -12,13 +12,14 @@ import (
 )
 
 type UpdateProductInput struct {
-	ID          string
-	Name        string
-	Description string
-	CategoryID  *string
-	Status      pmsDomain.ProductStatus
-	HasVariants bool
-	Tags        []string
+	ID                          string
+	Name                        string
+	Description                 string
+	CategoryID                  *string
+	Status                      pmsDomain.ProductStatus
+	HasVariants                 bool
+	SyncVariantsAsWooVariations bool
+	Tags                        []string
 }
 
 type UpdateProductUseCase struct {
@@ -56,6 +57,7 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 		existing.CategoryID = in.CategoryID
 		existing.Status = in.Status
 		existing.HasVariants = in.HasVariants
+		existing.SyncVariantsAsWooVariations = in.SyncVariantsAsWooVariations
 		existing.Tags = in.Tags
 		existing.UpdatedAt = time.Now()
 		if err := uc.productRepo.Update(ctx, existing); err != nil {

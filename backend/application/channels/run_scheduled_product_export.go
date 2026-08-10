@@ -22,7 +22,7 @@ const runScheduledProductExportLimit = 200
 // need the full real use case (which itself needs a WooClient, stock
 // getter, connection repo, etc).
 type productPusher interface {
-	Execute(ctx context.Context, in PushProductToWooInput) (*channelsDomain.ProductChannelListing, error)
+	Execute(ctx context.Context, in PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error)
 }
 
 type RunScheduledProductExportInput struct {

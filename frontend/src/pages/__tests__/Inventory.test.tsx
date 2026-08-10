@@ -28,6 +28,7 @@ vi.mock('../../inventory/api', () => ({
   recordRecount: vi.fn(),
   transferStock: vi.fn(),
   splitCaseIntoUnits: vi.fn(),
+  portionFromBulk: vi.fn(),
   markDamagedOrLost: vi.fn(),
 }))
 
@@ -321,6 +322,74 @@ describe('Inventory page', () => {
     await waitFor(() => {
       expect(inventoryApi.splitCaseIntoUnits).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
         warehouse_id: 'wh-1', cases_to_split: 2,
+      }))
+    })
+  })
+
+  it('does not show an Add item from bulk action for an ordinary SKU', async () => {
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    expect(screen.queryByRole('button', { name: /Add item from bulk/i })).not.toBeInTheDocument()
+  })
+
+  it('portions a sellable item off a bulk SKU\'s weight pool, defaulting the weight from the SKU', async () => {
+    const portionedSku = { ...sku, portioned_from_sku_id: 'sku-bulk-1', weight_grams: 378 }
+    const portionedDetail: ProductDetail = {
+      product,
+      variants: [{ ...detail.variants[0], skus: [portionedSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(portionedDetail)
+    vi.mocked(inventoryApi.portionFromBulk).mockResolvedValue({
+      bulk_out: { id: 'mv-out', tenant_id: 't1', sku_id: 'sku-bulk-1', warehouse_id: 'wh-1', batch_id: null, type: 'split_out', quantity_delta: -378, reason: '', occurred_at: '', created_at: '' },
+      unit_in: { id: 'mv-in', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null, type: 'split_in', quantity_delta: 1, reason: '', occurred_at: '', created_at: '' },
+    })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /Add item from bulk/i }))
+    const dialog = await screen.findByText('Add Item From Bulk')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.click(within(modal).getByRole('button', { name: /^Add item$/ }))
+
+    await waitFor(() => {
+      expect(inventoryApi.portionFromBulk).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', weight_grams: undefined,
+      }))
+    })
+  })
+
+  it('portions with an explicit scale-reading weight overriding the nominal weight', async () => {
+    const portionedSku = { ...sku, portioned_from_sku_id: 'sku-bulk-1', weight_grams: 400 }
+    const portionedDetail: ProductDetail = {
+      product,
+      variants: [{ ...detail.variants[0], skus: [portionedSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(portionedDetail)
+    vi.mocked(inventoryApi.portionFromBulk).mockResolvedValue({
+      bulk_out: { id: 'mv-out', tenant_id: 't1', sku_id: 'sku-bulk-1', warehouse_id: 'wh-1', batch_id: null, type: 'split_out', quantity_delta: -412, reason: '', occurred_at: '', created_at: '' },
+      unit_in: { id: 'mv-in', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null, type: 'split_in', quantity_delta: 1, reason: '', occurred_at: '', created_at: '' },
+    })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /Add item from bulk/i }))
+    const dialog = await screen.findByText('Add Item From Bulk')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/actual weight/i), '412')
+    await user.click(within(modal).getByRole('button', { name: /^Add item$/ }))
+
+    await waitFor(() => {
+      expect(inventoryApi.portionFromBulk).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', weight_grams: 412,
       }))
     })
   })

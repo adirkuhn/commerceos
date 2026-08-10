@@ -406,6 +406,136 @@ describe('Tags', () => {
   })
 })
 
+describe('sync variants as WooCommerce variations toggle', () => {
+  const toggleLabel = /Sync variants as WooCommerce variations/
+
+  it('is not shown when no WooCommerce store is connected, even with variants on', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await waitFor(() => expect(screen.getByText('Small')).toBeInTheDocument())
+    expect(screen.queryByText(toggleLabel)).not.toBeInTheDocument()
+  })
+
+  it('is not shown while variants are off, even with WooCommerce connected', async () => {
+    const detail: ProductDetail = { product: product(), variants: [] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await waitFor(() => expect(screen.getByText('Pricing & SKU')).toBeInTheDocument())
+    expect(screen.queryByText(toggleLabel)).not.toBeInTheDocument()
+  })
+
+  it('is prefilled from the product and sends it back unchanged on save', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true, sync_variants_as_woo_variations: true }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(detail.product)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByText('Small')).toBeInTheDocument())
+
+    const checkbox = screen.getByRole('checkbox', { name: toggleLabel })
+    expect(checkbox).toBeChecked()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
+      sync_variants_as_woo_variations: true,
+    })))
+  })
+
+  it('toggling it on and saving sends true', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true, sync_variants_as_woo_variations: false }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(detail.product)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByText('Small')).toBeInTheDocument())
+
+    const checkbox = screen.getByRole('checkbox', { name: toggleLabel })
+    expect(checkbox).not.toBeChecked()
+    await userEvent.click(checkbox)
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
+      sync_variants_as_woo_variations: true,
+    })))
+  })
+})
+
+describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
+  it('is not shown for a brand-new, not-yet-saved product', async () => {
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    expect(screen.queryByText('Bulk pool')).not.toBeInTheDocument()
+  })
+
+  it('toggling "bulk weight pool" on and saving sends tracks_weight:true', async () => {
+    const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(baseSku)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Bulk pool')
+
+    await userEvent.click(screen.getByRole('switch', { name: /bulk weight pool/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      tracks_weight: true, portioned_from_sku_id: null,
+    })))
+  })
+
+  it('can clear an existing portioned-from relationship back to nil', async () => {
+    const portionedSku = { ...baseSku, portioned_from_sku_id: 'sku-bulk-1' }
+    const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [portionedSku] }] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(portionedSku)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText(/Portioned from/)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      tracks_weight: false, portioned_from_sku_id: null,
+    })))
+  })
+})
+
 describe('WooCommerce tab', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<AppProvider><Products /></AppProvider>)

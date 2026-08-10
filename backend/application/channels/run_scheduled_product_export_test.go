@@ -17,12 +17,12 @@ type stubProductPusher struct {
 	errFor map[string]error // by ProductID
 }
 
-func (s *stubProductPusher) Execute(_ context.Context, in appchannels.PushProductToWooInput) (*channelsDomain.ProductChannelListing, error) {
+func (s *stubProductPusher) Execute(_ context.Context, in appchannels.PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
 	s.calls = append(s.calls, in)
 	if err, ok := s.errFor[in.ProductID]; ok {
 		return nil, err
 	}
-	return &channelsDomain.ProductChannelListing{ID: "listing-" + in.ProductID, ProductID: in.ProductID, ConnectionID: in.ConnectionID}, nil
+	return []channelsDomain.ProductChannelListing{{ID: "listing-" + in.ProductID, ProductID: in.ProductID, ConnectionID: in.ConnectionID}}, nil
 }
 
 func TestRunScheduledProductExport_pushesEligibleProducts(t *testing.T) {

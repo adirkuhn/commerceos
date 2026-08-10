@@ -62,7 +62,22 @@ type SKU struct {
 	// stock the bulk unit at all" case).
 	CaseOfSKUID  *string
 	UnitsPerCase *int64
-	Status       SKUStatus
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// TracksWeight marks this SKU as a weight pool: its stock quantity is
+	// grams, not whole units (e.g. a 20kg bulk lot booked as a single
+	// stock-in of 20000). Purely a display/input hint plus a guard for
+	// PortionFromBulkUseCase -- the ledger itself stores a plain int64
+	// regardless.
+	TracksWeight bool
+	// PortionedFromSKUID is nil unless this SKU is a sellable item peeled
+	// off a TracksWeight bulk SKU's pool (e.g. a "378g pack" portioned
+	// from a "Carne Seca — bulk" SKU). Unlike CaseOfSKUID (a fixed 1:1
+	// N-multiplier), many SKUs can share the same PortionedFromSKUID,
+	// each consuming its own actual weight -- see
+	// inventory.PortionFromBulkUseCase. Depth-limited to one level: the
+	// referenced SKU must itself have TracksWeight=true and cannot itself
+	// have a PortionedFromSKUID (see ErrBulkSKUCannotBePortioned).
+	PortionedFromSKUID *string
+	Status             SKUStatus
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }

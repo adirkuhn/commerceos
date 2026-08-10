@@ -61,17 +61,18 @@ type categoryModel struct {
 func (categoryModel) TableName() string { return "categories" }
 
 type productModel struct {
-	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID    string `gorm:"not null;type:uuid"`
-	CategoryID  *string
-	Name        string `gorm:"not null"`
-	Slug        string `gorm:"not null"`
-	Description string
-	Status      string      `gorm:"not null"`
-	HasVariants bool        `gorm:"not null"`
-	Tags        stringSlice `gorm:"type:jsonb;not null;default:'[]'"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                    string `gorm:"not null;type:uuid"`
+	CategoryID                  *string
+	Name                        string `gorm:"not null"`
+	Slug                        string `gorm:"not null"`
+	Description                 string
+	Status                      string      `gorm:"not null"`
+	HasVariants                 bool        `gorm:"not null"`
+	Tags                        stringSlice `gorm:"type:jsonb;not null;default:'[]'"`
+	SyncVariantsAsWooVariations bool        `gorm:"column:sync_variants_as_woo_variations;not null;default:false"`
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
 }
 
 func (productModel) TableName() string { return "products" }
@@ -103,10 +104,12 @@ type skuModel struct {
 	LengthMM            *int64
 	WidthMM             *int64
 	HeightMM            *int64
-	IsVirtual           bool   `gorm:"not null"`
-	TracksExpiry        bool   `gorm:"not null"`
+	IsVirtual           bool    `gorm:"not null"`
+	TracksExpiry        bool    `gorm:"not null"`
 	CaseOfSKUID         *string `gorm:"column:case_of_sku_id"`
 	UnitsPerCase        *int64
+	TracksWeight        bool    `gorm:"not null"`
+	PortionedFromSKUID  *string `gorm:"column:portioned_from_sku_id"`
 	Status              string `gorm:"not null"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -255,16 +258,17 @@ func (r *ProductRepo) Create(ctx context.Context, p *pmsDomain.Product) error {
 		return err
 	}
 	m := productModel{
-		TenantID:    p.TenantID,
-		CategoryID:  p.CategoryID,
-		Name:        p.Name,
-		Slug:        p.Slug,
-		Description: p.Description,
-		Status:      string(p.Status),
-		HasVariants: p.HasVariants,
-		Tags:        stringSlice(p.Tags),
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		TenantID:                    p.TenantID,
+		CategoryID:                  p.CategoryID,
+		Name:                        p.Name,
+		Slug:                        p.Slug,
+		Description:                 p.Description,
+		Status:                      string(p.Status),
+		HasVariants:                 p.HasVariants,
+		Tags:                        stringSlice(p.Tags),
+		SyncVariantsAsWooVariations: p.SyncVariantsAsWooVariations,
+		CreatedAt:                   p.CreatedAt,
+		UpdatedAt:                   p.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("productRepo.Create: %w", err)
@@ -383,13 +387,14 @@ func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
 	}
 	if err := tx.Model(&productModel{}).Where("id = ?", p.ID).
 		Updates(map[string]any{
-			"category_id":  p.CategoryID,
-			"name":         p.Name,
-			"description":  p.Description,
-			"status":       string(p.Status),
-			"has_variants": p.HasVariants,
-			"tags":         tagsValue,
-			"updated_at":   p.UpdatedAt,
+			"category_id":                     p.CategoryID,
+			"name":                            p.Name,
+			"description":                     p.Description,
+			"status":                          string(p.Status),
+			"has_variants":                    p.HasVariants,
+			"tags":                            tagsValue,
+			"sync_variants_as_woo_variations": p.SyncVariantsAsWooVariations,
+			"updated_at":                      p.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("productRepo.Update: %w", err)
 	}
@@ -409,17 +414,18 @@ func (r *ProductRepo) Delete(ctx context.Context, id string) error {
 
 func toProductDomain(m productModel) *pmsDomain.Product {
 	return &pmsDomain.Product{
-		ID:          m.ID,
-		TenantID:    m.TenantID,
-		CategoryID:  m.CategoryID,
-		Name:        m.Name,
-		Slug:        m.Slug,
-		Description: m.Description,
-		Status:      pmsDomain.ProductStatus(m.Status),
-		HasVariants: m.HasVariants,
-		Tags:        []string(m.Tags),
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:                          m.ID,
+		TenantID:                    m.TenantID,
+		CategoryID:                  m.CategoryID,
+		Name:                        m.Name,
+		Slug:                        m.Slug,
+		Description:                 m.Description,
+		Status:                      pmsDomain.ProductStatus(m.Status),
+		HasVariants:                 m.HasVariants,
+		Tags:                        []string(m.Tags),
+		SyncVariantsAsWooVariations: m.SyncVariantsAsWooVariations,
+		CreatedAt:                   m.CreatedAt,
+		UpdatedAt:                   m.UpdatedAt,
 	}
 }
 
@@ -566,6 +572,8 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		TracksExpiry:        s.TracksExpiry,
 		CaseOfSKUID:         s.CaseOfSKUID,
 		UnitsPerCase:        s.UnitsPerCase,
+		TracksWeight:        s.TracksWeight,
+		PortionedFromSKUID:  s.PortionedFromSKUID,
 		Status:              string(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
@@ -658,6 +666,8 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"tracks_expiry":          s.TracksExpiry,
 			"case_of_sku_id":         s.CaseOfSKUID,
 			"units_per_case":         s.UnitsPerCase,
+			"tracks_weight":          s.TracksWeight,
+			"portioned_from_sku_id":  s.PortionedFromSKUID,
 			"status":                 string(s.Status),
 			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
@@ -713,6 +723,8 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		TracksExpiry:        m.TracksExpiry,
 		CaseOfSKUID:         m.CaseOfSKUID,
 		UnitsPerCase:        m.UnitsPerCase,
+		TracksWeight:        m.TracksWeight,
+		PortionedFromSKUID:  m.PortionedFromSKUID,
 		Status:              pmsDomain.SKUStatus(m.Status),
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
