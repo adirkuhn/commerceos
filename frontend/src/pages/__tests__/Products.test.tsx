@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Products from '../Products'
@@ -488,6 +488,93 @@ describe('sync variants as WooCommerce variations toggle', () => {
 
     await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
       sync_variants_as_woo_variations: true,
+    })))
+  })
+})
+
+describe('bulk pool for a variant-mode product (VariantRow)', () => {
+  it('checking "Bulk weight pool" while adding a variant SKU sends tracks_weight:true', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Bulk', skus: [] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.createSKU).mockResolvedValue({ ...baseSku, id: 'new-sku' })
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Bulk')
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add SKU' }))
+    const skuForm = screen.getByPlaceholderText('SKU code').closest('div')!.parentElement!
+    await userEvent.type(within(skuForm).getByPlaceholderText('SKU code'), 'BULK-1')
+    await userEvent.type(within(skuForm).getByPlaceholderText('Price'), '0')
+    await userEvent.click(within(skuForm).getByLabelText(/bulk weight pool/i))
+    await userEvent.click(within(skuForm).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
+      tracks_weight: true, portioned_from_sku_id: null,
+    })))
+  })
+
+  it('an existing variant SKU with no bulk link shows "Make bulk pool" and "Link to bulk pool", and clicking Make bulk pool saves immediately', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(baseSku)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Make bulk pool' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      tracks_weight: true, portioned_from_sku_id: null,
+    })))
+  })
+
+  it('an existing variant SKU already marked tracks_weight shows a Turn off control', async () => {
+    const bulkSku = { ...baseSku, tracks_weight: true }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Bulk', skus: [bulkSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(bulkSku)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Bulk')
+
+    expect(screen.getByText('Bulk weight pool')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Turn off' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      tracks_weight: false, portioned_from_sku_id: null,
+    })))
+  })
+
+  it('an existing variant SKU already portioned from a bulk pool shows its link and a Remove control', async () => {
+    const portionedSku = { ...baseSku, portioned_from_sku_id: 'sku-bulk-1' }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [portionedSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(portionedSku)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    expect(screen.getByText('sku-bulk-1')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      tracks_weight: false, portioned_from_sku_id: null,
     })))
   })
 })

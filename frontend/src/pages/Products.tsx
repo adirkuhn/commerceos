@@ -1427,6 +1427,12 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [lengthMM, setLengthMM] = useState('')
   const [widthMM, setWidthMM] = useState('')
   const [heightMM, setHeightMM] = useState('')
+  // Bulk pool (see pms.SKU.TracksWeight/PortionedFromSKUID) -- a SKU is
+  // either a bulk pool itself, or portioned from one, never both.
+  const [tracksWeight, setTracksWeight] = useState(false)
+  const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
+  const [portionedFromLabel, setPortionedFromLabel] = useState('')
+  const [portionPickerOpen, setPortionPickerOpen] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -1446,11 +1452,14 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         length_mm: isVirtual ? undefined : parseIntOrUndefined(lengthMM),
         width_mm: isVirtual ? undefined : parseIntOrUndefined(widthMM),
         height_mm: isVirtual ? undefined : parseIntOrUndefined(heightMM),
+        tracks_weight: tracksWeight,
+        portioned_from_sku_id: portionedFromSKUID,
         status,
       })
       setAddingSKU(false)
       setSkuCode(''); setBarcode(''); setPrice(''); setSalePrice(''); setSaleEndDate(''); setCurrency('USD'); setStatus('active')
       setIsVirtual(false); setWeightGrams(''); setLengthMM(''); setWidthMM(''); setHeightMM('')
+      setTracksWeight(false); setPortionedFromSKUID(null); setPortionedFromLabel('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add SKU')
     } finally {
@@ -1459,6 +1468,43 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   }
 
   const sku = variant.skus?.[0]
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkError, setBulkError] = useState('')
+  const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
+
+  // Editing an existing SKU's bulk-pool link saves immediately (matches
+  // handleSelectImage's pattern in this component) -- there's no batched
+  // "Save" step for an already-created variant's SKU here, unlike the flat
+  // single-SKU form on the product's General tab.
+  const saveBulkPool = async (next: { tracksWeight: boolean; portionedFromSkuId: string | null }) => {
+    if (!sku) return
+    setBulkError('')
+    setBulkSaving(true)
+    try {
+      await detail.updateSKU(sku.id, {
+        barcode: sku.barcode ?? undefined,
+        price_minor_units: sku.price_minor_units,
+        sale_price_minor_units: sku.sale_price_minor_units,
+        sale_end_date: sku.sale_end_date,
+        currency_code: sku.currency_code,
+        weight_grams: sku.weight_grams,
+        length_mm: sku.length_mm,
+        width_mm: sku.width_mm,
+        height_mm: sku.height_mm,
+        is_virtual: sku.is_virtual,
+        case_of_sku_id: sku.case_of_sku_id,
+        units_per_case: sku.units_per_case,
+        tracks_weight: next.tracksWeight,
+        portioned_from_sku_id: next.portionedFromSkuId,
+        status: sku.status,
+      })
+      setExistingPortionPickerOpen(false)
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Failed to update bulk pool link')
+    } finally {
+      setBulkSaving(false)
+    }
+  }
   const selectedImage = productMedia.find(m => m.id === variant.featured_media_id) ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -1570,10 +1616,45 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       {imageError && <p className="text-[10px] text-red-500 mt-1.5">{imageError}</p>}
 
       {sku && (
-        <div className="flex justify-end mt-1.5">
-          <button type="button" onClick={() => detail.removeSKU(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
-            Remove SKU
-          </button>
+        <div className="mt-1.5 space-y-1">
+          <div className="flex items-center justify-between">
+            {sku.tracks_weight ? (
+              <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
+                Bulk weight pool
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: false, portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
+                  Turn off
+                </button>
+              </span>
+            ) : sku.portioned_from_sku_id ? (
+              <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
+                Portioned from <span className="font-medium">{sku.portioned_from_sku_id}</span>
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: false, portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
+                  Unlink
+                </button>
+              </span>
+            ) : existingPortionPickerOpen ? null : (
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: true, portionedFromSkuId: null })} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50">
+                  Make bulk pool
+                </button>
+                <button type="button" onClick={() => setExistingPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+                  Link to bulk pool
+                </button>
+              </div>
+            )}
+            <button type="button" onClick={() => detail.removeSKU(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+              Remove SKU
+            </button>
+          </div>
+          {existingPortionPickerOpen && (
+            <CaseOfSKUPicker
+              excludeSKUID={sku.id}
+              filterSku={s => !!s.tracks_weight}
+              onSelect={(s) => saveBulkPool({ tracksWeight: false, portionedFromSkuId: s.id })}
+              onClose={() => setExistingPortionPickerOpen(false)}
+            />
+          )}
+          {bulkError && <p className="text-[10px] text-red-400">{bulkError}</p>}
         </div>
       )}
 
@@ -1623,6 +1704,36 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               <input type="number" step="1" min="0" placeholder="Height (mm)" value={heightMM} onChange={e => setHeightMM(e.target.value)}
                 className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
             </div>
+          )}
+          <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+            <input
+              type="checkbox" checked={tracksWeight}
+              onChange={e => {
+                const next = e.target.checked
+                setTracksWeight(next)
+                if (next) { setPortionedFromSKUID(null); setPortionedFromLabel('') }
+              }}
+            />
+            Bulk weight pool (booked in kg, not units)
+          </label>
+          {!tracksWeight && (
+            portionedFromSKUID ? (
+              <div className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+                <span className="flex-1">Portioned from <span className="font-medium">{portionedFromLabel || portionedFromSKUID}</span></span>
+                <button type="button" onClick={() => { setPortionedFromSKUID(null); setPortionedFromLabel('') }} className="hover:underline">Unlink</button>
+              </div>
+            ) : portionPickerOpen ? (
+              <CaseOfSKUPicker
+                excludeSKUID=""
+                filterSku={s => !!s.tracks_weight}
+                onSelect={(s, label) => { setPortionedFromSKUID(s.id); setPortionedFromLabel(label); setPortionPickerOpen(false) }}
+                onClose={() => setPortionPickerOpen(false)}
+              />
+            ) : (
+              <button type="button" onClick={() => setPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
+                + Link to a bulk pool
+              </button>
+            )
           )}
           {error && <p className="text-[10px] text-red-400">{error}</p>}
           <div className="flex gap-1.5">
