@@ -326,13 +326,13 @@ describe('Inventory page', () => {
     })
   })
 
-  it('does not show an Add item from bulk action for an ordinary SKU', async () => {
+  it('does not show an Add item from weight pool action for an ordinary SKU', async () => {
     const user = userEvent.setup()
     render(<Inventory />)
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
-    expect(screen.queryByRole('button', { name: /Add item from bulk/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Add item from weight pool/i })).not.toBeInTheDocument()
   })
 
   it('portions a sellable item off a bulk SKU\'s weight pool, defaulting the weight from the SKU', async () => {
@@ -352,8 +352,8 @@ describe('Inventory page', () => {
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
-    await user.click(screen.getByRole('button', { name: /Add item from bulk/i }))
-    const dialog = await screen.findByText('Add Item From Bulk')
+    await user.click(screen.getByRole('button', { name: /Add item from weight pool/i }))
+    const dialog = await screen.findByText('Add Item From Weight Pool')
     const modal = dialog.closest('div')!.parentElement!
     await user.click(within(modal).getByRole('button', { name: /^Add item$/ }))
 
@@ -381,8 +381,8 @@ describe('Inventory page', () => {
     await user.click(await screen.findByText('Widget'))
     await screen.findByText('WIDGET-1')
 
-    await user.click(screen.getByRole('button', { name: /Add item from bulk/i }))
-    const dialog = await screen.findByText('Add Item From Bulk')
+    await user.click(screen.getByRole('button', { name: /Add item from weight pool/i }))
+    const dialog = await screen.findByText('Add Item From Weight Pool')
     const modal = dialog.closest('div')!.parentElement!
     await user.type(within(modal).getByLabelText(/actual weight/i), '412')
     await user.click(within(modal).getByRole('button', { name: /^Add item$/ }))

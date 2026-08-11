@@ -509,7 +509,7 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     const skuForm = screen.getByPlaceholderText('SKU code').closest('div')!.parentElement!
     await userEvent.type(within(skuForm).getByPlaceholderText('SKU code'), 'BULK-1')
     await userEvent.type(within(skuForm).getByPlaceholderText('Price'), '0')
-    await userEvent.click(within(skuForm).getByLabelText(/bulk weight pool/i))
+    await userEvent.click(within(skuForm).getByLabelText(/weight pool/i))
     await userEvent.click(within(skuForm).getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
@@ -529,7 +529,7 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Make bulk pool' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Make weight pool' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
       tracks_weight: true, portioned_from_sku_id: null,
@@ -549,7 +549,7 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Bulk')
 
-    expect(screen.getByText('Bulk weight pool')).toBeInTheDocument()
+    expect(screen.getByText('Weight pool')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Turn off' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
@@ -584,7 +584,7 @@ describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
     render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
 
-    expect(screen.queryByText('Bulk pool')).not.toBeInTheDocument()
+    expect(screen.queryByText('Weight pool')).not.toBeInTheDocument()
   })
 
   it('toggling "bulk weight pool" on and saving sends tracks_weight:true', async () => {
@@ -594,9 +594,9 @@ describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
 
     render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByTitle('Edit'))
-    await screen.findByText('Bulk pool')
+    await screen.findByText('Weight pool')
 
-    await userEvent.click(screen.getByRole('switch', { name: /bulk weight pool/i }))
+    await userEvent.click(screen.getByRole('switch', { name: /weight pool/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({

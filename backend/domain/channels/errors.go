@@ -10,6 +10,12 @@ var (
 	// resolve to exactly one sellable SKU. A Variant with zero or 2+ SKUs
 	// has no single price/stock source of truth to push.
 	ErrCannotPushVariableProduct = errors.New("every variant must have exactly one SKU to be pushed to a channel")
+	// ErrCannotPushBulkPoolSKU guards push/sync: a tracks_weight (bulk
+	// pool) SKU is never itself sellable -- it's an internal weight ledger
+	// (see pms.SKU.TracksWeight/PortionedFromSKUID), so it's always
+	// excluded from what gets pushed. Returned only when EVERY variant
+	// being pushed turns out to be a bulk pool, leaving nothing sellable.
+	ErrCannotPushBulkPoolSKU = errors.New("product has no sellable (non-bulk-pool) variant to push to a channel")
 	ErrInvalidSyncEntityType     = errors.New("invalid sync entity type")
 	ErrInvalidSyncDirection      = errors.New("invalid sync direction")
 	ErrInvalidSyncInterval       = errors.New("sync interval must be a positive number of minutes")

@@ -521,10 +521,10 @@ function PortionFromBulkModal({
   }
 
   return (
-    <Modal title="Add Item From Bulk" onClose={onClose}>
+    <Modal title="Add Item From Weight Pool" onClose={onClose}>
       <div className="space-y-3">
         <p className="text-[10px] dark:text-gray-500 text-gray-400">
-          Peels one sellable unit off the linked bulk product's weight pool. Repeatable as many times as you like.
+          Peels one sellable unit off the linked weight pool. Repeatable as many times as you like.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -806,8 +806,8 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
             </button>
           )}
           {sku.portioned_from_sku_id && (
-            <button type="button" onClick={() => setModal('portion-from-bulk')} title="Add a sellable item peeled off the linked bulk product" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
-              <Scale size={11} /> Add item from bulk
+            <button type="button" onClick={() => setModal('portion-from-bulk')} title="Add a sellable item peeled off the linked weight pool" className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-100">
+              <Scale size={11} /> Add item from weight pool
             </button>
           )}
           <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-red-400 hover:dark:bg-[#2D3748] hover:bg-gray-100">

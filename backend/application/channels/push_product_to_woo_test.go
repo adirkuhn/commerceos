@@ -335,3 +335,90 @@ func TestPushProductToWoo_variationsMode_onlyCreatesMissingVariations(t *testing
 	require.Len(t, h.wooClient.createVariationCalled, 1)
 	require.Equal(t, "900", h.wooClient.createVariationCalled[0].ParentExternalID)
 }
+
+// bulkPlusTwoVariantProduct is twoVariantProduct's sibling for the bulk-pool
+// exclusion tests -- adds a third variant, a TracksWeight bulk pool the
+// other two are (nominally) portioned from, which must never itself reach
+// the channel.
+func bulkPlusTwoVariantProduct(syncAsVariations bool) (pmsDomain.Product, []pmsDomain.Variant, []pmsDomain.SKU) {
+	product, variants, skus := twoVariantProduct(syncAsVariations)
+	bulkVariant := pmsDomain.Variant{ID: "variant-bulk", ProductID: product.ID, Name: "Bulk"}
+	bulkSKU := pmsDomain.SKU{
+		ID: "sku-bulk", VariantID: "variant-bulk", SKUCode: "CARNE-BULK", CurrencyCode: "EUR",
+		Status: pmsDomain.SKUStatusActive, TracksWeight: true,
+	}
+	return product, append(variants, bulkVariant), append(skus, bulkSKU)
+}
+
+// TestPushProductToWoo_excludesBulkPoolVariantFromSeparateProductsPush
+// proves a TracksWeight variant never reaches Woo alongside its sellable
+// siblings in separate-products mode -- it's an internal weight ledger,
+// not something to sell.
+func TestPushProductToWoo_excludesBulkPoolVariantFromSeparateProductsPush(t *testing.T) {
+	product, variants, skus := bulkPlusTwoVariantProduct(false)
+	h := newMultiVariantSyncHarness(product, variants, skus, nil)
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, listings, 2, "only the two sellable variants, never the bulk pool")
+	require.Len(t, h.wooClient.createCalled, 2)
+	for _, l := range listings {
+		require.NotEqual(t, "variant-bulk", l.VariantID)
+	}
+}
+
+// TestPushProductToWoo_excludesBulkPoolVariantFromVariationsPush is the
+// variations-mode counterpart -- the bulk pool is never declared as an
+// attribute option nor pushed as a variation.
+func TestPushProductToWoo_excludesBulkPoolVariantFromVariationsPush(t *testing.T) {
+	product, variants, skus := bulkPlusTwoVariantProduct(true)
+	h := newMultiVariantSyncHarness(product, variants, skus, nil)
+	h.wooClient.createVariableWithID = "900"
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, listings, 3, "parent + 2 sellable variations, never the bulk pool")
+	require.ElementsMatch(t, []string{"378g", "412g"}, h.wooClient.createVariableCalled[0].AttributeValues)
+	require.Len(t, h.wooClient.createVariationCalled, 2)
+}
+
+// TestPushProductToWoo_rejectsPushWhenOnlyVariantIsBulkPool covers a
+// single-SKU product whose one and only SKU is itself the bulk pool --
+// nothing sellable exists to push.
+func TestPushProductToWoo_rejectsPushWhenOnlyVariantIsBulkPool(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	sku.TracksWeight = true
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, channelsDomain.ErrCannotPushBulkPoolSKU))
+	require.Empty(t, h.wooClient.createCalled)
+}

@@ -761,11 +761,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
 
             {showFlatSKU && currentSku && (
               <FormCard
-                title="Bulk pool"
+                title="Weight pool"
                 description="Book a bulk lot once (e.g. 20kg), then peel off individually-weighed sellable items from it over time as they're packaged."
               >
                 <ToggleRow
-                  label="This is a bulk weight pool (booked in kg, not units)"
+                  label="This is a weight pool (booked in kg, not units)"
                   checked={tracksWeight}
                   onChange={() => {
                     setTracksWeight(v => {
@@ -804,7 +804,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                       onClick={() => setPortionPickerOpen(true)}
                       className="flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors mt-2"
                     >
-                      <Search size={12} /> This is portioned from a bulk pool
+                      <Search size={12} /> This is portioned from a weight pool
                     </button>
                   )
                 )}
@@ -1500,7 +1500,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       })
       setExistingPortionPickerOpen(false)
     } catch (err) {
-      setBulkError(err instanceof Error ? err.message : 'Failed to update bulk pool link')
+      setBulkError(err instanceof Error ? err.message : 'Failed to update weight pool link')
     } finally {
       setBulkSaving(false)
     }
@@ -1620,7 +1620,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           <div className="flex items-center justify-between">
             {sku.tracks_weight ? (
               <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
-                Bulk weight pool
+                Weight pool
                 <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: false, portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
                   Turn off
                 </button>
@@ -1635,10 +1635,10 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             ) : existingPortionPickerOpen ? null : (
               <div className="flex items-center gap-2">
                 <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: true, portionedFromSkuId: null })} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50">
-                  Make bulk pool
+                  Make weight pool
                 </button>
                 <button type="button" onClick={() => setExistingPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
-                  Link to bulk pool
+                  Link to weight pool
                 </button>
               </div>
             )}
@@ -1714,7 +1714,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 if (next) { setPortionedFromSKUID(null); setPortionedFromLabel('') }
               }}
             />
-            Bulk weight pool (booked in kg, not units)
+            Weight pool (booked in kg, not units)
           </label>
           {!tracksWeight && (
             portionedFromSKUID ? (
@@ -1731,7 +1731,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
               />
             ) : (
               <button type="button" onClick={() => setPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
-                + Link to a bulk pool
+                + Link to a weight pool
               </button>
             )
           )}

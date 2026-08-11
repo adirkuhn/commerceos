@@ -518,6 +518,50 @@ func TestSyncProductToChannels_skipsWritingALogEntryWhenNothingChangedSinceLastS
 	require.Empty(t, h.syncLogRepo.created, "identical fields since last entry must not produce a new row")
 }
 
+// TestSyncProductToChannels_neverCreatesListingForBulkPoolVariant proves a
+// TracksWeight variant is never pushed as a new listing during steady-state
+// sync -- it's an internal weight ledger, not something to sell, even
+// though it has its own Variant row like any sellable one.
+func TestSyncProductToChannels_neverCreatesListingForBulkPoolVariant(t *testing.T) {
+	product, variants, skus := bulkPlusTwoVariantProduct(false)
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "701", VariantID: strPtr(variants[0].ID)},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "702", VariantID: strPtr(variants[1].ID)},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	uc := h.newSyncUseCase(t, 6)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 2, "only the two sellable variants are synced")
+	require.Empty(t, h.wooClient.createCalled, "the bulk pool variant is never created as a new listing")
+	require.Empty(t, h.listingRepo.created)
+}
+
+// TestSyncProductToChannels_cleansUpStrayListingForVariantThatBecameBulkPool
+// covers a variant that was sellable and already synced, then had its SKU
+// flipped to TracksWeight afterwards -- the sync must tear down its
+// external listing (same "removed variant" cleanup path as an actually
+// deleted variant), leaving its sellable siblings untouched.
+func TestSyncProductToChannels_cleansUpStrayListingForVariantThatBecameBulkPool(t *testing.T) {
+	product, variants, skus := bulkPlusTwoVariantProduct(false)
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "701", VariantID: strPtr(variants[0].ID)},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "702", VariantID: strPtr(variants[1].ID)},
+		{ID: "listing-bulk", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "703", VariantID: strPtr("variant-bulk")},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	uc := h.newSyncUseCase(t, 7)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 2, "the sellable siblings are still synced normally")
+	require.Equal(t, []string{"703"}, h.wooClient.deleteProductCalled)
+	require.Equal(t, []string{"listing-bulk"}, h.listingRepo.deleted)
+}
+
 func TestSyncProductToChannels_writesASyncLogEntryOnFailureToo(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	listing := channelsDomain.ProductChannelListing{
