@@ -410,7 +410,7 @@ describe('ScannerApp booking screen', () => {
 
     await userEvent.click(await screen.findByText('LOT-9'))
     await userEvent.type(screen.getByLabelText('Quantity to remove'), '3')
-    await userEvent.type(screen.getByLabelText('Reason'), 'counted wrong')
+    await userEvent.type(screen.getByLabelText('Reason (optional)'), 'counted wrong')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
@@ -437,7 +437,7 @@ describe('ScannerApp booking screen', () => {
 
     await userEvent.click(await screen.findByText('LOT-9'))
     await userEvent.type(screen.getByLabelText('Quantity'), '2')
-    await userEvent.type(screen.getByLabelText('Reason'), 'arrived crushed')
+    await userEvent.type(screen.getByLabelText('Reason (optional)'), 'arrived crushed')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.markDamagedOrLost).toHaveBeenCalledWith(expect.any(String), 'sku-1', expect.objectContaining({
