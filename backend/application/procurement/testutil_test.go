@@ -674,3 +674,20 @@ func (s *stubReceiveStockForBooking) Execute(_ context.Context, in appinventory.
 	}
 	return &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, Type: invDomain.MovementTypeReceipt, QuantityDelta: in.Quantity}}, nil
 }
+
+type stubRecordAdjustmentForBooking struct {
+	out      *invDomain.StockMovement
+	err      error
+	gotInput appinventory.RecordStockMovementInput
+}
+
+func (s *stubRecordAdjustmentForBooking) Execute(_ context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &invDomain.StockMovement{ID: "movement-adj-1", SKUID: in.SKUID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
+}

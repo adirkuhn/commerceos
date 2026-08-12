@@ -44,4 +44,8 @@ var (
 	// review's "Receive stock" action) when the PO has no warehouse
 	// assigned yet and none was supplied to assign.
 	ErrWarehouseRequired = errors.New("a warehouse is required")
+	// ErrScanCodeOrSKURequired guards ScanBookingItemUseCase's two input
+	// paths: a scanned barcode (Code) or a directly-known SKU (SKUID, e.g.
+	// tapping a booking line item row) -- exactly one must be provided.
+	ErrScanCodeOrSKURequired = errors.New("either a scanned code or a sku_id is required")
 )

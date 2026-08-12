@@ -6,7 +6,7 @@ import ScannerApp from '../ScannerApp'
 import type { Booking, BookingDetail } from '../types'
 import type { PurchaseOrder } from '../../procurement/types'
 import type { Supplier } from '../../suppliers/types'
-import type { Warehouse } from '../../inventory/types'
+import type { Warehouse, Batch } from '../../inventory/types'
 
 vi.mock('../api', () => ({
   claimPairingCode: vi.fn(),
@@ -22,6 +22,8 @@ vi.mock('../api', () => ({
 
 vi.mock('../../procurement/api', () => ({
   listPurchaseOrders: vi.fn(),
+  getPurchaseOrder: vi.fn(),
+  updatePurchaseOrder: vi.fn(),
 }))
 
 vi.mock('../../suppliers/api', () => ({
@@ -30,6 +32,8 @@ vi.mock('../../suppliers/api', () => ({
 
 vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
+  listBatches: vi.fn(),
+  markDamagedOrLost: vi.fn(),
 }))
 
 const mockDecodeFromVideoDevice = vi.fn()
@@ -77,6 +81,15 @@ function warehouse(overrides: Partial<Warehouse> = {}): Warehouse {
     id: 'warehouse-1', tenant_id: 'tenant-1', name: 'Main Warehouse',
     address1: '', address2: '', city: '', province: '', zip: '', country: '', phone: '', active: true,
     created_at: '', updated_at: '',
+    ...overrides,
+  }
+}
+
+function batch(overrides: Partial<Batch> = {}): Batch {
+  return {
+    id: 'batch-1', tenant_id: 'tenant-1', sku_id: 'sku-1', warehouse_id: 'warehouse-1',
+    lot_number: 'LOT-1', expiry_date: null, received_at: '', created_at: '', updated_at: '',
+    quantity: 10, is_general_ledger: false,
     ...overrides,
   }
 }
@@ -224,6 +237,32 @@ describe('ScannerApp purchase order picker', () => {
     expect(screen.getAllByText('Acme Foods')).toHaveLength(1)
   })
 
+  it('shows the id, expected date, and order value for each PO', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([
+      po({ id: 'a1b2c3d4-0000-0000-0000-000000000000', expected_date: '2026-08-20', total_minor_units: 154999, currency_code: 'USD' }),
+    ])
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
+
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Receive PO'))
+
+    expect(await screen.findByText('#A1B2C3D4')).toBeInTheDocument()
+    expect(screen.getByText('USD 1549.99')).toBeInTheDocument()
+    expect(screen.getByText(new Date('2026-08-20').toLocaleDateString())).toBeInTheDocument()
+  })
+
+  it('falls back to the created date when no expected date is set', async () => {
+    vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([
+      po({ expected_date: null, created_at: '2026-07-01T00:00:00Z' }),
+    ])
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
+
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Receive PO'))
+
+    expect(await screen.findByText(new Date('2026-07-01T00:00:00Z').toLocaleDateString())).toBeInTheDocument()
+  })
+
   it('starts a booking and moves to the booking screen', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
@@ -263,6 +302,9 @@ describe('ScannerApp booking screen', () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po()])
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
     vi.mocked(api.startOrResumeBooking).mockResolvedValue(booking())
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse(), warehouse({ id: 'warehouse-2', name: 'Overflow Warehouse' })])
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: po(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
   })
 
   async function enterBookingScreen() {
@@ -271,6 +313,22 @@ describe('ScannerApp booking screen', () => {
     await userEvent.click(await screen.findByText('Acme Foods'))
     await screen.findByText('Booking')
   }
+
+  it('shows the PO warehouse and lets it be changed mid-booking', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue({ booking: booking(), line_items: [], scans: [] })
+    vi.mocked(procurementApi.updatePurchaseOrder).mockResolvedValue(po({ warehouse_id: 'warehouse-2' }))
+
+    await enterBookingScreen()
+
+    expect(await screen.findByText('Main Warehouse')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Change' }))
+    await userEvent.click(await screen.findByText('Overflow Warehouse'))
+
+    await waitFor(() => expect(procurementApi.updatePurchaseOrder).toHaveBeenCalledWith(expect.any(String), 'po-1', expect.objectContaining({
+      warehouse_id: 'warehouse-2',
+    })))
+    expect(await screen.findByText('Overflow Warehouse')).toBeInTheDocument()
+  })
 
   it('shows expected vs scanned progress per line', async () => {
     const detail: BookingDetail = {
@@ -284,6 +342,122 @@ describe('ScannerApp booking screen', () => {
 
     expect(await screen.findByText('Widget A')).toBeInTheDocument()
     expect(screen.getByText('4 / 10')).toBeInTheDocument()
+  })
+
+  it('Receive mode (default) is prefilled with the remaining quantity and can pick an existing batch', async () => {
+    const detail: BookingDetail = {
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 4, scanned_at: '', scanned_by: '' }],
+    }
+    vi.mocked(api.getBooking).mockResolvedValue(detail)
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch({ id: 'batch-9', lot_number: 'LOT-9' })])
+    vi.mocked(api.scanBookingItem).mockResolvedValue({
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 6, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterBookingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+
+    expect(screen.getByLabelText('Quantity to receive')).toHaveValue('6')
+    await userEvent.click(await screen.findByText('LOT-9'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
+      sku_id: 'sku-1', quantity: 6, batch_id: 'batch-9',
+    })))
+  })
+
+  it('Receive mode can create a new batch with a lot number and expiry date', async () => {
+    const detail: BookingDetail = {
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [],
+    }
+    vi.mocked(api.getBooking).mockResolvedValue(detail)
+    vi.mocked(api.scanBookingItem).mockResolvedValue({
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 10, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterBookingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+
+    await userEvent.click(await screen.findByText('+ New batch'))
+    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(screen.getByLabelText('Expiry date'), '2027-01-01')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
+      sku_id: 'sku-1', quantity: 10, lot_number: 'LOT-NEW', expiry_date: '2027-01-01',
+    })))
+  })
+
+  it('Remove mode records a negative correction against a chosen batch, with a reason', async () => {
+    const detail: BookingDetail = {
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 10, scanned_at: '', scanned_by: '' }],
+    }
+    vi.mocked(api.getBooking).mockResolvedValue(detail)
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch({ id: 'batch-9', lot_number: 'LOT-9', quantity: 10 })])
+    vi.mocked(api.scanBookingItem).mockResolvedValue({
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: -3, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterBookingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    await userEvent.click(await screen.findByText('LOT-9'))
+    await userEvent.type(screen.getByLabelText('Quantity to remove'), '3')
+    await userEvent.type(screen.getByLabelText('Reason'), 'counted wrong')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
+      sku_id: 'sku-1', quantity: -3, batch_id: 'batch-9', reason: 'counted wrong',
+    })))
+  })
+
+  it('Damaged/Lost mode marks stock damaged via the inventory API, without touching booking progress', async () => {
+    const detail: BookingDetail = {
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 10, scanned_at: '', scanned_by: '' }],
+    }
+    vi.mocked(api.getBooking).mockResolvedValue(detail)
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch({ id: 'batch-9', lot_number: 'LOT-9', quantity: 10 })])
+    vi.mocked(inventoryApi.markDamagedOrLost).mockResolvedValue({
+      id: 'move-1', tenant_id: 't', sku_id: 'sku-1', warehouse_id: 'warehouse-1', batch_id: 'batch-9',
+      type: 'damaged', quantity_delta: -2, reason: 'arrived crushed', occurred_at: '', created_at: '',
+    })
+
+    await enterBookingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+    await userEvent.click(screen.getByRole('button', { name: 'Damaged/Lost' }))
+
+    await userEvent.click(await screen.findByText('LOT-9'))
+    await userEvent.type(screen.getByLabelText('Quantity'), '2')
+    await userEvent.type(screen.getByLabelText('Reason'), 'arrived crushed')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.markDamagedOrLost).toHaveBeenCalledWith(expect.any(String), 'sku-1', expect.objectContaining({
+      warehouse_id: 'warehouse-1', batch_id: 'batch-9', quantity: 2, type: 'damaged', reason: 'arrived crushed',
+    })))
+    expect(api.scanBookingItem).not.toHaveBeenCalled()
+  })
+
+  it('does not let an unlinked line item be tapped to book (no SKU to book against)', async () => {
+    const detail: BookingDetail = {
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: null, raw_description: 'Widget B (unlinked)', quantity: 5 }],
+      scans: [],
+    }
+    vi.mocked(api.getBooking).mockResolvedValue(detail)
+
+    await enterBookingScreen()
+    await userEvent.click(await screen.findByText('Widget B (unlinked)'))
+
+    expect(screen.queryByLabelText('Quantity received')).not.toBeInTheDocument()
   })
 
   it('scans an item and refreshes progress', async () => {
@@ -337,8 +511,44 @@ describe('ScannerApp booking screen', () => {
     })))
   })
 
-  it('finishes the booking and shows a missing-items report', async () => {
-    vi.mocked(api.getBooking).mockResolvedValue({ booking: booking(), line_items: [], scans: [] })
+  it('Finish shows a preview of what is still missing, computed locally -- no completion yet', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue({
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 6, scanned_at: '', scanned_by: '' }],
+    })
+
+    await enterBookingScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+
+    expect(await screen.findByText('Review before finishing')).toBeInTheDocument()
+    expect(screen.getByText('Widget A')).toBeInTheDocument()
+    expect(screen.getByText('expected 10 · scanned 6')).toBeInTheDocument()
+    expect(api.completeBooking).not.toHaveBeenCalled()
+  })
+
+  it('Back from the preview returns to the booking screen without completing', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue({
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [],
+    })
+
+    await enterBookingScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+    await screen.findByText('Review before finishing')
+    await userEvent.click(screen.getByRole('button', { name: 'Back, scan more' }))
+
+    expect(screen.getByText('Booking')).toBeInTheDocument()
+    expect(api.completeBooking).not.toHaveBeenCalled()
+  })
+
+  it('Confirm & Complete on the preview actually finishes the booking', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue({
+      booking: booking(),
+      line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 6, scanned_at: '', scanned_by: '' }],
+    })
     vi.mocked(api.completeBooking).mockResolvedValue({
       booking: booking({ status: 'completed' }),
       missing_items: [{ line_item_id: 'line-1', raw_description: 'Widget A', expected_qty: 10, scanned_qty: 6 }],
@@ -346,10 +556,13 @@ describe('ScannerApp booking screen', () => {
 
     await enterBookingScreen()
     await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+    await screen.findByText('Review before finishing')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
 
     expect(await screen.findByText('Booking complete')).toBeInTheDocument()
     expect(screen.getByText(/weren't fully scanned/)).toBeInTheDocument()
     expect(screen.getByText('Widget A')).toBeInTheDocument()
+    expect(api.completeBooking).toHaveBeenCalledWith(expect.any(String), 'booking-1')
   })
 
   it('pauses the booking and returns to the purchase order picker', async () => {

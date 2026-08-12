@@ -49,7 +49,17 @@ func (uc *GetBookingUseCase) Execute(ctx context.Context, id string) (*BookingDe
 		if err != nil {
 			return err
 		}
-		detail.LineItems = lineItems
+		// Charge-type rows (shipping/discount/fee/credit_note) have no SKU
+		// and can never be scanned -- exclude them from the scanner's
+		// booking view entirely, same reasoning as
+		// CompleteBookingUseCase's missing-items report.
+		productLineItems := make([]procurementDomain.PurchaseOrderLineItem, 0, len(lineItems))
+		for _, li := range lineItems {
+			if li.LineType.IsProduct() {
+				productLineItems = append(productLineItems, li)
+			}
+		}
+		detail.LineItems = productLineItems
 
 		scans, err := uc.scanRepo.ListByBooking(ctx, id)
 		if err != nil {

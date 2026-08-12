@@ -286,6 +286,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewScanBookingItemUseCase(
 			db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo,
 			invapp.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
+			invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
 		),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
@@ -675,8 +676,8 @@ func (h *Handler) ScanBookingItem(c *gin.Context, id genprocurement.Id) {
 		scannedBy = claims.UserID
 	}
 	result, err := h.scanBookingItem.Execute(c.Request.Context(), appprocurement.ScanBookingItemInput{
-		BookingID: id, Code: req.Code, Quantity: req.Quantity, BatchID: req.BatchId,
-		LotNumber: strPtrOr(req.LotNumber), ExpiryDate: genDateToTimePtr(req.ExpiryDate), ScannedBy: scannedBy,
+		BookingID: id, Code: strPtrOr(req.Code), SKUID: strPtrOr(req.SkuId), Quantity: req.Quantity, BatchID: req.BatchId,
+		LotNumber: strPtrOr(req.LotNumber), ExpiryDate: genDateToTimePtr(req.ExpiryDate), Reason: strPtrOr(req.Reason), ScannedBy: scannedBy,
 	})
 	if err := mapError(c, err); err != nil {
 		return

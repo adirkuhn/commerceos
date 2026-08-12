@@ -73,6 +73,12 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 		}
 
 		for _, li := range lineItems {
+			// Charge-type rows (shipping/discount/fee/credit_note) have no
+			// SKU and can never be scanned -- without this they'd show up
+			// as permanently "missing" on every booking that has one.
+			if !li.LineType.IsProduct() {
+				continue
+			}
 			var scannedQty int64
 			if li.SKUID != nil {
 				scannedQty = scannedBySKU[*li.SKUID]

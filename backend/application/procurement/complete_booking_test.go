@@ -92,6 +92,26 @@ func TestCompleteBooking_noMissingItemsWhenAllUnitsOfACaseAreScanned(t *testing.
 	assert.Empty(t, result.MissingItems)
 }
 
+func TestCompleteBooking_excludesNonProductLinesFromMissingItems(t *testing.T) {
+	db := newMockGormDB(t)
+	skuID := "sku-1"
+	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-1", SKUID: &skuID, RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct},
+		// Neither ever gets scanned (no SKU) -- without filtering, both
+		// would wrongly show up as permanently "missing".
+		{ID: "line-2", RawDescription: "Transporte DACHSER", Quantity: 1, LineType: procurementDomain.LineItemTypeShipping},
+		{ID: "line-3", RawDescription: "Desconto", Quantity: 1, LineType: procurementDomain.LineItemTypeDiscount},
+	}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-1", Quantity: 10}}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, result.MissingItems, "shipping/discount lines must never appear in the missing-items report")
+}
+
 func TestCompleteBooking_rejectsAlreadyCompletedBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusCompleted}}

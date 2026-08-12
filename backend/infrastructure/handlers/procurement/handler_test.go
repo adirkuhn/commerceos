@@ -1049,6 +1049,31 @@ func TestScanBookingItemHandler_success(t *testing.T) {
 	assert.Equal(t, int64(3), scan.gotInput.Quantity)
 }
 
+func TestScanBookingItemHandler_negativeQuantityCorrectionWithReason(t *testing.T) {
+	scan := &stubScanBookingItem{}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"sku_id": "sku-1", "quantity": -2, "batch_id": "batch-1", "reason": "counted wrong",
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, int64(-2), scan.gotInput.Quantity)
+	assert.Equal(t, "counted wrong", scan.gotInput.Reason)
+}
+
+func TestScanBookingItemHandler_bookDirectlyBySKUID(t *testing.T) {
+	scan := &stubScanBookingItem{}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"sku_id": "sku-1", "quantity": 4,
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "sku-1", scan.gotInput.SKUID)
+	assert.Empty(t, scan.gotInput.Code)
+	assert.Equal(t, int64(4), scan.gotInput.Quantity)
+}
+
 func TestScanBookingItemHandler_notActiveReturns422(t *testing.T) {
 	scan := &stubScanBookingItem{err: procurementDomain.ErrBookingNotActive}
 	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})

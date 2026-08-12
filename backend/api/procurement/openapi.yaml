@@ -910,13 +910,35 @@ components:
 
     ScanBookingItemRequest:
       type: object
-      required: [code, quantity]
+      required: [quantity]
       properties:
-        code: { type: string, description: Raw scanned text -- a unit barcode or a case/box barcode alias. }
-        quantity: { type: integer, format: int64, minimum: 1 }
+        code:
+          type: string
+          description: >-
+            Raw scanned text -- a unit barcode or a case/box barcode alias.
+            Mutually exclusive with sku_id -- exactly one is required.
+        sku_id:
+          type: string
+          description: >-
+            Book directly against an already-known SKU (e.g. tapping a
+            booking line item row) without a barcode. Mutually exclusive
+            with code -- exactly one is required.
+        quantity:
+          type: integer
+          format: int64
+          description: >-
+            Positive to receive stock. Negative to correct a prior
+            over-/mis-scan (removes stock via an adjustment movement,
+            targets batch_id directly -- never creates a batch). Never
+            zero.
         batch_id: { type: string, nullable: true }
         lot_number: { type: string }
         expiry_date: { type: string, format: date, nullable: true }
+        reason:
+          type: string
+          description: >-
+            Optional comment, most useful on a correction (negative
+            quantity) -- e.g. "counted wrong" or "2 units arrived crushed".
 
     ScanBookingItemResult:
       type: object

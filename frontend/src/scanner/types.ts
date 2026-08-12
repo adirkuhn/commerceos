@@ -38,16 +38,30 @@ export interface BookingDetail {
   booking: Booking
   // Reuses procurement's PurchaseOrderLineItem shape -- typed loosely here
   // to avoid a hard cross-module import cycle; see ../procurement/types.
-  line_items: Array<{ id: string; sku_id?: string | null; raw_description: string; quantity: number }>
+  // units_per_purchased_item lets the client mirror
+  // PurchaseOrderLineItem.EffectiveUnitsPerPurchasedItem's case-pack scaling
+  // (see computeMissingItems in BookingScreen.tsx) for the pre-completion
+  // preview -- optional here since older/loose fixtures omit it; treat
+  // missing/<=0 as 1, same as the backend.
+  line_items: Array<{ id: string; sku_id?: string | null; raw_description: string; quantity: number; units_per_purchased_item?: number }>
   scans: BookingScan[]
 }
 
 export interface ScanBookingItemInput {
-  code: string
+  // Exactly one of code/sku_id is required -- code for a scanned barcode,
+  // sku_id to book directly against an already-known SKU (tapping a line
+  // item row).
+  code?: string
+  sku_id?: string
+  // Positive to receive stock. Negative to correct a prior over-/mis-scan
+  // (removes stock via an adjustment movement, targets batch_id directly --
+  // never creates a batch). Never zero.
   quantity: number
   batch_id?: string | null
   lot_number?: string
   expiry_date?: string | null
+  // Optional comment, most useful on a correction (negative quantity).
+  reason?: string
 }
 
 export interface ScanBookingItemResult {

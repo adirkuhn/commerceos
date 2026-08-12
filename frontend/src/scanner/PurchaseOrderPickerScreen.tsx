@@ -15,6 +15,15 @@ interface PurchaseOrderPickerScreenProps {
   onBack: () => void
 }
 
+function formatDate(iso?: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString()
+}
+
+function formatPrice(minorUnits: number, currency: string): string {
+  return `${currency} ${(minorUnits / 100).toFixed(2)}`
+}
+
 export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, onBack }: PurchaseOrderPickerScreenProps) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -138,8 +147,14 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, o
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{supplierName(po.supplier_id)}</p>
-              <p className="text-xs text-gray-500 capitalize">{po.status.replace('_', ' ')} · {po.currency_code}</p>
+              <p className="text-xs text-gray-500 capitalize">{po.status.replace('_', ' ')}</p>
+              <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                <span>#{po.id.slice(0, 8).toUpperCase()}</span>
+                <span>·</span>
+                <span>{formatDate(po.expected_date ?? po.created_at)}</span>
+              </p>
             </div>
+            <p className="text-xs font-medium text-gray-300 shrink-0">{formatPrice(po.total_minor_units, po.currency_code)}</p>
             {startingId === po.id && <span className="text-xs text-blue-400 shrink-0">Starting…</span>}
           </button>
         ))}
