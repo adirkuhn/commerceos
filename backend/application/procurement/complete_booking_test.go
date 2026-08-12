@@ -4,69 +4,194 @@ import (
 	"context"
 	"testing"
 
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCompleteBooking_noMissingItemsWhenEverythingScanned(t *testing.T) {
-	db := newMockGormDB(t)
-	skuID := "sku-1"
-	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
-	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: &skuID, RawDescription: "Widget A", Quantity: 10}}}
-	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-1", Quantity: 10}}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
+func completableBookingFixtures() (*stubBookingRepo, *stubPurchaseOrderRepo) {
+	return &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}},
+		&stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", WarehouseID: strPtr("warehouse-1")}}
+}
+
+func TestCompleteBooking_replaysAStagedReceiveIntoRealStock(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
+	}}
+	receiveStock := &stubReceiveStockForBooking{}
+	adjustment := &stubRecordAdjustmentForBooking{}
+	writeOff := &stubMarkDamagedOrLostForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, writeOff)
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
 	require.NoError(t, err)
+	require.Len(t, receiveStock.calls, 1)
+	assert.Equal(t, "sku-1", receiveStock.calls[0].SKUID)
+	assert.Equal(t, "warehouse-1", receiveStock.calls[0].WarehouseID)
+	assert.Equal(t, int64(10), receiveStock.calls[0].Quantity)
+	assert.Empty(t, adjustment.calls)
+	assert.Empty(t, writeOff.calls)
 	assert.Empty(t, result.MissingItems)
-	require.Len(t, bookingRepo.updated, 1)
-	assert.Equal(t, procurementDomain.BookingStatusCompleted, bookingRepo.updated[0].Status)
-	assert.Equal(t, "user-1", bookingRepo.updated[0].CompletedBy)
-	assert.NotNil(t, bookingRepo.updated[0].CompletedAt)
+	assert.Equal(t, procurementDomain.BookingStatusCompleted, result.Booking.Status)
+	assert.Equal(t, "user-1", result.Booking.CompletedBy)
 }
 
-func TestCompleteBooking_reportsMissingItemsWhenUnderScanned(t *testing.T) {
-	db := newMockGormDB(t)
-	skuID := "sku-1"
-	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
-	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
-		{ID: "line-1", SKUID: &skuID, RawDescription: "Widget A", Quantity: 10},
-		{ID: "line-2", SKUID: nil, RawDescription: "Widget B (unlinked)", Quantity: 5},
+func TestCompleteBooking_replaysAStagedCorrectionAsANegativeAdjustment(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	batchID := "batch-1"
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10, BatchID: &batchID},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionCorrection, Quantity: -3, BatchID: &batchID, Reason: "counted wrong"},
 	}}
-	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-1", Quantity: 6}}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
+	receiveStock := &stubReceiveStockForBooking{}
+	adjustment := &stubRecordAdjustmentForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
 	require.NoError(t, err)
-	require.Len(t, result.MissingItems, 2)
-	assert.Equal(t, "line-1", result.MissingItems[0].LineItemID)
-	assert.Equal(t, int64(10), result.MissingItems[0].ExpectedQty)
-	assert.Equal(t, int64(6), result.MissingItems[0].ScannedQty)
-	assert.Equal(t, "line-2", result.MissingItems[1].LineItemID)
-	assert.Equal(t, int64(0), result.MissingItems[1].ScannedQty)
-	// Completion still succeeds even with gaps -- the report is surfaced,
-	// not a blocker.
-	assert.Equal(t, procurementDomain.BookingStatusCompleted, result.Booking.Status)
+	require.Len(t, adjustment.calls, 1)
+	assert.Equal(t, "sku-1", adjustment.calls[0].SKUID)
+	assert.Equal(t, &batchID, adjustment.calls[0].BatchID)
+	assert.Equal(t, invDomain.MovementTypeAdjustment, adjustment.calls[0].Type)
+	assert.Equal(t, int64(-3), adjustment.calls[0].QuantityDelta)
+	assert.Equal(t, "counted wrong", adjustment.calls[0].Reason)
+	// Net received: 10 - 3 = 7, still short of the expected 10.
+	require.Len(t, result.MissingItems, 1)
+	assert.Equal(t, int64(7), result.MissingItems[0].ScannedQty)
 }
 
-// TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem is the "case
-// of a product" edge case: a PO line for 1 purchased box (linked to the
-// unit SKU with UnitsPerPurchasedItem 36) expects 36 scanned units, not 1 --
-// scanning only 30 individual units must still show as missing 6, and
-// scanning all 36 must show no gap.
-func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) {
-	db := newMockGormDB(t)
-	skuID := "sku-unit-1"
-	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
-	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
-		{ID: "line-1", SKUID: &skuID, RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitsPerPurchasedItem: 36},
+func TestCompleteBooking_replaysADamagedWriteOffWithoutReducingReceivedProgress(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	batchID := "batch-1"
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10, BatchID: &batchID},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, Quantity: 0, WriteOffQuantity: 2, BatchID: &batchID, Reason: "arrived crushed"},
 	}}
-	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-unit-1", Quantity: 30}}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
+	receiveStock := &stubReceiveStockForBooking{}
+	writeOff := &stubMarkDamagedOrLostForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, writeOff)
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, writeOff.calls, 1)
+	assert.Equal(t, "sku-1", writeOff.calls[0].SKUID)
+	assert.Equal(t, &batchID, writeOff.calls[0].BatchID)
+	assert.Equal(t, invDomain.MovementTypeDamaged, writeOff.calls[0].Type)
+	assert.Equal(t, int64(2), writeOff.calls[0].Quantity)
+	assert.Equal(t, "arrived crushed", writeOff.calls[0].Reason)
+	// Damaged doesn't reduce received progress -- 10 received still meets
+	// the expected 10, no gap.
+	assert.Empty(t, result.MissingItems)
+}
+
+func TestCompleteBooking_replaysALostWriteOff(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionLost, WriteOffQuantity: 1},
+	}}
+	writeOff := &stubMarkDamagedOrLostForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, writeOff)
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, writeOff.calls, 1)
+	assert.Equal(t, invDomain.MovementTypeLost, writeOff.calls[0].Type)
+}
+
+func TestCompleteBooking_resolvesAPendingBatchAcrossLaterRowsByLotNumber(t *testing.T) {
+	db := newMockGormDBN(t, 3)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 20, LineType: procurementDomain.LineItemTypeProduct}}}
+	// Two receive rows into the same not-yet-real "LOT-NEW" batch, then a
+	// damaged row against that same pending batch -- none of the three
+	// carry a real BatchID (nothing was real until now).
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10, LotNumber: "LOT-NEW"},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10, LotNumber: "LOT-NEW"},
+		{ID: "scan-3", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 2, LotNumber: "LOT-NEW"},
+	}}
+	receiveStock := &stubReceiveStockForBooking{outs: []*appinventory.ReceiveStockResult{
+		{Batch: &invDomain.Batch{ID: "real-batch-1"}, Movement: &invDomain.StockMovement{ID: "m1"}},
+	}}
+	writeOff := &stubMarkDamagedOrLostForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, writeOff)
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, receiveStock.calls, 2)
+	assert.Nil(t, receiveStock.calls[0].BatchID, "first receive into this lot creates the batch")
+	require.NotNil(t, receiveStock.calls[1].BatchID, "second receive resolves to the batch the first one created")
+	assert.Equal(t, "real-batch-1", *receiveStock.calls[1].BatchID)
+	require.Len(t, writeOff.calls, 1)
+	require.NotNil(t, writeOff.calls[0].BatchID, "damaged row against the same lot resolves to the same real batch")
+	assert.Equal(t, "real-batch-1", *writeOff.calls[0].BatchID)
+}
+
+func TestCompleteBooking_rejectsACorrectionWhoseLotWasNeverStaged(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	// A correction referencing a lot with no earlier receive row -- nothing
+	// to resolve it against.
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionCorrection, Quantity: -1, LotNumber: "GHOST-LOT"},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	assert.ErrorIs(t, err, procurementDomain.ErrPendingBatchNotFound)
+}
+
+func TestCompleteBooking_excludesNonProductLinesFromMissingItems(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	bookingRepo, poRepo := completableBookingFixtures()
+	skuID := "sku-1"
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-1", SKUID: &skuID, RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct},
+		{ID: "line-2", RawDescription: "Transporte DACHSER", Quantity: 1, LineType: procurementDomain.LineItemTypeShipping},
+		{ID: "line-3", RawDescription: "Desconto", Quantity: 1, LineType: procurementDomain.LineItemTypeDiscount},
+	}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, result.MissingItems, "shipping/discount lines must never appear in the missing-items report")
+}
+
+func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	bookingRepo, poRepo := completableBookingFixtures()
+	skuID := "sku-unit-1"
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-1", SKUID: &skuID, RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitsPerPurchasedItem: 36, LineType: procurementDomain.LineItemTypeProduct},
+	}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-unit-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 30},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
 
 	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -76,46 +201,10 @@ func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) 
 	assert.Equal(t, int64(30), result.MissingItems[0].ScannedQty)
 }
 
-func TestCompleteBooking_noMissingItemsWhenAllUnitsOfACaseAreScanned(t *testing.T) {
-	db := newMockGormDB(t)
-	skuID := "sku-unit-1"
-	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
-	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
-		{ID: "line-1", SKUID: &skuID, RawDescription: "Rapadurinha 36x25gr", Quantity: 1, UnitsPerPurchasedItem: 36},
-	}}
-	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-unit-1", Quantity: 36}}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
-
-	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
-
-	require.NoError(t, err)
-	assert.Empty(t, result.MissingItems)
-}
-
-func TestCompleteBooking_excludesNonProductLinesFromMissingItems(t *testing.T) {
-	db := newMockGormDB(t)
-	skuID := "sku-1"
-	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
-	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
-		{ID: "line-1", SKUID: &skuID, RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct},
-		// Neither ever gets scanned (no SKU) -- without filtering, both
-		// would wrongly show up as permanently "missing".
-		{ID: "line-2", RawDescription: "Transporte DACHSER", Quantity: 1, LineType: procurementDomain.LineItemTypeShipping},
-		{ID: "line-3", RawDescription: "Desconto", Quantity: 1, LineType: procurementDomain.LineItemTypeDiscount},
-	}}
-	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{SKUID: "sku-1", Quantity: 10}}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, scanRepo)
-
-	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
-
-	require.NoError(t, err)
-	assert.Empty(t, result.MissingItems, "shipping/discount lines must never appear in the missing-items report")
-}
-
 func TestCompleteBooking_rejectsAlreadyCompletedBooking(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusCompleted}}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubLineItemRepo{}, &stubBookingScanRepo{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubBookingScanRepo{}, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
 
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
@@ -125,9 +214,24 @@ func TestCompleteBooking_rejectsAlreadyCompletedBooking(t *testing.T) {
 func TestCompleteBooking_propagatesNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo := &stubBookingRepo{findErr: procurementDomain.ErrBookingNotFound}
-	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubLineItemRepo{}, &stubBookingScanRepo{})
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, &stubPurchaseOrderRepo{}, &stubLineItemRepo{}, &stubBookingScanRepo{}, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
 
 	_, err := uc.Execute(context.Background(), "missing", "user-1")
 
 	assert.ErrorIs(t, err, procurementDomain.ErrBookingNotFound)
+}
+
+func TestCompleteBooking_propagatesReplayError(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
+	}}
+	receiveStock := &stubReceiveStockForBooking{err: invDomain.ErrInsufficientStock}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.Error(t, err)
 }

@@ -4,7 +4,7 @@ import * as api from './api'
 import * as procurementApi from '../procurement/api'
 import * as inventoryApi from '../inventory/api'
 import { CameraScanner } from './CameraScanner'
-import type { BookingDetail, CompleteBookingResult, MissingBookingItem, ScanBookingItemInput } from './types'
+import type { BookingDetail, CompleteBookingResult, MissingBookingItem, ScanBookingItemInput, BookingScanActionType } from './types'
 import type { PurchaseOrder } from '../procurement/types'
 import type { Warehouse, Batch } from '../inventory/types'
 
@@ -17,6 +17,28 @@ interface BookingScreenProps {
 
 function isAuthError(err: unknown): boolean {
   return err instanceof Error && /401|unauthorized/i.test(err.message)
+}
+
+export interface PendingBatch {
+  lotNumber: string
+  expiryDate?: string | null
+}
+
+// A "receive" scan with a lot_number and no real batch_id is targeting a
+// batch that won't exist until Finish (see CompleteBookingUseCase's replay,
+// which resolves it by matching sku_id+lot_number across every staged row
+// for the booking, regardless of who scanned it). Surfacing these in the
+// batch picker is what lets a second scanner working the same booking add
+// to a batch the first one just started, by name, instead of having to
+// guess/retype the exact lot text.
+function pendingBatchesForSKU(detail: BookingDetail | null, skuId: string): PendingBatch[] {
+  if (!detail) return []
+  const seen = new Map<string, string | null | undefined>()
+  for (const s of detail.scans) {
+    if (s.sku_id !== skuId || s.action_type !== 'receive' || s.batch_id || !s.lot_number) continue
+    if (!seen.has(s.lot_number)) seen.set(s.lot_number, s.expiry_date)
+  }
+  return Array.from(seen, ([lotNumber, expiryDate]) => ({ lotNumber, expiryDate }))
 }
 
 // Mirrors PurchaseOrderLineItem.EffectiveUnitsPerPurchasedItem +
@@ -137,28 +159,14 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     bookItem({ code: text, quantity: parseInt(quantity, 10) || 1, lot_number: lotNumber || undefined, expiry_date: expiryDate || null })
   }
 
-  function handleRowConfirm(fields: { quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) {
+  // Receive, Remove (correction), and Damaged/Lost are all just staged
+  // BookingScan rows now -- action_type tells CompleteBookingUseCase's
+  // replay what to do with each one at Finish. Nothing here touches real
+  // inventory directly.
+  function handleRowConfirm(fields: { action_type: BookingScanActionType; quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) {
     if (!bookingLine) return
     bookItem({ sku_id: bookingLine.skuId, ...fields })
     setBookingLine(null)
-  }
-
-  async function handleMarkDamagedLost(fields: { quantity: number; batch_id?: string | null; type: 'damaged' | 'lost'; reason?: string }) {
-    if (!bookingLine || !purchaseOrder?.warehouse_id) return
-    setError('')
-    setScanning(true)
-    try {
-      await inventoryApi.markDamagedOrLost(token, bookingLine.skuId, {
-        warehouse_id: purchaseOrder.warehouse_id, batch_id: fields.batch_id ?? null,
-        quantity: fields.quantity, type: fields.type, reason: fields.reason,
-      })
-      setBookingLine(null)
-    } catch (err) {
-      if (isAuthError(err)) return onAuthError()
-      setError(err instanceof Error ? err.message : 'Failed to record')
-    } finally {
-      setScanning(false)
-    }
   }
 
   async function handlePause() {
@@ -383,9 +391,9 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           scannedSoFar={bookingLine.scannedSoFar}
           expected={bookingLine.expected}
           warehouseId={purchaseOrder?.warehouse_id ?? ''}
+          pendingBatches={pendingBatchesForSKU(detail, bookingLine.skuId)}
           onCancel={() => setBookingLine(null)}
           onBook={handleRowConfirm}
-          onMarkDamagedLost={handleMarkDamagedLost}
         />
       )}
 
@@ -418,15 +426,17 @@ function formatBatchExpiry(iso?: string | null): string {
   return `Expires ${new Date(iso).toLocaleDateString()}`
 }
 
+const PENDING_PREFIX = 'pending:'
+
 // Everything you can do to one line item's stock while booking: receive
-// (full or partial, into an existing or a brand-new batch), remove (correct
-// an over-/mis-scan -- reduces the booking's own scanned count via a
-// negative ScanBookingItemInput.quantity), or mark damaged/lost (a separate
-// inventory write-off via inventoryApi.markDamagedOrLost -- the stock did
-// arrive, so it stays counted as received; it just isn't sellable anymore.
-// Never increases stock: receive is the only mode that adds, the other two
-// only ever remove).
-function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, expected, warehouseId, onCancel, onBook, onMarkDamagedLost }: {
+// (full or partial, into an existing, pending, or brand-new batch), remove
+// (correct an over-/mis-scan -- reduces the booking's own scanned count),
+// or mark damaged/lost (a write-off -- the stock did arrive, so it stays
+// counted as received; it just isn't sellable anymore). All three are
+// staged BookingScan rows now (see ScanBookingItemInput.action_type) --
+// nothing here calls real inventory directly. Never increases stock:
+// receive is the only mode that adds, the other two only ever remove.
+function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, expected, warehouseId, pendingBatches, onCancel, onBook }: {
   token: string
   skuId: string
   description: string
@@ -434,13 +444,16 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
   scannedSoFar: number
   expected: number
   warehouseId: string
+  pendingBatches: PendingBatch[]
   onCancel: () => void
-  onBook: (fields: { quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) => void
-  onMarkDamagedLost: (fields: { quantity: number; batch_id?: string | null; type: 'damaged' | 'lost'; reason?: string }) => void
+  onBook: (fields: { action_type: BookingScanActionType; quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) => void
 }) {
   const [mode, setMode] = useState<LineSheetMode>('receive')
   const [batches, setBatches] = useState<Batch[]>([])
-  const [batchId, setBatchId] = useState('') // '' = general ledger, 'new' = create new (receive only)
+  // '' = general ledger, 'new' = create new (receive only), 'pending:<lot>'
+  // = a not-yet-real batch staged earlier in this booking, or a real
+  // batch's own id.
+  const [batchId, setBatchId] = useState('')
   const [lotNumber, setLotNumber] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [qty, setQty] = useState(String(remaining))
@@ -459,18 +472,16 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
   }
 
   function handleConfirm() {
-    if (mode === 'receive') {
-      onBook({
-        quantity: n,
-        batch_id: batchId && batchId !== 'new' ? batchId : undefined,
-        lot_number: batchId === 'new' ? lotNumber : undefined,
-        expiry_date: batchId === 'new' ? (expiryDate || null) : undefined,
-      })
-    } else if (mode === 'remove') {
-      onBook({ quantity: -n, batch_id: batchId || undefined, reason: reason || undefined })
-    } else {
-      onMarkDamagedLost({ quantity: n, batch_id: batchId || undefined, type: dlType, reason: reason || undefined })
-    }
+    const actionType: BookingScanActionType = mode === 'receive' ? 'receive' : mode === 'remove' ? 'correction' : dlType
+    const isPending = batchId.startsWith(PENDING_PREFIX)
+    onBook({
+      action_type: actionType,
+      quantity: n,
+      batch_id: batchId && batchId !== 'new' && !isPending ? batchId : undefined,
+      lot_number: batchId === 'new' ? lotNumber : isPending ? batchId.slice(PENDING_PREFIX.length) : undefined,
+      expiry_date: batchId === 'new' ? (expiryDate || null) : undefined,
+      reason: mode === 'receive' ? undefined : (reason || undefined),
+    })
   }
 
   const maxQty = mode === 'receive' ? undefined : scannedSoFar
@@ -554,6 +565,15 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
                 title="General ledger"
                 subtitle="No specific batch"
               />
+              {pendingBatches.map(pb => (
+                <BatchOption
+                  key={`${PENDING_PREFIX}${pb.lotNumber}`}
+                  selected={batchId === `${PENDING_PREFIX}${pb.lotNumber}`}
+                  onClick={() => setBatchId(`${PENDING_PREFIX}${pb.lotNumber}`)}
+                  title={pb.lotNumber}
+                  subtitle={`${formatBatchExpiry(pb.expiryDate)} · Pending -- created when the booking finishes`}
+                />
+              ))}
               {batches.map(b => (
                 <BatchOption
                   key={b.id}

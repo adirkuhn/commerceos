@@ -14,9 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
-	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
-	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
@@ -360,8 +358,7 @@ func (s *stubScanBookingItem) Execute(_ context.Context, in appprocurement.ScanB
 		return s.out, nil
 	}
 	return &appprocurement.ScanBookingItemResult{
-		Receipt: &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: "sku-1", QuantityDelta: in.Quantity}},
-		Scan:    procurementDomain.BookingScan{ID: "booking-scan-1", BookingID: "booking-1", Quantity: in.Quantity},
+		Scan: procurementDomain.BookingScan{ID: "booking-scan-1", BookingID: "booking-1", Quantity: in.Quantity},
 	}, nil
 }
 
@@ -1049,16 +1046,40 @@ func TestScanBookingItemHandler_success(t *testing.T) {
 	assert.Equal(t, int64(3), scan.gotInput.Quantity)
 }
 
-func TestScanBookingItemHandler_negativeQuantityCorrectionWithReason(t *testing.T) {
+func TestScanBookingItemHandler_correctionActionTypeWithReason(t *testing.T) {
 	scan := &stubScanBookingItem{}
 	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
-		"sku_id": "sku-1", "quantity": -2, "batch_id": "batch-1", "reason": "counted wrong",
+		"sku_id": "sku-1", "action_type": "correction", "quantity": 2, "batch_id": "batch-1", "reason": "counted wrong",
 	})
 
 	require.Equal(t, http.StatusCreated, w.Code)
-	assert.Equal(t, int64(-2), scan.gotInput.Quantity)
+	assert.Equal(t, procurementDomain.BookingScanActionCorrection, scan.gotInput.ActionType)
+	assert.Equal(t, int64(2), scan.gotInput.Quantity)
 	assert.Equal(t, "counted wrong", scan.gotInput.Reason)
+}
+
+func TestScanBookingItemHandler_defaultsActionTypeToReceive(t *testing.T) {
+	scan := &stubScanBookingItem{}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"sku_id": "sku-1", "quantity": 3,
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, procurementDomain.BookingScanActionReceive, scan.gotInput.ActionType)
+}
+
+func TestScanBookingItemHandler_damagedActionType(t *testing.T) {
+	scan := &stubScanBookingItem{}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"sku_id": "sku-1", "action_type": "damaged", "quantity": 2, "reason": "arrived crushed",
+	})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, procurementDomain.BookingScanActionDamaged, scan.gotInput.ActionType)
+	assert.Equal(t, int64(2), scan.gotInput.Quantity)
 }
 
 func TestScanBookingItemHandler_bookDirectlyBySKUID(t *testing.T) {

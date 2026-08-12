@@ -29,22 +29,54 @@ type Booking struct {
 	CompletedBy string
 }
 
-// BookingScan is the audit-trail row for one "scan a barcode, pick/create a
-// batch, enter quantity" action from the scanner app. ScanBookingItemUseCase
-// composes inventory.ReceiveStockUseCase (which opens its own transaction)
-// and then writes this row in a second transaction -- same two-step,
-// not-fully-atomic composition CreatePurchaseOrderFromDocumentUseCase uses
-// for the same reason: tenant.WithTenant must never nest, so a use case
-// that calls another use case's Execute can't wrap both in one transaction.
-// Worst case on a mid-sequence crash is stock booked with no audit row,
-// which the booking's own progress view can reconcile against the ledger.
+// BookingScanActionType classifies what a staged BookingScan row will do to
+// real inventory once the booking is finished.
+type BookingScanActionType string
+
+const (
+	BookingScanActionReceive    BookingScanActionType = "receive"
+	BookingScanActionCorrection BookingScanActionType = "correction"
+	BookingScanActionDamaged    BookingScanActionType = "damaged"
+	BookingScanActionLost       BookingScanActionType = "lost"
+)
+
+// BookingScan is a STAGED action from the scanner app -- "scan a barcode,
+// pick/create a batch, enter quantity" (receive), a correction for an over-/
+// mis-scan, or a damaged/lost write-off. ScanBookingItemUseCase only ever
+// writes this row -- it never touches real inventory. Nothing becomes a real
+// stock movement, and no new batch actually exists, until
+// CompleteBookingUseCase replays every staged row for the booking (in
+// ScannedAt order) when the booking finishes. This is deliberate: a booking
+// in progress is not yet trustworthy (it can be corrected, paused,
+// re-scanned), so nothing should reach real inventory -- or, downstream,
+// sync to an external sales channel -- until it's done. See
+// CompleteBookingUseCase's doc comment for the replay algorithm.
 type BookingScan struct {
 	ID        string
 	TenantID  string
 	BookingID string
 	SKUID     string
-	BatchID   *string
-	Quantity  int64
+	// BatchID targets an already-real, existing batch. Nil with LotNumber
+	// set means "the batch this receive creates" (or, for a
+	// correction/damaged/lost row, "the batch an earlier receive row in
+	// this same booking will create" -- resolved by matching SKUID+
+	// LotNumber during replay, regardless of which row created it). Nil
+	// with LotNumber also empty means general ledger.
+	BatchID    *string
+	LotNumber  string
+	ExpiryDate *time.Time
+	ActionType BookingScanActionType
+	// Quantity is the net effect on this line's "received" progress: +N
+	// for a receive, -N for a correction, always 0 for damaged/lost (the
+	// stock did arrive -- see BookingScanActionType doc -- so it stays
+	// counted as received; only WriteOffQuantity is affected).
+	Quantity int64
+	// WriteOffQuantity is >0 only on a damaged/lost row -- the amount
+	// written off. Zero for receive/correction rows.
+	WriteOffQuantity int64
+	// Reason is an optional user comment -- most useful on a correction or
+	// a damaged/lost row.
+	Reason    string
 	ScannedAt time.Time
 	ScannedBy string
 }

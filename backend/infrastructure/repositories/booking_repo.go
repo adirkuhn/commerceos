@@ -26,14 +26,19 @@ type bookingModel struct {
 func (bookingModel) TableName() string { return "bookings" }
 
 type bookingScanModel struct {
-	ID        string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID  string  `gorm:"not null;type:uuid"`
-	BookingID string  `gorm:"not null;type:uuid"`
-	SKUID     string  `gorm:"column:sku_id;not null;type:uuid"`
-	BatchID   *string `gorm:"type:uuid"`
-	Quantity  int64
-	ScannedAt time.Time
-	ScannedBy string
+	ID               string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID         string  `gorm:"not null;type:uuid"`
+	BookingID        string  `gorm:"not null;type:uuid"`
+	SKUID            string  `gorm:"column:sku_id;not null;type:uuid"`
+	BatchID          *string `gorm:"type:uuid"`
+	LotNumber        string
+	ExpiryDate       *time.Time
+	ActionType       string `gorm:"not null;default:receive"`
+	Quantity         int64
+	WriteOffQuantity int64
+	Reason           string
+	ScannedAt        time.Time
+	ScannedBy        string
 }
 
 func (bookingScanModel) TableName() string { return "booking_scans" }
@@ -144,7 +149,9 @@ func (r *BookingScanRepo) Create(ctx context.Context, s *procurementDomain.Booki
 	}
 	m := bookingScanModel{
 		ID: s.ID, TenantID: s.TenantID, BookingID: s.BookingID, SKUID: s.SKUID, BatchID: s.BatchID,
-		Quantity: s.Quantity, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
+		LotNumber: s.LotNumber, ExpiryDate: s.ExpiryDate, ActionType: string(s.ActionType),
+		Quantity: s.Quantity, WriteOffQuantity: s.WriteOffQuantity, Reason: s.Reason,
+		ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("bookingScanRepo.Create: %w", err)
@@ -166,7 +173,9 @@ func (r *BookingScanRepo) ListByBooking(ctx context.Context, bookingID string) (
 	for i, m := range rows {
 		scans[i] = procurementDomain.BookingScan{
 			ID: m.ID, TenantID: m.TenantID, BookingID: m.BookingID, SKUID: m.SKUID, BatchID: m.BatchID,
-			Quantity: m.Quantity, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy,
+			LotNumber: m.LotNumber, ExpiryDate: m.ExpiryDate, ActionType: procurementDomain.BookingScanActionType(m.ActionType),
+			Quantity: m.Quantity, WriteOffQuantity: m.WriteOffQuantity, Reason: m.Reason,
+			ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy,
 		}
 	}
 	return scans, nil

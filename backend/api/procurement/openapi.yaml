@@ -877,14 +877,32 @@ components:
 
     BookingScan:
       type: object
-      required: [id, tenant_id, booking_id, sku_id, quantity, scanned_at, scanned_by]
+      required: [id, tenant_id, booking_id, sku_id, action_type, quantity, write_off_quantity, scanned_at, scanned_by]
       properties:
         id: { type: string }
         tenant_id: { type: string }
         booking_id: { type: string }
         sku_id: { type: string }
-        batch_id: { type: string, nullable: true }
-        quantity: { type: integer, format: int64 }
+        batch_id:
+          type: string
+          nullable: true
+          description: >-
+            An already-real, existing batch. Null with lot_number set means
+            "the batch this staged row creates or targets" -- not real
+            until the booking finishes.
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date, nullable: true }
+        action_type: { $ref: '#/components/schemas/BookingScanActionType' }
+        quantity:
+          type: integer
+          format: int64
+          description: Net effect on this line's received progress -- 0 for damaged/lost.
+        write_off_quantity:
+          type: integer
+          format: int64
+          description: >-
+            The amount written off -- only nonzero on a damaged/lost row.
+        reason: { type: string }
         scanned_at: { type: string, format: date-time }
         scanned_by: { type: string }
 
@@ -908,6 +926,10 @@ components:
         data: { $ref: '#/components/schemas/BookingDetail' }
         error: { nullable: true }
 
+    BookingScanActionType:
+      type: string
+      enum: [receive, correction, damaged, lost]
+
     ScanBookingItemRequest:
       type: object
       required: [quantity]
@@ -923,30 +945,29 @@ components:
             Book directly against an already-known SKU (e.g. tapping a
             booking line item row) without a barcode. Mutually exclusive
             with code -- exactly one is required.
+        action_type:
+          allOf: [{ $ref: '#/components/schemas/BookingScanActionType' }]
+          description: Defaults to receive when omitted.
         quantity:
           type: integer
           format: int64
+          minimum: 1
           description: >-
-            Positive to receive stock. Negative to correct a prior
-            over-/mis-scan (removes stock via an adjustment movement,
-            targets batch_id directly -- never creates a batch). Never
-            zero.
+            Always a positive magnitude -- action_type carries the
+            direction (receive adds, correction/damaged/lost remove).
         batch_id: { type: string, nullable: true }
         lot_number: { type: string }
         expiry_date: { type: string, format: date, nullable: true }
         reason:
           type: string
           description: >-
-            Optional comment, most useful on a correction (negative
-            quantity) -- e.g. "counted wrong" or "2 units arrived crushed".
+            Optional comment, most useful on a correction or a
+            damaged/lost row -- e.g. "counted wrong" or "arrived crushed".
 
     ScanBookingItemResult:
       type: object
       required: [scan]
       properties:
-        batch:
-          $ref: '#/components/schemas/Batch'
-          nullable: true
         scan: { $ref: '#/components/schemas/BookingScan' }
 
     ScanBookingItemResultResponse:
@@ -954,20 +975,6 @@ components:
       properties:
         data: { $ref: '#/components/schemas/ScanBookingItemResult' }
         error: { nullable: true }
-
-    Batch:
-      type: object
-      required: [id, tenant_id, sku_id, warehouse_id, lot_number, received_at, created_at, updated_at]
-      properties:
-        id: { type: string }
-        tenant_id: { type: string }
-        sku_id: { type: string }
-        warehouse_id: { type: string }
-        lot_number: { type: string }
-        expiry_date: { type: string, format: date, nullable: true }
-        received_at: { type: string, format: date-time }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
 
     MissingBookingItem:
       type: object

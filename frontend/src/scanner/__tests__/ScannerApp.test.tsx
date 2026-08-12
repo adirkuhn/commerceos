@@ -334,7 +334,7 @@ describe('ScannerApp booking screen', () => {
     const detail: BookingDetail = {
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 4, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 4, scanned_at: '', scanned_by: '' }],
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
 
@@ -348,12 +348,12 @@ describe('ScannerApp booking screen', () => {
     const detail: BookingDetail = {
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 4, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 4, scanned_at: '', scanned_by: '' }],
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch({ id: 'batch-9', lot_number: 'LOT-9' })])
     vi.mocked(api.scanBookingItem).mockResolvedValue({
-      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 6, scanned_at: '', scanned_by: '' },
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 6, scanned_at: '', scanned_by: '' },
     })
 
     await enterBookingScreen()
@@ -364,7 +364,7 @@ describe('ScannerApp booking screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
-      sku_id: 'sku-1', quantity: 6, batch_id: 'batch-9',
+      sku_id: 'sku-1', action_type: 'receive', quantity: 6, batch_id: 'batch-9',
     })))
   })
 
@@ -376,7 +376,7 @@ describe('ScannerApp booking screen', () => {
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
     vi.mocked(api.scanBookingItem).mockResolvedValue({
-      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 10, scanned_at: '', scanned_by: '' },
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 10, scanned_at: '', scanned_by: '' },
     })
 
     await enterBookingScreen()
@@ -388,20 +388,20 @@ describe('ScannerApp booking screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
-      sku_id: 'sku-1', quantity: 10, lot_number: 'LOT-NEW', expiry_date: '2027-01-01',
+      sku_id: 'sku-1', action_type: 'receive', quantity: 10, lot_number: 'LOT-NEW', expiry_date: '2027-01-01',
     })))
   })
 
-  it('Remove mode records a negative correction against a chosen batch, with a reason', async () => {
+  it('Remove mode stages a correction against a chosen batch, with a reason', async () => {
     const detail: BookingDetail = {
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 10, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 10, scanned_at: '', scanned_by: '' }],
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch({ id: 'batch-9', lot_number: 'LOT-9', quantity: 10 })])
     vi.mocked(api.scanBookingItem).mockResolvedValue({
-      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: -3, scanned_at: '', scanned_by: '' },
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'correction', write_off_quantity: 0, quantity: -3, scanned_at: '', scanned_by: '' },
     })
 
     await enterBookingScreen()
@@ -413,22 +413,23 @@ describe('ScannerApp booking screen', () => {
     await userEvent.type(screen.getByLabelText('Reason (optional)'), 'counted wrong')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
+    // Nothing real happens yet -- this is still just a staged scan. quantity
+    // stays a positive magnitude; action_type carries the direction.
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
-      sku_id: 'sku-1', quantity: -3, batch_id: 'batch-9', reason: 'counted wrong',
+      sku_id: 'sku-1', action_type: 'correction', quantity: 3, batch_id: 'batch-9', reason: 'counted wrong',
     })))
   })
 
-  it('Damaged/Lost mode marks stock damaged via the inventory API, without touching booking progress', async () => {
+  it('Damaged/Lost mode stages a write-off via the same scan endpoint, without touching real inventory yet', async () => {
     const detail: BookingDetail = {
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 10, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 10, scanned_at: '', scanned_by: '' }],
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch({ id: 'batch-9', lot_number: 'LOT-9', quantity: 10 })])
-    vi.mocked(inventoryApi.markDamagedOrLost).mockResolvedValue({
-      id: 'move-1', tenant_id: 't', sku_id: 'sku-1', warehouse_id: 'warehouse-1', batch_id: 'batch-9',
-      type: 'damaged', quantity_delta: -2, reason: 'arrived crushed', occurred_at: '', created_at: '',
+    vi.mocked(api.scanBookingItem).mockResolvedValue({
+      scan: { id: 'scan-2', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'damaged', write_off_quantity: 2, quantity: 0, scanned_at: '', scanned_by: '' },
     })
 
     await enterBookingScreen()
@@ -440,10 +441,10 @@ describe('ScannerApp booking screen', () => {
     await userEvent.type(screen.getByLabelText('Reason (optional)'), 'arrived crushed')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
-    await waitFor(() => expect(inventoryApi.markDamagedOrLost).toHaveBeenCalledWith(expect.any(String), 'sku-1', expect.objectContaining({
-      warehouse_id: 'warehouse-1', batch_id: 'batch-9', quantity: 2, type: 'damaged', reason: 'arrived crushed',
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
+      sku_id: 'sku-1', action_type: 'damaged', quantity: 2, batch_id: 'batch-9', reason: 'arrived crushed',
     })))
-    expect(api.scanBookingItem).not.toHaveBeenCalled()
+    expect(inventoryApi.markDamagedOrLost).not.toHaveBeenCalled()
   })
 
   it('does not let an unlinked line item be tapped to book (no SKU to book against)', async () => {
@@ -468,11 +469,11 @@ describe('ScannerApp booking screen', () => {
     }
     const afterScan: BookingDetail = {
       ...initial,
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 5, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 5, scanned_at: '', scanned_by: '' }],
     }
     vi.mocked(api.getBooking).mockResolvedValueOnce(initial).mockResolvedValueOnce(afterScan)
     vi.mocked(api.scanBookingItem).mockResolvedValue({
-      scan: { id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 5, scanned_at: '', scanned_by: '' },
+      scan: { id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 5, scanned_at: '', scanned_by: '' },
     })
 
     await enterBookingScreen()
@@ -497,7 +498,7 @@ describe('ScannerApp booking screen', () => {
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
     vi.mocked(api.scanBookingItem).mockResolvedValue({
-      scan: { id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 1, scanned_at: '', scanned_by: '' },
+      scan: { id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 1, scanned_at: '', scanned_by: '' },
     })
 
     await enterBookingScreen()
@@ -515,7 +516,7 @@ describe('ScannerApp booking screen', () => {
     vi.mocked(api.getBooking).mockResolvedValue({
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 6, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 6, scanned_at: '', scanned_by: '' }],
     })
 
     await enterBookingScreen()
@@ -547,7 +548,7 @@ describe('ScannerApp booking screen', () => {
     vi.mocked(api.getBooking).mockResolvedValue({
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
-      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', quantity: 6, scanned_at: '', scanned_by: '' }],
+      scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 6, scanned_at: '', scanned_by: '' }],
     })
     vi.mocked(api.completeBooking).mockResolvedValue({
       booking: booking({ status: 'completed' }),

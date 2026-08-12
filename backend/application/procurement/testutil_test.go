@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -658,36 +659,50 @@ func (s *stubBarcodeAliasRepo) ListBySKU(_ context.Context, _ string) ([]pmsDoma
 }
 func (s *stubBarcodeAliasRepo) Delete(_ context.Context, _ string) error { return nil }
 
+// stubReceiveStockForBooking tracks every call (CompleteBookingUseCase's
+// replay can call Execute once per staged receive row) -- outs[i], if set,
+// is returned for the i-th call, letting a test simulate the first receive
+// into a lot creating a real batch.
 type stubReceiveStockForBooking struct {
-	out      *appinventory.ReceiveStockResult
-	err      error
-	gotInput appinventory.ReceiveStockInput
+	calls []appinventory.ReceiveStockInput
+	outs  []*appinventory.ReceiveStockResult
+	err   error
 }
 
 func (s *stubReceiveStockForBooking) Execute(_ context.Context, in appinventory.ReceiveStockInput) (*appinventory.ReceiveStockResult, error) {
-	s.gotInput = in
+	idx := len(s.calls)
+	s.calls = append(s.calls, in)
 	if s.err != nil {
 		return nil, s.err
 	}
-	if s.out != nil {
-		return s.out, nil
+	if idx < len(s.outs) && s.outs[idx] != nil {
+		return s.outs[idx], nil
 	}
-	return &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, Type: invDomain.MovementTypeReceipt, QuantityDelta: in.Quantity}}, nil
+	return &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: fmt.Sprintf("movement-%d", idx+1), SKUID: in.SKUID, Type: invDomain.MovementTypeReceipt, QuantityDelta: in.Quantity}}, nil
 }
 
 type stubRecordAdjustmentForBooking struct {
-	out      *invDomain.StockMovement
-	err      error
-	gotInput appinventory.RecordStockMovementInput
+	calls []appinventory.RecordStockMovementInput
+	err   error
 }
 
 func (s *stubRecordAdjustmentForBooking) Execute(_ context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error) {
-	s.gotInput = in
+	s.calls = append(s.calls, in)
 	if s.err != nil {
 		return nil, s.err
 	}
-	if s.out != nil {
-		return s.out, nil
+	return &invDomain.StockMovement{ID: fmt.Sprintf("movement-adj-%d", len(s.calls)), SKUID: in.SKUID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
+}
+
+type stubMarkDamagedOrLostForBooking struct {
+	calls []appinventory.MarkDamagedOrLostInput
+	err   error
+}
+
+func (s *stubMarkDamagedOrLostForBooking) Execute(_ context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error) {
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
 	}
-	return &invDomain.StockMovement{ID: "movement-adj-1", SKUID: in.SKUID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
+	return &invDomain.StockMovement{ID: fmt.Sprintf("movement-wo-%d", len(s.calls)), SKUID: in.SKUID, Type: in.Type, QuantityDelta: -in.Quantity}, nil
 }

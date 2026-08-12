@@ -11,13 +11,28 @@ export interface Booking {
   completed_by: string
 }
 
+export type BookingScanActionType = 'receive' | 'correction' | 'damaged' | 'lost'
+
+// A STAGED action -- see backend domain/procurement/booking.go's doc
+// comment. Nothing here is real inventory yet; CompleteBookingUseCase
+// replays every row for the booking when it finishes.
 export interface BookingScan {
   id: string
   tenant_id: string
   booking_id: string
   sku_id: string
+  // An already-real, existing batch. Null with lot_number set means "the
+  // batch this row creates or targets" -- not real until the booking
+  // finishes.
   batch_id?: string | null
+  lot_number?: string
+  expiry_date?: string | null
+  action_type: BookingScanActionType
+  // Net effect on this line's received progress -- 0 for damaged/lost.
   quantity: number
+  // The amount written off -- only nonzero on a damaged/lost row.
+  write_off_quantity: number
+  reason?: string
   scanned_at: string
   scanned_by: string
 }
@@ -53,19 +68,18 @@ export interface ScanBookingItemInput {
   // item row).
   code?: string
   sku_id?: string
-  // Positive to receive stock. Negative to correct a prior over-/mis-scan
-  // (removes stock via an adjustment movement, targets batch_id directly --
-  // never creates a batch). Never zero.
+  // Defaults to 'receive' server-side when omitted.
+  action_type?: BookingScanActionType
+  // Always a positive magnitude -- action_type carries the direction.
   quantity: number
   batch_id?: string | null
   lot_number?: string
   expiry_date?: string | null
-  // Optional comment, most useful on a correction (negative quantity).
+  // Optional comment, most useful on a correction or a damaged/lost row.
   reason?: string
 }
 
 export interface ScanBookingItemResult {
-  batch?: Batch | null
   scan: BookingScan
 }
 

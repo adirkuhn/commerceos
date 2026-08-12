@@ -48,4 +48,13 @@ var (
 	// paths: a scanned barcode (Code) or a directly-known SKU (SKUID, e.g.
 	// tapping a booking line item row) -- exactly one must be provided.
 	ErrScanCodeOrSKURequired = errors.New("either a scanned code or a sku_id is required")
+	// ErrInvalidBookingScanActionType guards
+	// ScanBookingItemInput.ActionType against anything other than the four
+	// BookingScanActionType values.
+	ErrInvalidBookingScanActionType = errors.New("invalid booking scan action type")
+	// ErrPendingBatchNotFound is returned during CompleteBookingUseCase's
+	// replay when a correction/damaged/lost row references a batch (by
+	// SKUID+LotNumber) that no earlier receive row in the same booking ever
+	// staged -- there's nothing to resolve it against.
+	ErrPendingBatchNotFound = errors.New("no batch found for this correction -- the receive that would have created it is missing")
 )

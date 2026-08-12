@@ -56,6 +56,15 @@ func strPtrOr(s *string) string {
 	return *s
 }
 
+// strPtrOrNil is strPtrOr's inverse -- empty string becomes nil, for
+// mapping a domain string field back onto an omitempty response field.
+func strPtrOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // int64PtrOr unwraps an optional integer request field to 0 -- the
 // use-case layer treats 0 as "not specified, use the default" for fields
 // like UnitsPerPurchasedItem (see AddPurchaseOrderLineItemUseCase).
@@ -283,13 +292,14 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewCompleteReceivingUseCase(db, receivingRecordRepo),
 		appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo),
 		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
-		appprocurement.NewScanBookingItemUseCase(
-			db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo,
+		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo),
+		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
+		appprocurement.NewCompleteBookingUseCase(
+			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,
 			invapp.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
 			invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
+			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
 		),
-		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
-		appprocurement.NewCompleteBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
 	)
 	genprocurement.RegisterHandlers(rg, h)
@@ -675,19 +685,19 @@ func (h *Handler) ScanBookingItem(c *gin.Context, id genprocurement.Id) {
 	if claims != nil {
 		scannedBy = claims.UserID
 	}
+	actionType := procurementDomain.BookingScanActionReceive
+	if req.ActionType != nil {
+		actionType = procurementDomain.BookingScanActionType(*req.ActionType)
+	}
 	result, err := h.scanBookingItem.Execute(c.Request.Context(), appprocurement.ScanBookingItemInput{
-		BookingID: id, Code: strPtrOr(req.Code), SKUID: strPtrOr(req.SkuId), Quantity: req.Quantity, BatchID: req.BatchId,
+		BookingID: id, Code: strPtrOr(req.Code), SKUID: strPtrOr(req.SkuId), ActionType: actionType,
+		Quantity: req.Quantity, BatchID: req.BatchId,
 		LotNumber: strPtrOr(req.LotNumber), ExpiryDate: genDateToTimePtr(req.ExpiryDate), Reason: strPtrOr(req.Reason), ScannedBy: scannedBy,
 	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	var batch *genprocurement.Batch
-	if result.Receipt.Batch != nil {
-		g := toGenBookingBatch(*result.Receipt.Batch)
-		batch = &g
-	}
-	resp := genprocurement.ScanBookingItemResult{Batch: batch, Scan: toGenBookingScan(result.Scan)}
+	resp := genprocurement.ScanBookingItemResult{Scan: toGenBookingScan(result.Scan)}
 	c.JSON(http.StatusCreated, genprocurement.ScanBookingItemResultResponse{Data: &resp})
 }
 
@@ -801,17 +811,13 @@ func toGenBooking(b procurementDomain.Booking) genprocurement.Booking {
 func toGenBookingScan(s procurementDomain.BookingScan) genprocurement.BookingScan {
 	return genprocurement.BookingScan{
 		Id: s.ID, TenantId: s.TenantID, BookingId: s.BookingID, SkuId: s.SKUID, BatchId: s.BatchID,
-		Quantity: s.Quantity, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
+		LotNumber: strPtrOrNil(s.LotNumber), ExpiryDate: timePtrToGenDate(s.ExpiryDate),
+		ActionType: genprocurement.BookingScanActionType(s.ActionType), Quantity: s.Quantity,
+		WriteOffQuantity: s.WriteOffQuantity, Reason: strPtrOrNil(s.Reason),
+		ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 	}
 }
 
-func toGenBookingBatch(b invDomain.Batch) genprocurement.Batch {
-	return genprocurement.Batch{
-		Id: b.ID, TenantId: b.TenantID, SkuId: b.SKUID, WarehouseId: b.WarehouseID,
-		LotNumber: b.LotNumber, ExpiryDate: timePtrToGenDate(b.ExpiryDate),
-		ReceivedAt: b.ReceivedAt, CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt,
-	}
-}
 
 func mapError(c *gin.Context, err error) error {
 	if err == nil {
@@ -827,7 +833,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, procurementDomain.ErrAIParsingNotConfigured), errors.Is(err, procurementDomain.ErrLineItemAlreadyLinked),
 		errors.Is(err, procurementDomain.ErrNoLineItemsExtracted),
 		errors.Is(err, procurementDomain.ErrBookingNotActive), errors.Is(err, procurementDomain.ErrWarehouseRequired),
-		errors.Is(err, invDomain.ErrInvalidQuantity),
+		errors.Is(err, procurementDomain.ErrScanCodeOrSKURequired), errors.Is(err, procurementDomain.ErrInvalidBookingScanActionType),
+		errors.Is(err, procurementDomain.ErrPendingBatchNotFound),
+		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),
 		errors.Is(err, pmsDomain.ErrDuplicateSlug), errors.Is(err, pmsDomain.ErrDuplicateSKUCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
