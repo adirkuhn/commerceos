@@ -12,9 +12,10 @@ interface PurchaseOrderPickerScreenProps {
   token: string
   onBookingStarted: (bookingId: string) => void
   onLogout: () => void
+  onBack: () => void
 }
 
-export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout }: PurchaseOrderPickerScreenProps) {
+export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout, onBack }: PurchaseOrderPickerScreenProps) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -100,6 +101,9 @@ export function PurchaseOrderPickerScreen({ token, onBookingStarted, onLogout }:
   return (
     <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
       <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
+        <button onClick={onBack} className="p-1 -ml-1" title="Back to apps">
+          <ArrowLeft size={18} className="text-gray-400" />
+        </button>
         <h1 className="flex-1 text-base font-semibold">Select a purchase order</h1>
         <button onClick={onLogout} className="p-2 rounded-lg hover:bg-[#1F2937]" title="Unpair">
           <LogOut size={16} className="text-gray-400" />

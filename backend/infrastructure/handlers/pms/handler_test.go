@@ -178,6 +178,17 @@ func (s *stubUpdateMedia) Execute(_ context.Context, _ apppms.UpdateMediaInput) 
 	return s.out, s.err
 }
 
+type stubResolveBarcode struct {
+	out      *apppms.ResolveBarcodeResult
+	err      error
+	gotInput string
+}
+
+func (s *stubResolveBarcode) Execute(_ context.Context, code string) (*apppms.ResolveBarcodeResult, error) {
+	s.gotInput = code
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
@@ -200,6 +211,7 @@ type stubs struct {
 	listProductMedia stubListProductMedia
 	deleteMedia      stubDeleteMedia
 	updateMedia      stubUpdateMedia
+	resolveBarcode   stubResolveBarcode
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -209,6 +221,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.createVariant, &s.updateVariant, &s.deleteVariant,
 		&s.createSKU, &s.updateSKU, &s.deleteSKU,
 		&s.uploadMedia, &s.listProductMedia, &s.deleteMedia, &s.updateMedia,
+		&s.resolveBarcode,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -411,5 +424,25 @@ func TestUpdateSKU_success(t *testing.T) {
 func TestDeleteSKU_notFound(t *testing.T) {
 	s := &stubs{deleteSKU: stubDeleteSKU{err: pmsDomain.ErrSKUNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/missing", nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestResolveBarcode_success(t *testing.T) {
+	s := &stubs{resolveBarcode: stubResolveBarcode{out: &apppms.ResolveBarcodeResult{
+		SKU: pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive},
+		UnitsPerScan: 1,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/012345", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "012345", s.resolveBarcode.gotInput)
+	assert.Contains(t, w.Body.String(), "WID-L")
+	assert.Contains(t, w.Body.String(), `"units_per_scan":1`)
+}
+
+func TestResolveBarcode_notFound(t *testing.T) {
+	s := &stubs{resolveBarcode: stubResolveBarcode{err: pmsDomain.ErrSKUNotFound}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/UNKNOWN", nil)
+
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

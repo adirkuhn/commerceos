@@ -1,5 +1,5 @@
 import type {
-  Category, Product, ProductDetail, Variant, SKU, Media,
+  Category, Product, ProductDetail, Variant, SKU, Media, ResolveBarcodeResult,
   CreateCategoryPayload, UpdateCategoryPayload,
   CreateProductPayload, UpdateProductPayload,
   CreateVariantPayload, UpdateVariantPayload,
@@ -121,6 +121,13 @@ export function updateSKU(token: string, id: string, payload: UpdateSKUPayload):
 
 export function deleteSKU(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/skus/${id}`, { method: 'DELETE' }, token)
+}
+
+// resolveBarcode is used by every scanner mini-app that turns a scan into a
+// SKU (inventory adjust/move/remove, price lookup, pick order) -- tried
+// server-side first as a unit barcode, then as a case/box alias.
+export function resolveBarcode(token: string, code: string): Promise<ResolveBarcodeResult> {
+  return request<ResolveBarcodeResult>(`${base()}/skus/barcode-lookup/${encodeURIComponent(code)}`, { method: 'GET' }, token)
 }
 
 // ── Media ─────────────────────────────────────────────────────────────────────

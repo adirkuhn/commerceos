@@ -124,12 +124,12 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 			}
 		}
 
-		// A bulk pool (TracksWeight) SKU is an internal weight ledger,
+		// A bulk pool (UnitType=kilo) SKU is an internal weight ledger,
 		// never itself sellable -- excluded from what gets pushed. See
 		// pms.SKU.PortionedFromSKUID for the sellable items peeled off it.
 		sellable := pushes[:0]
 		for _, p := range pushes {
-			if !p.SKU.TracksWeight {
+			if p.SKU.UnitType != pmsDomain.SKUUnitTypeKilo {
 				sellable = append(sellable, p)
 			}
 		}

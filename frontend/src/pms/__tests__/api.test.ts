@@ -224,6 +224,34 @@ describe('deleteSKU', () => {
   })
 })
 
+describe('resolveBarcode', () => {
+  it('calls the correct endpoint and returns the SKU plus units_per_scan', async () => {
+    mockFetch({ sku: sampleSKU, units_per_scan: 12 })
+    const result = await api.resolveBarcode(TOKEN, '012345')
+
+    expect(result).toEqual({ sku: sampleSKU, units_per_scan: 12 })
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      `${BASE}/skus/barcode-lookup/012345`,
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('url-encodes the scanned code', async () => {
+    mockFetch({ sku: sampleSKU, units_per_scan: 1 })
+    await api.resolveBarcode(TOKEN, 'A/B C')
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      `${BASE}/skus/barcode-lookup/A%2FB%20C`,
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('throws when nothing matches', async () => {
+    mockFetchError('NOT_FOUND', 'sku not found', 404)
+    await expect(api.resolveBarcode(TOKEN, 'UNKNOWN')).rejects.toThrow('sku not found')
+  })
+})
+
 const sampleMedia: Media = {
   id: 'm1', tenant_id: 't1', product_id: 'p1', url: 'https://api.example.com/uploads/t1/x.jpg',
   type: 'image', position: 0, alt_text: '', created_at: '2026-07-29T00:00:00Z',

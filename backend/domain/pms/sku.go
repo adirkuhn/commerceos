@@ -9,6 +9,20 @@ const (
 	SKUStatusInactive SKUStatus = "inactive"
 )
 
+// SKUUnitType is how this SKU's stock quantity is denominated. "unit" (the
+// default) and "box" are both whole-count stock -- box is purely a
+// descriptive/display distinction from unit, carrying no different
+// quantity semantics of its own (a case/box relationship to another SKU is
+// CaseOfSKUID/UnitsPerCase, not this field). "kilo" means stock quantity is
+// grams, not a count -- see SKU.UnitType's own doc comment.
+type SKUUnitType string
+
+const (
+	SKUUnitTypeUnit SKUUnitType = "unit"
+	SKUUnitTypeBox  SKUUnitType = "box"
+	SKUUnitTypeKilo SKUUnitType = "kilo"
+)
+
 type SKU struct {
 	ID        string
 	TenantID  string
@@ -62,19 +76,19 @@ type SKU struct {
 	// stock the bulk unit at all" case).
 	CaseOfSKUID  *string
 	UnitsPerCase *int64
-	// TracksWeight marks this SKU as a weight pool: its stock quantity is
-	// grams, not whole units (e.g. a 20kg bulk lot booked as a single
-	// stock-in of 20000). Purely a display/input hint plus a guard for
-	// PortionFromBulkUseCase -- the ledger itself stores a plain int64
-	// regardless.
-	TracksWeight bool
+	// UnitType defaults to SKUUnitTypeUnit. SKUUnitTypeKilo marks this SKU
+	// as a weight pool: its stock quantity is grams, not whole units (e.g.
+	// a 20kg bulk lot booked as a single stock-in of 20000) -- a guard for
+	// PortionFromBulkUseCase, plus a display/input hint. The ledger itself
+	// stores a plain int64 regardless of UnitType.
+	UnitType SKUUnitType
 	// PortionedFromSKUID is nil unless this SKU is a sellable item peeled
-	// off a TracksWeight bulk SKU's pool (e.g. a "378g pack" portioned
+	// off a kilo (weight-pool) SKU's pool (e.g. a "378g pack" portioned
 	// from a "Carne Seca — bulk" SKU). Unlike CaseOfSKUID (a fixed 1:1
 	// N-multiplier), many SKUs can share the same PortionedFromSKUID,
 	// each consuming its own actual weight -- see
 	// inventory.PortionFromBulkUseCase. Depth-limited to one level: the
-	// referenced SKU must itself have TracksWeight=true and cannot itself
+	// referenced SKU must itself have UnitType=kilo and cannot itself
 	// have a PortionedFromSKUID (see ErrBulkSKUCannotBePortioned).
 	PortionedFromSKUID *string
 	Status             SKUStatus

@@ -38,5 +38,8 @@ type ScannerPairingCodeRepository interface {
 	// pattern cmd/scheduler uses for polling). Returns nil (not an error)
 	// when no pending, unexpired code matches.
 	FindPendingByCode(ctx context.Context, code string) (*ScannerPairingCode, error)
+	// FindPendingByToken is the token-path counterpart to FindPendingByCode --
+	// same cross-tenant lookup, same nil-not-error semantics.
+	FindPendingByToken(ctx context.Context, token string) (*ScannerPairingCode, error)
 	MarkClaimed(ctx context.Context, id string, claimedAt time.Time) error
 }

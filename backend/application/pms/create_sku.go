@@ -27,7 +27,7 @@ type CreateSKUInput struct {
 	TracksExpiry        bool
 	CaseOfSKUID         *string
 	UnitsPerCase        *int64
-	TracksWeight        bool
+	UnitType            pmsDomain.SKUUnitType
 	PortionedFromSKUID  *string
 	Status              pmsDomain.SKUStatus
 }
@@ -43,6 +43,9 @@ func NewCreateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, s
 }
 
 func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pmsDomain.SKU, error) {
+	if in.UnitType == "" {
+		in.UnitType = pmsDomain.SKUUnitTypeUnit
+	}
 	if err := validateVirtualDimensions(in.IsVirtual, in.WeightGrams, in.LengthMM, in.WidthMM, in.HeightMM); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
@@ -55,7 +58,10 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 	if err := validateCasePackShape(in.CaseOfSKUID, in.UnitsPerCase); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
-	if err := validatePortionedFromShape(in.TracksWeight, in.PortionedFromSKUID); err != nil {
+	if err := validateSKUUnitType(in.UnitType); err != nil {
+		return nil, fmt.Errorf("createSKU: %w", err)
+	}
+	if err := validatePortionedFromShape(in.UnitType, in.PortionedFromSKUID); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
 
@@ -102,7 +108,7 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 			TracksExpiry:        in.TracksExpiry,
 			CaseOfSKUID:         in.CaseOfSKUID,
 			UnitsPerCase:        in.UnitsPerCase,
-			TracksWeight:        in.TracksWeight,
+			UnitType:            in.UnitType,
 			PortionedFromSKUID:  in.PortionedFromSKUID,
 			Status:              in.Status,
 			CreatedAt:           now,
@@ -183,12 +189,23 @@ func validateCaseOfSKU(ctx context.Context, skuRepo pmsDomain.SKURepository, sel
 	return nil
 }
 
+// validateSKUUnitType guards SKU.UnitType against any value outside the
+// three declared constants.
+func validateSKUUnitType(unitType pmsDomain.SKUUnitType) error {
+	switch unitType {
+	case pmsDomain.SKUUnitTypeUnit, pmsDomain.SKUUnitTypeBox, pmsDomain.SKUUnitTypeKilo:
+		return nil
+	default:
+		return pmsDomain.ErrInvalidSKUUnitType
+	}
+}
+
 // validatePortionedFromShape is the shared invariant for CreateSKU/UpdateSKU:
-// a SKU can't be both a bulk weight pool (TracksWeight) and itself
+// a SKU can't be both a bulk weight pool (UnitType=kilo) and itself
 // portioned from another one -- keeps the relationship one level deep
 // without needing to walk a chain.
-func validatePortionedFromShape(tracksWeight bool, portionedFromSKUID *string) error {
-	if tracksWeight && portionedFromSKUID != nil {
+func validatePortionedFromShape(unitType pmsDomain.SKUUnitType, portionedFromSKUID *string) error {
+	if unitType == pmsDomain.SKUUnitTypeKilo && portionedFromSKUID != nil {
 		return pmsDomain.ErrBulkSKUCannotBePortioned
 	}
 	return nil
@@ -198,10 +215,10 @@ func validatePortionedFromShape(tracksWeight bool, portionedFromSKUID *string) e
 // once PortionedFromSKUID is non-nil: the referenced SKU must exist
 // (ErrSKUNotFound propagates as-is), can't be the SKU itself (selfID is ""
 // for a not-yet-created SKU, which can never equal a real
-// portionedFromSKUID), and must be a weight pool (TracksWeight) --
-// validatePortionedFromShape already guarantees a TracksWeight SKU never
-// has its own PortionedFromSKUID set, so this alone keeps the relationship
-// one level deep.
+// portionedFromSKUID), and must be a weight pool (UnitType=kilo) --
+// validatePortionedFromShape already guarantees a kilo SKU never has its
+// own PortionedFromSKUID set, so this alone keeps the relationship one
+// level deep.
 func validatePortionedFromSKU(ctx context.Context, skuRepo pmsDomain.SKURepository, selfID, portionedFromSKUID string) error {
 	if selfID != "" && selfID == portionedFromSKUID {
 		return pmsDomain.ErrPortionedFromSKUCannotBeSelf
@@ -210,7 +227,7 @@ func validatePortionedFromSKU(ctx context.Context, skuRepo pmsDomain.SKUReposito
 	if err != nil {
 		return err
 	}
-	if !target.TracksWeight {
+	if target.UnitType != pmsDomain.SKUUnitTypeKilo {
 		return pmsDomain.ErrPortionedFromSKUMustTrackWeight
 	}
 	return nil

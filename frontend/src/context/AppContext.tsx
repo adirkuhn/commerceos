@@ -4,6 +4,12 @@ import type { NavItem, ThemeMode } from '../types'
 interface AppContextValue {
   activeNav: NavItem
   setActiveNav: (nav: NavItem) => void
+  // Bumped on every setActiveNav call, even re-selecting the already-active
+  // item. activeNav itself won't change in that case (same value bails out
+  // of React's re-render), so pages that hold their own "detail view open"
+  // state (e.g. Products' editingId) watch this to reset back to their list
+  // view when their nav item is clicked again.
+  navSignal: number
   theme: ThemeMode
   toggleTheme: () => void
   commandOpen: boolean
@@ -13,9 +19,15 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [activeNav, setActiveNav] = useState<NavItem>('dashboard')
+  const [activeNav, setActiveNavState] = useState<NavItem>('dashboard')
+  const [navSignal, setNavSignal] = useState(0)
   const [theme, setTheme] = useState<ThemeMode>('dark')
   const [commandOpen, setCommandOpen] = useState(false)
+
+  const setActiveNav = useCallback((nav: NavItem) => {
+    setActiveNavState(nav)
+    setNavSignal(n => n + 1)
+  }, [])
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => {
@@ -30,7 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AppContext.Provider value={{ activeNav, setActiveNav, theme, toggleTheme, commandOpen, setCommandOpen }}>
+    <AppContext.Provider value={{ activeNav, setActiveNav, navSignal, theme, toggleTheme, commandOpen, setCommandOpen }}>
       {children}
     </AppContext.Provider>
   )

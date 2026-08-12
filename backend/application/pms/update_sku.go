@@ -26,7 +26,7 @@ type UpdateSKUInput struct {
 	TracksExpiry        bool
 	CaseOfSKUID         *string
 	UnitsPerCase        *int64
-	TracksWeight        bool
+	UnitType            pmsDomain.SKUUnitType
 	PortionedFromSKUID  *string
 	Status              pmsDomain.SKUStatus
 }
@@ -46,6 +46,9 @@ func NewUpdateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, s
 // not editable here — it's the stable external identifier; changing it is
 // effectively a different SKU (delete + create).
 func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pmsDomain.SKU, error) {
+	if in.UnitType == "" {
+		in.UnitType = pmsDomain.SKUUnitTypeUnit
+	}
 	if err := validateVirtualDimensions(in.IsVirtual, in.WeightGrams, in.LengthMM, in.WidthMM, in.HeightMM); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
@@ -58,7 +61,10 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 	if err := validateCasePackShape(in.CaseOfSKUID, in.UnitsPerCase); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
-	if err := validatePortionedFromShape(in.TracksWeight, in.PortionedFromSKUID); err != nil {
+	if err := validateSKUUnitType(in.UnitType); err != nil {
+		return nil, fmt.Errorf("updateSKU: %w", err)
+	}
+	if err := validatePortionedFromShape(in.UnitType, in.PortionedFromSKUID); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
 
@@ -91,7 +97,7 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		existing.TracksExpiry = in.TracksExpiry
 		existing.CaseOfSKUID = in.CaseOfSKUID
 		existing.UnitsPerCase = in.UnitsPerCase
-		existing.TracksWeight = in.TracksWeight
+		existing.UnitType = in.UnitType
 		existing.PortionedFromSKUID = in.PortionedFromSKUID
 		existing.Status = in.Status
 		existing.UpdatedAt = time.Now()

@@ -14,13 +14,43 @@ paths:
   /iam/scanner-pairing/claim:
     post:
       operationId: claimPairingCode
-      summary: Claim a pairing code and receive a session token
+      summary: Claim a pairing code (digit path) and receive a session token
+      description: >
+        Guessable within its 1,000,000-value keyspace -- rate-limited per IP
+        (see infrastructure/middleware.IPRateLimiter) since this is the one
+        claim path a human can type. Prefer claimPairingCodeByToken (QR/
+        barcode) where possible.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ClaimPairingCodeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimPairingCodeResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+
+  /iam/scanner-pairing/claim-token:
+    post:
+      operationId: claimPairingCodeByToken
+      summary: Claim a pairing code via its high-entropy token (QR/barcode path)
+      description: >
+        Token is 128-bit random, unguessable within the pairing TTL -- no
+        rate limit applied to this path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimPairingCodeByTokenRequest'
       responses:
         '200':
           description: ok
@@ -46,6 +76,12 @@ components:
       required: [code]
       properties:
         code: { type: string }
+
+    ClaimPairingCodeByTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
 
     ClaimPairingCodeResult:
       type: object

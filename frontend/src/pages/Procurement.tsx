@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, QrCode, AlertTriangle, Loader2 } from 'lucide-react'
+import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, AlertTriangle, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
@@ -15,7 +15,6 @@ import * as pmsApi from '../pms/api'
 import * as procurementApi from '../procurement/api'
 import * as inventoryApi from '../inventory/api'
 import * as integrationsApi from '../integrations/api'
-import { PairScannerModal } from '../scanner/PairScannerModal'
 import type {
   PurchaseOrder, PurchaseOrderStatus, PurchaseOrderLineItem, PurchaseOrderDocument,
   CreatePurchaseOrderInput, UpdatePurchaseOrderInput, AddLineItemInput, UpdateLineItemInput,
@@ -116,7 +115,6 @@ export default function Procurement() {
   const [pendingParsingJobId, setPendingParsingJobId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState('')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [pairScannerOpen, setPairScannerOpen] = useState(false)
 
   const supplierName = (id?: string | null) => {
     if (!id) return null
@@ -172,12 +170,6 @@ export default function Procurement() {
         </div>
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <button
-            onClick={() => setPairScannerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
-          >
-            <QrCode size={13} /> Pair Scanner
-          </button>
-          <button
             onClick={() => setUploadModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
           >
@@ -191,10 +183,6 @@ export default function Procurement() {
           </button>
         </div>
       </div>
-
-      {pairScannerOpen && token && (
-        <PairScannerModal token={token} onClose={() => setPairScannerOpen(false)} />
-      )}
 
       {uploadModalOpen && (
         <CreateFromDocumentModal

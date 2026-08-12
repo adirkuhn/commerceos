@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, ChevronDown, ChevronUp, Camera } from 'lucide-react'
 import * as api from './api'
+import { CameraScanner } from './CameraScanner'
 import type { BookingDetail, CompleteBookingResult } from './types'
 
 interface BookingScreenProps {
@@ -24,6 +25,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   const [expiryDate, setExpiryDate] = useState('')
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [result, setResult] = useState<CompleteBookingResult | null>(null)
   const codeInputRef = useRef<HTMLInputElement>(null)
@@ -42,14 +44,13 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   useEffect(() => { load() }, [bookingId])
   useEffect(() => { codeInputRef.current?.focus() }, [detail])
 
-  async function handleScan(e: React.FormEvent) {
-    e.preventDefault()
-    if (!code.trim()) return
+  async function submitScan(scanCode: string) {
+    if (!scanCode.trim()) return
     setError('')
     setScanning(true)
     try {
       await api.scanBookingItem(token, bookingId, {
-        code: code.trim(), quantity: parseInt(quantity, 10) || 1,
+        code: scanCode.trim(), quantity: parseInt(quantity, 10) || 1,
         lot_number: lotNumber || undefined, expiry_date: expiryDate || null,
       })
       setCode('')
@@ -61,6 +62,17 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       setScanning(false)
       codeInputRef.current?.focus()
     }
+  }
+
+  function handleScan(e: React.FormEvent) {
+    e.preventDefault()
+    submitScan(code)
+  }
+
+  function handleCameraDecode(text: string) {
+    setCameraOpen(false)
+    setCode(text)
+    submitScan(text)
   }
 
   async function handlePause() {
@@ -169,6 +181,14 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)}
             className="w-16 px-2 py-3 text-sm text-center rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button
+            type="button"
+            onClick={() => setCameraOpen(true)}
+            title="Use camera"
+            className="w-11 shrink-0 rounded-xl bg-[#1F2937] border border-[#2D3748] flex items-center justify-center text-gray-300"
+          >
+            <Camera size={16} />
+          </button>
         </div>
         <button type="button" onClick={() => setAdvancedOpen(o => !o)} className="flex items-center gap-1 text-xs text-gray-500">
           {advancedOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Lot / expiry
@@ -192,6 +212,10 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           {scanning ? 'Saving…' : 'Add'}
         </button>
       </form>
+
+      {cameraOpen && (
+        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} />
+      )}
     </div>
   )
 }

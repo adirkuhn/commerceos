@@ -42,10 +42,10 @@ function parseOptionalPriceToMinorUnits(price: string): number | null {
   return Math.round(parseFloat(price) * 100)
 }
 
-// formatSKUQuantity shows a tracks_weight SKU's stock (stored in grams) as
-// kg for readability -- every other SKU's stock is a plain unit count.
+// formatSKUQuantity shows a kilo SKU's stock (stored in grams) as kg for
+// readability -- every other SKU's stock is a plain unit count.
 function formatSKUQuantity(sku: SKU, quantity: number): string {
-  if (sku.tracks_weight) return `${(quantity / 1000).toFixed(2)}kg`
+  if (sku.unit_type === 'kilo') return `${(quantity / 1000).toFixed(2)}kg`
   return String(quantity)
 }
 

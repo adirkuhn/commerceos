@@ -64,11 +64,12 @@ components:
 
     ScannerPairingCode:
       type: object
-      required: [id, tenant_id, code, status, expires_at, created_at]
+      required: [id, tenant_id, code, token, status, expires_at, created_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
-        code: { type: string, description: The short code to display/scan -- never re-shown once claimed. }
+        code: { type: string, description: The short digit code to type -- never re-shown once claimed. }
+        token: { type: string, description: High-entropy opaque value to encode as a QR code / barcode -- never re-shown once claimed. }
         status: { $ref: '#/components/schemas/ScannerPairingCodeStatus' }
         expires_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }

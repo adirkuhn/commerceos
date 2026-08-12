@@ -46,13 +46,30 @@ func NewClaimPairingCodeUseCase(db *gorm.DB, repo iamDomain.ScannerPairingCodeRe
 	return &ClaimPairingCodeUseCase{db: db, repo: repo, jwtSecret: jwtSecret}
 }
 
+// Execute claims a code via the guessable, rate-limited digit-code path --
+// see infrastructure/handlers/scannerauth for where that limiter is applied.
 func (uc *ClaimPairingCodeUseCase) Execute(ctx context.Context, code string) (string, error) {
+	return uc.claim(ctx, func(ctx context.Context) (*iamDomain.ScannerPairingCode, error) {
+		return uc.repo.FindPendingByCode(ctx, code)
+	})
+}
+
+// ExecuteByToken claims a code via the high-entropy token path (QR/barcode)
+// -- unguessable within the pairing TTL, so it carries no rate-limit
+// dependency.
+func (uc *ClaimPairingCodeUseCase) ExecuteByToken(ctx context.Context, token string) (string, error) {
+	return uc.claim(ctx, func(ctx context.Context) (*iamDomain.ScannerPairingCode, error) {
+		return uc.repo.FindPendingByToken(ctx, token)
+	})
+}
+
+func (uc *ClaimPairingCodeUseCase) claim(ctx context.Context, lookup func(context.Context) (*iamDomain.ScannerPairingCode, error)) (string, error) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
 	var pairing *iamDomain.ScannerPairingCode
 	err := tenant.WithTenant(adminCtx, uc.db, func(ctx context.Context) error {
 		var err error
-		pairing, err = uc.repo.FindPendingByCode(ctx, code)
+		pairing, err = lookup(ctx)
 		if err != nil {
 			return err
 		}

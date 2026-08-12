@@ -108,7 +108,7 @@ type skuModel struct {
 	TracksExpiry        bool    `gorm:"not null"`
 	CaseOfSKUID         *string `gorm:"column:case_of_sku_id"`
 	UnitsPerCase        *int64
-	TracksWeight        bool    `gorm:"not null"`
+	UnitType            string  `gorm:"column:unit_type;not null;default:unit"`
 	PortionedFromSKUID  *string `gorm:"column:portioned_from_sku_id"`
 	Status              string `gorm:"not null"`
 	CreatedAt           time.Time
@@ -572,7 +572,7 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		TracksExpiry:        s.TracksExpiry,
 		CaseOfSKUID:         s.CaseOfSKUID,
 		UnitsPerCase:        s.UnitsPerCase,
-		TracksWeight:        s.TracksWeight,
+		UnitType:            string(s.UnitType),
 		PortionedFromSKUID:  s.PortionedFromSKUID,
 		Status:              string(s.Status),
 		CreatedAt:           s.CreatedAt,
@@ -666,7 +666,7 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"tracks_expiry":          s.TracksExpiry,
 			"case_of_sku_id":         s.CaseOfSKUID,
 			"units_per_case":         s.UnitsPerCase,
-			"tracks_weight":          s.TracksWeight,
+			"unit_type":              string(s.UnitType),
 			"portioned_from_sku_id":  s.PortionedFromSKUID,
 			"status":                 string(s.Status),
 			"updated_at":             s.UpdatedAt,
@@ -723,7 +723,7 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		TracksExpiry:        m.TracksExpiry,
 		CaseOfSKUID:         m.CaseOfSKUID,
 		UnitsPerCase:        m.UnitsPerCase,
-		TracksWeight:        m.TracksWeight,
+		UnitType:            pmsDomain.SKUUnitType(m.UnitType),
 		PortionedFromSKUID:  m.PortionedFromSKUID,
 		Status:              pmsDomain.SKUStatus(m.Status),
 		CreatedAt:           m.CreatedAt,

@@ -66,11 +66,6 @@ vi.mock('../../settings/api', () => ({
   updateTenantSettings: vi.fn(),
 }))
 
-vi.mock('../../scanner/api', () => ({
-  generatePairingCode: vi.fn(),
-  getPairingCodeStatus: vi.fn(),
-}))
-
 vi.mock('../../pms/api', () => ({
   listProducts: vi.fn(),
   getProduct: vi.fn(),
@@ -87,7 +82,6 @@ import * as procurementApi from '../../procurement/api'
 import * as suppliersApi from '../../suppliers/api'
 import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
-import * as scannerApi from '../../scanner/api'
 import * as settingsApi from '../../settings/api'
 import * as integrationsApi from '../../integrations/api'
 
@@ -1211,34 +1205,5 @@ describe('Receiving', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Mark Receiving Complete/ }))
 
     await waitFor(() => expect(procurementApi.completeReceiving).toHaveBeenCalledWith('test-token', 'receiving-record-1'))
-  })
-})
-
-describe('Pair Scanner', () => {
-  it('generates a pairing code and shows it', async () => {
-    vi.mocked(scannerApi.generatePairingCode).mockResolvedValue({
-      id: 'pairing-1', tenant_id: 'tenant-1', code: '654321', status: 'pending',
-      expires_at: '', created_at: '',
-    })
-
-    render(<Procurement />)
-    await userEvent.click(await screen.findByRole('button', { name: /Pair Scanner/ }))
-
-    expect(await screen.findByText('654321')).toBeInTheDocument()
-    expect(screen.getByText('Waiting for scanner…')).toBeInTheDocument()
-  })
-
-  it('closes the modal', async () => {
-    vi.mocked(scannerApi.generatePairingCode).mockResolvedValue({
-      id: 'pairing-1', tenant_id: 'tenant-1', code: '654321', status: 'pending',
-      expires_at: '', created_at: '',
-    })
-
-    render(<Procurement />)
-    await userEvent.click(await screen.findByRole('button', { name: /Pair Scanner/ }))
-    await screen.findByText('654321')
-    await userEvent.click(screen.getByTitle('Close'))
-
-    expect(screen.queryByText('654321')).not.toBeInTheDocument()
   })
 })

@@ -25,7 +25,7 @@ function mockFetchError(code: string, message: string, status = 422) {
 beforeEach(() => { vi.restoreAllMocks() })
 
 const samplePairing: ScannerPairingCode = {
-  id: 'pairing-1', tenant_id: 'tenant-1', code: '123456', status: 'pending',
+  id: 'pairing-1', tenant_id: 'tenant-1', code: '123456', token: 'opaque-token-abc', status: 'pending',
   expires_at: '2026-08-05T00:05:00Z', created_at: '2026-08-05T00:00:00Z',
 }
 
@@ -49,6 +49,24 @@ describe('claimPairingCode', () => {
   it('throws on invalid code', async () => {
     mockFetchError('VALIDATION_ERROR', 'pairing code is invalid or expired')
     await expect(api.claimPairingCode('000000')).rejects.toThrow('pairing code is invalid or expired')
+  })
+})
+
+describe('claimPairingCodeByToken', () => {
+  it('posts the token with no Authorization header', async () => {
+    mockFetch({ token: 'signed-jwt' })
+    const result = await api.claimPairingCodeByToken('opaque-abc')
+
+    expect(result).toEqual({ token: 'signed-jwt' })
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/iam/scanner-pairing/claim-token')
+    expect(JSON.parse(opts.body as string)).toEqual({ token: 'opaque-abc' })
+    expect((opts.headers as Record<string, string>).Authorization).toBeUndefined()
+  })
+
+  it('throws on invalid token', async () => {
+    mockFetchError('VALIDATION_ERROR', 'pairing code is invalid or expired')
+    await expect(api.claimPairingCodeByToken('does-not-exist')).rejects.toThrow('pairing code is invalid or expired')
   })
 })
 

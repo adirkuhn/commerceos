@@ -1,5 +1,8 @@
-import { Search, Sun, Moon, Command } from 'lucide-react'
+import { useState } from 'react'
+import { Search, Sun, Moon, Command, QrCode } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import { useAuth } from '../../auth/AuthContext'
+import { PairScannerModal } from '../../scanner/PairScannerModal'
 import NotificationBell from './NotificationBell'
 
 const NAV_TITLES: Record<string, string> = {
@@ -19,6 +22,8 @@ const NAV_TITLES: Record<string, string> = {
 
 export default function Topbar() {
   const { activeNav, theme, toggleTheme, setCommandOpen } = useApp()
+  const { token } = useAuth()
+  const [pairScannerOpen, setPairScannerOpen] = useState(false)
 
   return (
     <header className="h-14 shrink-0 flex items-center gap-4 px-5 border-b dark:border-[#1F2937] border-gray-200 dark:bg-[#111827] bg-white">
@@ -39,6 +44,15 @@ export default function Topbar() {
       </button>
 
       <div className="flex items-center gap-2 ml-auto">
+        {/* Pair a handheld scanner -- global, not tied to any one page */}
+        <button
+          onClick={() => setPairScannerOpen(true)}
+          title="Pair Scanner"
+          className="w-8 h-8 flex items-center justify-center rounded-lg dark:hover:bg-[#1F2937] hover:bg-gray-100 transition-colors"
+        >
+          <QrCode size={16} className="dark:text-gray-400 text-gray-500" />
+        </button>
+
         {/* Notifications */}
         <NotificationBell />
 
@@ -60,6 +74,10 @@ export default function Topbar() {
           <span className="text-[10px] font-medium text-green-500">All systems live</span>
         </div>
       </div>
+
+      {pairScannerOpen && token && (
+        <PairScannerModal token={token} onClose={() => setPairScannerOpen(false)} />
+      )}
     </header>
   )
 }

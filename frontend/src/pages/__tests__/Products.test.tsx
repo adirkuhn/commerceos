@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Products from '../Products'
-import { AppProvider } from '../../context/AppContext'
+import { AppProvider, useApp } from '../../context/AppContext'
 import type { Product, ProductDetail, Category } from '../../pms/types'
 import type { Connection } from '../../integrations/types'
 
@@ -88,6 +88,35 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
   vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+})
+
+function NavReselectButton() {
+  const { setActiveNav } = useApp()
+  return <button onClick={() => setActiveNav('products')}>Reselect Products</button>
+}
+
+describe('re-clicking the active "Products" nav item', () => {
+  // Regression: Sidebar sets activeNav to the same value it already has when
+  // re-clicking the current page, so React bails out of re-rendering and
+  // Products never remounts — its internal editingId (list vs. detail view)
+  // must reset some other way, or the detail view stays stuck open.
+  it('returns to the list view even though activeNav does not change', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+
+    render(
+      <AppProvider>
+        <NavReselectButton />
+        <Products />
+      </AppProvider>,
+    )
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    expect(await screen.findByDisplayValue('T-Shirt')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Reselect Products'))
+
+    expect(screen.queryByDisplayValue('T-Shirt')).not.toBeInTheDocument()
+    expect(await screen.findByText('T-Shirt')).toBeInTheDocument()
+  })
 })
 
 describe('product list', () => {
@@ -492,8 +521,8 @@ describe('sync variants as WooCommerce variations toggle', () => {
   })
 })
 
-describe('bulk pool for a variant-mode product (VariantRow)', () => {
-  it('checking "Bulk weight pool" while adding a variant SKU sends tracks_weight:true', async () => {
+describe('weight pool for a variant-mode product (VariantRow)', () => {
+  it('picking "Kilo" item type while adding a variant SKU sends unit_type:kilo', async () => {
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
       variants: [{ ...baseVariant, id: 'var-1', name: 'Bulk', skus: [] }],
@@ -509,15 +538,15 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     const skuForm = screen.getByPlaceholderText('SKU code').closest('div')!.parentElement!
     await userEvent.type(within(skuForm).getByPlaceholderText('SKU code'), 'BULK-1')
     await userEvent.type(within(skuForm).getByPlaceholderText('Price'), '0')
-    await userEvent.click(within(skuForm).getByLabelText(/weight pool/i))
+    await userEvent.selectOptions(within(skuForm).getByLabelText(/item type/i), 'kilo')
     await userEvent.click(within(skuForm).getByRole('button', { name: 'Add' }))
 
     await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
-      tracks_weight: true, portioned_from_sku_id: null,
+      unit_type: 'kilo', portioned_from_sku_id: null,
     })))
   })
 
-  it('an existing variant SKU with no bulk link shows "Make bulk pool" and "Link to bulk pool", and clicking Make bulk pool saves immediately', async () => {
+  it('an existing variant SKU with no weight-pool link shows "Make weight pool" and "Link to weight pool", and clicking Make weight pool saves immediately', async () => {
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
       variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
@@ -532,12 +561,12 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Make weight pool' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      tracks_weight: true, portioned_from_sku_id: null,
+      unit_type: 'kilo', portioned_from_sku_id: null,
     })))
   })
 
-  it('an existing variant SKU already marked tracks_weight shows a Turn off control', async () => {
-    const bulkSku = { ...baseSku, tracks_weight: true }
+  it('an existing variant SKU already unit_type kilo shows a Turn off control', async () => {
+    const bulkSku = { ...baseSku, unit_type: 'kilo' as const }
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
       variants: [{ ...baseVariant, id: 'var-1', name: 'Bulk', skus: [bulkSku] }],
@@ -553,11 +582,11 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Turn off' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      tracks_weight: false, portioned_from_sku_id: null,
+      unit_type: 'unit', portioned_from_sku_id: null,
     })))
   })
 
-  it('an existing variant SKU already portioned from a bulk pool shows its link and a Remove control', async () => {
+  it('an existing variant SKU already portioned from a weight pool shows its link and an Unlink control', async () => {
     const portionedSku = { ...baseSku, portioned_from_sku_id: 'sku-bulk-1' }
     const detail: ProductDetail = {
       product: product({ has_variants: true }),
@@ -574,12 +603,12 @@ describe('bulk pool for a variant-mode product (VariantRow)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Unlink' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      tracks_weight: false, portioned_from_sku_id: null,
+      unit_type: 'unit', portioned_from_sku_id: null,
     })))
   })
 })
 
-describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
+describe('weight pool (unit_type / portioned_from_sku_id)', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<AppProvider><Products /></AppProvider>)
     await userEvent.click(await screen.findByText('New Product'))
@@ -587,7 +616,7 @@ describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
     expect(screen.queryByText('Weight pool')).not.toBeInTheDocument()
   })
 
-  it('toggling "bulk weight pool" on and saving sends tracks_weight:true', async () => {
+  it('picking "Kilo" item type and saving sends unit_type:kilo', async () => {
     const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
     vi.mocked(pmsApi.updateSKU).mockResolvedValue(baseSku)
@@ -596,11 +625,11 @@ describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('Weight pool')
 
-    await userEvent.click(screen.getByRole('switch', { name: /weight pool/i }))
+    await userEvent.selectOptions(screen.getByLabelText(/item type/i), 'kilo')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      tracks_weight: true, portioned_from_sku_id: null,
+      unit_type: 'kilo', portioned_from_sku_id: null,
     })))
   })
 
@@ -618,7 +647,7 @@ describe('bulk pool (tracks_weight / portioned_from_sku_id)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      tracks_weight: false, portioned_from_sku_id: null,
+      unit_type: 'unit', portioned_from_sku_id: null,
     })))
   })
 })

@@ -31,14 +31,16 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 }
 
 type stubScannerPairingCodeRepo struct {
-	findByIDResult    *iamDomain.ScannerPairingCode
-	findByIDErr       error
-	findPendingResult *iamDomain.ScannerPairingCode
-	findPendingErr    error
-	createErr         error
-	created           []iamDomain.ScannerPairingCode
-	markClaimedErr    error
-	markClaimedCalls  []string
+	findByIDResult           *iamDomain.ScannerPairingCode
+	findByIDErr              error
+	findPendingResult        *iamDomain.ScannerPairingCode
+	findPendingErr           error
+	findPendingByTokenResult *iamDomain.ScannerPairingCode
+	findPendingByTokenErr    error
+	createErr                error
+	created                  []iamDomain.ScannerPairingCode
+	markClaimedErr           error
+	markClaimedCalls         []string
 }
 
 func (s *stubScannerPairingCodeRepo) Create(_ context.Context, p *iamDomain.ScannerPairingCode) error {
@@ -54,6 +56,9 @@ func (s *stubScannerPairingCodeRepo) FindByID(_ context.Context, _ string) (*iam
 }
 func (s *stubScannerPairingCodeRepo) FindPendingByCode(_ context.Context, _ string) (*iamDomain.ScannerPairingCode, error) {
 	return s.findPendingResult, s.findPendingErr
+}
+func (s *stubScannerPairingCodeRepo) FindPendingByToken(_ context.Context, _ string) (*iamDomain.ScannerPairingCode, error) {
+	return s.findPendingByTokenResult, s.findPendingByTokenErr
 }
 func (s *stubScannerPairingCodeRepo) MarkClaimed(_ context.Context, id string, _ time.Time) error {
 	s.markClaimedCalls = append(s.markClaimedCalls, id)

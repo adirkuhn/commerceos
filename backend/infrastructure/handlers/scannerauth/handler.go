@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -20,16 +21,25 @@ import (
 
 type claimPairingCodeUC interface {
 	Execute(ctx context.Context, code string) (string, error)
+	ExecuteByToken(ctx context.Context, token string) (string, error)
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
+// claimAttemptWindow bounds the digit-code path (see randomPairingToken vs
+// randomSixDigitCode in application/iam/generate_pairing_code.go): a 6-digit
+// code has only 1e6 possible values, so this is the actual defense against
+// brute-forcing it before its 5-minute TTL expires. Matches that TTL.
+const claimAttemptWindow = 5 * time.Minute
+const claimAttemptMax = 10
+
 type Handler struct {
 	claimPairingCode claimPairingCodeUC
+	limiter          *middleware.IPRateLimiter
 }
 
-func NewHandler(claimPairingCode claimPairingCodeUC) *Handler {
-	return &Handler{claimPairingCode: claimPairingCode}
+func NewHandler(claimPairingCode claimPairingCodeUC, limiter *middleware.IPRateLimiter) *Handler {
+	return &Handler{claimPairingCode: claimPairingCode, limiter: limiter}
 }
 
 var _ genscannerauth.ServerInterface = (*Handler)(nil)
@@ -39,17 +49,45 @@ var _ genscannerauth.ServerInterface = (*Handler)(nil)
 // comment for why this endpoint is public by design.
 func Register(rg gin.IRouter, db *gorm.DB, jwtSecret []byte) {
 	repo := repositories.NewScannerPairingCodeRepo(db)
-	h := NewHandler(appiam.NewClaimPairingCodeUseCase(db, repo, jwtSecret))
+	limiter := middleware.NewIPRateLimiter(claimAttemptMax, claimAttemptWindow)
+	h := NewHandler(appiam.NewClaimPairingCodeUseCase(db, repo, jwtSecret), limiter)
 	genscannerauth.RegisterHandlers(rg, h)
 }
 
+// ClaimPairingCode is the digit-code path -- guessable within its keyspace,
+// so it's rate-limited per IP. See ClaimPairingCodeByToken for the
+// unguessable QR/barcode path, which carries no such limit.
 func (h *Handler) ClaimPairingCode(c *gin.Context) {
+	if !h.limiter.Allow(c.ClientIP()) {
+		middleware.Fail(c, http.StatusTooManyRequests, "RATE_LIMITED", "too many attempts, try again later")
+		return
+	}
 	var req genscannerauth.ClaimPairingCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
 	token, err := h.claimPairingCode.Execute(c.Request.Context(), req.Code)
+	if err != nil {
+		if errors.Is(err, iamDomain.ErrPairingCodeInvalid) {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+		log.Printf("scannerauth: unhandled error: %v", err)
+		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+		return
+	}
+	resp := genscannerauth.ClaimPairingCodeResult{Token: token}
+	c.JSON(http.StatusOK, genscannerauth.ClaimPairingCodeResponse{Data: &resp})
+}
+
+func (h *Handler) ClaimPairingCodeByToken(c *gin.Context) {
+	var req genscannerauth.ClaimPairingCodeByTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	token, err := h.claimPairingCode.ExecuteByToken(c.Request.Context(), req.Token)
 	if err != nil {
 		if errors.Is(err, iamDomain.ErrPairingCodeInvalid) {
 			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())

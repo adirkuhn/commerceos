@@ -16,6 +16,7 @@ type scannerPairingCodeModel struct {
 	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID  string `gorm:"not null;type:uuid"`
 	Code      string `gorm:"not null"`
+	Token     string `gorm:"not null"`
 	UserID    string `gorm:"not null"`
 	Role      string `gorm:"not null"`
 	Status    string `gorm:"not null;default:pending"`
@@ -46,7 +47,7 @@ func (r *ScannerPairingCodeRepo) Create(ctx context.Context, p *iamDomain.Scanne
 		return err
 	}
 	m := scannerPairingCodeModel{
-		ID: p.ID, TenantID: p.TenantID, Code: p.Code, UserID: p.UserID, Role: p.Role,
+		ID: p.ID, TenantID: p.TenantID, Code: p.Code, Token: p.Token, UserID: p.UserID, Role: p.Role,
 		Status: string(p.Status), ExpiresAt: p.ExpiresAt, CreatedAt: p.CreatedAt, ClaimedAt: p.ClaimedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -88,6 +89,23 @@ func (r *ScannerPairingCodeRepo) FindPendingByCode(ctx context.Context, code str
 	return toScannerPairingCodeDomain(m), nil
 }
 
+func (r *ScannerPairingCodeRepo) FindPendingByToken(ctx context.Context, token string) (*iamDomain.ScannerPairingCode, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m scannerPairingCodeModel
+	err = tx.Where("token = ? AND status = ? AND expires_at > ?", token, string(iamDomain.ScannerPairingCodeStatusPending), time.Now()).
+		First(&m).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("scannerPairingCodeRepo.FindPendingByToken: %w", err)
+	}
+	return toScannerPairingCodeDomain(m), nil
+}
+
 func (r *ScannerPairingCodeRepo) MarkClaimed(ctx context.Context, id string, claimedAt time.Time) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -106,7 +124,7 @@ func (r *ScannerPairingCodeRepo) MarkClaimed(ctx context.Context, id string, cla
 
 func toScannerPairingCodeDomain(m scannerPairingCodeModel) *iamDomain.ScannerPairingCode {
 	return &iamDomain.ScannerPairingCode{
-		ID: m.ID, TenantID: m.TenantID, Code: m.Code, UserID: m.UserID, Role: m.Role,
+		ID: m.ID, TenantID: m.TenantID, Code: m.Code, Token: m.Token, UserID: m.UserID, Role: m.Role,
 		Status: iamDomain.ScannerPairingCodeStatus(m.Status), ExpiresAt: m.ExpiresAt,
 		CreatedAt: m.CreatedAt, ClaimedAt: m.ClaimedAt,
 	}

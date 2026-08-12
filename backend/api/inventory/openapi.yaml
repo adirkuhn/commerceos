@@ -277,7 +277,7 @@ paths:
     post:
       operationId: portionFromBulk
       summary: >-
-        Peel one sellable unit off a bulk (tracks_weight) SKU's weight pool
+        Peel one sellable unit off a bulk (unit_type=kilo) SKU's weight pool
         — skuId must be configured as portioned from a bulk SKU (see the
         pms module's portioned_from_sku_id). weight_grams (defaults to the
         target SKU's own nominal weight_grams) leaves the bulk SKU's stock

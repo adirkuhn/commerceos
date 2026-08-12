@@ -31,6 +31,13 @@ export function claimPairingCode(code: string): Promise<{ token: string }> {
   return request<{ token: string }>(`${base()}/iam/scanner-pairing/claim`, { method: 'POST', body: JSON.stringify({ code }) })
 }
 
+// claimPairingCodeByToken is the QR/barcode counterpart to claimPairingCode
+// -- also unauthenticated, but the value it submits is unguessable so this
+// path carries no server-side rate limit.
+export function claimPairingCodeByToken(token: string): Promise<{ token: string }> {
+  return request<{ token: string }>(`${base()}/iam/scanner-pairing/claim-token`, { method: 'POST', body: JSON.stringify({ token }) })
+}
+
 export function generatePairingCode(token: string): Promise<ScannerPairingCode> {
   return request<ScannerPairingCode>(`${base()}/iam/scanner-pairing`, { method: 'POST' }, token)
 }

@@ -31,6 +31,17 @@ func genDateToTimePtr(d *openapi_types.Date) *time.Time {
 	return &t
 }
 
+// genSKUUnitTypeOrEmpty maps an optional request unit_type to the domain
+// type -- nil becomes "" (empty), which CreateSKUUseCase/UpdateSKUUseCase
+// normalize to SKUUnitTypeUnit, matching the OpenAPI field's documented
+// "defaults to unit" behavior.
+func genSKUUnitTypeOrEmpty(t *genpms.SKUUnitType) pmsDomain.SKUUnitType {
+	if t == nil {
+		return ""
+	}
+	return pmsDomain.SKUUnitType(*t)
+}
+
 func timePtrToGenDate(t *time.Time) *openapi_types.Date {
 	if t == nil {
 		return nil
@@ -97,6 +108,9 @@ type deleteMediaUC interface {
 type updateMediaUC interface {
 	Execute(ctx context.Context, in apppms.UpdateMediaInput) (*pmsDomain.Media, error)
 }
+type resolveBarcodeUC interface {
+	Execute(ctx context.Context, code string) (*apppms.ResolveBarcodeResult, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -120,6 +134,7 @@ type Handler struct {
 	listProductMedia listProductMediaUC
 	deleteMedia      deleteMediaUC
 	updateMedia      updateMediaUC
+	resolveBarcode   resolveBarcodeUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -143,6 +158,7 @@ func NewHandler(
 	listProductMedia listProductMediaUC,
 	deleteMedia deleteMediaUC,
 	updateMedia updateMediaUC,
+	resolveBarcode resolveBarcodeUC,
 ) *Handler {
 	return &Handler{
 		listCategories:   listCategories,
@@ -164,6 +180,7 @@ func NewHandler(
 		listProductMedia: listProductMedia,
 		deleteMedia:      deleteMedia,
 		updateMedia:      updateMedia,
+		resolveBarcode:   resolveBarcode,
 	}
 }
 
@@ -180,6 +197,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	skuRepo := repositories.NewSKURepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
+	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
 
 	h := NewHandler(
 		apppms.NewListCategoriesUseCase(db, categoryRepo),
@@ -201,6 +219,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
 		apppms.NewUpdateMediaUseCase(db, mediaRepo),
+		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -448,7 +467,7 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
 		CaseOfSKUID:         req.CaseOfSkuId,
 		UnitsPerCase:        req.UnitsPerCase,
-		TracksWeight:        req.TracksWeight != nil && *req.TracksWeight,
+		UnitType:            genSKUUnitTypeOrEmpty(req.UnitType),
 		PortionedFromSKUID:  req.PortionedFromSkuId,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
@@ -484,7 +503,7 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
 		CaseOfSKUID:         req.CaseOfSkuId,
 		UnitsPerCase:        req.UnitsPerCase,
-		TracksWeight:        req.TracksWeight != nil && *req.TracksWeight,
+		UnitType:            genSKUUnitTypeOrEmpty(req.UnitType),
 		PortionedFromSKUID:  req.PortionedFromSkuId,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
@@ -501,6 +520,15 @@ func (h *Handler) DeleteSKU(c *gin.Context, id genpms.Id) {
 		return
 	}
 	c.JSON(http.StatusOK, genpms.EmptyResponse{})
+}
+
+func (h *Handler) ResolveBarcode(c *gin.Context, code string) {
+	result, err := h.resolveBarcode.Execute(c.Request.Context(), code)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genpms.ResolveBarcodeResult{Sku: toGenSKU(result.SKU), UnitsPerScan: result.UnitsPerScan}
+	c.JSON(http.StatusOK, genpms.ResolveBarcodeResponse{Data: &resp})
 }
 
 // ── Media handlers ────────────────────────────────────────────────────────────
@@ -620,7 +648,7 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 	if s.Barcode != "" {
 		barcode = &s.Barcode
 	}
-	tracksWeight := s.TracksWeight
+	unitType := genpms.SKUUnitType(s.UnitType)
 	return genpms.SKU{
 		Id:                  s.ID,
 		TenantId:            s.TenantID,
@@ -639,7 +667,7 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		TracksExpiry:        s.TracksExpiry,
 		CaseOfSkuId:         s.CaseOfSKUID,
 		UnitsPerCase:        s.UnitsPerCase,
-		TracksWeight:        &tracksWeight,
+		UnitType:            &unitType,
 		PortionedFromSkuId:  s.PortionedFromSKUID,
 		Status:              genpms.SKUStatus(s.Status),
 		CreatedAt:           s.CreatedAt,

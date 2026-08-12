@@ -1,5 +1,9 @@
 export type ProductStatus = 'draft' | 'active' | 'archived'
 export type SKUStatus = 'active' | 'inactive'
+// unit/box are both whole-count stock (box is purely descriptive, distinct
+// from case_of_sku_id/units_per_case, a real multiplier relationship to
+// another SKU). kilo means stock quantity is grams, not a count.
+export type SKUUnitType = 'unit' | 'box' | 'kilo'
 
 export interface Category {
   id: string
@@ -57,17 +61,24 @@ export interface SKU {
   // for converting case stock into unit stock.
   case_of_sku_id?: string | null
   units_per_case?: number | null
-  // tracks_weight marks this SKU as a weight pool: its stock quantity is
-  // grams, not whole units (e.g. a 20kg bulk lot booked as one stock-in
-  // of 20000).
-  tracks_weight?: boolean
+  // unit_type defaults to 'unit'. 'kilo' marks this SKU as a weight pool:
+  // its stock quantity is grams, not whole units (e.g. a 20kg bulk lot
+  // booked as one stock-in of 20000).
+  unit_type?: SKUUnitType
   // portioned_from_sku_id is set when this SKU is a sellable item peeled
-  // off a tracks_weight bulk SKU's pool -- see the inventory module's
+  // off a kilo (weight-pool) SKU's pool -- see the inventory module's
   // portion-from-bulk action.
   portioned_from_sku_id?: string | null
   status: SKUStatus
   created_at: string
   updated_at: string
+}
+
+export interface ResolveBarcodeResult {
+  sku: SKU
+  // 1 for a direct unit-barcode match; the case/box multiplier when
+  // resolved via a BarcodeAlias.
+  units_per_scan: number
 }
 
 export interface Variant {
@@ -130,7 +141,7 @@ export interface CreateSKUPayload {
   is_virtual?: boolean
   case_of_sku_id?: string | null
   units_per_case?: number | null
-  tracks_weight?: boolean
+  unit_type?: SKUUnitType
   portioned_from_sku_id?: string | null
   status: SKUStatus
 }
@@ -148,7 +159,7 @@ export interface UpdateSKUPayload {
   is_virtual?: boolean
   case_of_sku_id?: string | null
   units_per_case?: number | null
-  tracks_weight?: boolean
+  unit_type?: SKUUnitType
   portioned_from_sku_id?: string | null
   status: SKUStatus
 }

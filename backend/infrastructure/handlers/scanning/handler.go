@@ -79,7 +79,7 @@ func (h *Handler) GetPairingCodeStatus(c *gin.Context, id genscanning.Id) {
 
 func toGenPairingCode(p iamDomain.ScannerPairingCode) genscanning.ScannerPairingCode {
 	return genscanning.ScannerPairingCode{
-		Id: p.ID, TenantId: p.TenantID, Code: p.Code, Status: genscanning.ScannerPairingCodeStatus(p.Status),
+		Id: p.ID, TenantId: p.TenantID, Code: p.Code, Token: p.Token, Status: genscanning.ScannerPairingCodeStatus(p.Status),
 		ExpiresAt: p.ExpiresAt, CreatedAt: p.CreatedAt, ClaimedAt: p.ClaimedAt,
 	}
 }

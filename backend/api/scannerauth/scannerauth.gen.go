@@ -16,6 +16,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ClaimPairingCodeByTokenRequest defines model for ClaimPairingCodeByTokenRequest.
+type ClaimPairingCodeByTokenRequest struct {
+	Token string `json:"token"`
+}
+
 // ClaimPairingCodeRequest defines model for ClaimPairingCodeRequest.
 type ClaimPairingCodeRequest struct {
 	Code string `json:"code"`
@@ -47,11 +52,17 @@ type Error = ErrorResponse
 // ClaimPairingCodeJSONRequestBody defines body for ClaimPairingCode for application/json ContentType.
 type ClaimPairingCodeJSONRequestBody = ClaimPairingCodeRequest
 
+// ClaimPairingCodeByTokenJSONRequestBody defines body for ClaimPairingCodeByToken for application/json ContentType.
+type ClaimPairingCodeByTokenJSONRequestBody = ClaimPairingCodeByTokenRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// ClaimPairingCode Claim a pairing code and receive a session token
+	// ClaimPairingCode Claim a pairing code (digit path) and receive a session token
 	// (POST /iam/scanner-pairing/claim)
 	ClaimPairingCode(c *gin.Context)
+	// ClaimPairingCodeByToken Claim a pairing code via its high-entropy token (QR/barcode path)
+	// (POST /iam/scanner-pairing/claim-token)
+	ClaimPairingCodeByToken(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -74,6 +85,19 @@ func (siw *ServerInterfaceWrapper) ClaimPairingCode(c *gin.Context) {
 	}
 
 	siw.Handler.ClaimPairingCode(c)
+}
+
+// ClaimPairingCodeByToken operation middleware
+func (siw *ServerInterfaceWrapper) ClaimPairingCodeByToken(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ClaimPairingCodeByToken(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -104,6 +128,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/iam/scanner-pairing/claim", wrapper.ClaimPairingCode)
+	router.POST(options.BaseURL+"/iam/scanner-pairing/claim-token", wrapper.ClaimPairingCodeByToken)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -111,16 +136,20 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

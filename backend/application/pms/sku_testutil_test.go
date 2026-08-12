@@ -30,13 +30,15 @@ func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return
 func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
 
 type stubSKURepo struct {
-	findByCodeResult *pmsDomain.SKU
-	findByCodeErr    error
-	findByIDResult   *pmsDomain.SKU
-	findByIDErr      error
-	created          *pmsDomain.SKU
-	createErr        error
-	updated          *pmsDomain.SKU
+	findByCodeResult    *pmsDomain.SKU
+	findByCodeErr       error
+	findByIDResult      *pmsDomain.SKU
+	findByIDErr         error
+	findByBarcodeResult *pmsDomain.SKU
+	findByBarcodeErr    error
+	created             *pmsDomain.SKU
+	createErr           error
+	updated             *pmsDomain.SKU
 }
 
 func (s *stubSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -60,7 +62,10 @@ func (s *stubSKURepo) FindByCode(_ context.Context, _ string) (*pmsDomain.SKU, e
 	return s.findByCodeResult, s.findByCodeErr
 }
 func (s *stubSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
-	return nil, pmsDomain.ErrSKUNotFound
+	if s.findByBarcodeResult == nil && s.findByBarcodeErr == nil {
+		return nil, pmsDomain.ErrSKUNotFound
+	}
+	return s.findByBarcodeResult, s.findByBarcodeErr
 }
 func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
 	return nil, nil

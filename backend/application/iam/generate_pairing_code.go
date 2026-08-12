@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math/big"
@@ -57,9 +58,13 @@ func (uc *GeneratePairingCodeUseCase) Execute(ctx context.Context, in GeneratePa
 			if existing != nil {
 				continue
 			}
+			token, err := randomPairingToken()
+			if err != nil {
+				return err
+			}
 			now := time.Now()
 			pairing = iamDomain.ScannerPairingCode{
-				TenantID: tenant.IDFromContext(ctx), Code: code, UserID: in.UserID, Role: in.Role,
+				TenantID: tenant.IDFromContext(ctx), Code: code, Token: token, UserID: in.UserID, Role: in.Role,
 				Status: iamDomain.ScannerPairingCodeStatusPending, ExpiresAt: now.Add(pairingCodeTTL), CreatedAt: now,
 			}
 			return uc.repo.Create(ctx, &pairing)
@@ -78,4 +83,15 @@ func randomSixDigitCode() (string, error) {
 		return "", fmt.Errorf("randomSixDigitCode: %w", err)
 	}
 	return fmt.Sprintf("%06d", n.Int64()), nil
+}
+
+// randomPairingToken is the opaque, unguessable counterpart to
+// randomSixDigitCode -- 128 bits of entropy, base64url so it round-trips
+// cleanly through QR codes, barcodes, and JSON without escaping.
+func randomPairingToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("randomPairingToken: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

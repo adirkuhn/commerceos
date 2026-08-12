@@ -112,7 +112,7 @@ func TestProductRepo_Integration_SyncVariantsAsWooVariationsRoundTrips(t *testin
 }
 
 // TestSKURepo_Integration_BulkPoolRoundTripsAndCascadesOnDelete proves
-// migration 047's tracks_weight/portioned_from_sku_id columns exist,
+// migration 047/048's unit_type/portioned_from_sku_id columns exist,
 // round-trip through GORM's Create/Update, and that the self-referential
 // FK is ON DELETE SET NULL: deleting the bulk SKU must not delete the
 // portioned SKU, just clear its link to the (now-gone) pool.
@@ -139,7 +139,7 @@ func TestSKURepo_Integration_BulkPoolRoundTripsAndCascadesOnDelete(t *testing.T)
 		}
 		bulkSKU := &pmsDomain.SKU{
 			TenantID: tenant.IDFromContext(ctx), VariantID: bulkVariant.ID, SKUCode: "BULK-047",
-			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, TracksWeight: true, CreatedAt: now, UpdatedAt: now,
+			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, UnitType: pmsDomain.SKUUnitTypeKilo, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := skuRepo.Create(ctx, bulkSKU); err != nil {
 			return err
@@ -153,7 +153,7 @@ func TestSKURepo_Integration_BulkPoolRoundTripsAndCascadesOnDelete(t *testing.T)
 		weight := int64(378)
 		portionedSKU := &pmsDomain.SKU{
 			TenantID: tenant.IDFromContext(ctx), VariantID: portionedVariant.ID, SKUCode: "PORTION-047",
-			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, UnitType: pmsDomain.SKUUnitTypeUnit,
 			WeightGrams: &weight, PortionedFromSKUID: &bulkSKUID, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := skuRepo.Create(ctx, portionedSKU); err != nil {

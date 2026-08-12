@@ -29,7 +29,7 @@ type PortionFromBulkResult struct {
 	UnitInMovement  invDomain.StockMovement
 }
 
-// PortionFromBulkUseCase peels one sellable unit off a bulk (TracksWeight)
+// PortionFromBulkUseCase peels one sellable unit off a bulk (UnitType=kilo)
 // SKU's weight pool: TargetSKUID must be configured as portioned from a
 // bulk SKU (see pms.SKU.PortionedFromSKUID) -- WeightGrams leaves the bulk
 // SKU's stock and 1 unit of the target SKU arrives, atomically.

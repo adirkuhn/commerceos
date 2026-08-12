@@ -43,11 +43,14 @@ var (
 	// itself as its own bulk pool.
 	ErrPortionedFromSKUCannotBeSelf = errors.New("a SKU cannot be portioned from itself")
 	// ErrPortionedFromSKUMustTrackWeight guards SKU.PortionedFromSKUID:
-	// the referenced SKU must be a weight pool (TracksWeight=true) --
+	// the referenced SKU must be a weight pool (UnitType=kilo) --
 	// portioning only makes sense against a bulk lot.
-	ErrPortionedFromSKUMustTrackWeight = errors.New("portioned_from_sku_id must reference a SKU with tracks_weight set")
-	// ErrBulkSKUCannotBePortioned guards against a TracksWeight SKU
+	ErrPortionedFromSKUMustTrackWeight = errors.New("portioned_from_sku_id must reference a SKU with unit_type kilo")
+	// ErrBulkSKUCannotBePortioned guards against a kilo (weight-pool) SKU
 	// itself having a PortionedFromSKUID -- the relationship is
 	// depth-limited to one level, same reasoning as ErrCaseOfSKUCannotChain.
-	ErrBulkSKUCannotBePortioned = errors.New("a bulk (tracks_weight) SKU cannot itself be portioned from another SKU")
+	ErrBulkSKUCannotBePortioned = errors.New("a bulk (kilo) SKU cannot itself be portioned from another SKU")
+	// ErrInvalidSKUUnitType guards SKU.UnitType against any value outside
+	// unit/box/kilo.
+	ErrInvalidSKUUnitType = errors.New("invalid sku unit_type")
 )

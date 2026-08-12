@@ -337,7 +337,7 @@ func TestPushProductToWoo_variationsMode_onlyCreatesMissingVariations(t *testing
 }
 
 // bulkPlusTwoVariantProduct is twoVariantProduct's sibling for the bulk-pool
-// exclusion tests -- adds a third variant, a TracksWeight bulk pool the
+// exclusion tests -- adds a third variant, a kilo (weight-pool) SKU the
 // other two are (nominally) portioned from, which must never itself reach
 // the channel.
 func bulkPlusTwoVariantProduct(syncAsVariations bool) (pmsDomain.Product, []pmsDomain.Variant, []pmsDomain.SKU) {
@@ -345,7 +345,7 @@ func bulkPlusTwoVariantProduct(syncAsVariations bool) (pmsDomain.Product, []pmsD
 	bulkVariant := pmsDomain.Variant{ID: "variant-bulk", ProductID: product.ID, Name: "Bulk"}
 	bulkSKU := pmsDomain.SKU{
 		ID: "sku-bulk", VariantID: "variant-bulk", SKUCode: "CARNE-BULK", CurrencyCode: "EUR",
-		Status: pmsDomain.SKUStatusActive, TracksWeight: true,
+		Status: pmsDomain.SKUStatusActive, UnitType: pmsDomain.SKUUnitTypeKilo,
 	}
 	return product, append(variants, bulkVariant), append(skus, bulkSKU)
 }
@@ -405,7 +405,7 @@ func TestPushProductToWoo_excludesBulkPoolVariantFromVariationsPush(t *testing.T
 // nothing sellable exists to push.
 func TestPushProductToWoo_rejectsPushWhenOnlyVariantIsBulkPool(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
-	sku.TracksWeight = true
+	sku.UnitType = pmsDomain.SKUUnitTypeKilo
 	h := newPushHarness(product, variant, sku)
 	stockLevel := &stubStockLevelGetter{}
 

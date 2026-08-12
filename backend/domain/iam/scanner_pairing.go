@@ -21,10 +21,18 @@ const (
 type ScannerPairingCode struct {
 	ID       string
 	TenantID string
-	// Code is the short (6-digit) code displayed on the desktop and typed/
-	// scanned on the handheld. Unique only among pending codes (see
-	// migration) -- once claimed or expired the text can be reused.
-	Code      string
+	// Code is the short (6-digit) code displayed on the desktop and typed on
+	// the handheld. Guessable within its keyspace (1e6) -- the claim
+	// endpoint for this path is rate-limited (see
+	// infrastructure/middleware.IPRateLimiter). Unique only among pending
+	// codes (see migration) -- once claimed or expired the text can be
+	// reused.
+	Code string
+	// Token is a high-entropy opaque value (128-bit random, base64url) that
+	// QR codes and barcodes encode for the handheld's camera/scan-engine to
+	// read -- unguessable within the pairing TTL, so its claim path carries
+	// no rate-limit dependency. Same pending-uniqueness rule as Code.
+	Token     string
 	UserID    string
 	Role      string
 	Status    ScannerPairingCodeStatus

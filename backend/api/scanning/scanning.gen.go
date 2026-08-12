@@ -50,13 +50,16 @@ type ErrorResponse struct {
 type ScannerPairingCode struct {
 	ClaimedAt *time.Time `json:"claimed_at,omitempty"`
 
-	// Code The short code to display/scan -- never re-shown once claimed.
+	// Code The short digit code to type -- never re-shown once claimed.
 	Code      string                   `json:"code"`
 	CreatedAt time.Time                `json:"created_at"`
 	ExpiresAt time.Time                `json:"expires_at"`
 	Id        string                   `json:"id"`
 	Status    ScannerPairingCodeStatus `json:"status"`
 	TenantId  string                   `json:"tenant_id"`
+
+	// Token High-entropy opaque value to encode as a QR code / barcode -- never re-shown once claimed.
+	Token string `json:"token"`
 }
 
 // ScannerPairingCodeResponse defines model for ScannerPairingCodeResponse.
@@ -167,20 +170,21 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"xFVLj9s2EP4rA7ZALrLlbXLSbREURXrpohugh3QRjMVZi1mJZIcjb4yF/nsxlPxW8wAK5GLIJOfxPYZ8",
-	"MXXoYvDkJZnqxURk7EiI8z9n8683lYkojSmMx45MpRuFYfqnd0zWVMI9FSbVDXWoEbKLeioJO78xwzDo",
-	"4RSDT5Tz/socWD/q4IW86CfG2LoaxQVffkrB69ox489Mj6YyP5XHdstxN5U5259T/rGapVSzi5rMVIZy",
-	"OV2fQg49HKIUOodILG5s0aLkwr5vW1y3NIIciinZ1fk6WJqBXpiOUsLN3N5Q7FfC+hPVMrdSmPsavSe+",
-	"Q6dRb6cyF8VbdB3Zj5iZfAzc6ZdioIW4jlS4MxzFdZ97AOfUvW8IUhNYQPdBAliXYou7MtXoYbEAT1ti",
-	"YFqkJjx7CL4mmPpZmrk6TChf7vUqhj5Hx5S+K2b07tVyEpQ+fc1S16Tfj3GqEHn08nE2/3A6FR/GMTme",
-	"n0g+NHEG7IyZh28ywtfd+30Yzam9L4z/bda8P7BLvu+UgkjeKjXF3qQn2E7vB+cfw7X9bntpyIveC2TB",
-	"UnqSEBfJWYI4Vq1gQ54YhQBHpy5atyWb/VpADG0Lzw1JQwxOXiVYE/m9QWG9A4QGvW2otZBGPEu4bVvg",
-	"0AslQCb4/a/3i8hBqNYu1r1AiOR1GNT7O8CzLjm0pIORazi/ARxnJ/h2lwOgc14SIEh4Ig/PThqQhoA+",
-	"Yy2QsJsGKOXVCZ4m6hMxYMuEdgcN2gJS0DNMrxL4AJHd1rW0IaBUY5vvUu1y0yNbwA06nwT0/PJvr850",
-	"ovqat6HriGv64x4mSWHSFG7v3pnCbInTKMjNcqXKK36MzlTm9XK1fG2K/D5k4UuHXTkxuZhEygYNKU+v",
-	"2jR39s6ayvw2iXfqwovH4pfVzf/2VHxhhmbejWkgx5ej7zrk3UnLF36boI5aPwaeMZZqkZXNGeeIKl+c",
-	"HRTEhmbJkutZK87e7A/z+I9HSmfN8HBF8eoHURye1E5vVm/+K+2hz/GZv9Di7nS88XAVXKjR4MXY70jG",
-	"ZhLxds9bz62pTInRldsbMzwM/wYAAP//",
+	"xFZNb9w2EP0rA7ZALtrVpslJNyMo2vRSNw7QQ2oEs+JYYkyRzHC0zsLQfy9Iade7K+XDQIFeDJrizLx5",
+	"7w25j6r2XfCOnERVPaqAjB0Jcf7P6PzXqUoFlFYVymFHqkofCsX0uTdMWlXCPRUq1i11mCJkH9KpKGxc",
+	"o4ZhSIdj8C5Szvsrs+e0qL0TcpKWGII1NYrxrvwUvUt7Txl/ZrpTlfqpfIJbjl9jmbO9m/KP1TTFmk1I",
+	"yVSlKJdL+1PIEcMxKrXOPhCLGSFqlFzY9dbi1tLY5FBMyWbna69pofVCdRQjNkvfhuKw47efqJalnULd",
+	"1Ogc8TWaFPVmKnNR3KLpSH/EzOSd5y6tUg+0EtNREu6sj2KO89DAOXXvW4LYehbQpjEC6RSIhxQOqxU4",
+	"2hED0yq2/sGBdzXBhGatlqowoXwb6SyGvgTDFJ8VMzp3th0FpY/fM9Sc8psxLulDDp18/Ep+8ffk5iz+",
+	"bpp2RU7Yhz34gJ97gh3aPlNJLpOKERD+ejcyXMIWOa+ezfFwOpgfxkl9Aj3pfEB6ZOSM5TOZbn/Ik98f",
+	"pOcRrk4n7WIGf2xKbo5Sk+u7REUgpxNFxWFeTno7vaqMu/NzDa96aclJuqJIg6Z4Lz6sotEEYaxaQUOO",
+	"GIUAx6FZWbMjnSUtIHhr4aElaYnByIsIWyJ3UBK2e0Bo0emWrIY49rOGK2uBfS8UAZngj7/frwJ7oTqh",
+	"2PYCPpDLNtoR7wHPULK32UG5hnEN4Ggv7+w+B0BnnCTjZTvAg5EWpCWgL1gLROwmp8W8O7WXEvWRGNAy",
+	"od5Di7qA6NMZphcRnIfAZmcsNQQUa7T5Wk8omx5ZAzZoXBRI59f/JBuKkaSveuO7jrimP29gkhQmTeHq",
+	"+q0q1I44joK8XG+S8ql/DEZV6tV6s36livxUZeFLg105MbmaRMoG9TFfJcmmGdlbrSr12yTeqQsv3q1f",
+	"Ni//s1frGzO08IRNAzk+Yn3XIe9PIF/4bWp11PrO84KxkhZZ2Zxxiajy0eghNdHQIlkyn7Xi7OfDh+X+",
+	"n46URqvhdkbx5n+i2N8nO73evP5a2iPO8RfHhRbXp+ONx6vgQo0WL8Z+TzKCicS7A289W1WpEoMpdy/V",
+	"cDv8GwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -320,6 +320,30 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/barcode-lookup/{code}:
+    get:
+      operationId: resolveBarcode
+      summary: Resolve a scanned code to a SKU
+      description: >
+        Tried first as a unit barcode (SKU.barcode), then as a case/box
+        BarcodeAlias.code. Shared by every scanner mini-app that turns a
+        scan into a SKU (inventory adjust/move/remove, price lookup, pick
+        order).
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveBarcodeResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /pms/skus/{id}:
     patch:
       operationId: updateSKU
@@ -380,6 +404,14 @@ components:
     SKUStatus:
       type: string
       enum: [active, inactive]
+
+    # unit/box are both whole-count stock (box is purely descriptive,
+    # distinct from case_of_sku_id/units_per_case which is a real
+    # multiplier relationship to another SKU). kilo means stock quantity
+    # is grams, not a count -- see SKU.unit_type below.
+    SKUUnitType:
+      type: string
+      enum: [unit, box, kilo]
 
     Category:
       type: object
@@ -515,15 +547,15 @@ components:
         # module's split-case endpoint).
         case_of_sku_id: { type: string, nullable: true }
         units_per_case: { type: integer, format: int64, nullable: true }
-        tracks_weight:
-          type: boolean
+        unit_type:
+          allOf: [{ $ref: '#/components/schemas/SKUUnitType' }]
           description: >-
-            Marks this SKU as a weight pool -- its stock quantity is grams,
-            not whole units (e.g. a 20kg bulk lot booked as one stock-in of
-            20000). See portioned_from_sku_id and the inventory module's
-            portion-from-bulk endpoint.
+            Defaults to unit. kilo marks this SKU as a weight pool -- its
+            stock quantity is grams, not whole units (e.g. a 20kg bulk lot
+            booked as one stock-in of 20000). See portioned_from_sku_id and
+            the inventory module's portion-from-bulk endpoint.
         # portioned_from_sku_id is null unless this SKU is a sellable item
-        # peeled off a tracks_weight bulk SKU's pool. Unlike
+        # peeled off a kilo (weight-pool) SKU's pool. Unlike
         # case_of_sku_id (a fixed 1:1 multiplier), many SKUs can share the
         # same portioned_from_sku_id, each consuming its own actual
         # weight.
@@ -628,7 +660,7 @@ components:
         tracks_expiry: { type: boolean, default: false }
         case_of_sku_id: { type: string, nullable: true }
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
-        tracks_weight: { type: boolean, default: false }
+        unit_type: { $ref: '#/components/schemas/SKUUnitType' }
         portioned_from_sku_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
@@ -649,7 +681,7 @@ components:
         tracks_expiry: { type: boolean, default: false }
         case_of_sku_id: { type: string, nullable: true }
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
-        tracks_weight: { type: boolean, default: false }
+        unit_type: { $ref: '#/components/schemas/SKUUnitType' }
         portioned_from_sku_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
@@ -700,6 +732,22 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SKU' }
+        error: { nullable: true }
+
+    ResolveBarcodeResult:
+      type: object
+      required: [sku, units_per_scan]
+      properties:
+        sku: { $ref: '#/components/schemas/SKU' }
+        units_per_scan:
+          type: integer
+          format: int64
+          description: 1 for a direct unit-barcode match; the case/box multiplier when resolved via a BarcodeAlias.
+
+    ResolveBarcodeResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ResolveBarcodeResult' }
         error: { nullable: true }
 
     EmptyResponse:

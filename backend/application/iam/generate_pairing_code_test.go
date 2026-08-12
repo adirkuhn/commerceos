@@ -23,6 +23,10 @@ func TestGeneratePairingCode_createsPendingCodeWithCallersIdentity(t *testing.T)
 	assert.Equal(t, "customer_owner", pairing.Role)
 	assert.Equal(t, iamDomain.ScannerPairingCodeStatusPending, pairing.Status)
 	assert.Len(t, pairing.Code, 6)
+	// Token backs the QR/barcode claim path -- must be high-entropy (128-bit
+	// random, base64url has no padding) and distinct from the digit code.
+	assert.GreaterOrEqual(t, len(pairing.Token), 20)
+	assert.NotEqual(t, pairing.Code, pairing.Token)
 	assert.True(t, pairing.ExpiresAt.After(pairing.CreatedAt))
 }
 

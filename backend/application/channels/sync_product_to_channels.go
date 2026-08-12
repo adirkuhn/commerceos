@@ -144,11 +144,11 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 			if err != nil {
 				return err
 			}
-			// A bulk pool (TracksWeight) SKU is never itself sellable --
+			// A bulk pool (UnitType=kilo) SKU is never itself sellable --
 			// excluded here so it's treated the same as a "removed"
 			// variant everywhere below: never (re)created on the channel,
 			// and any stray listing for it gets cleaned up.
-			if len(skus) == 1 && !skus[0].TracksWeight {
+			if len(skus) == 1 && skus[0].UnitType != pmsDomain.SKUUnitTypeKilo {
 				skuByVariant[v.ID] = skus[0]
 			}
 		}

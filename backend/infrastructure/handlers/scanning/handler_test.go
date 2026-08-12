@@ -36,7 +36,7 @@ func (s *stubGeneratePairingCode) Execute(_ context.Context, in appiam.GenerateP
 		return s.out, nil
 	}
 	return &iamDomain.ScannerPairingCode{
-		ID: "pairing-1", Code: "123456", UserID: in.UserID, Role: in.Role,
+		ID: "pairing-1", Code: "123456", Token: "opaque-token-abc", UserID: in.UserID, Role: in.Role,
 		Status: iamDomain.ScannerPairingCodeStatusPending, ExpiresAt: time.Now().Add(5 * time.Minute), CreatedAt: time.Now(),
 	}, nil
 }
@@ -78,6 +78,7 @@ func TestGeneratePairingCodeHandler_usesCallersClaims(t *testing.T) {
 	assert.Equal(t, "user-1", generate.gotInput.UserID)
 	assert.Equal(t, "customer_owner", generate.gotInput.Role)
 	assert.Contains(t, w.Body.String(), "123456")
+	assert.Contains(t, w.Body.String(), "opaque-token-abc")
 }
 
 func TestGetPairingCodeStatusHandler_returnsStatus(t *testing.T) {

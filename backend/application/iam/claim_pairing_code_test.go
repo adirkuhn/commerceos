@@ -52,6 +52,39 @@ func TestClaimPairingCode_rejectsInvalidOrExpiredCode(t *testing.T) {
 	assert.Empty(t, repo.markClaimedCalls)
 }
 
+func TestClaimPairingCodeByToken_mintsTokenWithPairingIdentityAndMarksClaimed(t *testing.T) {
+	db := newMockGormDB(t)
+	repo := &stubScannerPairingCodeRepo{findPendingByTokenResult: &iamDomain.ScannerPairingCode{
+		ID: "pairing-1", TenantID: "tenant-1", UserID: "user-1", Role: "customer_owner",
+		Status: iamDomain.ScannerPairingCodeStatusPending,
+	}}
+	secret := []byte("test-secret")
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, secret)
+
+	tokenStr, err := uc.ExecuteByToken(context.Background(), "opaque-abc")
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"pairing-1"}, repo.markClaimedCalls)
+
+	claims := &parsedClaims{}
+	_, err = jwt.ParseWithClaims(tokenStr, claims, func(*jwt.Token) (any, error) { return secret, nil })
+	require.NoError(t, err)
+	assert.Equal(t, "user-1", claims.UserID)
+	assert.Equal(t, "tenant-1", claims.TenantID)
+	assert.Equal(t, "customer_owner", claims.Role)
+}
+
+func TestClaimPairingCodeByToken_rejectsInvalidOrExpiredToken(t *testing.T) {
+	db := newMockGormDB(t)
+	repo := &stubScannerPairingCodeRepo{findPendingByTokenResult: nil}
+	uc := appiam.NewClaimPairingCodeUseCase(db, repo, []byte("test-secret"))
+
+	_, err := uc.ExecuteByToken(context.Background(), "does-not-exist")
+
+	assert.ErrorIs(t, err, iamDomain.ErrPairingCodeInvalid)
+	assert.Empty(t, repo.markClaimedCalls)
+}
+
 func TestClaimPairingCode_propagatesMarkClaimedError(t *testing.T) {
 	db := newMockGormDB(t)
 	repo := &stubScannerPairingCodeRepo{

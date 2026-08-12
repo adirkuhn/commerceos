@@ -15,7 +15,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, VariantWithSKUs, Media, SKU } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
@@ -57,11 +57,21 @@ function parseIntOrUndefined(value: string): number | undefined {
 
 export default function Products() {
   const { token } = useAuth()
+  const { navSignal } = useApp()
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null | 'new'>(null)
   const [page, setPage] = useState(1)
+
+  // Re-clicking "Products" in the sidebar while already on this page fires
+  // setActiveNav with the same value, which React bails out of re-rendering
+  // for — this component never unmounts, so editingId (list vs. detail view)
+  // would otherwise stay stuck open. navSignal bumps on every nav click
+  // regardless of value, so use it to snap back to the list.
+  useEffect(() => {
+    setEditingId(null)
+  }, [navSignal])
 
   // Debounce the search box so it doesn't fire a server request on every
   // keystroke — the list is now fetched server-side, unlike the old
@@ -273,9 +283,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const [caseOfSKULabel, setCaseOfSKULabel] = useState('')
   const [unitsPerCase, setUnitsPerCase] = useState('')
   const [casePickerOpen, setCasePickerOpen] = useState(false)
-  // Bulk weight pool (see pms.SKU.TracksWeight/PortionedFromSKUID) -- a SKU
-  // is either a bulk pool itself, or portioned from one, never both.
-  const [tracksWeight, setTracksWeight] = useState(false)
+  // Weight pool (see pms.SKU.UnitType/PortionedFromSKUID) -- a SKU is
+  // either a weight pool itself (unit_type kilo), or portioned from one,
+  // never both.
+  const [unitType, setUnitType] = useState<SKUUnitType>('unit')
   const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
   const [portionedFromLabel, setPortionedFromLabel] = useState('')
   const [portionPickerOpen, setPortionPickerOpen] = useState(false)
@@ -308,7 +319,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         setHeightMM(sku.height_mm != null ? String(sku.height_mm) : '')
         setCaseOfSKUID(sku.case_of_sku_id ?? null)
         setUnitsPerCase(sku.units_per_case != null ? String(sku.units_per_case) : '')
-        setTracksWeight(sku.tracks_weight ?? false)
+        setUnitType(sku.unit_type ?? 'unit')
         setPortionedFromSKUID(sku.portioned_from_sku_id ?? null)
       }
     }
@@ -391,7 +402,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               ...dimensions,
               case_of_sku_id: caseOfSKUID,
               units_per_case: caseOfSKUID ? parseIntOrUndefined(unitsPerCase) ?? null : null,
-              tracks_weight: tracksWeight,
+              unit_type: unitType,
               portioned_from_sku_id: portionedFromSKUID,
               status: skuStatus,
             })
@@ -764,18 +775,23 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                 title="Weight pool"
                 description="Book a bulk lot once (e.g. 20kg), then peel off individually-weighed sellable items from it over time as they're packaged."
               >
-                <ToggleRow
-                  label="This is a weight pool (booked in kg, not units)"
-                  checked={tracksWeight}
-                  onChange={() => {
-                    setTracksWeight(v => {
-                      const next = !v
-                      if (next) { setPortionedFromSKUID(null); setPortionedFromLabel('') }
-                      return next
-                    })
-                  }}
-                />
-                {!tracksWeight && (
+                <div>
+                  <label htmlFor="product-unit-type" className={labelClass}>Item type</label>
+                  <select
+                    id="product-unit-type" value={unitType}
+                    onChange={e => {
+                      const next = e.target.value as SKUUnitType
+                      setUnitType(next)
+                      if (next === 'kilo') { setPortionedFromSKUID(null); setPortionedFromLabel('') }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="unit">Unit</option>
+                    <option value="box">Box</option>
+                    <option value="kilo">Kilo (weight pool)</option>
+                  </select>
+                </div>
+                {unitType !== 'kilo' && (
                   portionedFromSKUID ? (
                     <div className="flex items-center gap-2 mt-2">
                       <span className="flex-1 text-xs dark:text-gray-200 text-gray-800">
@@ -793,7 +809,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                     <div className="mt-2">
                       <CaseOfSKUPicker
                         excludeSKUID={currentSku.id}
-                        filterSku={s => !!s.tracks_weight}
+                        filterSku={s => s.unit_type === 'kilo'}
                         onSelect={(sku, label) => { setPortionedFromSKUID(sku.id); setPortionedFromLabel(label); setPortionPickerOpen(false) }}
                         onClose={() => setPortionPickerOpen(false)}
                       />
@@ -1296,9 +1312,10 @@ interface CaseOfSKUPickerProps {
   // results client-side (the backend also rejects it, see
   // ErrCaseOfSKUCannotBeSelf, but hiding it up front avoids a round trip).
   excludeSKUID: string
-  // Extra client-side filter beyond excludeSKUID -- e.g. only tracks_weight
-  // SKUs when picking a bulk pool to portion from. Hides invalid choices up
-  // front instead of letting the backend reject them after the fact.
+  // Extra client-side filter beyond excludeSKUID -- e.g. only kilo
+  // (unit_type=kilo) SKUs when picking a weight pool to portion from.
+  // Hides invalid choices up front instead of letting the backend reject
+  // them after the fact.
   filterSku?: (sku: SKU) => boolean
   onSelect: (sku: SKU, label: string) => void
   onClose: () => void
@@ -1427,9 +1444,10 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [lengthMM, setLengthMM] = useState('')
   const [widthMM, setWidthMM] = useState('')
   const [heightMM, setHeightMM] = useState('')
-  // Bulk pool (see pms.SKU.TracksWeight/PortionedFromSKUID) -- a SKU is
-  // either a bulk pool itself, or portioned from one, never both.
-  const [tracksWeight, setTracksWeight] = useState(false)
+  // Weight pool (see pms.SKU.UnitType/PortionedFromSKUID) -- a SKU is
+  // either a weight pool itself (unit_type kilo), or portioned from one,
+  // never both.
+  const [unitType, setUnitType] = useState<SKUUnitType>('unit')
   const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
   const [portionedFromLabel, setPortionedFromLabel] = useState('')
   const [portionPickerOpen, setPortionPickerOpen] = useState(false)
@@ -1452,14 +1470,14 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         length_mm: isVirtual ? undefined : parseIntOrUndefined(lengthMM),
         width_mm: isVirtual ? undefined : parseIntOrUndefined(widthMM),
         height_mm: isVirtual ? undefined : parseIntOrUndefined(heightMM),
-        tracks_weight: tracksWeight,
+        unit_type: unitType,
         portioned_from_sku_id: portionedFromSKUID,
         status,
       })
       setAddingSKU(false)
       setSkuCode(''); setBarcode(''); setPrice(''); setSalePrice(''); setSaleEndDate(''); setCurrency('USD'); setStatus('active')
       setIsVirtual(false); setWeightGrams(''); setLengthMM(''); setWidthMM(''); setHeightMM('')
-      setTracksWeight(false); setPortionedFromSKUID(null); setPortionedFromLabel('')
+      setUnitType('unit'); setPortionedFromSKUID(null); setPortionedFromLabel('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add SKU')
     } finally {
@@ -1476,7 +1494,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   // handleSelectImage's pattern in this component) -- there's no batched
   // "Save" step for an already-created variant's SKU here, unlike the flat
   // single-SKU form on the product's General tab.
-  const saveBulkPool = async (next: { tracksWeight: boolean; portionedFromSkuId: string | null }) => {
+  const saveBulkPool = async (next: { unitType: SKUUnitType; portionedFromSkuId: string | null }) => {
     if (!sku) return
     setBulkError('')
     setBulkSaving(true)
@@ -1494,7 +1512,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         is_virtual: sku.is_virtual,
         case_of_sku_id: sku.case_of_sku_id,
         units_per_case: sku.units_per_case,
-        tracks_weight: next.tracksWeight,
+        unit_type: next.unitType,
         portioned_from_sku_id: next.portionedFromSkuId,
         status: sku.status,
       })
@@ -1618,23 +1636,23 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       {sku && (
         <div className="mt-1.5 space-y-1">
           <div className="flex items-center justify-between">
-            {sku.tracks_weight ? (
+            {sku.unit_type === 'kilo' ? (
               <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
                 Weight pool
-                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: false, portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
                   Turn off
                 </button>
               </span>
             ) : sku.portioned_from_sku_id ? (
               <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">
                 Portioned from <span className="font-medium">{sku.portioned_from_sku_id}</span>
-                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: false, portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: sku.unit_type ?? 'unit', portionedFromSkuId: null })} className="hover:underline disabled:opacity-50">
                   Unlink
                 </button>
               </span>
             ) : existingPortionPickerOpen ? null : (
               <div className="flex items-center gap-2">
-                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ tracksWeight: true, portionedFromSkuId: null })} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50">
+                <button type="button" disabled={bulkSaving} onClick={() => saveBulkPool({ unitType: 'kilo', portionedFromSkuId: null })} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50">
                   Make weight pool
                 </button>
                 <button type="button" onClick={() => setExistingPortionPickerOpen(true)} className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors">
@@ -1649,8 +1667,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           {existingPortionPickerOpen && (
             <CaseOfSKUPicker
               excludeSKUID={sku.id}
-              filterSku={s => !!s.tracks_weight}
-              onSelect={(s) => saveBulkPool({ tracksWeight: false, portionedFromSkuId: s.id })}
+              filterSku={s => s.unit_type === 'kilo'}
+              onSelect={(s) => saveBulkPool({ unitType: sku.unit_type ?? 'unit', portionedFromSkuId: s.id })}
               onClose={() => setExistingPortionPickerOpen(false)}
             />
           )}
@@ -1706,17 +1724,22 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             </div>
           )}
           <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
-            <input
-              type="checkbox" checked={tracksWeight}
+            Item type
+            <select
+              value={unitType}
               onChange={e => {
-                const next = e.target.checked
-                setTracksWeight(next)
-                if (next) { setPortionedFromSKUID(null); setPortionedFromLabel('') }
+                const next = e.target.value as SKUUnitType
+                setUnitType(next)
+                if (next === 'kilo') { setPortionedFromSKUID(null); setPortionedFromLabel('') }
               }}
-            />
-            Weight pool (booked in kg, not units)
+              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            >
+              <option value="unit">Unit</option>
+              <option value="box">Box</option>
+              <option value="kilo">Kilo (weight pool)</option>
+            </select>
           </label>
-          {!tracksWeight && (
+          {unitType !== 'kilo' && (
             portionedFromSKUID ? (
               <div className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
                 <span className="flex-1">Portioned from <span className="font-medium">{portionedFromLabel || portionedFromSKUID}</span></span>
@@ -1725,7 +1748,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             ) : portionPickerOpen ? (
               <CaseOfSKUPicker
                 excludeSKUID=""
-                filterSku={s => !!s.tracks_weight}
+                filterSku={s => s.unit_type === 'kilo'}
                 onSelect={(s, label) => { setPortionedFromSKUID(s.id); setPortionedFromLabel(label); setPortionPickerOpen(false) }}
                 onClose={() => setPortionPickerOpen(false)}
               />

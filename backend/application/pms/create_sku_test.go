@@ -201,23 +201,37 @@ func TestCreateSKU_rejectsCaseOfSKUIDThatDoesNotExist(t *testing.T) {
 	require.True(t, errors.Is(err, pmsDomain.ErrSKUNotFound))
 }
 
-func TestCreateSKU_persistsTracksWeight(t *testing.T) {
+func TestCreateSKU_persistsUnitType(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
 	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "BULK-1", PriceMinorUnits: 0, CurrencyCode: "USD",
-		Status: pmsDomain.SKUStatusActive, TracksWeight: true,
+		Status: pmsDomain.SKUStatusActive, UnitType: pmsDomain.SKUUnitTypeKilo,
 	})
 
 	require.NoError(t, err)
-	require.True(t, sku.TracksWeight)
+	require.Equal(t, pmsDomain.SKUUnitTypeKilo, sku.UnitType)
+}
+
+func TestCreateSKU_defaultsUnitTypeToUnitWhenNotGiven(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, pmsDomain.SKUUnitTypeUnit, sku.UnitType)
 }
 
 func TestCreateSKU_persistsPortionedFromRelationship(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-bulk-1", TracksWeight: true}}
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-bulk-1", UnitType: pmsDomain.SKUUnitTypeKilo}}
 	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
@@ -236,7 +250,7 @@ func TestCreateSKU_rejectsBulkSKUThatIsAlsoPortionedFromAnother(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
-		Status: pmsDomain.SKUStatusActive, TracksWeight: true, PortionedFromSKUID: strPtr("sku-bulk-1"),
+		Status: pmsDomain.SKUStatusActive, UnitType: pmsDomain.SKUUnitTypeKilo, PortionedFromSKUID: strPtr("sku-bulk-1"),
 	})
 
 	require.Error(t, err)
@@ -245,7 +259,7 @@ func TestCreateSKU_rejectsBulkSKUThatIsAlsoPortionedFromAnother(t *testing.T) {
 
 func TestCreateSKU_rejectsPortionedFromSKUThatDoesNotTrackWeight(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
-	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-not-bulk", TracksWeight: false}}
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-not-bulk", UnitType: pmsDomain.SKUUnitTypeUnit}}
 	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
@@ -283,4 +297,18 @@ func TestCreateSKU_persistsTracksExpiry(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, sku.TracksExpiry)
+}
+
+func TestCreateSKU_rejectsInvalidUnitType(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, UnitType: "pallet",
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrInvalidSKUUnitType))
 }

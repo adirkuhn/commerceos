@@ -73,6 +73,9 @@ export interface ScannerPairingCode {
   id: string
   tenant_id: string
   code: string
+  // High-entropy opaque value QR codes / barcodes encode -- unguessable
+  // within the pairing TTL, unlike code.
+  token: string
   status: PairingCodeStatus
   expires_at: string
   created_at: string
