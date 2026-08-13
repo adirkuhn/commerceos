@@ -65,6 +65,8 @@ type salesOrderModel struct {
 	OccurredAt time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+
+	StockDecremented bool `gorm:"not null;default:false"`
 }
 
 func (salesOrderModel) TableName() string { return "sales_orders" }
@@ -126,6 +128,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle, TransactionID: o.TransactionID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted,
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
+		StockDecremented: o.StockDecremented,
 	}
 }
 
@@ -221,7 +224,38 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle, TransactionID: m.TransactionID,
 		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted,
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		StockDecremented: m.StockDecremented,
 	}
+}
+
+func (r *SalesOrderRepo) Update(ctx context.Context, id string, fields map[string]any) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	res := tx.Model(&salesOrderModel{}).Where("id = ?", id).Updates(fields)
+	if res.Error != nil {
+		return fmt.Errorf("salesOrderRepo.Update: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return omsDomain.ErrSalesOrderNotFound
+	}
+	return nil
+}
+
+func (r *SalesOrderRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	res := tx.Where("id = ?", id).Delete(&salesOrderModel{})
+	if res.Error != nil {
+		return fmt.Errorf("salesOrderRepo.Delete: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return omsDomain.ErrSalesOrderNotFound
+	}
+	return nil
 }
 
 // ── SalesOrderLineItemRepo ───────────────────────────────────────────────────
@@ -279,4 +313,51 @@ func (r *SalesOrderLineItemRepo) ListBySalesOrder(ctx context.Context, salesOrde
 		}
 	}
 	return out, nil
+}
+
+func (r *SalesOrderLineItemRepo) DeleteBySalesOrder(ctx context.Context, salesOrderID string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("sales_order_id = ?", salesOrderID).Delete(&salesOrderLineItemModel{}).Error; err != nil {
+		return fmt.Errorf("salesOrderLineItemRepo.DeleteBySalesOrder: %w", err)
+	}
+	return nil
+}
+
+// ── SalesOrderLineItemStockMovementRepo ─────────────────────────────────────
+
+type salesOrderLineItemStockMovementModel struct {
+	ID                   string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID             string `gorm:"not null;type:uuid"`
+	SalesOrderLineItemID string `gorm:"column:sales_order_line_item_id;not null;type:uuid"`
+	StockMovementID      string `gorm:"column:stock_movement_id;not null;type:uuid"`
+	CreatedAt            time.Time
+}
+
+func (salesOrderLineItemStockMovementModel) TableName() string {
+	return "sales_order_line_item_stock_movements"
+}
+
+type SalesOrderLineItemStockMovementRepo struct{ db *gorm.DB }
+
+func NewSalesOrderLineItemStockMovementRepo(db *gorm.DB) *SalesOrderLineItemStockMovementRepo {
+	return &SalesOrderLineItemStockMovementRepo{db: db}
+}
+
+func (r *SalesOrderLineItemStockMovementRepo) Create(ctx context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return errors.New("salesOrderLineItemStockMovementRepo: operation called outside a transaction")
+	}
+	m := salesOrderLineItemStockMovementModel{
+		TenantID: l.TenantID, SalesOrderLineItemID: l.SalesOrderLineItemID,
+		StockMovementID: l.StockMovementID, CreatedAt: l.CreatedAt,
+	}
+	if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
+		return fmt.Errorf("salesOrderLineItemStockMovementRepo.Create: %w", err)
+	}
+	l.ID = m.ID
+	return nil
 }

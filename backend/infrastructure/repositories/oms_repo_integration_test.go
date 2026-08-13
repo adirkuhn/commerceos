@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -217,4 +218,145 @@ func TestSalesOrderRepo_Integration_ExternalOrderIDIsUniquePerTenantAndSource(t 
 		return salesOrderRepo.Create(ctx, &dup)
 	})
 	require.Error(t, err, "DB unique constraint (tenant_id, source, external_order_id) must reject this")
+}
+
+func TestSalesOrderRepo_Integration_Update(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var orderID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
+			ExternalOrderID: "manual-order-update-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			Status: omsDomain.SalesOrderStatusPending, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, orderID, map[string]any{
+			"status": string(omsDomain.SalesOrderStatusCompleted), "stock_decremented": true,
+			"customer_note": "call before delivery",
+		})
+	})
+	require.NoError(t, err)
+
+	var updated *omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		updated, err = salesOrderRepo.FindByID(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, omsDomain.SalesOrderStatusCompleted, updated.Status)
+	require.True(t, updated.StockDecremented)
+	require.Equal(t, "call before delivery", updated.CustomerNote)
+}
+
+func TestSalesOrderRepo_Integration_UpdateReturnsNotFoundForAMissingOrder(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, "00000000-0000-0000-0000-000000000000", map[string]any{"customer_note": "x"})
+	})
+	require.ErrorIs(t, err, omsDomain.ErrSalesOrderNotFound)
+}
+
+func TestSalesOrderRepo_Integration_DeleteCascadesLineItems(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	var orderID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
+			ExternalOrderID: "manual-order-delete-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+		line := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: skuID,
+			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &line)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := lineItemRepo.DeleteBySalesOrder(ctx, orderID); err != nil {
+			return err
+		}
+		return salesOrderRepo.Delete(ctx, orderID)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := salesOrderRepo.FindByID(ctx, orderID)
+		return err
+	})
+	require.ErrorIs(t, err, omsDomain.ErrSalesOrderNotFound)
+}
+
+func TestSalesOrderLineItemStockMovementRepo_Integration_Create(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
+
+	var lineItemID, movementID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
+			ExternalOrderID: "manual-order-link-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		line := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
+			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
+		}
+		if err := lineItemRepo.Create(ctx, &line); err != nil {
+			return err
+		}
+		lineItemID = line.ID
+
+		movement := invDomain.StockMovement{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID,
+			Type: invDomain.MovementTypeSale, QuantityDelta: -1, OccurredAt: now, CreatedAt: now,
+		}
+		if err := movementRepo.Create(ctx, &movement); err != nil {
+			return err
+		}
+		movementID = movement.ID
+
+		return linkRepo.Create(ctx, &omsDomain.SalesOrderLineItemStockMovement{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderLineItemID: lineItemID,
+			StockMovementID: movementID, CreatedAt: now,
+		})
+	})
+	require.NoError(t, err)
 }
