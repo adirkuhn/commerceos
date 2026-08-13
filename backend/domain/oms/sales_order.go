@@ -12,9 +12,49 @@ const (
 	SalesOrderSourcePOS SalesOrderSource = "pos"
 )
 
-// SalesOrder is a completed in-store sale, pushed in from an external
-// source (today: a POS desktop, see application/pos and
-// application/oms.ReceivePOSSalesOrderUseCase). Idempotent on
+// SalesOrderStatus mirrors WooCommerce's order status set exactly (same
+// values, same meaning) -- lets a synced/mirrored order round-trip status
+// without a translation table.
+type SalesOrderStatus string
+
+const (
+	SalesOrderStatusPending    SalesOrderStatus = "pending"
+	SalesOrderStatusProcessing SalesOrderStatus = "processing"
+	SalesOrderStatusOnHold     SalesOrderStatus = "on-hold"
+	SalesOrderStatusCompleted  SalesOrderStatus = "completed"
+	SalesOrderStatusCancelled  SalesOrderStatus = "cancelled"
+	SalesOrderStatusRefunded   SalesOrderStatus = "refunded"
+	SalesOrderStatusFailed     SalesOrderStatus = "failed"
+)
+
+// Address mirrors WooCommerce's billing/shipping address object exactly
+// (same field names/shape) -- a SalesOrder snapshots the customer's address
+// as of the sale (Woo does the same: an order's billing/shipping is a copy,
+// not a live reference to the Customer), which is why this is embedded
+// twice on SalesOrder rather than resolved through CustomerID. Duplicated
+// in domain/customers rather than imported -- domain packages never import
+// each other in this codebase.
+type Address struct {
+	FirstName string
+	LastName  string
+	Company   string
+	Address1  string
+	Address2  string
+	City      string
+	State     string
+	Postcode  string
+	Country   string
+	// Email is only meaningful on Billing -- Woo's shipping address has no
+	// email field either.
+	Email string
+	Phone string
+}
+
+// SalesOrder is a completed sale, pushed in from an external source
+// (today: a POS desktop, see application/pos and
+// application/oms.ReceivePOSSalesOrderUseCase) or eventually synced from a
+// channel like WooCommerce -- field set mirrors WooCommerce's order object
+// so either source round-trips cleanly. Idempotent on
 // (TenantID, Source, ExternalOrderID) -- the source's own retry of an
 // already-received sale is a no-op, not a duplicate.
 type SalesOrder struct {
@@ -24,24 +64,62 @@ type SalesOrder struct {
 	// ExternalOrderID is the source system's own reference for this sale --
 	// what makes retries idempotent.
 	ExternalOrderID string
-	WarehouseID     string
-	CurrencyCode    string
-	TotalMinorUnits int64
-	OccurredAt      time.Time
-	CreatedAt       time.Time
+	// WooOrderID is set once this order is known to WooCommerce (synced
+	// from Woo, or pushed there) -- nil for a sale that only exists in
+	// CommerceOS (e.g. straight from POS, never touched Woo).
+	WooOrderID *int64
+	// Number is the human-facing order number (Woo distinguishes this from
+	// ID -- number can be customized, ID can't).
+	Number   string
+	OrderKey string
+	Status   SalesOrderStatus
+
+	WarehouseID string
+	// CustomerID is nil for a guest/walk-in sale -- most POS sales have no
+	// linked customer record.
+	CustomerID   *string
+	Billing      Address
+	Shipping     Address
+	CustomerNote string
+
+	CurrencyCode            string
+	DiscountTotalMinorUnits int64
+	ShippingTotalMinorUnits int64
+	TaxTotalMinorUnits      int64
+	TotalMinorUnits         int64
+
+	PaymentMethod      string
+	PaymentMethodTitle string
+	TransactionID      string
+	DatePaid           *time.Time
+	DateCompleted      *time.Time
+
+	OccurredAt time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // SalesOrderLineItem is one SKU sold within a SalesOrder. Unlike
 // procurement.PurchaseOrderLineItem, SKUID is required (not nullable) --
 // the POS resolves a barcode to a real SKU client-side before pushing the
 // sale (see pms.ResolveBarcodeUseCase), so there's no "unlinked line" case
-// to represent here.
+// to represent here. Name/SKUCode are snapshotted at sale time (same as
+// Woo's line_items.name/sku) so the line still reads correctly even if the
+// product is later renamed or the SKU deleted.
 type SalesOrderLineItem struct {
-	ID                  string
-	TenantID            string
-	SalesOrderID        string
-	SKUID               string
-	Quantity            int64
-	UnitPriceMinorUnits int64
-	CreatedAt           time.Time
+	ID           string
+	TenantID     string
+	SalesOrderID string
+	SKUID        string
+	Name         string
+	SKUCode      string
+	Quantity     int64
+
+	PriceMinorUnits       int64 // per-unit price, Woo's line_items.price
+	SubtotalMinorUnits    int64 // pre-discount, Woo's line_items.subtotal
+	SubtotalTaxMinorUnits int64
+	TotalMinorUnits       int64 // post-discount, Woo's line_items.total
+	TotalTaxMinorUnits    int64
+
+	CreatedAt time.Time
 }
