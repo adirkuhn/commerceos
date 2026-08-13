@@ -43,6 +43,12 @@ const product: Product = {
 const sku = {
   id: 'sku-1', tenant_id: 't1', variant_id: 'var-1', sku_code: 'WIDGET-1',
   barcode: '', price_minor_units: 1000, currency_code: 'USD', is_virtual: false,
+  // Non-default sentinel -- the price-edit regression test proves this
+  // round-trips through an update instead of getting silently reset, since
+  // UpdateSKU is a full replace, not a patch. (Deliberately not unit_type:
+  // 'kilo' here -- that would also change how other tests in this file
+  // render quantity, since they share this fixture.)
+  tracks_expiry: true,
   status: 'active' as const, created_at: '', updated_at: '',
 }
 
@@ -266,6 +272,9 @@ describe('Inventory page', () => {
     await waitFor(() => {
       expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
         price_minor_units: 1200, sale_price_minor_units: 900, currency_code: 'USD', status: 'active',
+        // A field the price sheet itself never edits -- must still
+        // round-trip unchanged, not silently reset to its zero-value default.
+        tracks_expiry: true,
       }))
     })
     await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledTimes(2))

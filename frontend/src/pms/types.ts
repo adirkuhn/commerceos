@@ -56,6 +56,13 @@ export interface SKU {
   width_mm?: number | null
   height_mm?: number | null
   is_virtual: boolean
+  // Whether this SKU's inventory batches carry a meaningful expiry date --
+  // advisory only. Always present on a real API response (backend requires
+  // it); optional here only so hand-written test fixtures that don't care
+  // about it don't all need updating. When updating a SKU, always pass this
+  // through from the loaded value -- UpdateSKU is a full replace, so
+  // omitting it silently resets it to false.
+  tracks_expiry?: boolean
   // Both null unless this SKU is a sealed case/box of another SKU -- set
   // together or not at all. See the inventory module's split-case action
   // for converting case stock into unit stock.
@@ -139,6 +146,7 @@ export interface CreateSKUPayload {
   width_mm?: number | null
   height_mm?: number | null
   is_virtual?: boolean
+  tracks_expiry?: boolean
   case_of_sku_id?: string | null
   units_per_case?: number | null
   unit_type?: SKUUnitType
@@ -157,6 +165,7 @@ export interface UpdateSKUPayload {
   width_mm?: number | null
   height_mm?: number | null
   is_virtual?: boolean
+  tracks_expiry?: boolean
   case_of_sku_id?: string | null
   units_per_case?: number | null
   unit_type?: SKUUnitType

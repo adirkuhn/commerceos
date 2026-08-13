@@ -736,6 +736,9 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleSavePrice = async (price: string, salePrice: string, saleEndDate: string) => {
+    // Full round-trip of every SKU field, not just price -- UpdateSKU is a
+    // full replace, not a patch, so omitting a field (tracks_expiry,
+    // case_of_sku_id, unit_type, ...) would silently wipe it.
     await pmsApi.updateSKU(token, sku.id, {
       barcode: sku.barcode ?? undefined,
       price_minor_units: parsePriceToMinorUnits(price),
@@ -747,6 +750,11 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
       width_mm: sku.width_mm,
       height_mm: sku.height_mm,
       is_virtual: sku.is_virtual,
+      tracks_expiry: sku.tracks_expiry,
+      case_of_sku_id: sku.case_of_sku_id,
+      units_per_case: sku.units_per_case,
+      unit_type: sku.unit_type,
+      portioned_from_sku_id: sku.portioned_from_sku_id,
       status: sku.status,
     })
     onSKUUpdated()

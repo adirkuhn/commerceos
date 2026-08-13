@@ -8,6 +8,7 @@ import type { Batch, StockLevel, Warehouse } from '../../inventory/types'
 
 vi.mock('../../pms/api', () => ({
   resolveBarcode: vi.fn(),
+  updateSKU: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -17,6 +18,7 @@ vi.mock('../../inventory/api', () => ({
   recordStockMovement: vi.fn(),
   transferStock: vi.fn(),
   markDamagedOrLost: vi.fn(),
+  createBatch: vi.fn(),
 }))
 
 const mockDecodeFromVideoDevice = vi.fn()
@@ -58,6 +60,10 @@ function batch(overrides: Partial<Batch> = {}): Batch {
   }
 }
 
+function generalLedgerRow(overrides: Partial<Batch> = {}): Batch {
+  return batch({ id: 'gl-wh-1', lot_number: '', is_general_ledger: true, quantity: 20, ...overrides })
+}
+
 function stockLevel(overrides: Partial<StockLevel> = {}): StockLevel {
   return { sku_id: 'sku-1', total: 10, syncable: 10, ...overrides }
 }
@@ -68,10 +74,10 @@ beforeEach(() => {
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
 })
 
-async function resolveAndEnterSKU(matchedSKU = sku()) {
+async function resolveAndEnterSKU(matchedSKU = sku(), batches: Batch[] = [batch()]) {
   vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: matchedSKU, units_per_scan: 1 })
   vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
-  vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
+  vi.mocked(inventoryApi.listBatches).mockResolvedValue(batches)
 
   render(<InventoryApp token={TOKEN} onExit={() => {}} />)
   await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
@@ -121,55 +127,164 @@ describe('InventoryApp SKU screen', () => {
     expect(screen.getByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
   })
 
-  it('Adjust records a stock movement with the entered quantity and reason', async () => {
+  it('tapping a batch row opens the action sheet scoped to that row', async () => {
+    await resolveAndEnterSKU(sku(), [batch(), generalLedgerRow()])
+
+    await userEvent.click(screen.getByText('LOT-1'))
+
+    expect(screen.getAllByText('LOT-1').length).toBeGreaterThan(1) // row label + sheet header
+    expect(screen.getByRole('button', { name: /Adjust/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Move/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Damaged.*Lost/ })).toBeInTheDocument()
+  })
+
+  it('Adjust records a stock movement scoped to the tapped batch, with the entered quantity and reason', async () => {
     vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
-      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'adjustment',
+      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'adjustment',
       quantity_delta: 5, reason: 'recount', occurred_at: '', created_at: '',
     })
-    await resolveAndEnterSKU()
+    await resolveAndEnterSKU(sku(), [batch(), generalLedgerRow()])
 
+    await userEvent.click(screen.getByText('LOT-1'))
     await userEvent.click(screen.getByRole('button', { name: /Adjust/ }))
     await userEvent.type(screen.getByLabelText('Quantity change'), '5')
     await userEvent.type(screen.getByLabelText('Reason'), 'recount')
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm adjustment' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
-      warehouse_id: 'wh-1', type: 'adjustment', quantity_delta: 5, reason: 'recount',
+      warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'adjustment', quantity_delta: 5, reason: 'recount',
     })))
   })
 
-  it('Move transfers stock to a different warehouse', async () => {
+  it('Adjust on the general ledger row is scoped with batch_id null, not the first real batch', async () => {
+    vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
+      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'adjustment',
+      quantity_delta: 3, reason: '', occurred_at: '', created_at: '',
+    })
+    await resolveAndEnterSKU(sku(), [batch(), generalLedgerRow()])
+
+    await userEvent.click(screen.getByText('General ledger'))
+    await userEvent.click(screen.getByRole('button', { name: /Adjust/ }))
+    await userEvent.type(screen.getByLabelText('Quantity change'), '3')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      warehouse_id: 'wh-1', batch_id: null, quantity_delta: 3,
+    })))
+  })
+
+  it('Move transfers stock from the tapped batch to a different warehouse', async () => {
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse(), warehouse({ id: 'wh-2', name: 'Overflow' })])
     vi.mocked(inventoryApi.transferStock).mockResolvedValue({
       out: { id: 'm1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'transfer_out', quantity_delta: -3, reason: '', occurred_at: '', created_at: '' },
       in: { id: 'm2', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-2', type: 'transfer_in', quantity_delta: 3, reason: '', occurred_at: '', created_at: '' },
     })
-    await resolveAndEnterSKU()
+    await resolveAndEnterSKU(sku(), [batch()])
 
+    await userEvent.click(screen.getByText('LOT-1'))
     await userEvent.click(screen.getByRole('button', { name: /Move/ }))
     await userEvent.selectOptions(screen.getByLabelText('To warehouse'), 'wh-2')
     await userEvent.type(screen.getByLabelText('Quantity to move'), '3')
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm move' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.transferStock).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
-      from_warehouse_id: 'wh-1', to_warehouse_id: 'wh-2', quantity: 3,
+      from_warehouse_id: 'wh-1', from_batch_id: 'batch-1', to_warehouse_id: 'wh-2', to_batch_id: null, quantity: 3,
     })))
   })
 
-  it('Damaged/Lost records a loss movement', async () => {
+  it('Move can target an existing batch as the destination', async () => {
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.transferStock).mockResolvedValue({
+      out: { id: 'm1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'transfer_out', quantity_delta: -2, reason: '', occurred_at: '', created_at: '' },
+      in: { id: 'm2', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-2', type: 'transfer_in', quantity_delta: 2, reason: '', occurred_at: '', created_at: '' },
+    })
+    await resolveAndEnterSKU(sku(), [batch(), batch({ id: 'batch-2', lot_number: 'LOT-2', warehouse_id: 'wh-1' })])
+
+    await userEvent.click(screen.getByText('LOT-1'))
+    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
+    // "LOT-2" appears both as the underlying row (still rendered behind the
+    // sheet) and as the sheet's own destination-batch option -- the sheet's
+    // is the one that renders last in DOM order.
+    const lot2Options = screen.getAllByText('LOT-2')
+    await userEvent.click(lot2Options[lot2Options.length - 1])
+    await userEvent.type(screen.getByLabelText('Quantity to move'), '2')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.transferStock).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      from_batch_id: 'batch-1', to_warehouse_id: 'wh-1', to_batch_id: 'batch-2', quantity: 2,
+    })))
+  })
+
+  it('Move to "+ New batch" creates the batch first, then transfers into it', async () => {
+    vi.mocked(inventoryApi.createBatch).mockResolvedValue(batch({ id: 'batch-new', lot_number: 'LOT-NEW' }))
+    vi.mocked(inventoryApi.transferStock).mockResolvedValue({
+      out: { id: 'm1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'transfer_out', quantity_delta: -4, reason: '', occurred_at: '', created_at: '' },
+      in: { id: 'm2', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-new', type: 'transfer_in', quantity_delta: 4, reason: '', occurred_at: '', created_at: '' },
+    })
+    await resolveAndEnterSKU(sku(), [generalLedgerRow()])
+
+    await userEvent.click(screen.getByText('General ledger'))
+    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
+    await userEvent.click(screen.getByText('+ New batch'))
+    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(screen.getByLabelText('Quantity to move'), '4')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.createBatch).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      warehouse_id: 'wh-1', lot_number: 'LOT-NEW',
+    })))
+    await waitFor(() => expect(inventoryApi.transferStock).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      from_warehouse_id: 'wh-1', from_batch_id: null, to_warehouse_id: 'wh-1', to_batch_id: 'batch-new', quantity: 4,
+    })))
+  })
+
+  it('Damaged/Lost records a loss movement scoped to the tapped batch', async () => {
     vi.mocked(inventoryApi.markDamagedOrLost).mockResolvedValue({
-      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'damaged',
+      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'damaged',
       quantity_delta: -2, reason: 'dropped', occurred_at: '', created_at: '',
     })
-    await resolveAndEnterSKU()
+    await resolveAndEnterSKU(sku(), [batch()])
 
+    await userEvent.click(screen.getByText('LOT-1'))
     await userEvent.click(screen.getByRole('button', { name: /Damaged.*Lost/ }))
     await userEvent.type(screen.getByLabelText('Quantity'), '2')
     await userEvent.type(screen.getByLabelText('Reason'), 'dropped')
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(inventoryApi.markDamagedOrLost).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
-      warehouse_id: 'wh-1', quantity: 2, type: 'damaged', reason: 'dropped',
+      warehouse_id: 'wh-1', batch_id: 'batch-1', quantity: 2, type: 'damaged', reason: 'dropped',
     })))
+  })
+
+  it('Price edits the SKU price, round-tripping every other field so nothing gets silently wiped', async () => {
+    const mySKU = sku({
+      barcode: '012345', price_minor_units: 1999, currency_code: 'USD',
+      weight_grams: 500, is_virtual: false, tracks_expiry: true, unit_type: 'unit', status: 'active',
+    })
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue({ ...mySKU, price_minor_units: 2499 })
+    await resolveAndEnterSKU(mySKU, [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: /Price/ }))
+    await userEvent.clear(screen.getByLabelText(/Regular price/))
+    await userEvent.type(screen.getByLabelText(/Regular price/), '24.99')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      barcode: '012345', price_minor_units: 2499, currency_code: 'USD',
+      // Fields the price sheet itself never edits -- must still round-trip
+      // unchanged, not silently reset to their zero-value default.
+      weight_grams: 500, is_virtual: false, tracks_expiry: true, unit_type: 'unit', status: 'active',
+    })))
+  })
+
+  it('Price shows an error and keeps the sheet open on failure', async () => {
+    vi.mocked(pmsApi.updateSKU).mockRejectedValue(new Error('price update failed'))
+    await resolveAndEnterSKU(sku(), [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: /Price/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('price update failed')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })
 })
