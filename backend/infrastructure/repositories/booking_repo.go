@@ -39,6 +39,7 @@ type bookingScanModel struct {
 	Reason           string
 	ScannedAt        time.Time
 	ScannedBy        string
+	ReplayedAt       *time.Time
 }
 
 func (bookingScanModel) TableName() string { return "booking_scans" }
@@ -175,8 +176,20 @@ func (r *BookingScanRepo) ListByBooking(ctx context.Context, bookingID string) (
 			ID: m.ID, TenantID: m.TenantID, BookingID: m.BookingID, SKUID: m.SKUID, BatchID: m.BatchID,
 			LotNumber: m.LotNumber, ExpiryDate: m.ExpiryDate, ActionType: procurementDomain.BookingScanActionType(m.ActionType),
 			Quantity: m.Quantity, WriteOffQuantity: m.WriteOffQuantity, Reason: m.Reason,
-			ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy,
+			ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
 		}
 	}
 	return scans, nil
+}
+
+func (r *BookingScanRepo) MarkReplayed(ctx context.Context, id string, replayedAt time.Time, batchID *string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&bookingScanModel{}).Where("id = ?", id).
+		Updates(map[string]interface{}{"replayed_at": replayedAt, "batch_id": batchID}).Error; err != nil {
+		return fmt.Errorf("bookingScanRepo.MarkReplayed: %w", err)
+	}
+	return nil
 }

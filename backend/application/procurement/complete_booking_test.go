@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
@@ -18,7 +19,7 @@ func completableBookingFixtures() (*stubBookingRepo, *stubPurchaseOrderRepo) {
 }
 
 func TestCompleteBooking_replaysAStagedReceiveIntoRealStock(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 row) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
@@ -38,13 +39,15 @@ func TestCompleteBooking_replaysAStagedReceiveIntoRealStock(t *testing.T) {
 	assert.Equal(t, int64(10), receiveStock.calls[0].Quantity)
 	assert.Empty(t, adjustment.calls)
 	assert.Empty(t, writeOff.calls)
+	require.Len(t, scanRepo.markReplayed, 1, "the applied row must be marked replayed so a retried Finish won't re-apply it")
+	assert.Equal(t, "scan-1", scanRepo.markReplayed[0].scanID)
 	assert.Empty(t, result.MissingItems)
 	assert.Equal(t, procurementDomain.BookingStatusCompleted, result.Booking.Status)
 	assert.Equal(t, "user-1", result.Booking.CompletedBy)
 }
 
 func TestCompleteBooking_replaysAStagedCorrectionAsANegativeAdjustment(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
 	batchID := "batch-1"
@@ -71,7 +74,7 @@ func TestCompleteBooking_replaysAStagedCorrectionAsANegativeAdjustment(t *testin
 }
 
 func TestCompleteBooking_replaysADamagedWriteOffWithoutReducingReceivedProgress(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
 	batchID := "batch-1"
@@ -98,7 +101,7 @@ func TestCompleteBooking_replaysADamagedWriteOffWithoutReducingReceivedProgress(
 }
 
 func TestCompleteBooking_replaysALostWriteOff(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
 	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
@@ -116,7 +119,7 @@ func TestCompleteBooking_replaysALostWriteOff(t *testing.T) {
 }
 
 func TestCompleteBooking_resolvesAPendingBatchAcrossLaterRowsByLotNumber(t *testing.T) {
-	db := newMockGormDBN(t, 3)
+	db := newMockGormDBN(t, 5) // read + mark-replayed(3 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 20, LineType: procurementDomain.LineItemTypeProduct}}}
 	// Two receive rows into the same not-yet-real "LOT-NEW" batch, then a
@@ -161,8 +164,63 @@ func TestCompleteBooking_rejectsACorrectionWhoseLotWasNeverStaged(t *testing.T) 
 	assert.ErrorIs(t, err, procurementDomain.ErrPendingBatchNotFound)
 }
 
+func TestCompleteBooking_skipsARowAlreadyReplayedByAnEarlierFinishAttempt(t *testing.T) {
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 unreplayed row) + mark-completed
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	replayedAt := time.Now().Add(-time.Hour)
+	batchID := "batch-1"
+	// scan-1 already applied by a prior (crashed-before-completing) Finish
+	// attempt -- receiveStock must NOT be called for it again. scan-2 is
+	// still unreplayed and must go through as normal.
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 5, BatchID: &batchID, ReplayedAt: &replayedAt},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionCorrection, Quantity: -1, BatchID: &batchID, Reason: "counted wrong"},
+	}}
+	receiveStock := &stubReceiveStockForBooking{}
+	adjustment := &stubRecordAdjustmentForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{})
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, receiveStock.calls, "already-replayed receive must not be re-applied")
+	require.Len(t, adjustment.calls, 1, "the not-yet-replayed correction must still be applied")
+	require.Len(t, scanRepo.markReplayed, 1, "only the newly-applied row gets marked -- the already-replayed one is untouched")
+	assert.Equal(t, "scan-2", scanRepo.markReplayed[0].scanID)
+	assert.Equal(t, procurementDomain.BookingStatusCompleted, result.Booking.Status)
+}
+
+func TestCompleteBooking_resolvesAPendingBatchFromAnAlreadyReplayedRow(t *testing.T) {
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 unreplayed row) + mark-completed
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	replayedAt := time.Now().Add(-time.Hour)
+	realBatchID := "real-batch-77"
+	// scan-1 already replayed and, since it created the lot, already has its
+	// resolved real BatchID persisted. scan-2 is a not-yet-replayed
+	// correction still referencing the lot by name (it was staged before
+	// scan-1 became real) -- it must resolve to scan-1's real batch without
+	// calling receiveStock again.
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10, LotNumber: "LOT-X", BatchID: &realBatchID, ReplayedAt: &replayedAt},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionCorrection, Quantity: -2, LotNumber: "LOT-X", Reason: "counted wrong"},
+	}}
+	receiveStock := &stubReceiveStockForBooking{}
+	adjustment := &stubRecordAdjustmentForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, adjustment, &stubMarkDamagedOrLostForBooking{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, receiveStock.calls)
+	require.Len(t, adjustment.calls, 1)
+	require.NotNil(t, adjustment.calls[0].BatchID)
+	assert.Equal(t, realBatchID, *adjustment.calls[0].BatchID)
+}
+
 func TestCompleteBooking_excludesNonProductLinesFromMissingItems(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 row) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	skuID := "sku-1"
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
@@ -182,7 +240,7 @@ func TestCompleteBooking_excludesNonProductLinesFromMissingItems(t *testing.T) {
 }
 
 func TestCompleteBooking_scalesExpectedQtyByUnitsPerPurchasedItem(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 row) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
 	skuID := "sku-unit-1"
 	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{

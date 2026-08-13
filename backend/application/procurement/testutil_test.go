@@ -620,10 +620,18 @@ func (s *stubBookingRepo) Update(_ context.Context, b *procurementDomain.Booking
 	return nil
 }
 
+type markReplayedCall struct {
+	scanID     string
+	replayedAt time.Time
+	batchID    *string
+}
+
 type stubBookingScanRepo struct {
-	byBooking []procurementDomain.BookingScan
-	createErr error
-	created   []procurementDomain.BookingScan
+	byBooking       []procurementDomain.BookingScan
+	createErr       error
+	created         []procurementDomain.BookingScan
+	markReplayedErr error
+	markReplayed    []markReplayedCall
 }
 
 func (s *stubBookingScanRepo) Create(_ context.Context, sc *procurementDomain.BookingScan) error {
@@ -636,6 +644,13 @@ func (s *stubBookingScanRepo) Create(_ context.Context, sc *procurementDomain.Bo
 }
 func (s *stubBookingScanRepo) ListByBooking(_ context.Context, _ string) ([]procurementDomain.BookingScan, error) {
 	return s.byBooking, nil
+}
+func (s *stubBookingScanRepo) MarkReplayed(_ context.Context, id string, replayedAt time.Time, batchID *string) error {
+	if s.markReplayedErr != nil {
+		return s.markReplayedErr
+	}
+	s.markReplayed = append(s.markReplayed, markReplayedCall{scanID: id, replayedAt: replayedAt, batchID: batchID})
+	return nil
 }
 
 type stubBarcodeAliasRepo struct {

@@ -64,13 +64,15 @@ type pendingBatchKey struct{ skuID, lotNumber string }
 // each opening its own transaction (tenant.WithTenant must never nest, so a
 // use case composing several others' Execute calls can't wrap them in one
 // transaction -- same reasoning as ScanBookingItemUseCase used to document
-// for its old two-phase receive+audit shape). Worst case on a mid-replay
-// crash is a booking with some rows applied and some not, still in_progress
-// -- re-running Finish will re-attempt every row from the start, since
-// nothing here marks individual scans as "already replayed" (replay is
-// idempotent-ish in that a receive just adds another receipt movement, but
-// this IS a real gap for a rare failure mode, accepted for the same reason
-// the rest of this codebase accepts it elsewhere).
+// for its old two-phase receive+audit shape). Immediately after a row's
+// effect succeeds, its ReplayedAt (and resolved BatchID) is persisted in a
+// separate transaction -- so a row is skipped, not re-applied, on any later
+// replay of this booking. Worst case on a crash is now scoped to the single
+// row that was mid-flight (its own inventory effect committed but the
+// ReplayedAt write didn't land, so a retry re-applies just that one row) --
+// far smaller than double-applying the whole booking, and the same category
+// of accepted gap as elsewhere in this codebase where composing use cases
+// can't share one transaction.
 type CompleteBookingUseCase struct {
 	db                *gorm.DB
 	bookingRepo       procurementDomain.BookingRepository
@@ -178,6 +180,16 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 	}
 
 	for _, s := range scans {
+		// Already applied by an earlier Finish attempt on this booking --
+		// skip re-applying it, but still let a later row resolve against
+		// the real batch this one already created.
+		if s.ReplayedAt != nil {
+			if s.BatchID != nil && s.LotNumber != "" {
+				pending[pendingBatchKey{s.SKUID, s.LotNumber}] = *s.BatchID
+			}
+			continue
+		}
+
 		batchID, err := resolveBatchID(s)
 		if err != nil {
 			return err
@@ -192,8 +204,14 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 			if err != nil {
 				return err
 			}
-			if receipt.Batch != nil && s.LotNumber != "" {
-				pending[pendingBatchKey{s.SKUID, s.LotNumber}] = receipt.Batch.ID
+			if receipt.Batch != nil {
+				batchID = &receipt.Batch.ID
+				if s.LotNumber != "" {
+					pending[pendingBatchKey{s.SKUID, s.LotNumber}] = receipt.Batch.ID
+				}
+			}
+			if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
+				return err
 			}
 
 		case procurementDomain.BookingScanActionCorrection:
@@ -205,6 +223,9 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 				SKUID: s.SKUID, WarehouseID: warehouseID, BatchID: batchID, Type: invDomain.MovementTypeAdjustment,
 				QuantityDelta: s.Quantity, Reason: reason, OccurredAt: s.ScannedAt,
 			}); err != nil {
+				return err
+			}
+			if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
 				return err
 			}
 
@@ -223,9 +244,22 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 			}); err != nil {
 				return err
 			}
+			if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+// markReplayed persists that a row's inventory effect already committed --
+// its own transaction, separate from the effect itself (tenant.WithTenant
+// must never nest), so this is the one small window a crash can still land
+// in: see replay's doc comment.
+func (uc *CompleteBookingUseCase) markReplayed(ctx context.Context, scanID string, batchID *string) error {
+	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return uc.scanRepo.MarkReplayed(ctx, scanID, time.Now(), batchID)
+	})
 }
 
 func missingBookingItems(lineItems []procurementDomain.PurchaseOrderLineItem, scans []procurementDomain.BookingScan) []MissingBookingItem {

@@ -131,4 +131,10 @@ type BookingRepository interface {
 type BookingScanRepository interface {
 	Create(ctx context.Context, s *BookingScan) error
 	ListByBooking(ctx context.Context, bookingID string) ([]BookingScan, error)
+	// MarkReplayed records that CompleteBookingUseCase's replay applied
+	// this row to real inventory -- batchID is the row's resolved real
+	// batch (nil for general ledger), persisted alongside so a skipped
+	// re-replay of this row can still resolve a LATER row's reference to
+	// the same not-yet-real lot without recomputing anything.
+	MarkReplayed(ctx context.Context, id string, replayedAt time.Time, batchID *string) error
 }

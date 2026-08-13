@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -151,4 +152,72 @@ func TestBookingScanRepo_Integration_CreateAndList(t *testing.T) {
 	require.Len(t, scans, 1)
 	require.Equal(t, int64(5), scans[0].Quantity)
 	require.Equal(t, skuID, scans[0].SKUID)
+	require.Nil(t, scans[0].ReplayedAt, "a freshly-staged scan is not replayed yet")
+}
+
+func TestBookingScanRepo_Integration_MarkReplayed(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	bookingRepo := repositories.NewBookingRepo(db)
+	scanRepo := repositories.NewBookingScanRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	poID := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+
+	var bookingID, scanID, realBatchID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		booking := procurementDomain.Booking{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID,
+			Status: procurementDomain.BookingStatusInProgress, StartedAt: time.Now(),
+		}
+		if err := bookingRepo.Create(ctx, &booking); err != nil {
+			return err
+		}
+		bookingID = booking.ID
+
+		// LotNumber set, no BatchID -- this row's own receive is what
+		// creates the batch at replay time (see BookingScan's doc comment).
+		scan := procurementDomain.BookingScan{
+			TenantID: tenant.IDFromContext(ctx), BookingID: bookingID, SKUID: skuID,
+			ActionType: procurementDomain.BookingScanActionReceive, Quantity: 5, LotNumber: "LOT-INT-1",
+			ScannedAt: time.Now(), ScannedBy: "user-1",
+		}
+		if err := scanRepo.Create(ctx, &scan); err != nil {
+			return err
+		}
+		scanID = scan.ID
+
+		// The real batch replay would have created for this row -- MarkReplayed
+		// must satisfy booking_scans_batch_id_fkey, same as the real path.
+		now := time.Now()
+		batch := invDomain.Batch{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID,
+			LotNumber: "LOT-INT-1", ReceivedAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := batchRepo.Create(ctx, &batch); err != nil {
+			return err
+		}
+		realBatchID = batch.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	replayedAt := time.Now().Truncate(time.Microsecond)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return scanRepo.MarkReplayed(ctx, scanID, replayedAt, &realBatchID)
+	})
+	require.NoError(t, err)
+
+	var scans []procurementDomain.BookingScan
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		scans, err = scanRepo.ListByBooking(ctx, bookingID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, scans, 1)
+	require.NotNil(t, scans[0].ReplayedAt, "MarkReplayed must persist -- a retried Finish needs this to skip the row")
+	require.WithinDuration(t, replayedAt, *scans[0].ReplayedAt, time.Second)
+	require.NotNil(t, scans[0].BatchID, "MarkReplayed also resolves the not-yet-real batch to its real id")
+	require.Equal(t, realBatchID, *scans[0].BatchID)
 }

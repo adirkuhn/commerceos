@@ -79,4 +79,10 @@ type BookingScan struct {
 	Reason    string
 	ScannedAt time.Time
 	ScannedBy string
+	// ReplayedAt is nil until CompleteBookingUseCase's replay actually
+	// applies this row to real inventory, then set once and never cleared.
+	// Lets a retried Finish (e.g. after a crash between replaying scans and
+	// marking the booking completed) skip rows already applied instead of
+	// double-applying them -- see CompleteBookingUseCase's doc comment.
+	ReplayedAt *time.Time
 }
