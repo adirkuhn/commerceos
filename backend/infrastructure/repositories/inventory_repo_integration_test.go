@@ -129,6 +129,33 @@ func TestBatchRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 	require.ErrorIs(t, err, invDomain.ErrBatchNotFound)
 }
 
+func TestBatchRepo_Integration_ListBySKUs(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	batchRepo := repositories.NewBatchRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		b := invDomain.Batch{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID,
+			LotNumber: "LOT-BULK-1", ReceivedAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		return batchRepo.Create(ctx, &b)
+	})
+	require.NoError(t, err)
+
+	var found []invDomain.Batch
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = batchRepo.ListBySKUs(ctx, []string{skuID, "00000000-0000-0000-0000-000000000000"})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+	require.Equal(t, "LOT-BULK-1", found[0].LotNumber)
+}
+
 func TestBatchRepo_Integration_FindByIDNotFound(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
@@ -232,6 +259,61 @@ func TestStockMovementRepo_Integration_CreateAndList(t *testing.T) {
 	require.Len(t, bySKU, 2, "both the lotted and un-lotted movement")
 	require.Len(t, byBatch, 1, "only the movement referencing this batch")
 	require.Equal(t, int64(10), byBatch[0].QuantityDelta)
+}
+
+// TestStockMovementRepo_Integration_ListDistinctSKUIDsAndBulkFetch proves
+// the bulk queries application/inventory.ListStockLevelsUseCase relies on
+// (incremental-sync support for external integrations like a POS desktop)
+// against real Postgres: changed_since actually filters on created_at, and
+// the bulk ListBySKUs/BatchRepo.ListBySKUs fetch the right rows.
+func TestStockMovementRepo_Integration_ListDistinctSKUIDsAndBulkFetch(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	movementRepo := repositories.NewStockMovementRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		m := invDomain.StockMovement{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID,
+			Type: invDomain.MovementTypeReceipt, QuantityDelta: 10, OccurredAt: time.Now(), CreatedAt: time.Now(),
+		}
+		return movementRepo.Create(ctx, &m)
+	})
+	require.NoError(t, err)
+
+	cutoffAfter := time.Now()
+
+	var idsNoFilter, idsChangedAfter, idsNothingSince []string
+	var totalNoFilter, totalChangedAfter, totalNothingSince int64
+	var bulkMovements []invDomain.StockMovement
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		idsNoFilter, totalNoFilter, err = movementRepo.ListDistinctSKUIDs(ctx, nil, 50, 0)
+		if err != nil {
+			return err
+		}
+		before := time.Now().Add(-time.Hour)
+		idsChangedAfter, totalChangedAfter, err = movementRepo.ListDistinctSKUIDs(ctx, &before, 50, 0)
+		if err != nil {
+			return err
+		}
+		idsNothingSince, totalNothingSince, err = movementRepo.ListDistinctSKUIDs(ctx, &cutoffAfter, 50, 0)
+		if err != nil {
+			return err
+		}
+		bulkMovements, err = movementRepo.ListBySKUs(ctx, []string{skuID})
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Contains(t, idsNoFilter, skuID)
+	require.Equal(t, int64(len(idsNoFilter)) >= 1, totalNoFilter >= 1)
+	require.Contains(t, idsChangedAfter, skuID, "the movement happened after 'before', so this sku counts as changed")
+	require.GreaterOrEqual(t, totalChangedAfter, int64(1))
+	require.NotContains(t, idsNothingSince, skuID, "nothing changed after cutoffAfter -- the movement is older than that")
+	require.Equal(t, int64(0), totalNothingSince)
+	require.Len(t, bulkMovements, 1)
+	require.Equal(t, skuID, bulkMovements[0].SKUID)
 }
 
 func TestStockMovementRepo_Integration_DBRejectsZeroDeltaAndBadType(t *testing.T) {

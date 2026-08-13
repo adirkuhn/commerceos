@@ -125,6 +125,9 @@ func (s *stubBatchRepo) FindByID(_ context.Context, _ string) (*invDomain.Batch,
 func (s *stubBatchRepo) ListBySKU(_ context.Context, _ string) ([]invDomain.Batch, error) {
 	return s.batches, nil
 }
+func (s *stubBatchRepo) ListBySKUs(_ context.Context, _ []string) ([]invDomain.Batch, error) {
+	return s.batches, nil
+}
 func (s *stubBatchRepo) Update(_ context.Context, _ *invDomain.Batch) error { return nil }
 func (s *stubBatchRepo) Delete(_ context.Context, id string) error {
 	if s.deleteErr != nil {
@@ -142,6 +145,13 @@ type stubStockMovementRepo struct {
 	byBatch   []invDomain.StockMovement
 	createErr error
 	created   []invDomain.StockMovement
+
+	bySKUs              []invDomain.StockMovement
+	distinctSKUIDs      []string
+	distinctSKUIDsTotal int64
+	distinctSKUIDsErr   error
+	gotChangedSince     *time.Time
+	gotLimit, gotOffset int
 }
 
 func (s *stubStockMovementRepo) Create(_ context.Context, m *invDomain.StockMovement) error {
@@ -157,6 +167,16 @@ func (s *stubStockMovementRepo) ListBySKU(_ context.Context, _ string) ([]invDom
 }
 func (s *stubStockMovementRepo) ListByBatch(_ context.Context, _ string) ([]invDomain.StockMovement, error) {
 	return s.byBatch, nil
+}
+func (s *stubStockMovementRepo) ListBySKUs(_ context.Context, _ []string) ([]invDomain.StockMovement, error) {
+	return s.bySKUs, nil
+}
+func (s *stubStockMovementRepo) ListDistinctSKUIDs(_ context.Context, changedSince *time.Time, limit, offset int) ([]string, int64, error) {
+	s.gotChangedSince, s.gotLimit, s.gotOffset = changedSince, limit, offset
+	if s.distinctSKUIDsErr != nil {
+		return nil, 0, s.distinctSKUIDsErr
+	}
+	return s.distinctSKUIDs, s.distinctSKUIDsTotal, nil
 }
 
 // stubSKURepo implements pms.SKURepository -- only FindByID is exercised
@@ -180,7 +200,7 @@ func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SK
 	return nil, nil
 }
 func (s *stubSKURepo) Update(_ context.Context, _ *pmsDomain.SKU) error { return nil }
-func (s *stubSKURepo) Delete(_ context.Context, _ string) error        { return nil }
+func (s *stubSKURepo) Delete(_ context.Context, _ string) error         { return nil }
 func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
 	return nil, nil
 }

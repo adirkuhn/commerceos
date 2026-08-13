@@ -227,6 +227,25 @@ func (r *BatchRepo) ListBySKU(ctx context.Context, skuID string) ([]invDomain.Ba
 	return out, nil
 }
 
+func (r *BatchRepo) ListBySKUs(ctx context.Context, skuIDs []string) ([]invDomain.Batch, error) {
+	if len(skuIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []batchModel
+	if err := tx.Where("sku_id IN ?", skuIDs).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("batchRepo.ListBySKUs: %w", err)
+	}
+	out := make([]invDomain.Batch, len(rows))
+	for i, row := range rows {
+		out[i] = *toBatchDomain(row)
+	}
+	return out, nil
+}
+
 func (r *BatchRepo) Update(ctx context.Context, b *invDomain.Batch) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -381,6 +400,47 @@ func (r *StockMovementRepo) ListBySKU(ctx context.Context, skuID string) ([]invD
 		out[i] = *toStockMovementDomain(row)
 	}
 	return out, nil
+}
+
+func (r *StockMovementRepo) ListBySKUs(ctx context.Context, skuIDs []string) ([]invDomain.StockMovement, error) {
+	if len(skuIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []stockMovementModel
+	if err := tx.Where("sku_id IN ?", skuIDs).Order("occurred_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("stockMovementRepo.ListBySKUs: %w", err)
+	}
+	out := make([]invDomain.StockMovement, len(rows))
+	for i, row := range rows {
+		out[i] = *toStockMovementDomain(row)
+	}
+	return out, nil
+}
+
+func (r *StockMovementRepo) ListDistinctSKUIDs(ctx context.Context, changedSince *time.Time, limit, offset int) ([]string, int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	q := tx.Model(&stockMovementModel{})
+	if changedSince != nil {
+		q = q.Where("created_at > ?", *changedSince)
+	}
+
+	var total int64
+	if err := q.Session(&gorm.Session{}).Distinct("sku_id").Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("stockMovementRepo.ListDistinctSKUIDs: count: %w", err)
+	}
+
+	var skuIDs []string
+	if err := q.Session(&gorm.Session{}).Distinct("sku_id").Order("sku_id").Limit(limit).Offset(offset).Pluck("sku_id", &skuIDs).Error; err != nil {
+		return nil, 0, fmt.Errorf("stockMovementRepo.ListDistinctSKUIDs: %w", err)
+	}
+	return skuIDs, total, nil
 }
 
 func (r *StockMovementRepo) ListByBatch(ctx context.Context, batchID string) ([]invDomain.StockMovement, error) {

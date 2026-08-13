@@ -34,6 +34,10 @@ type BatchRepository interface {
 	Create(ctx context.Context, b *Batch) error
 	FindByID(ctx context.Context, id string) (*Batch, error)
 	ListBySKU(ctx context.Context, skuID string) ([]Batch, error)
+	// ListBySKUs is the bulk form of ListBySKU -- used by
+	// application/inventory.ListStockLevelsUseCase to avoid one query per
+	// SKU when computing a page of stock levels.
+	ListBySKUs(ctx context.Context, skuIDs []string) ([]Batch, error)
 	Update(ctx context.Context, b *Batch) error
 	// Delete removes a batch — callers must ensure no StockMovement
 	// references it first (see application/inventory's DeleteBatchUseCase);
@@ -53,4 +57,12 @@ type StockMovementRepository interface {
 	Create(ctx context.Context, m *StockMovement) error
 	ListBySKU(ctx context.Context, skuID string) ([]StockMovement, error)
 	ListByBatch(ctx context.Context, batchID string) ([]StockMovement, error)
+	// ListBySKUs is the bulk form of ListBySKU -- see BatchRepository.ListBySKUs.
+	ListBySKUs(ctx context.Context, skuIDs []string) ([]StockMovement, error)
+	// ListDistinctSKUIDs returns a page of SKU IDs that have at least one
+	// movement (changedSince nil) or at least one movement after
+	// changedSince (non-nil) -- the "which SKUs changed" half of
+	// ListStockLevelsUseCase's incremental-sync support, ordered by SKU ID
+	// for stable pagination. total is the full matching count, for paging.
+	ListDistinctSKUIDs(ctx context.Context, changedSince *time.Time, limit, offset int) (skuIDs []string, total int64, err error)
 }
