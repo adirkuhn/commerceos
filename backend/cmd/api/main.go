@@ -17,6 +17,7 @@ import (
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
+	genpos "github.com/adirkuhn/commerceos/api/pos"
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
 	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
 	genscanning "github.com/adirkuhn/commerceos/api/scanning"
@@ -28,11 +29,13 @@ import (
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
+	poshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pos"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
+	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
@@ -211,6 +214,27 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	scannerauthhandler.Register(scannerauthGroup, db, []byte(cfg.JWTSecret))
+
+	// POS desktop integration -- authenticated by the caller's lm2 license
+	// directly (middleware.POSLicense), never the human JWT, so it's its
+	// own /api/v1 group with no JWT middleware, same reasoning as
+	// scannerauthGroup above. Only mounted when LM2_LICENSE_PUBLIC_KEY_URL
+	// is configured -- see Config.LM2LicensePublicKeyURL's doc comment.
+	if cfg.LM2LicensePublicKeyURL == "" {
+		log.Printf("pos: LM2_LICENSE_PUBLIC_KEY_URL not set, /pos/* routes not mounted")
+	} else {
+		posSpec, err := genpos.GetSpec()
+		if err != nil {
+			log.Fatalf("pos: load openapi spec: %v", err)
+		}
+		licenseVerifier := lm2license.NewTokenService(lm2license.NewHTTPPublicKeyFetcher(cfg.LM2LicensePublicKeyURL))
+		posGroup := r.Group("/api/v1")
+		posGroup.Use(middleware.POSLicense(licenseVerifier))
+		posGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(posSpec, &ginmiddleware.Options{
+			SilenceServersWarning: true,
+		}))
+		poshandler.Register(posGroup, db)
+	}
 
 	// Uploaded product images — public, unauthenticated (product images are
 	// meant to be publicly viewable, same as any storefront/CDN asset).

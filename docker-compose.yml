@@ -102,6 +102,9 @@ services:
       INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
       API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+      # Optional -- /pos/* routes aren't mounted at all when unset. See
+      # .env.example.
+      LM2_LICENSE_PUBLIC_KEY_URL: ${LM2_LICENSE_PUBLIC_KEY_URL:-}
       MEDIA_UPLOAD_DIR: /data/uploads
       STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
       S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}

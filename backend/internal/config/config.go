@@ -41,6 +41,14 @@ type Config struct {
 	// are served from (bucket must allow public reads) — e.g. a domain
 	// pointed at the MinIO/S3 endpoint or a CDN in front of it.
 	S3PublicBaseURL string
+	// LM2LicensePublicKeyURL is lm2's endpoint for fetching its current
+	// RSA signing public key (see infrastructure/lm2license) -- used to
+	// verify a POS desktop's license on every /pos/* request. Optional:
+	// when unset, the /pos/* routes aren't mounted at all (see
+	// cmd/api/main.go) rather than mounting a guaranteed-broken auth path,
+	// same "optional integration, nil-safe skip" pattern as
+	// AIDocumentParser being nil when no AI provider is configured.
+	LM2LicensePublicKeyURL string
 }
 
 func Load() Config {
@@ -62,6 +70,7 @@ func Load() Config {
 		S3Bucket:                     os.Getenv("S3_BUCKET"),
 		S3UseSSL:                     envOr("S3_USE_SSL", "false") == "true",
 		S3PublicBaseURL:              os.Getenv("S3_PUBLIC_BASE_URL"),
+		LM2LicensePublicKeyURL:       os.Getenv("LM2_LICENSE_PUBLIC_KEY_URL"),
 	}
 }
 
