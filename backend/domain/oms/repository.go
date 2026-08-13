@@ -1,6 +1,9 @@
 package oms
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type ListSalesOrdersFilter struct {
 	Limit  int
@@ -17,9 +20,30 @@ type SalesOrderRepository interface {
 	// List returns every sales order for the current tenant (RLS-scoped),
 	// newest first, paginated.
 	List(ctx context.Context, filter ListSalesOrdersFilter) ([]SalesOrder, int64, error)
+	// Update patches header fields (status, customer, billing/shipping,
+	// note, StockDecremented) -- never line items, which are immutable
+	// once created (see UpdateSalesOrderUseCase's doc).
+	Update(ctx context.Context, id string, fields map[string]any) error
+	Delete(ctx context.Context, id string) error
 }
 
 type SalesOrderLineItemRepository interface {
 	Create(ctx context.Context, li *SalesOrderLineItem) error
 	ListBySalesOrder(ctx context.Context, salesOrderID string) ([]SalesOrderLineItem, error)
+	DeleteBySalesOrder(ctx context.Context, salesOrderID string) error
+}
+
+// SalesOrderLineItemStockMovement links a line item to the stock movement
+// it caused -- see the migration's doc comment for why this is a dedicated
+// link table rather than a column on stock_movements.
+type SalesOrderLineItemStockMovement struct {
+	ID                   string
+	TenantID             string
+	SalesOrderLineItemID string
+	StockMovementID      string
+	CreatedAt            time.Time
+}
+
+type SalesOrderLineItemStockMovementRepository interface {
+	Create(ctx context.Context, l *SalesOrderLineItemStockMovement) error
 }

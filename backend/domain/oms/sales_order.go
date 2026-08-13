@@ -9,7 +9,8 @@ import "time"
 type SalesOrderSource string
 
 const (
-	SalesOrderSourcePOS SalesOrderSource = "pos"
+	SalesOrderSourcePOS    SalesOrderSource = "pos"
+	SalesOrderSourceManual SalesOrderSource = "manual"
 )
 
 // SalesOrderStatus mirrors WooCommerce's order status set exactly (same
@@ -26,6 +27,34 @@ const (
 	SalesOrderStatusRefunded   SalesOrderStatus = "refunded"
 	SalesOrderStatusFailed     SalesOrderStatus = "failed"
 )
+
+// StatusReducesStock mirrors WooCommerce's own stock semantics: pending
+// (payment not yet made) holds no stock impact; on-hold, processing, and
+// completed all mean stock has been taken. Cancelled/failed are the two
+// statuses that return stock -- refunded deliberately does not auto-restock
+// here, since a refund's actual stock disposition (returned to sellable,
+// damaged, lost) is a separate staff decision made through the stock
+// correction flow, not something this status transition can infer.
+func (s SalesOrderStatus) ReducesStock() bool {
+	switch s {
+	case SalesOrderStatusOnHold, SalesOrderStatusProcessing, SalesOrderStatusCompleted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Restocks reports whether transitioning *into* this status should return
+// previously-decremented stock -- see ReducesStock's doc for why refunded
+// is excluded.
+func (s SalesOrderStatus) Restocks() bool {
+	switch s {
+	case SalesOrderStatusCancelled, SalesOrderStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
 
 // Address mirrors WooCommerce's billing/shipping address object exactly
 // (same field names/shape) -- a SalesOrder snapshots the customer's address
@@ -97,6 +126,12 @@ type SalesOrder struct {
 	OccurredAt time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+
+	// StockDecremented tracks whether stock has actually been taken for
+	// this order -- see SalesOrderStatus.ReducesStock's doc. Not derived
+	// from Status because a transition needs to know what already
+	// happened (has it been decremented yet?) to decide what to do next.
+	StockDecremented bool
 }
 
 // SalesOrderLineItem is one SKU sold within a SalesOrder. Unlike
