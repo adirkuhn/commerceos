@@ -19,22 +19,90 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for POSSalesOrderStatus.
+const (
+	Cancelled  POSSalesOrderStatus = "cancelled"
+	Completed  POSSalesOrderStatus = "completed"
+	Failed     POSSalesOrderStatus = "failed"
+	OnHold     POSSalesOrderStatus = "on-hold"
+	Pending    POSSalesOrderStatus = "pending"
+	Processing POSSalesOrderStatus = "processing"
+	Refunded   POSSalesOrderStatus = "refunded"
+)
+
+// Valid indicates whether the value is a known member of the POSSalesOrderStatus enum.
+func (e POSSalesOrderStatus) Valid() bool {
+	switch e {
+	case Cancelled:
+		return true
+	case Completed:
+		return true
+	case Failed:
+		return true
+	case OnHold:
+		return true
+	case Pending:
+		return true
+	case Processing:
+		return true
+	case Refunded:
+		return true
+	default:
+		return false
+	}
+}
+
 // CreatePOSSalesOrderLineItem defines model for CreatePOSSalesOrderLineItem.
 type CreatePOSSalesOrderLineItem struct {
-	Quantity            int64  `json:"quantity"`
-	SkuId               string `json:"sku_id"`
-	UnitPriceMinorUnits int64  `json:"unit_price_minor_units"`
+	// Name Product name snapshot
+	Name *string `json:"name,omitempty"`
+
+	// PriceMinorUnits Per-unit price.
+	PriceMinorUnits *int64  `json:"price_minor_units,omitempty"`
+	Quantity        int64   `json:"quantity"`
+	SkuCode         *string `json:"sku_code,omitempty"`
+	SkuId           string  `json:"sku_id"`
+
+	// SubtotalMinorUnits Pre-discount line total.
+	SubtotalMinorUnits    *int64 `json:"subtotal_minor_units,omitempty"`
+	SubtotalTaxMinorUnits *int64 `json:"subtotal_tax_minor_units,omitempty"`
+
+	// TotalMinorUnits Post-discount line total.
+	TotalMinorUnits    *int64 `json:"total_minor_units,omitempty"`
+	TotalTaxMinorUnits *int64 `json:"total_tax_minor_units,omitempty"`
 }
 
 // CreatePOSSalesOrderRequest defines model for CreatePOSSalesOrderRequest.
 type CreatePOSSalesOrderRequest struct {
-	CurrencyCode string `json:"currency_code"`
+	Billing      *POSAddress `json:"billing,omitempty"`
+	CurrencyCode string      `json:"currency_code"`
+
+	// CustomerId Omit/null for a guest/walk-in sale.
+	CustomerId              *string    `json:"customer_id,omitempty"`
+	CustomerNote            *string    `json:"customer_note,omitempty"`
+	DateCompleted           *time.Time `json:"date_completed,omitempty"`
+	DatePaid                *time.Time `json:"date_paid,omitempty"`
+	DiscountTotalMinorUnits *int64     `json:"discount_total_minor_units,omitempty"`
 
 	// ExternalOrderId This sale's ID in the POS's own system -- what makes a retry idempotent.
-	ExternalOrderId string                        `json:"external_order_id"`
-	LineItems       []CreatePOSSalesOrderLineItem `json:"line_items"`
-	OccurredAt      time.Time                     `json:"occurred_at"`
-	WarehouseId     string                        `json:"warehouse_id"`
+	ExternalOrderId         string                        `json:"external_order_id"`
+	LineItems               []CreatePOSSalesOrderLineItem `json:"line_items"`
+	Number                  *string                       `json:"number,omitempty"`
+	OccurredAt              time.Time                     `json:"occurred_at"`
+	OrderKey                *string                       `json:"order_key,omitempty"`
+	PaymentMethod           *string                       `json:"payment_method,omitempty"`
+	PaymentMethodTitle      *string                       `json:"payment_method_title,omitempty"`
+	Shipping                *POSAddress                   `json:"shipping,omitempty"`
+	ShippingTotalMinorUnits *int64                        `json:"shipping_total_minor_units,omitempty"`
+
+	// Status Defaults to completed if omitted -- a POS sale already happened.
+	Status             *POSSalesOrderStatus `json:"status,omitempty"`
+	TaxTotalMinorUnits *int64               `json:"tax_total_minor_units,omitempty"`
+
+	// TotalMinorUnits Authoritative -- not re-derived from line items, same as Woo's order.total.
+	TotalMinorUnits int64   `json:"total_minor_units"`
+	TransactionId   *string `json:"transaction_id,omitempty"`
+	WarehouseId     string  `json:"warehouse_id"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -44,6 +112,23 @@ type ErrorResponse struct {
 		Code    *string `json:"code,omitempty"`
 		Message *string `json:"message,omitempty"`
 	} `json:"error,omitempty"`
+}
+
+// POSAddress defines model for POSAddress.
+type POSAddress struct {
+	Address1 *string `json:"address_1,omitempty"`
+	Address2 *string `json:"address_2,omitempty"`
+	City     *string `json:"city,omitempty"`
+	Company  *string `json:"company,omitempty"`
+	Country  *string `json:"country,omitempty"`
+
+	// Email Only meaningful on billing.
+	Email     *string `json:"email,omitempty"`
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	Postcode  *string `json:"postcode,omitempty"`
+	State     *string `json:"state,omitempty"`
 }
 
 // POSProduct defines model for POSProduct.
@@ -71,13 +156,28 @@ type POSProductListResponse struct {
 
 // POSSalesOrder defines model for POSSalesOrder.
 type POSSalesOrder struct {
-	CreatedAt       time.Time `json:"created_at"`
-	CurrencyCode    string    `json:"currency_code"`
-	ExternalOrderId string    `json:"external_order_id"`
-	Id              string    `json:"id"`
-	OccurredAt      time.Time `json:"occurred_at"`
-	TotalMinorUnits int64     `json:"total_minor_units"`
-	WarehouseId     string    `json:"warehouse_id"`
+	Billing                 *POSAddress         `json:"billing,omitempty"`
+	CreatedAt               time.Time           `json:"created_at"`
+	CurrencyCode            string              `json:"currency_code"`
+	CustomerId              *string             `json:"customer_id,omitempty"`
+	CustomerNote            *string             `json:"customer_note,omitempty"`
+	DateCompleted           *time.Time          `json:"date_completed,omitempty"`
+	DatePaid                *time.Time          `json:"date_paid,omitempty"`
+	DiscountTotalMinorUnits *int64              `json:"discount_total_minor_units,omitempty"`
+	ExternalOrderId         string              `json:"external_order_id"`
+	Id                      string              `json:"id"`
+	Number                  *string             `json:"number,omitempty"`
+	OccurredAt              time.Time           `json:"occurred_at"`
+	OrderKey                *string             `json:"order_key,omitempty"`
+	PaymentMethod           *string             `json:"payment_method,omitempty"`
+	PaymentMethodTitle      *string             `json:"payment_method_title,omitempty"`
+	Shipping                *POSAddress         `json:"shipping,omitempty"`
+	ShippingTotalMinorUnits *int64              `json:"shipping_total_minor_units,omitempty"`
+	Status                  POSSalesOrderStatus `json:"status"`
+	TaxTotalMinorUnits      *int64              `json:"tax_total_minor_units,omitempty"`
+	TotalMinorUnits         int64               `json:"total_minor_units"`
+	TransactionId           *string             `json:"transaction_id,omitempty"`
+	WarehouseId             string              `json:"warehouse_id"`
 }
 
 // POSSalesOrderResponse defines model for POSSalesOrderResponse.
@@ -85,6 +185,9 @@ type POSSalesOrderResponse struct {
 	Data  *POSSalesOrder `json:"data,omitempty"`
 	Error interface{}    `json:"error,omitempty"`
 }
+
+// POSSalesOrderStatus defines model for POSSalesOrderStatus.
+type POSSalesOrderStatus string
 
 // POSStockLevel defines model for POSStockLevel.
 type POSStockLevel struct {
@@ -287,34 +390,42 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

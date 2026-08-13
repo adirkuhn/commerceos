@@ -162,8 +162,8 @@ func TestCreatePOSSalesOrder_success(t *testing.T) {
 		TotalMinorUnits: 1000, OccurredAt: time.Now(), CreatedAt: time.Now(),
 	}}}
 	body := genpos.CreatePOSSalesOrderRequest{
-		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 2, UnitPriceMinorUnits: 500}},
+		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 1000, OccurredAt: time.Now(),
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 2}},
 	}
 	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
 
@@ -177,8 +177,8 @@ func TestCreatePOSSalesOrder_success(t *testing.T) {
 func TestCreatePOSSalesOrder_mapsEmptyLineItemsToValidationError(t *testing.T) {
 	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{err: omsDomain.ErrEmptyLineItems}}
 	body := genpos.CreatePOSSalesOrderRequest{
-		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 1, UnitPriceMinorUnits: 500}},
+		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 500, OccurredAt: time.Now(),
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 1}},
 	}
 	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
 
@@ -188,8 +188,8 @@ func TestCreatePOSSalesOrder_mapsEmptyLineItemsToValidationError(t *testing.T) {
 func TestCreatePOSSalesOrder_mapsInsufficientStockToValidationError(t *testing.T) {
 	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{err: invDomain.ErrInsufficientStock}}
 	body := genpos.CreatePOSSalesOrderRequest{
-		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 100, UnitPriceMinorUnits: 500}},
+		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 50000, OccurredAt: time.Now(),
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 100}},
 	}
 	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
 

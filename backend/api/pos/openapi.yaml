@@ -163,23 +163,71 @@ components:
         data: { $ref: '#/components/schemas/POSStockLevelList' }
         error: { nullable: true }
 
+    # Mirrors WooCommerce's billing/shipping address object exactly.
+    POSAddress:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        company: { type: string }
+        address_1: { type: string }
+        address_2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postcode: { type: string }
+        country: { type: string }
+        email: { type: string, description: Only meaningful on billing. }
+        phone: { type: string }
+
+    POSSalesOrderStatus:
+      type: string
+      enum: [pending, processing, on-hold, completed, cancelled, refunded, failed]
+
     CreatePOSSalesOrderLineItem:
       type: object
-      required: [sku_id, quantity, unit_price_minor_units]
+      required: [sku_id, quantity]
       properties:
         sku_id: { type: string }
+        name: { type: string, description: Product name snapshot, e.g. from resolveBarcode's product_name. }
+        sku_code: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
-        unit_price_minor_units: { type: integer, format: int64, minimum: 0 }
+        price_minor_units: { type: integer, format: int64, minimum: 0, description: Per-unit price. }
+        subtotal_minor_units: { type: integer, format: int64, minimum: 0, description: Pre-discount line total. }
+        subtotal_tax_minor_units: { type: integer, format: int64, minimum: 0 }
+        total_minor_units: { type: integer, format: int64, minimum: 0, description: Post-discount line total. }
+        total_tax_minor_units: { type: integer, format: int64, minimum: 0 }
 
     CreatePOSSalesOrderRequest:
       type: object
-      required: [external_order_id, warehouse_id, currency_code, occurred_at, line_items]
+      required: [external_order_id, warehouse_id, currency_code, total_minor_units, occurred_at, line_items]
       properties:
         external_order_id:
           type: string
           description: This sale's ID in the POS's own system -- what makes a retry idempotent.
+        number: { type: string }
+        order_key: { type: string }
+        status:
+          allOf: [{ $ref: '#/components/schemas/POSSalesOrderStatus' }]
+          description: Defaults to completed if omitted -- a POS sale already happened.
         warehouse_id: { type: string }
+        customer_id: { type: string, nullable: true, description: Omit/null for a guest/walk-in sale. }
+        billing: { $ref: '#/components/schemas/POSAddress' }
+        shipping: { $ref: '#/components/schemas/POSAddress' }
+        customer_note: { type: string }
         currency_code: { type: string, minLength: 3, maxLength: 3 }
+        discount_total_minor_units: { type: integer, format: int64, minimum: 0 }
+        shipping_total_minor_units: { type: integer, format: int64, minimum: 0 }
+        tax_total_minor_units: { type: integer, format: int64, minimum: 0 }
+        total_minor_units:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Authoritative -- not re-derived from line items, same as Woo's order.total.
+        payment_method: { type: string }
+        payment_method_title: { type: string }
+        transaction_id: { type: string }
+        date_paid: { type: string, format: date-time, nullable: true }
+        date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }
         line_items:
           type: array
@@ -188,13 +236,28 @@ components:
 
     POSSalesOrder:
       type: object
-      required: [id, external_order_id, warehouse_id, currency_code, total_minor_units, occurred_at, created_at]
+      required: [id, external_order_id, warehouse_id, currency_code, status, total_minor_units, occurred_at, created_at]
       properties:
         id: { type: string }
         external_order_id: { type: string }
+        number: { type: string }
+        order_key: { type: string }
+        status: { $ref: '#/components/schemas/POSSalesOrderStatus' }
         warehouse_id: { type: string }
+        customer_id: { type: string, nullable: true }
+        billing: { $ref: '#/components/schemas/POSAddress' }
+        shipping: { $ref: '#/components/schemas/POSAddress' }
+        customer_note: { type: string }
         currency_code: { type: string }
+        discount_total_minor_units: { type: integer, format: int64 }
+        shipping_total_minor_units: { type: integer, format: int64 }
+        tax_total_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
+        payment_method: { type: string }
+        payment_method_title: { type: string }
+        transaction_id: { type: string }
+        date_paid: { type: string, format: date-time, nullable: true }
+        date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
 

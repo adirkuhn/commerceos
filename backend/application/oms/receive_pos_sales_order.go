@@ -13,17 +13,48 @@ import (
 )
 
 type ReceivePOSSalesOrderLineItemInput struct {
-	SKUID               string
-	Quantity            int64
-	UnitPriceMinorUnits int64
+	SKUID    string
+	Name     string
+	SKUCode  string
+	Quantity int64
+
+	PriceMinorUnits       int64
+	SubtotalMinorUnits    int64
+	SubtotalTaxMinorUnits int64
+	TotalMinorUnits       int64
+	TotalTaxMinorUnits    int64
 }
 
+// ReceivePOSSalesOrderInput's authoritative totals (TotalMinorUnits etc.)
+// come straight from the POS, the same way Woo treats order.total as
+// authoritative rather than re-deriving it from line items -- the POS
+// already applied whatever discount/tax/shipping rules it has, CommerceOS
+// doesn't re-implement them.
 type ReceivePOSSalesOrderInput struct {
 	ExternalOrderID string
+	Number          string
+	OrderKey        string
+	Status          omsDomain.SalesOrderStatus // defaults to Completed if empty -- a POS sale already happened
 	WarehouseID     string
-	CurrencyCode    string
-	OccurredAt      time.Time
-	LineItems       []ReceivePOSSalesOrderLineItemInput
+	CustomerID      *string
+	Billing         omsDomain.Address
+	Shipping        omsDomain.Address
+	CustomerNote    string
+
+	CurrencyCode            string
+	DiscountTotalMinorUnits int64
+	ShippingTotalMinorUnits int64
+	TaxTotalMinorUnits      int64
+	TotalMinorUnits         int64
+
+	PaymentMethod      string
+	PaymentMethodTitle string
+	TransactionID      string
+	DatePaid           *time.Time
+	DateCompleted      *time.Time
+
+	OccurredAt time.Time
+	LineItems  []ReceivePOSSalesOrderLineItemInput
 }
 
 // recordSaleMovementUC is *inventory.RecordStockMovementUseCase, narrowed
@@ -65,6 +96,10 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 	if len(in.LineItems) == 0 {
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", omsDomain.ErrEmptyLineItems)
 	}
+	status := in.Status
+	if status == "" {
+		status = omsDomain.SalesOrderStatusCompleted
+	}
 
 	var order *omsDomain.SalesOrder
 	var alreadyReceived bool
@@ -80,15 +115,16 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		}
 
 		now := time.Now()
-		var total int64
-		for _, li := range in.LineItems {
-			total += li.Quantity * li.UnitPriceMinorUnits
-		}
 		newOrder := omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: in.ExternalOrderID, WarehouseID: in.WarehouseID,
-			CurrencyCode: in.CurrencyCode, TotalMinorUnits: total,
-			OccurredAt: in.OccurredAt, CreatedAt: now,
+			ExternalOrderID: in.ExternalOrderID, Number: in.Number, OrderKey: in.OrderKey, Status: status,
+			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, Billing: in.Billing, Shipping: in.Shipping,
+			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
+			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
+			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,
+			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle, TransactionID: in.TransactionID,
+			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
+			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
 			return err
@@ -96,7 +132,10 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		for _, li := range in.LineItems {
 			lineItem := omsDomain.SalesOrderLineItem{
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: li.SKUID,
-				Quantity: li.Quantity, UnitPriceMinorUnits: li.UnitPriceMinorUnits, CreatedAt: now,
+				Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
+				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
+				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
+				TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

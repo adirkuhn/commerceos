@@ -34,8 +34,14 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 type stubSalesOrderRepo struct {
 	findByExternalIDResult *omsDomain.SalesOrder
 	findByExternalIDErr    error
+	findByIDResult         *omsDomain.SalesOrder
+	findByIDErr            error
 	createErr              error
 	created                []omsDomain.SalesOrder
+	listResult             []omsDomain.SalesOrder
+	listTotal              int64
+	listErr                error
+	gotListFilter          omsDomain.ListSalesOrdersFilter
 }
 
 func (s *stubSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
@@ -47,15 +53,27 @@ func (s *stubSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) 
 	return nil
 }
 func (s *stubSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
-	return nil, omsDomain.ErrSalesOrderNotFound
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, omsDomain.ErrSalesOrderNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
 }
 func (s *stubSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDomain.SalesOrderSource, _ string) (*omsDomain.SalesOrder, error) {
 	return s.findByExternalIDResult, s.findByExternalIDErr
 }
+func (s *stubSalesOrderRepo) List(_ context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
+	s.gotListFilter = filter
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
+	return s.listResult, s.listTotal, nil
+}
 
 type stubSalesOrderLineItemRepo struct {
-	createErr error
-	created   []omsDomain.SalesOrderLineItem
+	createErr        error
+	created          []omsDomain.SalesOrderLineItem
+	listBySalesOrder []omsDomain.SalesOrderLineItem
+	listErr          error
 }
 
 func (s *stubSalesOrderLineItemRepo) Create(_ context.Context, li *omsDomain.SalesOrderLineItem) error {
@@ -67,7 +85,10 @@ func (s *stubSalesOrderLineItemRepo) Create(_ context.Context, li *omsDomain.Sal
 	return nil
 }
 func (s *stubSalesOrderLineItemRepo) ListBySalesOrder(_ context.Context, _ string) ([]omsDomain.SalesOrderLineItem, error) {
-	return nil, nil
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.listBySalesOrder, nil
 }
 
 type stubRecordMovement struct {
