@@ -2,10 +2,14 @@ openapi: 3.0.3
 info:
   title: CommerceOS Sales Orders API
   description: >
-    Read side of sales orders (domain/oms) -- staff viewing what came in
-    from POS (or, later, any other channel). The write path
-    (ReceivePOSSalesOrderUseCase) is under api/pos, authenticated by the
-    POS's lm2 license rather than a human JWT.
+    Sales orders (domain/oms) for staff use from the admin UI -- list/get,
+    plus create/update/delete for manually-entered sales (e.g. a walk-in
+    the POS wasn't used for). The POS's own push path
+    (ReceivePOSSalesOrderUseCase) is a separate write path under api/pos,
+    authenticated by the POS's lm2 license rather than a human JWT --
+    that one is not this one. Line items are immutable once a sales order
+    is created: PATCH only edits header fields (status, customer, notes,
+    etc), never line items.
   version: "1.0"
 servers:
   - url: /api/v1
@@ -29,6 +33,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SalesOrderListResponse'
+    post:
+      operationId: createSalesOrder
+      summary: Manually create a sales order (e.g. a walk-in the POS wasn't used for)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSalesOrderRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderDetailResponse'
+        '422':
+          $ref: '#/components/responses/Error'
 
   /sales-orders/{id}:
     get:
@@ -43,6 +65,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SalesOrderDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: updateSalesOrder
+      summary: Update a sales order's header fields (status, customer, notes, etc) -- never line items
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSalesOrderRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteSalesOrder
+      summary: Delete a sales order -- restocks first if its stock had been decremented
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: deleted
         '404':
           $ref: '#/components/responses/Error'
 
@@ -155,6 +209,70 @@ components:
       properties:
         data: { $ref: '#/components/schemas/SalesOrderDetail' }
         error: { nullable: true }
+
+    SalesOrderResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesOrder' }
+        error: { nullable: true }
+
+    CreateSalesOrderLineItem:
+      type: object
+      required: [sku_id, quantity, price_minor_units]
+      properties:
+        sku_id: { type: string }
+        name: { type: string }
+        sku_code: { type: string }
+        quantity: { type: integer, format: int64 }
+        price_minor_units: { type: integer, format: int64 }
+        subtotal_minor_units: { type: integer, format: int64 }
+        subtotal_tax_minor_units: { type: integer, format: int64 }
+        total_minor_units: { type: integer, format: int64 }
+        total_tax_minor_units: { type: integer, format: int64 }
+
+    CreateSalesOrderRequest:
+      type: object
+      required: [warehouse_id, currency_code, occurred_at, line_items]
+      properties:
+        number: { type: string }
+        order_key: { type: string }
+        status: { $ref: '#/components/schemas/SalesOrderStatus' }
+        warehouse_id: { type: string }
+        customer_id: { type: string, nullable: true }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        customer_note: { type: string }
+        currency_code: { type: string }
+        discount_total_minor_units: { type: integer, format: int64 }
+        shipping_total_minor_units: { type: integer, format: int64 }
+        tax_total_minor_units: { type: integer, format: int64 }
+        total_minor_units: { type: integer, format: int64 }
+        payment_method: { type: string }
+        payment_method_title: { type: string }
+        transaction_id: { type: string }
+        date_paid: { type: string, format: date-time, nullable: true }
+        date_completed: { type: string, format: date-time, nullable: true }
+        occurred_at: { type: string, format: date-time }
+        line_items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/CreateSalesOrderLineItem' }
+
+    UpdateSalesOrderRequest:
+      type: object
+      properties:
+        number: { type: string }
+        order_key: { type: string }
+        status: { $ref: '#/components/schemas/SalesOrderStatus' }
+        customer_id: { type: string }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        customer_note: { type: string }
+        payment_method: { type: string }
+        payment_method_title: { type: string }
+        transaction_id: { type: string }
+        date_paid: { type: string, format: date-time }
+        date_completed: { type: string, format: date-time }
 
     ErrorResponse:
       type: object

@@ -67,6 +67,43 @@ type Address struct {
 	State     *string `json:"state,omitempty"`
 }
 
+// CreateSalesOrderLineItem defines model for CreateSalesOrderLineItem.
+type CreateSalesOrderLineItem struct {
+	Name                  *string `json:"name,omitempty"`
+	PriceMinorUnits       int64   `json:"price_minor_units"`
+	Quantity              int64   `json:"quantity"`
+	SkuCode               *string `json:"sku_code,omitempty"`
+	SkuId                 string  `json:"sku_id"`
+	SubtotalMinorUnits    *int64  `json:"subtotal_minor_units,omitempty"`
+	SubtotalTaxMinorUnits *int64  `json:"subtotal_tax_minor_units,omitempty"`
+	TotalMinorUnits       *int64  `json:"total_minor_units,omitempty"`
+	TotalTaxMinorUnits    *int64  `json:"total_tax_minor_units,omitempty"`
+}
+
+// CreateSalesOrderRequest defines model for CreateSalesOrderRequest.
+type CreateSalesOrderRequest struct {
+	Billing                 *Address                   `json:"billing,omitempty"`
+	CurrencyCode            string                     `json:"currency_code"`
+	CustomerId              *string                    `json:"customer_id,omitempty"`
+	CustomerNote            *string                    `json:"customer_note,omitempty"`
+	DateCompleted           *time.Time                 `json:"date_completed,omitempty"`
+	DatePaid                *time.Time                 `json:"date_paid,omitempty"`
+	DiscountTotalMinorUnits *int64                     `json:"discount_total_minor_units,omitempty"`
+	LineItems               []CreateSalesOrderLineItem `json:"line_items"`
+	Number                  *string                    `json:"number,omitempty"`
+	OccurredAt              time.Time                  `json:"occurred_at"`
+	OrderKey                *string                    `json:"order_key,omitempty"`
+	PaymentMethod           *string                    `json:"payment_method,omitempty"`
+	PaymentMethodTitle      *string                    `json:"payment_method_title,omitempty"`
+	Shipping                *Address                   `json:"shipping,omitempty"`
+	ShippingTotalMinorUnits *int64                     `json:"shipping_total_minor_units,omitempty"`
+	Status                  *SalesOrderStatus          `json:"status,omitempty"`
+	TaxTotalMinorUnits      *int64                     `json:"tax_total_minor_units,omitempty"`
+	TotalMinorUnits         *int64                     `json:"total_minor_units,omitempty"`
+	TransactionId           *string                    `json:"transaction_id,omitempty"`
+	WarehouseId             string                     `json:"warehouse_id"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -141,8 +178,30 @@ type SalesOrderListResponse struct {
 	Error interface{}     `json:"error,omitempty"`
 }
 
+// SalesOrderResponse defines model for SalesOrderResponse.
+type SalesOrderResponse struct {
+	Data  *SalesOrder `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // SalesOrderStatus defines model for SalesOrderStatus.
 type SalesOrderStatus string
+
+// UpdateSalesOrderRequest defines model for UpdateSalesOrderRequest.
+type UpdateSalesOrderRequest struct {
+	Billing            *Address          `json:"billing,omitempty"`
+	CustomerId         *string           `json:"customer_id,omitempty"`
+	CustomerNote       *string           `json:"customer_note,omitempty"`
+	DateCompleted      *time.Time        `json:"date_completed,omitempty"`
+	DatePaid           *time.Time        `json:"date_paid,omitempty"`
+	Number             *string           `json:"number,omitempty"`
+	OrderKey           *string           `json:"order_key,omitempty"`
+	PaymentMethod      *string           `json:"payment_method,omitempty"`
+	PaymentMethodTitle *string           `json:"payment_method_title,omitempty"`
+	Shipping           *Address          `json:"shipping,omitempty"`
+	Status             *SalesOrderStatus `json:"status,omitempty"`
+	TransactionId      *string           `json:"transaction_id,omitempty"`
+}
 
 // Id defines model for id.
 type Id = string
@@ -156,14 +215,29 @@ type ListSalesOrdersParams struct {
 	PerPage *int `form:"per_page,omitempty" json:"per_page,omitempty"`
 }
 
+// CreateSalesOrderJSONRequestBody defines body for CreateSalesOrder for application/json ContentType.
+type CreateSalesOrderJSONRequestBody = CreateSalesOrderRequest
+
+// UpdateSalesOrderJSONRequestBody defines body for UpdateSalesOrder for application/json ContentType.
+type UpdateSalesOrderJSONRequestBody = UpdateSalesOrderRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListSalesOrders List sales orders for the current tenant, newest first
 	// (GET /sales-orders)
 	ListSalesOrders(c *gin.Context, params ListSalesOrdersParams)
+	// CreateSalesOrder Manually create a sales order (e.g. a walk-in the POS wasn't used for)
+	// (POST /sales-orders)
+	CreateSalesOrder(c *gin.Context)
+	// DeleteSalesOrder Delete a sales order -- restocks first if its stock had been decremented
+	// (DELETE /sales-orders/{id})
+	DeleteSalesOrder(c *gin.Context, id Id)
 	// GetSalesOrder Get one sales order with its line items
 	// (GET /sales-orders/{id})
 	GetSalesOrder(c *gin.Context, id Id)
+	// UpdateSalesOrder Update a sales order's header fields (status, customer, notes, etc) -- never line items
+	// (PATCH /sales-orders/{id})
+	UpdateSalesOrder(c *gin.Context, id Id)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -210,6 +284,44 @@ func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
 	siw.Handler.ListSalesOrders(c, params)
 }
 
+// CreateSalesOrder operation middleware
+func (siw *ServerInterfaceWrapper) CreateSalesOrder(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateSalesOrder(c)
+}
+
+// DeleteSalesOrder operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSalesOrder(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteSalesOrder(c, id)
+}
+
 // GetSalesOrder operation middleware
 func (siw *ServerInterfaceWrapper) GetSalesOrder(c *gin.Context) {
 
@@ -233,6 +345,31 @@ func (siw *ServerInterfaceWrapper) GetSalesOrder(c *gin.Context) {
 	}
 
 	siw.Handler.GetSalesOrder(c, id)
+}
+
+// UpdateSalesOrder operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSalesOrder(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateSalesOrder(c, id)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -263,7 +400,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/sales-orders", wrapper.ListSalesOrders)
+	router.POST(options.BaseURL+"/sales-orders", wrapper.CreateSalesOrder)
+	router.DELETE(options.BaseURL+"/sales-orders/:id", wrapper.DeleteSalesOrder)
 	router.GET(options.BaseURL+"/sales-orders/:id", wrapper.GetSalesOrder)
+	router.PATCH(options.BaseURL+"/sales-orders/:id", wrapper.UpdateSalesOrder)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -271,26 +411,33 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"vFjdbts4E30Vgt8HbAsosZMGe+G7orsoslggQdzFXnQDYSyNIjbkUCFHcYzA774g6X9LsestehPIGmo4",
-	"c+YcDievsrCmsYTEXo5eZQMODDK6+EuV8S/JkWyAa5lJAoNyFAyZdPjUKoelHLFrMZO+qNFA+IJnTVjl",
-	"2Sl6kPP5PCz2jSWP0e/vzlkXHgpLjMThEZpGqwJYWRp885bCu7XH/zus5Ej+b7AOd5CsfhC93S38p91K",
-	"9IVTTXAmRxLjduH94pPg8WNZOvQpaWcbdKxScJAM+UVHJtnKetlpLRTPug3WNEB9tpbYddvQgNKdlko5",
-	"z3mqR4dZw1vWprbUY7GeC1t2Gz0Dd1nm2fKNnXzDgsPa7arsoVwCx8JSqzVMNCYShYyX3Nhe3xuTQe/h",
-	"4biouuIcg0Z/40rs2HSitA6uDhBwSaVQS4fAWOYQOV1ZZ8JTyBbPWBmUWUf9W+eQilnem2PRerYGXZ4E",
-	"uY1Z9sZ6stztMQSUh1Q0Mpa9sR7cKfppQP0XF8pHBeRsGXRuFFmXt6TSgbTyqYh/vVrDp4jxAV3UyAuj",
-	"I9C5DVVcYLS3Tc9ras0klX7PZItYme8rZorhEbvl3MDMIHFukGtbHrEkZ8W6R4y1aprvY+fyk5Oh9rZ1",
-	"Rf/Z0PpDwazVNk7rgyTh5eSATv7OAXkoQoPoI8wUHNa29di9YL7ZAL+mjriAp4uSK4B2HO/KvyulbSpu",
-	"HTL3b55ovyEv2sf2uaYVYa4YTeryy4fjCvenIrxmNHJ9moJzMIskCKtS0sc73MNy00u2Gewx2R5uOcdF",
-	"tcBusyPt9Kq3u8kKpr04+k6i3mbtVIEncPypBeLFheQYbT+2/R0oGHvi9u3k5ONk+Wk4An6i+E/es1P0",
-	"CZoNvO8PEMPzPik2OH+KKLvEGNM8Ja2tWJZ+Dif1o5QXATpZd+NVH0JqTUinQSoDV4OSbIHepx+Wzmqr",
-	"4wm8ugdlsgAqUGtMA07VUhkfK1Dh3X3WNdsoqmxMc2vquEMohVclCluJCKlIkIp3pTWgaGCNfy/OzoRn",
-	"qCrxrHCq6EFMa2BRgEGhSFTOGnF7MxbvrMuEBkaXCaCZsFyjE0UNRKjfn4svNYqpU4wiTGri3R0WqJ7x",
-	"9ma8huYvj5/A43uhvAiJOQGNGjTWZwJarpE4DGBYislMcI1h31+80OZSaFUgeRQO4rZcAwkQdWuAxB9/",
-	"fzn/hwJP0lVFfrLGoCvwZizi3uImpf3x9lpm8hmdTwBdnA/jjalBgkbJkfxwPjz/EMoEXMcKDiJsZ2tV",
-	"PGCUTuBWnBSvSzmSgS/rJH10sJ5ivy4G2KcW3Ww9wTZhZticWUusoNUsRxeZNIqUCeS56NJKj0N0eb/T",
-	"y2EmDbwkr5fD4YE97ncG5svh8IeNyz2i7Zib7WMamltjIMynEeltKlfWRaqkSwwLRgLiTBBO0bOIQ2p0",
-	"slXKwasq5731/Iwb5dyvZldu6yUDVcqfBN/OfaMHwExeDa/6nK6iTP/E2IH7M7KwhJuIi6niWij2IlyL",
-	"ROoScWeP7nkJUeu0HMlBUPfzhZzfz/8NAAD//w==",
+	"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",
+	"bUsxEgPfej2eiunN9N8BAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
