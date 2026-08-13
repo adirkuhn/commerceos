@@ -225,11 +225,11 @@ describe('deleteSKU', () => {
 })
 
 describe('resolveBarcode', () => {
-  it('calls the correct endpoint and returns the SKU plus units_per_scan', async () => {
-    mockFetch({ sku: sampleSKU, units_per_scan: 12 })
+  it('calls the correct endpoint and returns the SKU plus units_per_scan/product_name', async () => {
+    mockFetch({ sku: sampleSKU, units_per_scan: 12, product_name: 'Widget' })
     const result = await api.resolveBarcode(TOKEN, '012345')
 
-    expect(result).toEqual({ sku: sampleSKU, units_per_scan: 12 })
+    expect(result).toEqual({ sku: sampleSKU, units_per_scan: 12, product_name: 'Widget' })
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       `${BASE}/skus/barcode-lookup/012345`,
       expect.objectContaining({ method: 'GET' }),

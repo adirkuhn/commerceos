@@ -7,9 +7,18 @@ import { ScanCodeScreen } from './ScanCodeScreen'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
 
+export interface Resolved {
+  sku: SKU
+  productName: string
+}
+
 interface InventoryAppProps {
   token: string
   onExit: () => void
+  // Skips straight to the SKU screen for an already-resolved SKU (e.g.
+  // jumping here from Price Lookup's "View in Inventory") instead of
+  // showing the scan screen first.
+  initialResolved?: Resolved
 }
 
 function parsePriceToMinorUnits(price: string): number {
@@ -18,21 +27,32 @@ function parsePriceToMinorUnits(price: string): number {
 function formatMinorUnitsAsInput(minorUnits: number): string {
   return (minorUnits / 100).toFixed(2)
 }
+function formatPrice(minorUnits: number, currency: string): string {
+  return `${currency} ${(minorUnits / 100).toFixed(2)}`
+}
 
 // Scanner mini-app: scan/type a code to resolve a SKU, then adjust, move, or
 // write off its stock -- every action also works by tapping alone (numeric
 // keypad inputs + steppers + confirm buttons), not scan-only.
-export function InventoryApp({ token, onExit }: InventoryAppProps) {
-  const [resolvedSKU, setResolvedSKU] = useState<SKU | null>(null)
+export function InventoryApp({ token, onExit, initialResolved }: InventoryAppProps) {
+  const [resolved, setResolved] = useState<Resolved | null>(initialResolved ?? null)
 
-  if (!resolvedSKU) {
-    return <InventoryScanScreen token={token} onResolved={setResolvedSKU} onExit={onExit} />
+  if (!resolved) {
+    return <InventoryScanScreen token={token} onResolved={setResolved} onExit={onExit} />
   }
 
-  return <InventorySKUScreen token={token} sku={resolvedSKU} onSKUUpdated={setResolvedSKU} onBack={() => setResolvedSKU(null)} />
+  return (
+    <InventorySKUScreen
+      token={token}
+      sku={resolved.sku}
+      productName={resolved.productName}
+      onSKUUpdated={updatedSKU => setResolved(r => r && { ...r, sku: updatedSKU })}
+      onBack={() => setResolved(null)}
+    />
+  )
 }
 
-function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onResolved: (sku: SKU) => void; onExit: () => void }) {
+function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onResolved: (r: Resolved) => void; onExit: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -40,8 +60,8 @@ function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onR
     setError('')
     setLoading(true)
     try {
-      const { sku } = await pmsApi.resolveBarcode(token, code)
-      onResolved(sku)
+      const { sku, product_name } = await pmsApi.resolveBarcode(token, code)
+      onResolved({ sku, productName: product_name })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resolve code')
     } finally {
@@ -71,7 +91,7 @@ interface SelectedRow {
   label: string
 }
 
-function InventorySKUScreen({ token, sku, onSKUUpdated, onBack }: { token: string; sku: SKU; onSKUUpdated: (sku: SKU) => void; onBack: () => void }) {
+function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: { token: string; sku: SKU; productName: string; onSKUUpdated: (sku: SKU) => void; onBack: () => void }) {
   const { level, batches, loading, error, addBatch, adjust, transfer, markDamagedOrLost } = useSKUStock(token, sku.id)
   const { warehouses } = useWarehouses(token)
   const [selectedRow, setSelectedRow] = useState<SelectedRow | null>(null)
@@ -129,11 +149,22 @@ function InventorySKUScreen({ token, sku, onSKUUpdated, onBack }: { token: strin
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold truncate">{sku.sku_code}</h1>
+          <h1 className="text-base font-semibold truncate">
+            <span>{productName}</span>{' '}
+            <span className="text-xs font-normal text-gray-500">- <span>{sku.sku_code}</span></span>
+          </h1>
           {level && <p className="text-xs text-gray-500">Total stock: {level.total}</p>}
         </div>
-        <button type="button" onClick={() => setPriceOpen(true)} className="flex items-center gap-1 text-xs text-blue-400 shrink-0" title="Edit price">
-          <Tag size={13} /> Price
+        <button type="button" onClick={() => setPriceOpen(true)} className="flex items-baseline gap-1.5 text-sm font-semibold text-blue-400 shrink-0" title="Edit price" aria-label="Price">
+          <Tag size={15} className="self-center" />
+          {sku.sale_price_minor_units != null ? (
+            <>
+              {formatPrice(sku.sale_price_minor_units, sku.currency_code)}
+              <span className="text-xs font-normal text-gray-500 line-through">{formatPrice(sku.price_minor_units, sku.currency_code)}</span>
+            </>
+          ) : (
+            formatPrice(sku.price_minor_units, sku.currency_code)
+          )}
         </button>
       </div>
 

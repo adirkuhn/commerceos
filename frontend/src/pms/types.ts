@@ -86,6 +86,9 @@ export interface ResolveBarcodeResult {
   // 1 for a direct unit-barcode match; the case/box multiplier when
   // resolved via a BarcodeAlias.
   units_per_scan: number
+  // The resolved SKU's product's name -- scanner apps show this instead of
+  // the SKU code alone, which is rarely human readable on its own.
+  product_name: string
 }
 
 export interface Variant {

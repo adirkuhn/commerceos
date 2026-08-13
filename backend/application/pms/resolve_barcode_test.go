@@ -31,15 +31,18 @@ func (s *stubBarcodeAliasRepoForResolve) Delete(_ context.Context, _ string) err
 
 func TestResolveBarcode_resolvesDirectUnitBarcodeWithUnitsPerScanOne(t *testing.T) {
 	db := newMockGormDB(t)
-	skuRepo := &stubSKURepo{findByBarcodeResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "TSHIRT-1"}}
+	skuRepo := &stubSKURepo{findByBarcodeResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "TSHIRT-1", VariantID: "variant-1"}}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo)
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", Name: "T-Shirt"}}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), "012345")
 
 	require.NoError(t, err)
 	assert.Equal(t, "sku-1", result.SKU.ID)
 	assert.Equal(t, int64(1), result.UnitsPerScan)
+	assert.Equal(t, "T-Shirt", result.ProductName, "scanner apps show the product's name, not just the SKU code")
 }
 
 func TestResolveBarcode_fallsBackToBarcodeAliasWithItsMultiplier(t *testing.T) {
@@ -48,13 +51,14 @@ func TestResolveBarcode_fallsBackToBarcodeAliasWithItsMultiplier(t *testing.T) {
 	aliasRepo := &stubBarcodeAliasRepoForResolve{byCode: map[string]*pmsDomain.BarcodeAlias{
 		"CASE-BARCODE": {ID: "alias-1", SKUID: "sku-1", Code: "CASE-BARCODE", UnitsPerScan: 12},
 	}}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{product: &pmsDomain.Product{Name: "T-Shirt"}})
 
 	result, err := uc.Execute(context.Background(), "CASE-BARCODE")
 
 	require.NoError(t, err)
 	assert.Equal(t, "sku-1", result.SKU.ID)
 	assert.Equal(t, int64(12), result.UnitsPerScan)
+	assert.Equal(t, "T-Shirt", result.ProductName)
 }
 
 func TestResolveBarcode_fallsBackToSKUCodeWhenNeitherBarcodeNorAliasMatches(t *testing.T) {
@@ -63,20 +67,21 @@ func TestResolveBarcode_fallsBackToSKUCodeWhenNeitherBarcodeNorAliasMatches(t *t
 	// SKU code" path the scanner apps' prompt promises.
 	skuRepo := &stubSKURepo{findByCodeResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "TSHIRT-1"}}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{product: &pmsDomain.Product{Name: "T-Shirt"}})
 
 	result, err := uc.Execute(context.Background(), "TSHIRT-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "sku-1", result.SKU.ID)
 	assert.Equal(t, int64(1), result.UnitsPerScan)
+	assert.Equal(t, "T-Shirt", result.ProductName)
 }
 
 func TestResolveBarcode_returnsSKUNotFoundWhenNothingMatches(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
-	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo)
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{})
 
 	_, err := uc.Execute(context.Background(), "UNKNOWN")
 

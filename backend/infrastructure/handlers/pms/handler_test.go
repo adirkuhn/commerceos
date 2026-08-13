@@ -431,6 +431,7 @@ func TestResolveBarcode_success(t *testing.T) {
 	s := &stubs{resolveBarcode: stubResolveBarcode{out: &apppms.ResolveBarcodeResult{
 		SKU: pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive},
 		UnitsPerScan: 1,
+		ProductName:  "Widget",
 	}}}
 	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/012345", nil)
 
@@ -438,6 +439,7 @@ func TestResolveBarcode_success(t *testing.T) {
 	assert.Equal(t, "012345", s.resolveBarcode.gotInput)
 	assert.Contains(t, w.Body.String(), "WID-L")
 	assert.Contains(t, w.Body.String(), `"units_per_scan":1`)
+	assert.Contains(t, w.Body.String(), `"product_name":"Widget"`)
 }
 
 func TestResolveBarcode_notFound(t *testing.T) {

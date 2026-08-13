@@ -219,7 +219,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
 		apppms.NewUpdateMediaUseCase(db, mediaRepo),
-		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo),
+		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -527,7 +527,7 @@ func (h *Handler) ResolveBarcode(c *gin.Context, code string) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := genpms.ResolveBarcodeResult{Sku: toGenSKU(result.SKU), UnitsPerScan: result.UnitsPerScan}
+	resp := genpms.ResolveBarcodeResult{Sku: toGenSKU(result.SKU), UnitsPerScan: result.UnitsPerScan, ProductName: result.ProductName}
 	c.JSON(http.StatusOK, genpms.ResolveBarcodeResponse{Data: &resp})
 }
 

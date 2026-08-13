@@ -74,8 +74,8 @@ beforeEach(() => {
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
 })
 
-async function resolveAndEnterSKU(matchedSKU = sku(), batches: Batch[] = [batch()]) {
-  vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: matchedSKU, units_per_scan: 1 })
+async function resolveAndEnterSKU(matchedSKU = sku(), batches: Batch[] = [batch()], productName = 'Widget') {
+  vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: matchedSKU, units_per_scan: 1, product_name: productName })
   vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
   vi.mocked(inventoryApi.listBatches).mockResolvedValue(batches)
 
@@ -93,6 +93,29 @@ describe('InventoryApp scan screen', () => {
     expect(screen.getByText('Main Warehouse')).toBeInTheDocument()
   })
 
+  it('shows the product name and SKU code (small) as the heading, and total stock below', async () => {
+    await resolveAndEnterSKU(sku({ sku_code: 'WID-L' }), [batch()], 'Widget')
+
+    const heading = screen.getByRole('heading')
+    expect(heading).toHaveTextContent('Widget')
+    expect(heading).toHaveTextContent('WID-L')
+    expect(screen.getByText('Total stock: 10')).toBeInTheDocument()
+  })
+
+  it('shows the regular price on the Price button when there is no sale price', async () => {
+    await resolveAndEnterSKU(sku({ price_minor_units: 1999, currency_code: 'USD' }))
+
+    expect(screen.getByRole('button', { name: /Price/ })).toHaveTextContent('USD 19.99')
+  })
+
+  it('shows the sale price with the original struck through on the Price button when a sale is active', async () => {
+    await resolveAndEnterSKU(sku({ price_minor_units: 1999, sale_price_minor_units: 1499, currency_code: 'USD' }))
+
+    const priceButton = screen.getByRole('button', { name: /Price/ })
+    expect(priceButton).toHaveTextContent('USD 14.99')
+    expect(priceButton).toHaveTextContent('USD 19.99')
+  })
+
   it('shows an error when nothing matches', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
@@ -103,7 +126,7 @@ describe('InventoryApp scan screen', () => {
   })
 
   it('resolves a code decoded via the camera', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1 })
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1, product_name: 'Widget' })
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
 

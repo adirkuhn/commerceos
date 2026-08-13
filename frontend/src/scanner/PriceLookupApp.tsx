@@ -1,13 +1,17 @@
 import { useState } from 'react'
-import { ArrowLeft, Tag } from 'lucide-react'
+import { ArrowLeft, Tag, Boxes } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import * as inventoryApi from '../inventory/api'
 import { ScanCodeScreen } from './ScanCodeScreen'
 import type { SKU } from '../pms/types'
+import type { Resolved } from './InventoryApp'
 
 interface PriceLookupAppProps {
   token: string
   onExit: () => void
+  // Lets "View in Inventory" jump straight to that mini-app's SKU screen
+  // for the already-resolved SKU, instead of the caller having to re-scan.
+  onViewInventory: (resolved: Resolved) => void
 }
 
 function formatPrice(minorUnits: number, currency: string): string {
@@ -16,13 +20,14 @@ function formatPrice(minorUnits: number, currency: string): string {
 
 interface Result {
   sku: SKU
+  productName: string
   stockTotal: number | null
 }
 
 // Scanner mini-app: scan/type a code, see price + stock, done -- read-only,
 // no confirm step needed. Also works by tapping alone via the on-screen
 // keyboard into the same input a hardware scan-engine keyboard-wedges into.
-export function PriceLookupApp({ token, onExit }: PriceLookupAppProps) {
+export function PriceLookupApp({ token, onExit, onViewInventory }: PriceLookupAppProps) {
   const [result, setResult] = useState<Result | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -31,14 +36,14 @@ export function PriceLookupApp({ token, onExit }: PriceLookupAppProps) {
     setError('')
     setLoading(true)
     try {
-      const { sku } = await pmsApi.resolveBarcode(token, code)
+      const { sku, product_name } = await pmsApi.resolveBarcode(token, code)
       let stockTotal: number | null = null
       try {
         stockTotal = (await inventoryApi.getSKUStockLevel(token, sku.id)).total
       } catch {
         // Stock lookup failing shouldn't hide the price -- just omit it.
       }
-      setResult({ sku, stockTotal })
+      setResult({ sku, productName: product_name, stockTotal })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resolve code')
     } finally {
@@ -69,7 +74,10 @@ export function PriceLookupApp({ token, onExit }: PriceLookupAppProps) {
           <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center">
             <Tag size={28} className="text-blue-400" />
           </div>
-          <p className="text-lg font-semibold">{result.sku.sku_code}</p>
+          <div>
+            <p className="text-lg font-semibold">{result.productName}</p>
+            <p className="text-xs text-gray-500">{result.sku.sku_code}</p>
+          </div>
           <div className="space-y-1">
             {result.sku.sale_price_minor_units != null ? (
               <>
@@ -83,12 +91,20 @@ export function PriceLookupApp({ token, onExit }: PriceLookupAppProps) {
           {result.stockTotal !== null && (
             <p className="text-sm text-gray-400">In stock: <span className="font-mono text-gray-200">{result.stockTotal}</span></p>
           )}
-          <button
-            onClick={reset}
-            className="w-full max-w-xs py-3 rounded-xl bg-[#1F2937] text-gray-200 font-medium border border-[#2D3748]"
-          >
-            Look up another
-          </button>
+          <div className="w-full max-w-xs space-y-2">
+            <button
+              onClick={() => onViewInventory({ sku: result.sku, productName: result.productName })}
+              className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-blue-600 text-white font-medium"
+            >
+              <Boxes size={16} /> View in Inventory
+            </button>
+            <button
+              onClick={reset}
+              className="w-full py-3 rounded-xl bg-[#1F2937] text-gray-200 font-medium border border-[#2D3748]"
+            >
+              Look up another
+            </button>
+          </div>
         </div>
       )}
     </div>

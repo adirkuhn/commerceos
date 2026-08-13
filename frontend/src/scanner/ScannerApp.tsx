@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useScannerAuth } from './useScannerAuth'
 import { ClaimScreen } from './ClaimScreen'
 import { AppLauncher, type ScannerAppID } from './AppLauncher'
-import { InventoryApp } from './InventoryApp'
+import { InventoryApp, type Resolved } from './InventoryApp'
 import { PriceLookupApp } from './PriceLookupApp'
 import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
 import { BookingScreen } from './BookingScreen'
@@ -16,6 +16,9 @@ export default function ScannerApp() {
   const { token, setToken, clearToken } = useScannerAuth()
   const [app, setApp] = useState<ScannerAppID | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  // Set by Price Lookup's "View in Inventory" -- lets Inventory open
+  // straight to this SKU's screen instead of showing its own scan step.
+  const [inventoryInitialResolved, setInventoryInitialResolved] = useState<Resolved | null>(null)
 
   if (!token) {
     return <ClaimScreen onClaimed={setToken} />
@@ -26,11 +29,23 @@ export default function ScannerApp() {
   }
 
   if (app === 'inventory') {
-    return <InventoryApp token={token} onExit={() => setApp(null)} />
+    return (
+      <InventoryApp
+        token={token}
+        initialResolved={inventoryInitialResolved ?? undefined}
+        onExit={() => { setApp(null); setInventoryInitialResolved(null) }}
+      />
+    )
   }
 
   if (app === 'price-lookup') {
-    return <PriceLookupApp token={token} onExit={() => setApp(null)} />
+    return (
+      <PriceLookupApp
+        token={token}
+        onExit={() => setApp(null)}
+        onViewInventory={resolved => { setInventoryInitialResolved(resolved); setApp('inventory') }}
+      />
+    )
   }
 
   // Only 'receive-po', 'inventory', and 'price-lookup' are implemented --

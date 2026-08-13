@@ -736,13 +736,16 @@ components:
 
     ResolveBarcodeResult:
       type: object
-      required: [sku, units_per_scan]
+      required: [sku, units_per_scan, product_name]
       properties:
         sku: { $ref: '#/components/schemas/SKU' }
         units_per_scan:
           type: integer
           format: int64
           description: 1 for a direct unit-barcode match; the case/box multiplier when resolved via a BarcodeAlias.
+        product_name:
+          type: string
+          description: The resolved SKU's product's name -- scanner apps show this instead of the SKU code alone, which is rarely human readable on its own.
 
     ResolveBarcodeResponse:
       type: object

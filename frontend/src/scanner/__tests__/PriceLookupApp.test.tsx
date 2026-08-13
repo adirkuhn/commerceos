@@ -45,25 +45,39 @@ beforeEach(() => {
 })
 
 describe('PriceLookupApp', () => {
-  it('resolves a scanned code and shows SKU code, price, and stock', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1 })
+  it('resolves a scanned code and shows product name, SKU code, price, and stock', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1, product_name: 'Widget' })
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
 
-    render(<PriceLookupApp token={TOKEN} onExit={() => {}} />)
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
 
-    expect(await screen.findByText('WID-L')).toBeInTheDocument()
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(screen.getByText('WID-L')).toBeInTheDocument()
     expect(screen.getByText('USD 19.99')).toBeInTheDocument()
     expect(screen.getByText('42')).toBeInTheDocument()
   })
 
+  it('View in Inventory hands off the resolved SKU and product name', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1, product_name: 'Widget' })
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+    const onViewInventory = vi.fn()
+
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={onViewInventory} />)
+    await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
+    await screen.findByText('Widget')
+    await userEvent.click(screen.getByRole('button', { name: 'View in Inventory' }))
+
+    expect(onViewInventory).toHaveBeenCalledWith({ sku: sku(), productName: 'Widget' })
+  })
+
   it('shows the sale price alongside the regular price when one is active', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({
-      sku: sku({ sale_price_minor_units: 1499 }), units_per_scan: 1,
+      sku: sku({ sale_price_minor_units: 1499 }), units_per_scan: 1, product_name: 'Widget',
     })
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
 
-    render(<PriceLookupApp token={TOKEN} onExit={() => {}} />)
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
 
     expect(await screen.findByText('USD 14.99')).toBeInTheDocument()
@@ -73,17 +87,17 @@ describe('PriceLookupApp', () => {
   it('shows an error when nothing matches', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
-    render(<PriceLookupApp token={TOKEN} onExit={() => {}} />)
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'UNKNOWN{Enter}')
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
   })
 
   it('Look up another returns to the scan screen', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1 })
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1, product_name: 'Widget' })
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
 
-    render(<PriceLookupApp token={TOKEN} onExit={() => {}} />)
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-L{Enter}')
     await screen.findByText('WID-L')
 
@@ -93,10 +107,10 @@ describe('PriceLookupApp', () => {
   })
 
   it('resolves a code decoded via the camera', async () => {
-    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1 })
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({ sku: sku(), units_per_scan: 1, product_name: 'Widget' })
     vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
 
-    render(<PriceLookupApp token={TOKEN} onExit={() => {}} />)
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
     await userEvent.click(screen.getByRole('button', { name: /Use camera/ }))
     await waitFor(() => expect(mockDecodeFromVideoDevice).toHaveBeenCalled())
     const callback = mockDecodeFromVideoDevice.mock.calls[0][2]
