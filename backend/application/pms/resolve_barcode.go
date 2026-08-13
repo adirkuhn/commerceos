@@ -17,8 +17,10 @@ type ResolveBarcodeResult struct {
 	UnitsPerScan int64
 }
 
-// ResolveBarcodeUseCase resolves a scanned code to a SKU -- tried first as a
-// unit barcode (SKU.Barcode), then as a case/box BarcodeAlias.Code. Shared
+// ResolveBarcodeUseCase resolves a scanned or typed code to a SKU -- tried
+// first as a unit barcode (SKU.Barcode), then as a case/box
+// BarcodeAlias.Code, then as a directly-typed SKU.SKUCode (the scanner
+// apps' "type a SKU code" fallback for stock with no barcode yet). Shared
 // by every scanner mini-app that turns a scan into a SKU (inventory adjust/
 // move/remove, price lookup, pick order).
 //
@@ -51,17 +53,26 @@ func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*Res
 		}
 
 		alias, err := uc.barcodeAliasRepo.FindByCode(ctx, code)
+		if err == nil {
+			sku, err = uc.skuRepo.FindByID(ctx, alias.SKUID)
+			if err != nil {
+				return err
+			}
+			result = ResolveBarcodeResult{SKU: *sku, UnitsPerScan: alias.UnitsPerScan}
+			return nil
+		}
+		if !errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound) {
+			return err
+		}
+
+		sku, err = uc.skuRepo.FindByCode(ctx, code)
 		if err != nil {
-			if errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound) {
+			if errors.Is(err, pmsDomain.ErrSKUNotFound) {
 				return pmsDomain.ErrSKUNotFound
 			}
 			return err
 		}
-		sku, err = uc.skuRepo.FindByID(ctx, alias.SKUID)
-		if err != nil {
-			return err
-		}
-		result = ResolveBarcodeResult{SKU: *sku, UnitsPerScan: alias.UnitsPerScan}
+		result = ResolveBarcodeResult{SKU: *sku, UnitsPerScan: 1}
 		return nil
 	})
 	if err != nil {

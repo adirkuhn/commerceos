@@ -539,18 +539,18 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
               {mode === 'receive' ? 'Quantity to receive' : mode === 'remove' ? 'Quantity to remove' : 'Quantity'}
             </label>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setQty(String(Math.max(n - 1, 0)))} className="w-11 h-11 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label="Decrease quantity">
-                <Minus size={16} />
+              <button type="button" onClick={() => setQty(String(Math.max(n - 1, 0)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label="Decrease quantity">
+                <Minus size={14} />
               </button>
               <input
                 id="line-quantity"
                 inputMode="numeric"
                 value={qty}
                 onChange={e => setQty(e.target.value.replace(/\D/g, ''))}
-                className="flex-1 px-3 py-2.5 text-center text-lg rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <button type="button" onClick={() => setQty(String(n + 1))} className="w-11 h-11 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label="Increase quantity">
-                <Plus size={16} />
+              <button type="button" onClick={() => setQty(String(n + 1))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label="Increase quantity">
+                <Plus size={14} />
               </button>
             </div>
             {maxQty !== undefined && <p className="mt-1 text-xs text-gray-500">Up to {scannedSoFar} already received</p>}

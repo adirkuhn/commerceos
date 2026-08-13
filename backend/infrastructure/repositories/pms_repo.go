@@ -322,8 +322,17 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	if filter.Search != nil && *filter.Search != "" {
 		// unaccent() so "acai" matches "Açaí", "feijao" matches "Feijão",
 		// etc. — plain ILIKE is case-insensitive but not accent-insensitive.
+		// sku_code/barcode are plain ASCII codes, not natural-language names,
+		// so no unaccent() needed there. EXISTS rather than a JOIN so a
+		// product with several matching SKUs still comes back exactly once.
 		pattern := "%" + *filter.Search + "%"
-		q = q.Where("unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?)", pattern, pattern)
+		q = q.Where(
+			"unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?) OR EXISTS ("+
+				"SELECT 1 FROM skus s JOIN variants v ON v.id = s.variant_id "+
+				"WHERE v.product_id = products.id AND (s.sku_code ILIKE ? OR s.barcode ILIKE ?)"+
+				")",
+			pattern, pattern, pattern, pattern,
+		)
 	}
 
 	var total int64

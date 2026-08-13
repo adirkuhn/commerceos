@@ -61,6 +61,68 @@ func TestProductRepo_Integration_SearchIsAccentInsensitive(t *testing.T) {
 	}
 }
 
+// TestProductRepo_Integration_SearchMatchesSKUCodeAndBarcode proves the
+// EXISTS-subquery join to variants/skus actually works against real
+// Postgres, and doesn't return a product more than once for a product with
+// several SKUs (a plain JOIN would duplicate rows here).
+func TestProductRepo_Integration_SearchMatchesSKUCodeAndBarcode(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		p := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Widget Multipack", Slug: "widget-multipack-search",
+			Status: pmsDomain.ProductStatusActive, HasVariants: true, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, p); err != nil {
+			return err
+		}
+		v := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: p.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, v); err != nil {
+			return err
+		}
+		// Two SKUs under the same product -- the search must still return
+		// the product exactly once, matching on either one.
+		for _, sku := range []*pmsDomain.SKU{
+			{TenantID: tenant.IDFromContext(ctx), VariantID: v.ID, SKUCode: "WGT-SEARCH-1", Barcode: "0123456789012", CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), VariantID: v.ID, SKUCode: "WGT-SEARCH-2", CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now},
+		} {
+			if err := skuRepo.Create(ctx, sku); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	for _, query := range []string{"WGT-SEARCH-1", "wgt-search-2", "0123456789012"} {
+		var products []pmsDomain.Product
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			search := query
+			products, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Search: &search})
+			return err
+		})
+		require.NoError(t, err, "query %q", query)
+		require.Len(t, products, 1, "query %q should match the product exactly once, not once per matching sku", query)
+		require.Equal(t, "Widget Multipack", products[0].Name, "query %q", query)
+	}
+
+	var noMatch []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		search := "no-such-code-or-name"
+		noMatch, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Search: &search})
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, noMatch)
+}
+
 // TestProductRepo_Integration_SyncVariantsAsWooVariationsRoundTrips proves
 // migration 046's products.sync_variants_as_woo_variations column exists,
 // defaults to false, and survives a real round trip through GORM's

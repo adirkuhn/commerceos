@@ -32,8 +32,10 @@ type ProductRepository interface {
 type ProductFilter struct {
 	CategoryID *string
 	Status     *ProductStatus
-	// Search matches against name or slug, case- and accent-insensitively
-	// (e.g. "acai" matches "Açaí").
+	// Search matches against name or slug (case- and accent-insensitively,
+	// e.g. "acai" matches "Açaí"), or any of the product's SKUs' sku_code
+	// or barcode (case-insensitive, exact substring -- these are codes, not
+	// natural-language text, so no accent-folding needed there).
 	Search *string
 	Limit  int
 	Offset int
