@@ -85,11 +85,12 @@ type ReceivePOSSalesOrderUseCase struct {
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
+	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
 	recordMovement recordSaleMovementUC
 }
 
-func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, recordMovement recordSaleMovementUC) *ReceivePOSSalesOrderUseCase {
-	return &ReceivePOSSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, recordMovement: recordMovement}
+func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC) *ReceivePOSSalesOrderUseCase {
+	return &ReceivePOSSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement}
 }
 
 func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePOSSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -103,6 +104,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 
 	var order *omsDomain.SalesOrder
 	var alreadyReceived bool
+	var createdLineItems []omsDomain.SalesOrderLineItem
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourcePOS, in.ExternalOrderID)
 		if err != nil {
@@ -125,6 +127,11 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle, TransactionID: in.TransactionID,
 			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
 			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
+			// See SalesOrderStatus.ReducesStock's doc -- a POS sale defaults
+			// to completed (always stock-reducing), but the status is now
+			// exposed to the input so an already-refunded/cancelled sale
+			// synced in from elsewhere doesn't get decremented.
+			StockDecremented: status.ReducesStock(),
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
 			return err
@@ -140,6 +147,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err
 			}
+			createdLineItems = append(createdLineItems, lineItem)
 		}
 		order = &newOrder
 		return nil
@@ -147,16 +155,20 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 	if err != nil {
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 	}
-	if alreadyReceived {
+	if alreadyReceived || !status.ReducesStock() {
 		return order, nil
 	}
 
-	for _, li := range in.LineItems {
-		if _, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+	for _, li := range createdLineItems {
+		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
 			SKUID: li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
 			OccurredAt: in.OccurredAt,
-		}); err != nil {
+		})
+		if err != nil {
+			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
+		}
+		if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
 			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 		}
 	}

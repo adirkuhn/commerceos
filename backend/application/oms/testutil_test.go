@@ -31,6 +31,29 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 	return gormDB
 }
 
+// newMockGormDBN is like newMockGormDB but for use cases that open more than
+// one tenant.WithTenant transaction -- e.g. CreateSalesOrderUseCase opens
+// one for the order+line-items write, then one more per line item to link
+// its stock movement (recordMovement itself is stubbed, so it doesn't
+// count against a real transaction).
+func newMockGormDBN(t *testing.T, n int) *gorm.DB {
+	t.Helper()
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { mockDB.Close() })
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mockDB}), &gorm.Config{})
+	require.NoError(t, err)
+
+	mock.MatchExpectationsInOrder(false)
+	for i := 0; i < n; i++ {
+		mock.ExpectBegin()
+		mock.ExpectExec(`SELECT set_config`).WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectCommit()
+	}
+	return gormDB
+}
+
 type stubSalesOrderRepo struct {
 	findByExternalIDResult *omsDomain.SalesOrder
 	findByExternalIDErr    error
@@ -42,6 +65,11 @@ type stubSalesOrderRepo struct {
 	listTotal              int64
 	listErr                error
 	gotListFilter          omsDomain.ListSalesOrdersFilter
+	updateErr              error
+	gotUpdateID            string
+	gotUpdateFields        map[string]any
+	deleteErr              error
+	gotDeleteID            string
 }
 
 func (s *stubSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
@@ -68,12 +96,23 @@ func (s *stubSalesOrderRepo) List(_ context.Context, filter omsDomain.ListSalesO
 	}
 	return s.listResult, s.listTotal, nil
 }
+func (s *stubSalesOrderRepo) Update(_ context.Context, id string, fields map[string]any) error {
+	s.gotUpdateID = id
+	s.gotUpdateFields = fields
+	return s.updateErr
+}
+func (s *stubSalesOrderRepo) Delete(_ context.Context, id string) error {
+	s.gotDeleteID = id
+	return s.deleteErr
+}
 
 type stubSalesOrderLineItemRepo struct {
-	createErr        error
-	created          []omsDomain.SalesOrderLineItem
-	listBySalesOrder []omsDomain.SalesOrderLineItem
-	listErr          error
+	createErr             error
+	created               []omsDomain.SalesOrderLineItem
+	listBySalesOrder      []omsDomain.SalesOrderLineItem
+	listErr               error
+	deleteBySalesOrderErr error
+	gotDeleteSalesOrderID string
 }
 
 func (s *stubSalesOrderLineItemRepo) Create(_ context.Context, li *omsDomain.SalesOrderLineItem) error {
@@ -89,6 +128,24 @@ func (s *stubSalesOrderLineItemRepo) ListBySalesOrder(_ context.Context, _ strin
 		return nil, s.listErr
 	}
 	return s.listBySalesOrder, nil
+}
+func (s *stubSalesOrderLineItemRepo) DeleteBySalesOrder(_ context.Context, salesOrderID string) error {
+	s.gotDeleteSalesOrderID = salesOrderID
+	return s.deleteBySalesOrderErr
+}
+
+type stubSalesOrderLineItemStockMovementRepo struct {
+	createErr error
+	created   []omsDomain.SalesOrderLineItemStockMovement
+}
+
+func (s *stubSalesOrderLineItemStockMovementRepo) Create(_ context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	l.ID = "link-1"
+	s.created = append(s.created, *l)
+	return nil
 }
 
 type stubRecordMovement struct {
