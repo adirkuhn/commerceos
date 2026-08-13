@@ -1,0 +1,167 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Sales Orders API
+  description: >
+    Read side of sales orders (domain/oms) -- staff viewing what came in
+    from POS (or, later, any other channel). The write path
+    (ReceivePOSSalesOrderUseCase) is under api/pos, authenticated by the
+    POS's lm2 license rather than a human JWT.
+  version: "1.0"
+servers:
+  - url: /api/v1
+
+paths:
+  /sales-orders:
+    get:
+      operationId: listSalesOrders
+      summary: List sales orders for the current tenant, newest first
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderListResponse'
+
+  /sales-orders/{id}:
+    get:
+      operationId: getSalesOrder
+      summary: Get one sales order with its line items
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Address:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        company: { type: string }
+        address_1: { type: string }
+        address_2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postcode: { type: string }
+        country: { type: string }
+        email: { type: string }
+        phone: { type: string }
+
+    SalesOrderStatus:
+      type: string
+      enum: [pending, processing, on-hold, completed, cancelled, refunded, failed]
+
+    SalesOrder:
+      type: object
+      required: [id, source, external_order_id, status, warehouse_id, currency_code, total_minor_units, occurred_at, created_at]
+      properties:
+        id: { type: string }
+        source: { type: string }
+        external_order_id: { type: string }
+        number: { type: string }
+        order_key: { type: string }
+        status: { $ref: '#/components/schemas/SalesOrderStatus' }
+        warehouse_id: { type: string }
+        customer_id: { type: string, nullable: true }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        customer_note: { type: string }
+        currency_code: { type: string }
+        discount_total_minor_units: { type: integer, format: int64 }
+        shipping_total_minor_units: { type: integer, format: int64 }
+        tax_total_minor_units: { type: integer, format: int64 }
+        total_minor_units: { type: integer, format: int64 }
+        payment_method: { type: string }
+        payment_method_title: { type: string }
+        transaction_id: { type: string }
+        date_paid: { type: string, format: date-time, nullable: true }
+        date_completed: { type: string, format: date-time, nullable: true }
+        occurred_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    SalesOrderLineItem:
+      type: object
+      required: [id, sku_id, quantity]
+      properties:
+        id: { type: string }
+        sku_id: { type: string }
+        name: { type: string }
+        sku_code: { type: string }
+        quantity: { type: integer, format: int64 }
+        price_minor_units: { type: integer, format: int64 }
+        subtotal_minor_units: { type: integer, format: int64 }
+        subtotal_tax_minor_units: { type: integer, format: int64 }
+        total_minor_units: { type: integer, format: int64 }
+        total_tax_minor_units: { type: integer, format: int64 }
+
+    SalesOrderDetail:
+      type: object
+      required: [sales_order, line_items]
+      properties:
+        sales_order: { $ref: '#/components/schemas/SalesOrder' }
+        line_items:
+          type: array
+          items: { $ref: '#/components/schemas/SalesOrderLineItem' }
+
+    SalesOrderList:
+      type: object
+      required: [sales_orders, total]
+      properties:
+        sales_orders:
+          type: array
+          items: { $ref: '#/components/schemas/SalesOrder' }
+        total: { type: integer, format: int64 }
+
+    SalesOrderListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesOrderList' }
+        error: { nullable: true }
+
+    SalesOrderDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesOrderDetail' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

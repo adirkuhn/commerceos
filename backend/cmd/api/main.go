@@ -12,10 +12,12 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
+	genoms "github.com/adirkuhn/commerceos/api/oms"
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	genpos "github.com/adirkuhn/commerceos/api/pos"
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
@@ -24,10 +26,12 @@ import (
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
+	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 	poshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pos"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
@@ -174,6 +178,32 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	supplierhandler.Register(suppliersGroup, db)
+
+	customersSpec, err := gencustomers.GetSpec()
+	if err != nil {
+		log.Fatalf("customers: load openapi spec: %v", err)
+	}
+	// Own sub-group so the customers-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	customersGroup := v1.Group("")
+	customersGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(customersSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	customershandler.Register(customersGroup, db)
+
+	omsSpec, err := genoms.GetSpec()
+	if err != nil {
+		log.Fatalf("oms: load openapi spec: %v", err)
+	}
+	// Own sub-group so the oms-only spec validator never applies to the
+	// other modules' routes — same reasoning as pmsGroup above. Read-only
+	// (list/get sales orders) -- the write side is api/pos, not here, see
+	// api/oms/generate.go's doc comment.
+	omsGroup := v1.Group("")
+	omsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(omsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	omshandler.Register(omsGroup, db)
 
 	procurementSpec, err := genprocurement.GetSpec()
 	if err != nil {

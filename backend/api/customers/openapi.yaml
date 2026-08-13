@@ -1,0 +1,190 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Customers API
+  description: >
+    Customer CRUD (domain/customers). Field set mirrors WooCommerce's
+    customer object -- see domain/customers.Customer's doc comment.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List customers for the current tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerListResponse'
+    post:
+      operationId: createCustomer
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /customers/{id}:
+    patch:
+      operationId: updateCustomer
+      summary: Update a customer
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteCustomer
+      summary: Delete a customer
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Address:
+      type: object
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        company: { type: string }
+        address_1: { type: string }
+        address_2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postcode: { type: string }
+        country: { type: string }
+        email: { type: string, description: Only meaningful on billing. }
+        phone: { type: string }
+
+    Customer:
+      type: object
+      required: [id, tenant_id, email, first_name, last_name, is_paying_customer, date_created, date_modified]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        woo_customer_id: { type: integer, format: int64, nullable: true }
+        email: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        role: { type: string }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        is_paying_customer: { type: boolean }
+        avatar_url: { type: string }
+        date_created: { type: string, format: date-time }
+        date_modified: { type: string, format: date-time }
+
+    CreateCustomerRequest:
+      type: object
+      required: [email]
+      properties:
+        woo_customer_id: { type: integer, format: int64, nullable: true }
+        email: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        role: { type: string }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        is_paying_customer: { type: boolean }
+        avatar_url: { type: string }
+
+    UpdateCustomerRequest:
+      type: object
+      required: [email]
+      properties:
+        woo_customer_id: { type: integer, format: int64, nullable: true }
+        email: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        username: { type: string }
+        role: { type: string }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        is_paying_customer: { type: boolean }
+        avatar_url: { type: string }
+
+    CustomerResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Customer' }
+        error: { nullable: true }
+
+    CustomerListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer'
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
