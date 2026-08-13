@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -54,6 +55,18 @@ func TestListProducts_passesSearchThrough(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, repo.gotFilter.Search)
 	require.Equal(t, "shirt", *repo.gotFilter.Search)
+}
+
+func TestListProducts_passesUpdatedAfterThrough(t *testing.T) {
+	repo := &stubProductRepo{}
+	uc := apppms.NewListProductsUseCase(newMockGormDB(t), repo)
+	since := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+
+	_, err := uc.Execute(context.Background(), apppms.ListProductsInput{UpdatedAfter: &since})
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.gotFilter.UpdatedAfter)
+	require.True(t, since.Equal(*repo.gotFilter.UpdatedAfter))
 }
 
 func TestListProducts_propagatesRepoError(t *testing.T) {

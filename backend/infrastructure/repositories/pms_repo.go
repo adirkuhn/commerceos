@@ -334,6 +334,9 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 			pattern, pattern, pattern, pattern,
 		)
 	}
+	if filter.UpdatedAfter != nil {
+		q = q.Where("updated_at > ?", *filter.UpdatedAfter)
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

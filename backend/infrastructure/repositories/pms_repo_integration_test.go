@@ -61,6 +61,66 @@ func TestProductRepo_Integration_SearchIsAccentInsensitive(t *testing.T) {
 	}
 }
 
+// TestProductRepo_Integration_UpdatedAfterFiltersByRealUpdatedAtColumn
+// proves the updated_after filter -- the incremental-sync filter external
+// integrations (e.g. a POS desktop) use to pull only what changed -- runs
+// against the real updated_at column and picks up a real Update, not just
+// CreatedAt.
+func TestProductRepo_Integration_UpdatedAfterFiltersByRealUpdatedAtColumn(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+
+	var recentProductID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		old := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Old Product", Slug: "old-product-updated-after",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, old); err != nil {
+			return err
+		}
+		recent := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Recent Product", Slug: "recent-product-updated-after",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, recent); err != nil {
+			return err
+		}
+		recentProductID = recent.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	cutoff := time.Now()
+
+	// Only the recent product gets touched again, after the cutoff.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		recent, err := productRepo.FindByID(ctx, recentProductID)
+		if err != nil {
+			return err
+		}
+		recent.Name = "Recent Product (touched)"
+		// ProductRepo.Update writes UpdatedAt as-is from the struct (bumping
+		// it is UpdateProductUseCase's job, not the repo's) -- set it
+		// explicitly here, same as that use case does.
+		recent.UpdatedAt = time.Now()
+		return productRepo.Update(ctx, recent)
+	})
+	require.NoError(t, err)
+
+	var filtered []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		filtered, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{UpdatedAfter: &cutoff})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, filtered, 1)
+	require.Equal(t, recentProductID, filtered[0].ID)
+}
+
 // TestProductRepo_Integration_SearchMatchesSKUCodeAndBarcode proves the
 // EXISTS-subquery join to variants/skus actually works against real
 // Postgres, and doesn't return a product more than once for a product with

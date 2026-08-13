@@ -3,6 +3,7 @@ package pms
 import (
 	"context"
 	"fmt"
+	"time"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -15,9 +16,10 @@ const (
 )
 
 type ListProductsInput struct {
-	Page    int
-	PerPage int
-	Search  string
+	Page         int
+	PerPage      int
+	Search       string
+	UpdatedAfter *time.Time
 }
 
 type ListProductsResult struct {
@@ -50,6 +52,9 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, in ListProductsInput
 	filter := pmsDomain.ProductFilter{Limit: perPage, Offset: (page - 1) * perPage}
 	if in.Search != "" {
 		filter.Search = &in.Search
+	}
+	if in.UpdatedAfter != nil {
+		filter.UpdatedAfter = in.UpdatedAfter
 	}
 
 	result := &ListProductsResult{}

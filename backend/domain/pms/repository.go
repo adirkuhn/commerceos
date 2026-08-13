@@ -1,6 +1,9 @@
 package pms
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type CategoryRepository interface {
 	Create(ctx context.Context, c *Category) error
@@ -37,8 +40,15 @@ type ProductFilter struct {
 	// or barcode (case-insensitive, exact substring -- these are codes, not
 	// natural-language text, so no accent-folding needed there).
 	Search *string
-	Limit  int
-	Offset int
+	// UpdatedAfter restricts to products modified after this time --
+	// incremental-sync filter for external integrations pulling the
+	// catalog (e.g. a POS desktop), same idea as WooCommerce's own
+	// modified_after. Compared against products.updated_at, which is
+	// bumped by UpdateProductUseCase but NOT by anything stock-related
+	// (stock lives in a separate ledger, not a Product field).
+	UpdatedAfter *time.Time
+	Limit        int
+	Offset       int
 }
 
 type VariantRepository interface {
