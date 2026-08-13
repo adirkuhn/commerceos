@@ -21,6 +21,8 @@ interface NavEntry {
 
 const NAV_ITEMS: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'sales-orders', label: 'Sales Order', icon: ShoppingCart },
+  { id: 'customers', label: 'Customer', icon: Users },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
@@ -28,8 +30,6 @@ const NAV_ITEMS: NavEntry[] = [
   // { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
   { id: 'suppliers', label: 'Suppliers', icon: Truck },
   { id: 'procurement', label: 'Procurement', icon: ShoppingBag },
-  { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'sales-orders', label: 'Sales Orders', icon: ShoppingCart },
   { id: 'integrations', label: 'Integrations', icon: Plug, badge: '1', badgeColor: 'red' },
   { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
   { id: 'sync-log', label: 'Sync History', icon: History },

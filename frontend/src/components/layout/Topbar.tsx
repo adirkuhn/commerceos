@@ -7,6 +7,8 @@ import NotificationBell from './NotificationBell'
 
 const NAV_TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
+  'sales-orders': 'Sales Order',
+  customers: 'Customer',
   products: 'Products · PIM',
   inventory: 'Inventory · WMS',
   orders: 'Orders · OMS',

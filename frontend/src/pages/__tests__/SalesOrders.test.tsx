@@ -97,7 +97,7 @@ describe('Sales order detail page', () => {
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
-    await userEvent.click(screen.getByRole('button', { name: /Sales Orders/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Sales Order/ }))
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.queryByText('Blue Widget')).not.toBeInTheDocument()

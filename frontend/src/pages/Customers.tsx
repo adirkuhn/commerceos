@@ -211,7 +211,7 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
             onClick={onClose}
             className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Customers
+            <ArrowLeft size={11} /> Customer
           </button>
           <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
             {customer ? [firstName, lastName].filter(Boolean).join(' ') || 'Edit Customer' : 'New Customer'}

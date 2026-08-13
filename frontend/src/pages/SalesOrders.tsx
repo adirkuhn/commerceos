@@ -120,7 +120,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             onClick={onClose}
             className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
           >
-            <ArrowLeft size={11} /> Sales Orders
+            <ArrowLeft size={11} /> Sales Order
           </button>
           <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
             {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : 'Sales Order'}
