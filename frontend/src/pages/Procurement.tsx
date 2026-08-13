@@ -1735,12 +1735,12 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
 
 // ── Product/SKU Picker ───────────────────────────────────────────────────────
 
-interface ProductSkuPickerProps {
+export interface ProductSkuPickerProps {
   onSelect: (sku: SKU, label: string) => void
   onClose: () => void
 }
 
-function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
+export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
   const { token } = useAuth()
   const [query, setQuery] = useState('')
   const { products } = useProducts(token ?? '', { search: query, perPage: 5 })

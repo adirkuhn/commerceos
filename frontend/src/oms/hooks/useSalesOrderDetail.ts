@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { SalesOrderDetail } from '../types'
+import type { SalesOrderDetail, SalesOrder, UpdateSalesOrderInput } from '../types'
 import * as api from '../api'
 
 interface UseSalesOrderDetailState {
@@ -10,6 +10,8 @@ interface UseSalesOrderDetailState {
 
 interface UseSalesOrderDetailActions {
   refresh: () => void
+  update: (input: UpdateSalesOrderInput) => Promise<SalesOrder>
+  remove: () => Promise<void>
 }
 
 export function useSalesOrderDetail(token: string, salesOrderId: string | null): UseSalesOrderDetailState & UseSalesOrderDetailActions {
@@ -36,5 +38,17 @@ export function useSalesOrderDetail(token: string, salesOrderId: string | null):
 
   useEffect(() => { load() }, [load])
 
-  return { detail, loading, error, refresh: load }
+  const update = useCallback(async (input: UpdateSalesOrderInput): Promise<SalesOrder> => {
+    if (!salesOrderId) throw new Error('no sales order selected')
+    const order = await api.updateSalesOrder(token, salesOrderId, input)
+    await load()
+    return order
+  }, [token, salesOrderId, load])
+
+  const remove = useCallback(async (): Promise<void> => {
+    if (!salesOrderId) throw new Error('no sales order selected')
+    await api.deleteSalesOrder(token, salesOrderId)
+  }, [token, salesOrderId])
+
+  return { detail, loading, error, refresh: load, update, remove }
 }

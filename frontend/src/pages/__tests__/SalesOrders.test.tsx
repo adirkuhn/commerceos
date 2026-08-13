@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import SalesOrders from '../SalesOrders'
@@ -12,9 +12,32 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
   getSalesOrder: vi.fn(),
+  createSalesOrder: vi.fn(),
+  updateSalesOrder: vi.fn(),
+  deleteSalesOrder: vi.fn(),
+}))
+
+vi.mock('../../inventory/api', () => ({
+  listWarehouses: vi.fn(),
+}))
+
+vi.mock('../../pms/api', () => ({
+  listProducts: vi.fn(),
+  getProduct: vi.fn(),
 }))
 
 import * as omsApi from '../../oms/api'
+import * as inventoryApi from '../../inventory/api'
+import * as pmsApi from '../../pms/api'
+
+function warehouse(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'wh-1', tenant_id: 'tenant-1', name: 'Main Warehouse',
+    address1: '', address2: '', city: '', province: '', zip: '', country: '', phone: '', active: true,
+    created_at: '', updated_at: '',
+    ...overrides,
+  }
+}
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -27,9 +50,23 @@ function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   }
 }
 
+function detail(overrides: Partial<SalesOrderDetail> = {}): SalesOrderDetail {
+  return {
+    sales_order: salesOrder(),
+    line_items: [{
+      id: 'li-1', sku_id: 'sku-1', name: 'Blue Widget', sku_code: 'WID-BLU',
+      quantity: 2, price_minor_units: 2000, subtotal_minor_units: 4000, subtotal_tax_minor_units: 0,
+      total_minor_units: 4000, total_tax_minor_units: 0,
+    }],
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+  vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+  vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
 })
 
 describe('Sales orders list', () => {
@@ -65,18 +102,6 @@ describe('Sales orders list', () => {
 })
 
 describe('Sales order detail page', () => {
-  function detail(overrides: Partial<SalesOrderDetail> = {}): SalesOrderDetail {
-    return {
-      sales_order: salesOrder(),
-      line_items: [{
-        id: 'li-1', sku_id: 'sku-1', name: 'Blue Widget', sku_code: 'WID-BLU',
-        quantity: 2, price_minor_units: 2000, subtotal_minor_units: 4000, subtotal_tax_minor_units: 0,
-        total_minor_units: 4000, total_tax_minor_units: 0,
-      }],
-      ...overrides,
-    }
-  }
-
   it('opens the detail page and shows line items when clicking a row', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
@@ -111,5 +136,123 @@ describe('Sales order detail page', () => {
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('not found')).toBeInTheDocument()
+  })
+
+  it('changes status via the dropdown and calls updateSalesOrder', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(omsApi.updateSalesOrder).mockResolvedValue(salesOrder({ status: 'cancelled' }))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.selectOptions(screen.getByDisplayValue('completed'), 'cancelled')
+
+    expect(omsApi.updateSalesOrder).toHaveBeenCalledWith('test-token', 'so-1', { status: 'cancelled' })
+  })
+
+  it('deletes the sales order after confirmation and returns to the list', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(omsApi.deleteSalesOrder).mockResolvedValue(null)
+    vi.stubGlobal('confirm', vi.fn(() => true))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByTitle('Delete sales order'))
+
+    expect(omsApi.deleteSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+    expect(await screen.findByRole('button', { name: 'New Sales Order' })).toBeInTheDocument()
+  })
+
+  it('does not delete when the confirm dialog is dismissed', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.stubGlobal('confirm', vi.fn(() => false))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByTitle('Delete sales order'))
+
+    expect(omsApi.deleteSalesOrder).not.toHaveBeenCalled()
+  })
+})
+
+describe('Create sales order', () => {
+  it('opening New Sales Order shows a blank create form', async () => {
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+
+    expect(screen.getByText('New Sales Order', { selector: 'h1' })).toBeInTheDocument()
+    expect(await screen.findByText('Main Warehouse')).toBeInTheDocument()
+  })
+
+  it('adds a line item via the product picker and creates the sales order', async () => {
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({
+      products: [{
+        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
+        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
+        created_at: '', updated_at: '',
+      }],
+      total: 1,
+    })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: {
+        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
+        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
+        created_at: '', updated_at: '',
+      },
+      variants: [{
+        id: 'variant-1', tenant_id: 'tenant-1', product_id: 'product-1', name: 'Default', position: 0,
+        created_at: '', updated_at: '',
+        skus: [{
+          id: 'sku-1', tenant_id: 'tenant-1', variant_id: 'variant-1', sku_code: 'WID-001',
+          price_minor_units: 999, currency_code: 'USD', is_virtual: false, status: 'active',
+          created_at: '', updated_at: '',
+        }],
+      }],
+    })
+    vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
+
+    await userEvent.click(screen.getByRole('button', { name: /Add product/ }))
+    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
+    await userEvent.click(await screen.findByText('Widget Product'))
+    await userEvent.click(await screen.findByText('WID-001'))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Sales Order' }))
+
+    await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      warehouse_id: 'wh-1',
+      line_items: [expect.objectContaining({ sku_id: 'sku-1', quantity: 1, price_minor_units: 999 })],
+    })))
+  })
+
+  it('requires at least one line item', async () => {
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Sales Order' }))
+
+    expect(await screen.findByText('Add at least one line item')).toBeInTheDocument()
+    expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('Discard returns to the list without creating', async () => {
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+
+    expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: 'New Sales Order' })).toBeInTheDocument()
   })
 })

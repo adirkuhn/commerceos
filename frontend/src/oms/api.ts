@@ -1,13 +1,15 @@
-import type { SalesOrder, SalesOrderDetail, APIResponse } from './types'
+import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
 }
 
-async function request<T>(path: string, token: string): Promise<T> {
+async function request<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    ...options,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers },
   })
+  if (res.status === 204) return null as T
   const body: APIResponse<T> = await res.json()
   if (!res.ok || body.error) {
     throw new Error(body.error?.message ?? `HTTP ${res.status}`)
@@ -39,4 +41,16 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
 
 export function getSalesOrder(token: string, id: string): Promise<SalesOrderDetail> {
   return request<SalesOrderDetail>(`${base()}/${id}`, token)
+}
+
+export function createSalesOrder(token: string, input: CreateSalesOrderInput): Promise<SalesOrderDetail> {
+  return request<SalesOrderDetail>(base(), token, { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function updateSalesOrder(token: string, id: string, input: UpdateSalesOrderInput): Promise<SalesOrder> {
+  return request<SalesOrder>(`${base()}/${id}`, token, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
+export function deleteSalesOrder(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/${id}`, token, { method: 'DELETE' })
 }

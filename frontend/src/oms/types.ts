@@ -60,6 +60,58 @@ export interface SalesOrderDetail {
   line_items: SalesOrderLineItem[]
 }
 
+export interface CreateSalesOrderLineItemInput {
+  sku_id: string
+  name?: string
+  sku_code?: string
+  quantity: number
+  price_minor_units: number
+  subtotal_minor_units?: number
+  subtotal_tax_minor_units?: number
+  total_minor_units?: number
+  total_tax_minor_units?: number
+}
+
+export interface CreateSalesOrderInput {
+  number?: string
+  order_key?: string
+  status?: SalesOrderStatus
+  warehouse_id: string
+  customer_id?: string | null
+  billing?: Address
+  shipping?: Address
+  customer_note?: string
+  currency_code: string
+  discount_total_minor_units?: number
+  shipping_total_minor_units?: number
+  tax_total_minor_units?: number
+  total_minor_units?: number
+  payment_method?: string
+  payment_method_title?: string
+  transaction_id?: string
+  date_paid?: string | null
+  date_completed?: string | null
+  occurred_at: string
+  line_items: CreateSalesOrderLineItemInput[]
+}
+
+// Header-only edit -- line items are immutable once a sales order is
+// created, see backend's UpdateSalesOrderUseCase doc.
+export interface UpdateSalesOrderInput {
+  number?: string
+  order_key?: string
+  status?: SalesOrderStatus
+  customer_id?: string
+  billing?: Address
+  shipping?: Address
+  customer_note?: string
+  payment_method?: string
+  payment_method_title?: string
+  transaction_id?: string
+  date_paid?: string
+  date_completed?: string
+}
+
 export interface APIError {
   code: string
   message: string

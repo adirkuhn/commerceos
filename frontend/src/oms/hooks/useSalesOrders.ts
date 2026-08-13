@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { SalesOrder } from '../types'
+import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput } from '../types'
 import * as api from '../api'
 
 interface UseSalesOrdersState {
@@ -11,6 +11,7 @@ interface UseSalesOrdersState {
 
 interface UseSalesOrdersActions {
   refresh: () => void
+  create: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>
 }
 
 export function useSalesOrders(token: string, params: { page?: number; perPage?: number } = {}): UseSalesOrdersState & UseSalesOrdersActions {
@@ -37,5 +38,11 @@ export function useSalesOrders(token: string, params: { page?: number; perPage?:
 
   useEffect(() => { load() }, [load])
 
-  return { salesOrders, total, loading, error, refresh: load }
+  const create = useCallback(async (input: CreateSalesOrderInput): Promise<SalesOrderDetail> => {
+    const result = await api.createSalesOrder(token, input)
+    await load()
+    return result
+  }, [token, load])
+
+  return { salesOrders, total, loading, error, refresh: load, create }
 }
