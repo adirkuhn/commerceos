@@ -18,6 +18,7 @@ import SyncLog from './pages/SyncLog'
 import Users from './pages/Users'
 import Suppliers from './pages/Suppliers'
 import Procurement from './pages/Procurement'
+import Customers from './pages/Customers'
 import Shipping from './pages/Shipping'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -42,6 +43,7 @@ function AppContent() {
       case 'users': return <Users />
       case 'suppliers': return <Suppliers />
       case 'procurement': return <Procurement />
+      case 'customers': return <Customers />
       case 'shipping': return <Shipping />
       case 'reports': return <Reports />
       case 'settings': return <Settings />

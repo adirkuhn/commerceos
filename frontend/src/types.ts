@@ -7,6 +7,8 @@ export type NavItem =
   | 'picking'
   | 'suppliers'
   | 'procurement'
+  | 'customers'
+  | 'sales-orders'
   | 'integrations'
   | 'sales-channels'
   | 'sync-log'

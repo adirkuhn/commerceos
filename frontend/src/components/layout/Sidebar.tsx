@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  // ShoppingCart, ScanBarcode,
-  // BarChart3, Users,
+  ShoppingCart, Users,
+  // ScanBarcode,
+  // BarChart3,
   ChevronRight, Zap,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
@@ -27,6 +28,8 @@ const NAV_ITEMS: NavEntry[] = [
   // { id: 'picking', label: 'Picking & Packing', icon: ScanBarcode, badge: '7', badgeColor: 'amber' },
   { id: 'suppliers', label: 'Suppliers', icon: Truck },
   { id: 'procurement', label: 'Procurement', icon: ShoppingBag },
+  { id: 'customers', label: 'Customers', icon: Users },
+  { id: 'sales-orders', label: 'Sales Orders', icon: ShoppingCart },
   { id: 'integrations', label: 'Integrations', icon: Plug, badge: '1', badgeColor: 'red' },
   { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
   { id: 'sync-log', label: 'Sync History', icon: History },
