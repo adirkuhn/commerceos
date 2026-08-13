@@ -9,8 +9,9 @@ import "time"
 type SalesOrderSource string
 
 const (
-	SalesOrderSourcePOS    SalesOrderSource = "pos"
-	SalesOrderSourceManual SalesOrderSource = "manual"
+	SalesOrderSourcePOS         SalesOrderSource = "pos"
+	SalesOrderSourceManual      SalesOrderSource = "manual"
+	SalesOrderSourceWooCommerce SalesOrderSource = "woocommerce"
 )
 
 // SalesOrderStatus mirrors WooCommerce's order status set exactly (same
