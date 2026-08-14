@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -422,6 +423,10 @@ func (r *ProductRepo) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := tx.Where("id = ?", id).Delete(&productModel{}).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "booking_scans_sku_id_fkey" {
+			return pmsDomain.ErrProductHasReceivingHistory
+		}
 		return fmt.Errorf("productRepo.Delete: %w", err)
 	}
 	return nil

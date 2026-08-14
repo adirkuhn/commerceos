@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
+	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -308,4 +310,71 @@ func TestSKURepo_Integration_BulkPoolRoundTripsAndCascadesOnDelete(t *testing.T)
 	})
 	require.NoError(t, err, "the portioned SKU itself must survive the bulk SKU's deletion")
 	require.Nil(t, fetched.PortionedFromSKUID, "ON DELETE SET NULL clears the now-dangling link")
+}
+
+// TestProductRepo_Integration_DeleteBlockedByReceivingHistory proves
+// ProductRepo.Delete maps the booking_scans_sku_id_fkey violation (ON
+// DELETE RESTRICT -- see 031_scanner.sql) to the typed
+// pmsDomain.ErrProductHasReceivingHistory instead of leaking the raw
+// Postgres error, when a product's SKU was scanned into a purchase-order
+// booking.
+func TestProductRepo_Integration_DeleteBlockedByReceivingHistory(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	supplierRepo := repositories.NewSupplierRepo(db)
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	bookingRepo := repositories.NewBookingRepo(db)
+	scanRepo := repositories.NewBookingScanRepo(db)
+
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	var productID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		sku, err := skuRepo.FindByID(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		variant, err := variantRepo.FindByID(ctx, sku.VariantID)
+		if err != nil {
+			return err
+		}
+		productID = variant.ProductID
+
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := supplierRepo.Create(ctx, supplier); err != nil {
+			return err
+		}
+		po := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusSent, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &po); err != nil {
+			return err
+		}
+		booking := procurementDomain.Booking{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID,
+			Status: procurementDomain.BookingStatusInProgress, StartedAt: now,
+		}
+		if err := bookingRepo.Create(ctx, &booking); err != nil {
+			return err
+		}
+		scan := procurementDomain.BookingScan{
+			TenantID: tenant.IDFromContext(ctx), BookingID: booking.ID, SKUID: skuID,
+			Quantity: 5, ScannedAt: now, ScannedBy: "user-1",
+		}
+		return scanRepo.Create(ctx, &scan)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return productRepo.Delete(ctx, productID)
+	})
+	require.ErrorIs(t, err, pmsDomain.ErrProductHasReceivingHistory)
 }

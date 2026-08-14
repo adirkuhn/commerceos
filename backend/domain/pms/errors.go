@@ -53,4 +53,10 @@ var (
 	// ErrInvalidSKUUnitType guards SKU.UnitType against any value outside
 	// unit/box/kilo.
 	ErrInvalidSKUUnitType = errors.New("invalid sku unit_type")
+	// ErrProductHasReceivingHistory guards product/SKU deletion: a SKU
+	// that was scanned into a purchase-order booking has booking_scans
+	// rows referencing it (ON DELETE RESTRICT, deliberately -- it's the
+	// receiving audit trail), so the product can't be deleted while that
+	// history exists.
+	ErrProductHasReceivingHistory = errors.New("product has purchase-order receiving history and cannot be deleted")
 )
