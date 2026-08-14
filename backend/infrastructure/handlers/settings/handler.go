@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
+	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -58,10 +58,12 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.UpdateTenantSettingsInput{
-		DefaultCurrency: strPtrOr(req.DefaultCurrency),
-		Timezone:        strPtrOr(req.Timezone),
-		DateFormat:      strPtrOr(req.DateFormat),
-		Language:        strPtrOr(req.Language),
+		DefaultCurrency:   strPtrOr(req.DefaultCurrency),
+		Timezone:          strPtrOr(req.Timezone),
+		DateFormat:        strPtrOr(req.DateFormat),
+		Language:          strPtrOr(req.Language),
+		PricesIncludeTax:  req.PricesIncludeTax != nil && *req.PricesIncludeTax,
+		DefaultTaxCountry: strPtrOr(req.DefaultTaxCountry),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -72,12 +74,14 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 
 func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSettings {
 	return gensettings.TenantSettings{
-		TenantId:        s.TenantID,
-		DefaultCurrency: s.DefaultCurrency,
-		Timezone:        s.Timezone,
-		DateFormat:      s.DateFormat,
-		Language:        s.Language,
-		UpdatedAt:       s.UpdatedAt,
+		TenantId:          s.TenantID,
+		DefaultCurrency:   s.DefaultCurrency,
+		Timezone:          s.Timezone,
+		DateFormat:        s.DateFormat,
+		Language:          s.Language,
+		PricesIncludeTax:  s.PricesIncludeTax,
+		DefaultTaxCountry: s.DefaultTaxCountry,
+		UpdatedAt:         s.UpdatedAt,
 	}
 }
 

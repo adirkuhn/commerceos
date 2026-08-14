@@ -28,12 +28,18 @@ type ErrorResponse struct {
 
 // TenantSettings defines model for TenantSettings.
 type TenantSettings struct {
-	DateFormat      string    `json:"date_format"`
-	DefaultCurrency string    `json:"default_currency"`
-	Language        string    `json:"language"`
-	TenantId        string    `json:"tenant_id"`
-	Timezone        string    `json:"timezone"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	DateFormat      string `json:"date_format"`
+	DefaultCurrency string `json:"default_currency"`
+
+	// DefaultTaxCountry 2-letter ISO country code used to look up a tax rate when an order/SKU has no more specific country.
+	DefaultTaxCountry string `json:"default_tax_country"`
+	Language          string `json:"language"`
+
+	// PricesIncludeTax Whether SKU prices are entered tax-inclusive (true) or tax-exclusive (false).
+	PricesIncludeTax bool      `json:"prices_include_tax"`
+	TenantId         string    `json:"tenant_id"`
+	Timezone         string    `json:"timezone"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // TenantSettingsResponse defines model for TenantSettingsResponse.
@@ -44,10 +50,12 @@ type TenantSettingsResponse struct {
 
 // UpdateTenantSettingsRequest defines model for UpdateTenantSettingsRequest.
 type UpdateTenantSettingsRequest struct {
-	DateFormat      *string `json:"date_format,omitempty"`
-	DefaultCurrency *string `json:"default_currency,omitempty"`
-	Language        *string `json:"language,omitempty"`
-	Timezone        *string `json:"timezone,omitempty"`
+	DateFormat        *string `json:"date_format,omitempty"`
+	DefaultCurrency   *string `json:"default_currency,omitempty"`
+	DefaultTaxCountry *string `json:"default_tax_country,omitempty"`
+	Language          *string `json:"language,omitempty"`
+	PricesIncludeTax  *bool   `json:"prices_include_tax,omitempty"`
+	Timezone          *string `json:"timezone,omitempty"`
 }
 
 // Error defines model for Error.
@@ -137,16 +145,18 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"zJVRbxMxDMe/SmSQACnrdR1PeQOE0J5ADJ6mqcpybptxl2SJb6ir7rujJHel7dL1ZRI8LXPO9s/2P+4G",
-	"lG2dNWgogNiAx+CsCZj++ey99fGgrCE0FI/SuUYrSdqa6i5YE21BrbCV8fTa4wIEvKr+Rq3ybahStO9D",
-	"fOj7nkONQXntYjAQgCldtA8uW4atl9iA89ahJ50Ra0kpsemaRt42CIJ8hz0fgj35Xtk6RaG1QxAQyGuz",
-	"hJ5DiyHIZemu56PF3t6hopKFww800tAVEmmzDEVQnC+sbyUV89e4kF1Dc9V5j0atix810iy7MiUHSgRz",
-	"XZdvdYuP1pRdOxfx6nlmGykT81l0BF5oisf7TnusQVzv5C5UspOc7/Vhp6A9hpuT/T0tiOeUeDCrXbUc",
-	"6Kg06Z8J9JDnvsNA/2TsxwdbUG7PQZuFTWh7jy/Xc/Zb18gaq2SjH9MjZwNhYG9HRs7GnJzF+liuj7OR",
-	"890kzZxiG+GTbVv0Cr9esZyDjU1jH75dAocH9CEznE+msSLr0EinQcDFZDq5AA5O0iq1swqDb5UVF21L",
-	"TH9i1xPxZQ0CviAdTJnv77bZdPpim+2INgsrzv7K+61rW+nXmZPRClnuLbFc1pvAwo46nSS1elpjSYiQ",
-	"3yUG+mjr9YtV+Jzm+/1lMOzf/6TZHN7PZsdCbhnzb9PBaHLNp6aTfNBHEYO43kDnGxBQSaerh3Pob/o/",
-	"AQAA//8=",
+	"zFZPTzs3EP0qo2mlguRkQ+hpb21VVagHqqaoB4Qi451kDbu2sWchEO13r2wnaf4scEE//U6YWXvmvXlv",
+	"7KxR2dZZQ4YDlmv0FJw1gdI/v3tvfVwoa5gMx6V0rtFKsrameAjWxFhQNbUyrn70tMASfyj+z1rkr6FI",
+	"2f7e5Me+7wVWFJTXLibDEimVi/HNkR2G3alyjc5bR551hlhJToVN1zTyviEs2XfUi02yk/3KVikLvzrC",
+	"EgN7bZbYC2wpBLkc+taLbcTeP5DioYjAf8hIwzNi1mYZBoHSfGF9K3mwfkUL2TU8V533ZNTrh5tYrubK",
+	"doZ92nfYxumoIWbycDW7hs0uiLyhC1QBW2isfYTOgQSWK/CSCV5qMiANWF+RL2Z/3kAtAxgLrfUEwZHS",
+	"C6226cYoTsE10iy74RYKdF4rCnNtVNNVFAmcAv+3Jq7JQ6ye94P0BGSYfAQuV6N0PuhngrOo8zlYn+K0",
+	"2sUXsgl0vofw3tqGpIkoOIk019UgRtYtvVkzTKBzUcFqnuXbCplkHcWDpx3pBXp66rSnCsvbvdoDYu8V",
+	"FwdW2WvrYBOHPXEA9+5Tt34+Xh/N9ZHz92fvaCqH5uYmAT3G89RR4G87RF/h5wHHve+pgXulF6jNwp6O",
+	"Ru7P6EVXBI1VstFv6QqGDZkAZ1vOArY1BcR+Qe6XgC2fPBuaoyz4m21b8oquZ5BrwFYE+OWvKxT4TD5k",
+	"DBfjSWRkHRnpNJZ4OZ6ML6MtJddJniJszhbZ7DG2pPQnqpgQX1VY4h/ER64Rhy/PdDL5snfnHa8PPED2",
+	"Mb8+XdvKaIqIE7gmyL1lyLR+ChD23O4kq/qU45CxMV8JFPhXW71+GcOPZqg/vIc2r+N30myBP0+n76Xc",
+	"Ycy/HI6kyZw/UyedIR9NjOXtGjvfYImFdLp4vsD+rv8vAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
+	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 )
@@ -50,7 +50,10 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Upd
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &settingsDomain.TenantSettings{DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: in.DateFormat, Language: in.Language}, nil
+	return &settingsDomain.TenantSettings{
+		DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: in.DateFormat, Language: in.Language,
+		PricesIncludeTax: in.PricesIncludeTax, DefaultTaxCountry: in.DefaultTaxCountry,
+	}, nil
 }
 
 func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings) *settingshandler.Handler {
@@ -86,7 +89,10 @@ func TestGetTenantSettingsHandler_returnsSettings(t *testing.T) {
 func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	update := &stubUpdateTenantSettings{}
 	h := newTestHandler(&stubGetTenantSettings{}, update)
-	body := map[string]string{"default_currency": "EUR", "timezone": "Europe/Amsterdam", "date_format": "DD/MM/YYYY", "language": "nl"}
+	body := map[string]any{
+		"default_currency": "EUR", "timezone": "Europe/Amsterdam", "date_format": "DD/MM/YYYY", "language": "nl",
+		"prices_include_tax": true, "default_tax_country": "NL",
+	}
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", body)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -94,6 +100,8 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	require.Equal(t, "Europe/Amsterdam", update.gotInput.Timezone)
 	require.Equal(t, "DD/MM/YYYY", update.gotInput.DateFormat)
 	require.Equal(t, "nl", update.gotInput.Language)
+	require.True(t, update.gotInput.PricesIncludeTax)
+	require.Equal(t, "NL", update.gotInput.DefaultTaxCountry)
 }
 
 func TestUpdateTenantSettingsHandler_propagatesError(t *testing.T) {

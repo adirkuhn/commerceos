@@ -48,13 +48,19 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
         timezone: { type: string }
         date_format: { type: string }
         language: { type: string }
+        prices_include_tax:
+          type: boolean
+          description: Whether SKU prices are entered tax-inclusive (true) or tax-exclusive (false).
+        default_tax_country:
+          type: string
+          description: 2-letter ISO country code used to look up a tax rate when an order/SKU has no more specific country.
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -64,6 +70,8 @@ components:
         timezone: { type: string }
         date_format: { type: string }
         language: { type: string }
+        prices_include_tax: { type: boolean }
+        default_tax_country: { type: string }
 
     TenantSettingsResponse:
       type: object
