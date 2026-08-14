@@ -43,6 +43,9 @@ type disconnectConnectionUC interface {
 type testConnectionUC interface {
 	Execute(ctx context.Context, id string) (*integrationsDomain.Connection, error)
 }
+type listWooTaxesUC interface {
+	Execute(ctx context.Context, connectionID string) ([]appintegrations.WooTaxClassOption, error)
+}
 type updateConnectionSettingsUC interface {
 	Execute(ctx context.Context, in appintegrations.UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error)
 }
@@ -107,6 +110,7 @@ type Handler struct {
 	manualConnectWoo          manualConnectWooCommerceUC
 	disconnect                disconnectConnectionUC
 	testConnection            testConnectionUC
+	listWooTaxes              listWooTaxesUC
 	createImportJob           createImportJobUC
 	pushProductToWoo          pushProductToWooUC
 	listSyncSchedules         listSyncSchedulesUC
@@ -135,6 +139,7 @@ func NewHandler(
 	manualConnectWoo manualConnectWooCommerceUC,
 	disconnect disconnectConnectionUC,
 	testConnection testConnectionUC,
+	listWooTaxes listWooTaxesUC,
 	createImportJob createImportJobUC,
 	pushProductToWoo pushProductToWooUC,
 	listSyncSchedules listSyncSchedulesUC,
@@ -161,6 +166,7 @@ func NewHandler(
 		manualConnectWoo:          manualConnectWoo,
 		disconnect:                disconnect,
 		testConnection:            testConnection,
+		listWooTaxes:              listWooTaxes,
 		createImportJob:           createImportJob,
 		pushProductToWoo:          pushProductToWoo,
 		listSyncSchedules:         listSyncSchedules,
@@ -234,6 +240,7 @@ func Register(
 		appintegrations.NewManualConnectWooCommerceUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		appintegrations.NewDisconnectConnectionUseCase(db, connRepo),
 		appintegrations.NewTestConnectionUseCase(db, connRepo, wooFactory, encryptionSecret),
+		appintegrations.NewListWooTaxesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewCreateImportJobUseCase(
 			db, importJobRepo, appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 		),
@@ -377,6 +384,18 @@ func (h *Handler) TestConnection(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	resp := toGenConnection(*conn)
+	middleware.OK(c, resp)
+}
+
+func (h *Handler) ListWooTaxes(c *gin.Context, id genintegrations.Id) {
+	options, err := h.listWooTaxes.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.WooTaxClass, len(options))
+	for i, o := range options {
+		resp[i] = genintegrations.WooTaxClass{Slug: o.Slug, Label: o.Label}
+	}
 	middleware.OK(c, resp)
 }
 

@@ -228,6 +228,24 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/woo-taxes:
+    get:
+      operationId: listWooTaxes
+      summary: List the distinct tax classes configured in this connection's live WooCommerce store (read-only, not persisted)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WooTaxClassListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/test:
     post:
       operationId: testConnection
@@ -738,6 +756,22 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/DeleteAllImportedProductsResult'
+        error: { nullable: true }
+
+    WooTaxClass:
+      type: object
+      required: [slug, label]
+      properties:
+        slug: { type: string }
+        label: { type: string }
+
+    WooTaxClassListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WooTaxClass'
         error: { nullable: true }
 
     PushProductToWooRequest:

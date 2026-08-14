@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Settings from '../Settings'
@@ -18,6 +18,7 @@ vi.mock('../../integrations/api', () => ({
   getAIConnection: vi.fn(),
   connectAIProvider: vi.fn(),
   disconnectAIProvider: vi.fn(),
+  listWooTaxes: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -59,6 +60,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
   vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+  vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([])
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
@@ -166,14 +168,31 @@ describe('Settings > Integrations > WooCommerce > Taxes tab', () => {
     }))
   })
 
+  it('populates the Woo tax class select from listWooTaxes', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([
+      { slug: '', label: 'Standard' },
+      { slug: 'zero-rate', label: 'Zero Rate' },
+    ])
+
+    await openWooTaxesTab()
+
+    const select = await screen.findByLabelText('Woo tax class')
+    await waitFor(() => expect(select).not.toBeDisabled())
+    expect(within(select).getByRole('option', { name: 'Standard' })).toBeInTheDocument()
+    expect(within(select).getByRole('option', { name: 'Zero Rate' })).toBeInTheDocument()
+  })
+
   it('adding a link calls upsertExternalTaxClassLink with provider woocommerce', async () => {
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([{ slug: 'zero-rate', label: 'Zero Rate' }])
     vi.mocked(taxApi.upsertExternalTaxClassLink).mockResolvedValue(externalLink({ id: 'link-2', external_slug: 'zero-rate' }))
 
     await openWooTaxesTab()
-    await screen.findByText('WooCommerce taxes')
+    const select = await screen.findByLabelText('Woo tax class')
+    await waitFor(() => expect(select).not.toBeDisabled())
 
-    await userEvent.type(screen.getByLabelText('Woo tax class slug'), 'zero-rate')
+    await userEvent.selectOptions(select, 'zero-rate')
     await userEvent.selectOptions(screen.getByLabelText('Tax class'), 'class-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
 

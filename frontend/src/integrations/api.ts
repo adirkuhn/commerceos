@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -46,6 +46,10 @@ export function disconnectConnection(token: string, id: string): Promise<null> {
 
 export function testConnection(token: string, id: string): Promise<Connection> {
   return request<Connection>(`${base()}/connections/${id}/test`, { method: 'POST' }, token)
+}
+
+export function listWooTaxes(token: string, connectionId: string): Promise<WooTaxClass[]> {
+  return request<WooTaxClass[]>(`${base()}/connections/${connectionId}/woo-taxes`, { method: 'GET' }, token)
 }
 
 export interface ManualConnectWooCommercePayload {

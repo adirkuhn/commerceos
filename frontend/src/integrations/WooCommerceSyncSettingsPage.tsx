@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useSyncSchedules } from './hooks/useSyncSchedules'
 import * as api from './api'
-import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAllImportedProductsResult } from './types'
+import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAllImportedProductsResult, WooTaxClass } from './types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
@@ -240,7 +240,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
         ))}
       </div>
 
-      {tab === 'taxes' && <WooTaxesTab token={token ?? ''} />}
+      {tab === 'taxes' && <WooTaxesTab token={token ?? ''} connectionId={connection.id} />}
 
       {tab === 'sync' && (
       <div className="flex-1 overflow-y-auto p-6">
@@ -492,7 +492,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
   )
 }
 
-function WooTaxesTab({ token }: { token: string }) {
+function WooTaxesTab({ token, connectionId }: { token: string; connectionId: string }) {
   const { classes } = useTaxClasses(token)
   const { links, error: linksError, upsert: upsertLink, remove: removeLink } = useExternalTaxClassLinks(token)
   const wooLinks = links.filter(l => l.provider === WOO_PROVIDER)
@@ -502,6 +502,22 @@ function WooTaxesTab({ token }: { token: string }) {
   const [rowError, setRowError] = useState('')
   const [newSlug, setNewSlug] = useState('')
   const [newClassId, setNewClassId] = useState('')
+
+  const [wooTaxes, setWooTaxes] = useState<WooTaxClass[]>([])
+  const [wooTaxesLoading, setWooTaxesLoading] = useState(true)
+  const [wooTaxesError, setWooTaxesError] = useState('')
+
+  useEffect(() => {
+    if (!token || !connectionId) return
+    let cancelled = false
+    setWooTaxesLoading(true)
+    setWooTaxesError('')
+    api.listWooTaxes(token, connectionId)
+      .then(result => { if (!cancelled) setWooTaxes(result) })
+      .catch(err => { if (!cancelled) setWooTaxesError(err instanceof Error ? err.message : 'Failed to load WooCommerce taxes') })
+      .finally(() => { if (!cancelled) setWooTaxesLoading(false) })
+    return () => { cancelled = true }
+  }, [token, connectionId])
 
   async function handleRepoint(link: ExternalTaxClassLink, taxClassId: string) {
     setRowError('')
@@ -545,6 +561,7 @@ function WooTaxesTab({ token }: { token: string }) {
         </div>
 
         {linksError && <p className="text-xs text-red-400">{linksError}</p>}
+        {wooTaxesError && <p className="text-xs text-red-400">{wooTaxesError}</p>}
         {rowError && <p className="text-xs text-red-400">{rowError}</p>}
 
         <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
@@ -575,14 +592,20 @@ function WooTaxesTab({ token }: { token: string }) {
           <form onSubmit={handleAdd} className="pt-3 border-t dark:border-[#2D3748] border-gray-200 flex items-end gap-2">
             <div>
               <label htmlFor="woo-tax-slug" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
-                Woo tax class slug
+                Woo tax class
               </label>
-              <input
+              <select
                 id="woo-tax-slug"
+                aria-label="Woo tax class"
+                required
+                disabled={wooTaxesLoading || wooTaxes.length === 0}
                 value={newSlug}
                 onChange={e => setNewSlug(e.target.value)}
-                className={clsx(inputClass, 'w-32')}
-              />
+                className={clsx(inputClass, 'w-32 disabled:opacity-40')}
+              >
+                <option value="" disabled>{wooTaxesLoading ? 'Loading…' : 'Select…'}</option>
+                {wooTaxes.map(t => <option key={t.slug} value={t.slug}>{t.label}</option>)}
+              </select>
             </div>
             <div>
               <label htmlFor="woo-tax-class" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">

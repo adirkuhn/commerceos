@@ -1,3 +1,8 @@
+export interface WooTaxClass {
+  slug: string
+  label: string
+}
+
 export interface Connection {
   id: string
   provider: string
