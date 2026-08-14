@@ -39,6 +39,14 @@ type WooProduct struct {
 	Dimensions WooProductDimensions
 	Images     []WooProductImage
 	Categories []WooProductCategory
+	// TaxStatus is Woo's own enum: "taxable" (default), "shipping" (tax
+	// only the shipping cost), "none". TaxClass is a store-defined slug --
+	// "" means Woo's own Standard rate, otherwise something like
+	// "reduced-rate" or "zero-rate". Neither is interpreted here --
+	// ImportWooProductsUseCase resolves TaxClass against this tenant's
+	// domain/tax.ExternalTaxClassLink table.
+	TaxStatus string
+	TaxClass  string
 }
 
 type WooProductDimensions struct {
@@ -69,6 +77,10 @@ type WooVariation struct {
 	// CreateVariation adds it there automatically if it isn't yet.
 	AttributeName  string
 	AttributeValue string
+	// TaxStatus/TaxClass -- see WooProduct's doc comment, same meaning
+	// here, per-variation.
+	TaxStatus string
+	TaxClass  string
 }
 
 type WooProductImage struct {
@@ -144,6 +156,20 @@ type WooOrderLineItem struct {
 	TotalTax    string
 }
 
+// WooTaxRate is one row of the store's tax rate table (/wc/v3/taxes) --
+// store-wide, not per-product. Country/State follow Woo's own convention:
+// "" for either means "applies everywhere"/"every state" respectively.
+// Rate is a raw decimal string with up to 4 decimal places (e.g. "21.0000"
+// = 21%), converted to basis points at the import use case. Class is the
+// same slug that appears as a product's TaxClass ("" = Standard).
+type WooTaxRate struct {
+	ID      string
+	Country string
+	State   string
+	Rate    string
+	Class   string
+}
+
 // WooClient talks to one WooCommerce store's REST API on behalf of a single
 // stored connection. A pure port — infrastructure implements it against the
 // real WooCommerce client library, so domain/application never import any
@@ -216,6 +242,12 @@ type WooClient interface {
 	// order is ever permanently missed by an incremental cursor that
 	// drifts.
 	ListOrders(ctx context.Context, page, perPage int, modifiedAfter *time.Time) ([]WooOrder, error)
+	// ListTaxRates returns the store's entire tax rate table in one call --
+	// unlike products/orders this is never paged through by this codebase;
+	// a real store's tax table is small (a handful of country rows per
+	// class), and Woo's own /wc/v3/taxes endpoint doesn't expose a
+	// modified-since filter to make incremental fetching worthwhile.
+	ListTaxRates(ctx context.Context) ([]WooTaxRate, error)
 }
 
 // WooClientFactory builds a WooClient scoped to one store's credentials.

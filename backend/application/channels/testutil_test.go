@@ -113,6 +113,9 @@ type stubWooClient struct {
 	createVariableErr    error
 	createVariableWithID string
 
+	taxRates    []integrationsDomain.WooTaxRate
+	taxRatesErr error
+
 	createVariationCalled []stubVariationCall
 	createVariationErr    error
 	createVariationWithID string
@@ -265,6 +268,13 @@ func (s *stubWooClient) ListOrders(_ context.Context, page, _ int, modifiedAfter
 		return nil, s.ordersErr
 	}
 	return s.ordersByPage[page], nil
+}
+
+func (s *stubWooClient) ListTaxRates(_ context.Context) ([]integrationsDomain.WooTaxRate, error) {
+	if s.taxRatesErr != nil {
+		return nil, s.taxRatesErr
+	}
+	return s.taxRates, nil
 }
 
 // stubMediaUploader stands in for application/pms's UploadMediaUseCase.

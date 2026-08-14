@@ -398,6 +398,7 @@ func toWooVariation(v wc.ProductVariation) integrationsDomain.WooVariation {
 		ManageStock: v.ManageStock, StockQuantity: v.StockQuantity,
 		Weight: v.Weight, Dimensions: dims,
 		AttributeName: attrName, AttributeValue: attrValue,
+		TaxStatus: v.TaxStatus, TaxClass: v.TaxClass,
 	}
 }
 
@@ -466,5 +467,23 @@ func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 		Dimensions:    dimensions,
 		Images:        images,
 		Categories:    categories,
+		TaxStatus:     p.TaxStatus,
+		TaxClass:      p.TaxClass,
 	}
+}
+
+// ListTaxRates fetches the store's whole tax rate table in one page --
+// see WooClient.ListTaxRates's doc comment for why this isn't paged.
+func (c *wooClient) ListTaxRates(ctx context.Context) ([]integrationsDomain.WooTaxRate, error) {
+	rates, _, err := c.client.TaxRates.List(ctx, &wc.ListTaxRatesParams{PerPage: 100})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]integrationsDomain.WooTaxRate, len(rates))
+	for i, r := range rates {
+		out[i] = integrationsDomain.WooTaxRate{
+			ID: strconv.Itoa(r.ID), Country: r.Country, State: r.State, Rate: r.Rate, Class: r.Class,
+		}
+	}
+	return out, nil
 }
