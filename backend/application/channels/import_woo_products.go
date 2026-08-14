@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -470,6 +471,20 @@ func (uc *ImportWooProductsUseCase) importOne(
 		})
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("product %s: initial stock: %v", wp.ID, err))
+		} else {
+			// RecordStockMovementUseCase unconditionally enqueues
+			// inventory.stock.changed, which InventoryStockChangedConsumer
+			// reacts to by re-pushing the SKU's stock to every linked
+			// listing — including this brand-new one, echoing the exact
+			// number right back to the store it just came from.
+			// SyncStockToChannelsUseCase.alreadySyncedTo already skips that
+			// push when the listing's last sync log already reports this
+			// quantity; seed that log entry now so the async consumer finds
+			// it and treats this quantity as already synced instead of
+			// firing an unwanted (and racy) write against Woo.
+			qty := strconv.Itoa(*wp.StockQuantity)
+			recordSyncLog(ctx, uc.db, uc.syncLogRepo, createdListing, channelsDomain.SyncFlowPush,
+				channelsDomain.SyncLogStatusSuccess, "", map[string]string{"stock_quantity": qty})
 		}
 	}
 

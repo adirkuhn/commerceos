@@ -103,7 +103,7 @@ func TestImportWooProducts_importsNewSimpleProduct(t *testing.T) {
 	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
 	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -131,11 +131,41 @@ func TestImportWooProducts_importsNewSimpleProduct(t *testing.T) {
 	require.Equal(t, int64(2), h.stock.calls[0].QuantityDelta)
 	require.Equal(t, invDomain.MovementTypeAdjustment, h.stock.calls[0].Type)
 
-	require.Len(t, h.syncLogRepo.created, 1)
+	require.Len(t, h.syncLogRepo.created, 2, "import fields log + a stock-quantity dedup seed")
 	entry := h.syncLogRepo.created[0]
 	require.Equal(t, channelsDomain.SyncFlowImport, entry.Direction)
 	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
 	require.Equal(t, "listing-1", entry.ListingID)
+}
+
+// TestImportWooProducts_seedsStockSyncLogSoAsyncConsumerDoesNotEchoToWoo
+// proves the initial-stock Adjustment doesn't cause an unwanted push right
+// back to Woo: RecordStockMovementUseCase enqueues inventory.stock.changed
+// unconditionally, and InventoryStockChangedConsumer/
+// SyncStockToChannelsUseCase reacts to that by re-pushing the SKU's stock
+// to every linked listing -- including the one this exact number was just
+// read from. SyncStockToChannelsUseCase.alreadySyncedTo already skips the
+// actual Woo call when the listing's last sync log reports this same
+// quantity, but until now nothing seeded that log entry at import time, so
+// the async consumer always found no prior log and pushed anyway. Import
+// now seeds it itself right after recording the movement.
+func TestImportWooProducts_seedsStockSyncLogSoAsyncConsumerDoesNotEchoToWoo(t *testing.T) {
+	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 2)
+	stockEntry := h.syncLogRepo.created[1]
+	require.Equal(t, "listing-1", stockEntry.ListingID)
+	require.Equal(t, channelsDomain.SyncLogStatusSuccess, stockEntry.Status)
+	require.Equal(t, "2", stockEntry.Fields["stock_quantity"],
+		"must match the just-imported quantity so SyncStockToChannelsUseCase.alreadySyncedTo skips the redundant push")
 }
 
 func TestImportWooProducts_recordsInitialStockAsAdjustmentEvenWhenNegative(t *testing.T) {
@@ -145,7 +175,7 @@ func TestImportWooProducts_recordsInitialStockAsAdjustmentEvenWhenNegative(t *te
 	h := newHarness([]integrationsDomain.WooProduct{wp})
 	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -163,7 +193,7 @@ func TestImportWooProducts_createsCategoryWhenItDoesNotExistYet(t *testing.T) {
 	// h.categoryRepo.bySlug deliberately left empty — the product's Woo
 	// category ("salgadinhos-e-snacks") doesn't exist in CommerceOS yet.
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -264,7 +294,7 @@ func TestImportWooProducts_createsNewProductWhenNoSKUCodeMatch(t *testing.T) {
 	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
 	// h.skuRepo.byCode deliberately left empty -- no existing SKU matches.
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -285,7 +315,7 @@ func TestImportWooProducts_neverMatchesOnEmptySKUCode(t *testing.T) {
 	// empty-code product.
 	h.skuRepo.byCode = map[string]pmsDomain.SKU{"": {ID: "some-other-sku"}}
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -320,7 +350,7 @@ func TestImportWooProducts_continuesAfterOneProductFailsToParse(t *testing.T) {
 	good.ID = "2"
 	h := newHarness([]integrationsDomain.WooProduct{bad, good})
 
-	uc := h.newImportUseCase(t, 4)
+	uc := h.newImportUseCase(t, 5)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -388,7 +418,7 @@ func TestImportWooProducts_setsTaxClassFromWooTaxClassSlugCreatingItOnFirstSight
 		{ID: "1", Country: "NL", Rate: "21.0000", Class: "reduced-rate"},
 	}
 
-	uc := h.newImportUseCase(t, 4)
+	uc := h.newImportUseCase(t, 5)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -416,7 +446,7 @@ func TestImportWooProducts_reusesAnExistingExternalTaxClassLinkInsteadOfCreating
 		"woocommerce|reduced-rate": {ID: "link-1", Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: "existing-class-1"},
 	}
 
-	uc := h.newImportUseCase(t, 4)
+	uc := h.newImportUseCase(t, 5)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -437,7 +467,7 @@ func TestImportWooProducts_storesWooTaxClassAndStatusOnSKUEvenWithNoRatesConfigu
 	// No tax rates fetched from Woo at all -- reconciliation short-circuits,
 	// TaxClassID stays nil (falls back to the tenant default), but the raw
 	// Woo values are still recorded for traceability.
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -462,7 +492,7 @@ func TestImportWooProducts_skipsStateSpecificAndCountrylessTaxRates(t *testing.T
 		{ID: "3", Country: "NL", Rate: "21.0000", Class: "reduced-rate"},           // country-level -- kept
 	}
 
-	uc := h.newImportUseCase(t, 4)
+	uc := h.newImportUseCase(t, 5)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
@@ -487,7 +517,7 @@ func TestImportWooProducts_createsParentChainPreservingHierarchy(t *testing.T) {
 		{ExternalID: "167", Name: "Salgadinhos e snacks", Slug: "salgadinhos-e-snacks", ParentExternalID: "1"},
 	}
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -515,7 +545,7 @@ func TestImportWooProducts_reusesExistingParentCategory(t *testing.T) {
 	}
 	h.categoryRepo.bySlug["food"] = pmsDomain.Category{ID: "existing-parent", Slug: "food"}
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -530,7 +560,7 @@ func TestImportWooProducts_categoryMissingFromListDegradesToUncategorized(t *tes
 	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
 	h.wooClient.categories = nil // ListCategories didn't return the product's own category
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -564,7 +594,7 @@ func TestImportWooProducts_downloadsAndUploadsProductImages(t *testing.T) {
 	}
 	h := newHarness([]integrationsDomain.WooProduct{wp})
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -590,7 +620,7 @@ func TestImportWooProducts_imageDownloadFailureIsNonFatalToTheProduct(t *testing
 	h := newHarness([]integrationsDomain.WooProduct{wp})
 	h.wooClient.downloadErr = errors.New("connection reset")
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -608,7 +638,7 @@ func TestImportWooProducts_imageUploadFailureIsNonFatalToTheProduct(t *testing.T
 	h := newHarness([]integrationsDomain.WooProduct{wp})
 	h.media.err = errors.New("unsupported content type")
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -622,7 +652,7 @@ func TestImportWooProducts_imageUploadFailureIsNonFatalToTheProduct(t *testing.T
 func TestImportWooProducts_noImagesMeansNoUploadCalls(t *testing.T) {
 	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -646,7 +676,7 @@ func TestImportWooProducts_convertsWeightAndDimensionsUsingStoreUnits(t *testing
 	h.wooClient.weightUnit = "kg"
 	h.wooClient.dimensionUnit = "cm"
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -669,7 +699,7 @@ func TestImportWooProducts_convertsPoundsAndInches(t *testing.T) {
 	h.wooClient.weightUnit = "lbs"
 	h.wooClient.dimensionUnit = "in"
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -684,7 +714,7 @@ func TestImportWooProducts_leavesWeightNilWhenWooOmitsIt(t *testing.T) {
 	h.wooClient.weightUnit = "kg"
 	h.wooClient.dimensionUnit = "cm"
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -701,7 +731,7 @@ func TestImportWooProducts_leavesWeightNilWhenUnitsAreUnknown(t *testing.T) {
 	// h.wooClient.weightUnit deliberately left "" — e.g. GetProductUnits
 	// failed and Execute degraded to best-effort rather than propagating.
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
@@ -737,7 +767,7 @@ func TestImportWooProducts_getProductUnitsFailureDegradesGracefullyInsteadOfAbor
 	h := newHarness([]integrationsDomain.WooProduct{wp})
 	h.wooClient.unitsErr = errors.New("500 from woocommerce")
 
-	uc := h.newImportUseCase(t, 3)
+	uc := h.newImportUseCase(t, 4)
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
 	})
