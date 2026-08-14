@@ -70,6 +70,8 @@ type stubSalesOrderRepo struct {
 	gotUpdateFields        map[string]any
 	deleteErr              error
 	gotDeleteID            string
+	byConnection           []omsDomain.SalesOrder
+	listByConnectionErr    error
 }
 
 func (s *stubSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
@@ -95,6 +97,9 @@ func (s *stubSalesOrderRepo) List(_ context.Context, filter omsDomain.ListSalesO
 		return nil, 0, s.listErr
 	}
 	return s.listResult, s.listTotal, nil
+}
+func (s *stubSalesOrderRepo) ListByConnection(_ context.Context, _ string) ([]omsDomain.SalesOrder, error) {
+	return s.byConnection, s.listByConnectionErr
 }
 func (s *stubSalesOrderRepo) Update(_ context.Context, id string, fields map[string]any) error {
 	s.gotUpdateID = id

@@ -809,6 +809,8 @@ type stubOrdersSalesOrderRepo struct {
 	createErr           error
 	byExternalID        map[string]omsDomain.SalesOrder
 	findByExternalIDErr error
+	byConnection        []omsDomain.SalesOrder
+	listByConnectionErr error
 }
 
 func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
@@ -834,10 +836,31 @@ func (s *stubOrdersSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDoma
 func (s *stubOrdersSalesOrderRepo) List(_ context.Context, _ omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	return nil, 0, nil
 }
+func (s *stubOrdersSalesOrderRepo) ListByConnection(_ context.Context, _ string) ([]omsDomain.SalesOrder, error) {
+	return s.byConnection, s.listByConnectionErr
+}
 func (s *stubOrdersSalesOrderRepo) Update(_ context.Context, _ string, _ map[string]any) error {
 	return nil
 }
 func (s *stubOrdersSalesOrderRepo) Delete(_ context.Context, _ string) error { return nil }
+
+// stubDeleteSalesOrderUC stands in for application/oms's
+// DeleteSalesOrderUseCase (delete_all_imported_products_test.go) --
+// errsByID lets a specific order fail (e.g. to prove one bad order doesn't
+// abort the rest of the batch) while every other call succeeds.
+type stubDeleteSalesOrderUC struct {
+	calls    []string
+	err      error
+	errsByID map[string]error
+}
+
+func (s *stubDeleteSalesOrderUC) Execute(_ context.Context, id string) error {
+	s.calls = append(s.calls, id)
+	if err, ok := s.errsByID[id]; ok {
+		return err
+	}
+	return s.err
+}
 
 type stubOrdersLineItemRepo struct {
 	created   []omsDomain.SalesOrderLineItem

@@ -44,6 +44,11 @@ type SalesOrderRepository interface {
 	// List returns every sales order for the current tenant (RLS-scoped),
 	// newest first, paginated.
 	List(ctx context.Context, filter ListSalesOrdersFilter) ([]SalesOrder, int64, error)
+	// ListByConnection returns every order stamped with this connection's
+	// ID (see SalesOrder.ConnectionID) -- used by "delete all imported
+	// products" to find that connection's own orders. Unpaginated, same
+	// convention as channels.ProductChannelListingRepository.ListByConnection.
+	ListByConnection(ctx context.Context, connectionID string) ([]SalesOrder, error)
 	// Update patches header fields (status, customer, billing/shipping,
 	// note, StockDecremented) -- never line items, which are immutable
 	// once created (see UpdateSalesOrderUseCase's doc).

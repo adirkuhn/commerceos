@@ -444,7 +444,7 @@ describe('WooCommerce sync settings page', () => {
 
   it('confirming deletes and shows the result', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    const result: DeleteAllImportedProductsResult = { deleted_products: 805, deleted_categories: 12, errors: [] }
+    const result: DeleteAllImportedProductsResult = { deleted_sales_orders: 0, deleted_products: 805, deleted_categories: 12, errors: [] }
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue(result)
 
     render(<Settings />)
@@ -460,7 +460,7 @@ describe('WooCommerce sync settings page', () => {
 
   it('notifies other components (e.g. the Sidebar badge) that products changed', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({ deleted_products: 805, deleted_categories: 12, errors: [] })
+    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({ deleted_sales_orders: 0, deleted_products: 805, deleted_categories: 12, errors: [] })
     const listener = vi.fn()
     const unsubscribe = subscribeProductsChanged(listener)
 

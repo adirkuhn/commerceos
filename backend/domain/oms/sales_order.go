@@ -98,6 +98,12 @@ type SalesOrder struct {
 	// from Woo, or pushed there) -- nil for a sale that only exists in
 	// CommerceOS (e.g. straight from POS, never touched Woo).
 	WooOrderID *int64
+	// ConnectionID is set on import for an order sourced from a specific
+	// integration connection -- nil for POS/manual orders, and for a
+	// Woo-sourced order imported before this field existed (see migration
+	// 063's backfill). Lets "delete all imported products" for a
+	// connection find and remove that connection's own orders first.
+	ConnectionID *string
 	// Number is the human-facing order number (Woo distinguishes this from
 	// ID -- number can be customized, ID can't).
 	Number   string

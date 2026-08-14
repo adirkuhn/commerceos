@@ -216,7 +216,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 		now := time.Now()
 		order = omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: externalOrderID, WooOrderID: &wooID, Number: wo.Number, OrderKey: wo.OrderKey,
+			ExternalOrderID: externalOrderID, WooOrderID: &wooID, ConnectionID: &in.ConnectionID, Number: wo.Number, OrderKey: wo.OrderKey,
 			Status: status, WarehouseID: in.DefaultWarehouseID, CustomerID: customerID,
 			Billing: wooAddressToOMS(wo.Billing), Shipping: wooAddressToOMS(wo.Shipping),
 			CustomerNote: wo.CustomerNote, CurrencyCode: wo.Currency,

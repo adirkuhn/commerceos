@@ -43,6 +43,7 @@ export interface ImportJob {
 }
 
 export interface DeleteAllImportedProductsResult {
+  deleted_sales_orders: number
   deleted_products: number
   deleted_categories: number
   errors: string[]

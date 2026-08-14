@@ -756,7 +756,7 @@ func TestUpsertSyncSchedulesHandler_returns422ForUnrunnableEntity(t *testing.T) 
 
 func TestDeleteAllImportedProductsHandler_returnsResult(t *testing.T) {
 	h := newDeleteImportedTestHandler(&stubDeleteAllImportedProducts{out: &appchannels.DeleteAllImportedProductsResult{
-		DeletedProducts: 805, DeletedCategories: 12,
+		DeletedSalesOrders: 3, DeletedProducts: 805, DeletedCategories: 12,
 	}})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
@@ -764,6 +764,7 @@ func TestDeleteAllImportedProductsHandler_returnsResult(t *testing.T) {
 	w := doRequest(r, http.MethodDelete, "/api/v1/integrations/connections/conn-1/imported-products", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"deleted_sales_orders":3`)
 	assert.Contains(t, w.Body.String(), "805")
 	assert.Contains(t, w.Body.String(), "12")
 }

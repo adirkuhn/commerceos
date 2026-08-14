@@ -20,6 +20,7 @@ type salesOrderModel struct {
 	Source          string `gorm:"not null"`
 	ExternalOrderID string `gorm:"column:external_order_id;not null"`
 	WooOrderID      *int64
+	ConnectionID    *string `gorm:"column:connection_id;type:uuid"`
 	Number          string
 	OrderKey        string `gorm:"column:order_key"`
 	Status          string `gorm:"not null;default:completed"`
@@ -116,7 +117,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 	sFirst, sLast, sCompany, sAddr1, sAddr2, sCity, sState, sPostcode, sCountry, _, sPhone := fromAddressDomain(o.Shipping)
 	return salesOrderModel{
 		ID: o.ID, TenantID: o.TenantID, Source: string(o.Source), ExternalOrderID: o.ExternalOrderID,
-		WooOrderID: o.WooOrderID, Number: o.Number, OrderKey: o.OrderKey, Status: string(o.Status),
+		WooOrderID: o.WooOrderID, ConnectionID: o.ConnectionID, Number: o.Number, OrderKey: o.OrderKey, Status: string(o.Status),
 		WarehouseID: o.WarehouseID, CustomerID: o.CustomerID,
 		BillingFirstName: bFirst, BillingLastName: bLast, BillingCompany: bCompany,
 		BillingAddress1: bAddr1, BillingAddress2: bAddr2, BillingCity: bCity, BillingState: bState,
@@ -230,10 +231,26 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	return out, total, nil
 }
 
+func (r *SalesOrderRepo) ListByConnection(ctx context.Context, connectionID string) ([]omsDomain.SalesOrder, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []salesOrderModel
+	if err := tx.Where("connection_id = ?", connectionID).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.ListByConnection: %w", err)
+	}
+	out := make([]omsDomain.SalesOrder, len(rows))
+	for i, row := range rows {
+		out[i] = *toSalesOrderDomain(row)
+	}
+	return out, nil
+}
+
 func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 	return &omsDomain.SalesOrder{
 		ID: m.ID, TenantID: m.TenantID, Source: omsDomain.SalesOrderSource(m.Source),
-		ExternalOrderID: m.ExternalOrderID, WooOrderID: m.WooOrderID, Number: m.Number, OrderKey: m.OrderKey,
+		ExternalOrderID: m.ExternalOrderID, WooOrderID: m.WooOrderID, ConnectionID: m.ConnectionID, Number: m.Number, OrderKey: m.OrderKey,
 		Status: omsDomain.SalesOrderStatus(m.Status), WarehouseID: m.WarehouseID, CustomerID: m.CustomerID,
 		Billing: omsDomain.Address{
 			FirstName: m.BillingFirstName, LastName: m.BillingLastName, Company: m.BillingCompany,

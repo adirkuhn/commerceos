@@ -425,7 +425,9 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             {deleteResult ? (
               <div className="space-y-3">
                 <p className="text-xs dark:text-gray-300 text-gray-700">
-                  Deleted <strong>{deleteResult.deleted_products}</strong> product{deleteResult.deleted_products === 1 ? '' : 's'} and{' '}
+                  Deleted{deleteResult.deleted_sales_orders > 0 && (
+                    <> <strong>{deleteResult.deleted_sales_orders}</strong> sales order{deleteResult.deleted_sales_orders === 1 ? '' : 's'},</>
+                  )} <strong>{deleteResult.deleted_products}</strong> product{deleteResult.deleted_products === 1 ? '' : 's'} and{' '}
                   <strong>{deleteResult.deleted_categories}</strong> now-empty categor{deleteResult.deleted_categories === 1 ? 'y' : 'ies'}.
                 </p>
                 {(deleteResult.errors ?? []).length > 0 && (

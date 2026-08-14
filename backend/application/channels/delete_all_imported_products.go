@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -15,24 +16,38 @@ type DeleteAllImportedProductsInput struct {
 }
 
 type DeleteAllImportedProductsResult struct {
-	DeletedProducts   int
-	DeletedCategories int
-	Errors            []string
+	DeletedSalesOrders int
+	DeletedProducts    int
+	DeletedCategories  int
+	Errors             []string
 }
 
-// DeleteAllImportedProductsUseCase undoes a WooCommerce import: deletes
-// every product linked to the connection (DB cascades take care of its
-// variants, SKUs, stock movements, media, and the listing row itself —
-// see migrations 002_pms.sql/006_inventory.sql/007_channels.sql), then
-// deletes any category that import created and is now empty. Categories
-// still used by other products (manually created, or from another
-// import) are left alone — they aren't connection-scoped, so this can
-// only tell "empty" from "not empty", never "created by this import".
+// deleteSalesOrderUC is application/oms's DeleteSalesOrderUseCase, narrowed
+// to point of use (ISP) -- reused rather than reimplemented so an
+// imported order's stock impact is reversed the exact same way a staff
+// deletion would (see DeleteSalesOrderUseCase's own doc comment), instead
+// of this use case having to duplicate that restock logic.
+type deleteSalesOrderUC interface {
+	Execute(ctx context.Context, id string) error
+}
+
+// DeleteAllImportedProductsUseCase undoes a WooCommerce import. Order
+// matters: this connection's own sales orders are deleted first (each
+// via DeleteSalesOrderUseCase, so stock is restocked before the order and
+// its line items go) -- otherwise sales_order_line_items.sku_id's
+// ON DELETE RESTRICT (deliberate: it's real sales history, never silently
+// dropped by a cascade) blocks deleting any product that was ever sold.
+// Only then are products deleted (DB cascades take care of their variants,
+// SKUs, remaining stock movements, media, and the listing row itself --
+// see migrations 002_pms.sql/006_inventory.sql/007_channels.sql), then any
+// category that import created and is now empty.
 type DeleteAllImportedProductsUseCase struct {
-	db           *gorm.DB
-	listingRepo  channelsDomain.ProductChannelListingRepository
-	productRepo  pmsDomain.ProductRepository
-	categoryRepo pmsDomain.CategoryRepository
+	db               *gorm.DB
+	listingRepo      channelsDomain.ProductChannelListingRepository
+	productRepo      pmsDomain.ProductRepository
+	categoryRepo     pmsDomain.CategoryRepository
+	salesOrderRepo   omsDomain.SalesOrderRepository
+	deleteSalesOrder deleteSalesOrderUC
 }
 
 func NewDeleteAllImportedProductsUseCase(
@@ -40,13 +55,37 @@ func NewDeleteAllImportedProductsUseCase(
 	listingRepo channelsDomain.ProductChannelListingRepository,
 	productRepo pmsDomain.ProductRepository,
 	categoryRepo pmsDomain.CategoryRepository,
+	salesOrderRepo omsDomain.SalesOrderRepository,
+	deleteSalesOrder deleteSalesOrderUC,
 ) *DeleteAllImportedProductsUseCase {
-	return &DeleteAllImportedProductsUseCase{db: db, listingRepo: listingRepo, productRepo: productRepo, categoryRepo: categoryRepo}
+	return &DeleteAllImportedProductsUseCase{
+		db: db, listingRepo: listingRepo, productRepo: productRepo, categoryRepo: categoryRepo,
+		salesOrderRepo: salesOrderRepo, deleteSalesOrder: deleteSalesOrder,
+	}
 }
 
 func (uc *DeleteAllImportedProductsUseCase) Execute(ctx context.Context, in DeleteAllImportedProductsInput) (*DeleteAllImportedProductsResult, error) {
-	var listings []channelsDomain.ProductChannelListing
+	result := &DeleteAllImportedProductsResult{}
+
+	var orders []omsDomain.SalesOrder
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		orders, err = uc.salesOrderRepo.ListByConnection(ctx, in.ConnectionID)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("deleteAllImportedProducts: %w", err)
+	}
+	for _, order := range orders {
+		if err := uc.deleteSalesOrder.Execute(ctx, order.ID); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("sales order %s: %v", order.ID, err))
+			continue
+		}
+		result.DeletedSalesOrders++
+	}
+
+	var listings []channelsDomain.ProductChannelListing
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		listings, err = uc.listingRepo.ListByConnection(ctx, in.ConnectionID)
 		return err
@@ -55,7 +94,6 @@ func (uc *DeleteAllImportedProductsUseCase) Execute(ctx context.Context, in Dele
 		return nil, fmt.Errorf("deleteAllImportedProducts: %w", err)
 	}
 
-	result := &DeleteAllImportedProductsResult{}
 	categoryIDs := map[string]bool{}
 
 	for _, listing := range listings {

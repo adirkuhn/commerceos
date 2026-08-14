@@ -4,12 +4,14 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -177,6 +179,65 @@ func TestSalesOrderRepo_Integration_List(t *testing.T) {
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, total, int64(2))
 	require.GreaterOrEqual(t, len(orders), 2)
+}
+
+// TestSalesOrderRepo_Integration_ListByConnection proves ListByConnection
+// only returns orders stamped with that connection's ID -- a POS order
+// (no connection at all) and a different connection's order must not
+// leak in, since "delete all imported products" trusts this to scope
+// exactly which orders belong to the connection being cleared.
+func TestSalesOrderRepo_Integration_ListByConnection(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	connRepo := repositories.NewConnectionRepo(db)
+
+	var conn1ID, conn2ID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		for i, id := range []*string{&conn1ID, &conn2ID} {
+			conn := &integrationsDomain.Connection{
+				TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+				StoreURL:                integrationsDomain.StoreURL(fmt.Sprintf("https://itest-list-by-conn-%d.example.com", i)),
+				ConsumerKey:             "ck",
+				ConsumerSecretEncrypted: "enc", Status: integrationsDomain.StatusConnected,
+				CreatedAt: now, UpdatedAt: now,
+			}
+			if err := connRepo.Create(ctx, conn); err != nil {
+				return err
+			}
+			*id = conn.ID
+		}
+
+		orders := []omsDomain.SalesOrder{
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-conn1-a", ConnectionID: &conn1ID, WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-conn1-b", ConnectionID: &conn1ID, WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-conn2-a", ConnectionID: &conn2ID, WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "pos-no-conn", WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+		}
+		for _, o := range orders {
+			o := o
+			if err := salesOrderRepo.Create(ctx, &o); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var found []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = salesOrderRepo.ListByConnection(ctx, conn1ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, found, 2)
+	for _, o := range found {
+		require.NotNil(t, o.ConnectionID)
+		require.Equal(t, conn1ID, *o.ConnectionID)
+	}
 }
 
 // TestSalesOrderRepo_Integration_ListSortsByTotalAndDefaultsToOccurredAtDesc

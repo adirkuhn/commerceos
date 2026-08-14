@@ -15,6 +15,7 @@ import (
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -232,6 +233,12 @@ func Register(
 	aiConnRepo := repositories.NewAIConnectionRepo(db)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
+		db, salesOrderRepo, salesOrderLineItemRepo,
+		appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo),
+	)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -251,7 +258,7 @@ func Register(
 		),
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewUpsertSyncScheduleUseCase(db, scheduleRepo),
-		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo),
+		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
 		appchannels.NewListSyncLogsUseCase(db, listingRepo, syncLogRepo),
@@ -475,9 +482,10 @@ func (h *Handler) DeleteAllImportedProducts(c *gin.Context, id genintegrations.I
 		return
 	}
 	middleware.OK(c, genintegrations.DeleteAllImportedProductsResult{
-		DeletedProducts:   result.DeletedProducts,
-		DeletedCategories: result.DeletedCategories,
-		Errors:            emptySliceIfNil(result.Errors),
+		DeletedSalesOrders: result.DeletedSalesOrders,
+		DeletedProducts:    result.DeletedProducts,
+		DeletedCategories:  result.DeletedCategories,
+		Errors:             emptySliceIfNil(result.Errors),
 	})
 }
 

@@ -282,7 +282,7 @@ describe('Delete imported products', () => {
   })
 
   it('confirming calls deleteAllImportedProducts and shows the result', async () => {
-    const result: DeleteAllImportedProductsResult = { deleted_products: 805, deleted_categories: 12, errors: [] }
+    const result: DeleteAllImportedProductsResult = { deleted_sales_orders: 0, deleted_products: 805, deleted_categories: 12, errors: [] }
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue(result)
 
     render(<Integrations />)
@@ -295,8 +295,22 @@ describe('Delete imported products', () => {
     expect(screen.getByText(/12/)).toBeInTheDocument()
   })
 
+  it('shows the deleted sales orders count when any were removed', async () => {
+    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({
+      deleted_sales_orders: 3, deleted_products: 805, deleted_categories: 12, errors: [],
+    })
+
+    render(<Integrations />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
+    await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByText(/3/)).toBeInTheDocument()
+    expect(screen.getByText(/sales order/)).toBeInTheDocument()
+  })
+
   it('notifies other components (e.g. the Sidebar badge) that products changed', async () => {
-    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({ deleted_products: 805, deleted_categories: 12, errors: [] })
+    vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue({ deleted_sales_orders: 0, deleted_products: 805, deleted_categories: 12, errors: [] })
     const listener = vi.fn()
     const unsubscribe = subscribeProductsChanged(listener)
 

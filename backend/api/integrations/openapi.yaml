@@ -743,8 +743,9 @@ components:
 
     DeleteAllImportedProductsResult:
       type: object
-      required: [deleted_products, deleted_categories, errors]
+      required: [deleted_sales_orders, deleted_products, deleted_categories, errors]
       properties:
+        deleted_sales_orders: { type: integer }
         deleted_products: { type: integer }
         deleted_categories: { type: integer }
         errors:
