@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, X, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useSyncSchedules } from './hooks/useSyncSchedules'
@@ -8,6 +8,11 @@ import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAll
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
+import { useTaxClasses } from '../tax/hooks/useTaxClasses'
+import { useExternalTaxClassLinks } from '../tax/hooks/useExternalTaxClassLinks'
+import type { ExternalTaxClassLink } from '../tax/types'
+
+const WOO_PROVIDER = 'woocommerce'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 
@@ -58,11 +63,15 @@ function defaultCell(seedCurrency = ''): CellState {
   return { enabled: false, intervalMinutes: 60, defaultWarehouseId: '', defaultCurrency: seedCurrency, lastRunStatus: '', lastRunError: '' }
 }
 
+type Tab = 'sync' | 'taxes'
+
 export default function WooCommerceSyncSettingsPage({ connection, onClose }: { connection: Connection; onClose: () => void }) {
   const { token } = useAuth()
   const { schedules, loading, error: loadError, save } = useSyncSchedules(token ?? '', connection.id)
   const { warehouses } = useWarehouses(token ?? '')
   const { settings: tenantSettings, loading: tenantSettingsLoading } = useTenantSettings(token ?? '')
+
+  const [tab, setTab] = useState<Tab>('sync')
 
   const [cells, setCells] = useState<Record<string, CellState>>({})
   const [hydrated, setHydrated] = useState(false)
@@ -200,15 +209,40 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           </button>
           <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">{connection.store_url}</h1>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
+        {tab === 'sync' && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        )}
       </div>
 
+      <div className="flex gap-1 px-6 pt-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        {([
+          { id: 'sync', label: 'Sync' },
+          { id: 'taxes', label: 'Taxes' },
+        ] as { id: Tab; label: string }[]).map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={clsx(
+              'px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
+              tab === t.id
+                ? 'border-blue-500 text-blue-500'
+                : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'taxes' && <WooTaxesTab token={token ?? ''} />}
+
+      {tab === 'sync' && (
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl space-y-4">
           <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
@@ -373,6 +407,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           </div>
         </div>
       </div>
+      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -453,6 +488,127 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function WooTaxesTab({ token }: { token: string }) {
+  const { classes } = useTaxClasses(token)
+  const { links, error: linksError, upsert: upsertLink, remove: removeLink } = useExternalTaxClassLinks(token)
+  const wooLinks = links.filter(l => l.provider === WOO_PROVIDER)
+
+  const inputClass = 'px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
+
+  const [rowError, setRowError] = useState('')
+  const [newSlug, setNewSlug] = useState('')
+  const [newClassId, setNewClassId] = useState('')
+
+  async function handleRepoint(link: ExternalTaxClassLink, taxClassId: string) {
+    setRowError('')
+    try {
+      await upsertLink({ provider: link.provider, external_slug: link.external_slug, tax_class_id: taxClassId })
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to update tax link')
+    }
+  }
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    setRowError('')
+    try {
+      await upsertLink({ provider: WOO_PROVIDER, external_slug: newSlug, tax_class_id: newClassId })
+      setNewSlug('')
+      setNewClassId('')
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to add tax link')
+    }
+  }
+
+  async function handleRemove(id: string) {
+    setRowError('')
+    try {
+      await removeLink(id)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to delete tax link')
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-3xl space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">WooCommerce taxes</h2>
+          <p className="text-xs dark:text-gray-500 text-gray-400">
+            Every WooCommerce tax class seen on import shows up here, linked to a CommerceOS tax class. Repoint or remove a link,
+            or add one manually for a Woo tax class that hasn't been imported yet.
+          </p>
+        </div>
+
+        {linksError && <p className="text-xs text-red-400">{linksError}</p>}
+        {rowError && <p className="text-xs text-red-400">{rowError}</p>}
+
+        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+          {wooLinks.length === 0 && <p className="text-xs dark:text-gray-500 text-gray-400">No WooCommerce taxes yet — run an import to pull them in, or add one below.</p>}
+          {wooLinks.length > 0 && (
+            <div className="space-y-1.5">
+              {wooLinks.map(link => (
+                <div key={link.id} className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                  <span className="flex-1 truncate">{link.external_slug || 'Standard'}</span>
+                  <select
+                    aria-label="Linked tax class"
+                    value={link.tax_class_id}
+                    onChange={e => handleRepoint(link, e.target.value)}
+                    className={clsx(inputClass, 'w-40')}
+                  >
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <button
+                    onClick={() => handleRemove(link.id)}
+                    className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 size={11} /> Remove link
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={handleAdd} className="pt-3 border-t dark:border-[#2D3748] border-gray-200 flex items-end gap-2">
+            <div>
+              <label htmlFor="woo-tax-slug" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                Woo tax class slug
+              </label>
+              <input
+                id="woo-tax-slug"
+                value={newSlug}
+                onChange={e => setNewSlug(e.target.value)}
+                className={clsx(inputClass, 'w-32')}
+              />
+            </div>
+            <div>
+              <label htmlFor="woo-tax-class" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                Tax class
+              </label>
+              <select
+                id="woo-tax-class"
+                aria-label="Tax class"
+                required
+                value={newClassId}
+                onChange={e => setNewClassId(e.target.value)}
+                className={clsx(inputClass, 'w-40')}
+              >
+                <option value="" disabled>Select…</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+            >
+              Add link
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }
