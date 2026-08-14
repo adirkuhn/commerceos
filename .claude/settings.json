@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd *)",
+      "Bash(go build *)",
+      "Bash(go test *)",
+      "Bash(go vet *)",
+      "Bash(go generate *)",
+      "Bash(go doc *)",
+      "Bash(go env *)",
+      "Bash(go list *)",
+      "Bash(go version *)",
+      "Bash(go mod *)",
+      "Bash(gofmt -l *)",
+      "Bash(gofmt -w *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(docker run *)",
+      "Bash(docker info *)",
+      "Bash(docker port *)",
+      "Bash(docker network *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git stash *)"
+    ]
+  }
+}
