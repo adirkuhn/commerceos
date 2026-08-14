@@ -17,6 +17,9 @@ import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
 import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
+import { useTaxClasses } from '../tax/hooks/useTaxClasses'
+import { useTaxRates } from '../tax/hooks/useTaxRates'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 
 const STATUS_STYLES: Record<ProductStatus, string> = {
   active: 'bg-green-500/15 text-green-400',
@@ -230,6 +233,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const { token } = useAuth()
   const [savedProductId, setSavedProductId] = useState<string | null>(productId)
   const detail = useProductDetail(token ?? '', savedProductId)
+  const { classes: taxClasses } = useTaxClasses(token ?? '')
+  const { rates: taxRates } = useTaxRates(token ?? '')
+  const { settings: tenantSettings } = useTenantSettings(token ?? '')
 
   const existing = detail.detail?.product
   const [name, setName] = useState(existing?.name ?? '')
@@ -290,6 +296,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
   const [portionedFromLabel, setPortionedFromLabel] = useState('')
   const [portionPickerOpen, setPortionPickerOpen] = useState(false)
+  // null means "use the tenant's default tax class" (see TaxClass.is_default)
+  // -- '' in the <select> represents that same choice.
+  const [taxClassId, setTaxClassId] = useState<string | null>(null)
 
   // Sync local form state once the product detail loads (edit mode) — runs once.
   const [hydrated, setHydrated] = useState(false)
@@ -321,6 +330,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         setUnitsPerCase(sku.units_per_case != null ? String(sku.units_per_case) : '')
         setUnitType(sku.unit_type ?? 'unit')
         setPortionedFromSKUID(sku.portioned_from_sku_id ?? null)
+        setTaxClassId(sku.tax_class_id ?? null)
       }
     }
     setHydrated(true)
@@ -329,6 +339,30 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
   const singleVariant: VariantWithSKUs | null =
     !variantsMode && detail.detail?.variants.length === 1 ? detail.detail.variants[0] : null
   const currentSku = singleVariant?.skus?.[0] ?? null
+
+  const defaultTaxClass = taxClasses.find(c => c.is_default) ?? null
+  const effectiveTaxClassId = taxClassId ?? defaultTaxClass?.id ?? null
+  const taxRateForPreview = effectiveTaxClassId && tenantSettings?.default_tax_country
+    ? taxRates.find(r => r.tax_class_id === effectiveTaxClassId && r.country === tenantSettings.default_tax_country)
+    : undefined
+  const priceMinorUnitsForPreview = price.trim() === '' ? null : parsePriceToMinorUnits(price)
+  const taxPreview = taxRateForPreview && priceMinorUnitsForPreview != null
+    ? (() => {
+        const rate = taxRateForPreview.rate_basis_points / 10000
+        const inclusiveMinor = tenantSettings?.prices_include_tax
+          ? priceMinorUnitsForPreview
+          : Math.round(priceMinorUnitsForPreview * (1 + rate))
+        const exclusiveMinor = tenantSettings?.prices_include_tax
+          ? Math.round(priceMinorUnitsForPreview / (1 + rate))
+          : priceMinorUnitsForPreview
+        return {
+          exclusive: exclusiveMinor / 100,
+          inclusive: inclusiveMinor / 100,
+          ratePercent: (taxRateForPreview.rate_basis_points / 100).toFixed(2),
+          country: taxRateForPreview.country,
+        }
+      })()
+    : null
 
   const addTag = (raw: string) => {
     const value = raw.trim()
@@ -380,6 +414,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
+              tax_class_id: taxClassId,
               status: skuStatus,
             })
           }
@@ -405,6 +440,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               units_per_case: caseOfSKUID ? parseIntOrUndefined(unitsPerCase) ?? null : null,
               unit_type: unitType,
               portioned_from_sku_id: portionedFromSKUID,
+              tax_class_id: taxClassId,
               status: skuStatus,
             })
           } else if (skuCode) {
@@ -417,6 +453,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
+              tax_class_id: taxClassId,
               status: skuStatus,
             })
           }
@@ -431,6 +468,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
             currency_code: currency,
             is_virtual: isVirtual,
             ...dimensions,
+            tax_class_id: taxClassId,
             status: skuStatus,
           })
           detail.refresh()
@@ -693,6 +731,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                       type="number" step="0.01" min="0" required={!variantsMode} placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)}
                       className={inputClass}
                     />
+                    {taxPreview && (
+                      <p className="mt-1 text-[10px] dark:text-gray-500 text-gray-400">
+                        Excl. tax: {currency} {taxPreview.exclusive.toFixed(2)} · Incl. tax: {currency} {taxPreview.inclusive.toFixed(2)} ({taxPreview.ratePercent}% {taxPreview.country})
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="product-sale-price" className={labelClass}>Sale price (optional)</label>
@@ -714,6 +757,18 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                     <label htmlFor="product-currency" className={labelClass}>Currency</label>
                     <select id="product-currency" value={currency} onChange={e => setCurrency(e.target.value)} className={inputClass}>
                       {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="product-tax-class" className={labelClass}>Tax class</label>
+                    <select
+                      id="product-tax-class"
+                      value={taxClassId ?? ''}
+                      onChange={e => setTaxClassId(e.target.value || null)}
+                      className={inputClass}
+                    >
+                      <option value="">Tenant default{defaultTaxClass ? ` (${defaultTaxClass.name})` : ''}</option>
+                      {taxClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                   <div>

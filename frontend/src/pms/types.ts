@@ -76,6 +76,10 @@ export interface SKU {
   // off a kilo (weight-pool) SKU's pool -- see the inventory module's
   // portion-from-bulk action.
   portioned_from_sku_id?: string | null
+  // tax_class_id is null unless this SKU has its own tax class assigned --
+  // null means "use the tenant's default class" (see the Tax settings
+  // section's TaxClass.is_default).
+  tax_class_id?: string | null
   status: SKUStatus
   created_at: string
   updated_at: string
@@ -154,6 +158,7 @@ export interface CreateSKUPayload {
   units_per_case?: number | null
   unit_type?: SKUUnitType
   portioned_from_sku_id?: string | null
+  tax_class_id?: string | null
   status: SKUStatus
 }
 
@@ -173,6 +178,7 @@ export interface UpdateSKUPayload {
   units_per_case?: number | null
   unit_type?: SKUUnitType
   portioned_from_sku_id?: string | null
+  tax_class_id?: string | null
   status: SKUStatus
 }
 

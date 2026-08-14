@@ -36,8 +36,25 @@ vi.mock('../../integrations/api', () => ({
   getProductChannelListing: vi.fn(),
 }))
 
+vi.mock('../../settings/api', () => ({
+  getTenantSettings: vi.fn(),
+  updateTenantSettings: vi.fn(),
+}))
+
+vi.mock('../../tax/api', () => ({
+  listTaxClasses: vi.fn(),
+  createTaxClass: vi.fn(),
+  updateTaxClass: vi.fn(),
+  deleteTaxClass: vi.fn(),
+  listTaxRates: vi.fn(),
+  upsertTaxRate: vi.fn(),
+  deleteTaxRate: vi.fn(),
+}))
+
 import * as pmsApi from '../../pms/api'
 import * as integrationsApi from '../../integrations/api'
+import * as tenantSettingsApi from '../../settings/api'
+import * as taxApi from '../../tax/api'
 
 function product(overrides: Partial<Product> = {}): Product {
   return {
@@ -88,6 +105,12 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
   vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+  vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+    tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
+    prices_include_tax: true, default_tax_country: '', updated_at: '',
+  })
+  vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
+  vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
 })
 
 function NavReselectButton() {
@@ -802,6 +825,90 @@ describe('SKU weight/dimensions and virtual flag', () => {
     expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
       is_virtual: true, weight_grams: undefined, length_mm: undefined, width_mm: undefined, height_mm: undefined,
     }))
+  })
+})
+
+describe('Tax class picker + price preview', () => {
+  it('shows a Tax class select populated with the tenant tax classes', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+      { id: 'class-2', name: 'Reduced rate', is_default: false, created_at: '', updated_at: '' },
+    ])
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    const select = await screen.findByLabelText('Tax class')
+    expect(within(select as HTMLElement).getByText('Standard')).toBeInTheDocument()
+    expect(within(select as HTMLElement).getByText('Reduced rate')).toBeInTheDocument()
+  })
+
+  it('creating a SKU with a tax class selected sends tax_class_id', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+      { id: 'class-2', name: 'Reduced rate', is_default: false, created_at: '', updated_at: '' },
+    ])
+    const created = product({ id: 'new-prod' })
+    vi.mocked(pmsApi.createProduct).mockResolvedValue(created)
+    vi.mocked(pmsApi.createVariant).mockResolvedValue({ ...baseVariant, id: 'new-var', product_id: 'new-prod' })
+    vi.mocked(pmsApi.createSKU).mockResolvedValue({ ...baseSku, id: 'new-sku', variant_id: 'new-var', tax_class_id: 'class-2' })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: created,
+      variants: [{ ...baseVariant, id: 'new-var', product_id: 'new-prod', skus: [{ ...baseSku, id: 'new-sku', variant_id: 'new-var', tax_class_id: 'class-2' }] }],
+    })
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    await userEvent.type(screen.getByLabelText('Name'), 'New Shirt')
+    await userEvent.type(screen.getByPlaceholderText('e.g. SHIRT-BLK-M'), 'NEWSHIRT-1')
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '29.99')
+    await userEvent.selectOptions(await screen.findByLabelText('Tax class'), 'class-2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Product' }))
+
+    await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalled())
+    expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'new-var', expect.objectContaining({
+      tax_class_id: 'class-2',
+    }))
+  })
+
+  it('editing an existing SKU prefills its tax class', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+      { id: 'class-2', name: 'Reduced rate', is_default: false, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product(),
+      variants: [{ ...baseVariant, skus: [{ ...baseSku, tax_class_id: 'class-2' }] }],
+    })
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+
+    await waitFor(() => expect(screen.getByLabelText('Tax class')).toHaveValue('class-2'))
+  })
+
+  it('shows an incl./excl. tax price preview when a rate exists for the default tax country', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', updated_at: '',
+    })
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([
+      { id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2100, created_at: '', updated_at: '' },
+    ])
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByText('New Product'))
+    await screen.findByLabelText('Tax class')
+
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '121.00')
+
+    expect(await screen.findByText(/Excl\. tax: USD 100\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/Incl\. tax: USD 121\.00/)).toBeInTheDocument()
   })
 })
 
