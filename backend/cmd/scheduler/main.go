@@ -221,7 +221,8 @@ func main() {
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
 		stockRecorderUC, updateSalesOrderUC,
 	)
-	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, ordersImportUC)
+	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo)
+	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, customersImportUC, ordersImportUC)
 
 	rs := buildRunners(
 		importUC,
@@ -454,6 +455,10 @@ func runImportJob(
 	products := result.Products
 	errs := products.Errors
 	message := fmt.Sprintf("Imported %d products (%d already linked, %d skipped)", products.Imported, products.AlreadyLinked, products.SkippedType)
+	if result.Customers != nil {
+		errs = append(errs, result.Customers.Errors...)
+		message += fmt.Sprintf(", %d customers", result.Customers.Created)
+	}
 	if result.Orders != nil {
 		errs = append(errs, result.Orders.Errors...)
 		message += fmt.Sprintf(", %d orders", result.Orders.Created)

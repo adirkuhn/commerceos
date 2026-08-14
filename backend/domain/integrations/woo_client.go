@@ -147,6 +147,22 @@ type WooAddress struct {
 	FirstName, LastName, Company, Address1, Address2, City, State, Postcode, Country, Email, Phone string
 }
 
+// WooCustomer mirrors the customer object from /wc/v3/customers.
+type WooCustomer struct {
+	ID               int
+	Email            string
+	FirstName        string
+	LastName         string
+	Username         string
+	Role             string
+	Billing          WooAddress
+	Shipping         WooAddress
+	IsPayingCustomer bool
+	AvatarURL        string
+	DateCreated      string
+	DateModified     string
+}
+
 type WooOrderLineItem struct {
 	ProductID   int
 	VariationID int // 0 if this line is a simple product, not a variation
@@ -249,6 +265,11 @@ type WooClient interface {
 	// order is ever permanently missed by an incremental cursor that
 	// drifts.
 	ListOrders(ctx context.Context, page, perPage int, modifiedAfter *time.Time) ([]WooOrder, error)
+	// ListCustomers pages through the store's customer accounts -- always a
+	// full scan (no modified-since filter), used only by the one-time
+	// customers bootstrap that runs alongside a connection's first
+	// products import.
+	ListCustomers(ctx context.Context, page, perPage int) ([]WooCustomer, error)
 	// ListTaxRates returns the store's entire tax rate table in one call --
 	// unlike products/orders this is never paged through by this codebase;
 	// a real store's tax table is small (a handful of country rows per

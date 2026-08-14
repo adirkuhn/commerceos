@@ -110,6 +110,11 @@ type stubWooClient struct {
 	ordersModifiedAfter *time.Time
 	ordersCalls         int
 
+	// customersByPage mirrors ordersByPage's convention.
+	customersByPage map[int][]integrationsDomain.WooCustomer
+	customersErr    error
+	customersCalls  int
+
 	createVariableCalled []stubCreateVariableCall
 	createVariableErr    error
 	createVariableWithID string
@@ -269,6 +274,14 @@ func (s *stubWooClient) ListOrders(_ context.Context, page, _ int, modifiedAfter
 		return nil, s.ordersErr
 	}
 	return s.ordersByPage[page], nil
+}
+
+func (s *stubWooClient) ListCustomers(_ context.Context, page, _ int) ([]integrationsDomain.WooCustomer, error) {
+	s.customersCalls++
+	if s.customersErr != nil {
+		return nil, s.customersErr
+	}
+	return s.customersByPage[page], nil
 }
 
 func (s *stubWooClient) ListTaxRates(_ context.Context) ([]integrationsDomain.WooTaxRate, error) {
@@ -854,16 +867,27 @@ func (s *stubOrdersLinkRepo) Create(_ context.Context, l *omsDomain.SalesOrderLi
 }
 
 type stubOrdersCustomerRepo struct {
-	byWooID map[int64]customersDomain.Customer
+	byWooID   map[int64]customersDomain.Customer
+	created   []customersDomain.Customer
+	createErr error
+	findErr   error
 }
 
-func (s *stubOrdersCustomerRepo) Create(_ context.Context, _ *customersDomain.Customer) error {
+func (s *stubOrdersCustomerRepo) Create(_ context.Context, c *customersDomain.Customer) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	c.ID = fmt.Sprintf("customer-%d", len(s.created)+1)
+	s.created = append(s.created, *c)
 	return nil
 }
 func (s *stubOrdersCustomerRepo) FindByID(_ context.Context, _ string) (*customersDomain.Customer, error) {
 	return nil, customersDomain.ErrCustomerNotFound
 }
 func (s *stubOrdersCustomerRepo) FindByWooCustomerID(_ context.Context, wooCustomerID int64) (*customersDomain.Customer, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
 	if c, ok := s.byWooID[wooCustomerID]; ok {
 		return &c, nil
 	}

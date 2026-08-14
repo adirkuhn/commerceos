@@ -45,11 +45,29 @@ func (s *stubOrdersImportExecutor) Execute(_ context.Context, in appchannels.Imp
 	return &appchannels.ImportOrdersResult{}, nil
 }
 
-func TestRunManualWooImport_firstImportAlsoRunsOrdersWithSkipStockMovements(t *testing.T) {
+type stubCustomersImportExecutor struct {
+	calls []appchannels.ImportWooCustomersInput
+	out   *appchannels.ImportCustomersResult
+	err   error
+}
+
+func (s *stubCustomersImportExecutor) Execute(_ context.Context, in appchannels.ImportWooCustomersInput) (*appchannels.ImportCustomersResult, error) {
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appchannels.ImportCustomersResult{}, nil
+}
+
+func TestRunManualWooImport_firstImportAlsoRunsCustomersThenOrdersWithSkipStockMovements(t *testing.T) {
 	productsImport := &stubProductsImportExecutor{out: &appchannels.ImportResult{Imported: 5}}
+	customersImport := &stubCustomersImportExecutor{out: &appchannels.ImportCustomersResult{Created: 7}}
 	ordersImport := &stubOrdersImportExecutor{out: &appchannels.ImportOrdersResult{Created: 3}}
 
-	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, customersImport, ordersImport)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR", IsFirstImport: true,
@@ -58,6 +76,8 @@ func TestRunManualWooImport_firstImportAlsoRunsOrdersWithSkipStockMovements(t *t
 	require.NoError(t, err)
 	require.Len(t, productsImport.calls, 1)
 	assert.Equal(t, "conn-1", productsImport.calls[0].ConnectionID)
+	require.Len(t, customersImport.calls, 1)
+	assert.Equal(t, "conn-1", customersImport.calls[0].ConnectionID)
 	require.Len(t, ordersImport.calls, 1)
 	assert.Equal(t, "conn-1", ordersImport.calls[0].ConnectionID)
 	assert.Equal(t, "wh-1", ordersImport.calls[0].DefaultWarehouseID)
@@ -65,41 +85,67 @@ func TestRunManualWooImport_firstImportAlsoRunsOrdersWithSkipStockMovements(t *t
 	assert.Nil(t, ordersImport.calls[0].ModifiedAfter, "must be a full scan, not incremental")
 	require.NotNil(t, result.Products)
 	assert.Equal(t, 5, result.Products.Imported)
+	require.NotNil(t, result.Customers)
+	assert.Equal(t, 7, result.Customers.Created)
 	require.NotNil(t, result.Orders)
 	assert.Equal(t, 3, result.Orders.Created)
 }
 
-func TestRunManualWooImport_notFirstImportSkipsOrdersBootstrap(t *testing.T) {
+func TestRunManualWooImport_notFirstImportSkipsCustomersAndOrdersBootstrap(t *testing.T) {
 	productsImport := &stubProductsImportExecutor{}
+	customersImport := &stubCustomersImportExecutor{}
 	ordersImport := &stubOrdersImportExecutor{}
 
-	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, customersImport, ordersImport)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: false})
 
 	require.NoError(t, err)
 	require.Len(t, productsImport.calls, 1)
+	assert.Empty(t, customersImport.calls, "IsFirstImport false -- customers bootstrap must not run")
 	assert.Empty(t, ordersImport.calls, "IsFirstImport false -- orders bootstrap must not run")
+	assert.Nil(t, result.Customers)
 	assert.Nil(t, result.Orders)
 }
 
-func TestRunManualWooImport_productsImportFailurePropagatesAndSkipsOrders(t *testing.T) {
+func TestRunManualWooImport_productsImportFailurePropagatesAndSkipsCustomersAndOrders(t *testing.T) {
 	productsImport := &stubProductsImportExecutor{err: errors.New("woo unreachable")}
+	customersImport := &stubCustomersImportExecutor{}
 	ordersImport := &stubOrdersImportExecutor{}
 
-	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, customersImport, ordersImport)
 
 	_, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: true})
 
 	require.Error(t, err)
+	assert.Empty(t, customersImport.calls, "customers bootstrap must not run when products import itself failed")
 	assert.Empty(t, ordersImport.calls, "orders bootstrap must not run when products import itself failed")
+}
+
+func TestRunManualWooImport_customersImportFailureIsBestEffortAndStillRunsOrders(t *testing.T) {
+	productsImport := &stubProductsImportExecutor{out: &appchannels.ImportResult{Imported: 5}}
+	customersImport := &stubCustomersImportExecutor{err: errors.New("woo unreachable")}
+	ordersImport := &stubOrdersImportExecutor{out: &appchannels.ImportOrdersResult{Created: 3}}
+
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, customersImport, ordersImport)
+
+	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: true})
+
+	require.NoError(t, err, "the primary products import already succeeded -- a customers-side failure must not fail the whole job")
+	require.NotNil(t, result.Customers)
+	require.Len(t, result.Customers.Errors, 1)
+	assert.Contains(t, result.Customers.Errors[0], "woo unreachable")
+	require.Len(t, ordersImport.calls, 1, "orders bootstrap must still run even if customers import failed")
+	require.NotNil(t, result.Orders)
+	assert.Equal(t, 3, result.Orders.Created)
 }
 
 func TestRunManualWooImport_ordersImportFailureIsBestEffortAndDoesNotFailTheJob(t *testing.T) {
 	productsImport := &stubProductsImportExecutor{out: &appchannels.ImportResult{Imported: 5}}
+	customersImport := &stubCustomersImportExecutor{out: &appchannels.ImportCustomersResult{Created: 7}}
 	ordersImport := &stubOrdersImportExecutor{err: errors.New("woo unreachable")}
 
-	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, customersImport, ordersImport)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: true})
 

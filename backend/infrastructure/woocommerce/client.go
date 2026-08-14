@@ -219,6 +219,42 @@ func (c *wooClient) ListOrders(ctx context.Context, page, perPage int, modifiedA
 	return out, nil
 }
 
+func (c *wooClient) ListCustomers(ctx context.Context, page, perPage int) ([]integrationsDomain.WooCustomer, error) {
+	customers, _, err := c.client.Customers.List(ctx, &wc.ListCustomerParams{Page: page, PerPage: perPage})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]integrationsDomain.WooCustomer, len(customers))
+	for i, cu := range customers {
+		out[i] = toWooCustomer(cu)
+	}
+	return out, nil
+}
+
+func toWooCustomer(cu wc.Customer) integrationsDomain.WooCustomer {
+	var billing, shipping integrationsDomain.WooAddress
+	if cu.Billing != nil {
+		billing = integrationsDomain.WooAddress{
+			FirstName: cu.Billing.FirstName, LastName: cu.Billing.LastName, Company: cu.Billing.Company,
+			Address1: cu.Billing.Address1, Address2: cu.Billing.Address2, City: cu.Billing.City, State: cu.Billing.State,
+			Postcode: cu.Billing.Postcode, Country: cu.Billing.Country, Email: cu.Billing.Email, Phone: cu.Billing.Phone,
+		}
+	}
+	if cu.Shipping != nil {
+		shipping = integrationsDomain.WooAddress{
+			FirstName: cu.Shipping.FirstName, LastName: cu.Shipping.LastName, Company: cu.Shipping.Company,
+			Address1: cu.Shipping.Address1, Address2: cu.Shipping.Address2, City: cu.Shipping.City, State: cu.Shipping.State,
+			Postcode: cu.Shipping.Postcode, Country: cu.Shipping.Country, Phone: cu.Shipping.Phone,
+		}
+	}
+	return integrationsDomain.WooCustomer{
+		ID: cu.ID, Email: cu.Email, FirstName: cu.FirstName, LastName: cu.LastName,
+		Username: cu.Username, Role: cu.Role, Billing: billing, Shipping: shipping,
+		IsPayingCustomer: cu.IsPayingCustomer, AvatarURL: cu.AvatarURL,
+		DateCreated: cu.DateCreatedGmt, DateModified: cu.DateModifiedGmt,
+	}
+}
+
 func toWooAddress(a *wc.Billing) integrationsDomain.WooAddress {
 	if a == nil {
 		return integrationsDomain.WooAddress{}
