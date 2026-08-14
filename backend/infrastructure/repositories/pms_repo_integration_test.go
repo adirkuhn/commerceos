@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
@@ -377,4 +378,55 @@ func TestProductRepo_Integration_DeleteBlockedByReceivingHistory(t *testing.T) {
 		return productRepo.Delete(ctx, productID)
 	})
 	require.ErrorIs(t, err, pmsDomain.ErrProductHasReceivingHistory)
+}
+
+// TestProductRepo_Integration_DeleteBlockedBySalesOrderHistory proves
+// ProductRepo.Delete maps the sales_order_line_items_sku_id_fkey violation
+// (ON DELETE RESTRICT -- see 052_sales_orders.sql) to the typed
+// pmsDomain.ErrProductHasSalesOrderHistory instead of leaking the raw
+// Postgres error, when a product's SKU was sold on a sales order.
+func TestProductRepo_Integration_DeleteBlockedBySalesOrderHistory(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	var productID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		sku, err := skuRepo.FindByID(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		variant, err := variantRepo.FindByID(ctx, sku.VariantID)
+		if err != nil {
+			return err
+		}
+		productID = variant.ProductID
+
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
+			ExternalOrderID: "pos-delete-history-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		lineItem := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
+			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &lineItem)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return productRepo.Delete(ctx, productID)
+	})
+	require.ErrorIs(t, err, pmsDomain.ErrProductHasSalesOrderHistory)
 }

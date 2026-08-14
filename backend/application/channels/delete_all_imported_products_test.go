@@ -114,6 +114,25 @@ func TestDeleteAllImportedProducts_reportsCleanMessageForReceivingHistory(t *tes
 	require.NotContains(t, result.Errors[0], "SQLSTATE", "must not leak the raw Postgres error")
 }
 
+func TestDeleteAllImportedProducts_reportsCleanMessageForSalesOrderHistory(t *testing.T) {
+	h := newHarness(nil)
+	h.productRepo.byID = map[string]pmsDomain.Product{"p1": {ID: "p1"}, "p2": {ID: "p2"}}
+	h.productRepo.deleteErr = pmsDomain.ErrProductHasSalesOrderHistory
+	h.listingRepo.byConnection = []channelsDomain.ProductChannelListing{
+		{ID: "l1", ProductID: "p1", ConnectionID: "conn-1"},
+	}
+
+	uc := appchannels.NewDeleteAllImportedProductsUseCase(newMockGormDB(t, 2), h.listingRepo, h.productRepo, h.categoryRepo)
+
+	result, err := uc.Execute(context.Background(), appchannels.DeleteAllImportedProductsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.DeletedProducts)
+	require.Len(t, result.Errors, 1)
+	require.Contains(t, result.Errors[0], pmsDomain.ErrProductHasSalesOrderHistory.Error())
+	require.NotContains(t, result.Errors[0], "SQLSTATE", "must not leak the raw Postgres error")
+}
+
 func TestDeleteAllImportedProducts_recordsErrorWhenCategoryDeleteFails(t *testing.T) {
 	h := newHarness(nil)
 	catID := "cat-1"

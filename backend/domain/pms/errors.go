@@ -59,4 +59,10 @@ var (
 	// receiving audit trail), so the product can't be deleted while that
 	// history exists.
 	ErrProductHasReceivingHistory = errors.New("product has purchase-order receiving history and cannot be deleted")
+	// ErrProductHasSalesOrderHistory guards product/SKU deletion the same
+	// way as ErrProductHasReceivingHistory: a SKU that was ever sold has
+	// sales_order_line_items rows referencing it (ON DELETE RESTRICT,
+	// deliberately -- it's the sales history), so the product can't be
+	// deleted while that history exists.
+	ErrProductHasSalesOrderHistory = errors.New("product has sales order history and cannot be deleted")
 )

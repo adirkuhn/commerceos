@@ -424,8 +424,13 @@ func (r *ProductRepo) Delete(ctx context.Context, id string) error {
 	}
 	if err := tx.Where("id = ?", id).Delete(&productModel{}).Error; err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.ConstraintName == "booking_scans_sku_id_fkey" {
-			return pmsDomain.ErrProductHasReceivingHistory
+		if errors.As(err, &pgErr) {
+			switch pgErr.ConstraintName {
+			case "booking_scans_sku_id_fkey":
+				return pmsDomain.ErrProductHasReceivingHistory
+			case "sales_order_line_items_sku_id_fkey":
+				return pmsDomain.ErrProductHasSalesOrderHistory
+			}
 		}
 		return fmt.Errorf("productRepo.Delete: %w", err)
 	}
