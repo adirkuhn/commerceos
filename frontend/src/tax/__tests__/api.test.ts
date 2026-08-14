@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { TaxClass, TaxRate, APIResponse } from '../types'
+import type { TaxClass, TaxRate, ExternalTaxClassLink, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -28,6 +28,11 @@ const sampleClass: TaxClass = {
 
 const sampleRate: TaxRate = {
   id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2100,
+  created_at: '2026-07-26T00:00:00Z', updated_at: '2026-07-26T00:00:00Z',
+}
+
+const sampleLink: ExternalTaxClassLink = {
+  id: 'link-1', provider: 'woocommerce', external_slug: 'reduced-rate', tax_class_id: 'class-1',
   created_at: '2026-07-26T00:00:00Z', updated_at: '2026-07-26T00:00:00Z',
 }
 
@@ -124,6 +129,43 @@ describe('deleteTaxRate', () => {
     await api.deleteTaxRate(TOKEN, 'rate-1')
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/tax/rates/rate-1')
+    expect(opts.method).toBe('DELETE')
+  })
+})
+
+describe('listExternalTaxClassLinks', () => {
+  it('returns the links', async () => {
+    mockFetch([sampleLink])
+    const result = await api.listExternalTaxClassLinks(TOKEN)
+    expect(result).toEqual([sampleLink])
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/tax/external-links')
+  })
+})
+
+describe('upsertExternalTaxClassLink', () => {
+  it('sends a PUT to the external-links endpoint', async () => {
+    mockFetch(sampleLink)
+    const result = await api.upsertExternalTaxClassLink(TOKEN, { provider: 'woocommerce', external_slug: 'reduced-rate', tax_class_id: 'class-1' })
+    expect(result).toEqual(sampleLink)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/tax/external-links')
+    expect(opts.method).toBe('PUT')
+    expect(JSON.parse(opts.body as string)).toEqual({ provider: 'woocommerce', external_slug: 'reduced-rate', tax_class_id: 'class-1' })
+  })
+
+  it('throws when the tax class does not exist', async () => {
+    mockFetchError('NOT_FOUND', 'tax class not found', 404)
+    await expect(api.upsertExternalTaxClassLink(TOKEN, { provider: 'woocommerce', external_slug: 'x', tax_class_id: 'missing' })).rejects.toThrow('tax class not found')
+  })
+})
+
+describe('deleteExternalTaxClassLink', () => {
+  it('sends a DELETE to the link-specific endpoint', async () => {
+    mockFetch(null)
+    await api.deleteExternalTaxClassLink(TOKEN, 'link-1')
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/tax/external-links/link-1')
     expect(opts.method).toBe('DELETE')
   })
 })

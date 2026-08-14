@@ -13,7 +13,8 @@ import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import type { TenantSettings, TenantSettingsInput } from '../settings/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
-import type { TaxClass } from '../tax/types'
+import { useExternalTaxClassLinks } from '../tax/hooks/useExternalTaxClassLinks'
+import type { TaxClass, ExternalTaxClassLink } from '../tax/types'
 
 // toInput picks just the persisted fields off a fetched TenantSettings so a
 // section that only edits some of them (Localization edits 4, Tax edits 2)
@@ -661,6 +662,9 @@ function TaxSettingsSection() {
   const { settings, save } = useTenantSettings(token ?? '')
   const { classes, loading: classesLoading, error: classesError, create, update, remove } = useTaxClasses(token ?? '')
   const { rates, error: ratesError, upsert, remove: removeRate } = useTaxRates(token ?? '')
+  const { links, error: linksError, upsert: upsertLink, remove: removeLink } = useExternalTaxClassLinks(token ?? '')
+
+  const inputClass = 'px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
 
   const [pricesIncludeTax, setPricesIncludeTax] = useState(true)
   const [defaultTaxCountry, setDefaultTaxCountry] = useState('')
@@ -755,6 +759,41 @@ function TaxSettingsSection() {
       await removeRate(id)
     } catch (err) {
       setRowError(err instanceof Error ? err.message : 'Failed to delete tax rate')
+    }
+  }
+
+  async function handleRepointLink(link: ExternalTaxClassLink, taxClassId: string) {
+    setRowError('')
+    try {
+      await upsertLink({ provider: link.provider, external_slug: link.external_slug, tax_class_id: taxClassId })
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to update external tax link')
+    }
+  }
+
+  const [newLinkProvider, setNewLinkProvider] = useState('')
+  const [newLinkSlug, setNewLinkSlug] = useState('')
+  const [newLinkClassId, setNewLinkClassId] = useState('')
+
+  async function handleAddLink(e: React.FormEvent) {
+    e.preventDefault()
+    setRowError('')
+    try {
+      await upsertLink({ provider: newLinkProvider, external_slug: newLinkSlug, tax_class_id: newLinkClassId })
+      setNewLinkProvider('')
+      setNewLinkSlug('')
+      setNewLinkClassId('')
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to add external tax link')
+    }
+  }
+
+  async function handleRemoveLink(id: string) {
+    setRowError('')
+    try {
+      await removeLink(id)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to delete external tax link')
     }
   }
 
@@ -861,6 +900,88 @@ function TaxSettingsSection() {
             <TaxRateAddForm taxClassId={c.id} onAdd={handleAddRate} />
           </div>
         ))}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">External tax links</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            Maps an external channel's own tax class (e.g. WooCommerce's tax_class) to one of the classes above. Import creates these automatically the first time it sees a new one — repoint or remove them here.
+          </p>
+        </div>
+        {linksError && <p className="text-xs text-red-400">{linksError}</p>}
+        {links.length === 0 && <p className="text-xs dark:text-gray-500 text-gray-400">No external tax links yet.</p>}
+        {links.length > 0 && (
+          <div className="space-y-1.5">
+            {links.map(link => (
+              <div key={link.id} className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                <span className="w-24 shrink-0">{link.provider}</span>
+                <span className="flex-1 truncate">{link.external_slug || 'Standard'}</span>
+                <select
+                  aria-label="Linked tax class"
+                  value={link.tax_class_id}
+                  onChange={e => handleRepointLink(link, e.target.value)}
+                  className={clsx(inputClass, 'w-40')}
+                >
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button
+                  onClick={() => handleRemoveLink(link.id)}
+                  className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                >
+                  <Trash2 size={11} /> Remove link
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <form onSubmit={handleAddLink} className="pt-3 border-t dark:border-[#2D3748] border-gray-200 flex items-end gap-2">
+          <div>
+            <label htmlFor="external-link-provider" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+              Provider
+            </label>
+            <input
+              id="external-link-provider"
+              required
+              value={newLinkProvider}
+              onChange={e => setNewLinkProvider(e.target.value)}
+              className={clsx(inputClass, 'w-28')}
+            />
+          </div>
+          <div>
+            <label htmlFor="external-link-slug" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+              External slug
+            </label>
+            <input
+              id="external-link-slug"
+              value={newLinkSlug}
+              onChange={e => setNewLinkSlug(e.target.value)}
+              className={clsx(inputClass, 'w-28')}
+            />
+          </div>
+          <div>
+            <label htmlFor="external-link-class" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+              Tax class
+            </label>
+            <select
+              id="external-link-class"
+              aria-label="Tax class"
+              required
+              value={newLinkClassId}
+              onChange={e => setNewLinkClassId(e.target.value)}
+              className={clsx(inputClass, 'w-40')}
+            >
+              <option value="" disabled>Select…</option>
+              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+          >
+            Add link
+          </button>
+        </form>
       </div>
 
       {(creatingClass || editingClass) && (

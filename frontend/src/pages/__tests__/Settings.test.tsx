@@ -40,6 +40,9 @@ vi.mock('../../tax/api', () => ({
   listTaxRates: vi.fn(),
   upsertTaxRate: vi.fn(),
   deleteTaxRate: vi.fn(),
+  listExternalTaxClassLinks: vi.fn(),
+  upsertExternalTaxClassLink: vi.fn(),
+  deleteExternalTaxClassLink: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -63,6 +66,7 @@ beforeEach(() => {
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
+  vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([])
 })
 
 async function openLocalizationSection() {
@@ -703,7 +707,7 @@ describe('Settings > Tax', () => {
     render(<Settings />)
     await openTaxSection()
 
-    expect(await screen.findByText('Standard')).toBeInTheDocument()
+    expect((await screen.findAllByText('Standard')).length).toBeGreaterThan(0)
     expect(screen.getByText('Default')).toBeInTheDocument()
   })
 
@@ -719,7 +723,7 @@ describe('Settings > Tax', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add class' }))
 
     await waitFor(() => expect(taxApi.createTaxClass).toHaveBeenCalledWith('test-token', { name: 'Reduced rate', is_default: false }))
-    expect(await screen.findByText('Reduced rate')).toBeInTheDocument()
+    expect((await screen.findAllByText('Reduced rate')).length).toBeGreaterThan(0)
   })
 
   it('Edit tax class prefills the form and saves changes', async () => {
@@ -728,7 +732,7 @@ describe('Settings > Tax', () => {
 
     render(<Settings />)
     await openTaxSection()
-    await screen.findByText('Standard')
+    await screen.findAllByText('Standard')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
     expect(screen.getByLabelText('Name')).toHaveValue('Standard')
@@ -746,7 +750,7 @@ describe('Settings > Tax', () => {
 
     render(<Settings />)
     await openTaxSection()
-    await screen.findByText('Standard')
+    await screen.findAllByText('Standard')
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
@@ -770,7 +774,7 @@ describe('Settings > Tax', () => {
 
     render(<Settings />)
     await openTaxSection()
-    await screen.findByText('Standard')
+    await screen.findAllByText('Standard')
 
     await userEvent.type(screen.getByLabelText('Country'), 'us')
     await userEvent.type(screen.getByLabelText('Rate %'), '8.5')
@@ -792,5 +796,71 @@ describe('Settings > Tax', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove rate' }))
 
     await waitFor(() => expect(taxApi.deleteTaxRate).toHaveBeenCalledWith('test-token', 'rate-1'))
+  })
+
+  function externalLink(overrides: Partial<import('../../tax/types').ExternalTaxClassLink> = {}): import('../../tax/types').ExternalTaxClassLink {
+    return { id: 'link-1', provider: 'woocommerce', external_slug: 'reduced-rate', tax_class_id: 'class-1', created_at: '', updated_at: '', ...overrides }
+  }
+
+  it('lists external tax links with provider, slug, and the linked class name', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass({ id: 'class-1', name: 'Reduced Rate', is_default: false })])
+    vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([externalLink()])
+
+    render(<Settings />)
+    await openTaxSection()
+
+    expect(await screen.findByText('woocommerce')).toBeInTheDocument()
+    expect(screen.getByText('reduced-rate')).toBeInTheDocument()
+    expect(screen.getByLabelText('Linked tax class')).toHaveValue('class-1')
+  })
+
+  it("repointing an external tax link's class calls upsertExternalTaxClassLink", async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      taxClass({ id: 'class-1', name: 'Reduced Rate', is_default: false }),
+      taxClass({ id: 'class-2', name: 'Zero Rate', is_default: false }),
+    ])
+    vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([externalLink()])
+    vi.mocked(taxApi.upsertExternalTaxClassLink).mockResolvedValue(externalLink({ tax_class_id: 'class-2' }))
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('reduced-rate')
+
+    await userEvent.selectOptions(screen.getByLabelText('Linked tax class'), 'class-2')
+
+    await waitFor(() => expect(taxApi.upsertExternalTaxClassLink).toHaveBeenCalledWith('test-token', {
+      provider: 'woocommerce', external_slug: 'reduced-rate', tax_class_id: 'class-2',
+    }))
+  })
+
+  it('Add external tax link calls upsertExternalTaxClassLink', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass({ id: 'class-1', name: 'Reduced Rate', is_default: false })])
+    vi.mocked(taxApi.upsertExternalTaxClassLink).mockResolvedValue(externalLink({ id: 'link-2', external_slug: 'zero-rate' }))
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('External tax links')
+
+    await userEvent.type(screen.getByLabelText('Provider'), 'woocommerce')
+    await userEvent.type(screen.getByLabelText('External slug'), 'zero-rate')
+    await userEvent.selectOptions(screen.getByLabelText('Tax class'), 'class-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+
+    await waitFor(() => expect(taxApi.upsertExternalTaxClassLink).toHaveBeenCalledWith('test-token', {
+      provider: 'woocommerce', external_slug: 'zero-rate', tax_class_id: 'class-1',
+    }))
+  })
+
+  it('Delete external tax link calls deleteExternalTaxClassLink', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass({ id: 'class-1', name: 'Reduced Rate', is_default: false })])
+    vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([externalLink()])
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('reduced-rate')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove link' }))
+
+    await waitFor(() => expect(taxApi.deleteExternalTaxClassLink).toHaveBeenCalledWith('test-token', 'link-1'))
   })
 })

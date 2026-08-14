@@ -33,6 +33,22 @@ export interface UpsertTaxRateInput {
   rate_basis_points: number
 }
 
+export interface ExternalTaxClassLink {
+  id: string
+  provider: string
+  // "" is a legitimate value -- e.g. WooCommerce's own Standard rate.
+  external_slug: string
+  tax_class_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface UpsertExternalTaxClassLinkInput {
+  provider: string
+  external_slug: string
+  tax_class_id: string
+}
+
 export interface APIError {
   code: string
   message: string

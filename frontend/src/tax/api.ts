@@ -1,4 +1,4 @@
-import type { TaxClass, CreateTaxClassInput, UpdateTaxClassInput, TaxRate, UpsertTaxRateInput, APIResponse } from './types'
+import type { TaxClass, CreateTaxClassInput, UpdateTaxClassInput, TaxRate, UpsertTaxRateInput, ExternalTaxClassLink, UpsertExternalTaxClassLinkInput, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/tax`
@@ -50,4 +50,16 @@ export function upsertTaxRate(token: string, input: UpsertTaxRateInput): Promise
 
 export function deleteTaxRate(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/rates/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listExternalTaxClassLinks(token: string): Promise<ExternalTaxClassLink[]> {
+  return request<ExternalTaxClassLink[]>(`${base()}/external-links`, { method: 'GET' }, token)
+}
+
+export function upsertExternalTaxClassLink(token: string, input: UpsertExternalTaxClassLinkInput): Promise<ExternalTaxClassLink> {
+  return request<ExternalTaxClassLink>(`${base()}/external-links`, { method: 'PUT', body: JSON.stringify(input) }, token)
+}
+
+export function deleteExternalTaxClassLink(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/external-links/${id}`, { method: 'DELETE' }, token)
 }
