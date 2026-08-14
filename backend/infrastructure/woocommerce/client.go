@@ -273,6 +273,8 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 		Virtual:       p.Virtual,
 		ManageStock:   p.ManageStock,
 		StockQuantity: p.StockQuantity,
+		TaxStatus:     p.TaxStatus,
+		TaxClass:      p.TaxClass,
 	})
 	if err != nil {
 		return nil, err
@@ -344,6 +346,8 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 		Weight:        v.Weight,
 		Dimensions:    wooVariationDimensions(v.Dimensions),
 		Attributes:    []wc.VariationAttribute{{Name: v.AttributeName, Option: v.AttributeValue}},
+		TaxStatus:     v.TaxStatus,
+		TaxClass:      v.TaxClass,
 	})
 	if err != nil {
 		return nil, err
@@ -361,6 +365,8 @@ func (c *wooClient) UpdateVariation(ctx context.Context, parentExternalID, varia
 		StockQuantity: v.StockQuantity,
 		Weight:        v.Weight,
 		Dimensions:    wooVariationDimensions(v.Dimensions),
+		TaxStatus:     v.TaxStatus,
+		TaxClass:      v.TaxClass,
 	})
 	if err != nil {
 		return nil, err
@@ -424,6 +430,8 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		StockQuantity: p.StockQuantity,
 		Weight:        p.Weight,
 		Dimensions:    dims,
+		TaxStatus:     p.TaxStatus,
+		TaxClass:      p.TaxClass,
 	})
 	if err != nil {
 		return nil, err

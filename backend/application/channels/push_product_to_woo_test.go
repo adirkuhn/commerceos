@@ -78,6 +78,48 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 	require.Equal(t, 4, *pushed.StockQuantity)
 }
 
+func TestPushProductToWoo_roundTripsWooTaxClassWhenSKUWasImportedFromWoo(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	slug, status := "reduced-rate", "taxable"
+	sku.WooTaxClassSlug, sku.WooTaxStatus = &slug, &status
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	require.Equal(t, "reduced-rate", h.wooClient.createCalled[0].TaxClass)
+	require.Equal(t, "taxable", h.wooClient.createCalled[0].TaxStatus)
+}
+
+func TestPushProductToWoo_sendsNoTaxClassForANativeSKUNeverImportedFromWoo(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	require.Equal(t, "", h.wooClient.createCalled[0].TaxClass)
+	require.Equal(t, "", h.wooClient.createCalled[0].TaxStatus)
+}
+
 func TestPushProductToWoo_pushesSalePriceAndEndDate(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	salePrice := int64(1499)

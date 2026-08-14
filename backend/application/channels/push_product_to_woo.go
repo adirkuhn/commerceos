@@ -300,6 +300,18 @@ func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product 
 		SalePrice: salePrice, SaleEndDate: saleEndDate,
 		Virtual: sku.IsVirtual,
 	}
+	// Only round-tripped when this SKU actually came from Woo originally
+	// (WooTaxClassSlug set by ImportWooProductsUseCase) -- a native
+	// CommerceOS SKU has no known Woo slug for its domain/tax.TaxClass
+	// (there's no reverse mapping from an arbitrary TaxClass name back to
+	// one), so it's left unset and Woo applies its own default (Standard,
+	// taxable) exactly as it did before this field existed.
+	if sku.WooTaxClassSlug != nil {
+		wooProduct.TaxClass = *sku.WooTaxClassSlug
+	}
+	if sku.WooTaxStatus != nil {
+		wooProduct.TaxStatus = *sku.WooTaxStatus
+	}
 	// Stock is only pushed for physical SKUs — a virtual SKU never has a
 	// warehouse ledger entry to report. A ledger lookup failure (e.g. no
 	// movements recorded yet) is not fatal to the push; the product just
@@ -323,6 +335,14 @@ func (uc *PushProductToWooUseCase) buildWooVariation(ctx context.Context, vp var
 		SKU: vp.SKU.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(vp.SKU.PriceMinorUnits),
 		SalePrice: salePrice, SaleEndDate: saleEndDate,
 		AttributeName: wooVariantAttributeName, AttributeValue: vp.Variant.Name,
+	}
+	// See buildWooProduct's doc comment -- same "only round-trip a slug we
+	// actually got from Woo" reasoning.
+	if vp.SKU.WooTaxClassSlug != nil {
+		variation.TaxClass = *vp.SKU.WooTaxClassSlug
+	}
+	if vp.SKU.WooTaxStatus != nil {
+		variation.TaxStatus = *vp.SKU.WooTaxStatus
 	}
 	if !vp.SKU.IsVirtual {
 		if level, err := uc.stockLevel.Execute(ctx, vp.SKU.ID); err == nil && level != nil {
