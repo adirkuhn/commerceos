@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Tax API
+  description: Tax classes (e.g. Standard, Reduced rate, Zero rate) and their per-country rates.
+  version: "1.0"
+servers:
+  - url: /api/v1
+
+paths:
+  /tax/classes:
+    get:
+      operationId: listTaxClasses
+      summary: List the tenant's tax classes
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClassListResponse'
+    post:
+      operationId: createTaxClass
+      summary: Create a tax class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaxClassRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClassResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /tax/classes/{id}:
+    patch:
+      operationId: updateTaxClass
+      summary: Update a tax class
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaxClassRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxClassResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteTaxClass
+      summary: Delete a tax class
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /tax/rates:
+    get:
+      operationId: listTaxRates
+      summary: List the tenant's tax rates across all classes
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxRateListResponse'
+    put:
+      operationId: upsertTaxRate
+      summary: Create or update a tax class's rate for a country
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertTaxRateRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxRateResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /tax/rates/{id}:
+    delete:
+      operationId: deleteTaxRate
+      summary: Delete a tax rate
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    TaxClass:
+      type: object
+      required: [id, name, is_default, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        is_default: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateTaxClassRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        is_default: { type: boolean }
+
+    UpdateTaxClassRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        is_default: { type: boolean }
+
+    TaxRate:
+      type: object
+      required: [id, tax_class_id, country, rate_basis_points, created_at, updated_at]
+      properties:
+        id: { type: string }
+        tax_class_id: { type: string }
+        country:
+          type: string
+          description: 2-letter ISO 3166-1 country code, uppercased.
+        rate_basis_points:
+          type: integer
+          format: int32
+          description: 1 bp = 0.01%, e.g. 2100 = 21.00%.
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpsertTaxRateRequest:
+      type: object
+      required: [tax_class_id, country, rate_basis_points]
+      properties:
+        tax_class_id: { type: string }
+        country: { type: string }
+        rate_basis_points: { type: integer, format: int32 }
+
+    TaxClassResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/TaxClass' }
+        error: { nullable: true }
+
+    TaxClassListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TaxClass' }
+        error: { nullable: true }
+
+    TaxRateResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/TaxRate' }
+        error: { nullable: true }
+
+    TaxRateListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TaxRate' }
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

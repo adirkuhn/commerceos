@@ -25,6 +25,7 @@ import (
 	genscanning "github.com/adirkuhn/commerceos/api/scanning"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
+	gentax "github.com/adirkuhn/commerceos/api/tax"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
@@ -39,6 +40,7 @@ import (
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
+	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -154,6 +156,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	settingshandler.Register(settingsGroup, db)
+
+	taxSpec, err := gentax.GetSpec()
+	if err != nil {
+		log.Fatalf("tax: load openapi spec: %v", err)
+	}
+	// Own sub-group so the tax-only spec validator never applies to the
+	// other modules' routes — same reasoning as pmsGroup above.
+	taxGroup := v1.Group("")
+	taxGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(taxSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	taxhandler.Register(taxGroup, db)
 
 	notificationsSpec, err := gennotifications.GetSpec()
 	if err != nil {
