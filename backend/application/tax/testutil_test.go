@@ -129,3 +129,44 @@ type stubSKUTaxClassChecker struct {
 func (s *stubSKUTaxClassChecker) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
 	return s.exists, s.err
 }
+
+type stubExternalTaxClassLinkRepo struct {
+	upserted  []taxDomain.ExternalTaxClassLink
+	upsertErr error
+
+	findResult *taxDomain.ExternalTaxClassLink
+	findErr    error
+
+	list    []taxDomain.ExternalTaxClassLink
+	listErr error
+
+	deleted   []string
+	deleteErr error
+}
+
+func (s *stubExternalTaxClassLinkRepo) Upsert(_ context.Context, l *taxDomain.ExternalTaxClassLink) error {
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	if l.ID == "" {
+		l.ID = "link-1"
+	}
+	s.upserted = append(s.upserted, *l)
+	return nil
+}
+func (s *stubExternalTaxClassLinkRepo) FindByID(_ context.Context, _ string) (*taxDomain.ExternalTaxClassLink, error) {
+	return s.findResult, s.findErr
+}
+func (s *stubExternalTaxClassLinkRepo) FindByProviderAndSlug(_ context.Context, _, _ string) (*taxDomain.ExternalTaxClassLink, error) {
+	return s.findResult, s.findErr
+}
+func (s *stubExternalTaxClassLinkRepo) List(_ context.Context) ([]taxDomain.ExternalTaxClassLink, error) {
+	return s.list, s.listErr
+}
+func (s *stubExternalTaxClassLinkRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
+}

@@ -32,6 +32,7 @@ type ExternalTaxClassLinkRepository interface {
 	// first sight of a new slug) and by staff repointing an existing link
 	// to a different TaxClass.
 	Upsert(ctx context.Context, l *ExternalTaxClassLink) error
+	FindByID(ctx context.Context, id string) (*ExternalTaxClassLink, error)
 	FindByProviderAndSlug(ctx context.Context, provider, externalSlug string) (*ExternalTaxClassLink, error)
 	// List returns every link for the tenant across all providers -- small
 	// dataset, same rationale as TaxRateRepository.List.

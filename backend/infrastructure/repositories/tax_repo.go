@@ -267,6 +267,21 @@ func (r *ExternalTaxClassLinkRepo) Upsert(ctx context.Context, l *taxDomain.Exte
 	return nil
 }
 
+func (r *ExternalTaxClassLinkRepo) FindByID(ctx context.Context, id string) (*taxDomain.ExternalTaxClassLink, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m externalTaxClassLinkModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, taxDomain.ErrExternalTaxClassLinkNotFound
+		}
+		return nil, fmt.Errorf("externalTaxClassLinkRepo.FindByID: %w", err)
+	}
+	return toExternalTaxClassLinkDomain(m), nil
+}
+
 func (r *ExternalTaxClassLinkRepo) FindByProviderAndSlug(ctx context.Context, provider, externalSlug string) (*taxDomain.ExternalTaxClassLink, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
