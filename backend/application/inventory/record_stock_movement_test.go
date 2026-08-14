@@ -62,6 +62,22 @@ func TestRecordStockMovement_raisesStockChangedEvent(t *testing.T) {
 	require.Equal(t, []string{"inventory.stock.changed"}, outboxRepo.calls)
 }
 
+func TestRecordStockMovement_suppressEventSkipsOutbox(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	outboxRepo := &stubOutboxRepo{}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, outboxRepo)
+
+	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10,
+		OccurredAt: time.Now(), SuppressEvent: true,
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, outboxRepo.calls)
+	require.Len(t, movementRepo.created, 1)
+	require.Equal(t, int64(10), m.QuantityDelta)
+}
+
 func TestRecordStockMovement_acceptsPositiveReceipt(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
 	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})

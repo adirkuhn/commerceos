@@ -594,6 +594,14 @@ components:
         # human hasn't reviewed it yet -- see LinkLineItemToSKUUseCase's
         # doc comment for the analogous sku_auto_linked_from_alias idea.
         line_type_confirmed: { type: boolean }
+        # Informational only, parsed from the source document when it
+        # printed a lot/batch code and expiry date next to the line (common
+        # on supplier invoices) -- empty string/null means no suggestion.
+        # Never written to a real inventory batch; the scanner app's
+        # booking screen pre-fills its lot number/expiry inputs from these,
+        # but a human still has to confirm at booking time.
+        suggested_lot_number: { type: string }
+        suggested_expiry_date: { type: string, format: date, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

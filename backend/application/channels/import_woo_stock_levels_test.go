@@ -50,6 +50,9 @@ func TestImportWooStockLevels_recordsAdjustmentWhenQuantitiesDiffer(t *testing.T
 	require.Len(t, h.stock.calls, 1)
 	require.Equal(t, int64(6), h.stock.calls[0].QuantityDelta)
 	require.Equal(t, sku.ID, h.stock.calls[0].SKUID)
+	require.Len(t, h.stock.inputs, 1)
+	require.True(t, h.stock.inputs[0].SuppressEvent,
+		"reconciling to Woo's own reported number must not echo it back via inventory.stock.changed")
 
 	require.Len(t, h.syncLogRepo.created, 1)
 	entry := h.syncLogRepo.created[0]

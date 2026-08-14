@@ -3,6 +3,7 @@ package procurement_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -151,6 +152,32 @@ func TestRunDocumentParsingJob_pdfDocument_usesAIWhenTextExtracted(t *testing.T)
 	require.NotNil(t, lineItemRepo.created[0].SKUID)
 	assert.Equal(t, "sku-1", *lineItemRepo.created[0].SKUID)
 	assert.False(t, needsReview)
+}
+
+func TestRunDocumentParsingJob_pdfDocument_carriesBatchCodeAndExpiryDateAsSuggestions(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	doc := &procurementDomain.PurchaseOrderDocument{ID: "document-1", FileURL: "https://example.com/doc.pdf", FileName: "invoice.pdf", ContentType: "application/pdf"}
+	po := &procurementDomain.PurchaseOrder{ID: "po-1", SupplierID: strPtr("supplier-1"), Status: procurementDomain.PurchaseOrderStatusDraft}
+	poRepo := &stubPurchaseOrderRepo{findResult: po}
+	lineItemRepo := &stubCountingLineItemRepo{}
+	documentRepo := &stubDocumentRepo{findResult: doc}
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"PT26004": {ID: "sku-1", SKUCode: "PT26004"}}}
+	matchUC := appprocurement.NewMatchExtractedLineItemsUseCase(skuRepo, &stubProductRepo{}, &stubVariantRepo{}, &stubAliasRepo{})
+	storage := &stubFileStorage{getData: []byte("%PDF-fake-bytes")}
+	pdfExtractor := &stubPDFTextExtractor{text: "PT26004 01-mar-2027 100131 FAROFA PREMIUM"}
+	expiry := time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)
+	aiParser := &stubAIDocumentParser{out: []procurementDomain.ExtractedLineItem{
+		{RawSKU: "PT26004", RawDescription: "Farofa Premium", Quantity: 36, UnitCostMinorUnits: 179, BatchCode: "PT26004", ExpiryDate: &expiry},
+	}}
+	uc := appprocurement.NewRunDocumentParsingJobUseCase(db, poRepo, lineItemRepo, documentRepo, matchUC, storage, pdfExtractor, &stubAIParserResolver{parser: aiParser})
+
+	_, err := uc.Execute(context.Background(), procurementDomain.DocumentParsingJob{ID: "job-1", PurchaseOrderID: "po-1", DocumentID: "document-1"})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 1)
+	assert.Equal(t, "PT26004", lineItemRepo.created[0].SuggestedLotNumber)
+	require.NotNil(t, lineItemRepo.created[0].SuggestedExpiryDate)
+	assert.True(t, expiry.Equal(*lineItemRepo.created[0].SuggestedExpiryDate))
 }
 
 func TestRunDocumentParsingJob_pdfWithNoExtractableText_failsWithoutCallingAI(t *testing.T) {

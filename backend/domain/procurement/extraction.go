@@ -55,4 +55,9 @@ type ExtractedLineItem struct {
 	// invoices, rare on purchase orders) -- only consulted by the Phase 4
 	// receiving diff, ignored by Phase 3's catalog-matching pipeline.
 	ExpiryDate *time.Time
+	// BatchCode is the supplier's lot/batch code printed next to the expiry
+	// date, if any -- empty when absent. Carried through as a suggestion
+	// only; never auto-assigned to a real Batch without user confirmation
+	// at booking time.
+	BatchCode string
 }

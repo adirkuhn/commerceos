@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -459,33 +458,21 @@ func (uc *ImportWooProductsUseCase) importOne(
 	}
 
 	if wp.ManageStock && wp.StockQuantity != nil && *wp.StockQuantity != 0 {
-		// RecordStockMovementUseCase (called below) unconditionally enqueues
-		// inventory.stock.changed, and InventoryStockChangedConsumer can
-		// process that event -- possibly before this function even returns
-		// -- by re-pushing the SKU's stock to every linked listing,
-		// including this brand-new one, echoing the exact number right
-		// back to the store it just came from.
-		// SyncStockToChannelsUseCase.alreadySyncedTo already skips that
-		// push when the listing's last sync log already reports this
-		// quantity, so seed that log entry FIRST, strictly before the
-		// movement is recorded at all: doing it after (as a first attempt
-		// at this fix did) leaves a race where the async consumer can win
-		// and push for real before the seed lands, seeding it first closes
-		// that window completely -- the event cannot exist before this
-		// call returns, and this call commits before the next line runs.
-		qty := strconv.Itoa(*wp.StockQuantity)
-		recordSyncLog(ctx, uc.db, uc.syncLogRepo, createdListing, channelsDomain.SyncFlowPush,
-			channelsDomain.SyncLogStatusSuccess, "", map[string]string{"stock_quantity": qty})
-
 		// Adjustment, not Receipt: this is recording Woo's reported stock
 		// level as the new starting point, not a literal goods-receipt
 		// event — Receipt requires a non-negative delta and Woo can report
 		// negative stock (stores with overselling allowed), same reasoning
 		// ImportWooStockLevelsUseCase already uses for its own reconciliation.
+		//
+		// SuppressEvent: this number was just read from Woo, so pushing it
+		// straight back via inventory.stock.changed -> InventoryStockChangedConsumer
+		// would echo it right back to the store it came from — never useful,
+		// and on the sync-log audit trail it would misleadingly read as a
+		// real CommerceOS -> Channel push that never actually happened.
 		_, err := uc.stock.Execute(ctx, invapp.RecordStockMovementInput{
 			SKUID: createdSKUID, WarehouseID: in.DefaultWarehouseID,
 			Type: invDomain.MovementTypeAdjustment, QuantityDelta: int64(*wp.StockQuantity),
-			Reason: "woocommerce import", OccurredAt: time.Now(),
+			Reason: "woocommerce import", OccurredAt: time.Now(), SuppressEvent: true,
 		})
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("product %s: initial stock: %v", wp.ID, err))

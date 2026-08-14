@@ -757,6 +757,7 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 		RawDescription: li.RawDescription, Position: li.Position, ProductName: li.ProductName, SkuCode: li.SKUCode,
 		Quantity: li.Quantity, UnitsPerPurchasedItem: li.UnitsPerPurchasedItem, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		LineType: genprocurement.LineItemType(lineType), LineTypeConfirmed: li.LineTypeConfirmed,
+		SuggestedLotNumber: &li.SuggestedLotNumber, SuggestedExpiryDate: timePtrToGenDate(li.SuggestedExpiryDate),
 		CreatedAt: li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}
 }

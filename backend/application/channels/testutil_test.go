@@ -786,11 +786,13 @@ func (s *stubNotifier) Execute(_ context.Context, in appnotifications.CreateNoti
 // ── inventory stub ───────────────────────────────────────────────────────────
 
 type stubStockRecorder struct {
-	calls []invDomain.StockMovement
-	err   error
+	calls  []invDomain.StockMovement
+	inputs []invapp.RecordStockMovementInput
+	err    error
 }
 
 func (s *stubStockRecorder) Execute(_ context.Context, in invapp.RecordStockMovementInput) (*invDomain.StockMovement, error) {
+	s.inputs = append(s.inputs, in)
 	if s.err != nil {
 		return nil, s.err
 	}

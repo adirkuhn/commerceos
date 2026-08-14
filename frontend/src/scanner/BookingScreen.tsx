@@ -76,7 +76,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   const [finishing, setFinishing] = useState(false)
   const [confirmingFinish, setConfirmingFinish] = useState(false)
   const [result, setResult] = useState<CompleteBookingResult | null>(null)
-  const [bookingLine, setBookingLine] = useState<{ skuId: string; description: string; remaining: number; scannedSoFar: number; expected: number } | null>(null)
+  const [bookingLine, setBookingLine] = useState<{ skuId: string; description: string; remaining: number; scannedSoFar: number; expected: number; suggestedLotNumber?: string; suggestedExpiryDate?: string | null } | null>(null)
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [warehouseSheetOpen, setWarehouseSheetOpen] = useState(false)
@@ -323,7 +323,10 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             <button
               key={li.id}
               type="button"
-              onClick={() => setBookingLine({ skuId, description: li.raw_description, remaining: Math.max(li.quantity - scannedQty, 0), scannedSoFar: scannedQty, expected: li.quantity })}
+              onClick={() => setBookingLine({
+                skuId, description: li.raw_description, remaining: Math.max(li.quantity - scannedQty, 0), scannedSoFar: scannedQty, expected: li.quantity,
+                suggestedLotNumber: li.suggested_lot_number, suggestedExpiryDate: li.suggested_expiry_date,
+              })}
               className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
             >
               {content}
@@ -392,6 +395,8 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           expected={bookingLine.expected}
           warehouseId={purchaseOrder?.warehouse_id ?? ''}
           pendingBatches={pendingBatchesForSKU(detail, bookingLine.skuId)}
+          suggestedLotNumber={bookingLine.suggestedLotNumber}
+          suggestedExpiryDate={bookingLine.suggestedExpiryDate}
           onCancel={() => setBookingLine(null)}
           onBook={handleRowConfirm}
         />
@@ -436,7 +441,7 @@ const PENDING_PREFIX = 'pending:'
 // staged BookingScan rows now (see ScanBookingItemInput.action_type) --
 // nothing here calls real inventory directly. Never increases stock:
 // receive is the only mode that adds, the other two only ever remove.
-function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, expected, warehouseId, pendingBatches, onCancel, onBook }: {
+function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, expected, warehouseId, pendingBatches, suggestedLotNumber, suggestedExpiryDate, onCancel, onBook }: {
   token: string
   skuId: string
   description: string
@@ -445,6 +450,12 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
   expected: number
   warehouseId: string
   pendingBatches: PendingBatch[]
+  // Parsed from the source document (see PurchaseOrderLineItem.suggested_lot_number/
+  // suggested_expiry_date) -- pre-fills the "+ New batch" lot/expiry inputs
+  // below so the scanner isn't retyping what the invoice already printed,
+  // but nothing is created until Confirm is tapped.
+  suggestedLotNumber?: string
+  suggestedExpiryDate?: string | null
   onCancel: () => void
   onBook: (fields: { action_type: BookingScanActionType; quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) => void
 }) {
@@ -452,10 +463,12 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
   const [batches, setBatches] = useState<Batch[]>([])
   // '' = general ledger, 'new' = create new (receive only), 'pending:<lot>'
   // = a not-yet-real batch staged earlier in this booking, or a real
-  // batch's own id.
-  const [batchId, setBatchId] = useState('')
-  const [lotNumber, setLotNumber] = useState('')
-  const [expiryDate, setExpiryDate] = useState('')
+  // batch's own id. Defaults straight to 'new' with the lot/expiry inputs
+  // pre-filled when the document suggested one -- still just a default,
+  // the scanner can pick general ledger/pending/an existing batch instead.
+  const [batchId, setBatchId] = useState(suggestedLotNumber ? 'new' : '')
+  const [lotNumber, setLotNumber] = useState(suggestedLotNumber ?? '')
+  const [expiryDate, setExpiryDate] = useState(suggestedExpiryDate ?? '')
   const [qty, setQty] = useState(String(remaining))
   const [reason, setReason] = useState('')
   const [dlType, setDlType] = useState<'damaged' | 'lost'>('damaged')
@@ -596,6 +609,9 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
 
           {mode === 'receive' && batchId === 'new' && (
             <div className="grid grid-cols-2 gap-2">
+              {suggestedLotNumber && (
+                <p className="col-span-2 text-[11px] text-blue-400">Suggested from the uploaded document — confirm to assign.</p>
+              )}
               <div>
                 <label htmlFor="line-lot" className="block text-xs text-gray-400 mb-1.5">Lot number</label>
                 <input

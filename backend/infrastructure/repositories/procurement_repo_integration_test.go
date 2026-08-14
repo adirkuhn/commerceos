@@ -477,6 +477,52 @@ func TestPurchaseOrderLineItemRepo_Integration_LineTypeRoundTrips(t *testing.T) 
 	require.True(t, found.LineTypeConfirmed)
 }
 
+// TestPurchaseOrderLineItemRepo_Integration_SuggestedBatchRoundTrips proves
+// a document-parsed lot number/expiry suggestion survives Create+FindByID --
+// same informational, human-confirms-later shape as LineType (see
+// TestPurchaseOrderLineItemRepo_Integration_LineTypeRoundTrips), never
+// written to a real inventory.Batch by this repo layer.
+func TestPurchaseOrderLineItemRepo_Integration_SuggestedBatchRoundTrips(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	expiry := time.Date(2027, 3, 1, 0, 0, 0, 0, time.UTC)
+	var lineItem procurementDomain.PurchaseOrderLineItem
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		po := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: &warehouseID,
+			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		if err := poRepo.Create(ctx, &po); err != nil {
+			return err
+		}
+		lineItem = procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID,
+			RawDescription: "Farofa Premium", Quantity: 36, UnitCostMinorUnits: 179,
+			SuggestedLotNumber: "PT26004", SuggestedExpiryDate: &expiry,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &lineItem)
+	})
+	require.NoError(t, err)
+
+	var found *procurementDomain.PurchaseOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = lineItemRepo.FindByID(ctx, lineItem.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "PT26004", found.SuggestedLotNumber)
+	require.NotNil(t, found.SuggestedExpiryDate)
+	require.True(t, expiry.Equal(*found.SuggestedExpiryDate))
+}
+
 // TestPurchaseOrderLineItemRepo_Integration_SumByPurchaseOrders is the "PO
 // total" feature's aggregate query: quantity*unit_cost_minor_units summed
 // per PO, one query for many POs at once -- including a discount row (a

@@ -58,7 +58,20 @@ export interface BookingDetail {
   // (see computeMissingItems in BookingScreen.tsx) for the pre-completion
   // preview -- optional here since older/loose fixtures omit it; treat
   // missing/<=0 as 1, same as the backend.
-  line_items: Array<{ id: string; sku_id?: string | null; raw_description: string; quantity: number; units_per_purchased_item?: number }>
+  // suggested_lot_number/suggested_expiry_date are parsed from the source
+  // document (e.g. an invoice printing a lot code + expiry next to the
+  // line) -- BookLineSheet pre-fills its lot number/expiry inputs from
+  // these when present, but a human still has to hit Confirm before
+  // anything real is created.
+  line_items: Array<{
+    id: string
+    sku_id?: string | null
+    raw_description: string
+    quantity: number
+    units_per_purchased_item?: number
+    suggested_lot_number?: string
+    suggested_expiry_date?: string | null
+  }>
   scans: BookingScan[]
 }
 

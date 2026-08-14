@@ -131,25 +131,24 @@ func TestImportWooProducts_importsNewSimpleProduct(t *testing.T) {
 	require.Equal(t, int64(2), h.stock.calls[0].QuantityDelta)
 	require.Equal(t, invDomain.MovementTypeAdjustment, h.stock.calls[0].Type)
 
-	require.Len(t, h.syncLogRepo.created, 2, "import fields log + a stock-quantity dedup seed")
+	require.Len(t, h.syncLogRepo.created, 1, "only the import fields log -- initial stock raises no push/echo entry")
 	entry := h.syncLogRepo.created[0]
 	require.Equal(t, channelsDomain.SyncFlowImport, entry.Direction)
 	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
 	require.Equal(t, "listing-1", entry.ListingID)
 }
 
-// TestImportWooProducts_seedsStockSyncLogSoAsyncConsumerDoesNotEchoToWoo
+// TestImportWooProducts_suppressesStockChangedEventSoAsyncConsumerDoesNotEchoToWoo
 // proves the initial-stock Adjustment doesn't cause an unwanted push right
 // back to Woo: RecordStockMovementUseCase enqueues inventory.stock.changed
-// unconditionally, and InventoryStockChangedConsumer/
-// SyncStockToChannelsUseCase reacts to that by re-pushing the SKU's stock
-// to every linked listing -- including the one this exact number was just
-// read from. SyncStockToChannelsUseCase.alreadySyncedTo already skips the
-// actual Woo call when the listing's last sync log reports this same
-// quantity, but until now nothing seeded that log entry at import time, so
-// the async consumer always found no prior log and pushed anyway. Import
-// now seeds it itself right after recording the movement.
-func TestImportWooProducts_seedsStockSyncLogSoAsyncConsumerDoesNotEchoToWoo(t *testing.T) {
+// unless told to suppress it, and InventoryStockChangedConsumer/
+// SyncStockToChannelsUseCase reacts to that event by re-pushing the SKU's
+// stock to every linked listing -- including the one this exact number was
+// just read from. Import passes SuppressEvent so the event is never raised
+// in the first place -- no event, no consumer trigger, no echo, and no
+// misleading "CommerceOS -> Channel" sync-log row for a number CommerceOS
+// never actually pushed anywhere.
+func TestImportWooProducts_suppressesStockChangedEventSoAsyncConsumerDoesNotEchoToWoo(t *testing.T) {
 	h := newHarness([]integrationsDomain.WooProduct{simpleWooProduct()})
 	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
 
@@ -160,12 +159,10 @@ func TestImportWooProducts_seedsStockSyncLogSoAsyncConsumerDoesNotEchoToWoo(t *t
 	})
 
 	require.NoError(t, err)
-	require.Len(t, h.syncLogRepo.created, 2)
-	stockEntry := h.syncLogRepo.created[1]
-	require.Equal(t, "listing-1", stockEntry.ListingID)
-	require.Equal(t, channelsDomain.SyncLogStatusSuccess, stockEntry.Status)
-	require.Equal(t, "2", stockEntry.Fields["stock_quantity"],
-		"must match the just-imported quantity so SyncStockToChannelsUseCase.alreadySyncedTo skips the redundant push")
+	require.Len(t, h.stock.inputs, 1)
+	require.True(t, h.stock.inputs[0].SuppressEvent,
+		"initial import stock must not raise inventory.stock.changed")
+	require.Len(t, h.syncLogRepo.created, 1, "no stock-quantity sync-log row should be seeded anymore")
 }
 
 func TestImportWooProducts_recordsInitialStockAsAdjustmentEvenWhenNegative(t *testing.T) {

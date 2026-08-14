@@ -524,6 +524,30 @@ describe('Purchase order edit with line items', () => {
     const row = shippingLabels[0].closest('tr')!
     expect(within(row).getAllByText('Shipping').length).toBe(2)
     expect(within(row).queryByText('Needs review')).not.toBeInTheDocument()
+    // Two "—" placeholders: Linked SKU (charge rows never need one) and
+    // Batch (no suggestion on this fixture).
+    expect(within(row).getAllByText('—').length).toBe(2)
+  })
+
+  it('shows a document-parsed lot number and expiry date suggestion on a line item', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ suggested_lot_number: 'PT26004', suggested_expiry_date: '2027-03-01' })],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    expect(await screen.findByText('PT26004')).toBeInTheDocument()
+    expect(screen.getByText(/exp 2027-03-01/)).toBeInTheDocument()
+  })
+
+  it('shows a placeholder for a line item with no batch suggestion', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({ line_items: [lineItem()] }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+
+    const row = (await screen.findByText('Widget A')).closest('tr')!
     expect(within(row).getByText('—')).toBeInTheDocument()
   })
 

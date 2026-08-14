@@ -55,6 +55,43 @@ func TestAnthropicDocumentParser_ExtractLineItems_success(t *testing.T) {
 	assert.Equal(t, "claude-sonnet-5", capturedBody["model"])
 }
 
+func TestAnthropicDocumentParser_ExtractLineItems_extractsBatchCodeAndExpiryDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "msg_1", "type": "message", "role": "assistant", "model": "claude-sonnet-5",
+			"content": []map[string]any{
+				{
+					"type": "tool_use", "id": "toolu_1", "name": "extract_line_items",
+					"input": map[string]any{
+						"line_items": []map[string]any{
+							{
+								"raw_sku": "PT26004", "raw_description": "Farofa Premium", "quantity": 36,
+								"unit_cost_minor_units": 179, "batch_code": "PT26004", "expiry_date": "2027-03-01",
+							},
+						},
+						"supplier_name": "Bom Gosto",
+					},
+				},
+			},
+			"stop_reason": "tool_use",
+			"usage":       map[string]any{"input_tokens": 1, "output_tokens": 1},
+		})
+	}))
+	defer server.Close()
+
+	parser := ai.NewAnthropicDocumentParser("test-key").WithBaseURL(server.URL)
+	result, err := parser.ExtractLineItems(context.Background(), procurementDomain.DocumentInput{
+		FileName: "invoice.pdf", ContentType: "application/pdf", Data: []byte("%PDF-fake"),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, result.LineItems, 1)
+	assert.Equal(t, "PT26004", result.LineItems[0].BatchCode)
+	require.NotNil(t, result.LineItems[0].ExpiryDate)
+	assert.Equal(t, "2027-03-01", result.LineItems[0].ExpiryDate.Format("2006-01-02"))
+}
+
 func TestAnthropicDocumentParser_ExtractLineItems_returnsErrorOnAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

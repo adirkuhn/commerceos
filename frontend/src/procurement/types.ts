@@ -60,6 +60,14 @@ export interface PurchaseOrderLineItem {
   // False when line_type came from the AI's classification and hasn't been
   // reviewed by a human yet.
   line_type_confirmed: boolean
+  // Informational only, parsed from the source document when it printed a
+  // lot/batch code and expiry date next to the line (common on supplier
+  // invoices) -- '' / null means no suggestion. Never applied to a real
+  // inventory batch by itself; the scanner app's booking screen pre-fills
+  // its lot number/expiry inputs from these, but a human still has to
+  // confirm at booking time.
+  suggested_lot_number?: string
+  suggested_expiry_date?: string | null
   created_at: string
   updated_at: string
 }

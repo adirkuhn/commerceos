@@ -57,9 +57,9 @@ type PurchaseOrder struct {
 	// subtract, same as the per-line "Total" column already shown in the
 	// review UI). ListPurchaseOrdersUseCase and GetPurchaseOrderUseCase
 	// compute and attach it; PurchaseOrderRepo.Create/Update never write it.
-	TotalMinorUnits            int64
-	CreatedAt                  time.Time
-	UpdatedAt                  time.Time
+	TotalMinorUnits int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type PurchaseOrderLineItem struct {
@@ -130,8 +130,19 @@ type PurchaseOrderLineItem struct {
 	// line items are confirmed immediately -- there's no ambiguity to
 	// review when the human just typed it in themselves).
 	LineTypeConfirmed bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// SuggestedLotNumber/SuggestedExpiryDate are informational only -- set by
+	// RunDocumentParsingJobUseCase from an ExtractedLineItem's BatchCode/
+	// ExpiryDate when the source document printed them (common on supplier
+	// invoices). Same "suggest, don't auto-apply" pattern as
+	// PurchaseOrder.SuggestedSupplierName: nothing is ever written to a real
+	// inventory.Batch from these fields directly -- the scanner app's
+	// booking screen pre-fills its own lot number/expiry inputs from them,
+	// and a human still has to hit "Confirm" to actually create the batch
+	// (see CompleteBookingUseCase). Empty/nil means no suggestion.
+	SuggestedLotNumber  string
+	SuggestedExpiryDate *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // EffectiveUnitsPerPurchasedItem treats an unset/zero UnitsPerPurchasedItem

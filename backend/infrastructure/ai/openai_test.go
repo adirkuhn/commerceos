@@ -53,6 +53,66 @@ func TestOpenAIDocumentParser_ExtractLineItems_success(t *testing.T) {
 	assert.Equal(t, "gpt-4o", capturedBody["model"])
 }
 
+func TestOpenAIDocumentParser_ExtractLineItems_extractsBatchCodeAndExpiryDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"output": []map[string]any{
+				{
+					"type": "message",
+					"content": []map[string]any{
+						{
+							"type": "output_text",
+							"text": `{"line_items":[{"raw_sku":"PT26004","raw_description":"Farofa Premium","quantity":36,"unit_cost_minor_units":179,"batch_code":"PT26004","expiry_date":"2027-03-01"}],"supplier_name":"Bom Gosto"}`,
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	parser := ai.NewOpenAIDocumentParser("test-key").WithBaseURL(server.URL)
+	result, err := parser.ExtractLineItems(context.Background(), procurementDomain.DocumentInput{
+		FileName: "invoice.pdf", ContentType: "application/pdf", Data: []byte("%PDF-fake"),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, result.LineItems, 1)
+	assert.Equal(t, "PT26004", result.LineItems[0].BatchCode)
+	require.NotNil(t, result.LineItems[0].ExpiryDate)
+	assert.Equal(t, "2027-03-01", result.LineItems[0].ExpiryDate.Format("2006-01-02"))
+}
+
+func TestOpenAIDocumentParser_ExtractLineItems_malformedExpiryDateDegradesToNilInsteadOfErroring(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"output": []map[string]any{
+				{
+					"type": "message",
+					"content": []map[string]any{
+						{
+							"type": "output_text",
+							"text": `{"line_items":[{"raw_sku":"WID-001","raw_description":"Widget A","quantity":10,"unit_cost_minor_units":500,"expiry_date":"not-a-date"}],"supplier_name":"Acme"}`,
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	parser := ai.NewOpenAIDocumentParser("test-key").WithBaseURL(server.URL)
+	result, err := parser.ExtractLineItems(context.Background(), procurementDomain.DocumentInput{
+		FileName: "order.pdf", ContentType: "application/pdf", Data: []byte("%PDF-fake"),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, result.LineItems, 1)
+	assert.Nil(t, result.LineItems[0].ExpiryDate, "an unparseable date must degrade to nil, not fail the whole extraction")
+}
+
 func TestOpenAIDocumentParser_ExtractLineItems_classifiesChargeRows(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

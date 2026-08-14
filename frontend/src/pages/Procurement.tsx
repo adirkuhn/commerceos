@@ -942,6 +942,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Description</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Type</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Linked SKU</th>
+            <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Batch</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Qty</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Unit Cost</th>
             <th className="px-4 py-2 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider text-[10px]">Total</th>
@@ -950,7 +951,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         </thead>
         <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
           {lineItems.length === 0 && !adding && (
-            <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No line items yet</td></tr>
+            <tr><td colSpan={8} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No line items yet</td></tr>
           )}
           {lineItems.map(li => {
             const isCharge = isChargeLineType(li.line_type)
@@ -1012,6 +1013,18 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                       </button>
                     )}
                   </td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">
+                    {li.suggested_lot_number ? (
+                      <span className="text-[10px]" title="Parsed from the uploaded document -- confirmed when the batch is assigned during booking">
+                        {li.suggested_lot_number}
+                        {li.suggested_expiry_date && (
+                          <span className="dark:text-gray-500 text-gray-400"> · exp {li.suggested_expiry_date}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-[10px]">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{li.quantity}</td>
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{formatMoney(li.unit_cost_minor_units, currencyCode)}</td>
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800 font-medium">
@@ -1040,7 +1053,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
                 </tr>
                 {reviewingLineId === li.id && (
                   <tr>
-                    <td colSpan={7} className="px-4 pb-3 dark:bg-amber-500/5 bg-amber-50/40">
+                    <td colSpan={8} className="px-4 pb-3 dark:bg-amber-500/5 bg-amber-50/40">
                       <ReviewUnmatchedLineItem
                         lineItem={li}
                         onResolved={() => { setReviewingLineId(null); onRefresh() }}
@@ -1061,7 +1074,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
           )}
           {!adding && (
             <tr>
-              <td colSpan={7} className="px-4 py-2">
+              <td colSpan={8} className="px-4 py-2">
                 <button
                   type="button"
                   onClick={() => setAdding(true)}
@@ -1076,7 +1089,7 @@ function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, initialPar
         {lineItems.length > 0 && (
           <tfoot>
             <tr className="border-t dark:border-[#2D3748] border-gray-200 font-medium">
-              <td colSpan={5} className="px-4 py-2.5 text-right dark:text-gray-400 text-gray-500 uppercase tracking-wider text-[10px]">
+              <td colSpan={6} className="px-4 py-2.5 text-right dark:text-gray-400 text-gray-500 uppercase tracking-wider text-[10px]">
                 Total
               </td>
               <td className="px-4 py-2.5 dark:text-gray-100 text-gray-900">
@@ -1144,7 +1157,7 @@ function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRowProps) 
 
   return (
     <tr className="dark:bg-[#111827]/40 bg-blue-50/30">
-      <td colSpan={7} className="px-4 py-3">
+      <td colSpan={8} className="px-4 py-3">
           <div className="grid grid-cols-4 gap-3">
             <div className="col-span-2">
               <label htmlFor={`li-description-${idPrefix}`} className={labelClass}>Description</label>

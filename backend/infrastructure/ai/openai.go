@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
@@ -55,7 +56,8 @@ func (p *OpenAIDocumentParser) WithModel(model string) *OpenAIDocumentParser {
 // provider adapters -- Anthropic/Ollama append their own tool-call/
 // document-text suffix, see their respective ExtractLineItems.
 const extractLineItemsPrompt = "Extract every line item from this purchase order document. Return the SKU/barcode if printed, the description, the quantity, and the unit cost in minor currency units (cents). Also return the name of the supplier company that issued this document (the letterhead/sender, not the addressee/buyer) -- empty string if there's no clear one. " +
-	"For each line item, also classify it with line_type: \"product\" for an actual item being purchased, or one of \"shipping\", \"discount\", \"credit_note\", \"fee\", \"other_charge\" for a non-product row like a delivery fee, a discount/rebate line, a credit note, or any other charge/adjustment that isn't an item being bought -- those must never be classified as \"product\"."
+	"For each line item, also classify it with line_type: \"product\" for an actual item being purchased, or one of \"shipping\", \"discount\", \"credit_note\", \"fee\", \"other_charge\" for a non-product row like a delivery fee, a discount/rebate line, a credit note, or any other charge/adjustment that isn't an item being bought -- those must never be classified as \"product\". " +
+	"Some documents (commonly supplier invoices) also print a lot/batch code and an expiry date next to each line item, often as the first two columns before the product code -- e.g. \"PT26004 01-mar-2027 100131 FAROFA PREMIUM...\" has batch code \"PT26004\" and expiry date 1 March 2027. When present, return batch_code as printed and expiry_date normalized to ISO 8601 (YYYY-MM-DD), converting any local-language month abbreviation (e.g. Portuguese jan/fev/mar/abr/mai/jun/jul/ago/set/out/nov/dez) to the correct month. Leave both empty when the document doesn't print them -- never guess or infer a batch code or expiry date that isn't explicitly printed."
 
 var lineItemsJSONSchema = map[string]any{
 	"type": "object",
@@ -76,8 +78,12 @@ var lineItemsJSONSchema = map[string]any{
 						"type": "string",
 						"enum": []string{"product", "shipping", "discount", "credit_note", "fee", "other_charge"},
 					},
+					// batch_code/expiry_date are optional -- most documents
+					// don't print them (see extractLineItemsPrompt).
+					"batch_code":  map[string]any{"type": "string"},
+					"expiry_date": map[string]any{"type": "string"},
 				},
-				"required":             []string{"raw_sku", "raw_description", "quantity", "unit_cost_minor_units", "line_type"},
+				"required":             []string{"raw_sku", "raw_description", "quantity", "unit_cost_minor_units", "line_type", "batch_code", "expiry_date"},
 				"additionalProperties": false,
 			},
 		},
@@ -101,6 +107,12 @@ type extractedLineItemPayload struct {
 	Quantity           int64  `json:"quantity"`
 	UnitCostMinorUnits int64  `json:"unit_cost_minor_units"`
 	LineType           string `json:"line_type"`
+	BatchCode          string `json:"batch_code"`
+	// ExpiryDate is the model's own ISO-8601 (YYYY-MM-DD) normalization of
+	// whatever date format the document printed (see extractLineItemsPrompt)
+	// -- kept as a raw string here so a malformed value can degrade to nil
+	// in toExtractedLineItems instead of failing the whole extraction.
+	ExpiryDate string `json:"expiry_date"`
 }
 
 // validLineTypes guards against a model returning something outside the
@@ -129,9 +141,28 @@ func toExtractedLineItems(payload []extractedLineItemPayload) []procurementDomai
 			Quantity:           li.Quantity,
 			UnitCostMinorUnits: li.UnitCostMinorUnits,
 			LineType:           validLineTypes[li.LineType],
+			BatchCode:          li.BatchCode,
+			ExpiryDate:         parseISODate(li.ExpiryDate),
 		})
 	}
 	return items
+}
+
+// parseISODate parses the model's YYYY-MM-DD normalization of a document's
+// expiry date. A model can still return a malformed or non-ISO value despite
+// the prompt's instruction (seen in practice with line_type, see
+// validLineTypes) -- degrades to nil rather than failing the whole
+// extraction, since an unconfirmed suggestion is safe to drop but not safe
+// to guess at.
+func parseISODate(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil
+	}
+	return &t
 }
 
 func (p *OpenAIDocumentParser) ExtractLineItems(ctx context.Context, doc procurementDomain.DocumentInput) (procurementDomain.DocumentExtractionResult, error) {

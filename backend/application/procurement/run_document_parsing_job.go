@@ -113,6 +113,8 @@ func (uc *RunDocumentParsingJobUseCase) Execute(ctx context.Context, job procure
 				Quantity: m.Extracted.Quantity, UnitsPerPurchasedItem: m.UnitsPerPurchasedItem, UnitCostMinorUnits: m.Extracted.UnitCostMinorUnits,
 				SKUAutoLinkedFromAlias: m.MatchSource == MatchSourceAlias,
 				LineType:               m.Extracted.LineType,
+				SuggestedLotNumber:     m.Extracted.BatchCode,
+				SuggestedExpiryDate:    m.Extracted.ExpiryDate,
 				CreatedAt:              now, UpdatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &li); err != nil {

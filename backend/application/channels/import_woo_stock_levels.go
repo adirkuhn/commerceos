@@ -167,10 +167,14 @@ func (uc *ImportWooStockLevelsUseCase) reconcileOne(ctx context.Context, in Impo
 		result.Unchanged++
 		return
 	}
+	// SuppressEvent: this movement's whole purpose is making CommerceOS
+	// match a quantity Woo already reported -- raising inventory.stock.changed
+	// would just trigger a redundant push of that same number straight back
+	// to the store it came from.
 	_, err = uc.stock.Execute(ctx, invapp.RecordStockMovementInput{
 		SKUID: skuID, WarehouseID: in.DefaultWarehouseID,
 		Type: invDomain.MovementTypeAdjustment, QuantityDelta: delta,
-		Reason: "woocommerce stock import", OccurredAt: time.Now(),
+		Reason: "woocommerce stock import", OccurredAt: time.Now(), SuppressEvent: true,
 	})
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: record adjustment: %v", skuID, err))

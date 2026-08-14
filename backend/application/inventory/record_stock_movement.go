@@ -19,6 +19,12 @@ type RecordStockMovementInput struct {
 	QuantityDelta int64
 	Reason        string
 	OccurredAt    time.Time
+	// SuppressEvent skips enqueueing inventory.stock.changed for this
+	// movement while still recording it. For reconciliation writes whose
+	// whole purpose is "make CommerceOS match what the source already
+	// reports" (Woo product/stock import) — echoing the event back would
+	// just re-push the same number to the store it came from.
+	SuppressEvent bool
 }
 
 type RecordStockMovementUseCase struct {
@@ -83,6 +89,9 @@ func (uc *RecordStockMovementUseCase) Execute(ctx context.Context, in RecordStoc
 		}
 		if err := uc.movementRepo.Create(ctx, &movement); err != nil {
 			return err
+		}
+		if in.SuppressEvent {
+			return nil
 		}
 		return enqueueStockChanged(ctx, uc.outboxRepo, in.SKUID)
 	})

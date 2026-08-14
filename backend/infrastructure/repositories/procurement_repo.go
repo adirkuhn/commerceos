@@ -35,19 +35,21 @@ type purchaseOrderModel struct {
 func (purchaseOrderModel) TableName() string { return "purchase_orders" }
 
 type purchaseOrderLineItemModel struct {
-	ID                     string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID               string  `gorm:"not null;type:uuid"`
-	PurchaseOrderID        string  `gorm:"column:purchase_order_id;not null;type:uuid"`
-	SKUID                  *string `gorm:"column:sku_id"`
-	RawSKU                 string  `gorm:"column:raw_sku;not null;default:''"`
-	RawDescription         string  `gorm:"not null;default:''"`
-	Position               int64   `gorm:"column:position;not null;default:0"`
-	Quantity               int64   `gorm:"not null"`
-	UnitsPerPurchasedItem  int64   `gorm:"column:units_per_purchased_item;not null;default:1"`
-	UnitCostMinorUnits     int64   `gorm:"not null;default:0"`
-	SKUAutoLinkedFromAlias bool    `gorm:"column:sku_auto_linked_from_alias;not null;default:false"`
-	LineType               string  `gorm:"column:line_type;not null;default:''"`
-	LineTypeConfirmed      bool    `gorm:"column:line_type_confirmed;not null;default:false"`
+	ID                     string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID               string     `gorm:"not null;type:uuid"`
+	PurchaseOrderID        string     `gorm:"column:purchase_order_id;not null;type:uuid"`
+	SKUID                  *string    `gorm:"column:sku_id"`
+	RawSKU                 string     `gorm:"column:raw_sku;not null;default:''"`
+	RawDescription         string     `gorm:"not null;default:''"`
+	Position               int64      `gorm:"column:position;not null;default:0"`
+	Quantity               int64      `gorm:"not null"`
+	UnitsPerPurchasedItem  int64      `gorm:"column:units_per_purchased_item;not null;default:1"`
+	UnitCostMinorUnits     int64      `gorm:"not null;default:0"`
+	SKUAutoLinkedFromAlias bool       `gorm:"column:sku_auto_linked_from_alias;not null;default:false"`
+	LineType               string     `gorm:"column:line_type;not null;default:''"`
+	LineTypeConfirmed      bool       `gorm:"column:line_type_confirmed;not null;default:false"`
+	SuggestedLotNumber     string     `gorm:"column:suggested_lot_number;not null;default:''"`
+	SuggestedExpiryDate    *time.Time `gorm:"column:suggested_expiry_date"`
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
@@ -247,6 +249,8 @@ func (r *PurchaseOrderLineItemRepo) Create(ctx context.Context, li *procurementD
 		SKUAutoLinkedFromAlias: li.SKUAutoLinkedFromAlias,
 		LineType:               string(li.LineType),
 		LineTypeConfirmed:      li.LineTypeConfirmed,
+		SuggestedLotNumber:     li.SuggestedLotNumber,
+		SuggestedExpiryDate:    li.SuggestedExpiryDate,
 		CreatedAt:              li.CreatedAt, UpdatedAt: li.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -363,6 +367,8 @@ func toLineItemDomain(m purchaseOrderLineItemModel) *procurementDomain.PurchaseO
 		SKUAutoLinkedFromAlias: m.SKUAutoLinkedFromAlias,
 		LineType:               procurementDomain.LineItemType(m.LineType),
 		LineTypeConfirmed:      m.LineTypeConfirmed,
+		SuggestedLotNumber:     m.SuggestedLotNumber,
+		SuggestedExpiryDate:    m.SuggestedExpiryDate,
 		CreatedAt:              m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
