@@ -25,11 +25,13 @@ type UpdateSalesOrderInput struct {
 	Shipping     *omsDomain.Address
 	CustomerNote *string
 
-	PaymentMethod      *string
-	PaymentMethodTitle *string
-	TransactionID      *string
-	DatePaid           *time.Time
-	DateCompleted      *time.Time
+	PaymentMethod       *string
+	PaymentMethodTitle  *string
+	ShippingMethod      *string
+	ShippingMethodTitle *string
+	TransactionID       *string
+	DatePaid            *time.Time
+	DateCompleted       *time.Time
 }
 
 // UpdateSalesOrderUseCase changes a sales order's header fields, most
@@ -106,6 +108,14 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		if in.PaymentMethodTitle != nil {
 			fields["payment_method_title"] = *in.PaymentMethodTitle
 			updated.PaymentMethodTitle = *in.PaymentMethodTitle
+		}
+		if in.ShippingMethod != nil {
+			fields["shipping_method"] = *in.ShippingMethod
+			updated.ShippingMethod = *in.ShippingMethod
+		}
+		if in.ShippingMethodTitle != nil {
+			fields["shipping_method_title"] = *in.ShippingMethodTitle
+			updated.ShippingMethodTitle = *in.ShippingMethodTitle
 		}
 		if in.TransactionID != nil {
 			fields["transaction_id"] = *in.TransactionID

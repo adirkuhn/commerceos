@@ -124,6 +124,16 @@ type SalesOrder struct {
 	DatePaid           *time.Time
 	DateCompleted      *time.Time
 
+	// ShippingMethod/ShippingMethodTitle mirror PaymentMethod/
+	// PaymentMethodTitle's shape -- ShippingMethod is the machine slug
+	// (e.g. "flat_rate", "free_shipping"), ShippingMethodTitle the
+	// human-facing label the customer actually saw at checkout (e.g.
+	// "PostNL PakjeGemak"). Both empty means no shipping method was
+	// recorded (e.g. a fully digital order, or a source that doesn't
+	// report one).
+	ShippingMethod      string
+	ShippingMethodTitle string
+
 	OccurredAt time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

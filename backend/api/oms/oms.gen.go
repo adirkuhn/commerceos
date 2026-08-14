@@ -141,6 +141,8 @@ type CreateSalesOrderRequest struct {
 	PaymentMethod           *string                    `json:"payment_method,omitempty"`
 	PaymentMethodTitle      *string                    `json:"payment_method_title,omitempty"`
 	Shipping                *Address                   `json:"shipping,omitempty"`
+	ShippingMethod          *string                    `json:"shipping_method,omitempty"`
+	ShippingMethodTitle     *string                    `json:"shipping_method_title,omitempty"`
 	ShippingTotalMinorUnits *int64                     `json:"shipping_total_minor_units,omitempty"`
 	Status                  *SalesOrderStatus          `json:"status,omitempty"`
 	TaxTotalMinorUnits      *int64                     `json:"tax_total_minor_units,omitempty"`
@@ -176,6 +178,8 @@ type SalesOrder struct {
 	PaymentMethod           *string          `json:"payment_method,omitempty"`
 	PaymentMethodTitle      *string          `json:"payment_method_title,omitempty"`
 	Shipping                *Address         `json:"shipping,omitempty"`
+	ShippingMethod          *string          `json:"shipping_method,omitempty"`
+	ShippingMethodTitle     *string          `json:"shipping_method_title,omitempty"`
 	ShippingTotalMinorUnits *int64           `json:"shipping_total_minor_units,omitempty"`
 	Source                  string           `json:"source"`
 	Status                  SalesOrderStatus `json:"status"`
@@ -234,18 +238,20 @@ type SalesOrderStatus string
 
 // UpdateSalesOrderRequest defines model for UpdateSalesOrderRequest.
 type UpdateSalesOrderRequest struct {
-	Billing            *Address          `json:"billing,omitempty"`
-	CustomerId         *string           `json:"customer_id,omitempty"`
-	CustomerNote       *string           `json:"customer_note,omitempty"`
-	DateCompleted      *time.Time        `json:"date_completed,omitempty"`
-	DatePaid           *time.Time        `json:"date_paid,omitempty"`
-	Number             *string           `json:"number,omitempty"`
-	OrderKey           *string           `json:"order_key,omitempty"`
-	PaymentMethod      *string           `json:"payment_method,omitempty"`
-	PaymentMethodTitle *string           `json:"payment_method_title,omitempty"`
-	Shipping           *Address          `json:"shipping,omitempty"`
-	Status             *SalesOrderStatus `json:"status,omitempty"`
-	TransactionId      *string           `json:"transaction_id,omitempty"`
+	Billing             *Address          `json:"billing,omitempty"`
+	CustomerId          *string           `json:"customer_id,omitempty"`
+	CustomerNote        *string           `json:"customer_note,omitempty"`
+	DateCompleted       *time.Time        `json:"date_completed,omitempty"`
+	DatePaid            *time.Time        `json:"date_paid,omitempty"`
+	Number              *string           `json:"number,omitempty"`
+	OrderKey            *string           `json:"order_key,omitempty"`
+	PaymentMethod       *string           `json:"payment_method,omitempty"`
+	PaymentMethodTitle  *string           `json:"payment_method_title,omitempty"`
+	Shipping            *Address          `json:"shipping,omitempty"`
+	ShippingMethod      *string           `json:"shipping_method,omitempty"`
+	ShippingMethodTitle *string           `json:"shipping_method_title,omitempty"`
+	Status              *SalesOrderStatus `json:"status,omitempty"`
+	TransactionId       *string           `json:"transaction_id,omitempty"`
 }
 
 // Id defines model for id.
@@ -480,34 +486,34 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"/w4AAP//",
+	"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",
+	"aOSazafzaHG3+H8AAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

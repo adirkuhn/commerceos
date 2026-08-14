@@ -250,11 +250,17 @@ func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
 			Subtotal: li.Subtotal, SubtotalTax: li.SubtotalTax, Total: li.Total, TotalTax: li.TotalTax,
 		}
 	}
+	var shippingMethod, shippingMethodTitle string
+	if len(o.ShippingLines) > 0 {
+		shippingMethod = o.ShippingLines[0].MethodID
+		shippingMethodTitle = o.ShippingLines[0].MethodTitle
+	}
 	return integrationsDomain.WooOrder{
 		ID: o.ID, Number: o.Number, OrderKey: o.OrderKey, Status: o.Status, CustomerID: o.CustomerID,
 		Billing: toWooAddress(o.Billing), Shipping: toWooShippingAddress(o.Shipping), CustomerNote: o.CustomerNote,
 		Currency: o.Currency, DiscountTotal: o.DiscountTotal, ShippingTotal: o.ShippingTotal,
 		TotalTax: o.TotalTax, Total: o.Total, PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
+		ShippingMethod: shippingMethod, ShippingMethodTitle: shippingMethodTitle,
 		TransactionID: o.TransactionID, DateCreated: o.DateCreatedGmt, DateModified: o.DateModifiedGmt,
 		DatePaid: o.DatePaidGmt, DateCompleted: o.DateCompletedGmt, LineItems: lineItems,
 	}

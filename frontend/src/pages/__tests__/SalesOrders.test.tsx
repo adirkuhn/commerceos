@@ -181,6 +181,19 @@ describe('Sales order detail page', () => {
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
   })
 
+  it('shows source and shipping method', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({ source: 'woocommerce', shipping_method_title: 'Flat rate' }),
+    }))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('woocommerce')).toBeInTheDocument()
+    expect(screen.getByText('Flat rate')).toBeInTheDocument()
+  })
+
   it('Back returns to the list', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())

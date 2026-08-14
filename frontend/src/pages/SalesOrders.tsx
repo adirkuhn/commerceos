@@ -609,16 +609,18 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                 </div>
               </div>
 
-              {(detail.sales_order.payment_method_title || detail.sales_order.customer_note) && (
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1 text-xs">
-                  {detail.sales_order.payment_method_title && (
-                    <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title}</span></p>
-                  )}
-                  {detail.sales_order.customer_note && (
-                    <p className="dark:text-gray-400 text-gray-500">Note: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.customer_note}</span></p>
-                  )}
-                </div>
-              )}
+              <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1 text-xs">
+                <p className="dark:text-gray-400 text-gray-500">Source: <span className="dark:text-gray-200 text-gray-800 capitalize">{detail.sales_order.source}</span></p>
+                {detail.sales_order.payment_method_title && (
+                  <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title}</span></p>
+                )}
+                {detail.sales_order.shipping_method_title && (
+                  <p className="dark:text-gray-400 text-gray-500">Shipping method: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.shipping_method_title}</span></p>
+                )}
+                {detail.sales_order.customer_note && (
+                  <p className="dark:text-gray-400 text-gray-500">Note: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.customer_note}</span></p>
+                )}
+              </div>
             </>
           )}
         </div>

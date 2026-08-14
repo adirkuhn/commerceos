@@ -23,6 +23,7 @@ func TestCreateSalesOrder_completedOrderDecrementsStockPerLine(t *testing.T) {
 	order, err := uc.Execute(context.Background(), appoms.CreateSalesOrderInput{
 		WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: occurredAt,
 		Status: omsDomain.SalesOrderStatusCompleted, TotalMinorUnits: 2000,
+		ShippingMethod: "flat_rate", ShippingMethodTitle: "Flat rate",
 		LineItems: []appoms.CreateSalesOrderLineItemInput{
 			{SKUID: "sku-1", Name: "Widget A", SKUCode: "WID-A", Quantity: 2, PriceMinorUnits: 500, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000},
 		},
@@ -32,6 +33,8 @@ func TestCreateSalesOrder_completedOrderDecrementsStockPerLine(t *testing.T) {
 	assert.Equal(t, "sales-order-1", order.SalesOrder.ID)
 	assert.Equal(t, omsDomain.SalesOrderSourceManual, order.SalesOrder.Source)
 	assert.NotEmpty(t, order.SalesOrder.ExternalOrderID, "manual orders still need a unique external_order_id for the DB constraint")
+	assert.Equal(t, "flat_rate", order.SalesOrder.ShippingMethod)
+	assert.Equal(t, "Flat rate", order.SalesOrder.ShippingMethodTitle)
 	require.Len(t, salesOrderRepo.created, 1)
 	require.Len(t, lineItemRepo.created, 1)
 	require.Len(t, recordMovement.calls, 1)

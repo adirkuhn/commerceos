@@ -109,6 +109,24 @@ func TestUpdateSalesOrder_updatesHeaderFieldsWithoutTouchingStock(t *testing.T) 
 	assert.NotContains(t, salesOrderRepo.gotUpdateFields, "status")
 }
 
+func TestUpdateSalesOrder_updatesShippingMethod(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{})
+
+	method := "free_shipping"
+	title := "Free shipping"
+	updated, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{
+		ShippingMethod: &method, ShippingMethodTitle: &title,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "free_shipping", salesOrderRepo.gotUpdateFields["shipping_method"])
+	assert.Equal(t, "Free shipping", salesOrderRepo.gotUpdateFields["shipping_method_title"])
+	assert.Equal(t, "free_shipping", updated.ShippingMethod)
+	assert.Equal(t, "Free shipping", updated.ShippingMethodTitle)
+}
+
 func TestUpdateSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{}

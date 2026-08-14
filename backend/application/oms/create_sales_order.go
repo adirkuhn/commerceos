@@ -48,11 +48,13 @@ type CreateSalesOrderInput struct {
 	TaxTotalMinorUnits      int64
 	TotalMinorUnits         int64
 
-	PaymentMethod      string
-	PaymentMethodTitle string
-	TransactionID      string
-	DatePaid           *time.Time
-	DateCompleted      *time.Time
+	PaymentMethod       string
+	PaymentMethodTitle  string
+	ShippingMethod      string
+	ShippingMethodTitle string
+	TransactionID       string
+	DatePaid            *time.Time
+	DateCompleted       *time.Time
 
 	OccurredAt time.Time
 	LineItems  []CreateSalesOrderLineItemInput
@@ -102,7 +104,8 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,
-			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle, TransactionID: in.TransactionID,
+			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle,
+			ShippingMethod: in.ShippingMethod, ShippingMethodTitle: in.ShippingMethodTitle, TransactionID: in.TransactionID,
 			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
 			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,

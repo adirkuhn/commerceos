@@ -56,11 +56,13 @@ type salesOrderModel struct {
 	TaxTotalMinorUnits      int64  `gorm:"not null;default:0"`
 	TotalMinorUnits         int64  `gorm:"not null;default:0"`
 
-	PaymentMethod      string
-	PaymentMethodTitle string
-	TransactionID      string
-	DatePaid           *time.Time
-	DateCompleted      *time.Time
+	PaymentMethod       string
+	PaymentMethodTitle  string
+	ShippingMethod      string `gorm:"column:shipping_method;not null;default:''"`
+	ShippingMethodTitle string `gorm:"column:shipping_method_title;not null;default:''"`
+	TransactionID       string
+	DatePaid            *time.Time
+	DateCompleted       *time.Time
 
 	OccurredAt time.Time
 	CreatedAt  time.Time
@@ -125,7 +127,8 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		CustomerNote: o.CustomerNote, CurrencyCode: o.CurrencyCode,
 		DiscountTotalMinorUnits: o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: o.ShippingTotalMinorUnits,
 		TaxTotalMinorUnits: o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
-		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle, TransactionID: o.TransactionID,
+		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
+		ShippingMethod: o.ShippingMethod, ShippingMethodTitle: o.ShippingMethodTitle, TransactionID: o.TransactionID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted,
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 		StockDecremented: o.StockDecremented,
@@ -245,7 +248,8 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		CustomerNote: m.CustomerNote, CurrencyCode: m.CurrencyCode,
 		DiscountTotalMinorUnits: m.DiscountTotalMinorUnits, ShippingTotalMinorUnits: m.ShippingTotalMinorUnits,
 		TaxTotalMinorUnits: m.TaxTotalMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
-		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle, TransactionID: m.TransactionID,
+		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle,
+		ShippingMethod: m.ShippingMethod, ShippingMethodTitle: m.ShippingMethodTitle, TransactionID: m.TransactionID,
 		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted,
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 		StockDecremented: m.StockDecremented,

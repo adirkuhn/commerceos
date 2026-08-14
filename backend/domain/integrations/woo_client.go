@@ -129,11 +129,18 @@ type WooOrder struct {
 	PaymentMethod      string
 	PaymentMethodTitle string
 	TransactionID      string
-	DateCreated        string
-	DateModified       string
-	DatePaid           string // "" if unpaid
-	DateCompleted      string // "" if not completed
-	LineItems          []WooOrderLineItem
+	// ShippingMethod/ShippingMethodTitle come from the order's first
+	// shipping_lines entry -- Woo supports multiple (split shipments),
+	// but a typical checkout has exactly one, same simplifying assumption
+	// PaymentMethod already makes for a single payment. Both empty if Woo
+	// reported no shipping line at all (e.g. an all-digital order).
+	ShippingMethod      string
+	ShippingMethodTitle string
+	DateCreated         string
+	DateModified        string
+	DatePaid            string // "" if unpaid
+	DateCompleted       string // "" if not completed
+	LineItems           []WooOrderLineItem
 }
 
 type WooAddress struct {

@@ -111,7 +111,8 @@ func TestSalesOrderRepo_Integration_WooFieldsRoundTrip(t *testing.T) {
 				FirstName: "Jane", LastName: "Doe", Address1: "456 Oak Ave", City: "Springfield", Country: "US",
 			},
 			CurrencyCode: "USD", DiscountTotalMinorUnits: 100, ShippingTotalMinorUnits: 500, TaxTotalMinorUnits: 80,
-			TotalMinorUnits: 1480, PaymentMethod: "cash", PaymentMethodTitle: "Cash", DatePaid: &datePaid,
+			TotalMinorUnits: 1480, PaymentMethod: "cash", PaymentMethodTitle: "Cash",
+			ShippingMethod: "flat_rate", ShippingMethodTitle: "Flat rate", DatePaid: &datePaid,
 			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -140,6 +141,8 @@ func TestSalesOrderRepo_Integration_WooFieldsRoundTrip(t *testing.T) {
 	require.Empty(t, found.Shipping.Email, "shipping has no email field, even though the struct is shared with billing")
 	require.Equal(t, int64(1480), found.TotalMinorUnits)
 	require.NotNil(t, found.DatePaid)
+	require.Equal(t, "flat_rate", found.ShippingMethod)
+	require.Equal(t, "Flat rate", found.ShippingMethodTitle)
 }
 
 func TestSalesOrderRepo_Integration_List(t *testing.T) {

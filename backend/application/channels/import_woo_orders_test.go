@@ -67,6 +67,7 @@ func simpleWooOrder() integrationsDomain.WooOrder {
 		Billing:  integrationsDomain.WooAddress{FirstName: "Jane", LastName: "Doe", Email: "jane@example.com"},
 		Shipping: integrationsDomain.WooAddress{FirstName: "Jane", LastName: "Doe"},
 		Currency: "USD", Total: "20.00", DiscountTotal: "0.00", ShippingTotal: "0.00", TotalTax: "0.00",
+		ShippingMethod: "flat_rate", ShippingMethodTitle: "Flat rate",
 		DateCreated: "2026-01-01T10:00:00", DateModified: "2026-01-01T10:00:00",
 		LineItems: []integrationsDomain.WooOrderLineItem{
 			{ProductID: 12, SKU: "WID-A", Name: "Widget A", Quantity: 2, Price: "10", Subtotal: "20.00", Total: "20.00"},
@@ -94,6 +95,8 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.Equal(t, int64(501), *created.WooOrderID)
 	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, created.Status)
 	assert.True(t, created.StockDecremented, "processing reduces stock")
+	assert.Equal(t, "flat_rate", created.ShippingMethod)
+	assert.Equal(t, "Flat rate", created.ShippingMethodTitle)
 	require.Len(t, h.lineItemRepo.created, 1)
 	assert.Equal(t, "sku-1", h.lineItemRepo.created[0].SKUID)
 	assert.Equal(t, int64(1000), h.lineItemRepo.created[0].PriceMinorUnits)

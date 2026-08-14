@@ -165,6 +165,8 @@ components:
         total_minor_units: { type: integer, format: int64 }
         payment_method: { type: string }
         payment_method_title: { type: string }
+        shipping_method: { type: string }
+        shipping_method_title: { type: string }
         transaction_id: { type: string }
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
@@ -255,6 +257,8 @@ components:
         total_minor_units: { type: integer, format: int64 }
         payment_method: { type: string }
         payment_method_title: { type: string }
+        shipping_method: { type: string }
+        shipping_method_title: { type: string }
         transaction_id: { type: string }
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
@@ -276,6 +280,8 @@ components:
         customer_note: { type: string }
         payment_method: { type: string }
         payment_method_title: { type: string }
+        shipping_method: { type: string }
+        shipping_method_title: { type: string }
         transaction_id: { type: string }
         date_paid: { type: string, format: date-time }
         date_completed: { type: string, format: date-time }

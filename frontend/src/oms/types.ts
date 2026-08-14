@@ -38,6 +38,8 @@ export interface SalesOrder {
   total_minor_units: number
   payment_method?: string
   payment_method_title?: string
+  shipping_method?: string
+  shipping_method_title?: string
   transaction_id?: string
   date_paid?: string | null
   date_completed?: string | null
@@ -91,6 +93,8 @@ export interface CreateSalesOrderInput {
   total_minor_units?: number
   payment_method?: string
   payment_method_title?: string
+  shipping_method?: string
+  shipping_method_title?: string
   transaction_id?: string
   date_paid?: string | null
   date_completed?: string | null
@@ -110,6 +114,8 @@ export interface UpdateSalesOrderInput {
   customer_note?: string
   payment_method?: string
   payment_method_title?: string
+  shipping_method?: string
+  shipping_method_title?: string
   transaction_id?: string
   date_paid?: string
   date_completed?: string

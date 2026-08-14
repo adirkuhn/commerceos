@@ -147,8 +147,10 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 		CurrencyCode: req.CurrencyCode, DiscountTotalMinorUnits: int64OrZero(req.DiscountTotalMinorUnits),
 		ShippingTotalMinorUnits: int64OrZero(req.ShippingTotalMinorUnits), TaxTotalMinorUnits: int64OrZero(req.TaxTotalMinorUnits),
 		TotalMinorUnits: int64OrZero(req.TotalMinorUnits), PaymentMethod: strOrEmpty(req.PaymentMethod),
-		PaymentMethodTitle: strOrEmpty(req.PaymentMethodTitle), TransactionID: strOrEmpty(req.TransactionId),
-		DatePaid: req.DatePaid, DateCompleted: req.DateCompleted,
+		PaymentMethodTitle: strOrEmpty(req.PaymentMethodTitle),
+		ShippingMethod: strOrEmpty(req.ShippingMethod), ShippingMethodTitle: strOrEmpty(req.ShippingMethodTitle),
+		TransactionID: strOrEmpty(req.TransactionId),
+		DatePaid:      req.DatePaid, DateCompleted: req.DateCompleted,
 		OccurredAt: req.OccurredAt, LineItems: lineItems,
 	})
 	if err := mapError(c, err); err != nil {
@@ -172,6 +174,7 @@ func (h *Handler) UpdateSalesOrder(c *gin.Context, id genoms.Id) {
 		Number: req.Number, OrderKey: req.OrderKey, CustomerID: req.CustomerId,
 		Billing: fromGenAddressPtr(req.Billing), Shipping: fromGenAddressPtr(req.Shipping),
 		CustomerNote: req.CustomerNote, PaymentMethod: req.PaymentMethod, PaymentMethodTitle: req.PaymentMethodTitle,
+		ShippingMethod: req.ShippingMethod, ShippingMethodTitle: req.ShippingMethodTitle,
 		TransactionID: req.TransactionId, DatePaid: req.DatePaid, DateCompleted: req.DateCompleted,
 	}
 	if req.Status != nil {
@@ -250,7 +253,8 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 		Billing: &billing, Shipping: &shipping, CustomerNote: &o.CustomerNote, CurrencyCode: o.CurrencyCode,
 		DiscountTotalMinorUnits: &o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: &o.ShippingTotalMinorUnits,
 		TaxTotalMinorUnits: &o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
-		PaymentMethod: &o.PaymentMethod, PaymentMethodTitle: &o.PaymentMethodTitle, TransactionId: &o.TransactionID,
+		PaymentMethod: &o.PaymentMethod, PaymentMethodTitle: &o.PaymentMethodTitle,
+		ShippingMethod: &o.ShippingMethod, ShippingMethodTitle: &o.ShippingMethodTitle, TransactionId: &o.TransactionID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
 	}
 }
