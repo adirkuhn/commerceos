@@ -125,6 +125,54 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /tax/external-links:
+    get:
+      operationId: listExternalTaxClassLinks
+      summary: List the tenant's external tax class links (e.g. WooCommerce tax_class -> TaxClass)
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalTaxClassLinkListResponse'
+    put:
+      operationId: upsertExternalTaxClassLink
+      summary: Create or repoint an external tax class link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertExternalTaxClassLinkRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalTaxClassLinkResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /tax/external-links/{id}:
+    delete:
+      operationId: deleteExternalTaxClassLink
+      summary: Delete an external tax class link
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -217,6 +265,43 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/TaxRate' }
+        error: { nullable: true }
+
+    ExternalTaxClassLink:
+      type: object
+      required: [id, provider, external_slug, tax_class_id, created_at, updated_at]
+      properties:
+        id: { type: string }
+        provider:
+          type: string
+          description: The external channel, e.g. "woocommerce".
+        external_slug:
+          type: string
+          description: The channel's own tax-class identifier. Empty string is a valid value (e.g. WooCommerce's own Standard rate).
+        tax_class_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpsertExternalTaxClassLinkRequest:
+      type: object
+      required: [provider, external_slug, tax_class_id]
+      properties:
+        provider: { type: string }
+        external_slug: { type: string }
+        tax_class_id: { type: string }
+
+    ExternalTaxClassLinkResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ExternalTaxClassLink' }
+        error: { nullable: true }
+
+    ExternalTaxClassLinkListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ExternalTaxClassLink' }
         error: { nullable: true }
 
     EmptyResponse:

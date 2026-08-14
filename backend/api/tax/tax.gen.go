@@ -40,6 +40,32 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// ExternalTaxClassLink defines model for ExternalTaxClassLink.
+type ExternalTaxClassLink struct {
+	CreatedAt time.Time `json:"created_at"`
+
+	// ExternalSlug The channel's own tax-class identifier. Empty string is a valid value (e.g. WooCommerce's own Standard rate).
+	ExternalSlug string `json:"external_slug"`
+	Id           string `json:"id"`
+
+	// Provider The external channel, e.g. "woocommerce".
+	Provider   string    `json:"provider"`
+	TaxClassId string    `json:"tax_class_id"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// ExternalTaxClassLinkListResponse defines model for ExternalTaxClassLinkListResponse.
+type ExternalTaxClassLinkListResponse struct {
+	Data  *[]ExternalTaxClassLink `json:"data,omitempty"`
+	Error interface{}             `json:"error,omitempty"`
+}
+
+// ExternalTaxClassLinkResponse defines model for ExternalTaxClassLinkResponse.
+type ExternalTaxClassLinkResponse struct {
+	Data  *ExternalTaxClassLink `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
 // TaxClass defines model for TaxClass.
 type TaxClass struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -92,6 +118,13 @@ type UpdateTaxClassRequest struct {
 	Name      string `json:"name"`
 }
 
+// UpsertExternalTaxClassLinkRequest defines model for UpsertExternalTaxClassLinkRequest.
+type UpsertExternalTaxClassLinkRequest struct {
+	ExternalSlug string `json:"external_slug"`
+	Provider     string `json:"provider"`
+	TaxClassId   string `json:"tax_class_id"`
+}
+
 // UpsertTaxRateRequest defines model for UpsertTaxRateRequest.
 type UpsertTaxRateRequest struct {
 	Country         string `json:"country"`
@@ -111,6 +144,9 @@ type CreateTaxClassJSONRequestBody = CreateTaxClassRequest
 // UpdateTaxClassJSONRequestBody defines body for UpdateTaxClass for application/json ContentType.
 type UpdateTaxClassJSONRequestBody = UpdateTaxClassRequest
 
+// UpsertExternalTaxClassLinkJSONRequestBody defines body for UpsertExternalTaxClassLink for application/json ContentType.
+type UpsertExternalTaxClassLinkJSONRequestBody = UpsertExternalTaxClassLinkRequest
+
 // UpsertTaxRateJSONRequestBody defines body for UpsertTaxRate for application/json ContentType.
 type UpsertTaxRateJSONRequestBody = UpsertTaxRateRequest
 
@@ -128,6 +164,15 @@ type ServerInterface interface {
 	// UpdateTaxClass Update a tax class
 	// (PATCH /tax/classes/{id})
 	UpdateTaxClass(c *gin.Context, id Id)
+	// ListExternalTaxClassLinks List the tenant's external tax class links (e.g. WooCommerce tax_class -> TaxClass)
+	// (GET /tax/external-links)
+	ListExternalTaxClassLinks(c *gin.Context)
+	// UpsertExternalTaxClassLink Create or repoint an external tax class link
+	// (PUT /tax/external-links)
+	UpsertExternalTaxClassLink(c *gin.Context)
+	// DeleteExternalTaxClassLink Delete an external tax class link
+	// (DELETE /tax/external-links/{id})
+	DeleteExternalTaxClassLink(c *gin.Context, id Id)
 	// ListTaxRates List the tenant's tax rates across all classes
 	// (GET /tax/rates)
 	ListTaxRates(c *gin.Context)
@@ -224,6 +269,57 @@ func (siw *ServerInterfaceWrapper) UpdateTaxClass(c *gin.Context) {
 	siw.Handler.UpdateTaxClass(c, id)
 }
 
+// ListExternalTaxClassLinks operation middleware
+func (siw *ServerInterfaceWrapper) ListExternalTaxClassLinks(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListExternalTaxClassLinks(c)
+}
+
+// UpsertExternalTaxClassLink operation middleware
+func (siw *ServerInterfaceWrapper) UpsertExternalTaxClassLink(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpsertExternalTaxClassLink(c)
+}
+
+// DeleteExternalTaxClassLink operation middleware
+func (siw *ServerInterfaceWrapper) DeleteExternalTaxClassLink(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteExternalTaxClassLink(c, id)
+}
+
 // ListTaxRates operation middleware
 func (siw *ServerInterfaceWrapper) ListTaxRates(c *gin.Context) {
 
@@ -309,6 +405,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/tax/rates", wrapper.ListTaxRates)
 	router.PUT(options.BaseURL+"/tax/rates", wrapper.UpsertTaxRate)
 	router.DELETE(options.BaseURL+"/tax/rates/:id", wrapper.DeleteTaxRate)
+	router.GET(options.BaseURL+"/tax/external-links", wrapper.ListExternalTaxClassLinks)
+	router.PUT(options.BaseURL+"/tax/external-links", wrapper.UpsertExternalTaxClassLink)
+	router.DELETE(options.BaseURL+"/tax/external-links/:id", wrapper.DeleteExternalTaxClassLink)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -316,22 +415,27 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"NwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

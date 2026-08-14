@@ -110,11 +110,56 @@ func (s *stubListTaxRates) Execute(_ context.Context) ([]taxDomain.TaxRate, erro
 	return s.out, s.err
 }
 
+type stubUpsertExternalTaxClassLink struct {
+	out      *taxDomain.ExternalTaxClassLink
+	err      error
+	gotInput apptax.UpsertExternalTaxClassLinkInput
+}
+
+func (s *stubUpsertExternalTaxClassLink) Execute(_ context.Context, in apptax.UpsertExternalTaxClassLinkInput) (*taxDomain.ExternalTaxClassLink, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &taxDomain.ExternalTaxClassLink{ID: "link-1", Provider: in.Provider, ExternalSlug: in.ExternalSlug, TaxClassID: in.TaxClassID}, nil
+}
+
+type stubDeleteExternalTaxClassLink struct {
+	err   error
+	gotID string
+}
+
+func (s *stubDeleteExternalTaxClassLink) Execute(_ context.Context, id string) error {
+	s.gotID = id
+	return s.err
+}
+
+type stubListExternalTaxClassLinks struct {
+	out []taxDomain.ExternalTaxClassLink
+	err error
+}
+
+func (s *stubListExternalTaxClassLinks) Execute(_ context.Context) ([]taxDomain.ExternalTaxClassLink, error) {
+	return s.out, s.err
+}
+
 func newTestHandler(
 	create *stubCreateTaxClass, update *stubUpdateTaxClass, deleteClass *stubDeleteTaxClass, list *stubListTaxClasses,
 	upsertRate *stubUpsertTaxRate, deleteRate *stubDeleteTaxRate, listRates *stubListTaxRates,
 ) *taxhandler.Handler {
-	return taxhandler.NewHandler(create, update, deleteClass, list, upsertRate, deleteRate, listRates)
+	return newTestHandlerWithLinks(create, update, deleteClass, list, upsertRate, deleteRate, listRates,
+		&stubUpsertExternalTaxClassLink{}, &stubDeleteExternalTaxClassLink{}, &stubListExternalTaxClassLinks{})
+}
+
+func newTestHandlerWithLinks(
+	create *stubCreateTaxClass, update *stubUpdateTaxClass, deleteClass *stubDeleteTaxClass, list *stubListTaxClasses,
+	upsertRate *stubUpsertTaxRate, deleteRate *stubDeleteTaxRate, listRates *stubListTaxRates,
+	upsertLink *stubUpsertExternalTaxClassLink, deleteLink *stubDeleteExternalTaxClassLink, listLinks *stubListExternalTaxClassLinks,
+) *taxhandler.Handler {
+	return taxhandler.NewHandler(create, update, deleteClass, list, upsertRate, deleteRate, listRates, upsertLink, deleteLink, listLinks)
 }
 
 func newTestRouter(h *taxhandler.Handler) *gin.Engine {
@@ -242,6 +287,59 @@ func TestDeleteTaxRateHandler_notFound(t *testing.T) {
 	deleteRate := &stubDeleteTaxRate{err: taxDomain.ErrTaxRateNotFound}
 	h := newTestHandler(&stubCreateTaxClass{}, &stubUpdateTaxClass{}, &stubDeleteTaxClass{}, &stubListTaxClasses{}, &stubUpsertTaxRate{}, deleteRate, &stubListTaxRates{})
 	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/tax/rates/missing", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListExternalTaxClassLinksHandler_returnsTheList(t *testing.T) {
+	list := &stubListExternalTaxClassLinks{out: []taxDomain.ExternalTaxClassLink{{ID: "link-1", Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: "class-1"}}}
+	h := newTestHandlerWithLinks(&stubCreateTaxClass{}, &stubUpdateTaxClass{}, &stubDeleteTaxClass{}, &stubListTaxClasses{}, &stubUpsertTaxRate{}, &stubDeleteTaxRate{}, &stubListTaxRates{},
+		&stubUpsertExternalTaxClassLink{}, &stubDeleteExternalTaxClassLink{}, list)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/tax/external-links", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "reduced-rate")
+}
+
+func TestUpsertExternalTaxClassLinkHandler_success(t *testing.T) {
+	upsert := &stubUpsertExternalTaxClassLink{}
+	h := newTestHandlerWithLinks(&stubCreateTaxClass{}, &stubUpdateTaxClass{}, &stubDeleteTaxClass{}, &stubListTaxClasses{}, &stubUpsertTaxRate{}, &stubDeleteTaxRate{}, &stubListTaxRates{},
+		upsert, &stubDeleteExternalTaxClassLink{}, &stubListExternalTaxClassLinks{})
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/tax/external-links", map[string]any{
+		"provider": "woocommerce", "external_slug": "reduced-rate", "tax_class_id": "class-1",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "woocommerce", upsert.gotInput.Provider)
+	assert.Equal(t, "class-1", upsert.gotInput.TaxClassID)
+}
+
+func TestUpsertExternalTaxClassLinkHandler_taxClassNotFound(t *testing.T) {
+	upsert := &stubUpsertExternalTaxClassLink{err: taxDomain.ErrTaxClassNotFound}
+	h := newTestHandlerWithLinks(&stubCreateTaxClass{}, &stubUpdateTaxClass{}, &stubDeleteTaxClass{}, &stubListTaxClasses{}, &stubUpsertTaxRate{}, &stubDeleteTaxRate{}, &stubListTaxRates{},
+		upsert, &stubDeleteExternalTaxClassLink{}, &stubListExternalTaxClassLinks{})
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/tax/external-links", map[string]any{
+		"provider": "woocommerce", "external_slug": "reduced-rate", "tax_class_id": "missing",
+	})
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeleteExternalTaxClassLinkHandler_success(t *testing.T) {
+	deleteLink := &stubDeleteExternalTaxClassLink{}
+	h := newTestHandlerWithLinks(&stubCreateTaxClass{}, &stubUpdateTaxClass{}, &stubDeleteTaxClass{}, &stubListTaxClasses{}, &stubUpsertTaxRate{}, &stubDeleteTaxRate{}, &stubListTaxRates{},
+		&stubUpsertExternalTaxClassLink{}, deleteLink, &stubListExternalTaxClassLinks{})
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/tax/external-links/link-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "link-1", deleteLink.gotID)
+}
+
+func TestDeleteExternalTaxClassLinkHandler_notFound(t *testing.T) {
+	deleteLink := &stubDeleteExternalTaxClassLink{err: taxDomain.ErrExternalTaxClassLinkNotFound}
+	h := newTestHandlerWithLinks(&stubCreateTaxClass{}, &stubUpdateTaxClass{}, &stubDeleteTaxClass{}, &stubListTaxClasses{}, &stubUpsertTaxRate{}, &stubDeleteTaxRate{}, &stubListTaxRates{},
+		&stubUpsertExternalTaxClassLink{}, deleteLink, &stubListExternalTaxClassLinks{})
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/tax/external-links/missing", nil)
 
 	require.Equal(t, http.StatusNotFound, w.Code)
 }
