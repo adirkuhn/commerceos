@@ -564,6 +564,14 @@ components:
         # assigned -- null means "use the tenant's default class" (see
         # the tax module's TaxClass.is_default).
         tax_class_id: { type: string, nullable: true }
+        # woo_tax_class_slug/woo_tax_status are informational provenance
+        # only, set once by the WooCommerce product import when this SKU
+        # came from a Woo store -- never affects tax calculation, which
+        # always goes through tax_class_id. Read-only: not present on
+        # CreateSKURequest/UpdateSKURequest, staff never sets these by
+        # hand.
+        woo_tax_class_slug: { type: string, nullable: true }
+        woo_tax_status: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }

@@ -416,6 +416,23 @@ func TestCreateSKU_duplicateCodeReturns409(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, w.Code)
 }
 
+func TestGetProduct_returnsSKUWooTaxProvenance(t *testing.T) {
+	wooSlug, wooStatus := "reduced-rate", "taxable"
+	sku := pmsDomain.SKU{
+		ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+		WooTaxClassSlug: &wooSlug, WooTaxStatus: &wooStatus,
+	}
+	s := &stubs{getProduct: stubGetProduct{out: &apppms.ProductDetail{
+		Product:  pmsDomain.Product{ID: "p1", Name: "Widget", Status: pmsDomain.ProductStatusActive},
+		Variants: []apppms.VariantDetail{{Variant: pmsDomain.Variant{ID: "v1", ProductID: "p1"}, SKUs: []pmsDomain.SKU{sku}}},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products/p1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "reduced-rate")
+	assert.Contains(t, w.Body.String(), "taxable")
+}
+
 func TestUpdateSKU_success(t *testing.T) {
 	s := &stubs{updateSKU: stubUpdateSKU{out: &pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}}}
 	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/skus/s1", map[string]any{

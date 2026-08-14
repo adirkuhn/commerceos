@@ -672,6 +672,8 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		UnitType:            &unitType,
 		PortionedFromSkuId:  s.PortionedFromSKUID,
 		TaxClassId:          s.TaxClassID,
+		WooTaxClassSlug:     s.WooTaxClassSlug,
+		WooTaxStatus:        s.WooTaxStatus,
 		Status:              genpms.SKUStatus(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
