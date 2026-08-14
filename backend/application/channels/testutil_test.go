@@ -15,11 +15,14 @@ import (
 
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
@@ -97,6 +100,14 @@ type stubWooClient struct {
 
 	deleteProductCalled []string
 	deleteProductErr    error
+
+	// ordersByPage maps page number -> orders returned for that page,
+	// nil/missing means empty (end of pagination). ordersModifiedAfter
+	// captures the last ListOrders call's filter, for assertions.
+	ordersByPage        map[int][]integrationsDomain.WooOrder
+	ordersErr           error
+	ordersModifiedAfter *time.Time
+	ordersCalls         int
 
 	createVariableCalled []stubCreateVariableCall
 	createVariableErr    error
@@ -245,6 +256,15 @@ func (s *stubWooClient) DownloadImage(_ context.Context, url string) (io.ReadClo
 		contentType = "image/jpeg"
 	}
 	return io.NopCloser(bytes.NewReader(data)), contentType, nil
+}
+
+func (s *stubWooClient) ListOrders(_ context.Context, page, _ int, modifiedAfter *time.Time) ([]integrationsDomain.WooOrder, error) {
+	s.ordersCalls++
+	s.ordersModifiedAfter = modifiedAfter
+	if s.ordersErr != nil {
+		return nil, s.ordersErr
+	}
+	return s.ordersByPage[page], nil
 }
 
 // stubMediaUploader stands in for application/pms's UploadMediaUseCase.
@@ -752,4 +772,107 @@ func (s *stubStockRecorder) Execute(_ context.Context, in invapp.RecordStockMove
 	}
 	s.calls = append(s.calls, m)
 	return &m, nil
+}
+
+// ── oms stubs (import_woo_orders_test.go) ───────────────────────────────────
+
+type stubOrdersSalesOrderRepo struct {
+	created             []omsDomain.SalesOrder
+	createErr           error
+	byExternalID        map[string]omsDomain.SalesOrder
+	findByExternalIDErr error
+}
+
+func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	o.ID = fmt.Sprintf("sales-order-%d", len(s.created)+1)
+	s.created = append(s.created, *o)
+	return nil
+}
+func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
+	return nil, omsDomain.ErrSalesOrderNotFound
+}
+func (s *stubOrdersSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDomain.SalesOrderSource, externalOrderID string) (*omsDomain.SalesOrder, error) {
+	if s.findByExternalIDErr != nil {
+		return nil, s.findByExternalIDErr
+	}
+	if o, ok := s.byExternalID[externalOrderID]; ok {
+		return &o, nil
+	}
+	return nil, nil
+}
+func (s *stubOrdersSalesOrderRepo) List(_ context.Context, _ omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
+	return nil, 0, nil
+}
+func (s *stubOrdersSalesOrderRepo) Update(_ context.Context, _ string, _ map[string]any) error {
+	return nil
+}
+func (s *stubOrdersSalesOrderRepo) Delete(_ context.Context, _ string) error { return nil }
+
+type stubOrdersLineItemRepo struct {
+	created   []omsDomain.SalesOrderLineItem
+	createErr error
+}
+
+func (s *stubOrdersLineItemRepo) Create(_ context.Context, li *omsDomain.SalesOrderLineItem) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	li.ID = fmt.Sprintf("line-item-%d", len(s.created)+1)
+	s.created = append(s.created, *li)
+	return nil
+}
+func (s *stubOrdersLineItemRepo) ListBySalesOrder(_ context.Context, _ string) ([]omsDomain.SalesOrderLineItem, error) {
+	return nil, nil
+}
+func (s *stubOrdersLineItemRepo) DeleteBySalesOrder(_ context.Context, _ string) error { return nil }
+
+type stubOrdersLinkRepo struct {
+	created []omsDomain.SalesOrderLineItemStockMovement
+}
+
+func (s *stubOrdersLinkRepo) Create(_ context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {
+	s.created = append(s.created, *l)
+	return nil
+}
+
+type stubOrdersCustomerRepo struct {
+	byWooID map[int64]customersDomain.Customer
+}
+
+func (s *stubOrdersCustomerRepo) Create(_ context.Context, _ *customersDomain.Customer) error {
+	return nil
+}
+func (s *stubOrdersCustomerRepo) FindByID(_ context.Context, _ string) (*customersDomain.Customer, error) {
+	return nil, customersDomain.ErrCustomerNotFound
+}
+func (s *stubOrdersCustomerRepo) FindByWooCustomerID(_ context.Context, wooCustomerID int64) (*customersDomain.Customer, error) {
+	if c, ok := s.byWooID[wooCustomerID]; ok {
+		return &c, nil
+	}
+	return nil, nil
+}
+func (s *stubOrdersCustomerRepo) List(_ context.Context) ([]customersDomain.Customer, error) {
+	return nil, nil
+}
+func (s *stubOrdersCustomerRepo) Update(_ context.Context, _ *customersDomain.Customer) error {
+	return nil
+}
+func (s *stubOrdersCustomerRepo) Delete(_ context.Context, _ string) error { return nil }
+
+type stubUpdateSalesOrderUC struct {
+	calls []appoms.UpdateSalesOrderInput
+	ids   []string
+	err   error
+}
+
+func (s *stubUpdateSalesOrderUC) Execute(_ context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
+	s.ids = append(s.ids, id)
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &omsDomain.SalesOrder{ID: id}, nil
 }

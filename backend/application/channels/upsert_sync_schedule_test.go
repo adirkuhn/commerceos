@@ -51,13 +51,45 @@ func TestUpsertSyncSchedule_allowsSavingOrdersDisabled(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestUpsertSyncSchedule_rejectsEnablingOrders(t *testing.T) {
+func TestUpsertSyncSchedule_rejectsEnablingOrdersImportWithoutWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
 	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders,
 		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, channelsDomain.ErrDefaultWarehouseRequired))
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpsertSyncSchedule_allowsEnablingOrdersImportWithWarehouse(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	warehouseID := "wh-1"
+
+	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders,
+		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60,
+		DefaultWarehouseID: &warehouseID,
+	})
+
+	require.NoError(t, err)
+	require.True(t, s.Enabled)
+	require.Len(t, repo.upserted, 1)
+}
+
+func TestUpsertSyncSchedule_rejectsEnablingOrdersExport(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	warehouseID := "wh-1"
+
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders,
+		Direction: channelsDomain.SyncDirectionExport, Enabled: true, IntervalMinutes: 60,
+		DefaultWarehouseID: &warehouseID,
 	})
 
 	require.Error(t, err)

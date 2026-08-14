@@ -54,6 +54,9 @@ func (s *stubCustomerRepo) Create(_ context.Context, c *customersDomain.Customer
 func (s *stubCustomerRepo) FindByID(_ context.Context, _ string) (*customersDomain.Customer, error) {
 	return s.findResult, s.findErr
 }
+func (s *stubCustomerRepo) FindByWooCustomerID(_ context.Context, _ int64) (*customersDomain.Customer, error) {
+	return s.findResult, s.findErr
+}
 func (s *stubCustomerRepo) List(_ context.Context) ([]customersDomain.Customer, error) {
 	return s.customers, nil
 }

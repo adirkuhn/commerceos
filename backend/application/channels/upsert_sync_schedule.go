@@ -13,6 +13,7 @@ import (
 var runnableSyncEntityTypes = map[channelsDomain.SyncEntityType]bool{
 	channelsDomain.SyncEntityProducts: true,
 	channelsDomain.SyncEntityStock:    true,
+	channelsDomain.SyncEntityOrders:   true,
 }
 
 type UpsertSyncScheduleInput struct {
@@ -21,9 +22,10 @@ type UpsertSyncScheduleInput struct {
 	Direction       channelsDomain.SyncDirection
 	Enabled         bool
 	IntervalMinutes int
-	// DefaultWarehouseID/DefaultCurrency: required when EntityType=products,
-	// Direction=import, Enabled=true — see SyncSchedule's doc comment.
-	// Ignored for every other combination.
+	// DefaultWarehouseID is required when Enabled=true and Direction=import
+	// for EntityType products/stock/orders — see SyncSchedule's doc
+	// comment. DefaultCurrency is additionally required for products.
+	// Both ignored for every other combination.
 	DefaultWarehouseID *string
 	DefaultCurrency    *string
 }
@@ -52,6 +54,11 @@ func (uc *UpsertSyncScheduleUseCase) Execute(ctx context.Context, in UpsertSyncS
 	if in.Enabled && !runnableSyncEntityTypes[in.EntityType] {
 		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrCannotEnableUnrunnableEntity)
 	}
+	// Orders only imports -- this codebase never pushes a CommerceOS-created
+	// order back to Woo (see cmd/scheduler/dispatch.go's buildRunners doc).
+	if in.Enabled && in.EntityType == channelsDomain.SyncEntityOrders && in.Direction == channelsDomain.SyncDirectionExport {
+		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrCannotEnableUnrunnableEntity)
+	}
 	if in.IntervalMinutes <= 0 {
 		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrInvalidSyncInterval)
 	}
@@ -63,7 +70,8 @@ func (uc *UpsertSyncScheduleUseCase) Execute(ctx context.Context, in UpsertSyncS
 			if !hasWarehouse || !hasCurrency {
 				return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrDefaultWarehouseAndCurrencyRequired)
 			}
-		case in.EntityType == channelsDomain.SyncEntityStock && in.Direction == channelsDomain.SyncDirectionImport:
+		case in.EntityType == channelsDomain.SyncEntityStock && in.Direction == channelsDomain.SyncDirectionImport,
+			in.EntityType == channelsDomain.SyncEntityOrders && in.Direction == channelsDomain.SyncDirectionImport:
 			if !hasWarehouse {
 				return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrDefaultWarehouseRequired)
 			}

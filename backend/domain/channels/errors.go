@@ -16,13 +16,15 @@ var (
 	// from what gets pushed. Returned only when EVERY variant being
 	// pushed turns out to be a bulk pool, leaving nothing sellable.
 	ErrCannotPushBulkPoolSKU = errors.New("product has no sellable (non-bulk-pool) variant to push to a channel")
-	ErrInvalidSyncEntityType     = errors.New("invalid sync entity type")
-	ErrInvalidSyncDirection      = errors.New("invalid sync direction")
-	ErrInvalidSyncInterval       = errors.New("sync interval must be a positive number of minutes")
-	// ErrCannotEnableUnrunnableEntity guards SyncSchedule: orders/categories
-	// are schema-legal entity types (so the schedule grid can show them as
-	// "coming soon") but have no sync use case wired to run them yet — a
-	// schedule for them can be saved only disabled.
+	ErrInvalidSyncEntityType = errors.New("invalid sync entity type")
+	ErrInvalidSyncDirection  = errors.New("invalid sync direction")
+	ErrInvalidSyncInterval   = errors.New("sync interval must be a positive number of minutes")
+	// ErrCannotEnableUnrunnableEntity guards SyncSchedule: categories is a
+	// schema-legal entity type (so the schedule grid can show it as
+	// "coming soon") but has no sync use case wired to run it yet, and
+	// orders/export specifically (this codebase only ever imports Woo
+	// orders, never pushes CommerceOS-created ones back) -- a schedule for
+	// either can be saved only disabled.
 	ErrCannotEnableUnrunnableEntity = errors.New("this entity type does not support scheduled sync yet")
 	// ErrDefaultWarehouseAndCurrencyRequired guards the products/import
 	// schedule specifically: Woo has no warehouse concept and its product

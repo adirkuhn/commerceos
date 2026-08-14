@@ -17,6 +17,7 @@ import (
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
@@ -196,6 +197,14 @@ func main() {
 	}
 	defer stockChangedSub.Unsubscribe()
 
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	salesOrderLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+	updateSalesOrderUC := appoms.NewUpdateSalesOrderUseCase(
+		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
+	)
+
 	rs := buildRunners(
 		importUC,
 		channelsapp.NewRunScheduledProductExportUseCase(db, productRepo, listingRepo, pushUC),
@@ -206,6 +215,11 @@ func main() {
 		channelsapp.NewExportWooStockLevelsUseCase(
 			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
+		),
+		channelsapp.NewImportWooOrdersUseCase(
+			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
+			salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
+			stockRecorderUC, updateSalesOrderUC,
 		),
 	)
 

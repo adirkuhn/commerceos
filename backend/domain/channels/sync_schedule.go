@@ -7,7 +7,7 @@ type SyncEntityType string
 const (
 	SyncEntityProducts   SyncEntityType = "products"
 	SyncEntityStock      SyncEntityType = "stock"
-	SyncEntityOrders     SyncEntityType = "orders"     // schema-legal, no runner yet
+	SyncEntityOrders     SyncEntityType = "orders"     // import only -- see cmd/scheduler/dispatch.go's buildRunners doc
 	SyncEntityCategories SyncEntityType = "categories" // schema-legal, no runner yet
 )
 
@@ -30,11 +30,13 @@ type SyncSchedule struct {
 	Direction       SyncDirection
 	Enabled         bool
 	IntervalMinutes int
-	// DefaultWarehouseID/DefaultCurrency are only required (and only
-	// meaningful) for EntityType=products, Direction=import — Woo has no
-	// warehouse concept and its product endpoint doesn't return a
-	// currency, so ImportWooProductsUseCase needs both supplied
-	// per-connection. Unused by every other entity/direction combination.
+	// DefaultWarehouseID is required (Direction=import) for
+	// products/stock/orders -- Woo has no warehouse concept, so every
+	// import use case needs one supplied per-connection to attribute
+	// stock movements to. DefaultCurrency is additionally required for
+	// products only (Woo's product endpoint doesn't return a currency;
+	// orders carry their own per-order currency already). Unused by
+	// every other entity/direction combination.
 	DefaultWarehouseID *string
 	DefaultCurrency    *string
 	LastRunAt          *time.Time

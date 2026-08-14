@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	wc "github.com/adirkuhn/go-woocommerce-api"
 
@@ -195,6 +196,68 @@ func (c *wooClient) DownloadImage(ctx context.Context, url string) (io.ReadClose
 		return nil, "", fmt.Errorf("download image: %s: status %d", url, resp.StatusCode)
 	}
 	return resp.Body, resp.Header.Get("Content-Type"), nil
+}
+
+func (c *wooClient) ListOrders(ctx context.Context, page, perPage int, modifiedAfter *time.Time) ([]integrationsDomain.WooOrder, error) {
+	// DatesAreGMT: true, paired with reading the *_gmt fields in
+	// toWooOrder -- Woo's plain date_modified/date_created are the
+	// store's local time (ambiguous without knowing its timezone
+	// setting), the _gmt variants are always UTC. modified_after is
+	// compared against whichever set DatesAreGMT selects.
+	params := &wc.ListOrdersParams{Page: page, PerPage: perPage, OrderBy: "modified", Order: "asc", DatesAreGMT: true}
+	if modifiedAfter != nil {
+		params.ModifiedAfter = modifiedAfter.UTC().Format(time.RFC3339)
+	}
+	orders, _, err := c.client.Orders.List(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]integrationsDomain.WooOrder, len(orders))
+	for i, o := range orders {
+		out[i] = toWooOrder(o)
+	}
+	return out, nil
+}
+
+func toWooAddress(a *wc.Billing) integrationsDomain.WooAddress {
+	if a == nil {
+		return integrationsDomain.WooAddress{}
+	}
+	return integrationsDomain.WooAddress{
+		FirstName: a.FirstName, LastName: a.LastName, Company: a.Company,
+		Address1: a.Address1, Address2: a.Address2, City: a.City, State: a.State,
+		Postcode: a.Postcode, Country: a.Country, Email: a.Email, Phone: a.Phone,
+	}
+}
+
+func toWooShippingAddress(a *wc.Shipping) integrationsDomain.WooAddress {
+	if a == nil {
+		return integrationsDomain.WooAddress{}
+	}
+	return integrationsDomain.WooAddress{
+		FirstName: a.FirstName, LastName: a.LastName, Company: a.Company,
+		Address1: a.Address1, Address2: a.Address2, City: a.City, State: a.State,
+		Postcode: a.Postcode, Country: a.Country, Phone: a.Phone,
+	}
+}
+
+func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
+	lineItems := make([]integrationsDomain.WooOrderLineItem, len(o.LineItems))
+	for i, li := range o.LineItems {
+		lineItems[i] = integrationsDomain.WooOrderLineItem{
+			ProductID: li.ProductID, VariationID: li.VariationID, SKU: li.Sku, Name: li.Name, Quantity: int64(li.Quantity),
+			Price:    strconv.FormatFloat(li.Price, 'f', -1, 64),
+			Subtotal: li.Subtotal, SubtotalTax: li.SubtotalTax, Total: li.Total, TotalTax: li.TotalTax,
+		}
+	}
+	return integrationsDomain.WooOrder{
+		ID: o.ID, Number: o.Number, OrderKey: o.OrderKey, Status: o.Status, CustomerID: o.CustomerID,
+		Billing: toWooAddress(o.Billing), Shipping: toWooShippingAddress(o.Shipping), CustomerNote: o.CustomerNote,
+		Currency: o.Currency, DiscountTotal: o.DiscountTotal, ShippingTotal: o.ShippingTotal,
+		TotalTax: o.TotalTax, Total: o.Total, PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
+		TransactionID: o.TransactionID, DateCreated: o.DateCreatedGmt, DateModified: o.DateModifiedGmt,
+		DatePaid: o.DatePaidGmt, DateCompleted: o.DateCompletedGmt, LineItems: lineItems,
+	}
 }
 
 func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {

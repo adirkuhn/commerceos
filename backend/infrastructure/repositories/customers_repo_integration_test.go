@@ -106,3 +106,45 @@ func TestCustomerRepo_Integration_FindByIDNotFound(t *testing.T) {
 	})
 	require.ErrorIs(t, err, customersDomain.ErrCustomerNotFound)
 }
+
+func TestCustomerRepo_Integration_FindByWooCustomerID(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	wooID := int64(4242)
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		c := customersDomain.Customer{
+			TenantID: tenant.IDFromContext(ctx), WooCustomerID: &wooID, Email: "woo@example.com",
+			FirstName: "Woo", LastName: "Buyer", DateCreated: now, DateModified: now,
+		}
+		return customerRepo.Create(ctx, &c)
+	})
+	require.NoError(t, err)
+
+	var found *customersDomain.Customer
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = customerRepo.FindByWooCustomerID(ctx, wooID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	require.Equal(t, "woo@example.com", found.Email)
+}
+
+func TestCustomerRepo_Integration_FindByWooCustomerIDReturnsNilNotErrorWhenMissing(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	var found *customersDomain.Customer
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = customerRepo.FindByWooCustomerID(ctx, 999999)
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, found)
+}

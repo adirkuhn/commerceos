@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"io"
+	"time"
 )
 
 // WooProduct is the subset of a WooCommerce product this codebase actually
@@ -92,6 +93,57 @@ type WooCategory struct {
 	ParentExternalID string
 }
 
+// WooOrder is the subset of a WooCommerce order this codebase maps onto
+// domain/oms.SalesOrder -- deliberately excludes refunds/coupon lines/fee
+// lines/tax lines/meta_data, none of which oms.SalesOrder represents today.
+// Date* fields are UTC ("Y-m-d\TH:i:s" with no offset, read from Woo's
+// *_gmt fields, not its store-local-time ones) -- converted to time.Time at
+// the import use case, not here. Empty string means Woo has no value for
+// that field.
+type WooOrder struct {
+	ID                 int
+	Number             string
+	OrderKey           string
+	Status             string // woo: pending/processing/on-hold/completed/cancelled/refunded/failed -- byte-for-byte oms.SalesOrderStatus
+	CustomerID         int    // 0 = guest checkout, no linked Woo customer
+	Billing            WooAddress
+	Shipping           WooAddress
+	CustomerNote       string
+	Currency           string
+	DiscountTotal      string
+	ShippingTotal      string
+	TotalTax           string
+	Total              string
+	PaymentMethod      string
+	PaymentMethodTitle string
+	TransactionID      string
+	DateCreated        string
+	DateModified       string
+	DatePaid           string // "" if unpaid
+	DateCompleted      string // "" if not completed
+	LineItems          []WooOrderLineItem
+}
+
+type WooAddress struct {
+	FirstName, LastName, Company, Address1, Address2, City, State, Postcode, Country, Email, Phone string
+}
+
+type WooOrderLineItem struct {
+	ProductID   int
+	VariationID int // 0 if this line is a simple product, not a variation
+	SKU         string
+	Name        string
+	Quantity    int64
+	// Price/Subtotal/SubtotalTax/Total/TotalTax are raw decimal strings,
+	// same convention as WooProduct.RegularPrice -- converted to minor
+	// units at the import use case.
+	Price       string
+	Subtotal    string
+	SubtotalTax string
+	Total       string
+	TotalTax    string
+}
+
 // WooClient talks to one WooCommerce store's REST API on behalf of a single
 // stored connection. A pure port — infrastructure implements it against the
 // real WooCommerce client library, so domain/application never import any
@@ -157,6 +209,13 @@ type WooClient interface {
 	// network calls stay behind one seam. Caller must close the returned
 	// reader.
 	DownloadImage(ctx context.Context, url string) (data io.ReadCloser, contentType string, err error)
+	// ListOrders pages through the store's orders, newest-modified last
+	// (Woo's default sort). modifiedAfter, if non-nil, filters to orders
+	// changed since that instant -- the incremental sync path; nil fetches
+	// every order (full import / periodic reconciliation pass), so no
+	// order is ever permanently missed by an incremental cursor that
+	// drifts.
+	ListOrders(ctx context.Context, page, perPage int, modifiedAfter *time.Time) ([]WooOrder, error)
 }
 
 // WooClientFactory builds a WooClient scoped to one store's credentials.
