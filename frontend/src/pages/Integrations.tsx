@@ -9,6 +9,7 @@ import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
 import { notifyNotificationsChanged } from '../notifications/notificationsBus'
+import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
 
 const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
@@ -38,6 +39,8 @@ export default function Integrations() {
   const { connections, loading, error, refresh, disconnect } = useConnections(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
+
+  const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
@@ -172,6 +175,10 @@ export default function Integrations() {
     }
   }
 
+  if (configuringConnection) {
+    return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={() => setConfiguringConnection(null)} />
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden p-5 gap-5">
@@ -229,6 +236,14 @@ export default function Integrations() {
                       </p>
                     )}
                     <div className="mt-3 grid grid-cols-2 gap-2">
+                      {conn.provider === 'woocommerce' && (
+                        <button
+                          onClick={() => setConfiguringConnection(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Configure
+                        </button>
+                      )}
                       <button
                         onClick={() => handleTestConnection(conn.id)}
                         disabled={testingId === conn.id}

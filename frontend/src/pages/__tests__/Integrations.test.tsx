@@ -18,6 +18,10 @@ vi.mock('../../integrations/api', () => ({
   manualConnectWooCommerce: vi.fn(),
   importWooProducts: vi.fn(),
   deleteAllImportedProducts: vi.fn(),
+  listSyncSchedules: vi.fn(),
+  upsertSyncSchedules: vi.fn(),
+  updateConnectionSettings: vi.fn(),
+  listWooTaxes: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -32,9 +36,23 @@ vi.mock('../../settings/api', () => ({
   updateTenantSettings: vi.fn(),
 }))
 
+vi.mock('../../tax/api', () => ({
+  listTaxClasses: vi.fn(),
+  createTaxClass: vi.fn(),
+  updateTaxClass: vi.fn(),
+  deleteTaxClass: vi.fn(),
+  listTaxRates: vi.fn(),
+  upsertTaxRate: vi.fn(),
+  deleteTaxRate: vi.fn(),
+  listExternalTaxClassLinks: vi.fn(),
+  upsertExternalTaxClassLink: vi.fn(),
+  deleteExternalTaxClassLink: vi.fn(),
+}))
+
 import * as integrationsApi from '../../integrations/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
+import * as taxApi from '../../tax/api'
 import { subscribeProductsChanged } from '../../pms/productsBus'
 import { subscribeNotificationsChanged } from '../../notifications/notificationsBus'
 
@@ -55,6 +73,37 @@ beforeEach(() => {
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
     prices_include_tax: false, default_tax_country: '', updated_at: '',
+  })
+  vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
+  vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([])
+  vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
+  vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([])
+})
+
+describe('Configure connection', () => {
+  it('shows a Configure button for WooCommerce connections', async () => {
+    render(<Integrations />)
+
+    expect(await screen.findByRole('button', { name: 'Configure' })).toBeInTheDocument()
+  })
+
+  it('clicking Configure opens the WooCommerce sync settings page', async () => {
+    render(<Integrations />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+
+    expect(await screen.findByText('Sync schedule')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'https://mystore.com' })).toBeInTheDocument()
+  })
+
+  it('Back from the sync settings page returns to the connections grid', async () => {
+    render(<Integrations />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    await userEvent.click(screen.getByRole('button', { name: /Integrations/ }))
+
+    expect(await screen.findByText('Connected integrations')).toBeInTheDocument()
   })
 })
 
