@@ -129,6 +129,16 @@ func TestListSalesOrders_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"total":1`)
 }
 
+func TestListSalesOrders_passesSortByAndSortDirQueryParamsThrough(t *testing.T) {
+	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}),
+		"GET", "/api/v1/sales-orders?sort_by=total&sort_dir=asc", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, omsDomain.SalesOrderSortTotal, list.gotInput.SortBy)
+	assert.Equal(t, omsDomain.SortAsc, list.gotInput.SortDir)
+}
+
 func TestGetSalesOrder_success(t *testing.T) {
 	get := &stubGetSalesOrder{out: &appoms.GetSalesOrderResult{
 		SalesOrder: omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1"},

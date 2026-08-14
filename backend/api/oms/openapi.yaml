@@ -26,6 +26,12 @@ paths:
         - name: per_page
           in: query
           schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+        - name: sort_by
+          in: query
+          schema: { type: string, enum: [occurred_at, customer, source, status, total], default: occurred_at }
+        - name: sort_dir
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
       responses:
         '200':
           description: ok

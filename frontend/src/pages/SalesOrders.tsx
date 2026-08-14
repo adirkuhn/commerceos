@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { ArrowLeft, ShoppingCart, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
-import type { SalesOrder, SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address } from '../oms/types'
+import type { SalesOrder, SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { ProductSkuPicker } from './Procurement'
 import type { SKU } from '../pms/types'
@@ -39,11 +39,50 @@ function customerName(order: SalesOrder): string {
   return name || order.billing?.email || '—'
 }
 
+function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
+  field: SalesOrderSortField
+  label: string
+  sortBy: SalesOrderSortField
+  sortDir: SortDirection
+  onSort: (field: SalesOrderSortField) => void
+  align?: 'left' | 'right'
+}) {
+  const active = field === sortBy
+  const Icon = sortDir === 'asc' ? ChevronUp : ChevronDown
+  return (
+    <th
+      className={clsx(
+        'px-3 py-2.5 font-medium uppercase tracking-wider cursor-pointer select-none hover:dark:text-gray-300 hover:text-gray-600 transition-colors',
+        align === 'right' ? 'text-right' : 'text-left',
+        active ? 'dark:text-gray-300 text-gray-600' : 'dark:text-gray-500 text-gray-400',
+      )}
+      onClick={() => onSort(field)}
+    >
+      <span className={clsx('inline-flex items-center gap-1', align === 'right' && 'flex-row-reverse')}>
+        {label}
+        {active && <Icon size={11} />}
+      </span>
+    </th>
+  )
+}
+
 export default function SalesOrders() {
   const { token } = useAuth()
   const [page, setPage] = useState(1)
+  const [sortBy, setSortBy] = useState<SalesOrderSortField>('occurred_at')
+  const [sortDir, setSortDir] = useState<SortDirection>('desc')
   const [selectedId, setSelectedId] = useState<string | null | 'new'>(null)
-  const { salesOrders, total, loading, error, create, refresh } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE })
+  const { salesOrders, total, loading, error, create, refresh } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE, sortBy, sortDir })
+
+  function toggleSort(field: SalesOrderSortField) {
+    if (field === sortBy) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(field)
+      setSortDir('desc')
+    }
+    setPage(1)
+  }
 
   if (selectedId === 'new') {
     return (
@@ -81,11 +120,11 @@ export default function SalesOrders() {
           <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
             <tr>
               <th className="px-2 py-2.5 w-8" />
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Order</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Customer</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Source</th>
-              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
-              <th className="px-3 py-2.5 text-right font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Total</th>
+              <SortableTh field="occurred_at" label="Order" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="customer" label="Customer" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="source" label="Source" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="status" label="Status" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+              <SortableTh field="total" label="Total" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} align="right" />
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">

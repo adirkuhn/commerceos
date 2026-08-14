@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput } from '../types'
+import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, SalesOrderSortField, SortDirection } from '../types'
 import * as api from '../api'
 
 interface UseSalesOrdersState {
@@ -14,8 +14,11 @@ interface UseSalesOrdersActions {
   create: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>
 }
 
-export function useSalesOrders(token: string, params: { page?: number; perPage?: number } = {}): UseSalesOrdersState & UseSalesOrdersActions {
-  const { page, perPage } = params
+export function useSalesOrders(
+  token: string,
+  params: { page?: number; perPage?: number; sortBy?: SalesOrderSortField; sortDir?: SortDirection } = {},
+): UseSalesOrdersState & UseSalesOrdersActions {
+  const { page, perPage, sortBy, sortDir } = params
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -26,7 +29,7 @@ export function useSalesOrders(token: string, params: { page?: number; perPage?:
     setLoading(true)
     setError(null)
     try {
-      const result = await api.listSalesOrders(token, { page, perPage })
+      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir })
       setSalesOrders(result.salesOrders)
       setTotal(result.total)
     } catch (e) {
@@ -34,7 +37,7 @@ export function useSalesOrders(token: string, params: { page?: number; perPage?:
     } finally {
       setLoading(false)
     }
-  }, [token, page, perPage])
+  }, [token, page, perPage, sortBy, sortDir])
 
   useEffect(() => { load() }, [load])
 

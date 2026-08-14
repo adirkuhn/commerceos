@@ -120,7 +120,51 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 2, perPage: 20 })
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc' })
+  })
+
+  it('defaults to sorting by date, most recent first', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc' })
+  })
+
+  it('clicking a column header sorts by that field', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    await userEvent.click(screen.getByRole('columnheader', { name: /Total/ }))
+
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'total', sortDir: 'desc' })
+  })
+
+  it('clicking the active column header again flips the direction', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    await userEvent.click(screen.getByRole('columnheader', { name: /Order/ }))
+
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'asc' })
+  })
+
+  it('changing sort resets back to page 1', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 25 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc' }))
+
+    await userEvent.click(screen.getByRole('columnheader', { name: /Customer/ }))
+
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'customer', sortDir: 'desc' })
   })
 })
 

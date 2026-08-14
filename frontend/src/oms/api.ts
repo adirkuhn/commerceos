@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse } from './types'
+import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -20,6 +20,8 @@ async function request<T>(path: string, token: string, options: RequestInit = {}
 export interface ListSalesOrdersParams {
   page?: number
   perPage?: number
+  sortBy?: SalesOrderSortField
+  sortDir?: SortDirection
 }
 
 export interface ListSalesOrdersResult {
@@ -31,6 +33,8 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   const qs = new URLSearchParams()
   if (params.page) qs.set('page', String(params.page))
   if (params.perPage) qs.set('per_page', String(params.perPage))
+  if (params.sortBy) qs.set('sort_by', params.sortBy)
+  if (params.sortDir) qs.set('sort_dir', params.sortDir)
   const query = qs.toString()
 
   const result = await request<{ sales_orders: SalesOrder[]; total: number }>(

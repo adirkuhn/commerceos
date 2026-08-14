@@ -86,7 +86,17 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	if params.PerPage != nil {
 		perPage = *params.PerPage
 	}
-	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{Page: page, PerPage: perPage})
+	var sortBy omsDomain.SalesOrderSortField
+	if params.SortBy != nil {
+		sortBy = omsDomain.SalesOrderSortField(*params.SortBy)
+	}
+	var sortDir omsDomain.SortDirection
+	if params.SortDir != nil {
+		sortDir = omsDomain.SortDirection(*params.SortDir)
+	}
+	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
+		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
+	})
 	if err := mapError(c, err); err != nil {
 		return
 	}

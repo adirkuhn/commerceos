@@ -176,6 +176,30 @@ func (r *SalesOrderRepo) FindByExternalID(ctx context.Context, source omsDomain.
 	return toSalesOrderDomain(m), nil
 }
 
+// salesOrderOrderClause maps a filter's SortBy/SortDir to a safe ORDER BY
+// clause via a closed switch over omsDomain.SalesOrderSortField -- never
+// interpolates either value directly, so an invalid/unknown field or
+// direction can't reach raw SQL. Unset/unknown SortBy defaults to
+// occurred_at; unset/unknown SortDir defaults to desc (newest first).
+func salesOrderOrderClause(filter omsDomain.ListSalesOrdersFilter) string {
+	dir := "desc"
+	if filter.SortDir == omsDomain.SortAsc {
+		dir = "asc"
+	}
+	switch filter.SortBy {
+	case omsDomain.SalesOrderSortCustomer:
+		return "billing_last_name " + dir + ", billing_first_name " + dir
+	case omsDomain.SalesOrderSortSource:
+		return "source " + dir
+	case omsDomain.SalesOrderSortStatus:
+		return "status " + dir
+	case omsDomain.SalesOrderSortTotal:
+		return "total_minor_units " + dir
+	default:
+		return "occurred_at " + dir
+	}
+}
+
 func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -193,7 +217,7 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 		limit = 200
 	}
 	var rows []salesOrderModel
-	if err := q.Order("occurred_at desc").Limit(limit).Offset(filter.Offset).Find(&rows).Error; err != nil {
+	if err := q.Order(salesOrderOrderClause(filter)).Limit(limit).Offset(filter.Offset).Find(&rows).Error; err != nil {
 		return nil, 0, fmt.Errorf("salesOrderRepo.List: %w", err)
 	}
 	out := make([]omsDomain.SalesOrder, len(rows))

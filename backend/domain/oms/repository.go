@@ -5,9 +5,33 @@ import (
 	"time"
 )
 
+// SalesOrderSortField is the allow-list of columns List can sort by --
+// kept as a closed type (rather than a raw string) so an invalid/unknown
+// value can never reach the repository's ORDER BY clause.
+type SalesOrderSortField string
+
+const (
+	SalesOrderSortOccurredAt SalesOrderSortField = "occurred_at"
+	SalesOrderSortCustomer   SalesOrderSortField = "customer"
+	SalesOrderSortSource     SalesOrderSortField = "source"
+	SalesOrderSortStatus     SalesOrderSortField = "status"
+	SalesOrderSortTotal      SalesOrderSortField = "total"
+)
+
+type SortDirection string
+
+const (
+	SortAsc  SortDirection = "asc"
+	SortDesc SortDirection = "desc"
+)
+
 type ListSalesOrdersFilter struct {
 	Limit  int
 	Offset int
+	// SortBy/SortDir empty means the repository's default (occurred_at,
+	// desc -- newest first).
+	SortBy  SalesOrderSortField
+	SortDir SortDirection
 }
 
 type SalesOrderRepository interface {

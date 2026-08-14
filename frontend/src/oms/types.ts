@@ -15,6 +15,9 @@ export interface Address {
 
 export type SalesOrderStatus = 'pending' | 'processing' | 'on-hold' | 'completed' | 'cancelled' | 'refunded' | 'failed'
 
+export type SalesOrderSortField = 'occurred_at' | 'customer' | 'source' | 'status' | 'total'
+export type SortDirection = 'asc' | 'desc'
+
 export interface SalesOrder {
   id: string
   tenant_id: string

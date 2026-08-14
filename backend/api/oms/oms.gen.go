@@ -52,6 +52,51 @@ func (e SalesOrderStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListSalesOrdersParamsSortBy.
+const (
+	Customer   ListSalesOrdersParamsSortBy = "customer"
+	OccurredAt ListSalesOrdersParamsSortBy = "occurred_at"
+	Source     ListSalesOrdersParamsSortBy = "source"
+	Status     ListSalesOrdersParamsSortBy = "status"
+	Total      ListSalesOrdersParamsSortBy = "total"
+)
+
+// Valid indicates whether the value is a known member of the ListSalesOrdersParamsSortBy enum.
+func (e ListSalesOrdersParamsSortBy) Valid() bool {
+	switch e {
+	case Customer:
+		return true
+	case OccurredAt:
+		return true
+	case Source:
+		return true
+	case Status:
+		return true
+	case Total:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSalesOrdersParamsSortDir.
+const (
+	Asc  ListSalesOrdersParamsSortDir = "asc"
+	Desc ListSalesOrdersParamsSortDir = "desc"
+)
+
+// Valid indicates whether the value is a known member of the ListSalesOrdersParamsSortDir enum.
+func (e ListSalesOrdersParamsSortDir) Valid() bool {
+	switch e {
+	case Asc:
+		return true
+	case Desc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Address defines model for Address.
 type Address struct {
 	Address1  *string `json:"address_1,omitempty"`
@@ -211,9 +256,17 @@ type Error = ErrorResponse
 
 // ListSalesOrdersParams defines parameters for ListSalesOrders.
 type ListSalesOrdersParams struct {
-	Page    *int `form:"page,omitempty" json:"page,omitempty"`
-	PerPage *int `form:"per_page,omitempty" json:"per_page,omitempty"`
+	Page    *int                          `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *int                          `form:"per_page,omitempty" json:"per_page,omitempty"`
+	SortBy  *ListSalesOrdersParamsSortBy  `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+	SortDir *ListSalesOrdersParamsSortDir `form:"sort_dir,omitempty" json:"sort_dir,omitempty"`
 }
+
+// ListSalesOrdersParamsSortBy defines parameters for ListSalesOrders.
+type ListSalesOrdersParamsSortBy string
+
+// ListSalesOrdersParamsSortDir defines parameters for ListSalesOrders.
+type ListSalesOrdersParamsSortDir string
 
 // CreateSalesOrderJSONRequestBody defines body for CreateSalesOrder for application/json ContentType.
 type CreateSalesOrderJSONRequestBody = CreateSalesOrderRequest
@@ -271,6 +324,22 @@ func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", c.Request.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter per_page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "sort_by" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort_by", c.Request.URL.Query(), &params.SortBy, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sort_by: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "sort_dir" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort_dir", c.Request.URL.Query(), &params.SortDir, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sort_dir: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -411,33 +480,34 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7Flfb9uwEf8qB25AEkD+k7TYg9+6dOgybEjQtNhDFwgX6RyxEUmFPCUxCn/3gaT/ylLsOA62YX0xZB15",
-	"PN7d73dH8ZfIjKqMJs1OjH6JCi0qYrLhn8zDrxYjUSEXIhEaFYmRFyTC0kMtLeVixLamRLisIIV+Bk8q",
-	"P8qxlfpOTKdTP9hVRjsKev9irbH+ITOaSbN/xKoqZYYsjR78dEb7d0uNf7Q0FiPxh8HS3EGUukHQ9nWm",
-	"P66Wk8usrLwyMRIUlvPvZ1O8xk95bsnFTVtTkWUZjcMoSE9bdpIspGet0kzypF1gVIW6S1Zrtu0yUijL",
-	"VslYWsdpjEeLuMSXpFVhdIfEOM5M3i50jNwmmSbzN+b2J2Xsx55bQqZrLMld2pzs36WmCya16fBuK63M",
-	"KFVSG5vWWsYMHRurkH0Oav7TR7FYWWqmO7J+3kONmmeR2GG4u6/T7i3f12mEwaaovmXDWO5h4WIq4/Me",
-	"0/dddv81p6tw/zH3yoqr26J1s0NafKWHmhxvZsWtLEvv6C3gn8PY46i2lnQ26Q5mVjs2iuwsorouS7wt",
-	"aU5g3eO14XaNOTKl3qySmPI1V3pRj6UiT5vbVgp6KpRvUSFdYJJ03+wopaZUMqnI/fOHl7zfCfJpIpTU",
-	"F1HH6WI1tBYnXqhrdUu21aUmC4HMU+ROZ2xO8qun99TOohVOFGlOFXFh8h2GpCy57CCEQlbV6xJzPmXv",
-	"yHjerbcGYxmG6zjeIx6f07exxR7zLGqHmS++XdT5hJYKUztqH9Bgm7XRTZyvJ8xaFrfxz3qzsME6OTJu",
-	"UoMvxPOWZX18J9Uocg7vdiuWbeVzGcyDUGPA6esg9ZtO30an9MxkNZZp5KYOJHS8/s2Pr+JHU9usu2X9",
-	"P6bOQJgz97Sl5MJByTaW3dxSk3lXSObmRUb7TDw71azz2h4NSHvr0ew2nB8VN727ws2md0XL1jrT3O32",
-	"krObVTPfrVakRq16uZp0H8O6mOj36ex/7XQWcb1xRLvZkhhtp7CVnN8HlG1gDNvc69C5astcz/ZNHQp5",
-	"wUF74+5QVuxvwfWiEpKulXdoRTr3aPFYNhk5F/8Y3StMGWrAohNLRIY6o7Kk+OVvXOs8PI5R+nc3LT3H",
-	"9yp/v6P+Wuf5fp3mHp3lq3q5/+q2bP/WaVsb03IG8r2wHpuAiLWvt2EBiLCH49wolHpglDuBsbHgGMdj",
-	"qB3B2BoFXBBgrqSG7xfQ60EpHQ/uiBOoytpBbFEGdcjMQU4++EGNQl1jWU56pJks5RDIBo6pf9cHhCcs",
-	"73tSB/VXl9fwhE4fsV8299NP+vAtSo4cmCcNVe0KqJALOP5KGclHurq8Xnrqu6NzdHQC0gGCowotMsGT",
-	"lUxxmoeXBazkoDIuAay5IM0y8w0W3E7mhhw5KNUZlDIj7QgsckEWuEANCEWtUMPf/vnNO4ILZDCa/JLa",
-	"MHAhnf/fB98RQOB1QEsglarZkwoYnZE3b+l/P3nW5Y3g6tO387+C0eUEKJfsoCD0Y8aSytzBcUyfBOZY",
-	"TPy65BIgzk4S0PRIFsrF4v1/aQ+emMDi3ChFNqPLa4jxv4zx/3R1IRLxSNbF5DjtDwOOKtJYSTESH/rD",
-	"/gfPaMhFyN1BsL+3LGF3FCjIE1C4bbjIxUh4cl/GxwUFy5uQH7NLkIea7GR5C1L5A/7qvUdOY6xLDl+8",
-	"lNRSeZ49bStsHQrJpt1Kz4aJUPgctZ4Nh1vWuGlcupwNhwe7cumosC13L+Y+XrzUSqGdzDy9mlMu4M/n",
-	"czxxMDBp1Owz5IkcQ7jomF9NbEau+QlydjFFjv9s8snBdtz13Xq63qXMvhY1HH/6Do5vHCtaXD9Dqnfd",
-	"x7OzLs0LU+M9WiNa/5jx4gz2DTrYlR6D0jUgDn7JfBqz23PwZlg/h/drYW0gsm0zyyEDmYsWCHzcrC/R",
-	"guimKH+9m6K1De/0emDJscnuXUxikGPwRBneQYE53BJpyCmz5Kt4NKKVn74QH9wXw/9IVnpCeIOnv1As",
-	"Y6uOfpJcBMcuq0nsjTgrNl3ZbEv39+bhWaarZd6JZd4jnoeN5BuIKHpmHWFHr+s5PCCbXUfclyP7OA9+",
-	"bUsxEgPfej2eiunN9N8BAAD//w==",
+	"7Flbb+O6Ef4rA7VAEkC+JGfRB79tc4rTFC0SbHbRh9NAGEvjiBuRVMhREmPh/16QlG+yFDuKg7bovhiW",
+	"hhwO5/LNR/FHlGpZakWKbTT5EZVoUBKT8U8i878qmkQlch7FkUJJ0cQJ4sjQYyUMZdGETUVxZNOcJLoZ",
+	"PC/dKMtGqPtosVi4wbbUypLX+xdjtHF/Uq2YFLu/WJaFSJGFVqPvViv3bq3xj4Zm0ST6w2ht7ihI7chr",
+	"+1LrD6tlZFMjSqcsmkTkl3Pv6ylO4+csM2TDpo0uybAIxmEQJOctO4lX0otWaSp43i7QskTVJasUm3YZ",
+	"SRRFq2QmjOUkxKNFXOBr0jLXqkOiLac6axdaRm6TLOLlGz39Tim7sZeGkOkWC7LXJiPzd6HoiknuOrzb",
+	"SiNSSqRQ2iSVEiFDZ9pIZJeDiv/0KVqtLBTTPRk377FCxXUkDhhuH6qke8sPVRLKYFdUTVkzFj0sXE1l",
+	"fOkxve+y/ddcbJb770uvbLi6LVp3B6TFF3qsyPJuVkxFUThH7yn+ZRm7OqqMIZXOu4OZVpa1JFNHVFVF",
+	"gdOClgDWPV5pbteYIVPizCqIKdtypRMNWEhysLlvJa+nRPEeFcJ6JEn6ZkchFCWCSQbsX/55zfudRb6I",
+	"IynUVdBxvloNjcG5E6pKTsm0ulSnPpBZgtzpjN1JbvXkgdpRtMS5JMWJJM51dsCQhAUXHYCQi7J8W2Iu",
+	"p/SOjMPdam8w1mG4DeNdxeNL8j606DHPoLKYuubbBZ3PaCjXlaX2AQ202RrdrPPthNnK4jb82SYLO6iT",
+	"IeMuNLhGvKQs2+M7oUaStXh/WLNsa5/rYB4FGn2dvq2kfsLp++CUXpiMwiIJ2NRRCR2vf+Ljm/BRVybt",
+	"pqz/x9DpAbN2T1tKrhwU70PZ3S01kXcDZO5eRbRfietTzTau9SAg7dSjyTasGxU2fbjCXdK7oWVvn2nu",
+	"dn/LOcyq2nebHanRq17vJt3HsC4k+nk6+187nYW63jmi3e1JjLZT2EbO9ynKtmL02+x16Ny0Zaln/6aO",
+	"VXneQb3r7lhW9LfgdtUJSVXSObQklblqcbWsU7I2PGg1yHXhe8CKicVRiiqloqDw5W9Wqcz/naFw7+5a",
+	"OMe3Mvu4o/4W8/w4ptmDWb6Jy/1X07L+1GkfjWk5AzkurGbaV8TW11u/AISyh9NMSxRqpKU9g5k2YBln",
+	"M6gswcxoCZwTYCaFgm9XMBhAISyP7oljKIvKQqAoo8pn5igjF3yvRqKqsCjmA1JMhjLwYAOnNLwfAsIz",
+	"Fg8Dobz6m+tbeEarTtgtm7npZ0P4GiQnFvSzgrKyOZTIOZx+oZTEE91c36499c3SJVo6A2EBwVKJBpng",
+	"2QimMM2VlwEsxajUNgasOCfFInUEC6bzpSEnFgp5AYVISVkCg5yTAc5RAUJeSVTwt39+dY7gHBm0Irek",
+	"0gycC+ueh+AYAXhcBzQEQsqKHaiAVik589b+d5NrljeBm89fL/8KWhVzoEywhZzQjZkJKjILpyF9YljW",
+	"YuzWJRsDcXoWg6InMlCsFh/+S7niCQkcXWopyaR0fQsh/tch/p9vrqI4eiJjQ3KcD8e+jkpSWIpoEv0y",
+	"HA9/cYiGnPvcHXn7B+sWdk8eghwA+duGqyyaRA7c1/GxXsH6JuT3+hLksSIzX9+ClO6Av3nvkdEMq4L9",
+	"Fy8plJAOZ8/bGluHQjJJt9KLcRxJfAlaL8bjfmtYbTiZztuXaDD6ZaNo8Pw6oJsni9UpotmV1xX/ijmZ",
+	"MB32OCjYMAT9k3/ZssRd45rpYjw+2iVTB6douW3SD+GqqZISzbzOrc0qsh5xXAWHMxYDk0LFriaeyTL4",
+	"q53lZcxurjY/utZXcWT5zzqbH23HXV/qF9u8rP4+1nD8+Qc4vnGQanF9jU3OdZ8uLro0r0wNN4eNaP2j",
+	"7gQ10DUA8NCG4JVuQc/oh8gWIbld19kN66/+/VZYGxjUtpn1kJHIopYS+LTbUYMFwU1B/nY3BWsb3hkM",
+	"wJBlnT7YkMQgZuBag38HOWYwJVKQUWrI8ZZgRCsi/0Z8dF+M/yNZ6QDhHZ7+jULj3nT0s+DcO3bdPwMb",
+	"5DTfdWWTiPf35vFRpuuQcBDKfEQ8jxvJdwBR8Mx2hZ28jWW5gmzyrLAvS+ZpGfzKFNEkGjmy+XQeLe4W",
+	"/w4AAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

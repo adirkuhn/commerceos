@@ -17,6 +17,10 @@ const (
 type ListSalesOrdersInput struct {
 	Page    int
 	PerPage int
+	// SortBy/SortDir empty means the repository's default (occurred_at,
+	// desc -- newest first).
+	SortBy  omsDomain.SalesOrderSortField
+	SortDir omsDomain.SortDirection
 }
 
 type ListSalesOrdersResult struct {
@@ -51,7 +55,9 @@ func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrder
 
 	result := &ListSalesOrdersResult{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		orders, total, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: perPage, Offset: (page - 1) * perPage})
+		orders, total, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
+			Limit: perPage, Offset: (page - 1) * perPage, SortBy: in.SortBy, SortDir: in.SortDir,
+		})
 		if err != nil {
 			return err
 		}

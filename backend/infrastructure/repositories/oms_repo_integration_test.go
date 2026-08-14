@@ -176,6 +176,69 @@ func TestSalesOrderRepo_Integration_List(t *testing.T) {
 	require.GreaterOrEqual(t, len(orders), 2)
 }
 
+// TestSalesOrderRepo_Integration_ListSortsByTotalAndDefaultsToOccurredAtDesc
+// proves salesOrderOrderClause actually drives a real ORDER BY against
+// Postgres for both an explicit sort field (total) and the default
+// (occurred_at desc, newest first) when SortBy/SortDir are left unset.
+func TestSalesOrderRepo_Integration_ListSortsByTotalAndDefaultsToOccurredAtDesc(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var lowID, midID, highID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		// OccurredAt is staggered (not "mid" latest by coincidence) so the
+		// default-sort assertion below has an unambiguous "most recent".
+		specs := []struct {
+			extID      string
+			total      int64
+			occurredAt time.Time
+			id         *string
+		}{
+			{"sort-low", 500, now, &lowID},
+			{"sort-high", 2500, now.Add(1 * time.Second), &highID},
+			{"sort-mid", 1500, now.Add(2 * time.Second), &midID},
+		}
+		for _, s := range specs {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
+				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TotalMinorUnits: s.total, OccurredAt: s.occurredAt, CreatedAt: now,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			*s.id = order.ID
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var byTotalAsc []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		byTotalAsc, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
+			Limit: 3, SortBy: omsDomain.SalesOrderSortTotal, SortDir: omsDomain.SortAsc,
+		})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, byTotalAsc, 3)
+	require.Equal(t, []string{lowID, midID, highID}, []string{byTotalAsc[0].ID, byTotalAsc[1].ID, byTotalAsc[2].ID})
+
+	var byDefault []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		byDefault, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 3})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, byDefault, 3)
+	require.Equal(t, midID, byDefault[0].ID, "no SortBy/SortDir set -- must default to occurred_at desc, the most-recently-created of these three")
+}
+
 func TestSalesOrderRepo_Integration_FindByExternalIDReturnsNilNotErrorWhenMissing(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

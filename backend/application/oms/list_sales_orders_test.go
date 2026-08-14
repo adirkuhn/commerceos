@@ -42,6 +42,19 @@ func TestListSalesOrders_capsPerPageAtMax(t *testing.T) {
 	assert.Equal(t, 200, repo.gotListFilter.Limit)
 }
 
+func TestListSalesOrders_passesSortByAndSortDirThrough(t *testing.T) {
+	repo := &stubSalesOrderRepo{}
+	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appoms.ListSalesOrdersInput{
+		SortBy: omsDomain.SalesOrderSortTotal, SortDir: omsDomain.SortAsc,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, omsDomain.SalesOrderSortTotal, repo.gotListFilter.SortBy)
+	assert.Equal(t, omsDomain.SortAsc, repo.gotListFilter.SortDir)
+}
+
 func TestListSalesOrders_propagatesRepoError(t *testing.T) {
 	repo := &stubSalesOrderRepo{listErr: assert.AnError}
 	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
