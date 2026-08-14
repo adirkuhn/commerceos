@@ -749,6 +749,53 @@ describe('WooCommerce tab', () => {
     expect(await screen.findByText('internal server error')).toBeInTheDocument()
     expect(screen.queryByText(/not linked to this WooCommerce store yet/i)).not.toBeInTheDocument()
   })
+
+  it("shows the SKU's Woo tax class/status when it was imported from Woo", async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product(),
+      variants: [{ ...baseVariant, skus: [{ ...baseSku, woo_tax_class_slug: 'reduced-rate', woo_tax_status: 'taxable' }] }],
+    })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+
+    expect(await screen.findByDisplayValue('reduced-rate')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('taxable')).toBeInTheDocument()
+  })
+
+  it('shows "Standard" for an empty Woo tax class slug instead of a blank field', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product(),
+      variants: [{ ...baseVariant, skus: [{ ...baseSku, woo_tax_class_slug: '', woo_tax_status: 'taxable' }] }],
+    })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+
+    expect(await screen.findByDisplayValue('Standard')).toBeInTheDocument()
+  })
+
+  it('does not show Woo tax fields for a SKU never imported from Woo', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product(),
+      variants: [{ ...baseVariant, skus: [baseSku] }],
+    })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+
+    render(<AppProvider><Products /></AppProvider>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+
+    await screen.findByText(/not linked to this WooCommerce store yet/i)
+    expect(screen.queryByLabelText('Tax class (Woo)')).not.toBeInTheDocument()
+  })
 })
 
 describe('SKU weight/dimensions and virtual flag', () => {

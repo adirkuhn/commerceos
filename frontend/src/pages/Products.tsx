@@ -584,7 +584,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
         </div>
         {activeTab === 'woocommerce' && savedProductId && wooConnection && (
           <div className="max-w-5xl mx-auto p-6">
-            <ProductWooCommerceTab productId={savedProductId} connection={wooConnection} />
+            <ProductWooCommerceTab productId={savedProductId} connection={wooConnection} sku={currentSku} />
           </div>
         )}
       </div>
@@ -1050,7 +1050,7 @@ const WOO_SYNC_STATUS_STYLE: Record<ProductChannelListingSyncStatus, string> = {
   error: 'dark:text-red-400 text-red-600',
 }
 
-function ProductWooCommerceTab({ productId, connection }: { productId: string; connection: Connection }) {
+function ProductWooCommerceTab({ productId, connection, sku }: { productId: string; connection: Connection; sku: SKU | null }) {
   const { token } = useAuth()
   const [listing, setListing] = useState<ProductChannelListing | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1114,6 +1114,35 @@ function ProductWooCommerceTab({ productId, connection }: { productId: string; c
               disabled
               readOnly
               value={listing.last_synced_at ? new Date(listing.last_synced_at).toLocaleString() : '—'}
+              className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* woo_tax_class_slug is set once by import and never cleared, so it
+          persists independently of listing (e.g. after "Delete imported
+          products" removes the listing but not this SKU) -- shown whenever
+          this SKU actually came from Woo, not gated on listing being present. */}
+      {sku?.woo_tax_class_slug != null && (
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t dark:border-[#2D3748] border-gray-200">
+          <div>
+            <label htmlFor="product-woo-tax-class" className={labelClass}>Tax class (Woo)</label>
+            <input
+              id="product-woo-tax-class"
+              disabled
+              readOnly
+              value={sku.woo_tax_class_slug || 'Standard'}
+              className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
+            />
+          </div>
+          <div>
+            <label htmlFor="product-woo-tax-status" className={labelClass}>Tax status (Woo)</label>
+            <input
+              id="product-woo-tax-status"
+              disabled
+              readOnly
+              value={sku.woo_tax_status || '—'}
               className={clsx(inputClass, 'dark:text-gray-300 text-gray-700')}
             />
           </div>

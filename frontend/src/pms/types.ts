@@ -80,6 +80,12 @@ export interface SKU {
   // null means "use the tenant's default class" (see the Tax settings
   // section's TaxClass.is_default).
   tax_class_id?: string | null
+  // woo_tax_class_slug/woo_tax_status are informational provenance only,
+  // set once by WooCommerce import -- never affects tax calculation. Both
+  // null/undefined for a SKU never imported from Woo. "" for
+  // woo_tax_class_slug means Woo's own Standard rate.
+  woo_tax_class_slug?: string | null
+  woo_tax_status?: string | null
   status: SKUStatus
   created_at: string
   updated_at: string
