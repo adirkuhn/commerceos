@@ -209,6 +209,13 @@ func main() {
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
 	)
 
+	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
+		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
+		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
+		stockRecorderUC, updateSalesOrderUC,
+	)
+	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(db, listingRepo, importUC, ordersImportUC)
+
 	rs := buildRunners(
 		importUC,
 		channelsapp.NewRunScheduledProductExportUseCase(db, productRepo, listingRepo, pushUC),
@@ -220,11 +227,7 @@ func main() {
 			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
 		),
-		channelsapp.NewImportWooOrdersUseCase(
-			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-			stockRecorderUC, updateSalesOrderUC,
-		),
+		ordersImportUC,
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -259,7 +262,7 @@ func main() {
 			runDue(ctx, db, scheduleRepo, rs)
 			runExpiredSalePrices(ctx, db, skuRepo, expireSalePriceUC)
 		case <-importJobTicker.C:
-			runPendingImportJobs(ctx, db, importJobRepo, importUC, notifyUC)
+			runPendingImportJobs(ctx, db, importJobRepo, runManualWooImportUC, notifyUC)
 		case <-documentParsingJobTicker.C:
 			runPendingDocumentParsingJobs(ctx, db, parsingJobRepo, runDocumentParsingJobUC, notifyUC)
 		case <-receivingParsingJobTicker.C:
@@ -377,7 +380,7 @@ func recoverOrphanedImportJobs(ctx context.Context, db *gorm.DB, jobRepo channel
 // again.
 func runPendingImportJobs(
 	ctx context.Context, db *gorm.DB, jobRepo channelsDomain.ImportJobRepository,
-	importUC *channelsapp.ImportWooProductsUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runImportUC *channelsapp.RunManualWooImportUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
 ) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
@@ -393,16 +396,21 @@ func runPendingImportJobs(
 	}
 
 	for _, job := range pending {
-		runImportJob(adminCtx, db, jobRepo, importUC, notifyUC, job)
+		runImportJob(adminCtx, db, jobRepo, runImportUC, notifyUC, job)
 	}
 }
 
 // runImportJob runs a single pending job under its own tenant's identity
 // (see runOne's comment for why) and always leaves it in a terminal state
 // (completed/failed) plus a matching notification, even on failure.
+// RunManualWooImportUseCase also bootstraps a full (stock-untouched) orders
+// import the very first time this connection ever imports products — see
+// its own doc comment; an orders-side failure there is folded into this
+// job's own Errors list rather than failing the job, since the products
+// import (the job's primary purpose) already succeeded.
 func runImportJob(
 	adminCtx context.Context, db *gorm.DB, jobRepo channelsDomain.ImportJobRepository,
-	importUC *channelsapp.ImportWooProductsUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
+	runImportUC *channelsapp.RunManualWooImportUseCase, notifyUC *notificationsapp.CreateNotificationUseCase,
 	job channelsDomain.ImportJob,
 ) {
 	runCtx := tenant.WithTenantID(adminCtx, job.TenantID)
@@ -415,7 +423,7 @@ func runImportJob(
 		return
 	}
 
-	result, err := importUC.Execute(runCtx, channelsapp.ImportWooProductsInput{
+	result, err := runImportUC.Execute(runCtx, channelsapp.RunManualWooImportInput{
 		ConnectionID: job.ConnectionID, DefaultWarehouseID: job.DefaultWarehouseID, DefaultCurrency: job.DefaultCurrency,
 	})
 	finishedAt := time.Now()
@@ -431,13 +439,20 @@ func runImportJob(
 		return
 	}
 
+	products := result.Products
+	errs := products.Errors
+	message := fmt.Sprintf("Imported %d products (%d already linked, %d skipped)", products.Imported, products.AlreadyLinked, products.SkippedType)
+	if result.Orders != nil {
+		errs = append(errs, result.Orders.Errors...)
+		message += fmt.Sprintf(", %d orders", result.Orders.Created)
+	}
+
 	if markErr := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		return jobRepo.MarkCompleted(ctx, job.ID, result.Imported, result.AlreadyLinked, result.SkippedType, result.Errors, finishedAt)
+		return jobRepo.MarkCompleted(ctx, job.ID, products.Imported, products.AlreadyLinked, products.SkippedType, errs, finishedAt)
 	}); markErr != nil {
 		log.Printf("mark import job %s completed: %v", job.ID, markErr)
 	}
-	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportCompleted, "Import completed",
-		fmt.Sprintf("Imported %d products (%d already linked, %d skipped)", result.Imported, result.AlreadyLinked, result.SkippedType))
+	notifyBestEffort(runCtx, notifyUC, notificationsDomain.TypeImportCompleted, "Import completed", message)
 }
 
 // recoverOrphanedDocumentParsingJobs mirrors recoverOrphanedImportJobs for

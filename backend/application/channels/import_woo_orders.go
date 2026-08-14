@@ -39,6 +39,14 @@ type ImportWooOrdersInput struct {
 	// any time as a reconciliation pass. Non-nil filters to orders Woo
 	// reports modified since that instant, the cheap steady-state path.
 	ModifiedAfter *time.Time
+	// SkipStockMovements, when true, still creates every order and its
+	// line items exactly as normal but never decrements inventory for
+	// them, even for a status that would otherwise reduce stock -- used
+	// by the one-time bootstrap that runs orders import right after a
+	// connection's very first products import: that import already set
+	// each SKU's stock to Woo's current, already-net-of-these-orders
+	// quantity, so decrementing again here would double-count.
+	SkipStockMovements bool
 }
 
 type ImportOrdersResult struct {
@@ -187,7 +195,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	discountMinorUnits, _ := ParseWooPriceToMinorUnits(wo.DiscountTotal)
 	shippingMinorUnits, _ := ParseWooPriceToMinorUnits(wo.ShippingTotal)
 	taxMinorUnits, _ := ParseWooPriceToMinorUnits(wo.TotalTax)
-	stockReducing := status.ReducesStock()
+	stockReducing := status.ReducesStock() && !in.SkipStockMovements
 	wooID := int64(wo.ID)
 
 	var order omsDomain.SalesOrder

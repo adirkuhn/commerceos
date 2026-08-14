@@ -102,6 +102,32 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	require.Len(t, h.linkRepo.created, 1)
 }
 
+// TestImportWooOrders_skipStockMovementsCreatesOrderWithoutTouchingInventory
+// proves SkipStockMovements still creates the order/line items normally but
+// never decrements stock, even for a status that would otherwise reduce it
+// -- used by the one-time bootstrap that runs orders import right after a
+// connection's first products import, since that import already set each
+// SKU's stock to Woo's current (already-net-of-these-orders) quantity.
+func TestImportWooOrders_skipStockMovementsCreatesOrderWithoutTouchingInventory(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 3)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1", SkipStockMovements: true,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	assert.Empty(t, result.Errors)
+	require.Len(t, h.salesOrderRepo.created, 1)
+	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, h.salesOrderRepo.created[0].Status)
+	assert.False(t, h.salesOrderRepo.created[0].StockDecremented, "skipped even though processing would normally reduce stock")
+	require.Len(t, h.lineItemRepo.created, 1, "line items are still created")
+	assert.Empty(t, h.stock.calls)
+	assert.Empty(t, h.linkRepo.created)
+}
+
 func TestImportWooOrders_pendingOrderDoesNotDecrementStock(t *testing.T) {
 	order := simpleWooOrder()
 	order.Status = "pending"
