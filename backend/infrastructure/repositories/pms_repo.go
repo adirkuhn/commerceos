@@ -111,6 +111,8 @@ type skuModel struct {
 	UnitType            string  `gorm:"column:unit_type;not null;default:unit"`
 	PortionedFromSKUID  *string `gorm:"column:portioned_from_sku_id"`
 	TaxClassID          *string `gorm:"column:tax_class_id"`
+	WooTaxClassSlug     *string `gorm:"column:woo_tax_class_slug"`
+	WooTaxStatus        *string `gorm:"column:woo_tax_status"`
 	Status              string  `gorm:"not null"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -588,6 +590,8 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		UnitType:            string(s.UnitType),
 		PortionedFromSKUID:  s.PortionedFromSKUID,
 		TaxClassID:          s.TaxClassID,
+		WooTaxClassSlug:     s.WooTaxClassSlug,
+		WooTaxStatus:        s.WooTaxStatus,
 		Status:              string(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
@@ -683,6 +687,8 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"unit_type":              string(s.UnitType),
 			"portioned_from_sku_id":  s.PortionedFromSKUID,
 			"tax_class_id":           s.TaxClassID,
+			"woo_tax_class_slug":     s.WooTaxClassSlug,
+			"woo_tax_status":         s.WooTaxStatus,
 			"status":                 string(s.Status),
 			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
@@ -753,6 +759,8 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		UnitType:            pmsDomain.SKUUnitType(m.UnitType),
 		PortionedFromSKUID:  m.PortionedFromSKUID,
 		TaxClassID:          m.TaxClassID,
+		WooTaxClassSlug:     m.WooTaxClassSlug,
+		WooTaxStatus:        m.WooTaxStatus,
 		Status:              pmsDomain.SKUStatus(m.Status),
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,

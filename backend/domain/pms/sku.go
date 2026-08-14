@@ -96,7 +96,14 @@ type SKU struct {
 	// tax.TaxClass.IsDefault), the common case, so most SKUs never set
 	// this at all.
 	TaxClassID *string
-	Status     SKUStatus
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	// WooTaxClassSlug/WooTaxStatus are informational provenance only, set
+	// once by ImportWooProductsUseCase when this SKU came from a
+	// WooCommerce store -- never read by tax calculation (that always
+	// goes through TaxClassID). "" for WooTaxClassSlug means Woo's own
+	// Standard rate. Both nil for a SKU never imported from Woo.
+	WooTaxClassSlug *string
+	WooTaxStatus    *string
+	Status          SKUStatus
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
