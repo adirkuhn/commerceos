@@ -4,6 +4,8 @@ export interface TenantSettings {
   timezone: string
   date_format: string
   language: string
+  prices_include_tax: boolean
+  default_tax_country: string
   updated_at: string
 }
 
@@ -12,6 +14,8 @@ export interface TenantSettingsInput {
   timezone?: string
   date_format?: string
   language?: string
+  prices_include_tax?: boolean
+  default_tax_country?: string
 }
 
 export interface APIError {

@@ -32,9 +32,20 @@ vi.mock('../../settings/api', () => ({
   updateTenantSettings: vi.fn(),
 }))
 
+vi.mock('../../tax/api', () => ({
+  listTaxClasses: vi.fn(),
+  createTaxClass: vi.fn(),
+  updateTaxClass: vi.fn(),
+  deleteTaxClass: vi.fn(),
+  listTaxRates: vi.fn(),
+  upsertTaxRate: vi.fn(),
+  deleteTaxRate: vi.fn(),
+}))
+
 import * as integrationsApi from '../../integrations/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
+import * as taxApi from '../../tax/api'
 import { subscribeProductsChanged } from '../../pms/productsBus'
 
 function wooConnection(overrides: Partial<Connection> = {}): Connection {
@@ -47,12 +58,19 @@ beforeEach(() => {
   vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
-    tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '', updated_at: '',
+    tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
+    prices_include_tax: false, default_tax_country: '', updated_at: '',
   })
+  vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
+  vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
 })
 
 async function openLocalizationSection() {
   await userEvent.click(await screen.findByText('Localization'))
+}
+
+async function openTaxSection() {
+  await userEvent.click(await screen.findByText('Tax'))
 }
 
 async function openIntegrationsSection() {
@@ -395,7 +413,8 @@ describe('Store defaults currency', () => {
   it('falls back to the tenant-wide Localization currency when the connection has none of its own', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: '' })])
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
-      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '', updated_at: '',
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
+      prices_include_tax: false, default_tax_country: '', updated_at: '',
     })
 
     render(<Settings />)
@@ -567,6 +586,7 @@ describe('Settings > Localization', () => {
   it('prefills fields from saved settings', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'America/New_York', date_format: 'MM/DD/YYYY', language: 'fr',
+      prices_include_tax: false, default_tax_country: '',
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -582,6 +602,7 @@ describe('Settings > Localization', () => {
   it('Save Changes calls updateTenantSettings with all four fields and shows confirmation', async () => {
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
+      prices_include_tax: false, default_tax_country: '',
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -597,8 +618,25 @@ describe('Settings > Localization', () => {
 
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
+      prices_include_tax: false, default_tax_country: '',
     }))
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
+  })
+
+  it('Save Changes preserves already-saved tax settings instead of wiping them', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'NL', updated_at: '2026-07-26T00:00:00Z',
+    })
+    render(<Settings />)
+    await openLocalizationSection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      prices_include_tax: true, default_tax_country: 'NL',
+    })))
   })
 
   it('shows an error if saving fails', async () => {
@@ -610,5 +648,149 @@ describe('Settings > Localization', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
 
     expect(await screen.findByText('save failed')).toBeInTheDocument()
+  })
+})
+
+describe('Settings > Tax', () => {
+  function taxClass(overrides: Partial<import('../../tax/types').TaxClass> = {}): import('../../tax/types').TaxClass {
+    return { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '', ...overrides }
+  }
+  function taxRate(overrides: Partial<import('../../tax/types').TaxRate> = {}): import('../../tax/types').TaxRate {
+    return { id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2100, created_at: '', updated_at: '', ...overrides }
+  }
+
+  it('shows store tax defaults prefilled from tenant settings', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', updated_at: '',
+    })
+
+    render(<Settings />)
+    await openTaxSection()
+
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Prices include tax' })).toBeChecked())
+    expect(screen.getByLabelText('Default tax country')).toHaveValue('NL')
+  })
+
+  it('saving store tax defaults preserves the other tenant settings fields', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: false, default_tax_country: '', updated_at: '',
+    })
+    vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'US', updated_at: '',
+    })
+
+    render(<Settings />)
+    await openTaxSection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Prices include tax' }))
+    await userEvent.clear(screen.getByLabelText('Default tax country'))
+    await userEvent.type(screen.getByLabelText('Default tax country'), 'us')
+    await userEvent.click(screen.getByRole('button', { name: 'Save tax defaults' }))
+
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'US',
+    })))
+  })
+
+  it('lists tax classes with a default badge', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+
+    render(<Settings />)
+    await openTaxSection()
+
+    expect(await screen.findByText('Standard')).toBeInTheDocument()
+    expect(screen.getByText('Default')).toBeInTheDocument()
+  })
+
+  it('Add tax class creates it via the API and shows it in the list', async () => {
+    vi.mocked(taxApi.createTaxClass).mockResolvedValue(taxClass({ id: 'class-2', name: 'Reduced rate', is_default: false }))
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('Tax classes')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add tax class' }))
+    await userEvent.type(screen.getByLabelText('Name'), 'Reduced rate')
+    await userEvent.click(screen.getByRole('button', { name: 'Add class' }))
+
+    await waitFor(() => expect(taxApi.createTaxClass).toHaveBeenCalledWith('test-token', { name: 'Reduced rate', is_default: false }))
+    expect(await screen.findByText('Reduced rate')).toBeInTheDocument()
+  })
+
+  it('Edit tax class prefills the form and saves changes', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    vi.mocked(taxApi.updateTaxClass).mockResolvedValue(taxClass({ name: 'Standard rate' }))
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('Standard')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByLabelText('Name')).toHaveValue('Standard')
+
+    await userEvent.clear(screen.getByLabelText('Name'))
+    await userEvent.type(screen.getByLabelText('Name'), 'Standard rate')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(taxApi.updateTaxClass).toHaveBeenCalledWith('test-token', 'class-1', { name: 'Standard rate', is_default: true }))
+  })
+
+  it('Delete tax class calls the API after confirming', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass({ is_default: false })])
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('Standard')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(taxApi.deleteTaxClass).toHaveBeenCalledWith('test-token', 'class-1'))
+  })
+
+  it('lists tax rates under their class with the computed percent', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([taxRate()])
+
+    render(<Settings />)
+    await openTaxSection()
+
+    expect(await screen.findByText('NL')).toBeInTheDocument()
+    expect(screen.getByText('21.00%')).toBeInTheDocument()
+  })
+
+  it('Add tax rate converts the entered percent to basis points', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    vi.mocked(taxApi.upsertTaxRate).mockResolvedValue(taxRate({ id: 'rate-2', country: 'US', rate_basis_points: 850 }))
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('Standard')
+
+    await userEvent.type(screen.getByLabelText('Country'), 'us')
+    await userEvent.type(screen.getByLabelText('Rate %'), '8.5')
+    await userEvent.click(screen.getByRole('button', { name: 'Add rate' }))
+
+    await waitFor(() => expect(taxApi.upsertTaxRate).toHaveBeenCalledWith('test-token', {
+      tax_class_id: 'class-1', country: 'US', rate_basis_points: 850,
+    }))
+  })
+
+  it('Delete tax rate calls the API', async () => {
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([taxClass()])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([taxRate()])
+
+    render(<Settings />)
+    await openTaxSection()
+    await screen.findByText('NL')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove rate' }))
+
+    await waitFor(() => expect(taxApi.deleteTaxRate).toHaveBeenCalledWith('test-token', 'rate-1'))
   })
 })
