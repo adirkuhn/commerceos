@@ -110,7 +110,7 @@ type skuModel struct {
 	UnitsPerCase        *int64
 	UnitType            string  `gorm:"column:unit_type;not null;default:unit"`
 	PortionedFromSKUID  *string `gorm:"column:portioned_from_sku_id"`
-	Status              string `gorm:"not null"`
+	Status              string  `gorm:"not null"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -714,6 +714,18 @@ func (r *SKURepo) ListWithExpiredSale(ctx context.Context) ([]pmsDomain.SKU, err
 		skus[i] = *toSKUDomain(row)
 	}
 	return skus, nil
+}
+
+func (r *SKURepo) ExistsWithTaxClass(ctx context.Context, taxClassID string) (bool, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return false, err
+	}
+	var count int64
+	if err := tx.Model(&skuModel{}).Where("tax_class_id = ?", taxClassID).Limit(1).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("skuRepo.ExistsWithTaxClass: %w", err)
+	}
+	return count > 0, nil
 }
 
 func toSKUDomain(m skuModel) *pmsDomain.SKU {

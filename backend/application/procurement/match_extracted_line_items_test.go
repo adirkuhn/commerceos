@@ -334,3 +334,7 @@ func (s *erroringSKURepo) Delete(_ context.Context, _ string) error         { re
 func (s *erroringSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
 	return nil, nil
 }
+
+func (s *erroringSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}

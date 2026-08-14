@@ -257,6 +257,10 @@ func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, e
 	return nil, nil
 }
 
+func (s *stubSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
 // stubProductRepo implements pms.ProductRepository -- only List (the
 // name-search matching step uses) and FindByID are exercised; the rest are
 // unused no-ops.

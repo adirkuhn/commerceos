@@ -455,6 +455,10 @@ func (s *stubChannelsSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomai
 	return nil, nil
 }
 
+func (s *stubChannelsSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
 // ── channels stub ────────────────────────────────────────────────────────────
 
 type stubListingRepo struct {

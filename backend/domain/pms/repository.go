@@ -75,6 +75,10 @@ type SKURepository interface {
 	// cmd/scheduler) whose sale has a SaleEndDate in the past and still
 	// has a SalePriceMinorUnits set.
 	ListWithExpiredSale(ctx context.Context) ([]SKU, error)
+	// ExistsWithTaxClass reports whether any SKU explicitly references the
+	// given tax class -- used to guard tax.TaxClass deletion (see
+	// application/tax.DeleteTaxClassUseCase) without loading every SKU.
+	ExistsWithTaxClass(ctx context.Context, taxClassID string) (bool, error)
 }
 
 type MediaRepository interface {
