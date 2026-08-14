@@ -9,6 +9,9 @@ import type { SalesOrder, SalesOrderStatus, SalesOrderDetail, CreateSalesOrderIn
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { ProductSkuPicker } from './Procurement'
 import type { SKU } from '../pms/types'
+import { useTaxClasses } from '../tax/hooks/useTaxClasses'
+import { useTaxRates } from '../tax/hooks/useTaxRates'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 
 const PAGE_SIZE = 20
 const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed']
@@ -136,6 +139,9 @@ interface DraftLineItem {
   label: string
   quantity: string
   price: string
+  // null means "use the tenant's default tax class" -- same convention as
+  // pms.SKU.TaxClassID.
+  taxClassId: string | null
 }
 
 function emptyAddress(): Address {
@@ -145,6 +151,9 @@ function emptyAddress(): Address {
 function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>; onClose: () => void }) {
   const { token } = useAuth()
   const { warehouses } = useWarehouses(token ?? '')
+  const { classes: taxClasses } = useTaxClasses(token ?? '')
+  const { rates: taxRates } = useTaxRates(token ?? '')
+  const { settings: tenantSettings } = useTenantSettings(token ?? '')
 
   const [warehouseId, setWarehouseId] = useState('')
   const [currencyCode, setCurrencyCode] = useState('USD')
@@ -162,6 +171,7 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
     setLineItems(prev => [...prev, {
       key: `${sku.id}-${prev.length}`, skuId: sku.id, label,
       quantity: '1', price: (sku.price_minor_units / 100).toFixed(2),
+      taxClassId: sku.tax_class_id ?? null,
     }])
     setPickerOpen(false)
   }
@@ -174,11 +184,35 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
     setLineItems(prev => prev.filter(li => li.key !== key))
   }
 
-  const totalMinorUnits = lineItems.reduce((sum, li) => {
+  const defaultTaxClassId = taxClasses.find(c => c.is_default)?.id ?? null
+
+  // Per line: subtotal===total (no discount UI here), tax split out from it
+  // using the tenant's prices_include_tax convention -- same math as the
+  // product form's price preview, just applied per order line and summed.
+  function lineTax(li: DraftLineItem): { minorUnits: number; taxMinorUnits: number } {
     const qty = parseInt(li.quantity, 10) || 0
     const price = Math.round(parseFloat(li.price || '0') * 100)
-    return sum + qty * price
+    const minorUnits = qty * price
+    const taxClassId = li.taxClassId ?? defaultTaxClassId
+    const rate = taxClassId && tenantSettings?.default_tax_country
+      ? taxRates.find(r => r.tax_class_id === taxClassId && r.country === tenantSettings.default_tax_country)
+      : undefined
+    if (!rate) return { minorUnits, taxMinorUnits: 0 }
+    const rateFraction = rate.rate_basis_points / 10000
+    const taxMinorUnits = tenantSettings?.prices_include_tax
+      ? minorUnits - Math.round(minorUnits / (1 + rateFraction))
+      : Math.round(minorUnits * rateFraction)
+    return { minorUnits, taxMinorUnits }
+  }
+
+  const totalMinorUnits = lineItems.reduce((sum, li) => {
+    const { minorUnits, taxMinorUnits } = lineTax(li)
+    // prices_include_tax: the line price already carries the tax, so the
+    // order total is just the sum of line amounts. Exclusive prices: tax is
+    // added on top of each line to reach the order total.
+    return sum + minorUnits + (tenantSettings?.prices_include_tax ? 0 : taxMinorUnits)
   }, 0)
+  const taxTotalMinorUnits = lineItems.reduce((sum, li) => sum + lineTax(li).taxMinorUnits, 0)
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -194,12 +228,15 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
         occurred_at: new Date(occurredAt).toISOString(),
         customer_note: customerNote, billing, shipping,
         total_minor_units: totalMinorUnits,
+        tax_total_minor_units: taxTotalMinorUnits,
         line_items: lineItems.map((li): CreateSalesOrderLineItemInput => {
           const qty = parseInt(li.quantity, 10) || 0
           const price = Math.round(parseFloat(li.price || '0') * 100)
+          const { minorUnits, taxMinorUnits } = lineTax(li)
           return {
             sku_id: li.skuId, quantity: qty, price_minor_units: price,
-            subtotal_minor_units: qty * price, total_minor_units: qty * price,
+            subtotal_minor_units: minorUnits, subtotal_tax_minor_units: taxMinorUnits,
+            total_minor_units: minorUnits, total_tax_minor_units: taxMinorUnits,
           }
         }),
       }
@@ -330,8 +367,14 @@ function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateS
                   </tbody>
                 </table>
               )}
+              {lineItems.length > 0 && taxTotalMinorUnits > 0 && (
+                <div className="flex justify-between text-xs dark:text-gray-400 text-gray-500 pt-2 border-t dark:border-[#2D3748] border-gray-200">
+                  <span>Tax</span>
+                  <span>{formatMoney(taxTotalMinorUnits, currencyCode)}</span>
+                </div>
+              )}
               {lineItems.length > 0 && (
-                <div className="flex justify-between text-xs font-semibold dark:text-gray-100 text-gray-900 pt-2 border-t dark:border-[#2D3748] border-gray-200">
+                <div className={clsx('flex justify-between text-xs font-semibold dark:text-gray-100 text-gray-900', taxTotalMinorUnits > 0 ? 'pt-1' : 'pt-2 border-t dark:border-[#2D3748] border-gray-200')}>
                   <span>Total</span>
                   <span>{formatMoney(totalMinorUnits, currencyCode)}</span>
                 </div>

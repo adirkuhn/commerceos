@@ -26,9 +26,26 @@ vi.mock('../../pms/api', () => ({
   getProduct: vi.fn(),
 }))
 
+vi.mock('../../settings/api', () => ({
+  getTenantSettings: vi.fn(),
+  updateTenantSettings: vi.fn(),
+}))
+
+vi.mock('../../tax/api', () => ({
+  listTaxClasses: vi.fn(),
+  createTaxClass: vi.fn(),
+  updateTaxClass: vi.fn(),
+  deleteTaxClass: vi.fn(),
+  listTaxRates: vi.fn(),
+  upsertTaxRate: vi.fn(),
+  deleteTaxRate: vi.fn(),
+}))
+
 import * as omsApi from '../../oms/api'
 import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
+import * as tenantSettingsApi from '../../settings/api'
+import * as taxApi from '../../tax/api'
 
 function warehouse(overrides: Record<string, unknown> = {}) {
   return {
@@ -67,6 +84,12 @@ beforeEach(() => {
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
   vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
+  vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+    tenant_id: 'tenant-1', default_currency: 'USD', timezone: '', date_format: '', language: '',
+    prices_include_tax: true, default_tax_country: '', updated_at: '',
+  })
+  vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
+  vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
 })
 
 describe('Sales orders list', () => {
@@ -245,6 +268,66 @@ describe('Create sales order', () => {
 
     expect(await screen.findByText('Add at least one line item')).toBeInTheDocument()
     expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('computes per-line and order-level tax from the SKU tax class and tenant defaults', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'USD', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', updated_at: '',
+    })
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([
+      { id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2100, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({
+      products: [{
+        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
+        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
+        created_at: '', updated_at: '',
+      }],
+      total: 1,
+    })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: {
+        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
+        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
+        created_at: '', updated_at: '',
+      },
+      variants: [{
+        id: 'variant-1', tenant_id: 'tenant-1', product_id: 'product-1', name: 'Default', position: 0,
+        created_at: '', updated_at: '',
+        skus: [{
+          id: 'sku-1', tenant_id: 'tenant-1', variant_id: 'variant-1', sku_code: 'WID-001',
+          price_minor_units: 999, currency_code: 'USD', is_virtual: false, status: 'active',
+          created_at: '', updated_at: '',
+        }],
+      }],
+    })
+    vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
+    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
+
+    await userEvent.click(screen.getByRole('button', { name: /Add product/ }))
+    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
+    await userEvent.click(await screen.findByText('Widget Product'))
+    await userEvent.click(await screen.findByText('WID-001'))
+
+    expect(await screen.findByText(/Tax/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create Sales Order' }))
+
+    await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      tax_total_minor_units: 173,
+      line_items: [expect.objectContaining({
+        sku_id: 'sku-1', quantity: 1, price_minor_units: 999,
+        subtotal_minor_units: 999, subtotal_tax_minor_units: 173,
+        total_minor_units: 999, total_tax_minor_units: 173,
+      })],
+    })))
   })
 
   it('Discard returns to the list without creating', async () => {
