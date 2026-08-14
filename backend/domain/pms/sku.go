@@ -91,7 +91,12 @@ type SKU struct {
 	// referenced SKU must itself have UnitType=kilo and cannot itself
 	// have a PortionedFromSKUID (see ErrBulkSKUCannotBePortioned).
 	PortionedFromSKUID *string
-	Status             SKUStatus
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// TaxClassID is nil unless this SKU has its own tax.TaxClass assigned
+	// -- nil means "use the tenant's default class" (see
+	// tax.TaxClass.IsDefault), the common case, so most SKUs never set
+	// this at all.
+	TaxClassID *string
+	Status     SKUStatus
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

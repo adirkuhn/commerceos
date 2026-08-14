@@ -29,6 +29,21 @@ func TestCreateSKU_rejectsDimensionsOnVirtualSKU(t *testing.T) {
 	require.True(t, errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions))
 }
 
+func TestCreateSKU_persistsTaxClassID(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, TaxClassID: strPtr("class-1"),
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, sku.TaxClassID)
+	require.Equal(t, "class-1", *sku.TaxClassID)
+}
+
 func TestCreateSKU_allowsVirtualSKUWithoutDimensions(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}

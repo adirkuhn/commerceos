@@ -126,20 +126,24 @@ type stubDeleteVariant struct{ err error }
 func (s *stubDeleteVariant) Execute(_ context.Context, _ string) error { return s.err }
 
 type stubCreateSKU struct {
-	out *pmsDomain.SKU
-	err error
+	out      *pmsDomain.SKU
+	err      error
+	gotInput apppms.CreateSKUInput
 }
 
-func (s *stubCreateSKU) Execute(_ context.Context, _ apppms.CreateSKUInput) (*pmsDomain.SKU, error) {
+func (s *stubCreateSKU) Execute(_ context.Context, in apppms.CreateSKUInput) (*pmsDomain.SKU, error) {
+	s.gotInput = in
 	return s.out, s.err
 }
 
 type stubUpdateSKU struct {
-	out *pmsDomain.SKU
-	err error
+	out      *pmsDomain.SKU
+	err      error
+	gotInput apppms.UpdateSKUInput
 }
 
-func (s *stubUpdateSKU) Execute(_ context.Context, _ apppms.UpdateSKUInput) (*pmsDomain.SKU, error) {
+func (s *stubUpdateSKU) Execute(_ context.Context, in apppms.UpdateSKUInput) (*pmsDomain.SKU, error) {
+	s.gotInput = in
 	return s.out, s.err
 }
 
@@ -421,6 +425,30 @@ func TestUpdateSKU_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "2499")
 }
 
+func TestCreateSKU_passesTaxClassIdThrough(t *testing.T) {
+	taxClassID := "class-1"
+	s := &stubs{createSKU: stubCreateSKU{out: &pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 1999, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, TaxClassID: &taxClassID}}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/variants/v1/skus", map[string]any{
+		"sku_code": "WID-L", "price_minor_units": 1999, "currency_code": "USD", "status": "active", "tax_class_id": "class-1",
+	})
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.NotNil(t, s.createSKU.gotInput.TaxClassID)
+	assert.Equal(t, "class-1", *s.createSKU.gotInput.TaxClassID)
+	assert.Contains(t, w.Body.String(), "class-1")
+}
+
+func TestUpdateSKU_passesTaxClassIdThrough(t *testing.T) {
+	taxClassID := "class-2"
+	s := &stubs{updateSKU: stubUpdateSKU{out: &pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, TaxClassID: &taxClassID}}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/skus/s1", map[string]any{
+		"price_minor_units": 2499, "currency_code": "USD", "status": "active", "tax_class_id": "class-2",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, s.updateSKU.gotInput.TaxClassID)
+	assert.Equal(t, "class-2", *s.updateSKU.gotInput.TaxClassID)
+	assert.Contains(t, w.Body.String(), "class-2")
+}
+
 func TestDeleteSKU_notFound(t *testing.T) {
 	s := &stubs{deleteSKU: stubDeleteSKU{err: pmsDomain.ErrSKUNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/missing", nil)
@@ -429,7 +457,7 @@ func TestDeleteSKU_notFound(t *testing.T) {
 
 func TestResolveBarcode_success(t *testing.T) {
 	s := &stubs{resolveBarcode: stubResolveBarcode{out: &apppms.ResolveBarcodeResult{
-		SKU: pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive},
+		SKU:          pmsDomain.SKU{ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive},
 		UnitsPerScan: 1,
 		ProductName:  "Widget",
 	}}}

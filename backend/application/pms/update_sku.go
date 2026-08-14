@@ -28,6 +28,7 @@ type UpdateSKUInput struct {
 	UnitsPerCase        *int64
 	UnitType            pmsDomain.SKUUnitType
 	PortionedFromSKUID  *string
+	TaxClassID          *string
 	Status              pmsDomain.SKUStatus
 }
 
@@ -99,6 +100,7 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		existing.UnitsPerCase = in.UnitsPerCase
 		existing.UnitType = in.UnitType
 		existing.PortionedFromSKUID = in.PortionedFromSKUID
+		existing.TaxClassID = in.TaxClassID
 		existing.Status = in.Status
 		existing.UpdatedAt = time.Now()
 		if err := uc.skuRepo.Update(ctx, existing); err != nil {

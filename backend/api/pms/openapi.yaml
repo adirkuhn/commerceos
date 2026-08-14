@@ -560,6 +560,10 @@ components:
         # same portioned_from_sku_id, each consuming its own actual
         # weight.
         portioned_from_sku_id: { type: string, nullable: true }
+        # tax_class_id is null unless this SKU has its own tax class
+        # assigned -- null means "use the tenant's default class" (see
+        # the tax module's TaxClass.is_default).
+        tax_class_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -662,6 +666,7 @@ components:
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
         unit_type: { $ref: '#/components/schemas/SKUUnitType' }
         portioned_from_sku_id: { type: string, nullable: true }
+        tax_class_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     UpdateSKURequest:
@@ -683,6 +688,7 @@ components:
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
         unit_type: { $ref: '#/components/schemas/SKUUnitType' }
         portioned_from_sku_id: { type: string, nullable: true }
+        tax_class_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
     CategoryResponse:

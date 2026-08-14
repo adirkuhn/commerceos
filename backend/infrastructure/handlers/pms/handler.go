@@ -469,6 +469,7 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 		UnitsPerCase:        req.UnitsPerCase,
 		UnitType:            genSKUUnitTypeOrEmpty(req.UnitType),
 		PortionedFromSKUID:  req.PortionedFromSkuId,
+		TaxClassID:          req.TaxClassId,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
@@ -505,6 +506,7 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 		UnitsPerCase:        req.UnitsPerCase,
 		UnitType:            genSKUUnitTypeOrEmpty(req.UnitType),
 		PortionedFromSKUID:  req.PortionedFromSkuId,
+		TaxClassID:          req.TaxClassId,
 		Status:              pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
@@ -669,6 +671,7 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		UnitsPerCase:        s.UnitsPerCase,
 		UnitType:            &unitType,
 		PortionedFromSkuId:  s.PortionedFromSKUID,
+		TaxClassId:          s.TaxClassID,
 		Status:              genpms.SKUStatus(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,

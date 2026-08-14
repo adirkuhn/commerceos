@@ -29,6 +29,7 @@ type CreateSKUInput struct {
 	UnitsPerCase        *int64
 	UnitType            pmsDomain.SKUUnitType
 	PortionedFromSKUID  *string
+	TaxClassID          *string
 	Status              pmsDomain.SKUStatus
 }
 
@@ -110,6 +111,7 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 			UnitsPerCase:        in.UnitsPerCase,
 			UnitType:            in.UnitType,
 			PortionedFromSKUID:  in.PortionedFromSKUID,
+			TaxClassID:          in.TaxClassID,
 			Status:              in.Status,
 			CreatedAt:           now,
 			UpdatedAt:           now,

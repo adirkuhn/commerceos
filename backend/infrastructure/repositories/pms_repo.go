@@ -110,6 +110,7 @@ type skuModel struct {
 	UnitsPerCase        *int64
 	UnitType            string  `gorm:"column:unit_type;not null;default:unit"`
 	PortionedFromSKUID  *string `gorm:"column:portioned_from_sku_id"`
+	TaxClassID          *string `gorm:"column:tax_class_id"`
 	Status              string  `gorm:"not null"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -586,6 +587,7 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		UnitsPerCase:        s.UnitsPerCase,
 		UnitType:            string(s.UnitType),
 		PortionedFromSKUID:  s.PortionedFromSKUID,
+		TaxClassID:          s.TaxClassID,
 		Status:              string(s.Status),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
@@ -680,6 +682,7 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"units_per_case":         s.UnitsPerCase,
 			"unit_type":              string(s.UnitType),
 			"portioned_from_sku_id":  s.PortionedFromSKUID,
+			"tax_class_id":           s.TaxClassID,
 			"status":                 string(s.Status),
 			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
@@ -749,6 +752,7 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		UnitsPerCase:        m.UnitsPerCase,
 		UnitType:            pmsDomain.SKUUnitType(m.UnitType),
 		PortionedFromSKUID:  m.PortionedFromSKUID,
+		TaxClassID:          m.TaxClassID,
 		Status:              pmsDomain.SKUStatus(m.Status),
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
