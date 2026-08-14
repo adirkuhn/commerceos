@@ -79,6 +79,26 @@ func ParseWooPriceToMinorUnits(price string) (int64, error) {
 	return total, nil
 }
 
+// HumanizeWooTaxClassSlug turns a WooCommerce tax_class slug into a
+// display name for the domain/tax.TaxClass CommerceOS creates/reuses for
+// it -- "" and "standard" (Woo uses "" on products, "standard" on its
+// /wc/v3/taxes rate rows, for the same class) both mean Woo's own Standard
+// rate; anything else is title-cased word-by-word ("reduced-rate" ->
+// "Reduced Rate").
+func HumanizeWooTaxClassSlug(slug string) string {
+	if slug == "" || slug == "standard" {
+		return "Standard"
+	}
+	words := strings.Split(slug, "-")
+	for i, w := range words {
+		if w == "" {
+			continue
+		}
+		words[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	return strings.Join(words, " ")
+}
+
 // MapCommerceStatusToWoo is the push-direction inverse of MapWooStatus.
 // Not a perfect round-trip (Woo's pending/trash both collapse from draft/
 // archived on import) — pushing a CommerceOS product always produces one of

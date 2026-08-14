@@ -17,6 +17,7 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -72,6 +73,9 @@ type ImportWooProductsUseCase struct {
 	syncLogRepo      channelsDomain.SyncLogRepository
 	stock            stockRecorder
 	media            mediaUploader
+	taxClassRepo     taxDomain.TaxClassRepository
+	taxRateRepo      taxDomain.TaxRateRepository
+	taxLinkRepo      taxDomain.ExternalTaxClassLinkRepository
 }
 
 func NewImportWooProductsUseCase(
@@ -87,11 +91,15 @@ func NewImportWooProductsUseCase(
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stock stockRecorder,
 	media mediaUploader,
+	taxClassRepo taxDomain.TaxClassRepository,
+	taxRateRepo taxDomain.TaxRateRepository,
+	taxLinkRepo taxDomain.ExternalTaxClassLinkRepository,
 ) *ImportWooProductsUseCase {
 	return &ImportWooProductsUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		categoryRepo: categoryRepo, productRepo: productRepo, variantRepo: variantRepo,
 		skuRepo: skuRepo, listingRepo: listingRepo, syncLogRepo: syncLogRepo, stock: stock, media: media,
+		taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo, taxLinkRepo: taxLinkRepo,
 	}
 }
 
@@ -138,6 +146,20 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 		weightUnit, dimensionUnit = "", ""
 	}
 
+	// Best-effort, same reasoning as GetProductUnits above: a tax-rate
+	// fetch or reconciliation failure shouldn't abort importing hundreds
+	// of products over it. A product just imports with no tax class
+	// resolved (falls back to the tenant's default), same as before this
+	// feature existed.
+	wooRates, err := client.ListTaxRates(ctx)
+	if err != nil {
+		wooRates = nil
+	}
+	slugToClassID, err := uc.reconcileWooTaxClasses(ctx, wooRates)
+	if err != nil {
+		slugToClassID = map[string]string{}
+	}
+
 	result := ImportResult{}
 	for page := 1; page <= maxImportPages; page++ {
 		products, err := client.ListProducts(ctx, page, 50)
@@ -148,10 +170,114 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 			break
 		}
 		for _, wp := range products {
-			uc.importOne(ctx, in, client, catsByID, weightUnit, dimensionUnit, wp, &result)
+			uc.importOne(ctx, in, client, catsByID, weightUnit, dimensionUnit, slugToClassID, wp, &result)
 		}
 	}
 	return &result, nil
+}
+
+// reconcileWooTaxClasses maps each distinct Woo tax_class slug found in the
+// store's rate table onto one of this tenant's domain/tax.TaxClass rows --
+// reusing the link recorded by an earlier run (or set by staff in Settings
+// > Tax) when one exists, auto-creating both the TaxClass and its link the
+// first time a new slug is seen. Country-level rates (state == "") for
+// that class are upserted from Woo's own numbers. Returns early without
+// touching the DB at all when the store reports no tax rates -- keeps a
+// tenant that hasn't configured Woo tax from paying for an empty
+// transaction on every import run.
+func (uc *ImportWooProductsUseCase) reconcileWooTaxClasses(ctx context.Context, wooRates []integrationsDomain.WooTaxRate) (map[string]string, error) {
+	ratesByClass := make(map[string][]integrationsDomain.WooTaxRate)
+	for _, r := range wooRates {
+		ratesByClass[r.Class] = append(ratesByClass[r.Class], r)
+	}
+	if len(ratesByClass) == 0 {
+		return map[string]string{}, nil
+	}
+
+	slugToClassID := make(map[string]string, len(ratesByClass))
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		for slug, rates := range ratesByClass {
+			taxClassID, err := uc.resolveOrCreateTaxClassForWooSlug(ctx, slug)
+			if err != nil {
+				return err
+			}
+			slugToClassID[slug] = taxClassID
+
+			for _, r := range rates {
+				// Country-level only -- see domain/tax.TaxRate's scope
+				// (no state/postcode granularity). A row with no country
+				// at all ("applies everywhere") has nothing meaningful to
+				// key our tenant-wide-per-country table on, so it's
+				// skipped rather than guessed at.
+				if r.State != "" || r.Country == "" {
+					continue
+				}
+				bp, err := ParseWooPriceToMinorUnits(r.Rate)
+				if err != nil {
+					continue // an unparseable single rate row shouldn't abort the whole reconciliation
+				}
+				now := time.Now()
+				rate := taxDomain.TaxRate{
+					TenantID: tenant.IDFromContext(ctx), TaxClassID: taxClassID,
+					Country: strings.ToUpper(r.Country), RateBasisPoints: int32(bp),
+					CreatedAt: now, UpdatedAt: now,
+				}
+				if err := uc.taxRateRepo.Upsert(ctx, &rate); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	return slugToClassID, err
+}
+
+// resolveOrCreateTaxClassForWooSlug looks up an existing link for this Woo
+// tax_class slug; if none exists yet, creates a new TaxClass (named from
+// the slug -- see HumanizeWooTaxClassSlug) and records the link so this
+// and future runs, and Settings > Tax's external-links list, agree on it.
+func (uc *ImportWooProductsUseCase) resolveOrCreateTaxClassForWooSlug(ctx context.Context, slug string) (string, error) {
+	link, err := uc.taxLinkRepo.FindByProviderAndSlug(ctx, string(integrationsDomain.ProviderWooCommerce), slug)
+	if err == nil {
+		return link.TaxClassID, nil
+	}
+	if !errors.Is(err, taxDomain.ErrExternalTaxClassLinkNotFound) {
+		return "", err
+	}
+
+	now := time.Now()
+	class := taxDomain.TaxClass{
+		TenantID: tenant.IDFromContext(ctx), Name: HumanizeWooTaxClassSlug(slug), CreatedAt: now, UpdatedAt: now,
+	}
+	if err := uc.taxClassRepo.Create(ctx, &class); err != nil {
+		return "", err
+	}
+	newLink := taxDomain.ExternalTaxClassLink{
+		TenantID: tenant.IDFromContext(ctx), Provider: string(integrationsDomain.ProviderWooCommerce),
+		ExternalSlug: slug, TaxClassID: class.ID, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := uc.taxLinkRepo.Upsert(ctx, &newLink); err != nil {
+		return "", err
+	}
+	return class.ID, nil
+}
+
+// resolveProductTaxClassID resolves one product/variation's Woo tax_class
+// slug to a TaxClassID -- first from this run's reconciled map (the common
+// case), falling back to a direct link lookup for a slug the store's rate
+// table didn't mention at all (a class with zero configured rates). Never
+// errors: an unresolvable slug just means the SKU falls back to the
+// tenant's default class, same as before this feature existed.
+func (uc *ImportWooProductsUseCase) resolveProductTaxClassID(ctx context.Context, slugToClassID map[string]string, slug string) *string {
+	if id, ok := slugToClassID[slug]; ok {
+		return &id
+	}
+	link, err := uc.taxLinkRepo.FindByProviderAndSlug(ctx, string(integrationsDomain.ProviderWooCommerce), slug)
+	if err != nil {
+		return nil
+	}
+	id := link.TaxClassID
+	return &id
 }
 
 // importOne processes a single Woo product. Failures here are recorded on
@@ -160,6 +286,7 @@ func (uc *ImportWooProductsUseCase) Execute(ctx context.Context, in ImportWooPro
 func (uc *ImportWooProductsUseCase) importOne(
 	ctx context.Context, in ImportWooProductsInput, client integrationsDomain.WooClient,
 	catsByID map[string]integrationsDomain.WooCategory, weightUnit, dimensionUnit string,
+	slugToClassID map[string]string,
 	wp integrationsDomain.WooProduct, result *ImportResult,
 ) {
 	if !ShouldImportWooProductType(wp.Type) {
@@ -272,11 +399,15 @@ func (uc *ImportWooProductsUseCase) importOne(
 		if skuCode == "" {
 			skuCode = "WOO-" + wp.ID
 		}
+		wooTaxClass, wooTaxStatus := wp.TaxClass, wp.TaxStatus
 		sku := pmsDomain.SKU{
 			TenantID: tenantID, VariantID: variant.ID, SKUCode: skuCode,
 			PriceMinorUnits: priceMinorUnits, CurrencyCode: in.DefaultCurrency,
-			IsVirtual: wp.Virtual,
-			Status:    pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
+			IsVirtual:       wp.Virtual,
+			TaxClassID:      uc.resolveProductTaxClassID(ctx, slugToClassID, wp.TaxClass),
+			WooTaxClassSlug: &wooTaxClass,
+			WooTaxStatus:    &wooTaxStatus,
+			Status:          pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
 		}
 		// A virtual SKU never ships, so it can never carry weight/dimensions
 		// (enforced elsewhere too — see ErrVirtualSKUCannotHaveDimensions).

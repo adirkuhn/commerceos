@@ -12,6 +12,7 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 )
 
@@ -29,6 +30,9 @@ type harness struct {
 	syncLogRepo  *stubSyncLogRepo
 	stock        *stubStockRecorder
 	media        *stubMediaUploader
+	taxClassRepo *stubChannelsTaxClassRepo
+	taxRateRepo  *stubChannelsTaxRateRepo
+	taxLinkRepo  *stubChannelsExternalTaxClassLinkRepo
 }
 
 func newHarness(products []integrationsDomain.WooProduct) *harness {
@@ -67,6 +71,9 @@ func newHarness(products []integrationsDomain.WooProduct) *harness {
 		syncLogRepo:  &stubSyncLogRepo{},
 		stock:        &stubStockRecorder{},
 		media:        &stubMediaUploader{},
+		taxClassRepo: &stubChannelsTaxClassRepo{},
+		taxRateRepo:  &stubChannelsTaxRateRepo{},
+		taxLinkRepo:  &stubChannelsExternalTaxClassLinkRepo{},
 	}
 }
 
@@ -77,6 +84,7 @@ func (h *harness) newImportUseCase(t *testing.T, n int) *appchannels.ImportWooPr
 	return appchannels.NewImportWooProductsUseCase(
 		newMockGormDB(t, n), h.connRepo, h.wooFactory, testEncryptionSecret,
 		h.categoryRepo, h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, h.stock, h.media,
+		h.taxClassRepo, h.taxRateRepo, h.taxLinkRepo,
 	)
 }
 
@@ -367,6 +375,102 @@ func TestImportWooProducts_marksSKUVirtualWhenWooProductIsVirtual(t *testing.T) 
 	require.NoError(t, err)
 	require.Len(t, h.skuRepo.created, 1)
 	require.True(t, h.skuRepo.created[0].IsVirtual)
+}
+
+// ── Tax class reconciliation ─────────────────────────────────────────────────
+
+func TestImportWooProducts_setsTaxClassFromWooTaxClassSlugCreatingItOnFirstSight(t *testing.T) {
+	product := simpleWooProduct()
+	product.TaxClass = "reduced-rate"
+	product.TaxStatus = "taxable"
+	h := newHarness([]integrationsDomain.WooProduct{product})
+	h.wooClient.taxRates = []integrationsDomain.WooTaxRate{
+		{ID: "1", Country: "NL", Rate: "21.0000", Class: "reduced-rate"},
+	}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.taxClassRepo.created, 1)
+	require.Equal(t, "Reduced Rate", h.taxClassRepo.created[0].Name)
+	require.Len(t, h.taxRateRepo.upserted, 1)
+	require.Equal(t, "NL", h.taxRateRepo.upserted[0].Country)
+	require.Equal(t, int32(2100), h.taxRateRepo.upserted[0].RateBasisPoints)
+	require.Len(t, h.skuRepo.created, 1)
+	require.NotNil(t, h.skuRepo.created[0].TaxClassID)
+	require.Equal(t, h.taxClassRepo.created[0].ID, *h.skuRepo.created[0].TaxClassID)
+}
+
+func TestImportWooProducts_reusesAnExistingExternalTaxClassLinkInsteadOfCreatingANewClass(t *testing.T) {
+	product := simpleWooProduct()
+	product.TaxClass = "reduced-rate"
+	h := newHarness([]integrationsDomain.WooProduct{product})
+	h.wooClient.taxRates = []integrationsDomain.WooTaxRate{
+		{ID: "1", Country: "NL", Rate: "21.0000", Class: "reduced-rate"},
+	}
+	h.taxLinkRepo.links = map[string]taxDomain.ExternalTaxClassLink{
+		"woocommerce|reduced-rate": {ID: "link-1", Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: "existing-class-1"},
+	}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, h.taxClassRepo.created, "must not create a duplicate class when a link already exists")
+	require.Len(t, h.skuRepo.created, 1)
+	require.NotNil(t, h.skuRepo.created[0].TaxClassID)
+	require.Equal(t, "existing-class-1", *h.skuRepo.created[0].TaxClassID)
+}
+
+func TestImportWooProducts_storesWooTaxClassAndStatusOnSKUEvenWithNoRatesConfigured(t *testing.T) {
+	product := simpleWooProduct()
+	product.TaxClass = "reduced-rate"
+	product.TaxStatus = "taxable"
+	h := newHarness([]integrationsDomain.WooProduct{product})
+	// No tax rates fetched from Woo at all -- reconciliation short-circuits,
+	// TaxClassID stays nil (falls back to the tenant default), but the raw
+	// Woo values are still recorded for traceability.
+	uc := h.newImportUseCase(t, 3)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.skuRepo.created, 1)
+	require.Nil(t, h.skuRepo.created[0].TaxClassID)
+	require.NotNil(t, h.skuRepo.created[0].WooTaxClassSlug)
+	require.Equal(t, "reduced-rate", *h.skuRepo.created[0].WooTaxClassSlug)
+	require.NotNil(t, h.skuRepo.created[0].WooTaxStatus)
+	require.Equal(t, "taxable", *h.skuRepo.created[0].WooTaxStatus)
+}
+
+func TestImportWooProducts_skipsStateSpecificAndCountrylessTaxRates(t *testing.T) {
+	product := simpleWooProduct()
+	product.TaxClass = "reduced-rate"
+	h := newHarness([]integrationsDomain.WooProduct{product})
+	h.wooClient.taxRates = []integrationsDomain.WooTaxRate{
+		{ID: "1", Country: "US", State: "CA", Rate: "8.25", Class: "reduced-rate"}, // state-specific -- skipped
+		{ID: "2", Country: "", Rate: "5.00", Class: "reduced-rate"},                // no country -- skipped
+		{ID: "3", Country: "NL", Rate: "21.0000", Class: "reduced-rate"},           // country-level -- kept
+	}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.taxRateRepo.upserted, 1)
+	require.Equal(t, "NL", h.taxRateRepo.upserted[0].Country)
 }
 
 // ── Category hierarchy ───────────────────────────────────────────────────────

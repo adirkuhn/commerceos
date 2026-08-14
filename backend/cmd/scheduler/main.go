@@ -127,9 +127,13 @@ func main() {
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
 	)
+	taxClassRepo := repositories.NewTaxClassRepo(db)
+	taxRateRepo := repositories.NewTaxRateRepo(db)
+	taxLinkRepo := repositories.NewExternalTaxClassLinkRepo(db)
 	importUC := channelsapp.NewImportWooProductsUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		categoryRepo, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockRecorderUC, uploadMediaUC,
+		taxClassRepo, taxRateRepo, taxLinkRepo,
 	)
 	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
 

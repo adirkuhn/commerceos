@@ -36,6 +36,21 @@ func TestShouldImportWooProductType(t *testing.T) {
 	}
 }
 
+func TestHumanizeWooTaxClassSlug(t *testing.T) {
+	cases := map[string]string{
+		"":             "Standard",
+		"standard":     "Standard",
+		"reduced-rate": "Reduced Rate",
+		"zero-rate":    "Zero Rate",
+		"custom":       "Custom",
+	}
+	for slug, want := range cases {
+		if got := appchannels.HumanizeWooTaxClassSlug(slug); got != want {
+			t.Errorf("HumanizeWooTaxClassSlug(%q) = %q, want %q", slug, got, want)
+		}
+	}
+}
+
 func TestParseWooPriceToMinorUnits(t *testing.T) {
 	cases := map[string]int64{
 		"1.49":  149,

@@ -24,6 +24,7 @@ import (
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 )
 
 func strPtr(s string) *string { return &s }
@@ -890,3 +891,101 @@ func (s *stubUpdateSalesOrderUC) Execute(_ context.Context, id string, in appoms
 	}
 	return &omsDomain.SalesOrder{ID: id}, nil
 }
+
+// ── tax stubs (ImportWooProductsUseCase's class/rate/link reconciliation) ──
+
+type stubChannelsTaxClassRepo struct {
+	created   []taxDomain.TaxClass
+	createErr error
+}
+
+func (s *stubChannelsTaxClassRepo) Create(_ context.Context, c *taxDomain.TaxClass) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	if c.ID == "" {
+		c.ID = fmt.Sprintf("class-%d", len(s.created)+1)
+	}
+	s.created = append(s.created, *c)
+	return nil
+}
+func (s *stubChannelsTaxClassRepo) FindByID(_ context.Context, id string) (*taxDomain.TaxClass, error) {
+	for _, c := range s.created {
+		if c.ID == id {
+			cc := c
+			return &cc, nil
+		}
+	}
+	return nil, taxDomain.ErrTaxClassNotFound
+}
+func (s *stubChannelsTaxClassRepo) List(_ context.Context) ([]taxDomain.TaxClass, error) {
+	return s.created, nil
+}
+func (s *stubChannelsTaxClassRepo) Update(_ context.Context, _ *taxDomain.TaxClass) error { return nil }
+func (s *stubChannelsTaxClassRepo) Delete(_ context.Context, _ string) error              { return nil }
+
+type stubChannelsTaxRateRepo struct {
+	upserted  []taxDomain.TaxRate
+	upsertErr error
+}
+
+func (s *stubChannelsTaxRateRepo) Upsert(_ context.Context, r *taxDomain.TaxRate) error {
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	if r.ID == "" {
+		r.ID = fmt.Sprintf("rate-%d", len(s.upserted)+1)
+	}
+	s.upserted = append(s.upserted, *r)
+	return nil
+}
+func (s *stubChannelsTaxRateRepo) FindByID(_ context.Context, _ string) (*taxDomain.TaxRate, error) {
+	return nil, taxDomain.ErrTaxRateNotFound
+}
+func (s *stubChannelsTaxRateRepo) List(_ context.Context) ([]taxDomain.TaxRate, error) {
+	return s.upserted, nil
+}
+func (s *stubChannelsTaxRateRepo) Delete(_ context.Context, _ string) error { return nil }
+
+type stubChannelsExternalTaxClassLinkRepo struct {
+	links     map[string]taxDomain.ExternalTaxClassLink // key: provider+"|"+externalSlug
+	upsertErr error
+}
+
+func (s *stubChannelsExternalTaxClassLinkRepo) Upsert(_ context.Context, l *taxDomain.ExternalTaxClassLink) error {
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	if s.links == nil {
+		s.links = map[string]taxDomain.ExternalTaxClassLink{}
+	}
+	if l.ID == "" {
+		l.ID = fmt.Sprintf("link-%d", len(s.links)+1)
+	}
+	s.links[l.Provider+"|"+l.ExternalSlug] = *l
+	return nil
+}
+func (s *stubChannelsExternalTaxClassLinkRepo) FindByID(_ context.Context, id string) (*taxDomain.ExternalTaxClassLink, error) {
+	for _, l := range s.links {
+		if l.ID == id {
+			ll := l
+			return &ll, nil
+		}
+	}
+	return nil, taxDomain.ErrExternalTaxClassLinkNotFound
+}
+func (s *stubChannelsExternalTaxClassLinkRepo) FindByProviderAndSlug(_ context.Context, provider, externalSlug string) (*taxDomain.ExternalTaxClassLink, error) {
+	if l, ok := s.links[provider+"|"+externalSlug]; ok {
+		ll := l
+		return &ll, nil
+	}
+	return nil, taxDomain.ErrExternalTaxClassLinkNotFound
+}
+func (s *stubChannelsExternalTaxClassLinkRepo) List(_ context.Context) ([]taxDomain.ExternalTaxClassLink, error) {
+	out := make([]taxDomain.ExternalTaxClassLink, 0, len(s.links))
+	for _, l := range s.links {
+		out = append(out, l)
+	}
+	return out, nil
+}
+func (s *stubChannelsExternalTaxClassLinkRepo) Delete(_ context.Context, _ string) error { return nil }
