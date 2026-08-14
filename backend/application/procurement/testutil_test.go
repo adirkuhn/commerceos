@@ -422,8 +422,8 @@ func (s *stubParsingJobRepo) MarkCompleted(_ context.Context, _ string, _ time.T
 func (s *stubParsingJobRepo) MarkFailed(_ context.Context, _ string, _ string, _ time.Time) error {
 	return nil
 }
-func (s *stubParsingJobRepo) MarkOrphanedRunningAsFailed(_ context.Context, _ string, _ time.Time) (int64, error) {
-	return 0, nil
+func (s *stubParsingJobRepo) RecoverOrphanedRunning(_ context.Context, _ int, _ string, _ time.Time) (int64, int64, error) {
+	return 0, 0, nil
 }
 
 type stubFileStorage struct {
@@ -550,8 +550,8 @@ func (s *stubReceivingParsingJobRepo) MarkCompleted(_ context.Context, _ string,
 func (s *stubReceivingParsingJobRepo) MarkFailed(_ context.Context, _ string, _ string, _ time.Time) error {
 	return nil
 }
-func (s *stubReceivingParsingJobRepo) MarkOrphanedRunningAsFailed(_ context.Context, _ string, _ time.Time) (int64, error) {
-	return 0, nil
+func (s *stubReceivingParsingJobRepo) RecoverOrphanedRunning(_ context.Context, _ int, _ string, _ time.Time) (int64, int64, error) {
+	return 0, 0, nil
 }
 
 type stubPDFTextExtractor struct {

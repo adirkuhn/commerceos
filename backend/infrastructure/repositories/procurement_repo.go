@@ -498,6 +498,7 @@ type documentParsingJobModel struct {
 	CreatedAt       time.Time
 	StartedAt       *time.Time
 	FinishedAt      *time.Time
+	RetryCount      int `gorm:"column:retry_count;not null;default:0"`
 }
 
 func (documentParsingJobModel) TableName() string { return "document_parsing_jobs" }
@@ -603,24 +604,32 @@ func (r *DocumentParsingJobRepo) MarkFailed(ctx context.Context, id string, errM
 	return nil
 }
 
-func (r *DocumentParsingJobRepo) MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error) {
+func (r *DocumentParsingJobRepo) RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (int64, int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	result := tx.Model(&documentParsingJobModel{}).Where("status = ?", string(procurementDomain.DocumentParsingJobRunning)).
+	requeued := tx.Model(&documentParsingJobModel{}).
+		Where("status = ? AND retry_count < ?", string(procurementDomain.DocumentParsingJobRunning), maxRetries).
+		Updates(map[string]any{
+			"status": string(procurementDomain.DocumentParsingJobPending), "retry_count": gorm.Expr("retry_count + 1"), "started_at": nil,
+		})
+	if requeued.Error != nil {
+		return 0, 0, fmt.Errorf("documentParsingJobRepo.RecoverOrphanedRunning: requeue: %w", requeued.Error)
+	}
+	failed := tx.Model(&documentParsingJobModel{}).Where("status = ?", string(procurementDomain.DocumentParsingJobRunning)).
 		Updates(map[string]any{"status": string(procurementDomain.DocumentParsingJobFailed), "error_message": errMsg, "finished_at": finishedAt})
-	if result.Error != nil {
-		return 0, fmt.Errorf("documentParsingJobRepo.MarkOrphanedRunningAsFailed: %w", result.Error)
+	if failed.Error != nil {
+		return requeued.RowsAffected, 0, fmt.Errorf("documentParsingJobRepo.RecoverOrphanedRunning: fail: %w", failed.Error)
 	}
-	return result.RowsAffected, nil
+	return requeued.RowsAffected, failed.RowsAffected, nil
 }
 
 func toParsingJobDomain(m documentParsingJobModel) *procurementDomain.DocumentParsingJob {
 	return &procurementDomain.DocumentParsingJob{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID, DocumentID: m.DocumentID,
 		Status: procurementDomain.DocumentParsingJobStatus(m.Status), ErrorMessage: m.ErrorMessage,
-		CreatedAt: m.CreatedAt, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt,
+		CreatedAt: m.CreatedAt, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt, RetryCount: m.RetryCount,
 	}
 }
 

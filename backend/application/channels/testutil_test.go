@@ -676,8 +676,8 @@ func (s *stubImportJobRepo) MarkCompleted(_ context.Context, _ string, _, _, _ i
 func (s *stubImportJobRepo) MarkFailed(_ context.Context, _ string, _ string, _ time.Time) error {
 	return nil
 }
-func (s *stubImportJobRepo) MarkOrphanedRunningAsFailed(_ context.Context, _ string, _ time.Time) (int64, error) {
-	return 0, nil
+func (s *stubImportJobRepo) RecoverOrphanedRunning(_ context.Context, _ int, _ string, _ time.Time) (int64, int64, error) {
+	return 0, 0, nil
 }
 
 // ── sales channel stubs ──────────────────────────────────────────────────────

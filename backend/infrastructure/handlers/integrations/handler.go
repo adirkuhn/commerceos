@@ -242,7 +242,7 @@ func Register(
 		appintegrations.NewTestConnectionUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appintegrations.NewListWooTaxesUseCase(db, connRepo, wooFactory, encryptionSecret),
 		appchannels.NewCreateImportJobUseCase(
-			db, importJobRepo, appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
+			db, importJobRepo, listingRepo, appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 		),
 		appchannels.NewPushProductToWooUseCase(
 			db, connRepo, wooFactory, encryptionSecret,

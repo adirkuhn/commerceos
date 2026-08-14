@@ -56,6 +56,13 @@ const documentParsingJobPollInterval = 5 * time.Second
 // promptly.
 const receivingParsingJobPollInterval = 5 * time.Second
 
+// maxJobRetries caps how many times the startup recovery pass will requeue
+// a job found stuck "running" (crash, redeploy) back to pending instead of
+// failing it outright — see recoverOrphanedImportJobs and its two
+// procurement siblings. Bounds a job whose own execution reliably crashes
+// the scheduler process from requeuing itself forever.
+const maxJobRetries = 3
+
 // buildFileStorage mirrors cmd/api/main.go's helper of the same name —
 // each binary wires its own dependencies (no shared main-package library
 // between commands), matching this codebase's existing convention.
@@ -214,7 +221,7 @@ func main() {
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
 		stockRecorderUC, updateSalesOrderUC,
 	)
-	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(db, listingRepo, importUC, ordersImportUC)
+	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, ordersImportUC)
 
 	rs := buildRunners(
 		importUC,
@@ -352,25 +359,29 @@ func runExpiredSalePrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SK
 	}
 }
 
-// recoverOrphanedImportJobs fails every job left "running" by a scheduler
-// process that never got to mark it terminal — see the call site's comment
-// for why this matters. Cross-tenant, so it runs under SuperAdmin like the
-// rest of this file's polling functions. A failure here is logged, not
-// fatal — worst case, a stuck job just waits for the next restart.
+// recoverOrphanedImportJobs requeues (or, past maxJobRetries, fails) every
+// job left "running" by a scheduler process that never got to mark it
+// terminal — see the call site's comment for why this matters. Cross-tenant,
+// so it runs under SuperAdmin like the rest of this file's polling
+// functions. A failure here is logged, not fatal — worst case, a stuck job
+// just waits for the next restart.
 func recoverOrphanedImportJobs(ctx context.Context, db *gorm.DB, jobRepo channelsDomain.ImportJobRepository) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
-	var recovered int64
+	var requeued, failed int64
 	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
 		var err error
-		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "interrupted: scheduler restarted while this job was running", time.Now())
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, maxJobRetries, "interrupted: scheduler restarted while this job was running", time.Now())
 		return err
 	})
 	if err != nil {
 		log.Printf("recover orphaned import jobs: %v", err)
 		return
 	}
-	if recovered > 0 {
-		log.Printf("recovered %d orphaned import job(s) left running by a previous scheduler process", recovered)
+	if requeued > 0 {
+		log.Printf("requeued %d orphaned import job(s) left running by a previous scheduler process", requeued)
+	}
+	if failed > 0 {
+		log.Printf("failed %d orphaned import job(s) that exhausted retries", failed)
 	}
 }
 
@@ -425,6 +436,7 @@ func runImportJob(
 
 	result, err := runImportUC.Execute(runCtx, channelsapp.RunManualWooImportInput{
 		ConnectionID: job.ConnectionID, DefaultWarehouseID: job.DefaultWarehouseID, DefaultCurrency: job.DefaultCurrency,
+		IsFirstImport: job.IsFirstImport,
 	})
 	finishedAt := time.Now()
 
@@ -459,18 +471,21 @@ func runImportJob(
 // DocumentParsingJob -- see that function's comment for the full rationale.
 func recoverOrphanedDocumentParsingJobs(ctx context.Context, db *gorm.DB, jobRepo procurementDomain.DocumentParsingJobRepository) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
-	var recovered int64
+	var requeued, failed int64
 	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
 		var err error
-		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "interrupted: scheduler restarted while this job was running", time.Now())
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, maxJobRetries, "interrupted: scheduler restarted while this job was running", time.Now())
 		return err
 	})
 	if err != nil {
 		log.Printf("recover orphaned document parsing jobs: %v", err)
 		return
 	}
-	if recovered > 0 {
-		log.Printf("recovered %d orphaned document parsing job(s) left running by a previous scheduler process", recovered)
+	if requeued > 0 {
+		log.Printf("requeued %d orphaned document parsing job(s) left running by a previous scheduler process", requeued)
+	}
+	if failed > 0 {
+		log.Printf("failed %d orphaned document parsing job(s) that exhausted retries", failed)
 	}
 }
 
@@ -550,18 +565,21 @@ func runDocumentParsingJob(
 // full rationale.
 func recoverOrphanedReceivingParsingJobs(ctx context.Context, db *gorm.DB, jobRepo procurementDomain.ReceivingParsingJobRepository) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
-	var recovered int64
+	var requeued, failed int64
 	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
 		var err error
-		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "interrupted: scheduler restarted while this job was running", time.Now())
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, maxJobRetries, "interrupted: scheduler restarted while this job was running", time.Now())
 		return err
 	})
 	if err != nil {
 		log.Printf("recover orphaned receiving parsing jobs: %v", err)
 		return
 	}
-	if recovered > 0 {
-		log.Printf("recovered %d orphaned receiving parsing job(s) left running by a previous scheduler process", recovered)
+	if requeued > 0 {
+		log.Printf("requeued %d orphaned receiving parsing job(s) left running by a previous scheduler process", requeued)
+	}
+	if failed > 0 {
+		log.Printf("failed %d orphaned receiving parsing job(s) that exhausted retries", failed)
 	}
 }
 

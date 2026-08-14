@@ -172,7 +172,14 @@ func TestDocumentParsingJobRepo_Integration_Lifecycle(t *testing.T) {
 	require.NotNil(t, found.FinishedAt)
 }
 
-func TestDocumentParsingJobRepo_Integration_MarkOrphanedRunningAsFailed(t *testing.T) {
+// TestDocumentParsingJobRepo_Integration_RecoverOrphanedRunning proves both
+// branches against real Postgres: a job below maxRetries is requeued to
+// pending (with retry_count incremented and started_at cleared) instead of
+// failed outright, so the scheduler's next poll picks it back up
+// automatically; a job that has already exhausted its retries is failed,
+// so a job whose own execution reliably crashes the scheduler can't
+// requeue itself forever.
+func TestDocumentParsingJobRepo_Integration_RecoverOrphanedRunning(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
 
@@ -182,56 +189,101 @@ func TestDocumentParsingJobRepo_Integration_MarkOrphanedRunningAsFailed(t *testi
 	jobRepo := repositories.NewDocumentParsingJobRepo(db)
 	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
 
-	var job procurementDomain.DocumentParsingJob
-	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		now := time.Now()
-		supplier := &suppliersDomain.Supplier{
-			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
-			CreatedAt: now, UpdatedAt: now,
-		}
-		require.NoError(t, supplierRepo.Create(ctx, supplier))
-		po := procurementDomain.PurchaseOrder{
-			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
-			Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
-		}
-		require.NoError(t, poRepo.Create(ctx, &po))
-		doc := procurementDomain.PurchaseOrderDocument{
-			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID,
-			FileURL: "https://example.com/order.csv", FileName: "order.csv", ContentType: "text/csv", CreatedAt: now,
-		}
-		require.NoError(t, docRepo.Create(ctx, &doc))
-		job = procurementDomain.DocumentParsingJob{
-			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID, DocumentID: doc.ID,
-			Status: procurementDomain.DocumentParsingJobPending, CreatedAt: now,
-		}
-		return jobRepo.Create(ctx, &job)
-	})
-	require.NoError(t, err)
+	seedJob := func(t *testing.T) procurementDomain.DocumentParsingJob {
+		t.Helper()
+		var job procurementDomain.DocumentParsingJob
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			now := time.Now()
+			supplier := &suppliersDomain.Supplier{
+				TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+				CreatedAt: now, UpdatedAt: now,
+			}
+			require.NoError(t, supplierRepo.Create(ctx, supplier))
+			po := procurementDomain.PurchaseOrder{
+				TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+				Status: procurementDomain.PurchaseOrderStatusDraft, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+			}
+			require.NoError(t, poRepo.Create(ctx, &po))
+			doc := procurementDomain.PurchaseOrderDocument{
+				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID,
+				FileURL: "https://example.com/order.csv", FileName: "order.csv", ContentType: "text/csv", CreatedAt: now,
+			}
+			require.NoError(t, docRepo.Create(ctx, &doc))
+			job = procurementDomain.DocumentParsingJob{
+				TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID, DocumentID: doc.ID,
+				Status: procurementDomain.DocumentParsingJobPending, CreatedAt: now,
+			}
+			return jobRepo.Create(ctx, &job)
+		})
+		require.NoError(t, err)
+		return job
+	}
 
 	adminCtx := tenant.WithSuperAdmin(context.Background())
 
+	belowCap := seedJob(t)
 	require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		return jobRepo.MarkRunning(ctx, job.ID, time.Now())
+		return jobRepo.MarkRunning(ctx, belowCap.ID, time.Now())
 	}))
 
-	var recovered int64
-	err = tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+	var requeued, failed int64
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
 		var err error
-		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "scheduler restarted mid-job", time.Now())
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, 3, "scheduler restarted mid-job", time.Now())
 		return err
 	})
 	require.NoError(t, err)
-	require.Equal(t, int64(1), recovered)
+	require.Equal(t, int64(1), requeued)
+	require.Equal(t, int64(0), failed)
 
-	var found *procurementDomain.DocumentParsingJob
+	var foundBelowCap *procurementDomain.DocumentParsingJob
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		found, err = jobRepo.FindByID(ctx, job.ID)
+		foundBelowCap, err = jobRepo.FindByID(ctx, belowCap.ID)
 		return err
 	})
 	require.NoError(t, err)
-	require.Equal(t, procurementDomain.DocumentParsingJobFailed, found.Status)
-	require.Equal(t, "scheduler restarted mid-job", found.ErrorMessage)
+	require.Equal(t, procurementDomain.DocumentParsingJobPending, foundBelowCap.Status, "below maxRetries -- must requeue, not fail")
+	require.Equal(t, 1, foundBelowCap.RetryCount)
+	require.Nil(t, foundBelowCap.StartedAt, "cleared so it reads as not-yet-attempted again")
+
+	const maxRetries = 3
+	exhausted := seedJob(t)
+	// Simulate maxRetries prior crash-and-requeue cycles having already
+	// happened for this job -- retry_count reaches maxRetries, so the next
+	// recovery pass must fail it instead of requeuing again.
+	for i := 0; i < maxRetries; i++ {
+		require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+			return jobRepo.MarkRunning(ctx, exhausted.ID, time.Now())
+		}))
+		require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+			_, _, err := jobRepo.RecoverOrphanedRunning(ctx, maxRetries, "prior attempt", time.Now())
+			return err
+		}))
+	}
+	require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkRunning(ctx, exhausted.ID, time.Now())
+	}))
+
+	requeued, failed, err = 0, 0, nil
+	err = tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, 3, "scheduler restarted mid-job", time.Now())
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), requeued)
+	require.Equal(t, int64(1), failed)
+
+	var foundExhausted *procurementDomain.DocumentParsingJob
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		foundExhausted, err = jobRepo.FindByID(ctx, exhausted.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, procurementDomain.DocumentParsingJobFailed, foundExhausted.Status)
+	require.Equal(t, "scheduler restarted mid-job", foundExhausted.ErrorMessage)
 }
 
 func TestSupplierProductAliasRepo_Integration_UpsertAndFind(t *testing.T) {

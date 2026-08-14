@@ -2,12 +2,6 @@ package channels
 
 import (
 	"context"
-	"fmt"
-
-	"gorm.io/gorm"
-
-	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
-	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 // productsImportExecutor / ordersImportExecutor are ISP interfaces over the
@@ -25,48 +19,43 @@ type RunManualWooImportInput struct {
 	ConnectionID       string
 	DefaultWarehouseID string
 	DefaultCurrency    string
+	// IsFirstImport is decided once by CreateImportJobUseCase at job
+	// creation and persisted on the ImportJob row -- trusted as-is here,
+	// never re-derived, so a crash-and-requeue retry (see
+	// channels.ImportJobRepository.RecoverOrphanedRunning) makes the same
+	// bootstrap decision as the original attempt even if some products
+	// already got created before the interruption.
+	IsFirstImport bool
 }
 
 type RunManualWooImportResult struct {
 	Products *ImportResult
-	// Orders is nil unless this was the connection's first-ever products
-	// import -- see RunManualWooImportUseCase's doc comment.
+	// Orders is nil unless in.IsFirstImport was true -- see
+	// RunManualWooImportUseCase's doc comment.
 	Orders *ImportOrdersResult
 }
 
 // RunManualWooImportUseCase wraps the manual "Import" button's products
 // import with a one-time orders bootstrap: the very first time a
-// connection ever imports products (no ProductChannelListing rows for it
-// yet), it also runs a full orders import right after, so a newly
-// connected store's order history shows up in CommerceOS without a
-// separate manual step. That bootstrap orders import never touches
-// inventory (ImportWooOrdersInput.SkipStockMovements) -- the products
-// import that just ran already set every SKU's stock to Woo's current,
-// already-net-of-those-orders quantity, so decrementing again would
-// double-count. Every import after the first is products only, exactly as
-// before; orders keep syncing on their own schedule from then on.
+// connection ever imports products, it also runs a full orders import
+// right after, so a newly connected store's order history shows up in
+// CommerceOS without a separate manual step. That bootstrap orders import
+// never touches inventory (ImportWooOrdersInput.SkipStockMovements) -- the
+// products import that just ran already set every SKU's stock to Woo's
+// current, already-net-of-those-orders quantity, so decrementing again
+// would double-count. Every import after the first is products only,
+// exactly as before; orders keep syncing on their own schedule from then
+// on.
 type RunManualWooImportUseCase struct {
-	db             *gorm.DB
-	listingRepo    channelsDomain.ProductChannelListingRepository
 	productsImport productsImportExecutor
 	ordersImport   ordersImportExecutor
 }
 
-func NewRunManualWooImportUseCase(
-	db *gorm.DB,
-	listingRepo channelsDomain.ProductChannelListingRepository,
-	productsImport productsImportExecutor,
-	ordersImport ordersImportExecutor,
-) *RunManualWooImportUseCase {
-	return &RunManualWooImportUseCase{db: db, listingRepo: listingRepo, productsImport: productsImport, ordersImport: ordersImport}
+func NewRunManualWooImportUseCase(productsImport productsImportExecutor, ordersImport ordersImportExecutor) *RunManualWooImportUseCase {
+	return &RunManualWooImportUseCase{productsImport: productsImport, ordersImport: ordersImport}
 }
 
 func (uc *RunManualWooImportUseCase) Execute(ctx context.Context, in RunManualWooImportInput) (*RunManualWooImportResult, error) {
-	isFirstImport, err := uc.isFirstImport(ctx, in.ConnectionID)
-	if err != nil {
-		return nil, fmt.Errorf("runManualWooImport: %w", err)
-	}
-
 	productsResult, err := uc.productsImport.Execute(ctx, ImportWooProductsInput{
 		ConnectionID: in.ConnectionID, DefaultWarehouseID: in.DefaultWarehouseID, DefaultCurrency: in.DefaultCurrency,
 	})
@@ -75,7 +64,7 @@ func (uc *RunManualWooImportUseCase) Execute(ctx context.Context, in RunManualWo
 	}
 
 	result := &RunManualWooImportResult{Products: productsResult}
-	if !isFirstImport {
+	if !in.IsFirstImport {
 		return result, nil
 	}
 
@@ -92,17 +81,4 @@ func (uc *RunManualWooImportUseCase) Execute(ctx context.Context, in RunManualWo
 	}
 	result.Orders = ordersResult
 	return result, nil
-}
-
-func (uc *RunManualWooImportUseCase) isFirstImport(ctx context.Context, connectionID string) (bool, error) {
-	var listings []channelsDomain.ProductChannelListing
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		var err error
-		listings, err = uc.listingRepo.ListByConnection(ctx, connectionID)
-		return err
-	})
-	if err != nil {
-		return false, err
-	}
-	return len(listings) == 0, nil
 }

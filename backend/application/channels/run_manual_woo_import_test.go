@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
-	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 )
 
 type stubProductsImportExecutor struct {
@@ -47,14 +46,13 @@ func (s *stubOrdersImportExecutor) Execute(_ context.Context, in appchannels.Imp
 }
 
 func TestRunManualWooImport_firstImportAlsoRunsOrdersWithSkipStockMovements(t *testing.T) {
-	listingRepo := &stubListingRepo{} // byConnection empty -> first-ever import
 	productsImport := &stubProductsImportExecutor{out: &appchannels.ImportResult{Imported: 5}}
 	ordersImport := &stubOrdersImportExecutor{out: &appchannels.ImportOrdersResult{Created: 3}}
 
-	uc := appchannels.NewRunManualWooImportUseCase(newMockGormDB(t, 1), listingRepo, productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{
-		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR", IsFirstImport: true,
 	})
 
 	require.NoError(t, err)
@@ -71,42 +69,39 @@ func TestRunManualWooImport_firstImportAlsoRunsOrdersWithSkipStockMovements(t *t
 	assert.Equal(t, 3, result.Orders.Created)
 }
 
-func TestRunManualWooImport_secondImportSkipsOrdersBootstrap(t *testing.T) {
-	listingRepo := &stubListingRepo{byConnection: []channelsDomain.ProductChannelListing{{ID: "listing-1"}}}
+func TestRunManualWooImport_notFirstImportSkipsOrdersBootstrap(t *testing.T) {
 	productsImport := &stubProductsImportExecutor{}
 	ordersImport := &stubOrdersImportExecutor{}
 
-	uc := appchannels.NewRunManualWooImportUseCase(newMockGormDB(t, 1), listingRepo, productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
 
-	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1"})
+	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: false})
 
 	require.NoError(t, err)
 	require.Len(t, productsImport.calls, 1)
-	assert.Empty(t, ordersImport.calls, "not the connection's first import, orders bootstrap must not run")
+	assert.Empty(t, ordersImport.calls, "IsFirstImport false -- orders bootstrap must not run")
 	assert.Nil(t, result.Orders)
 }
 
 func TestRunManualWooImport_productsImportFailurePropagatesAndSkipsOrders(t *testing.T) {
-	listingRepo := &stubListingRepo{}
 	productsImport := &stubProductsImportExecutor{err: errors.New("woo unreachable")}
 	ordersImport := &stubOrdersImportExecutor{}
 
-	uc := appchannels.NewRunManualWooImportUseCase(newMockGormDB(t, 1), listingRepo, productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
 
-	_, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1"})
+	_, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: true})
 
 	require.Error(t, err)
 	assert.Empty(t, ordersImport.calls, "orders bootstrap must not run when products import itself failed")
 }
 
 func TestRunManualWooImport_ordersImportFailureIsBestEffortAndDoesNotFailTheJob(t *testing.T) {
-	listingRepo := &stubListingRepo{}
 	productsImport := &stubProductsImportExecutor{out: &appchannels.ImportResult{Imported: 5}}
 	ordersImport := &stubOrdersImportExecutor{err: errors.New("woo unreachable")}
 
-	uc := appchannels.NewRunManualWooImportUseCase(newMockGormDB(t, 1), listingRepo, productsImport, ordersImport)
+	uc := appchannels.NewRunManualWooImportUseCase(productsImport, ordersImport)
 
-	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1"})
+	result, err := uc.Execute(context.Background(), appchannels.RunManualWooImportInput{ConnectionID: "conn-1", IsFirstImport: true})
 
 	require.NoError(t, err, "the primary products import already succeeded -- an orders-side failure must not fail the whole job")
 	require.NotNil(t, result.Products)

@@ -15,7 +15,7 @@ import (
 func TestCreateImportJob_createsPendingJobAndStartedNotification(t *testing.T) {
 	jobRepo := &stubImportJobRepo{}
 	notif := &stubNotifier{}
-	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, notif)
+	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, &stubListingRepo{}, notif)
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	job, err := uc.Execute(ctx, appchannels.CreateImportJobInput{
@@ -31,10 +31,35 @@ func TestCreateImportJob_createsPendingJobAndStartedNotification(t *testing.T) {
 	require.Contains(t, notif.calls[0].Title, "started")
 }
 
+func TestCreateImportJob_setsIsFirstImportWhenConnectionHasNoListingsYet(t *testing.T) {
+	jobRepo := &stubImportJobRepo{}
+	notif := &stubNotifier{}
+	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, &stubListingRepo{}, notif)
+
+	job, err := uc.Execute(context.Background(), appchannels.CreateImportJobInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.True(t, job.IsFirstImport)
+	require.Len(t, jobRepo.created, 1)
+	require.True(t, jobRepo.created[0].IsFirstImport, "must be persisted on the row, not just the returned struct")
+}
+
+func TestCreateImportJob_isNotFirstImportWhenConnectionAlreadyHasListings(t *testing.T) {
+	jobRepo := &stubImportJobRepo{}
+	notif := &stubNotifier{}
+	listingRepo := &stubListingRepo{byConnection: []channelsDomain.ProductChannelListing{{ID: "listing-1"}}}
+	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, listingRepo, notif)
+
+	job, err := uc.Execute(context.Background(), appchannels.CreateImportJobInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.False(t, job.IsFirstImport)
+}
+
 func TestCreateImportJob_rejectsWhenAlreadyActive(t *testing.T) {
 	jobRepo := &stubImportJobRepo{hasActive: true}
 	notif := &stubNotifier{}
-	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, notif)
+	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, &stubListingRepo{}, notif)
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateImportJobInput{ConnectionID: "conn-1"})
 
@@ -47,7 +72,7 @@ func TestCreateImportJob_rejectsWhenAlreadyActive(t *testing.T) {
 func TestCreateImportJob_propagatesCreateError(t *testing.T) {
 	jobRepo := &stubImportJobRepo{createErr: errors.New("db down")}
 	notif := &stubNotifier{}
-	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, notif)
+	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, &stubListingRepo{}, notif)
 
 	_, err := uc.Execute(context.Background(), appchannels.CreateImportJobInput{ConnectionID: "conn-1"})
 
@@ -58,7 +83,7 @@ func TestCreateImportJob_propagatesCreateError(t *testing.T) {
 func TestCreateImportJob_succeedsEvenIfNotificationFails(t *testing.T) {
 	jobRepo := &stubImportJobRepo{}
 	notif := &stubNotifier{err: errors.New("notif db down")}
-	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, notif)
+	uc := appchannels.NewCreateImportJobUseCase(newMockGormDB(t, 1), jobRepo, &stubListingRepo{}, notif)
 
 	job, err := uc.Execute(context.Background(), appchannels.CreateImportJobInput{ConnectionID: "conn-1"})
 

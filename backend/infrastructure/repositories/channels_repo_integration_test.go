@@ -51,6 +51,120 @@ func seedListing(t *testing.T, db *gorm.DB, ctx context.Context, productID strin
 	return listingID, connectionID
 }
 
+// TestImportJobRepo_Integration_RecoverOrphanedRunning mirrors
+// TestDocumentParsingJobRepo_Integration_RecoverOrphanedRunning for
+// ImportJobRepo -- same shared repo logic (requeue below maxRetries, fail
+// once exhausted), proven separately here since ImportJobRepo has its own
+// model/table.
+func TestImportJobRepo_Integration_RecoverOrphanedRunning(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	connRepo := repositories.NewConnectionRepo(db)
+	jobRepo := repositories.NewImportJobRepo(db)
+
+	seedConnection := func(t *testing.T, storeURL string) string {
+		t.Helper()
+		var connID string
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			now := time.Now()
+			conn := &integrationsDomain.Connection{
+				TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+				StoreURL: integrationsDomain.StoreURL(storeURL), ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+				Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+			}
+			if err := connRepo.Create(ctx, conn); err != nil {
+				return err
+			}
+			connID = conn.ID
+			return nil
+		})
+		require.NoError(t, err)
+		return connID
+	}
+
+	// import_jobs_one_active_per_connection allows at most one pending/
+	// running job per connection -- two independent connections so
+	// belowCap (which ends the test still pending) and exhausted (created
+	// after it) don't collide on that constraint.
+	belowCapConnID := seedConnection(t, "https://itest-import-job-1.example.com")
+	exhaustedConnID := seedConnection(t, "https://itest-import-job-2.example.com")
+
+	seedJob := func(t *testing.T, connID string) channelsDomain.ImportJob {
+		t.Helper()
+		var job channelsDomain.ImportJob
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			job = channelsDomain.ImportJob{
+				TenantID: tenant.IDFromContext(ctx), ConnectionID: connID,
+				DefaultWarehouseID: "00000000-0000-0000-0000-000000000001", DefaultCurrency: "EUR",
+				Status: channelsDomain.ImportJobPending, CreatedAt: time.Now(), IsFirstImport: true,
+			}
+			return jobRepo.Create(ctx, &job)
+		})
+		require.NoError(t, err)
+		return job
+	}
+
+	adminCtx := tenant.WithSuperAdmin(context.Background())
+
+	belowCap := seedJob(t, belowCapConnID)
+	require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkRunning(ctx, belowCap.ID, time.Now())
+	}))
+
+	var requeued, failed int64
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, 3, "scheduler restarted mid-job", time.Now())
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), requeued)
+	require.Equal(t, int64(0), failed)
+
+	var foundBelowCap *channelsDomain.ImportJob
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		rows, err := jobRepo.ListPending(ctx)
+		if err != nil {
+			return err
+		}
+		for _, r := range rows {
+			if r.ID == belowCap.ID {
+				foundBelowCap = &r
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, foundBelowCap, "requeued job must show up as pending again")
+	require.Equal(t, 1, foundBelowCap.RetryCount)
+	require.True(t, foundBelowCap.IsFirstImport, "must survive the requeue, RunManualWooImportUseCase depends on it staying stable across retries")
+
+	const maxRetries = 3
+	exhausted := seedJob(t, exhaustedConnID)
+	for i := 0; i < maxRetries; i++ {
+		require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+			return jobRepo.MarkRunning(ctx, exhausted.ID, time.Now())
+		}))
+		require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+			_, _, err := jobRepo.RecoverOrphanedRunning(ctx, maxRetries, "prior attempt", time.Now())
+			return err
+		}))
+	}
+	require.NoError(t, tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return jobRepo.MarkRunning(ctx, exhausted.ID, time.Now())
+	}))
+
+	requeued, failed = 0, 0
+	err = tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, maxRetries, "scheduler restarted mid-job", time.Now())
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), requeued)
+	require.Equal(t, int64(1), failed)
+}
+
 func TestSyncLogRepo_Integration_CreateAndListByListing(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

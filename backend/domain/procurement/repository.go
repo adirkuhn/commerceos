@@ -75,10 +75,12 @@ type DocumentParsingJobRepository interface {
 	MarkRunning(ctx context.Context, id string, startedAt time.Time) error
 	MarkCompleted(ctx context.Context, id string, finishedAt time.Time) error
 	MarkFailed(ctx context.Context, id string, errMsg string, finishedAt time.Time) error
-	// MarkOrphanedRunningAsFailed recovers jobs stuck in "running" after a
-	// scheduler crash/redeploy -- see ImportJobRepository's identical method
-	// for the full rationale. Returns the count recovered.
-	MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error)
+	// RecoverOrphanedRunning requeues jobs stuck in "running" after a
+	// scheduler crash/redeploy back to pending (up to maxRetries attempts),
+	// falling back to failed beyond that -- see
+	// channels.ImportJobRepository.RecoverOrphanedRunning for the full
+	// rationale. Returns (requeued, failed).
+	RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (requeued, failed int64, err error)
 }
 
 // SupplierProductAliasRepository stores learned raw-text -> SKU corrections
@@ -115,7 +117,9 @@ type ReceivingParsingJobRepository interface {
 	MarkRunning(ctx context.Context, id string, startedAt time.Time) error
 	MarkCompleted(ctx context.Context, id string, finishedAt time.Time) error
 	MarkFailed(ctx context.Context, id string, errMsg string, finishedAt time.Time) error
-	MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error)
+	// RecoverOrphanedRunning mirrors DocumentParsingJobRepository's
+	// identical method -- see its doc comment for the full rationale.
+	RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (requeued, failed int64, err error)
 }
 
 type BookingRepository interface {

@@ -40,11 +40,15 @@ type CreateImportJobInput struct {
 type CreateImportJobUseCase struct {
 	db            *gorm.DB
 	importJobRepo channelsDomain.ImportJobRepository
+	listingRepo   channelsDomain.ProductChannelListingRepository
 	notifier      notifier
 }
 
-func NewCreateImportJobUseCase(db *gorm.DB, importJobRepo channelsDomain.ImportJobRepository, notifier notifier) *CreateImportJobUseCase {
-	return &CreateImportJobUseCase{db: db, importJobRepo: importJobRepo, notifier: notifier}
+func NewCreateImportJobUseCase(
+	db *gorm.DB, importJobRepo channelsDomain.ImportJobRepository,
+	listingRepo channelsDomain.ProductChannelListingRepository, notifier notifier,
+) *CreateImportJobUseCase {
+	return &CreateImportJobUseCase{db: db, importJobRepo: importJobRepo, listingRepo: listingRepo, notifier: notifier}
 }
 
 func (uc *CreateImportJobUseCase) Execute(ctx context.Context, in CreateImportJobInput) (*channelsDomain.ImportJob, error) {
@@ -58,6 +62,17 @@ func (uc *CreateImportJobUseCase) Execute(ctx context.Context, in CreateImportJo
 			return channelsDomain.ErrImportJobAlreadyActive
 		}
 
+		// Decided once, here, before any attempt at this job ever runs --
+		// and stuck to across retries via the persisted column, since
+		// re-deriving it dynamically at run time would break the moment a
+		// crash-and-requeue happens mid-first-import (some products would
+		// already exist by the retry, wrongly reading as "not first"). See
+		// RunManualWooImportUseCase.
+		existingListings, err := uc.listingRepo.ListByConnection(ctx, in.ConnectionID)
+		if err != nil {
+			return err
+		}
+
 		job = channelsDomain.ImportJob{
 			TenantID:           tenant.IDFromContext(ctx),
 			ConnectionID:       in.ConnectionID,
@@ -65,6 +80,7 @@ func (uc *CreateImportJobUseCase) Execute(ctx context.Context, in CreateImportJo
 			DefaultCurrency:    in.DefaultCurrency,
 			Status:             channelsDomain.ImportJobPending,
 			CreatedAt:          time.Now(),
+			IsFirstImport:      len(existingListings) == 0,
 		}
 		return uc.importJobRepo.Create(ctx, &job)
 	})

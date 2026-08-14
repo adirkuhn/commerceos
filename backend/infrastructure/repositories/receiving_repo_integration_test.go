@@ -238,14 +238,19 @@ func TestReceivingParsingJobRepo_Integration_Lifecycle(t *testing.T) {
 		return jobRepo.MarkRunning(ctx, job.ID, time.Now())
 	}))
 
-	var recovered int64
+	// Below maxRetries -- RecoverOrphanedRunning requeues to pending rather
+	// than failing outright (see the dedicated
+	// TestDocumentParsingJobRepo_Integration_RecoverOrphanedRunning for
+	// both branches of this same repo logic, shared by both job types).
+	var requeued, failed int64
 	err = tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
 		var err error
-		recovered, err = jobRepo.MarkOrphanedRunningAsFailed(ctx, "scheduler restarted", time.Now())
+		requeued, failed, err = jobRepo.RecoverOrphanedRunning(ctx, 3, "scheduler restarted", time.Now())
 		return err
 	})
 	require.NoError(t, err)
-	require.Equal(t, int64(1), recovered)
+	require.Equal(t, int64(1), requeued)
+	require.Equal(t, int64(0), failed)
 
 	var found *procurementDomain.ReceivingParsingJob
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
@@ -254,5 +259,6 @@ func TestReceivingParsingJobRepo_Integration_Lifecycle(t *testing.T) {
 		return err
 	})
 	require.NoError(t, err)
-	require.Equal(t, procurementDomain.ReceivingParsingJobFailed, found.Status)
+	require.Equal(t, procurementDomain.ReceivingParsingJobPending, found.Status)
+	require.Equal(t, 1, found.RetryCount)
 }

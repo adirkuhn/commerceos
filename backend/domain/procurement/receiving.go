@@ -67,6 +67,9 @@ type ReceivingParsingJob struct {
 	CreatedAt         time.Time
 	StartedAt         *time.Time
 	FinishedAt        *time.Time
+	// RetryCount tracks automatic requeue-on-restart attempts -- see
+	// ReceivingParsingJobRepository.RecoverOrphanedRunning.
+	RetryCount int
 }
 
 type DiscrepancyType string

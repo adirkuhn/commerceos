@@ -381,11 +381,13 @@ type importJobModel struct {
 	// silently skips zero-valued fields), and a serializer tag never
 	// applies to a plain map key, so an empty/nil []string there wrote SQL
 	// NULL and violated this column's NOT NULL constraint.
-	Errors       string `gorm:"type:jsonb;not null;default:'[]'"`
-	ErrorMessage string `gorm:"not null"`
-	CreatedAt    time.Time
-	StartedAt    *time.Time
-	FinishedAt   *time.Time
+	Errors        string `gorm:"type:jsonb;not null;default:'[]'"`
+	ErrorMessage  string `gorm:"not null"`
+	CreatedAt     time.Time
+	StartedAt     *time.Time
+	FinishedAt    *time.Time
+	RetryCount    int  `gorm:"column:retry_count;not null;default:0"`
+	IsFirstImport bool `gorm:"column:is_first_import;not null;default:false"`
 }
 
 func errorsToJSON(errs []string) string {
@@ -435,6 +437,7 @@ func (r *ImportJobRepo) Create(ctx context.Context, j *channelsDomain.ImportJob)
 		Status:             string(j.Status),
 		Errors:             errorsToJSON(nil),
 		CreatedAt:          j.CreatedAt,
+		IsFirstImport:      j.IsFirstImport,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		var pgErr *pgconn.PgError
@@ -518,17 +521,27 @@ func (r *ImportJobRepo) MarkFailed(ctx context.Context, id string, errMsg string
 	return nil
 }
 
-func (r *ImportJobRepo) MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error) {
+func (r *ImportJobRepo) RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (int64, int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	result := tx.Model(&importJobModel{}).Where("status = ?", string(channelsDomain.ImportJobRunning)).
+	requeued := tx.Model(&importJobModel{}).
+		Where("status = ? AND retry_count < ?", string(channelsDomain.ImportJobRunning), maxRetries).
+		Updates(map[string]any{
+			"status": string(channelsDomain.ImportJobPending), "retry_count": gorm.Expr("retry_count + 1"), "started_at": nil,
+		})
+	if requeued.Error != nil {
+		return 0, 0, fmt.Errorf("importJobRepo.RecoverOrphanedRunning: requeue: %w", requeued.Error)
+	}
+	// Runs second: rows the requeue above just moved to pending no longer
+	// match status = running, so only genuinely exhausted rows are failed.
+	failed := tx.Model(&importJobModel{}).Where("status = ?", string(channelsDomain.ImportJobRunning)).
 		Updates(map[string]any{"status": string(channelsDomain.ImportJobFailed), "error_message": errMsg, "finished_at": finishedAt})
-	if result.Error != nil {
-		return 0, fmt.Errorf("importJobRepo.MarkOrphanedRunningAsFailed: %w", result.Error)
+	if failed.Error != nil {
+		return requeued.RowsAffected, 0, fmt.Errorf("importJobRepo.RecoverOrphanedRunning: fail: %w", failed.Error)
 	}
-	return result.RowsAffected, nil
+	return requeued.RowsAffected, failed.RowsAffected, nil
 }
 
 func toImportJobDomain(m importJobModel) *channelsDomain.ImportJob {
@@ -539,6 +552,7 @@ func toImportJobDomain(m importJobModel) *channelsDomain.ImportJob {
 		Imported: m.Imported, AlreadyLinked: m.AlreadyLinked, SkippedType: m.SkippedType,
 		Errors: errorsFromJSON(m.Errors), ErrorMessage: m.ErrorMessage,
 		CreatedAt: m.CreatedAt, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt,
+		RetryCount: m.RetryCount, IsFirstImport: m.IsFirstImport,
 	}
 }
 

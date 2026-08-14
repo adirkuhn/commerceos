@@ -90,12 +90,19 @@ type ImportJobRepository interface {
 	MarkRunning(ctx context.Context, id string, startedAt time.Time) error
 	MarkCompleted(ctx context.Context, id string, imported, alreadyLinked, skippedType int, errs []string, finishedAt time.Time) error
 	MarkFailed(ctx context.Context, id string, errMsg string, finishedAt time.Time) error
-	// MarkOrphanedRunningAsFailed fails every job still marked "running" —
-	// called once at scheduler startup. A job can only be "running" while
-	// some scheduler process is actively inside runImportJob; if the
-	// process that set it died (crash, redeploy) before reaching a
-	// terminal state, the row is stuck forever and — since Create's
-	// double-job guard checks pending/running — permanently blocks any
-	// further import for that connection. Returns the count recovered.
-	MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error)
+	// RecoverOrphanedRunning handles every job still marked "running" at
+	// scheduler startup — called once, before polling begins. A job can
+	// only be "running" while some scheduler process is actively inside
+	// runImportJob; if the process that set it died (crash, redeploy)
+	// before reaching a terminal state, the row is stuck forever and —
+	// since Create's double-job guard checks pending/running — permanently
+	// blocks any further import for that connection.
+	//
+	// Rather than just failing it (requiring a manual retrigger), a row
+	// with RetryCount below maxRetries is reset to pending — the next poll
+	// picks it right back up automatically, with RetryCount incremented
+	// and StartedAt cleared. A row already at maxRetries is failed instead,
+	// so a job whose own execution reliably crashes the scheduler can't
+	// requeue itself forever. Returns (requeued, failed).
+	RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (requeued, failed int64, err error)
 }

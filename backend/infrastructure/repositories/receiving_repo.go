@@ -39,6 +39,7 @@ type receivingParsingJobModel struct {
 	CreatedAt         time.Time
 	StartedAt         *time.Time
 	FinishedAt        *time.Time
+	RetryCount        int `gorm:"column:retry_count;not null;default:0"`
 }
 
 func (receivingParsingJobModel) TableName() string { return "receiving_parsing_jobs" }
@@ -325,23 +326,31 @@ func (r *ReceivingParsingJobRepo) MarkFailed(ctx context.Context, id string, err
 	return nil
 }
 
-func (r *ReceivingParsingJobRepo) MarkOrphanedRunningAsFailed(ctx context.Context, errMsg string, finishedAt time.Time) (int64, error) {
+func (r *ReceivingParsingJobRepo) RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (int64, int64, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	result := tx.Model(&receivingParsingJobModel{}).Where("status = ?", string(procurementDomain.ReceivingParsingJobRunning)).
+	requeued := tx.Model(&receivingParsingJobModel{}).
+		Where("status = ? AND retry_count < ?", string(procurementDomain.ReceivingParsingJobRunning), maxRetries).
+		Updates(map[string]any{
+			"status": string(procurementDomain.ReceivingParsingJobPending), "retry_count": gorm.Expr("retry_count + 1"), "started_at": nil,
+		})
+	if requeued.Error != nil {
+		return 0, 0, fmt.Errorf("receivingParsingJobRepo.RecoverOrphanedRunning: requeue: %w", requeued.Error)
+	}
+	failed := tx.Model(&receivingParsingJobModel{}).Where("status = ?", string(procurementDomain.ReceivingParsingJobRunning)).
 		Updates(map[string]any{"status": string(procurementDomain.ReceivingParsingJobFailed), "error_message": errMsg, "finished_at": finishedAt})
-	if result.Error != nil {
-		return 0, fmt.Errorf("receivingParsingJobRepo.MarkOrphanedRunningAsFailed: %w", result.Error)
+	if failed.Error != nil {
+		return requeued.RowsAffected, 0, fmt.Errorf("receivingParsingJobRepo.RecoverOrphanedRunning: fail: %w", failed.Error)
 	}
-	return result.RowsAffected, nil
+	return requeued.RowsAffected, failed.RowsAffected, nil
 }
 
 func toReceivingParsingJobDomain(m receivingParsingJobModel) *procurementDomain.ReceivingParsingJob {
 	return &procurementDomain.ReceivingParsingJob{
 		ID: m.ID, TenantID: m.TenantID, ReceivingRecordID: m.ReceivingRecordID,
 		Status: procurementDomain.ReceivingParsingJobStatus(m.Status), ErrorMessage: m.ErrorMessage,
-		CreatedAt: m.CreatedAt, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt,
+		CreatedAt: m.CreatedAt, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt, RetryCount: m.RetryCount,
 	}
 }
