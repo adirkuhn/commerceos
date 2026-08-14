@@ -16,4 +16,10 @@ var (
 	ErrTaxClassInUse       = errors.New("tax class is assigned to one or more SKUs")
 	ErrInvalidCountryCode  = errors.New("country must be a 2-letter ISO code")
 	ErrInvalidTaxRateValue = errors.New("tax rate must not be negative")
+
+	ErrExternalTaxClassLinkNotFound = errors.New("external tax class link not found")
+	// ErrProviderRequired guards Provider only -- ExternalSlug legitimately
+	// can be "" (e.g. WooCommerce's own Standard rate has an empty
+	// tax_class slug), so it has no required-non-empty check.
+	ErrProviderRequired = errors.New("provider is required")
 )

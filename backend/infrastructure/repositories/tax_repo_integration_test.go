@@ -184,3 +184,125 @@ func TestTaxRateRepo_Integration_UpsertFindListDelete(t *testing.T) {
 	})
 	require.ErrorIs(t, err, taxDomain.ErrTaxRateNotFound)
 }
+
+func TestExternalTaxClassLinkRepo_Integration_UpsertFindListDelete(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	classRepo := repositories.NewTaxClassRepo(db)
+	linkRepo := repositories.NewExternalTaxClassLinkRepo(db)
+
+	var classID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		c := taxDomain.TaxClass{TenantID: tenant.IDFromContext(ctx), Name: "Reduced rate", CreatedAt: now, UpdatedAt: now}
+		if err := classRepo.Create(ctx, &c); err != nil {
+			return err
+		}
+		classID = c.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var linkID string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		l := taxDomain.ExternalTaxClassLink{
+			TenantID: tenantID, Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: classID,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		if err := linkRepo.Upsert(ctx, &l); err != nil {
+			return err
+		}
+		linkID = l.ID
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, linkID)
+
+	var found *taxDomain.ExternalTaxClassLink
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = linkRepo.FindByProviderAndSlug(ctx, "woocommerce", "reduced-rate")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, classID, found.TaxClassID)
+
+	// Upserting the same (tenant, provider, slug) again repoints the
+	// existing row -- same row ID, not a duplicate.
+	var otherClassID string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		c := taxDomain.TaxClass{TenantID: tenant.IDFromContext(ctx), Name: "Zero rate", CreatedAt: now, UpdatedAt: now}
+		if err := classRepo.Create(ctx, &c); err != nil {
+			return err
+		}
+		otherClassID = c.ID
+		now2 := time.Now()
+		l := taxDomain.ExternalTaxClassLink{
+			TenantID: tenantID, Provider: "woocommerce", ExternalSlug: "reduced-rate", TaxClassID: otherClassID,
+			CreatedAt: now2, UpdatedAt: now2,
+		}
+		return linkRepo.Upsert(ctx, &l)
+	})
+	require.NoError(t, err)
+
+	var listed []taxDomain.ExternalTaxClassLink
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		listed, err = linkRepo.List(ctx)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.Equal(t, linkID, listed[0].ID)
+	require.Equal(t, otherClassID, listed[0].TaxClassID)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return linkRepo.Delete(ctx, linkID)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := linkRepo.FindByProviderAndSlug(ctx, "woocommerce", "reduced-rate")
+		return err
+	})
+	require.ErrorIs(t, err, taxDomain.ErrExternalTaxClassLinkNotFound)
+}
+
+func TestExternalTaxClassLinkRepo_Integration_FindByProviderAndSlug_emptySlugIsValid(t *testing.T) {
+	// "" represents WooCommerce's own Standard rate -- must be a distinct,
+	// findable row, not treated as "no slug"/skipped.
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	classRepo := repositories.NewTaxClassRepo(db)
+	linkRepo := repositories.NewExternalTaxClassLinkRepo(db)
+
+	var classID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		c := taxDomain.TaxClass{TenantID: tenant.IDFromContext(ctx), Name: "Standard", IsDefault: true, CreatedAt: now, UpdatedAt: now}
+		if err := classRepo.Create(ctx, &c); err != nil {
+			return err
+		}
+		classID = c.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		l := taxDomain.ExternalTaxClassLink{TenantID: tenantID, Provider: "woocommerce", ExternalSlug: "", TaxClassID: classID, CreatedAt: now, UpdatedAt: now}
+		return linkRepo.Upsert(ctx, &l)
+	})
+	require.NoError(t, err)
+
+	var found *taxDomain.ExternalTaxClassLink
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = linkRepo.FindByProviderAndSlug(ctx, "woocommerce", "")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, classID, found.TaxClassID)
+}

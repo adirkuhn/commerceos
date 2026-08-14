@@ -24,3 +24,17 @@ type TaxRateRepository interface {
 	List(ctx context.Context) ([]TaxRate, error)
 	Delete(ctx context.Context, id string) error
 }
+
+type ExternalTaxClassLinkRepository interface {
+	// Upsert inserts or updates by the (tenant_id, provider, external_slug)
+	// unique constraint -- same "identified by what it applies to" shape
+	// as TaxRateRepository.Upsert. Used both by import (auto-create on
+	// first sight of a new slug) and by staff repointing an existing link
+	// to a different TaxClass.
+	Upsert(ctx context.Context, l *ExternalTaxClassLink) error
+	FindByProviderAndSlug(ctx context.Context, provider, externalSlug string) (*ExternalTaxClassLink, error)
+	// List returns every link for the tenant across all providers -- small
+	// dataset, same rationale as TaxRateRepository.List.
+	List(ctx context.Context) ([]ExternalTaxClassLink, error)
+	Delete(ctx context.Context, id string) error
+}

@@ -216,3 +216,102 @@ func toTaxRateDomain(m taxRateModel) *taxDomain.TaxRate {
 		RateBasisPoints: m.RateBasisPoints, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
+
+// ── ExternalTaxClassLinkRepo ─────────────────────────────────────────────
+
+type externalTaxClassLinkModel struct {
+	ID           string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID     string `gorm:"not null;type:uuid"`
+	Provider     string `gorm:"not null"`
+	ExternalSlug string `gorm:"not null"`
+	TaxClassID   string `gorm:"not null;type:uuid"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+func (externalTaxClassLinkModel) TableName() string { return "external_tax_class_links" }
+
+type ExternalTaxClassLinkRepo struct{ db *gorm.DB }
+
+func NewExternalTaxClassLinkRepo(db *gorm.DB) *ExternalTaxClassLinkRepo {
+	return &ExternalTaxClassLinkRepo{db: db}
+}
+
+func (r *ExternalTaxClassLinkRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("tax: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+// Upsert inserts or updates by the (tenant_id, provider, external_slug)
+// unique constraint (see migration 060).
+func (r *ExternalTaxClassLinkRepo) Upsert(ctx context.Context, l *taxDomain.ExternalTaxClassLink) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := externalTaxClassLinkModel{
+		TenantID: l.TenantID, Provider: l.Provider, ExternalSlug: l.ExternalSlug,
+		TaxClassID: l.TaxClassID, CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
+	}
+	err = tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "provider"}, {Name: "external_slug"}},
+		DoUpdates: clause.AssignmentColumns([]string{"tax_class_id", "updated_at"}),
+	}).Create(&m).Error
+	if err != nil {
+		return fmt.Errorf("externalTaxClassLinkRepo.Upsert: %w", err)
+	}
+	l.ID = m.ID
+	return nil
+}
+
+func (r *ExternalTaxClassLinkRepo) FindByProviderAndSlug(ctx context.Context, provider, externalSlug string) (*taxDomain.ExternalTaxClassLink, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m externalTaxClassLinkModel
+	if err := tx.Where("provider = ? AND external_slug = ?", provider, externalSlug).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, taxDomain.ErrExternalTaxClassLinkNotFound
+		}
+		return nil, fmt.Errorf("externalTaxClassLinkRepo.FindByProviderAndSlug: %w", err)
+	}
+	return toExternalTaxClassLinkDomain(m), nil
+}
+
+func (r *ExternalTaxClassLinkRepo) List(ctx context.Context) ([]taxDomain.ExternalTaxClassLink, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []externalTaxClassLinkModel
+	if err := tx.Order("provider asc, external_slug asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("externalTaxClassLinkRepo.List: %w", err)
+	}
+	links := make([]taxDomain.ExternalTaxClassLink, len(rows))
+	for i, row := range rows {
+		links[i] = *toExternalTaxClassLinkDomain(row)
+	}
+	return links, nil
+}
+
+func (r *ExternalTaxClassLinkRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&externalTaxClassLinkModel{}).Error; err != nil {
+		return fmt.Errorf("externalTaxClassLinkRepo.Delete: %w", err)
+	}
+	return nil
+}
+
+func toExternalTaxClassLinkDomain(m externalTaxClassLinkModel) *taxDomain.ExternalTaxClassLink {
+	return &taxDomain.ExternalTaxClassLink{
+		ID: m.ID, TenantID: m.TenantID, Provider: m.Provider, ExternalSlug: m.ExternalSlug,
+		TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+	}
+}
