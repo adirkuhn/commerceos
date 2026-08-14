@@ -6,7 +6,9 @@ import { useSalesChannels } from '../integrations/hooks/useSalesChannels'
 import { useSalesChannelProducts } from '../integrations/hooks/useSalesChannelProducts'
 import { useConnections } from '../integrations/hooks/useConnections'
 import { useCategories } from '../pms/hooks/useCategories'
-import type { SalesChannel, EnrollmentMode } from '../integrations/types'
+import { useWarehouses } from '../inventory/hooks/useWarehouses'
+import * as integrationsApi from '../integrations/api'
+import type { Connection, SalesChannel, EnrollmentMode } from '../integrations/types'
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
 
@@ -26,17 +28,23 @@ interface ChannelFormState {
   enrollmentCategoryId: string
   enrollmentTag: string
   active: boolean
+  defaultWarehouseId: string
 }
 
 function emptyForm(): ChannelFormState {
-  return { name: '', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '', enrollmentTag: '', active: true }
+  return { name: '', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '', enrollmentTag: '', active: true, defaultWarehouseId: '' }
 }
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
 }
 
-function toForm(channel: SalesChannel): ChannelFormState {
+// defaultWarehouseId lives on the linked Connection, not on the channel
+// itself (SalesChannel is purely a product-enrollment rule on top of it --
+// see its doc comment) -- so prefilling it means looking the connection up
+// by the channel's connection_id.
+function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormState {
+  const connection = connections.find(c => c.id === channel.connection_id)
   return {
     name: channel.name,
     connectionId: channel.connection_id ?? '',
@@ -44,14 +52,16 @@ function toForm(channel: SalesChannel): ChannelFormState {
     enrollmentCategoryId: channel.enrollment_category_id ?? '',
     enrollmentTag: channel.enrollment_tag ?? '',
     active: channel.active,
+    defaultWarehouseId: connection?.default_warehouse_id ?? '',
   }
 }
 
 export default function SalesChannels() {
   const { token } = useAuth()
   const { channels, loading, error, create, update, remove } = useSalesChannels(token ?? '')
-  const { connections } = useConnections(token ?? '')
+  const { connections, refresh: refreshConnections } = useConnections(token ?? '')
   const { categories } = useCategories(token ?? '')
+  const { warehouses } = useWarehouses(token ?? '')
 
   const [managingChannel, setManagingChannel] = useState<SalesChannel | null>(null)
 
@@ -72,7 +82,7 @@ export default function SalesChannels() {
   }
 
   const openEdit = (channel: SalesChannel) => {
-    setForm(toForm(channel))
+    setForm(toForm(channel, connections))
     setFormError('')
     setEditingChannel(channel)
   }
@@ -99,6 +109,11 @@ export default function SalesChannels() {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
       } else {
         await create({ ...shared, type: 'woocommerce' } satisfies SalesChannelPayload)
+      }
+      if (form.connectionId) {
+        const connection = connections.find(c => c.id === form.connectionId)
+        await integrationsApi.updateConnectionSettings(token ?? '', form.connectionId, connection?.default_currency ?? '', form.defaultWarehouseId || null)
+        refreshConnections()
       }
       closeForm()
     } catch (err) {
@@ -242,13 +257,36 @@ export default function SalesChannels() {
                   id="channel-connection"
                   required
                   value={form.connectionId}
-                  onChange={e => setForm(f => ({ ...f, connectionId: e.target.value }))}
+                  onChange={e => {
+                    const connectionId = e.target.value
+                    const defaultWarehouseId = connections.find(c => c.id === connectionId)?.default_warehouse_id ?? ''
+                    setForm(f => ({ ...f, connectionId, defaultWarehouseId }))
+                  }}
                   className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="" disabled>Select a connection…</option>
                   {connections.map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)} — {c.store_url}</option>)}
                 </select>
               </div>
+              {form.connectionId && (
+                <div>
+                  <label htmlFor="channel-default-warehouse" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Default location
+                  </label>
+                  <select
+                    id="channel-default-warehouse"
+                    value={form.defaultWarehouseId}
+                    onChange={e => setForm(f => ({ ...f, defaultWarehouseId: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">No preference</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Which warehouse this channel's orders and stock sync are attributed to.
+                  </p>
+                </div>
+              )}
               <div>
                 <label htmlFor="channel-enrollment-mode" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
                   Default enrollment

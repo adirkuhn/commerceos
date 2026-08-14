@@ -157,7 +157,7 @@ func (s *stubUpdateConnectionSettings) Execute(_ context.Context, in appintegrat
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &integrationsDomain.Connection{ID: in.ID, DefaultCurrency: in.DefaultCurrency}, nil
+	return &integrationsDomain.Connection{ID: in.ID, DefaultCurrency: in.DefaultCurrency, DefaultWarehouseID: in.DefaultWarehouseID}, nil
 }
 
 type stubGetProductChannelListing struct {
@@ -825,6 +825,20 @@ func TestUpdateConnectionSettingsHandler_savesDefaultCurrency(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "USD")
+}
+
+func TestUpdateConnectionSettingsHandler_savesDefaultWarehouse(t *testing.T) {
+	h := newUpdateConnectionSettingsTestHandler(&stubUpdateConnectionSettings{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/connections/conn-1/settings", map[string]any{
+		"default_currency":     "USD",
+		"default_warehouse_id": "wh-1",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "wh-1")
 }
 
 func TestUpdateConnectionSettingsHandler_notFound(t *testing.T) {

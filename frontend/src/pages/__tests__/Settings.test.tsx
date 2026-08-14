@@ -176,7 +176,7 @@ describe('Settings > Integrations > AI', () => {
 })
 
 describe('WooCommerce sync settings page', () => {
-  it('shows Products and Stock levels as configurable, Orders and Categories as disabled', async () => {
+  it('shows Products, Stock levels, and Orders import as configurable, Categories and Orders export as disabled', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
     render(<Settings />)
@@ -186,9 +186,10 @@ describe('WooCommerce sync settings page', () => {
 
     expect(screen.getByRole('switch', { name: 'Products import' })).not.toBeDisabled()
     expect(screen.getByRole('switch', { name: 'Stock levels export' })).not.toBeDisabled()
-    expect(screen.getByRole('switch', { name: 'Orders import' })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Orders import' })).not.toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Orders export' })).toBeDisabled()
     expect(screen.getByRole('switch', { name: 'Categories export' })).toBeDisabled()
-    expect(screen.getAllByText('Coming soon — not supported yet.')).toHaveLength(2)
+    expect(screen.getAllByText('Coming soon — not supported yet.')).toHaveLength(1)
   })
 
   it('prefills fields from existing schedules', async () => {
@@ -223,7 +224,7 @@ describe('WooCommerce sync settings page', () => {
     await screen.findByText('Sync schedule')
 
     await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
-    await screen.findByText('Main DC')
+    await screen.findAllByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
     await userEvent.selectOptions(screen.getByLabelText('Default currency (e.g. USD)'), 'USD')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -233,6 +234,34 @@ describe('WooCommerce sync settings page', () => {
         expect.objectContaining({ entity_type: 'products', direction: 'import', enabled: true, default_warehouse_id: 'wh-1', default_currency: 'USD' }),
         expect.objectContaining({ entity_type: 'orders', enabled: false }),
         expect.objectContaining({ entity_type: 'categories', enabled: false }),
+      ]),
+    ))
+  })
+
+  it('enabling Orders import requires only a default warehouse, no currency', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.upsertSyncSchedules).mockResolvedValue([])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([{
+      id: 'wh-1', tenant_id: 'tenant-1', name: 'Main DC',
+      address1: '', address2: '', city: '', province: '', zip: '', country: '', phone: '', active: true,
+      created_at: '', updated_at: '',
+    }])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Orders import' }))
+    await screen.findAllByText('Main DC')
+    await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
+    expect(screen.queryByLabelText('Default currency (e.g. USD)')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.upsertSyncSchedules).toHaveBeenCalledWith(
+      'test-token', 'conn-1', expect.arrayContaining([
+        expect.objectContaining({ entity_type: 'orders', direction: 'import', enabled: true, default_warehouse_id: 'wh-1' }),
       ]),
     ))
   })
@@ -389,7 +418,7 @@ describe('Store defaults currency', () => {
     await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
     await userEvent.click(screen.getByRole('button', { name: 'Save currency' }))
 
-    await waitFor(() => expect(integrationsApi.updateConnectionSettings).toHaveBeenCalledWith('test-token', 'conn-1', 'USD'))
+    await waitFor(() => expect(integrationsApi.updateConnectionSettings).toHaveBeenCalledWith('test-token', 'conn-1', 'USD', null))
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
   })
 
@@ -418,6 +447,110 @@ describe('Store defaults currency', () => {
 
     await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
     expect(screen.getByLabelText('Default currency (e.g. USD)')).toHaveValue('GBP')
+  })
+})
+
+describe('Store defaults location', () => {
+  function warehouse(overrides: Partial<{ id: string; name: string }> = {}) {
+    return {
+      id: 'wh-1', tenant_id: 'tenant-1', name: 'Main DC',
+      address1: '', address2: '', city: '', province: '', zip: '', country: '', phone: '', active: true,
+      created_at: '', updated_at: '', ...overrides,
+    }
+  }
+
+  it("auto-selects the tenant's only warehouse as the default location", async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    await waitFor(() => expect(screen.getByLabelText('Default location')).toHaveValue('wh-1'))
+  })
+
+  it('leaves the default location unselected when there is more than one warehouse', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([
+      warehouse({ id: 'wh-1', name: 'Main DC' }),
+      warehouse({ id: 'wh-2', name: 'Overflow DC' }),
+    ])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    expect(screen.getByLabelText('Default location')).toHaveValue('')
+  })
+
+  it('prefills the default location from the connection even when multiple warehouses exist', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_warehouse_id: 'wh-2' })])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([
+      warehouse({ id: 'wh-1', name: 'Main DC' }),
+      warehouse({ id: 'wh-2', name: 'Overflow DC' }),
+    ])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    expect(screen.getByLabelText('Default location')).toHaveValue('wh-2')
+  })
+
+  it('Save currency also persists the chosen default location', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([
+      warehouse({ id: 'wh-1', name: 'Main DC' }),
+      warehouse({ id: 'wh-2', name: 'Overflow DC' }),
+    ])
+    vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue(wooConnection({ default_warehouse_id: 'wh-2' }))
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    await userEvent.selectOptions(screen.getByLabelText('Default currency'), 'USD')
+    await userEvent.selectOptions(screen.getByLabelText('Default location'), 'wh-2')
+    await userEvent.click(screen.getByRole('button', { name: 'Save currency' }))
+
+    await waitFor(() => expect(integrationsApi.updateConnectionSettings).toHaveBeenCalledWith('test-token', 'conn-1', 'USD', 'wh-2'))
+  })
+
+  it("seeds a blank sync-schedule row's default warehouse from the connection default", async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_warehouse_id: 'wh-1' })])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' })])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
+    expect(screen.getByLabelText('Default warehouse ID')).toHaveValue('wh-1')
+  })
+
+  it("keeps a row's own saved default warehouse instead of the connection default", async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_warehouse_id: 'wh-1' })])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([
+      warehouse({ id: 'wh-1', name: 'Main DC' }),
+      warehouse({ id: 'wh-2', name: 'Overflow DC' }),
+    ])
+    vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([{
+      entity_type: 'products', direction: 'import', enabled: true, interval_minutes: 60,
+      default_warehouse_id: 'wh-2', default_currency: 'USD', last_run_at: null, last_run_status: '', last_run_error: '',
+    }])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    expect(screen.getByLabelText('Default warehouse ID')).toHaveValue('wh-2')
   })
 })
 

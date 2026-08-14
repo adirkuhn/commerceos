@@ -387,7 +387,7 @@ func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id
 		return
 	}
 	conn, err := h.updateConnectionSettings.Execute(c.Request.Context(), appintegrations.UpdateConnectionSettingsInput{
-		ID: id, DefaultCurrency: req.DefaultCurrency,
+		ID: id, DefaultCurrency: req.DefaultCurrency, DefaultWarehouseID: req.DefaultWarehouseId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -679,12 +679,13 @@ func (h *Handler) WooCallback(c *gin.Context) {
 func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection {
 	currency := c.DefaultCurrency
 	return genintegrations.Connection{
-		Id:              c.ID,
-		Provider:        string(c.Provider),
-		StoreUrl:        c.StoreURL.String(),
-		Status:          genintegrations.ConnectionStatus(c.Status),
-		DefaultCurrency: &currency,
-		CreatedAt:       c.CreatedAt,
+		Id:                 c.ID,
+		Provider:           string(c.Provider),
+		StoreUrl:           c.StoreURL.String(),
+		Status:             genintegrations.ConnectionStatus(c.Status),
+		DefaultCurrency:    &currency,
+		DefaultWarehouseId: c.DefaultWarehouseID,
+		CreatedAt:          c.CreatedAt,
 	}
 }
 

@@ -69,10 +69,10 @@ export function manualConnectWooCommerce(token: string, payload: ManualConnectWo
   )
 }
 
-export function updateConnectionSettings(token: string, connectionId: string, defaultCurrency: string): Promise<Connection> {
+export function updateConnectionSettings(token: string, connectionId: string, defaultCurrency: string, defaultWarehouseId: string | null = null): Promise<Connection> {
   return request<Connection>(
     `${base()}/connections/${connectionId}/settings`,
-    { method: 'PATCH', body: JSON.stringify({ default_currency: defaultCurrency }) },
+    { method: 'PATCH', body: JSON.stringify({ default_currency: defaultCurrency, default_warehouse_id: defaultWarehouseId }) },
     token,
   )
 }

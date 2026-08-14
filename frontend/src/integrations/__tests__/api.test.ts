@@ -241,14 +241,21 @@ describe('deleteAllImportedProducts', () => {
 })
 
 describe('updateConnectionSettings', () => {
-  it('sends default_currency in body to the correct endpoint', async () => {
+  it('sends default_currency and default_warehouse_id:null in body to the correct endpoint', async () => {
     mockFetch({ ...sampleConnection, default_currency: 'USD' })
     const result = await api.updateConnectionSettings(TOKEN, 'conn-1', 'USD')
     expect(result.default_currency).toBe('USD')
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/settings')
     expect(opts.method).toBe('PATCH')
-    expect(JSON.parse(opts.body as string)).toEqual({ default_currency: 'USD' })
+    expect(JSON.parse(opts.body as string)).toEqual({ default_currency: 'USD', default_warehouse_id: null })
+  })
+
+  it('sends the given default_warehouse_id', async () => {
+    mockFetch({ ...sampleConnection, default_currency: 'USD', default_warehouse_id: 'wh-1' })
+    await api.updateConnectionSettings(TOKEN, 'conn-1', 'USD', 'wh-1')
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({ default_currency: 'USD', default_warehouse_id: 'wh-1' })
   })
 
   it('throws on not found', async () => {

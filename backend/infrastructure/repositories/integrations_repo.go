@@ -13,14 +13,15 @@ import (
 )
 
 type integrationConnectionModel struct {
-	ID                      string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID                string `gorm:"not null;type:uuid"`
-	Provider                string `gorm:"not null"`
-	StoreURL                string `gorm:"not null"`
-	ConsumerKey             string `gorm:"not null"`
-	ConsumerSecretEncrypted string `gorm:"not null"`
-	Status                  string `gorm:"not null"`
-	DefaultCurrency         string `gorm:"not null"`
+	ID                      string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                string  `gorm:"not null;type:uuid"`
+	Provider                string  `gorm:"not null"`
+	StoreURL                string  `gorm:"not null"`
+	ConsumerKey             string  `gorm:"not null"`
+	ConsumerSecretEncrypted string  `gorm:"not null"`
+	Status                  string  `gorm:"not null"`
+	DefaultCurrency         string  `gorm:"not null"`
+	DefaultWarehouseID      *string `gorm:"type:uuid"`
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
@@ -52,6 +53,7 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		ConsumerSecretEncrypted: c.ConsumerSecretEncrypted,
 		Status:                  string(c.Status),
 		DefaultCurrency:         c.DefaultCurrency,
+		DefaultWarehouseID:      c.DefaultWarehouseID,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}
@@ -100,9 +102,10 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	}
 	if err := tx.Model(&integrationConnectionModel{}).Where("id = ?", c.ID).
 		Updates(map[string]any{
-			"status":           string(c.Status),
-			"default_currency": c.DefaultCurrency,
-			"updated_at":       c.UpdatedAt,
+			"status":               string(c.Status),
+			"default_currency":     c.DefaultCurrency,
+			"default_warehouse_id": c.DefaultWarehouseID,
+			"updated_at":           c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
 	}
@@ -130,6 +133,7 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		ConsumerSecretEncrypted: m.ConsumerSecretEncrypted,
 		Status:                  integrationsDomain.Status(m.Status),
 		DefaultCurrency:         m.DefaultCurrency,
+		DefaultWarehouseID:      m.DefaultWarehouseID,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}

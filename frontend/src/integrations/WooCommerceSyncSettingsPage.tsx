@@ -28,11 +28,14 @@ const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
   { label: '24 hours', minutes: 1440 },
 ]
 
-const ROWS: { entity: SyncEntityType; label: string; runnable: boolean }[] = [
-  { entity: 'products', label: 'Products', runnable: true },
-  { entity: 'stock', label: 'Stock levels', runnable: true },
-  { entity: 'orders', label: 'Orders', runnable: false },
-  { entity: 'categories', label: 'Categories', runnable: false },
+// runnableDirections: which of Import/Export columns actually work for
+// this entity. Orders is import-only -- CommerceOS never pushes an order
+// it created back to Woo.
+const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDirection[] }[] = [
+  { entity: 'products', label: 'Products', runnableDirections: ['import', 'export'] },
+  { entity: 'stock', label: 'Stock levels', runnableDirections: ['import', 'export'] },
+  { entity: 'orders', label: 'Orders', runnableDirections: ['import'] },
+  { entity: 'categories', label: 'Categories', runnableDirections: [] },
 ]
 
 const DIRECTIONS: SyncDirection[] = ['import', 'export']
@@ -69,6 +72,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
   // Connection has no currency of its own yet — fall back to the
   // tenant-wide Localization default rather than leaving the field blank.
   const [storeCurrency, setStoreCurrency] = useState('')
+  const [storeWarehouse, setStoreWarehouse] = useState('')
   const [savingCurrency, setSavingCurrency] = useState(false)
   const [currencyError, setCurrencyError] = useState('')
   const [currencySaved, setCurrencySaved] = useState(false)
@@ -79,7 +83,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
     setCurrencyError('')
     setCurrencySaved(false)
     try {
-      await api.updateConnectionSettings(token, connection.id, storeCurrency)
+      await api.updateConnectionSettings(token, connection.id, storeCurrency, storeWarehouse || null)
       setCurrencySaved(true)
     } catch (err) {
       setCurrencyError(err instanceof Error ? err.message : 'Failed to save currency')
@@ -122,6 +126,9 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
   // tenant settings too, since the currency fallback below needs them.
   if (!hydrated && !loading && !tenantSettingsLoading) {
     const effectiveDefaultCurrency = normalizeCurrency(connection.default_currency) || normalizeCurrency(tenantSettings?.default_currency)
+    // A tenant with exactly one warehouse has nothing to choose between --
+    // preselect it rather than making them pick the only option every time.
+    const effectiveDefaultWarehouse = connection.default_warehouse_id || (warehouses.length === 1 ? warehouses[0].id : '')
     const next: Record<string, CellState> = {}
     for (const row of ROWS) {
       for (const direction of DIRECTIONS) {
@@ -131,17 +138,18 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           ? {
               enabled: existing.enabled,
               intervalMinutes: existing.interval_minutes,
-              defaultWarehouseId: existing.default_warehouse_id ?? '',
+              defaultWarehouseId: existing.default_warehouse_id || effectiveDefaultWarehouse,
               defaultCurrency: normalizeCurrency(existing.default_currency) || effectiveDefaultCurrency,
               lastRunAt: existing.last_run_at,
               lastRunStatus: existing.last_run_status,
               lastRunError: existing.last_run_error,
             }
-          : defaultCell(row.entity === 'products' ? effectiveDefaultCurrency : '')
+          : { ...defaultCell(row.entity === 'products' ? effectiveDefaultCurrency : ''), defaultWarehouseId: effectiveDefaultWarehouse }
       }
     }
     setCells(next)
     setStoreCurrency(effectiveDefaultCurrency)
+    setStoreWarehouse(effectiveDefaultWarehouse)
     setHydrated(true)
   }
 
@@ -157,10 +165,11 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       const payload: SyncSchedule[] = ROWS.flatMap(row =>
         DIRECTIONS.map(direction => {
           const c = cells[cellKey(row.entity, direction)] ?? defaultCell()
+          const runnable = row.runnableDirections.includes(direction)
           return {
             entity_type: row.entity,
             direction,
-            enabled: row.runnable ? c.enabled : false,
+            enabled: runnable ? c.enabled : false,
             interval_minutes: c.intervalMinutes,
             default_warehouse_id: c.defaultWarehouseId || null,
             default_currency: c.defaultCurrency || null,
@@ -206,7 +215,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Store defaults</h2>
             <p className="text-xs dark:text-gray-500 text-gray-400 mb-3">
               WooCommerce's product endpoint doesn't return a currency (it's a store-level setting) — set it once here, reused by
-              both manual imports and the scheduled products/import job.
+              both manual imports and the scheduled products/import job. Default location seeds each sync schedule row below
+              until that row picks its own.
             </p>
             <div className="flex items-end gap-2">
               <div className="flex-1 max-w-[160px]">
@@ -221,6 +231,20 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 >
                   <option value="" disabled>Select a currency…</option>
                   {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="flex-1 max-w-[160px]">
+                <label htmlFor="store-default-location" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  Default location
+                </label>
+                <select
+                  id="store-default-location"
+                  value={storeWarehouse}
+                  onChange={e => { setStoreWarehouse(e.target.value); setCurrencySaved(false) }}
+                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">No preference</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
               <button
@@ -248,29 +272,36 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             {ROWS.map(row => (
               <div key={row.entity} className="p-4">
                 <p className="text-xs font-semibold dark:text-gray-200 text-gray-800 mb-3">{row.label}</p>
-                {!row.runnable && (
+                {row.runnableDirections.length === 0 && (
                   <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-2">Coming soon — not supported yet.</p>
+                )}
+                {row.entity === 'orders' && (
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-2">
+                    Import only — CommerceOS never pushes orders back to Woo. The first run always does a full import;
+                    every run after that is incremental.
+                  </p>
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   {DIRECTIONS.map(direction => {
                     const key = cellKey(row.entity, direction)
                     const cell = cells[key] ?? defaultCell()
-                    const needsWarehouse = row.entity === 'products' || row.entity === 'stock'
+                    const runnable = row.runnableDirections.includes(direction)
+                    const needsWarehouse = row.entity === 'products' || row.entity === 'stock' || row.entity === 'orders'
                     const needsCurrency = row.entity === 'products'
-                    const showExtraFields = row.runnable && direction === 'import' && cell.enabled && (needsWarehouse || needsCurrency)
+                    const showExtraFields = runnable && direction === 'import' && cell.enabled && (needsWarehouse || needsCurrency)
                     return (
                       <div key={direction} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-medium dark:text-gray-400 text-gray-500 uppercase tracking-wider capitalize">
                             {direction}
                           </span>
-                          <label className={clsx('relative flex items-center shrink-0', row.runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
+                          <label className={clsx('relative flex items-center shrink-0', runnable ? 'cursor-pointer' : 'cursor-not-allowed opacity-40')}>
                             <input
                               type="checkbox"
                               role="switch"
                               aria-label={`${row.label} ${direction}`}
                               checked={cell.enabled}
-                              disabled={!row.runnable}
+                              disabled={!runnable}
                               onChange={e => updateCell(row.entity, direction, { enabled: e.target.checked })}
                               className="sr-only peer"
                             />
@@ -281,7 +312,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                         <select
                           aria-label={`${row.label} ${direction} interval`}
                           value={cell.intervalMinutes}
-                          disabled={!row.runnable}
+                          disabled={!runnable}
                           onChange={e => updateCell(row.entity, direction, { intervalMinutes: Number(e.target.value) })}
                           className={clsx(inputClass, 'w-full disabled:opacity-40 disabled:cursor-not-allowed')}
                         >

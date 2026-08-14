@@ -18,17 +18,31 @@ vi.mock('../../integrations/api', () => ({
   deleteSalesChannel: vi.fn(),
   listSalesChannelProducts: vi.fn(),
   setSalesChannelProductOverride: vi.fn(),
+  updateConnectionSettings: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
   listCategories: vi.fn(),
 }))
 
+vi.mock('../../inventory/api', () => ({
+  listWarehouses: vi.fn(),
+}))
+
 import * as integrationsApi from '../../integrations/api'
 import * as pmsApi from '../../pms/api'
+import * as inventoryApi from '../../inventory/api'
 
 const wooConnection: Connection = {
-  id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '',
+  id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', default_currency: 'USD',
+}
+
+function warehouse(overrides: Partial<{ id: string; name: string }> = {}) {
+  return {
+    id: 'wh-1', tenant_id: 'tenant-1', name: 'Main DC',
+    address1: '', address2: '', city: '', province: '', zip: '', country: '', phone: '', active: true,
+    created_at: '', updated_at: '', ...overrides,
+  }
 }
 
 const sampleCategory: Category = {
@@ -56,6 +70,7 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel()])
   vi.mocked(integrationsApi.listSalesChannelProducts).mockResolvedValue({ items: [enrollment()], total: 1 })
   vi.mocked(pmsApi.listCategories).mockResolvedValue([sampleCategory])
+  vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
 })
 
 describe('Sales channels list', () => {
@@ -231,5 +246,59 @@ describe('Manage products', () => {
     await userEvent.click(screen.getByRole('button', { name: /Sales channels/ }))
 
     expect(await screen.findByRole('button', { name: 'Add sales channel' })).toBeInTheDocument()
+  })
+})
+
+describe('Sales channel default location', () => {
+  it('shows Default location once a connection is picked, and saves it alongside the channel', async () => {
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' })])
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-2', name: 'New Channel' }))
+    vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue({ ...wooConnection, default_warehouse_id: 'wh-1' })
+
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    expect(screen.queryByLabelText('Default location')).not.toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Name'), 'New Channel')
+    await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-1')
+    await userEvent.selectOptions(screen.getByLabelText('Default location'), 'wh-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateConnectionSettings).toHaveBeenCalledWith('test-token', 'conn-1', 'USD', 'wh-1')
+    })
+  })
+
+  it('prefills Default location from the connection when editing', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([{ ...wooConnection, default_warehouse_id: 'wh-1' }])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' })])
+
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Default location')).toHaveValue('wh-1')
+  })
+
+  it('keeps the connection default location unchanged when saving other channel edits', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([{ ...wooConnection, default_warehouse_id: 'wh-1' }])
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' })])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ name: 'Renamed' }))
+    vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue({ ...wooConnection, default_warehouse_id: 'wh-1' })
+
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.clear(screen.getByLabelText('Name'))
+    await userEvent.type(screen.getByLabelText('Name'), 'Renamed')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateConnectionSettings).toHaveBeenCalledWith('test-token', 'conn-1', 'USD', 'wh-1')
+    })
   })
 })

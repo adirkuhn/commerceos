@@ -14,6 +14,9 @@ import (
 type UpdateConnectionSettingsInput struct {
 	ID              string
 	DefaultCurrency string
+	// DefaultWarehouseID is optional. nil or pointing to "" clears the
+	// connection's preferred warehouse.
+	DefaultWarehouseID *string
 }
 
 // UpdateConnectionSettingsUseCase persists connection-level defaults —
@@ -40,6 +43,12 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 		// schedule row) can exact-match against it without each one having
 		// to re-normalize on read.
 		existing.DefaultCurrency = strings.ToUpper(strings.TrimSpace(in.DefaultCurrency))
+		if in.DefaultWarehouseID != nil && strings.TrimSpace(*in.DefaultWarehouseID) != "" {
+			warehouseID := strings.TrimSpace(*in.DefaultWarehouseID)
+			existing.DefaultWarehouseID = &warehouseID
+		} else {
+			existing.DefaultWarehouseID = nil
+		}
 		existing.UpdatedAt = time.Now()
 		if err := uc.connRepo.Update(ctx, existing); err != nil {
 			return err

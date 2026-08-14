@@ -51,6 +51,12 @@ type Connection struct {
 	// both the manual import trigger and the scheduled products/import
 	// job, instead of being retyped on every run).
 	DefaultCurrency string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// DefaultWarehouseID is the connection's preferred CommerceOS warehouse,
+	// nil when unset. It seeds a sync schedule row's own DefaultWarehouseID
+	// (domain/channels.SyncSchedule) when that row hasn't picked one itself
+	// -- same "set once here, reused everywhere" role as DefaultCurrency,
+	// just for warehouse instead of currency.
+	DefaultWarehouseID *string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }

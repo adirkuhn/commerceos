@@ -4,6 +4,7 @@ export interface Connection {
   store_url: string
   status: 'connected' | 'error'
   default_currency?: string | null
+  default_warehouse_id?: string | null
   created_at: string
 }
 

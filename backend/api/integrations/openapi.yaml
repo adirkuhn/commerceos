@@ -513,6 +513,10 @@ components:
         store_url: { type: string }
         status: { $ref: '#/components/schemas/ConnectionStatus' }
         default_currency: { type: string }
+        default_warehouse_id:
+          type: string
+          nullable: true
+          description: Preferred CommerceOS warehouse for this connection — seeds each sync schedule row's own default_warehouse_id when that row hasn't set one itself.
         created_at: { type: string, format: date-time }
 
     UpdateConnectionSettingsRequest:
@@ -520,6 +524,10 @@ components:
       required: [default_currency]
       properties:
         default_currency: { type: string }
+        default_warehouse_id:
+          type: string
+          nullable: true
+          description: Optional. Omit or send null to clear — this connection then has no preferred warehouse and every sync schedule row must set its own.
 
     StartWooConnectRequest:
       type: object

@@ -74,6 +74,53 @@ func TestUpdateConnectionSettings_normalizesCasingAndWhitespace(t *testing.T) {
 	require.Equal(t, "USD", updated.DefaultCurrency)
 }
 
+func TestUpdateConnectionSettings_setsDefaultWarehouse(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1"}
+	var updated *integrationsDomain.Connection
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	warehouseID := "wh-1"
+
+	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
+		ID: "conn-1", DefaultCurrency: "USD", DefaultWarehouseID: &warehouseID,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.DefaultWarehouseID)
+	require.Equal(t, "wh-1", *result.DefaultWarehouseID)
+	require.NotNil(t, updated.DefaultWarehouseID)
+	require.Equal(t, "wh-1", *updated.DefaultWarehouseID)
+}
+
+func TestUpdateConnectionSettings_clearsDefaultWarehouseWhenNilOrEmpty(t *testing.T) {
+	existingWarehouse := "wh-old"
+	conn := &integrationsDomain.Connection{ID: "conn-1", DefaultWarehouseID: &existingWarehouse}
+	var updated *integrationsDomain.Connection
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	empty := ""
+
+	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
+		ID: "conn-1", DefaultCurrency: "USD", DefaultWarehouseID: &empty,
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, result.DefaultWarehouseID)
+	require.Nil(t, updated.DefaultWarehouseID)
+}
+
 func TestUpdateConnectionSettings_propagatesNotFound(t *testing.T) {
 	repo := &mocks.ConnectionRepo{
 		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) {

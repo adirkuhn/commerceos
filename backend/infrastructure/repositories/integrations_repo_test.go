@@ -50,3 +50,27 @@ func TestConnectionRepo_Create_omitsEmptyIDLettingPostgresGenerateIt(t *testing.
 	require.Equal(t, "generated-uuid", conn.ID)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestConnectionRepo_Update_persistsDefaultWarehouseID(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer mockDB.Close()
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mockDB}), &gorm.Config{})
+	require.NoError(t, err)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "integration_connections" SET .*"default_warehouse_id"=\$\d.*WHERE id = \$\d`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	repo := repositories.NewConnectionRepo(gormDB)
+	ctx := txctx.WithTx(context.Background(), gormDB)
+
+	warehouseID := "wh-1"
+	conn := &integrationsDomain.Connection{ID: "conn-1", DefaultWarehouseID: &warehouseID}
+	err = repo.Update(ctx, conn)
+
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
