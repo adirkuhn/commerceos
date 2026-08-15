@@ -78,6 +78,52 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 	require.Equal(t, 4, *pushed.StockQuantity)
 }
 
+func TestPushProductToWoo_includesLotMetadataWhenStockLevelHasASourceBatch(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	expiry := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{
+		SKUID: sku.ID, Syncable: 4,
+		SourceBatch: &invapp.BatchSyncInfo{LotNumber: "LOT-42", ExpiryDate: expiry},
+	}}
+	h.wooClient.createdWithID = "555"
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	require.Equal(t, []integrationsDomain.WooMetaData{
+		{Key: "lot_number", Value: "LOT-42"},
+		{Key: "expiry_date", Value: "2026-12-01"},
+	}, h.wooClient.createCalled[0].MetaData)
+}
+
+func TestPushProductToWoo_omitsMetadataWhenStockLevelHasNoSourceBatch(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 4}}
+	h.wooClient.createdWithID = "555"
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, h.wooClient.createCalled[0].MetaData)
+}
+
 func TestPushProductToWoo_roundTripsWooTaxClassWhenSKUWasImportedFromWoo(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	slug, status := "reduced-rate", "taxable"

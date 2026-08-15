@@ -15,6 +15,20 @@ type StockLevel struct {
 	// Syncable is what should be reported to external channels. See
 	// computeStockLevel for the two rules that can produce it.
 	Syncable int64
+	// SourceBatch is set only when Syncable was attributed to one specific
+	// batch (the tier-3 nearest-expiry rule below) -- which lot/expiry the
+	// synced quantity refers to, for channel pushes that surface it as
+	// product metadata (see application/channels' toWooMetaData). Nil for
+	// every other case: rules disabled, no batches, or batches with no
+	// expiry (Syncable is a sum across batches there, not attributable to
+	// one lot).
+	SourceBatch *BatchSyncInfo
+}
+
+// BatchSyncInfo is the lot identity behind a StockLevel.SourceBatch.
+type BatchSyncInfo struct {
+	LotNumber  string
+	ExpiryDate time.Time
 }
 
 // computeStockLevel is the one place the Total/Syncable rule is
@@ -68,10 +82,9 @@ func computeStockLevel(skuID string, movements []invDomain.StockMovement, batche
 		return level
 	}
 
-	var nearestBatchID string
-	var nearestExpiry *time.Time
+	var nearestBatch *invDomain.Batch
 	hasExpiryBatch := false
-	for _, b := range batches {
+	for i, b := range batches {
 		if b.ExpiryDate == nil {
 			continue
 		}
@@ -79,9 +92,8 @@ func computeStockLevel(skuID string, movements []invDomain.StockMovement, batche
 		if !b.ExpiryDate.After(now) {
 			continue // already expired -- not eligible to be "nearest"
 		}
-		if nearestExpiry == nil || b.ExpiryDate.Before(*nearestExpiry) {
-			nearestExpiry = b.ExpiryDate
-			nearestBatchID = b.ID
+		if nearestBatch == nil || b.ExpiryDate.Before(*nearestBatch.ExpiryDate) {
+			nearestBatch = &batches[i]
 		}
 	}
 
@@ -89,6 +101,10 @@ func computeStockLevel(skuID string, movements []invDomain.StockMovement, batche
 		level.Syncable = level.Total // covers both "no batches" and "batches, no expiry"
 		return level
 	}
-	level.Syncable = qtyByBatch[nearestBatchID] // 0 if nearestBatchID is "" (all expiry batches already expired)
+	if nearestBatch == nil {
+		return level // all expiry batches already expired -- Syncable stays 0
+	}
+	level.Syncable = qtyByBatch[nearestBatch.ID]
+	level.SourceBatch = &BatchSyncInfo{LotNumber: nearestBatch.LotNumber, ExpiryDate: *nearestBatch.ExpiryDate}
 	return level
 }

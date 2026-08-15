@@ -317,6 +317,7 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 		StockQuantity: p.StockQuantity,
 		TaxStatus:     p.TaxStatus,
 		TaxClass:      p.TaxClass,
+		MetaData:      toWcMetaData(p.MetaData),
 	})
 	if err != nil {
 		return nil, err
@@ -390,6 +391,7 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 		Attributes:    []wc.VariationAttribute{{Name: v.AttributeName, Option: v.AttributeValue}},
 		TaxStatus:     v.TaxStatus,
 		TaxClass:      v.TaxClass,
+		MetaData:      toWcMetaData(v.MetaData),
 	})
 	if err != nil {
 		return nil, err
@@ -409,6 +411,7 @@ func (c *wooClient) UpdateVariation(ctx context.Context, parentExternalID, varia
 		Dimensions:    wooVariationDimensions(v.Dimensions),
 		TaxStatus:     v.TaxStatus,
 		TaxClass:      v.TaxClass,
+		MetaData:      toWcMetaData(v.MetaData),
 	})
 	if err != nil {
 		return nil, err
@@ -450,9 +453,23 @@ func toWooVariation(v wc.ProductVariation) integrationsDomain.WooVariation {
 	}
 }
 
-func (c *wooClient) UpdateProductStock(ctx context.Context, externalProductID string, quantity int) error {
-	_, _, err := c.client.Products.Update(ctx, externalProductID, &wc.Product{StockQuantity: &quantity})
+func (c *wooClient) UpdateProductStock(ctx context.Context, externalProductID string, quantity int, metadata []integrationsDomain.WooMetaData) error {
+	_, _, err := c.client.Products.Update(ctx, externalProductID, &wc.Product{
+		StockQuantity: &quantity,
+		MetaData:      toWcMetaData(metadata),
+	})
 	return err
+}
+
+func toWcMetaData(m []integrationsDomain.WooMetaData) []wc.MetaData {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]wc.MetaData, len(m))
+	for i, md := range m {
+		out[i] = wc.MetaData{Key: md.Key, Value: md.Value}
+	}
+	return out
 }
 
 func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
@@ -474,6 +491,7 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		Dimensions:    dims,
 		TaxStatus:     p.TaxStatus,
 		TaxClass:      p.TaxClass,
+		MetaData:      toWcMetaData(p.MetaData),
 	})
 	if err != nil {
 		return nil, err

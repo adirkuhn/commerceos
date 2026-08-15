@@ -153,6 +153,7 @@ type stubDeleteVariationCall struct {
 type stubStockUpdate struct {
 	ExternalID string
 	Quantity   int
+	MetaData   []integrationsDomain.WooMetaData
 }
 
 type stubUpdateProductCall struct {
@@ -183,8 +184,8 @@ func (s *stubWooClient) CreateProduct(_ context.Context, p integrationsDomain.Wo
 	return &p, nil
 }
 
-func (s *stubWooClient) UpdateProductStock(_ context.Context, externalID string, quantity int) error {
-	s.updateStockCalled = append(s.updateStockCalled, stubStockUpdate{ExternalID: externalID, Quantity: quantity})
+func (s *stubWooClient) UpdateProductStock(_ context.Context, externalID string, quantity int, metadata []integrationsDomain.WooMetaData) error {
+	s.updateStockCalled = append(s.updateStockCalled, stubStockUpdate{ExternalID: externalID, Quantity: quantity, MetaData: metadata})
 	return s.updateStockErr
 }
 

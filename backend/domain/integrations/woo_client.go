@@ -47,6 +47,18 @@ type WooProduct struct {
 	// domain/tax.ExternalTaxClassLink table.
 	TaxStatus string
 	TaxClass  string
+	// MetaData carries only commerceos-managed custom fields -- currently
+	// just lot_number/expiry_date, populated when Inventory Rules' tier-3
+	// sync rule attributes the pushed quantity to one specific batch (see
+	// application/channels' toWooMetaData). Not a general passthrough for
+	// arbitrary Woo/plugin meta_data.
+	MetaData []WooMetaData
+}
+
+// WooMetaData is a single WooCommerce custom-field key/value pair.
+type WooMetaData struct {
+	Key   string
+	Value string
 }
 
 type WooProductDimensions struct {
@@ -81,6 +93,8 @@ type WooVariation struct {
 	// here, per-variation.
 	TaxStatus string
 	TaxClass  string
+	// MetaData -- see WooProduct's doc comment, same meaning here.
+	MetaData []WooMetaData
 }
 
 type WooProductImage struct {
@@ -203,10 +217,11 @@ type WooClient interface {
 	// CreateProduct pushes a new product to the store. p.ID is ignored (Woo
 	// assigns it); the returned WooProduct's ID is the new external id.
 	CreateProduct(ctx context.Context, p WooProduct) (*WooProduct, error)
-	// UpdateProductStock sets the stock quantity on an existing product,
-	// identified by its external (Woo) id. Used by the stock-export sync
-	// job — never touches any other product field.
-	UpdateProductStock(ctx context.Context, externalProductID string, quantity int) error
+	// UpdateProductStock sets the stock quantity (and, if non-empty, the
+	// commerceos-managed lot_number/expiry_date meta fields) on an existing
+	// product, identified by its external (Woo) id. Used by the stock-export
+	// sync job — never touches any other product field.
+	UpdateProductStock(ctx context.Context, externalProductID string, quantity int, metadata []WooMetaData) error
 	// UpdateProduct pushes this codebase's current view of a product to an
 	// already-linked Woo product, identified by its external id — used by
 	// the event-driven product->channel sync (see application/channels'

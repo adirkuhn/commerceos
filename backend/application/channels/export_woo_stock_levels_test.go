@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -37,6 +38,29 @@ func TestExportWooStockLevels_pushesCurrentSyncableLevelToWoo(t *testing.T) {
 	require.Equal(t, channelsDomain.SyncFlowPush, entry.Direction)
 	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
 	require.Equal(t, "7", entry.Fields["stock_quantity"])
+}
+
+func TestExportWooStockLevels_includesLotMetadataWhenStockLevelHasASourceBatch(t *testing.T) {
+	h, sku := newStockSyncHarness(nil)
+	expiry := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{
+		SKUID: sku.ID, Syncable: 7, SourceBatch: &invapp.BatchSyncInfo{LotNumber: "LOT-42", ExpiryDate: expiry},
+	}}
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 1)
+	require.Equal(t, []integrationsDomain.WooMetaData{
+		{Key: "lot_number", Value: "LOT-42"},
+		{Key: "expiry_date", Value: "2026-12-01"},
+	}, h.wooClient.updateStockCalled[0].MetaData)
+	require.Equal(t, "LOT-42", h.syncLogRepo.created[0].Fields["lot_number"])
 }
 
 func TestExportWooStockLevels_skipsVirtualSKUs(t *testing.T) {

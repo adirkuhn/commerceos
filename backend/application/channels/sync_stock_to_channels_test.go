@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -98,6 +99,53 @@ func TestSyncStockToChannels_pushesAgainWhenQuantityDiffers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, h.wooClient.updateStockCalled, 1)
 	require.Equal(t, 12, h.wooClient.updateStockCalled[0].Quantity)
+}
+
+func TestSyncStockToChannels_includesLotMetadataWhenStockLevelHasASourceBatch(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	expiry := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{
+		Syncable: 12, SourceBatch: &invapp.BatchSyncInfo{LotNumber: "LOT-42", ExpiryDate: expiry},
+	}}
+	uc := h.newSyncStockUseCase(t, 5, stockLevel)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 1)
+	require.Equal(t, []integrationsDomain.WooMetaData{
+		{Key: "lot_number", Value: "LOT-42"},
+		{Key: "expiry_date", Value: "2026-12-01"},
+	}, h.wooClient.updateStockCalled[0].MetaData)
+	require.Equal(t, "LOT-42", h.syncLogRepo.created[0].Fields["lot_number"])
+}
+
+func TestSyncStockToChannels_pushesAgainWhenOnlyTheLotChangesEvenIfQuantityIsTheSame(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
+		"listing-1": {{ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
+			"stock_quantity": "12", "lot_number": "LOT-OLD", "expiry_date": "2026-09-01",
+		}}},
+	}
+	expiry := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{
+		Syncable: 12, SourceBatch: &invapp.BatchSyncInfo{LotNumber: "LOT-NEW", ExpiryDate: expiry},
+	}}
+	uc := h.newSyncStockUseCase(t, 5, stockLevel)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 1, "same qty but a different lot must still re-push")
+	require.Equal(t, "LOT-NEW", h.wooClient.updateStockCalled[0].MetaData[0].Value)
 }
 
 func TestSyncStockToChannels_recordsErrorStatusWhenWooUpdateFails(t *testing.T) {

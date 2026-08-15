@@ -98,14 +98,15 @@ func TestGetSKUStockLevel_rulesEnabled_batchesWithNoExpiry_syncsSum(t *testing.T
 
 	require.NoError(t, err)
 	require.Equal(t, int64(13), level.Syncable, "no batch has an expiry -- sums like today's default rule")
+	require.Nil(t, level.SourceBatch, "sum-of-batches isn't attributable to one lot")
 }
 
 func TestGetSKUStockLevel_rulesEnabled_batchesWithExpiry_syncsOnlyNearestExpiryBatchQty(t *testing.T) {
 	soon := time.Now().Add(2 * 24 * time.Hour)
 	later := time.Now().Add(30 * 24 * time.Hour)
 	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{
-		{ID: "batch-soon", SKUID: "sku-1", ExpiryDate: &soon},
-		{ID: "batch-later", SKUID: "sku-1", ExpiryDate: &later},
+		{ID: "batch-soon", SKUID: "sku-1", LotNumber: "LOT-SOON", ExpiryDate: &soon},
+		{ID: "batch-later", SKUID: "sku-1", LotNumber: "LOT-LATER", ExpiryDate: &later},
 	}}
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-1", BatchID: strPtr("batch-soon"), QuantityDelta: 4, Type: invDomain.MovementTypeReceipt},
@@ -118,6 +119,9 @@ func TestGetSKUStockLevel_rulesEnabled_batchesWithExpiry_syncsOnlyNearestExpiryB
 	require.NoError(t, err)
 	require.Equal(t, int64(104), level.Total)
 	require.Equal(t, int64(4), level.Syncable, "only the nearest-expiry batch's own quantity syncs, deliberately under-reporting the rest")
+	require.NotNil(t, level.SourceBatch, "channel pushes need to know which lot the synced qty came from")
+	require.Equal(t, "LOT-SOON", level.SourceBatch.LotNumber)
+	require.True(t, soon.Equal(level.SourceBatch.ExpiryDate))
 }
 
 func TestGetSKUStockLevel_rulesEnabled_mixedBatchesWithAndWithoutExpiry_ignoresNoExpiryBatch(t *testing.T) {

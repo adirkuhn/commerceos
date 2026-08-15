@@ -321,6 +321,7 @@ func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product 
 			qty := int(level.Syncable)
 			wooProduct.ManageStock = true
 			wooProduct.StockQuantity = &qty
+			wooProduct.MetaData = toWooMetaData(level.SourceBatch)
 		}
 	}
 	return wooProduct
@@ -349,6 +350,7 @@ func (uc *PushProductToWooUseCase) buildWooVariation(ctx context.Context, vp var
 			qty := int(level.Syncable)
 			variation.ManageStock = true
 			variation.StockQuantity = &qty
+			variation.MetaData = toWooMetaData(level.SourceBatch)
 		}
 	}
 	return variation

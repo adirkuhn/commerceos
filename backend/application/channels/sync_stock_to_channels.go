@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"maps"
 	"strconv"
 	"time"
 
@@ -88,29 +89,35 @@ func (uc *SyncStockToChannelsUseCase) Execute(ctx context.Context, skuID string)
 		return fmt.Errorf("syncStockToChannels: %w", err)
 	}
 	qty := strconv.FormatInt(level.Syncable, 10)
+	fields := map[string]string{"stock_quantity": qty}
+	metadata := toWooMetaData(level.SourceBatch)
+	for _, md := range metadata {
+		fields[md.Key] = md.Value
+	}
 
 	for _, listing := range listings {
-		uc.syncOne(ctx, listing, qty)
+		uc.syncOne(ctx, listing, qty, fields, metadata)
 	}
 	return nil
 }
 
-func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, qty string) {
+func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData) {
 	if listing.Provider != string(integrationsDomain.ProviderWooCommerce) {
 		return // no other provider implemented yet
 	}
-	fields := map[string]string{"stock_quantity": qty}
 
 	// Skip the actual Woo call (not just the log row — recordSyncLog
 	// already dedupes those) when the last recorded push for this listing
-	// already reported this exact quantity. A stock movement usually does
-	// change Syncable, but not always (e.g. an adjustment against an
-	// already-expired batch, which Syncable excludes either way).
-	if uc.alreadySyncedTo(ctx, listing.ID, qty) {
+	// already reported these exact field values. A stock movement usually
+	// does change Syncable, but not always (e.g. an adjustment against an
+	// already-expired batch, which Syncable excludes either way); the
+	// nearest-expiry batch can also change lot with the quantity staying
+	// the same, which fields (not just qty) catches.
+	if uc.alreadySyncedTo(ctx, listing.ID, fields) {
 		return
 	}
 
-	syncErr := uc.pushToWoo(ctx, listing, qty)
+	syncErr := uc.pushToWoo(ctx, listing, qty, metadata)
 
 	now := time.Now()
 	listing.LastSyncedAt = &now
@@ -137,7 +144,7 @@ func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing chann
 	}
 }
 
-func (uc *SyncStockToChannelsUseCase) alreadySyncedTo(ctx context.Context, listingID, qty string) bool {
+func (uc *SyncStockToChannelsUseCase) alreadySyncedTo(ctx context.Context, listingID string, fields map[string]string) bool {
 	var prev []channelsDomain.SyncLogEntry
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
@@ -147,10 +154,10 @@ func (uc *SyncStockToChannelsUseCase) alreadySyncedTo(ctx context.Context, listi
 	if err != nil || len(prev) == 0 {
 		return false
 	}
-	return prev[0].Status == channelsDomain.SyncLogStatusSuccess && prev[0].Fields["stock_quantity"] == qty
+	return prev[0].Status == channelsDomain.SyncLogStatusSuccess && maps.Equal(prev[0].Fields, fields)
 }
 
-func (uc *SyncStockToChannelsUseCase) pushToWoo(ctx context.Context, listing channelsDomain.ProductChannelListing, qty string) error {
+func (uc *SyncStockToChannelsUseCase) pushToWoo(ctx context.Context, listing channelsDomain.ProductChannelListing, qty string, metadata []integrationsDomain.WooMetaData) error {
 	var conn integrationsDomain.Connection
 	var secret string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -175,7 +182,7 @@ func (uc *SyncStockToChannelsUseCase) pushToWoo(ctx context.Context, listing cha
 	if err != nil {
 		return fmt.Errorf("syncStockToChannels: parse quantity: %w", err)
 	}
-	if err := client.UpdateProductStock(ctx, listing.ExternalID, qtyInt); err != nil {
+	if err := client.UpdateProductStock(ctx, listing.ExternalID, qtyInt, metadata); err != nil {
 		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 	return nil
