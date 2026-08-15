@@ -254,7 +254,7 @@ func Register(
 		appchannels.NewPushProductToWooUseCase(
 			db, connRepo, wooFactory, encryptionSecret,
 			productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
-			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db)),
+			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db)),
 		),
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewUpsertSyncScheduleUseCase(db, scheduleRepo),

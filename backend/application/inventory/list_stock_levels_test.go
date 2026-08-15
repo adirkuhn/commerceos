@@ -7,6 +7,7 @@ import (
 
 	appinv "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +22,7 @@ func TestListStockLevels_computesTotalAndSyncablePerSKU(t *testing.T) {
 		},
 	}
 	batchRepo := &stubBatchRepo{}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, batchRepo)
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, batchRepo, &stubSettingsRepo{})
 
 	result, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{})
 
@@ -41,7 +42,7 @@ func TestListStockLevels_excludesExpiredBatchesFromSyncable(t *testing.T) {
 		},
 	}
 	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{{ID: "batch-1", SKUID: "sku-1", ExpiryDate: &expired}}}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, batchRepo)
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, batchRepo, &stubSettingsRepo{})
 
 	result, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{})
 
@@ -51,10 +52,34 @@ func TestListStockLevels_excludesExpiredBatchesFromSyncable(t *testing.T) {
 	assert.Equal(t, int64(0), result.Levels[0].Syncable, "expired batch stock isn't syncable")
 }
 
+func TestListStockLevels_rulesEnabled_appliesNearestExpiryTierAcrossThePage(t *testing.T) {
+	soon := time.Now().Add(2 * 24 * time.Hour)
+	later := time.Now().Add(30 * 24 * time.Hour)
+	movementRepo := &stubStockMovementRepo{
+		distinctSKUIDs: []string{"sku-1"}, distinctSKUIDsTotal: 1,
+		bySKUs: []invDomain.StockMovement{
+			{SKUID: "sku-1", BatchID: strPtr("batch-soon"), QuantityDelta: 4},
+			{SKUID: "sku-1", BatchID: strPtr("batch-later"), QuantityDelta: 100},
+		},
+	}
+	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{
+		{ID: "batch-soon", SKUID: "sku-1", ExpiryDate: &soon},
+		{ID: "batch-later", SKUID: "sku-1", ExpiryDate: &later},
+	}}
+	settingsRepo := &stubSettingsRepo{result: &settingsDomain.TenantSettings{InventorySyncRulesEnabled: true}}
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, batchRepo, settingsRepo)
+
+	result, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{})
+
+	require.NoError(t, err)
+	require.Len(t, result.Levels, 1)
+	assert.Equal(t, int64(4), result.Levels[0].Syncable)
+}
+
 func TestListStockLevels_passesChangedSinceAndPagingThrough(t *testing.T) {
 	since := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{})
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubSettingsRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{ChangedSince: &since, Page: 2, PerPage: 10})
 
@@ -67,7 +92,7 @@ func TestListStockLevels_passesChangedSinceAndPagingThrough(t *testing.T) {
 
 func TestListStockLevels_defaultsPerPage(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{})
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubSettingsRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{})
 
@@ -77,7 +102,7 @@ func TestListStockLevels_defaultsPerPage(t *testing.T) {
 
 func TestListStockLevels_capsPerPageAtMax(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{})
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubSettingsRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{PerPage: 10000})
 
@@ -87,7 +112,7 @@ func TestListStockLevels_capsPerPageAtMax(t *testing.T) {
 
 func TestListStockLevels_noMatchingSKUsReturnsEmptyWithoutExtraQueries(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{distinctSKUIDs: nil, distinctSKUIDsTotal: 0}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{})
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubSettingsRepo{})
 
 	result, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{})
 
@@ -98,7 +123,7 @@ func TestListStockLevels_noMatchingSKUsReturnsEmptyWithoutExtraQueries(t *testin
 
 func TestListStockLevels_propagatesARepoError(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{distinctSKUIDsErr: invDomain.ErrInsufficientStock}
-	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{})
+	uc := appinv.NewListStockLevelsUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubSettingsRepo{})
 
 	_, err := uc.Execute(context.Background(), appinv.ListStockLevelsInput{})
 

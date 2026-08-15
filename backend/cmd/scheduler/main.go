@@ -129,7 +129,8 @@ func main() {
 	expireSalePriceUC := pmsapp.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo)
 
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
-	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo)
+	settingsRepo := repositories.NewTenantSettingsRepo(db)
+	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,

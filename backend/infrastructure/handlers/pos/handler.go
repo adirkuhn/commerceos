@@ -56,11 +56,12 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
+	settingsRepo := repositories.NewTenantSettingsRepo(db)
 
 	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	h := NewHandler(
 		apppms.NewListProductsUseCase(db, productRepo),
-		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo),
+		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
 		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 	)
 	genpos.RegisterHandlers(rg, h)

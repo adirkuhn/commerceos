@@ -13,6 +13,7 @@ import (
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 )
 
 // stubOutboxRepo is a no-op outbox — tests that need a stock-changing use
@@ -177,6 +178,25 @@ func (s *stubStockMovementRepo) ListDistinctSKUIDs(_ context.Context, changedSin
 		return nil, 0, s.distinctSKUIDsErr
 	}
 	return s.distinctSKUIDs, s.distinctSKUIDsTotal, nil
+}
+
+// stubSettingsRepo satisfies the settingsGetter interface used by
+// GetSKUStockLevelUseCase/ListStockLevelsUseCase -- a zero-value result
+// (InventorySyncRulesEnabled: false) matches an unsaved tenant, preserving
+// today's default Syncable rule.
+type stubSettingsRepo struct {
+	result *settingsDomain.TenantSettings
+	err    error
+}
+
+func (s *stubSettingsRepo) Get(_ context.Context) (*settingsDomain.TenantSettings, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.result != nil {
+		return s.result, nil
+	}
+	return &settingsDomain.TenantSettings{}, nil
 }
 
 // stubSKURepo implements pms.SKURepository -- only FindByID is exercised

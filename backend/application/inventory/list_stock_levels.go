@@ -41,10 +41,11 @@ type ListStockLevelsUseCase struct {
 	db           *gorm.DB
 	movementRepo invDomain.StockMovementRepository
 	batchRepo    invDomain.BatchRepository
+	settingsRepo settingsGetter
 }
 
-func NewListStockLevelsUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, batchRepo invDomain.BatchRepository) *ListStockLevelsUseCase {
-	return &ListStockLevelsUseCase{db: db, movementRepo: movementRepo, batchRepo: batchRepo}
+func NewListStockLevelsUseCase(db *gorm.DB, movementRepo invDomain.StockMovementRepository, batchRepo invDomain.BatchRepository, settingsRepo settingsGetter) *ListStockLevelsUseCase {
+	return &ListStockLevelsUseCase{db: db, movementRepo: movementRepo, batchRepo: batchRepo, settingsRepo: settingsRepo}
 }
 
 func (uc *ListStockLevelsUseCase) Execute(ctx context.Context, in ListStockLevelsInput) (*ListStockLevelsResult, error) {
@@ -79,6 +80,10 @@ func (uc *ListStockLevelsUseCase) Execute(ctx context.Context, in ListStockLevel
 		if err != nil {
 			return err
 		}
+		settings, err := uc.settingsRepo.Get(ctx)
+		if err != nil {
+			return err
+		}
 
 		movementsBySKU := make(map[string][]invDomain.StockMovement, len(skuIDs))
 		for _, m := range movements {
@@ -91,7 +96,7 @@ func (uc *ListStockLevelsUseCase) Execute(ctx context.Context, in ListStockLevel
 
 		result.Levels = make([]StockLevel, len(skuIDs))
 		for i, skuID := range skuIDs {
-			result.Levels[i] = computeStockLevel(skuID, movementsBySKU[skuID], batchesBySKU[skuID])
+			result.Levels[i] = computeStockLevel(skuID, movementsBySKU[skuID], batchesBySKU[skuID], settings.InventorySyncRulesEnabled)
 		}
 		return nil
 	})

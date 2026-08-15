@@ -152,6 +152,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	batchRepo := repositories.NewBatchRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
+	settingsRepo := repositories.NewTenantSettingsRepo(db)
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -162,7 +163,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewUpdateBatchUseCase(db, batchRepo),
 		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo),
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo),
-		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo),
+		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo),
 		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewRecordRecountUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
