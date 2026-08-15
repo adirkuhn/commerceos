@@ -273,6 +273,11 @@ func main() {
 		}
 		licenseVerifier := lm2license.NewTokenService(lm2license.NewHTTPPublicKeyFetcher(cfg.LM2LicensePublicKeyURL))
 		posGroup := r.Group("/api/v1")
+		// Logs every /pos/* request's method/path/body before anything
+		// else runs, so a request that fails license auth or OpenAPI
+		// validation still shows up in the log -- useful for debugging a
+		// POS client sending a bad request, not just successful ones.
+		posGroup.Use(middleware.RequestBodyLogger())
 		posGroup.Use(middleware.POSLicense(licenseVerifier))
 		posGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(posSpec, &ginmiddleware.Options{
 			SilenceServersWarning: true,

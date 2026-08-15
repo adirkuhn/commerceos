@@ -1,7 +1,18 @@
+x-logging: &default-logging
+  # No service here wrote to a file to begin with (every Go binary just
+  # logs to stdout/stderr) -- the unbounded growth was Docker's own
+  # json-file driver, which has no size cap unless told to. 10m x 3 files
+  # = 30MB retained per service before the oldest is dropped.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     networks:
       - commerceos
     environment:
@@ -21,6 +32,7 @@ services:
   nats:
     image: nats:2.10-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: [ "-js", "-m", "8222" ]
     networks:
       - commerceos
@@ -37,6 +49,7 @@ services:
 
   createbuckets:
     image: minio/mc:latest
+    logging: *default-logging
     networks:
       - minio
     entrypoint: >
@@ -45,6 +58,7 @@ services:
   migrate:
     build:
       context: ./backend
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,6 +92,7 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    logging: *default-logging
     networks:
       - traefik-public
       - commerceos
@@ -128,6 +143,7 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    logging: *default-logging
     networks:
       - commerceos
     dns:
@@ -153,6 +169,7 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    logging: *default-logging
     networks:
       - commerceos
       - minio
@@ -195,6 +212,7 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - backend
     networks:

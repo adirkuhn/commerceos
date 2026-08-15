@@ -520,6 +520,28 @@ func (r *VariantRepo) ListByProduct(ctx context.Context, productID string) ([]pm
 	return variants, nil
 }
 
+// ListByProductIDs bulk-loads variants for multiple products in one query --
+// avoids N+1 when assembling a paginated product list that also needs each
+// product's variants (see application/pms.ListPOSProductCatalogUseCase).
+func (r *VariantRepo) ListByProductIDs(ctx context.Context, productIDs []string) ([]pmsDomain.Variant, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(productIDs) == 0 {
+		return nil, nil
+	}
+	var rows []variantModel
+	if err := tx.Where("product_id IN ?", productIDs).Order("position asc, name asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("variantRepo.ListByProductIDs: %w", err)
+	}
+	variants := make([]pmsDomain.Variant, len(rows))
+	for i, row := range rows {
+		variants[i] = *toVariantDomain(row)
+	}
+	return variants, nil
+}
+
 func (r *VariantRepo) Update(ctx context.Context, v *pmsDomain.Variant) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -666,6 +688,27 @@ func (r *SKURepo) ListByVariant(ctx context.Context, variantID string) ([]pmsDom
 	var rows []skuModel
 	if err := tx.Where("variant_id = ?", variantID).Order("created_at asc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("skuRepo.ListByVariant: %w", err)
+	}
+	skus := make([]pmsDomain.SKU, len(rows))
+	for i, row := range rows {
+		skus[i] = *toSKUDomain(row)
+	}
+	return skus, nil
+}
+
+// ListByVariantIDs bulk-loads SKUs for multiple variants in one query --
+// same N+1-avoidance rationale as VariantRepo.ListByProductIDs.
+func (r *SKURepo) ListByVariantIDs(ctx context.Context, variantIDs []string) ([]pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(variantIDs) == 0 {
+		return nil, nil
+	}
+	var rows []skuModel
+	if err := tx.Where("variant_id IN ?", variantIDs).Order("created_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuRepo.ListByVariantIDs: %w", err)
 	}
 	skus := make([]pmsDomain.SKU, len(rows))
 	for i, row := range rows {

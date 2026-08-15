@@ -70,7 +70,9 @@ func TestSyncStockToChannels_skipsWooCallWhenAlreadySyncedToSameQuantity(t *test
 	}
 	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
 	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
-		"listing-1": {{ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{"stock_quantity": "12"}}},
+		"listing-1": {{ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
+			"stock_quantity": "12", "lot_number": "", "expiry_date": "",
+		}}},
 	}
 	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 12}}
 	uc := h.newSyncStockUseCase(t, 5, stockLevel)

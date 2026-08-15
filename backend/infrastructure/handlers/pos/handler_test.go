@@ -25,12 +25,12 @@ import (
 func init() { gin.SetMode(gin.TestMode) }
 
 type stubListProducts struct {
-	out      *apppms.ListProductsResult
+	out      *apppms.ListPOSProductCatalogResult
 	err      error
 	gotInput apppms.ListProductsInput
 }
 
-func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInput) (*apppms.ListProductsResult, error) {
+func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInput) (*apppms.ListPOSProductCatalogResult, error) {
 	s.gotInput = in
 	if s.err != nil {
 		return nil, s.err
@@ -38,7 +38,7 @@ func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInpu
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &apppms.ListProductsResult{}, nil
+	return &apppms.ListPOSProductCatalogResult{}, nil
 }
 
 type stubListStockLevels struct {
@@ -75,14 +75,27 @@ func (s *stubReceivePOSSalesOrder) Execute(_ context.Context, in appoms.ReceiveP
 	return &omsDomain.SalesOrder{}, nil
 }
 
+type stubListWarehouses struct {
+	out []invDomain.Warehouse
+	err error
+}
+
+func (s *stubListWarehouses) Execute(_ context.Context) ([]invDomain.Warehouse, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
 type stubs struct {
 	listProducts    stubListProducts
 	listStockLevels stubListStockLevels
 	receiveOrder    stubReceivePOSSalesOrder
+	listWarehouses  stubListWarehouses
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
-	h := poshandler.NewHandler(&s.listProducts, &s.listStockLevels, &s.receiveOrder)
+	h := poshandler.NewHandler(&s.listProducts, &s.listStockLevels, &s.receiveOrder, &s.listWarehouses)
 	r := gin.New()
 	genpos.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -103,8 +116,8 @@ func doRequest(r *gin.Engine, method, path string, body any) *httptest.ResponseR
 // ── ListPOSProducts ──────────────────────────────────────────────────────────
 
 func TestListPOSProducts_success(t *testing.T) {
-	s := &stubs{listProducts: stubListProducts{out: &apppms.ListProductsResult{
-		Products: []pmsDomain.Product{{ID: "p1", Name: "Widget", Slug: "widget", Status: pmsDomain.ProductStatusActive}},
+	s := &stubs{listProducts: stubListProducts{out: &apppms.ListPOSProductCatalogResult{
+		Products: []apppms.POSProductWithSKUs{{Product: pmsDomain.Product{ID: "p1", Name: "Widget", Slug: "widget", Status: pmsDomain.ProductStatusActive}}},
 		Total:    1,
 	}}}
 	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/products", nil)
@@ -112,6 +125,28 @@ func TestListPOSProducts_success(t *testing.T) {
 	require.Equal(t, 200, w.Code)
 	assert.Contains(t, w.Body.String(), "Widget")
 	assert.Contains(t, w.Body.String(), `"total":1`)
+}
+
+func TestListPOSProducts_includesSKUsFlattenedAcrossVariants(t *testing.T) {
+	salePrice := int64(450)
+	s := &stubs{listProducts: stubListProducts{out: &apppms.ListPOSProductCatalogResult{
+		Products: []apppms.POSProductWithSKUs{{
+			Product: pmsDomain.Product{ID: "p1", Name: "Widget", Slug: "widget", Status: pmsDomain.ProductStatusActive},
+			SKUs: []apppms.POSProductSKU{
+				{SKU: pmsDomain.SKU{ID: "sku-1", VariantID: "v1", SKUCode: "WID-S", Barcode: "111", PriceMinorUnits: 500, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}, VariantName: "Small"},
+				{SKU: pmsDomain.SKU{ID: "sku-2", VariantID: "v2", SKUCode: "WID-L", Barcode: "222", PriceMinorUnits: 600, SalePriceMinorUnits: &salePrice, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}, VariantName: "Large"},
+			},
+		}},
+		Total: 1,
+	}}}
+	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/products", nil)
+
+	require.Equal(t, 200, w.Code)
+	assert.Contains(t, w.Body.String(), `"sku_code":"WID-S"`)
+	assert.Contains(t, w.Body.String(), `"barcode":"111"`)
+	assert.Contains(t, w.Body.String(), `"variant_name":"Small"`)
+	assert.Contains(t, w.Body.String(), `"sku_code":"WID-L"`)
+	assert.Contains(t, w.Body.String(), `"sale_price_minor_units":450`)
 }
 
 func TestListPOSProducts_passesUpdatedAfterThrough(t *testing.T) {
@@ -152,6 +187,29 @@ func TestListPOSStockLevels_passesChangedSinceThrough(t *testing.T) {
 	require.Equal(t, 200, w.Code)
 	require.NotNil(t, s.listStockLevels.gotInput.ChangedSince)
 	assert.Equal(t, 2026, s.listStockLevels.gotInput.ChangedSince.Year())
+}
+
+// ── ListPOSWarehouses ────────────────────────────────────────────────────────
+
+func TestListPOSWarehouses_success(t *testing.T) {
+	s := &stubs{listWarehouses: stubListWarehouses{out: []invDomain.Warehouse{
+		{ID: "wh-1", Name: "Main", Active: true},
+		{ID: "wh-2", Name: "Overflow", Active: false},
+	}}}
+	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/warehouses", nil)
+
+	require.Equal(t, 200, w.Code)
+	assert.Contains(t, w.Body.String(), `"id":"wh-1"`)
+	assert.Contains(t, w.Body.String(), `"name":"Main"`)
+	assert.Contains(t, w.Body.String(), `"active":true`)
+	assert.Contains(t, w.Body.String(), `"active":false`)
+}
+
+func TestListPOSWarehouses_propagatesRepoError(t *testing.T) {
+	s := &stubs{listWarehouses: stubListWarehouses{err: assert.AnError}}
+	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/warehouses", nil)
+
+	assert.Equal(t, 500, w.Code)
 }
 
 // ── CreatePOSSalesOrder ──────────────────────────────────────────────────────

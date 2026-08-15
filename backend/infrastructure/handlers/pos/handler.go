@@ -22,7 +22,7 @@ import (
 // ── Use-case interfaces (defined at point of use — ISP) ───────────────────────
 
 type listProductsUC interface {
-	Execute(ctx context.Context, in apppms.ListProductsInput) (*apppms.ListProductsResult, error)
+	Execute(ctx context.Context, in apppms.ListProductsInput) (*apppms.ListPOSProductCatalogResult, error)
 }
 type listStockLevelsUC interface {
 	Execute(ctx context.Context, in appinventory.ListStockLevelsInput) (*appinventory.ListStockLevelsResult, error)
@@ -31,16 +31,21 @@ type receivePOSSalesOrderUC interface {
 	Execute(ctx context.Context, in appoms.ReceivePOSSalesOrderInput) (*omsDomain.SalesOrder, error)
 }
 
+type listWarehousesUC interface {
+	Execute(ctx context.Context) ([]invDomain.Warehouse, error)
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
 	listProducts         listProductsUC
 	listStockLevels      listStockLevelsUC
 	receivePOSSalesOrder receivePOSSalesOrderUC
+	listWarehouses       listWarehousesUC
 }
 
-func NewHandler(listProducts listProductsUC, listStockLevels listStockLevelsUC, receivePOSSalesOrder receivePOSSalesOrderUC) *Handler {
-	return &Handler{listProducts: listProducts, listStockLevels: listStockLevels, receivePOSSalesOrder: receivePOSSalesOrder}
+func NewHandler(listProducts listProductsUC, listStockLevels listStockLevelsUC, receivePOSSalesOrder receivePOSSalesOrderUC, listWarehouses listWarehousesUC) *Handler {
+	return &Handler{listProducts: listProducts, listStockLevels: listStockLevels, receivePOSSalesOrder: receivePOSSalesOrder, listWarehouses: listWarehouses}
 }
 
 var _ genpos.ServerInterface = (*Handler)(nil)
@@ -50,6 +55,8 @@ var _ genpos.ServerInterface = (*Handler)(nil)
 // api/pos/generate.go's doc comment.
 func Register(rg gin.IRouter, db *gorm.DB) {
 	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
@@ -57,12 +64,15 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
+	warehouseRepo := repositories.NewWarehouseRepo(db)
 
 	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
+	listProducts := apppms.NewListProductsUseCase(db, productRepo)
 	h := NewHandler(
-		apppms.NewListProductsUseCase(db, productRepo),
+		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo),
 		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
 		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
+		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
 	)
 	genpos.RegisterHandlers(rg, h)
 }
@@ -86,6 +96,7 @@ func (h *Handler) ListPOSProducts(c *gin.Context, params genpos.ListPOSProductsP
 		products[i] = genpos.POSProduct{
 			Id: p.ID, Name: p.Name, Slug: p.Slug, Status: string(p.Status),
 			HasVariants: p.HasVariants, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+			Skus: toGenPOSProductSKUs(p.SKUs),
 		}
 	}
 	resp := genpos.POSProductList{Products: products, Total: result.Total}
@@ -112,6 +123,32 @@ func (h *Handler) ListPOSStockLevels(c *gin.Context, params genpos.ListPOSStockL
 	}
 	resp := genpos.POSStockLevelList{Levels: levels, Total: result.Total}
 	c.JSON(http.StatusOK, genpos.POSStockLevelListResponse{Data: &resp})
+}
+
+func toGenPOSProductSKUs(skus []apppms.POSProductSKU) []genpos.POSProductSKU {
+	out := make([]genpos.POSProductSKU, len(skus))
+	for i, s := range skus {
+		out[i] = genpos.POSProductSKU{
+			Id: s.ID, VariantId: &s.VariantID, VariantName: &s.VariantName,
+			SkuCode: s.SKUCode, Barcode: &s.Barcode,
+			PriceMinorUnits: s.PriceMinorUnits, SalePriceMinorUnits: s.SalePriceMinorUnits,
+			CurrencyCode: s.CurrencyCode, Status: string(s.Status),
+		}
+	}
+	return out
+}
+
+func (h *Handler) ListPOSWarehouses(c *gin.Context) {
+	warehouses, err := h.listWarehouses.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genpos.POSWarehouse, len(warehouses))
+	for i, wh := range warehouses {
+		out[i] = genpos.POSWarehouse{Id: wh.ID, Name: wh.Name, Active: wh.Active}
+	}
+	resp := genpos.POSWarehouseList{Warehouses: out}
+	c.JSON(http.StatusOK, genpos.POSWarehouseListResponse{Data: &resp})
 }
 
 func strOrEmpty(s *string) string {

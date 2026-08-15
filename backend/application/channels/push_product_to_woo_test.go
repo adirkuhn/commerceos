@@ -105,7 +105,7 @@ func TestPushProductToWoo_includesLotMetadataWhenStockLevelHasASourceBatch(t *te
 	}, h.wooClient.createCalled[0].MetaData)
 }
 
-func TestPushProductToWoo_omitsMetadataWhenStockLevelHasNoSourceBatch(t *testing.T) {
+func TestPushProductToWoo_sendsEmptyLotMetadataWhenStockLevelHasNoSourceBatch(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	h := newPushHarness(product, variant, sku)
 	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 4}}
@@ -121,7 +121,14 @@ func TestPushProductToWoo_omitsMetadataWhenStockLevelHasNoSourceBatch(t *testing
 	})
 
 	require.NoError(t, err)
-	require.Empty(t, h.wooClient.createCalled[0].MetaData)
+	// Explicit empty values, not an omitted key -- so a SKU that later
+	// drops out of the nearest-expiry tier clears any stale lot/expiry
+	// still sitting on the Woo side from an earlier sync, rather than
+	// leaving it untouched.
+	require.Equal(t, []integrationsDomain.WooMetaData{
+		{Key: "lot_number", Value: ""},
+		{Key: "expiry_date", Value: ""},
+	}, h.wooClient.createCalled[0].MetaData)
 }
 
 func TestPushProductToWoo_roundTripsWooTaxClassWhenSKUWasImportedFromWoo(t *testing.T) {

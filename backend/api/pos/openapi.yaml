@@ -21,7 +21,10 @@ paths:
         Same incremental-sync shape as most catalog integrations (e.g.
         WooCommerce's modified_after) -- pull with no updated_after for a
         full catalog sync, then pass the time of your last successful sync
-        on every call after that.
+        on every call after that. Each product includes every SKU across
+        all of its variants, flattened -- a POS has no separate variant
+        concept, so this is the level it needs to match/import against
+        (by barcode or sku_code) and to price/display.
       parameters:
         - name: updated_after
           in: query
@@ -71,6 +74,26 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
 
+  /pos/warehouses:
+    get:
+      operationId: listPOSWarehouses
+      summary: List the tenant's warehouses
+      description: >
+        For a POS to pick which warehouse its sales orders should be
+        recorded against (see CreatePOSSalesOrderRequest.warehouse_id) --
+        typically shown as a dropdown once during setup. No pagination:
+        tenants have a small, human-managed number of warehouses, unlike
+        the product catalog.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/POSWarehouseListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
   /pos/sales-orders:
     post:
       operationId: createPOSSalesOrder
@@ -107,9 +130,27 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    POSProductSKU:
+      type: object
+      required: [id, sku_code, price_minor_units, currency_code, status]
+      properties:
+        id: { type: string }
+        variant_id: { type: string }
+        variant_name: { type: string }
+        sku_code: { type: string }
+        barcode: { type: string }
+        price_minor_units: { type: integer, format: int64 }
+        sale_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Discounted price, same unit as price_minor_units. Null when no sale is active.
+        currency_code: { type: string }
+        status: { type: string }
+
     POSProduct:
       type: object
-      required: [id, name, slug, status, has_variants, created_at, updated_at]
+      required: [id, name, slug, status, has_variants, created_at, updated_at, skus]
       properties:
         id: { type: string }
         name: { type: string }
@@ -118,6 +159,9 @@ components:
         has_variants: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        skus:
+          type: array
+          items: { $ref: '#/components/schemas/POSProductSKU' }
 
     POSProductList:
       type: object
@@ -161,6 +205,28 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/POSStockLevelList' }
+        error: { nullable: true }
+
+    POSWarehouse:
+      type: object
+      required: [id, name, active]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        active: { type: boolean }
+
+    POSWarehouseList:
+      type: object
+      required: [warehouses]
+      properties:
+        warehouses:
+          type: array
+          items: { $ref: '#/components/schemas/POSWarehouse' }
+
+    POSWarehouseListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/POSWarehouseList' }
         error: { nullable: true }
 
     # Mirrors WooCommerce's billing/shipping address object exactly.

@@ -6,14 +6,21 @@ import (
 )
 
 // toWooMetaData surfaces which batch a synced quantity came from as Woo
-// custom fields -- nil when the stock level isn't attributable to one
-// specific lot (see StockLevel.SourceBatch's doc comment).
+// custom fields. Always returns both keys, even when b is nil (blank
+// values) -- omitting the keys instead would leave a stale lot_number/
+// expiry_date on the Woo side from an earlier sync where the SKU did
+// still qualify for StockLevel.SourceBatch (see its doc comment), since
+// nothing else ever clears them. Sending blanks on every sync means each
+// push is a full, authoritative overwrite of what CommerceOS currently
+// knows -- never partial.
 func toWooMetaData(b *invapp.BatchSyncInfo) []integrationsDomain.WooMetaData {
-	if b == nil {
-		return nil
+	lot, expiry := "", ""
+	if b != nil {
+		lot = b.LotNumber
+		expiry = b.ExpiryDate.Format("2006-01-02")
 	}
 	return []integrationsDomain.WooMetaData{
-		{Key: "lot_number", Value: b.LotNumber},
-		{Key: "expiry_date", Value: b.ExpiryDate.Format("2006-01-02")},
+		{Key: "lot_number", Value: lot},
+		{Key: "expiry_date", Value: expiry},
 	}
 }
