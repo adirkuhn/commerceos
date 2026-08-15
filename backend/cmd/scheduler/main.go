@@ -22,6 +22,7 @@ import (
 	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
@@ -127,6 +128,7 @@ func main() {
 	fileStorage := buildFileStorage(cfg)
 	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage)
 	expireSalePriceUC := pmsapp.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo)
+	expireBatchUC := invapp.NewExpireBatchUseCase(db, batchRepo)
 
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
@@ -270,6 +272,7 @@ func main() {
 		case <-ticker.C:
 			runDue(ctx, db, scheduleRepo, rs)
 			runExpiredSalePrices(ctx, db, skuRepo, expireSalePriceUC)
+			runExpiredBatches(ctx, db, batchRepo, expireBatchUC)
 		case <-importJobTicker.C:
 			runPendingImportJobs(ctx, db, importJobRepo, runManualWooImportUC, notifyUC)
 		case <-documentParsingJobTicker.C:
@@ -357,6 +360,37 @@ func runExpiredSalePrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SK
 		runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
 		if _, err := expireSalePriceUC.Execute(runCtx, s.ID); err != nil {
 			log.Printf("expire sale price for sku %s: %v", s.ID, err)
+		}
+	}
+}
+
+// runExpiredBatches polls for batches past their tenant's configured
+// auto-expire grace period (tenant_settings.batch_expiry_threshold_days,
+// 0 = disabled) across every tenant -- same cross-tenant SuperAdmin +
+// per-item tenant-identity dispatch shape as runExpiredSalePrices above.
+// This only flips Batch.Status (see BatchStatusExpired's doc comment) --
+// it never touches stock quantity, so it's safe to run unconditionally
+// without checking inventory_sync_rules_enabled. Never crashes the loop: a
+// failure here or in any one batch's expire is logged and the next tick
+// tries again.
+func runExpiredBatches(ctx context.Context, db *gorm.DB, batchRepo invDomain.BatchRepository, expireBatchUC *invapp.ExpireBatchUseCase) {
+	adminCtx := tenant.WithSuperAdmin(ctx)
+
+	var toExpire []invDomain.BatchToExpire
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		toExpire, err = batchRepo.ListToExpire(ctx)
+		return err
+	})
+	if err != nil {
+		log.Printf("list batches to expire: %v", err)
+		return
+	}
+
+	for _, b := range toExpire {
+		runCtx := tenant.WithTenantID(adminCtx, b.TenantID)
+		if err := expireBatchUC.Execute(runCtx, b.BatchID); err != nil {
+			log.Printf("expire batch %s: %v", b.BatchID, err)
 		}
 	}
 }

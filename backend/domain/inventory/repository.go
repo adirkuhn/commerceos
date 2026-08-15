@@ -22,6 +22,14 @@ type ExpiringBatch struct {
 	Quantity      int64
 }
 
+// BatchToExpire is the cross-tenant read-model row returned by
+// BatchRepository.ListToExpire — just enough to dispatch the expire under
+// the right tenant identity (see cmd/scheduler.runExpiredBatches).
+type BatchToExpire struct {
+	BatchID  string
+	TenantID string
+}
+
 type WarehouseRepository interface {
 	Create(ctx context.Context, w *Warehouse) error
 	FindByID(ctx context.Context, id string) (*Warehouse, error)
@@ -49,6 +57,14 @@ type BatchRepository interface {
 	// within the given number of days that still has stock remaining
 	// (Quantity > 0), soonest-expiring first.
 	ListExpiringSoon(ctx context.Context, withinDays int) ([]ExpiringBatch, error)
+	// ListToExpire is a cross-tenant, RLS-bypassing query (called under
+	// tenant.WithSuperAdmin) for the scheduler's auto-expire job: every
+	// Active batch whose ExpiryDate is more than that batch's own
+	// tenant's tenant_settings.batch_expiry_threshold_days in the past.
+	// A tenant with threshold 0 (disabled, the default) never appears.
+	ListToExpire(ctx context.Context) ([]BatchToExpire, error)
+	// MarkExpired flips a single batch's Status to BatchStatusExpired.
+	MarkExpired(ctx context.Context, id string) error
 }
 
 // StockMovementRepository is append-only by design — a ledger entry is

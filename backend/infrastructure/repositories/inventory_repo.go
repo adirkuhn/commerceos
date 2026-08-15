@@ -40,6 +40,7 @@ type batchModel struct {
 	LotNumber   string
 	ExpiryDate  *time.Time
 	ReceivedAt  time.Time
+	Status      string `gorm:"not null;default:'active'"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -179,6 +180,10 @@ func (r *BatchRepo) Create(ctx context.Context, b *invDomain.Batch) error {
 	if err != nil {
 		return err
 	}
+	status := b.Status
+	if status == "" {
+		status = invDomain.BatchStatusActive
+	}
 	m := batchModel{
 		TenantID:    b.TenantID,
 		SKUID:       b.SKUID,
@@ -186,6 +191,7 @@ func (r *BatchRepo) Create(ctx context.Context, b *invDomain.Batch) error {
 		LotNumber:   b.LotNumber,
 		ExpiryDate:  b.ExpiryDate,
 		ReceivedAt:  b.ReceivedAt,
+		Status:      status,
 		CreatedAt:   b.CreatedAt,
 		UpdatedAt:   b.UpdatedAt,
 	}
@@ -261,6 +267,50 @@ func (r *BatchRepo) Update(ctx context.Context, b *invDomain.Batch) error {
 		return fmt.Errorf("batchRepo.Update: %w", err)
 	}
 	return nil
+}
+
+func (r *BatchRepo) MarkExpired(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&batchModel{}).Where("id = ?", id).
+		Updates(map[string]any{"status": invDomain.BatchStatusExpired, "updated_at": time.Now()}).Error; err != nil {
+		return fmt.Errorf("batchRepo.MarkExpired: %w", err)
+	}
+	return nil
+}
+
+// batchToExpireRow scans ListToExpire's joined query -- not a persisted
+// model, just a query-result shape.
+type batchToExpireRow struct {
+	BatchID  string `gorm:"column:batch_id"`
+	TenantID string `gorm:"column:tenant_id"`
+}
+
+func (r *BatchRepo) ListToExpire(ctx context.Context) ([]invDomain.BatchToExpire, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []batchToExpireRow
+	err = tx.Raw(`
+		SELECT b.id AS batch_id, b.tenant_id AS tenant_id
+		FROM batches b
+		JOIN tenant_settings ts ON ts.tenant_id = b.tenant_id
+		WHERE b.status = ?
+			AND b.expiry_date IS NOT NULL
+			AND ts.batch_expiry_threshold_days > 0
+			AND b.expiry_date <= (now() - make_interval(days => ts.batch_expiry_threshold_days))
+	`, invDomain.BatchStatusActive).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("batchRepo.ListToExpire: %w", err)
+	}
+	out := make([]invDomain.BatchToExpire, len(rows))
+	for i, row := range rows {
+		out[i] = invDomain.BatchToExpire{BatchID: row.BatchID, TenantID: row.TenantID}
+	}
+	return out, nil
 }
 
 func (r *BatchRepo) Delete(ctx context.Context, id string) error {
@@ -344,6 +394,7 @@ func toBatchDomain(m batchModel) *invDomain.Batch {
 		LotNumber:   m.LotNumber,
 		ExpiryDate:  m.ExpiryDate,
 		ReceivedAt:  m.ReceivedAt,
+		Status:      m.Status,
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}

@@ -42,6 +42,7 @@ func (uc *CreateBatchUseCase) Execute(ctx context.Context, in CreateBatchInput) 
 			LotNumber:   in.LotNumber,
 			ExpiryDate:  in.ExpiryDate,
 			ReceivedAt:  receivedAt,
+			Status:      invDomain.BatchStatusActive,
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		}

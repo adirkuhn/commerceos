@@ -110,6 +110,11 @@ type stubBatchRepo struct {
 
 	expiringSoon    []invDomain.ExpiringBatch
 	expiringSoonErr error
+
+	toExpire       []invDomain.BatchToExpire
+	toExpireErr    error
+	markExpiredErr error
+	markExpired    []string
 }
 
 func (s *stubBatchRepo) Create(_ context.Context, b *invDomain.Batch) error {
@@ -139,6 +144,16 @@ func (s *stubBatchRepo) Delete(_ context.Context, id string) error {
 }
 func (s *stubBatchRepo) ListExpiringSoon(_ context.Context, _ int) ([]invDomain.ExpiringBatch, error) {
 	return s.expiringSoon, s.expiringSoonErr
+}
+func (s *stubBatchRepo) ListToExpire(_ context.Context) ([]invDomain.BatchToExpire, error) {
+	return s.toExpire, s.toExpireErr
+}
+func (s *stubBatchRepo) MarkExpired(_ context.Context, id string) error {
+	if s.markExpiredErr != nil {
+		return s.markExpiredErr
+	}
+	s.markExpired = append(s.markExpired, id)
+	return nil
 }
 
 type stubStockMovementRepo struct {
