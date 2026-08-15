@@ -728,13 +728,23 @@ function PriceModal({ sku, onSave, onClose }: {
 
 type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'portion-from-bulk' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
 
-function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: {
-  token: string; sku: SKU; warehouses: { id: string; name: string }[]; onSKUUpdated: () => void; onViewHistory: (sku: SKU) => void
+function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory, onViewBatchHistory }: {
+  token: string; sku: SKU; warehouses: { id: string; name: string }[]; onSKUUpdated: () => void
+  onViewHistory: (sku: SKU) => void; onViewBatchHistory: (sku: SKU, batch: Batch) => void
 }) {
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
   const [modal, setModal] = useState<ActiveModal>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [showAllBatches, setShowAllBatches] = useState(false)
+
+  // Old zero-stock batches (even with movement history) clutter this table
+  // by default -- hidden unless explicitly shown. The general-ledger row
+  // and any batch still carrying stock are always shown. Modals below still
+  // get the full, unfiltered `batches` -- e.g. Transfer needs to offer a
+  // zero-stock batch as a valid destination.
+  const zeroStockBatchCount = batches.filter(b => !b.is_general_ledger && b.quantity === 0).length
+  const visibleBatches = showAllBatches ? batches : batches.filter(b => b.is_general_ledger || b.quantity !== 0)
 
   const handleSavePrice = async (price: string, salePrice: string, saleEndDate: string) => {
     // Full round-trip of every SKU field, not just price -- UpdateSKU is a
@@ -838,7 +848,7 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
-            {batches.map(b => (
+            {visibleBatches.map(b => (
               <tr key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id} className={clsx(b.is_general_ledger && 'dark:bg-[#111827]/40 bg-gray-100/60')}>
                 <td className="px-2.5 py-1.5 font-mono dark:text-gray-300 text-gray-700">
                   {b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}
@@ -858,6 +868,9 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
                 <td className="px-2.5 py-1.5">
                   {!b.is_general_ledger && (
                     <div className="flex items-center justify-end gap-2">
+                      <button type="button" onClick={() => onViewBatchHistory(sku, b)} aria-label={`View movement history for batch ${b.lot_number}`} title="View movement history" className="dark:text-gray-500 text-gray-400 hover:text-blue-400">
+                        <History size={11} />
+                      </button>
                       <button type="button" onClick={() => setModal({ edit: b })} aria-label={`Edit batch ${b.lot_number}`} className="dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600">
                         <Edit3 size={11} />
                       </button>
@@ -874,12 +887,24 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory }: 
                 <td colSpan={5} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">No batches — all stock is in the general ledger.</td>
               </tr>
             )}
+            {batches.length > 0 && visibleBatches.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-2.5 py-3 text-center dark:text-gray-600 text-gray-400">
+                  All {zeroStockBatchCount} batch{zeroStockBatchCount === 1 ? '' : 'es'} for this SKU {zeroStockBatchCount === 1 ? 'has' : 'have'} zero stock.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
-        <div className="px-2.5 py-1.5 border-t dark:border-[#2D3748] border-gray-200">
+        <div className="px-2.5 py-1.5 border-t dark:border-[#2D3748] border-gray-200 flex items-center gap-3">
           <button type="button" onClick={() => setModal('batch-new')} className="text-[10px] text-blue-400 hover:text-blue-300">
             + New batch
           </button>
+          {zeroStockBatchCount > 0 && (
+            <button type="button" onClick={() => setShowAllBatches(v => !v)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400">
+              {showAllBatches ? 'Hide zero-stock batches' : `Show ${zeroStockBatchCount} zero-stock batch${zeroStockBatchCount === 1 ? '' : 'es'}`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -933,10 +958,11 @@ export interface ProductStockSummary {
   skuCount: number
 }
 
-function ProductStockRow({ token, productId, productName, warehouses, onSummary, onViewHistory }: {
+function ProductStockRow({ token, productId, productName, warehouses, onSummary, onViewHistory, onViewBatchHistory }: {
   token: string; productId: string; productName: string; warehouses: { id: string; name: string }[]
   onSummary: (productId: string, summary: ProductStockSummary) => void
   onViewHistory: (sku: SKU) => void
+  onViewBatchHistory: (sku: SKU, batch: Batch) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const { detail, loading, refresh } = useProductDetail(token, productId)
@@ -1023,7 +1049,7 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
             {!loading && skus.map(sku => (
-              <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} onViewHistory={onViewHistory} />
+              <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
             ))}
           </td>
         </tr>
@@ -1105,6 +1131,72 @@ function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
                   <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{MOVEMENT_TYPE_LABEL[m.type]}</td>
                   <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(m.warehouse_id)}</td>
                   <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{batchLabel(m.batch_id)}</td>
+                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-green-400' : 'text-red-400')}>
+                    {m.quantity_delta >= 0 ? '+' : ''}{m.quantity_delta}
+                  </td>
+                  <td className="px-4 py-2.5 dark:text-gray-500 text-gray-400">{m.reason || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClose }: {
+  token: string; sku: SKU; batch: Batch; warehouses: { id: string; name: string }[]; onClose: () => void
+}) {
+  const [movements, setMovements] = useState<StockMovement[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    inventoryApi.listBatchMovements(token, batch.id)
+      .then(m => { if (!cancelled) setMovements(m) })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load movement history') })
+    return () => { cancelled = true }
+  }, [token, batch.id])
+
+  const warehouseName = (id: string) => warehouses.find(w => w.id === id)?.name ?? id
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+          >
+            <ArrowLeft size={11} /> Inventory
+          </button>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Batch Movement History</h1>
+          <p className="text-xs font-mono dark:text-gray-500 text-gray-400 mt-0.5">{sku.sku_code} · Lot {batch.lot_number || '—'}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
+        {!error && movements === null && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {!error && movements !== null && movements.length === 0 && (
+          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No stock movements recorded for this batch yet.</p>
+        )}
+        {!error && movements !== null && movements.length > 0 && (
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+              <tr>
+                {['Date', 'Type', 'Warehouse', 'Quantity', 'Reason'].map(h => (
+                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              {[...movements].reverse().map(m => (
+                <tr key={m.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{MOVEMENT_TYPE_LABEL[m.type]}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(m.warehouse_id)}</td>
                   <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-green-400' : 'text-red-400')}>
                     {m.quantity_delta >= 0 ? '+' : ''}{m.quantity_delta}
                   </td>
@@ -1281,6 +1373,7 @@ export default function Inventory() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
   const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
   const [historySKU, setHistorySKU] = useState<SKU | null>(null)
+  const [historyBatch, setHistoryBatch] = useState<{ sku: SKU; batch: Batch } | null>(null)
   const [showExpiredReview, setShowExpiredReview] = useState(false)
   const expiredReview = useExpiredBatchReview(token ?? '')
 
@@ -1317,6 +1410,15 @@ export default function Inventory() {
 
   if (historySKU) {
     return <SKUMovementHistoryPage token={token ?? ''} sku={historySKU} warehouses={warehouses} onClose={() => setHistorySKU(null)} />
+  }
+
+  if (historyBatch) {
+    return (
+      <BatchMovementHistoryPage
+        token={token ?? ''} sku={historyBatch.sku} batch={historyBatch.batch} warehouses={warehouses}
+        onClose={() => setHistoryBatch(null)}
+      />
+    )
   }
 
   if (showExpiredReview) {
@@ -1395,6 +1497,7 @@ export default function Inventory() {
               <ProductStockRow
                 key={p.id} token={token ?? ''} productId={p.id} productName={p.name} warehouses={warehouses}
                 onSummary={handleSummary} onViewHistory={setHistorySKU}
+                onViewBatchHistory={(sku, batch) => setHistoryBatch({ sku, batch })}
               />
             ))}
           </tbody>

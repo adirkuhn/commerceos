@@ -55,6 +55,9 @@ type recordStockMovementUC interface {
 type listStockMovementsUC interface {
 	Execute(ctx context.Context, skuID string) ([]invDomain.StockMovement, error)
 }
+type listBatchMovementsUC interface {
+	Execute(ctx context.Context, batchID string) ([]invDomain.StockMovement, error)
+}
 type recordRecountUC interface {
 	Execute(ctx context.Context, in appinventory.RecordRecountInput) (*invDomain.StockMovement, error)
 }
@@ -115,6 +118,7 @@ type Handler struct {
 	writeOffExpiredBatch      writeOffExpiredBatchUC
 	extendBatchExpiry         extendBatchExpiryUC
 	dismissExpiredBatch       dismissExpiredBatchUC
+	listBatchMovements        listBatchMovementsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -141,6 +145,7 @@ func NewHandler(
 	writeOffExpiredBatch writeOffExpiredBatchUC,
 	extendBatchExpiry extendBatchExpiryUC,
 	dismissExpiredBatch dismissExpiredBatchUC,
+	listBatchMovements listBatchMovementsUC,
 ) *Handler {
 	return &Handler{
 		listWarehouses:      listWarehouses,
@@ -166,6 +171,7 @@ func NewHandler(
 		writeOffExpiredBatch:      writeOffExpiredBatch,
 		extendBatchExpiry:         extendBatchExpiry,
 		dismissExpiredBatch:       dismissExpiredBatch,
+		listBatchMovements:        listBatchMovements,
 	}
 }
 
@@ -203,6 +209,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo)),
 		appinventory.NewExtendBatchExpiryUseCase(db, batchRepo),
 		appinventory.NewDismissExpiredBatchUseCase(db, batchRepo),
+		appinventory.NewListBatchMovementsUseCase(db, movementRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
 }
@@ -407,6 +414,18 @@ func (h *Handler) DismissExpiredBatch(c *gin.Context, id geninventory.Id) {
 		return
 	}
 	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
+}
+
+func (h *Handler) ListBatchMovements(c *gin.Context, id geninventory.Id) {
+	movements, err := h.listBatchMovements.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]geninventory.StockMovement, len(movements))
+	for i, m := range movements {
+		resp[i] = toGenStockMovement(m)
+	}
+	c.JSON(http.StatusOK, geninventory.StockMovementListResponse{Data: &resp})
 }
 
 func (h *Handler) ListStockMovements(c *gin.Context, skuId geninventory.SkuId) {

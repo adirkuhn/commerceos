@@ -374,6 +374,20 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /inventory/batches/{id}/movements:
+    get:
+      operationId: listBatchMovements
+      summary: Full movement ledger for a single batch (append-only, oldest first)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementListResponse'
+
   /inventory/batches/expired-review:
     get:
       operationId: listPendingExpiredBatches

@@ -87,6 +87,10 @@ export function listStockMovements(token: string, skuId: string): Promise<StockM
   return request<StockMovement[]>(`${base()}/skus/${skuId}/movements`, { method: 'GET' }, token)
 }
 
+export function listBatchMovements(token: string, batchId: string): Promise<StockMovement[]> {
+  return request<StockMovement[]>(`${base()}/batches/${batchId}/movements`, { method: 'GET' }, token)
+}
+
 // data is null when the count matched and nothing changed.
 export function recordRecount(token: string, skuId: string, input: RecordRecountInput): Promise<StockMovement | null> {
   return request<StockMovement | null>(`${base()}/skus/${skuId}/recount`, { method: 'POST', body: JSON.stringify(input) }, token)

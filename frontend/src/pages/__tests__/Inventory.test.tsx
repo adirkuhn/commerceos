@@ -34,6 +34,7 @@ vi.mock('../../inventory/api', () => ({
   writeOffExpiredBatch: vi.fn(),
   extendBatchExpiry: vi.fn(),
   dismissExpiredBatch: vi.fn(),
+  listBatchMovements: vi.fn(),
 }))
 
 import * as pmsApi from '../../pms/api'
@@ -71,7 +72,10 @@ const batch: Batch = {
   id: 'batch-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1',
   lot_number: 'LOT-1', expiry_date: null, received_at: '2026-01-01T00:00:00Z',
   created_at: '', updated_at: '',
-  quantity: 0, is_general_ledger: false,
+  // Non-zero: a zero-stock batch is hidden by default in the table (see
+  // the "Hide zero-stock batches" describe block), which most tests in
+  // this file aren't testing for, so the shared fixture needs stock.
+  quantity: 10, is_general_ledger: false,
 }
 
 const level: StockLevel = { sku_id: 'sku-1', total: 10, syncable: 10 }
@@ -171,6 +175,39 @@ describe('Inventory page', () => {
 
     const row = (await screen.findByText('LOT-1')).closest('tr')!
     expect(within(row).getByText('82')).toBeInTheDocument()
+  })
+
+  it('hides a zero-stock batch by default and shows it after clicking Show', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([
+      { ...batch, id: 'batch-empty', lot_number: 'LOT-EMPTY', quantity: 0 },
+      { ...batch, id: 'batch-2', lot_number: 'LOT-2', quantity: 5 },
+    ])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-2')
+
+    expect(screen.queryByText('LOT-EMPTY')).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: 'Show 1 zero-stock batch' })
+
+    await user.click(toggle)
+
+    expect(await screen.findByText('LOT-EMPTY')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide zero-stock batches' })).toBeInTheDocument()
+  })
+
+  it('the general ledger row is never hidden even at zero quantity', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([
+      { ...batch, id: '', lot_number: '', is_general_ledger: true, quantity: 0 },
+    ])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+
+    expect(await screen.findByText('General ledger')).toBeInTheDocument()
+    expect(screen.queryByText(/zero-stock/)).not.toBeInTheDocument()
   })
 
   it('shows a general ledger row first, ahead of real batches, with no edit/delete actions', async () => {
@@ -432,6 +469,60 @@ describe('Inventory page', () => {
     await user.click(screen.getByRole('button', { name: /Inventory/ }))
     expect(await screen.findByText('Widget')).toBeInTheDocument()
     expect(screen.queryByText('Movement History')).not.toBeInTheDocument()
+  })
+})
+
+describe('Per-batch movement history', () => {
+  it('clicking the history icon on a batch row opens a page scoped to just that batch', async () => {
+    const movement: StockMovement = {
+      id: 'movement-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
+      type: 'receipt', quantity_delta: 6, reason: 'restock', occurred_at: '2026-08-01T00:00:00Z', created_at: '',
+    }
+    vi.mocked(inventoryApi.listBatchMovements).mockResolvedValue([movement])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByRole('button', { name: /View movement history for batch LOT-1/ }))
+
+    expect(await screen.findByText('Batch Movement History')).toBeInTheDocument()
+    expect(inventoryApi.listBatchMovements).toHaveBeenCalledWith('test-token', 'batch-1')
+    expect(screen.getByText('Receipt')).toBeInTheDocument()
+    expect(screen.getByText('+6')).toBeInTheDocument()
+    expect(screen.getByText('restock')).toBeInTheDocument()
+    // Not the SKU-wide history endpoint -- this is the batch-scoped one.
+    expect(inventoryApi.listStockMovements).not.toHaveBeenCalled()
+  })
+
+  it('does not show a history button on the general ledger row', async () => {
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([
+      { ...batch, id: '', lot_number: '', is_general_ledger: true, quantity: 0 },
+    ])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('General ledger')
+
+    expect(screen.queryByLabelText(/View movement history for batch/)).not.toBeInTheDocument()
+  })
+
+  it('Back returns to the product list', async () => {
+    vi.mocked(inventoryApi.listBatchMovements).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByRole('button', { name: /View movement history for batch LOT-1/ }))
+    await screen.findByText('Batch Movement History')
+
+    await user.click(screen.getByRole('button', { name: /Inventory/ }))
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(screen.queryByText('Batch Movement History')).not.toBeInTheDocument()
   })
 })
 
