@@ -1,10 +1,12 @@
 package lm2license
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -31,8 +33,20 @@ type HTTPPublicKeyFetcher struct {
 	cachedAt time.Time
 }
 
-func NewHTTPPublicKeyFetcher(url string) *HTTPPublicKeyFetcher {
-	return &HTTPPublicKeyFetcher{url: url, httpClient: &http.Client{Timeout: 5 * time.Second}}
+func NewHTTPPublicKeyFetcher(publicKeyURL string) *HTTPPublicKeyFetcher {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// A .dev.localhost lm2 instance's cert is signed by a local CA nothing
+	// but the developer's own machine trusts — same carve-out the POS
+	// desktop's own license.Client already applies for this exact host
+	// suffix (see akantio_pos/src/license/client.go). A real
+	// LM2_LICENSE_PUBLIC_KEY_URL is always a public domain in production,
+	// so this never weakens a real deployment's TLS verification.
+	if u, err := url.Parse(publicKeyURL); err == nil && strings.HasSuffix(u.Hostname(), ".dev.localhost") {
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
+
+	return &HTTPPublicKeyFetcher{url: publicKeyURL, httpClient: client}
 }
 
 func (f *HTTPPublicKeyFetcher) GetPublicKey() (string, error) {

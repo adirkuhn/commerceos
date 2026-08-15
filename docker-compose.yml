@@ -100,6 +100,14 @@ services:
     dns:
       - 1.1.1.1
       - 8.8.8.8
+    # .dev.localhost is a local-machine-only pseudo-domain (resolved via the
+    # host's own hosts file / local dev proxy, e.g. lm2's public-key
+    # endpoint at LM2_LICENSE_PUBLIC_KEY_URL) -- it doesn't exist in public
+    # DNS, so the dns: override above just forwards it nowhere ("no such
+    # host"). host-gateway is Docker's special value for "the host
+    # machine's own IP from inside this container".
+    extra_hosts:
+      - "api-lm2.dev.localhost:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

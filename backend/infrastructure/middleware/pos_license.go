@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -35,7 +36,19 @@ func POSLicense(verifier LicenseVerifier) gin.HandlerFunc {
 
 		license := strings.TrimPrefix(raw, "Bearer ")
 		payload, err := verifier.VerifyAndGetPayload(license)
-		if err != nil || !payload.IsUsable(time.Now()) {
+		// The client response deliberately stays a generic "invalid or
+		// inactive license" either way (not leaking why to an
+		// unauthenticated caller) — but that used to mean the operator
+		// had no way to tell "public key fetch failed"/"bad signature"
+		// apart from "license genuinely expired" without instrumenting
+		// the code, so the real reason is logged server-side here.
+		if err != nil {
+			log.Printf("pos: license verification failed: %v", err)
+			Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or inactive license")
+			return
+		}
+		if !payload.IsUsable(time.Now()) {
+			log.Printf("pos: license not usable — status=%q company_id=%q expires_at=%v", payload.Status, payload.CompanyID, payload.ExpiresAt)
 			Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or inactive license")
 			return
 		}
