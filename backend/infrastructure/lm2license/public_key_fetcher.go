@@ -83,19 +83,34 @@ func (f *HTTPPublicKeyFetcher) GetPublicKey() (string, error) {
 	return key, nil
 }
 
-// extractPublicKey accepts either a bare PEM response body or a
-// {"public_key": "..."} JSON envelope, since the exact response shape
-// wasn't confirmed at write time.
+// extractPublicKey accepts lm2's actual response shape for
+// GET public-keys/current — {"data": {"public_key": "..."}} — confirmed
+// against the POS desktop's own already-working
+// license.Client.GetPublicKey (akantio_pos/src/license/client.go). A bare
+// PEM body or a flat {"public_key": "..."} without the data wrapper are
+// also accepted as harmless fallbacks, in case a future endpoint ever
+// responds differently.
 func extractPublicKey(body []byte) (string, error) {
 	trimmed := strings.TrimSpace(string(body))
 	if strings.HasPrefix(trimmed, "-----BEGIN") {
 		return trimmed, nil
 	}
-	var envelope struct {
+
+	var enveloped struct {
+		Data struct {
+			PublicKey string `json:"public_key"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &enveloped); err == nil && enveloped.Data.PublicKey != "" {
+		return enveloped.Data.PublicKey, nil
+	}
+
+	var flat struct {
 		PublicKey string `json:"public_key"`
 	}
-	if err := json.Unmarshal(body, &envelope); err != nil || envelope.PublicKey == "" {
-		return "", fmt.Errorf("lm2license: unrecognized public key response format")
+	if err := json.Unmarshal(body, &flat); err == nil && flat.PublicKey != "" {
+		return flat.PublicKey, nil
 	}
-	return envelope.PublicKey, nil
+
+	return "", fmt.Errorf("lm2license: unrecognized public key response format")
 }

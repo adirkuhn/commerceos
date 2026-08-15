@@ -48,7 +48,24 @@ func TestExtractPublicKey_acceptsABarePEMBody(t *testing.T) {
 	assert.Equal(t, pem, got)
 }
 
-func TestExtractPublicKey_acceptsAJSONEnvelope(t *testing.T) {
+// TestExtractPublicKey_acceptsLM2sActualDataEnvelope is lm2's real response
+// shape for GET public-keys/current — confirmed against the POS desktop's
+// own already-working license.Client.GetPublicKey (akantio_pos/src/license/client.go),
+// which has been calling this exact endpoint successfully. The original
+// bare {"public_key": ...} guess this package shipped with (see the other
+// test below) was wrong and caused every /pos/* request to fail
+// verification with "invalid or inactive license" until this was found.
+func TestExtractPublicKey_acceptsLM2sActualDataEnvelope(t *testing.T) {
+	got, err := extractPublicKey([]byte(`{"data": {"public_key": "-----BEGIN PUBLIC KEY-----\nabc123\n-----END PUBLIC KEY-----"}}`))
+
+	require.NoError(t, err)
+	assert.Equal(t, "-----BEGIN PUBLIC KEY-----\nabc123\n-----END PUBLIC KEY-----", got)
+}
+
+// TestExtractPublicKey_acceptsAFlatJSONEnvelope keeps the original guessed
+// shape working as a fallback — zero-cost, and harmless if lm2 (or a
+// future endpoint) ever responds without the data wrapper.
+func TestExtractPublicKey_acceptsAFlatJSONEnvelope(t *testing.T) {
 	got, err := extractPublicKey([]byte(`{"public_key": "-----BEGIN PUBLIC KEY-----\nabc123\n-----END PUBLIC KEY-----"}`))
 
 	require.NoError(t, err)
