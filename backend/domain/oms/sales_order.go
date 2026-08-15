@@ -165,6 +165,7 @@ type SalesOrderLineItem struct {
 	SKUID        string
 	Name         string
 	SKUCode      string
+	Barcode      string
 	Quantity     int64
 
 	PriceMinorUnits       int64 // per-unit price, Woo's line_items.price

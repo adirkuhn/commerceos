@@ -71,7 +71,7 @@ function detail(overrides: Partial<SalesOrderDetail> = {}): SalesOrderDetail {
   return {
     sales_order: salesOrder(),
     line_items: [{
-      id: 'li-1', sku_id: 'sku-1', name: 'Blue Widget', sku_code: 'WID-BLU',
+      id: 'li-1', sku_id: 'sku-1', name: 'Blue Widget', sku_code: 'WID-BLU', barcode: '5601049213991',
       quantity: 2, price_minor_units: 2000, subtotal_minor_units: 4000, subtotal_tax_minor_units: 0,
       total_minor_units: 4000, total_tax_minor_units: 0,
     }],
@@ -178,6 +178,7 @@ describe('Sales order detail page', () => {
 
     expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
     expect(screen.getByText('WID-BLU')).toBeInTheDocument()
+    expect(screen.getByText('5601049213991')).toBeInTheDocument()
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
   })
 
@@ -192,6 +193,43 @@ describe('Sales order detail page', () => {
 
     expect(await screen.findByText('woocommerce')).toBeInTheDocument()
     expect(screen.getByText('Flat rate')).toBeInTheDocument()
+  })
+
+  it('shows payment_method_title when present', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({ payment_method: 'cod', payment_method_title: 'Cash on delivery' }),
+    }))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Cash on delivery')).toBeInTheDocument()
+  })
+
+  it('falls back to payment_method when payment_method_title is empty (POS orders)', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({ payment_method: 'pos', payment_method_title: '' }),
+    }))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('pos', { selector: 'span' })).toBeInTheDocument()
+  })
+
+  it('hides the Payment row when neither payment_method nor payment_method_title is set', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({ payment_method: undefined, payment_method_title: undefined }),
+    }))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    expect(screen.queryByText('Payment:')).not.toBeInTheDocument()
   })
 
   it('Back returns to the list', async () => {

@@ -575,7 +575,12 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                       <tr key={li.id}>
                         <td className="py-1.5">
                           <p className="dark:text-gray-200 text-gray-800">{li.name}</p>
-                          <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.sku_code}</p>
+                          {li.sku_code && (
+                            <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.sku_code}</p>
+                          )}
+                          {li.barcode && (
+                            <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.barcode}</p>
+                          )}
                         </td>
                         <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">{li.quantity}</td>
                         <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">
@@ -611,8 +616,8 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
               <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1 text-xs">
                 <p className="dark:text-gray-400 text-gray-500">Source: <span className="dark:text-gray-200 text-gray-800 capitalize">{detail.sales_order.source}</span></p>
-                {detail.sales_order.payment_method_title && (
-                  <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title}</span></p>
+                {(detail.sales_order.payment_method_title || detail.sales_order.payment_method) && (
+                  <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
                 )}
                 {detail.sales_order.shipping_method_title && (
                   <p className="dark:text-gray-400 text-gray-500">Shipping method: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.shipping_method_title}</span></p>

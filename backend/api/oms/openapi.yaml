@@ -181,6 +181,7 @@ components:
         sku_id: { type: string }
         name: { type: string }
         sku_code: { type: string }
+        barcode: { type: string }
         quantity: { type: integer, format: int64 }
         price_minor_units: { type: integer, format: int64 }
         subtotal_minor_units: { type: integer, format: int64 }

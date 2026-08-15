@@ -81,6 +81,7 @@ type salesOrderLineItemModel struct {
 	SKUID        string `gorm:"column:sku_id;not null;type:uuid"`
 	Name         string
 	SKUCode      string `gorm:"column:sku_code"`
+	Barcode      string `gorm:"column:barcode"`
 	Quantity     int64  `gorm:"not null"`
 
 	PriceMinorUnits       int64 `gorm:"not null;default:0"`
@@ -326,7 +327,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 	}
 	m := salesOrderLineItemModel{
 		TenantID: li.TenantID, SalesOrderID: li.SalesOrderID, SKUID: li.SKUID,
-		Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
+		Name: li.Name, SKUCode: li.SKUCode, Barcode: li.Barcode, Quantity: li.Quantity,
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 		TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: li.CreatedAt,
@@ -351,7 +352,7 @@ func (r *SalesOrderLineItemRepo) ListBySalesOrder(ctx context.Context, salesOrde
 	for i, m := range rows {
 		out[i] = omsDomain.SalesOrderLineItem{
 			ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, SKUID: m.SKUID,
-			Name: m.Name, SKUCode: m.SKUCode, Quantity: m.Quantity,
+			Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity,
 			PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
 			SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 			TotalTaxMinorUnits: m.TotalTaxMinorUnits, CreatedAt: m.CreatedAt,

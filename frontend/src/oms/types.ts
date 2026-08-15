@@ -52,6 +52,7 @@ export interface SalesOrderLineItem {
   sku_id: string
   name: string
   sku_code: string
+  barcode: string
   quantity: number
   price_minor_units: number
   subtotal_minor_units: number

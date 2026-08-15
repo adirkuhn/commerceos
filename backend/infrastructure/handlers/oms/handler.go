@@ -261,7 +261,7 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 
 func toGenSalesOrderLineItem(li omsDomain.SalesOrderLineItem) genoms.SalesOrderLineItem {
 	return genoms.SalesOrderLineItem{
-		Id: li.ID, SkuId: li.SKUID, Name: &li.Name, SkuCode: &li.SKUCode, Quantity: li.Quantity,
+		Id: li.ID, SkuId: li.SKUID, Name: &li.Name, SkuCode: &li.SKUCode, Barcode: &li.Barcode, Quantity: li.Quantity,
 		PriceMinorUnits: &li.PriceMinorUnits, SubtotalMinorUnits: &li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: &li.SubtotalTaxMinorUnits, TotalMinorUnits: &li.TotalMinorUnits,
 		TotalTaxMinorUnits: &li.TotalTaxMinorUnits,
