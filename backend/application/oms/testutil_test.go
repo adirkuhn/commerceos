@@ -12,6 +12,7 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
 func newMockGormDB(t *testing.T) *gorm.DB {
@@ -151,6 +152,24 @@ func (s *stubSalesOrderLineItemStockMovementRepo) Create(_ context.Context, l *o
 	l.ID = "link-1"
 	s.created = append(s.created, *l)
 	return nil
+}
+
+// stubSKURepo defaults to returning a SKU whose SKUCode/Barcode are derived
+// from the requested ID (sku-1 -> SKU-1/BARCODE-1) so tests that don't care
+// about the exact snapshotted values don't need to configure it.
+type stubSKURepo struct {
+	byID    map[string]*pmsDomain.SKU
+	findErr error
+}
+
+func (s *stubSKURepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if sku, ok := s.byID[id]; ok {
+		return sku, nil
+	}
+	return &pmsDomain.SKU{ID: id, SKUCode: "SKU-" + id, Barcode: "BARCODE-" + id}, nil
 }
 
 type stubRecordMovement struct {

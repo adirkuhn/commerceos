@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +26,18 @@ type RecordStockMovementInput struct {
 	// reports" (Woo product/stock import) — echoing the event back would
 	// just re-push the same number to the store it came from.
 	SuppressEvent bool
+	// ReconcileShortfall allows a stock-out movement (negative delta) to
+	// proceed even when the tracked ledger doesn't have enough: an
+	// adjustment movement for the shortfall is written first (recording
+	// that untracked stock existed), then the requested movement, both in
+	// the same transaction. For a source where the removal already
+	// happened in the real world (e.g. a completed POS sale resolved
+	// straight to a SKU -- see pms.ResolveBarcodeUseCase) and the ledger
+	// just never saw a matching receipt, rejecting the sale would only
+	// make CommerceOS's stock count diverge further from what's actually
+	// on the shelf. Has no effect on a non-negative delta or when the
+	// ledger already covers it.
+	ReconcileShortfall bool
 }
 
 type RecordStockMovementUseCase struct {
@@ -71,11 +84,23 @@ func (uc *RecordStockMovementUseCase) Execute(ctx context.Context, in RecordStoc
 		if err != nil {
 			return err
 		}
+		now := time.Now()
 		if err := requireSufficientStock(movements, in.WarehouseID, in.BatchID, in.QuantityDelta); err != nil {
-			return err
+			if !in.ReconcileShortfall || !errors.Is(err, invDomain.ErrInsufficientStock) {
+				return err
+			}
+			shortfall := -in.QuantityDelta - currentStock(movements, in.WarehouseID, in.BatchID)
+			adjustment := invDomain.StockMovement{
+				TenantID: tenant.IDFromContext(ctx), SKUID: in.SKUID, WarehouseID: in.WarehouseID, BatchID: in.BatchID,
+				Type: invDomain.MovementTypeAdjustment, QuantityDelta: shortfall,
+				Reason:     fmt.Sprintf("reconciliation: untracked stock found for %s", in.Reason),
+				OccurredAt: in.OccurredAt, CreatedAt: now,
+			}
+			if err := uc.movementRepo.Create(ctx, &adjustment); err != nil {
+				return err
+			}
 		}
 
-		now := time.Now()
 		movement = invDomain.StockMovement{
 			TenantID:      tenant.IDFromContext(ctx),
 			SKUID:         in.SKUID,

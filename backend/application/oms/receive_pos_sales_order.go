@@ -8,6 +8,7 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -63,6 +64,11 @@ type recordSaleMovementUC interface {
 	Execute(ctx context.Context, in invapp.RecordStockMovementInput) (*invDomain.StockMovement, error)
 }
 
+// skuLookupRepo is pmsDomain.SKURepository narrowed to point of use (ISP).
+type skuLookupRepo interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
+}
+
 // ReceivePOSSalesOrderUseCase is what POST /pos/sales-orders calls --
 // idempotent on (TenantID, Source, ExternalOrderID): the POS retrying an
 // already-received sale (e.g. after a dropped response) is a no-op, not a
@@ -72,9 +78,15 @@ type recordSaleMovementUC interface {
 // transaction: the order+line-items write is one tenant.WithTenant call,
 // then each line's stock movement is its own separate call (composing
 // RecordStockMovementUseCase, which opens its own transaction --
-// tenant.WithTenant must never nest). Same composition shape and the same
-// accepted worst-case tradeoff as procurement.CompleteBookingUseCase's
-// replay: a crash between the order being created and every movement
+// tenant.WithTenant must never nest). Movements are recorded with
+// ReconcileShortfall so the sale itself is never rejected for insufficient
+// tracked stock -- a POS sale already physically happened, so the ledger
+// gets a reconciling adjustment instead of blocking the movement (this was
+// the concrete cause of orders landing with zero stock movement: the SKU
+// had no prior receipt in this warehouse at all). What's still a gap,
+// same composition shape and accepted worst-case tradeoff as
+// procurement.CompleteBookingUseCase's replay: a crash (DB/network, not
+// insufficient stock) between the order being created and every movement
 // applying leaves the order recorded with some/all of its stock impact
 // still pending, and a retry's idempotency check would then skip
 // re-applying the remaining movements too (it only checks "does the order
@@ -86,11 +98,12 @@ type ReceivePOSSalesOrderUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
+	skuRepo        skuLookupRepo
 	recordMovement recordSaleMovementUC
 }
 
-func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC) *ReceivePOSSalesOrderUseCase {
-	return &ReceivePOSSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement}
+func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC) *ReceivePOSSalesOrderUseCase {
+	return &ReceivePOSSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePOSSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -137,9 +150,13 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			return err
 		}
 		for _, li := range in.LineItems {
+			sku, err := uc.skuRepo.FindByID(ctx, li.SKUID)
+			if err != nil {
+				return fmt.Errorf("receivePOSSalesOrder: line item sku %s: %w", li.SKUID, err)
+			}
 			lineItem := omsDomain.SalesOrderLineItem{
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: li.SKUID,
-				Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
+				Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity,
 				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 				TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
@@ -164,6 +181,10 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			SKUID: li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
 			OccurredAt: in.OccurredAt,
+			// The POS sale already physically happened -- an untracked
+			// receipt in CommerceOS must not block recording it. See
+			// RecordStockMovementInput.ReconcileShortfall.
+			ReconcileShortfall: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)

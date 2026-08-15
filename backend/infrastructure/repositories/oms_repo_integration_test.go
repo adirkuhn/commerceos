@@ -40,7 +40,7 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 
 		line := omsDomain.SalesOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: skuID,
-			Name: "Widget A", SKUCode: "WID-A", Quantity: 2,
+			Name: "Widget A", SKUCode: "WID-A", Barcode: "0123456789012", Quantity: 2,
 			PriceMinorUnits: 500, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000, CreatedAt: now,
 		}
 		return lineItemRepo.Create(ctx, &line)
@@ -72,6 +72,7 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 	require.Equal(t, int64(2), lineItems[0].Quantity)
 	require.Equal(t, "Widget A", lineItems[0].Name)
 	require.Equal(t, "WID-A", lineItems[0].SKUCode)
+	require.Equal(t, "0123456789012", lineItems[0].Barcode)
 	require.Equal(t, int64(500), lineItems[0].PriceMinorUnits)
 	require.Equal(t, int64(1000), lineItems[0].TotalMinorUnits)
 }

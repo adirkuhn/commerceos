@@ -212,6 +212,90 @@ func TestRecordStockMovement_batchStockDoesNotCoverGeneralLedgerRemoval(t *testi
 	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
 }
 
+// TestRecordStockMovement_reconcileShortfallCoversAnUntrackedSKU is the
+// exact reported bug: a POS sale for a SKU with zero movement history in
+// the warehouse must not be rejected -- the sale already happened.
+func TestRecordStockMovement_reconcileShortfallCoversAnUntrackedSKU(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	m, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -1,
+		Reason: "pos sale ext-1", OccurredAt: time.Now(), ReconcileShortfall: true,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(-1), m.QuantityDelta)
+	require.Equal(t, invDomain.MovementTypeSale, m.Type)
+	require.Len(t, movementRepo.created, 2, "an adjustment covering the shortfall, then the sale")
+	require.Equal(t, invDomain.MovementTypeAdjustment, movementRepo.created[0].Type)
+	require.Equal(t, int64(1), movementRepo.created[0].QuantityDelta, "shortfall = requested qty - what was on hand (0)")
+	require.Equal(t, invDomain.MovementTypeSale, movementRepo.created[1].Type)
+	require.Equal(t, int64(-1), movementRepo.created[1].QuantityDelta)
+}
+
+func TestRecordStockMovement_reconcileShortfallCoversOnlyTheGap(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 2},
+	}}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -5,
+		OccurredAt: time.Now(), ReconcileShortfall: true,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, movementRepo.created, 2)
+	require.Equal(t, int64(3), movementRepo.created[0].QuantityDelta, "2 on hand, 5 needed -- only the 3-unit gap is backfilled")
+}
+
+func TestRecordStockMovement_reconcileShortfallNoopWhenStockAlreadySufficient(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", QuantityDelta: 10},
+	}}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -3,
+		OccurredAt: time.Now(), ReconcileShortfall: true,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, movementRepo.created, 1, "no adjustment needed -- ledger already covers the sale")
+}
+
+func TestRecordStockMovement_withoutReconcileShortfallStillRejectsInsufficientStock(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, QuantityDelta: -1, OccurredAt: time.Now(),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
+	require.Empty(t, movementRepo.created)
+}
+
+func TestRecordStockMovement_reconcileShortfallRespectsBatchScope(t *testing.T) {
+	batchID := "batch-l100"
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID, QuantityDelta: 100},
+	}}
+	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.RecordStockMovementInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", BatchID: nil, Type: invDomain.MovementTypeSale, QuantityDelta: -1,
+		OccurredAt: time.Now(), ReconcileShortfall: true,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, movementRepo.created, 2)
+	require.Nil(t, movementRepo.created[0].BatchID, "batch stock doesn't cover the general ledger -- shortfall is against the general scope being sold from")
+	require.Equal(t, int64(1), movementRepo.created[0].QuantityDelta)
+}
+
 func TestRecordStockMovement_rejectsPositiveLost(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{}
 	uc := appinv.NewRecordStockMovementUseCase(newMockGormDB(t), movementRepo, &stubOutboxRepo{})
