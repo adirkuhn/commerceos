@@ -472,6 +472,88 @@ describe('Inventory page', () => {
   })
 })
 
+describe('Product-level movement history (account book across all SKUs)', () => {
+  it('clicking History on the collapsed product row opens a page without expanding it', async () => {
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await screen.findByText('Widget')
+
+    await user.click(screen.getByRole('button', { name: 'View full movement history' }))
+
+    expect(await screen.findByText('Movement History')).toBeInTheDocument()
+    expect(screen.queryByText('WIDGET-1')).not.toBeInTheDocument() // row was never expanded
+  })
+
+  it('merges movements across every SKU of the product, sorted newest first, with a running balance', async () => {
+    const twoSKUDetail: ProductDetail = {
+      product,
+      variants: [
+        { id: 'var-1', tenant_id: 't1', product_id: 'prod-1', name: 'Small', position: 0, created_at: '', updated_at: '', skus: [sku] },
+        {
+          id: 'var-2', tenant_id: 't1', product_id: 'prod-1', name: 'Large', position: 1, created_at: '', updated_at: '',
+          skus: [{ ...sku, id: 'sku-2', sku_code: 'WIDGET-2' }],
+        },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(twoSKUDetail)
+    vi.mocked(inventoryApi.listStockMovements).mockImplementation(async (_token, skuId) => {
+      if (skuId === 'sku-1') {
+        return [
+          { id: 'm1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', type: 'receipt', quantity_delta: 10, reason: '', occurred_at: '2026-08-01T00:00:00Z', created_at: '' },
+        ]
+      }
+      return [
+        { id: 'm2', tenant_id: 't1', sku_id: 'sku-2', warehouse_id: 'wh-1', type: 'sale', quantity_delta: -3, reason: '', occurred_at: '2026-08-02T00:00:00Z', created_at: '' },
+      ]
+    })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await screen.findByText('Widget')
+
+    await user.click(screen.getByRole('button', { name: 'View full movement history' }))
+    await screen.findByText('Movement History')
+
+    const rows = (await screen.findAllByRole('row')).slice(1) // drop header row
+    expect(rows).toHaveLength(2)
+    // Newest first: the sku-2 sale (Aug 2) comes before the sku-1 receipt (Aug 1).
+    expect(rows[0].textContent).toContain('WIDGET-2')
+    expect(rows[0].textContent).toContain('-3')
+    expect(rows[0].textContent).toContain('7') // running balance: 10 - 3
+    expect(rows[1].textContent).toContain('WIDGET-1')
+    expect(rows[1].textContent).toContain('+10')
+    expect(rows[1].textContent).toContain('10') // running balance after the first (oldest) movement
+  })
+
+  it('shows an empty state when the product has no movements', async () => {
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'View full movement history' }))
+
+    expect(await screen.findByText('No stock movements recorded for this product yet.')).toBeInTheDocument()
+  })
+
+  it('Back returns to the product list', async () => {
+    vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'View full movement history' }))
+    await screen.findByText('Movement History')
+
+    await user.click(screen.getByRole('button', { name: /Inventory/ }))
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(screen.queryByText('Movement History')).not.toBeInTheDocument()
+  })
+})
+
 describe('Per-batch movement history', () => {
   it('clicking the history icon on a batch row opens a page scoped to just that batch', async () => {
     const movement: StockMovement = {

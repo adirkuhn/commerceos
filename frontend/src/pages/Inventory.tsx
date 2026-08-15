@@ -958,11 +958,12 @@ export interface ProductStockSummary {
   skuCount: number
 }
 
-function ProductStockRow({ token, productId, productName, warehouses, onSummary, onViewHistory, onViewBatchHistory }: {
+function ProductStockRow({ token, productId, productName, warehouses, onSummary, onViewHistory, onViewBatchHistory, onViewProductHistory }: {
   token: string; productId: string; productName: string; warehouses: { id: string; name: string }[]
   onSummary: (productId: string, summary: ProductStockSummary) => void
   onViewHistory: (sku: SKU) => void
   onViewBatchHistory: (sku: SKU, batch: Batch) => void
+  onViewProductHistory: (productName: string, skus: SKU[]) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const { detail, loading, refresh } = useProductDetail(token, productId)
@@ -1042,10 +1043,21 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
             </span>
           )}
         </td>
+        <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => onViewProductHistory(productName, skus)}
+            aria-label="View full movement history"
+            title="View full movement history"
+            className="flex items-center gap-1 text-[10px] dark:text-gray-500 text-gray-400 hover:text-blue-400"
+          >
+            <History size={11} /> History
+          </button>
+        </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={5} className="p-0">
+          <td colSpan={6} className="p-0">
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
             {!loading && skus.map(sku => (
@@ -1070,6 +1082,102 @@ const MOVEMENT_TYPE_LABEL: Record<MovementType, string> = {
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString()
+}
+
+type ProductMovementRow = StockMovement & { skuCode: string; balance: number }
+
+function ProductMovementHistoryPage({ token, productName, skus, warehouses, onClose }: {
+  token: string; productName: string; skus: SKU[]; warehouses: { id: string; name: string }[]; onClose: () => void
+}) {
+  const [rows, setRows] = useState<ProductMovementRow[] | null>(null)
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const skusKey = skus.map(s => s.id).join(',')
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all(skus.map(sku => Promise.all([
+      inventoryApi.listStockMovements(token, sku.id),
+      inventoryApi.listBatches(token, sku.id),
+    ]).then(([movements, batches]) => ({ sku, movements, batches }))))
+      .then(perSKU => {
+        if (cancelled) return
+        // One running balance across every SKU of this product -- an
+        // account book for the product as a whole, not per-variant --
+        // computed oldest-first, then reversed for newest-first display.
+        const combined = perSKU.flatMap(({ sku, movements }) => movements.map(m => ({ ...m, skuCode: sku.sku_code })))
+        combined.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+        let balance = 0
+        const withBalance: ProductMovementRow[] = combined.map(m => {
+          balance += m.quantity_delta
+          return { ...m, balance }
+        })
+        setRows(withBalance.reverse())
+        setBatches(perSKU.flatMap(p => p.batches))
+      })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load movement history') })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- skusKey is the stable dependency; skus itself is a new array every render
+  }, [token, skusKey])
+
+  const warehouseName = (id: string) => warehouses.find(w => w.id === id)?.name ?? id
+  const batchLabel = (batchId: string | null | undefined) => {
+    if (!batchId) return 'General ledger'
+    const batch = batches.find(b => b.id === batchId)
+    return batch?.lot_number || batchId
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+          >
+            <ArrowLeft size={11} /> Inventory
+          </button>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Movement History</h1>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">{productName} — every SKU, running balance</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
+        {!error && rows === null && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {!error && rows !== null && rows.length === 0 && (
+          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No stock movements recorded for this product yet.</p>
+        )}
+        {!error && rows !== null && rows.length > 0 && (
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+              <tr>
+                {['Date', 'SKU', 'Type', 'Warehouse', 'Batch', 'Quantity', 'Balance', 'Reason'].map(h => (
+                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              {rows.map(m => (
+                <tr key={m.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500 whitespace-nowrap">{formatDateTime(m.occurred_at)}</td>
+                  <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{m.skuCode}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{MOVEMENT_TYPE_LABEL[m.type]}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{warehouseName(m.warehouse_id)}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{batchLabel(m.batch_id)}</td>
+                  <td className={clsx('px-4 py-2.5 font-medium tabular-nums', m.quantity_delta >= 0 ? 'text-green-400' : 'text-red-400')}>
+                    {m.quantity_delta >= 0 ? '+' : ''}{m.quantity_delta}
+                  </td>
+                  <td className="px-4 py-2.5 font-medium tabular-nums dark:text-gray-200 text-gray-800">{m.balance}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-500 text-gray-400">{m.reason || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
@@ -1374,6 +1482,7 @@ export default function Inventory() {
   const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
   const [historySKU, setHistorySKU] = useState<SKU | null>(null)
   const [historyBatch, setHistoryBatch] = useState<{ sku: SKU; batch: Batch } | null>(null)
+  const [historyProduct, setHistoryProduct] = useState<{ name: string; skus: SKU[] } | null>(null)
   const [showExpiredReview, setShowExpiredReview] = useState(false)
   const expiredReview = useExpiredBatchReview(token ?? '')
 
@@ -1417,6 +1526,15 @@ export default function Inventory() {
       <BatchMovementHistoryPage
         token={token ?? ''} sku={historyBatch.sku} batch={historyBatch.batch} warehouses={warehouses}
         onClose={() => setHistoryBatch(null)}
+      />
+    )
+  }
+
+  if (historyProduct) {
+    return (
+      <ProductMovementHistoryPage
+        token={token ?? ''} productName={historyProduct.name} skus={historyProduct.skus} warehouses={warehouses}
+        onClose={() => setHistoryProduct(null)}
       />
     )
   }
@@ -1484,20 +1602,22 @@ export default function Inventory() {
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Price</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sale Price</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Stock</th>
+              <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
             {!loading && visibleProducts.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
             )}
             {!loading && visibleProducts.map(p => (
               <ProductStockRow
                 key={p.id} token={token ?? ''} productId={p.id} productName={p.name} warehouses={warehouses}
                 onSummary={handleSummary} onViewHistory={setHistorySKU}
                 onViewBatchHistory={(sku, batch) => setHistoryBatch({ sku, batch })}
+                onViewProductHistory={(name, skus) => setHistoryProduct({ name, skus })}
               />
             ))}
           </tbody>
