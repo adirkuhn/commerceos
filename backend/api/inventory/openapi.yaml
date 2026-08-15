@@ -374,6 +374,82 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /inventory/batches/expired-review:
+    get:
+      operationId: listPendingExpiredBatches
+      summary: >-
+        Expired-batch review queue: every Expired, not-yet-reviewed batch
+        for the current tenant, soonest-expired first.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpiredBatchReviewListResponse'
+
+  /inventory/batches/{id}/write-off:
+    post:
+      operationId: writeOffExpiredBatch
+      summary: >-
+        Write off an expired batch's remaining stock as lost, then remove
+        it from the review queue.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/batches/{id}/extend-expiry:
+    post:
+      operationId: extendBatchExpiry
+      summary: Push an expired batch's expiry date out and un-expire it
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtendBatchExpiryRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/batches/{id}/dismiss:
+    post:
+      operationId: dismissExpiredBatch
+      summary: >-
+        Acknowledge an expired batch without changing it -- removes it
+        from the review queue only.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -750,6 +826,35 @@ components:
           items:
             $ref: '#/components/schemas/ExpiringBatch'
         error: { nullable: true }
+
+    ExpiredBatchReview:
+      type: object
+      required: [batch_id, sku_id, sku_code, product_name, warehouse_id, warehouse_name, lot_number, expiry_date, quantity]
+      properties:
+        batch_id: { type: string }
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        warehouse_id: { type: string }
+        warehouse_name: { type: string }
+        lot_number: { type: string }
+        expiry_date: { type: string, format: date-time }
+        quantity: { type: integer, format: int64 }
+
+    ExpiredBatchReviewListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpiredBatchReview'
+        error: { nullable: true }
+
+    ExtendBatchExpiryRequest:
+      type: object
+      required: [new_expiry_date]
+      properties:
+        new_expiry_date: { type: string, format: date }
 
     EmptyResponse:
       type: object

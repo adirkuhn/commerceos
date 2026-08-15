@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Inventory from '../Inventory'
 import type { Product, ProductDetail } from '../../pms/types'
-import type { Warehouse, Batch, StockLevel, StockMovement } from '../../inventory/types'
+import type { Warehouse, Batch, StockLevel, StockMovement, ExpiredBatchReview } from '../../inventory/types'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -30,6 +30,10 @@ vi.mock('../../inventory/api', () => ({
   splitCaseIntoUnits: vi.fn(),
   portionFromBulk: vi.fn(),
   markDamagedOrLost: vi.fn(),
+  listPendingExpiredBatches: vi.fn(),
+  writeOffExpiredBatch: vi.fn(),
+  extendBatchExpiry: vi.fn(),
+  dismissExpiredBatch: vi.fn(),
 }))
 
 import * as pmsApi from '../../pms/api'
@@ -79,6 +83,7 @@ beforeEach(() => {
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse])
   vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch])
   vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(level)
+  vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([])
 })
 
 describe('Inventory page', () => {
@@ -427,5 +432,122 @@ describe('Inventory page', () => {
     await user.click(screen.getByRole('button', { name: /Inventory/ }))
     expect(await screen.findByText('Widget')).toBeInTheDocument()
     expect(screen.queryByText('Movement History')).not.toBeInTheDocument()
+  })
+})
+
+describe('Expired batch review queue', () => {
+  const expiredBatch: ExpiredBatchReview = {
+    batch_id: 'batch-2', sku_id: 'sku-1', sku_code: 'WIDGET-1', product_name: 'Widget',
+    warehouse_id: 'wh-1', warehouse_name: 'Main DC', lot_number: 'LOT-2',
+    expiry_date: '2026-07-01T00:00:00Z', quantity: 4,
+  }
+
+  it('shows no entry button when nothing is pending review', async () => {
+    render(<Inventory />)
+    await screen.findByText('Widget')
+
+    expect(screen.queryByText(/Expired batches/)).not.toBeInTheDocument()
+  })
+
+  it('shows a badge button with the count when batches are pending review, opens the queue on click', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
+
+    render(<Inventory />)
+    const badge = await screen.findByRole('button', { name: /Expired batches \(1\)/ })
+    await userEvent.click(badge)
+
+    expect(await screen.findByText('Expired Batches')).toBeInTheDocument()
+    expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
+    expect(screen.getByText('LOT-2')).toBeInTheDocument()
+  })
+
+  it('Write off confirms, calls the API, and removes the batch from the queue', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches)
+      .mockResolvedValueOnce([expiredBatch])
+      .mockResolvedValue([])
+    vi.mocked(inventoryApi.writeOffExpiredBatch).mockResolvedValue(null)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await screen.findByText('LOT-2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Write off' }))
+
+    await waitFor(() => expect(inventoryApi.writeOffExpiredBatch).toHaveBeenCalledWith('test-token', 'batch-2'))
+    expect(await screen.findByText('No expired batches pending review.')).toBeInTheDocument()
+  })
+
+  it('Write off does nothing if the confirm dialog is cancelled', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await screen.findByText('LOT-2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Write off' }))
+
+    expect(inventoryApi.writeOffExpiredBatch).not.toHaveBeenCalled()
+  })
+
+  it('Extend opens a date field, Confirm calls the API with the chosen date', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches)
+      .mockResolvedValueOnce([expiredBatch])
+      .mockResolvedValue([])
+    vi.mocked(inventoryApi.extendBatchExpiry).mockResolvedValue(null)
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await screen.findByText('LOT-2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Extend' }))
+    await userEvent.type(screen.getByLabelText('New expiry date'), '2026-12-01')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.extendBatchExpiry).toHaveBeenCalledWith('test-token', 'batch-2', { new_expiry_date: '2026-12-01' }))
+  })
+
+  it('Dismiss calls the API and removes the batch from the queue without a confirm prompt', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches)
+      .mockResolvedValueOnce([expiredBatch])
+      .mockResolvedValue([])
+    vi.mocked(inventoryApi.dismissExpiredBatch).mockResolvedValue(null)
+    const confirmSpy = vi.spyOn(window, 'confirm')
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await screen.findByText('LOT-2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+    await waitFor(() => expect(inventoryApi.dismissExpiredBatch).toHaveBeenCalledWith('test-token', 'batch-2'))
+    expect(confirmSpy).not.toHaveBeenCalled()
+  })
+
+  it('shows an error if write-off fails', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
+    vi.mocked(inventoryApi.writeOffExpiredBatch).mockRejectedValue(new Error('insufficient stock'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await screen.findByText('LOT-2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Write off' }))
+
+    expect(await screen.findByText('insufficient stock')).toBeInTheDocument()
+  })
+
+  it('Back returns to the product list', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await screen.findByText('Expired Batches')
+
+    await userEvent.click(screen.getByRole('button', { name: /Inventory/ }))
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
   })
 })

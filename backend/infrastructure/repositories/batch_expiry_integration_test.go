@@ -92,6 +92,115 @@ func TestBatchRepo_Integration_ListToExpire_appliesPerTenantThresholdAndSkipsAlr
 	require.Len(t, found, 1, "within-threshold, no-expiry, already-expired, and disabled-tenant batches must all be excluded")
 }
 
+func TestBatchRepo_Integration_ListPendingReview_returnsOnlyExpiredUnreviewedBatches(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	batchRepo := repositories.NewBatchRepo(db)
+	skuID, whID := seedProductSKUWarehouse(t, db, ctx)
+
+	expiry := time.Now().Add(-10 * 24 * time.Hour)
+	pendingID := makeBatch(t, db, ctx, skuID, whID, &expiry)
+	reviewedID := makeBatch(t, db, ctx, skuID, whID, &expiry)
+	makeBatch(t, db, ctx, skuID, whID, &expiry) // still Active -- never flagged expired, must be excluded
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := batchRepo.MarkExpired(ctx, pendingID); err != nil {
+			return err
+		}
+		if err := batchRepo.MarkExpired(ctx, reviewedID); err != nil {
+			return err
+		}
+		return batchRepo.MarkReviewed(ctx, reviewedID)
+	})
+	require.NoError(t, err)
+
+	var found []invDomain.ExpiredBatchReview
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = batchRepo.ListPendingReview(ctx)
+		return err
+	})
+	require.NoError(t, err)
+
+	foundIDs := make(map[string]bool, len(found))
+	for _, b := range found {
+		foundIDs[b.BatchID] = true
+	}
+	require.True(t, foundIDs[pendingID], "expired, not-yet-reviewed batch must be found")
+	require.Len(t, found, 1, "already-reviewed and never-expired batches must be excluded")
+}
+
+func TestBatchRepo_Integration_MarkReviewed_removesFromPendingReview(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	batchRepo := repositories.NewBatchRepo(db)
+	skuID, whID := seedProductSKUWarehouse(t, db, ctx)
+
+	expiry := time.Now().Add(-10 * 24 * time.Hour)
+	batchID := makeBatch(t, db, ctx, skuID, whID, &expiry)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := batchRepo.MarkExpired(ctx, batchID); err != nil {
+			return err
+		}
+		return batchRepo.MarkReviewed(ctx, batchID)
+	})
+	require.NoError(t, err)
+
+	var found []invDomain.ExpiredBatchReview
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = batchRepo.ListPendingReview(ctx)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, found)
+}
+
+func TestBatchRepo_Integration_ExtendExpiry_setsNewDateAndReactivates(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	batchRepo := repositories.NewBatchRepo(db)
+	skuID, whID := seedProductSKUWarehouse(t, db, ctx)
+
+	expiry := time.Now().Add(-10 * 24 * time.Hour)
+	batchID := makeBatch(t, db, ctx, skuID, whID, &expiry)
+	// expiry_date is a DATE column -- pgx's DATE encoder takes Year/Month/Day
+	// straight from time.Time's own Location without normalizing to UTC
+	// first (same gotcha documented on pms_sku_sale_integration_test.go),
+	// so build a UTC-midnight value the same way production does via
+	// openapi_types.Date -- a local-tz time.Now()-derived value would
+	// round-trip to the wrong calendar day near local midnight.
+	newExpiry := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := batchRepo.MarkExpired(ctx, batchID); err != nil {
+			return err
+		}
+		return batchRepo.ExtendExpiry(ctx, batchID, newExpiry)
+	})
+	require.NoError(t, err)
+
+	var found *invDomain.Batch
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = batchRepo.FindByID(ctx, batchID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, invDomain.BatchStatusActive, found.Status)
+	require.WithinDuration(t, newExpiry, *found.ExpiryDate, time.Second)
+
+	var pending []invDomain.ExpiredBatchReview
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		pending, err = batchRepo.ListPendingReview(ctx)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, pending, "re-activated batch must drop out of the review queue")
+}
+
 func TestBatchRepo_Integration_MarkExpired_persistsStatus(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

@@ -10,6 +10,7 @@ import { useProducts } from '../pms/hooks/useProducts'
 import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
+import { useExpiredBatchReview } from '../inventory/hooks/useExpiredBatchReview'
 import * as pmsApi from '../pms/api'
 import * as inventoryApi from '../inventory/api'
 import type { SKU } from '../pms/types'
@@ -1118,6 +1119,158 @@ function SKUMovementHistoryPage({ token, sku, warehouses, onClose }: {
   )
 }
 
+function ExpiredBatchReviewPage({ onClose, batches, loading, error, writeOff, extend, dismiss }: {
+  onClose: () => void
+} & ReturnType<typeof useExpiredBatchReview>) {
+  const [rowError, setRowError] = useState('')
+  const [extendingBatchId, setExtendingBatchId] = useState<string | null>(null)
+  const [newExpiryDate, setNewExpiryDate] = useState('')
+  const [actingBatchId, setActingBatchId] = useState<string | null>(null)
+
+  const openExtend = (batchId: string) => {
+    setRowError('')
+    setNewExpiryDate('')
+    setExtendingBatchId(batchId)
+  }
+
+  const handleWriteOff = async (batchId: string, skuCode: string) => {
+    if (!window.confirm(`Write off remaining stock for ${skuCode}? This records a Lost movement and cannot be undone.`)) return
+    setRowError('')
+    setActingBatchId(batchId)
+    try {
+      await writeOff(batchId)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to write off batch')
+    } finally {
+      setActingBatchId(null)
+    }
+  }
+
+  const handleConfirmExtend = async (batchId: string) => {
+    if (!newExpiryDate) return
+    setRowError('')
+    setActingBatchId(batchId)
+    try {
+      await extend(batchId, newExpiryDate)
+      setExtendingBatchId(null)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to extend expiry')
+    } finally {
+      setActingBatchId(null)
+    }
+  }
+
+  const handleDismiss = async (batchId: string) => {
+    setRowError('')
+    setActingBatchId(batchId)
+    try {
+      await dismiss(batchId)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Failed to dismiss batch')
+    } finally {
+      setActingBatchId(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+          >
+            <ArrowLeft size={11} /> Inventory
+          </button>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Expired Batches</h1>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Batches pending review — write off, extend, or dismiss</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {(error || rowError) && <p className="px-6 py-4 text-xs text-red-400">{error || rowError}</p>}
+        {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+        {!error && !loading && batches.length === 0 && (
+          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No expired batches pending review.</p>
+        )}
+        {batches.length > 0 && (
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+              <tr>
+                {['SKU', 'Product', 'Warehouse', 'Lot', 'Expired', 'Qty', ''].map(h => (
+                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+              {batches.map(b => (
+                <tr key={b.batch_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{b.sku_code}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{b.product_name}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.warehouse_name}</td>
+                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.lot_number || '—'}</td>
+                  <td className="px-4 py-2.5 text-red-400">{formatDate(b.expiry_date)}</td>
+                  <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{b.quantity}</td>
+                  <td className="px-4 py-2.5">
+                    {extendingBatchId === b.batch_id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="date"
+                          aria-label="New expiry date"
+                          value={newExpiryDate}
+                          onChange={e => setNewExpiryDate(e.target.value)}
+                          className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => handleConfirmExtend(b.batch_id)}
+                          disabled={!newExpiryDate || actingBatchId === b.batch_id}
+                          className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setExtendingBatchId(null)}
+                          className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleWriteOff(b.batch_id, b.sku_code)}
+                          disabled={actingBatchId === b.batch_id}
+                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          Write off
+                        </button>
+                        <button
+                          onClick={() => openExtend(b.batch_id)}
+                          disabled={actingBatchId === b.batch_id}
+                          className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
+                        >
+                          Extend
+                        </button>
+                        <button
+                          onClick={() => handleDismiss(b.batch_id)}
+                          disabled={actingBatchId === b.batch_id}
+                          className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Inventory() {
@@ -1128,6 +1281,8 @@ export default function Inventory() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
   const [summaryByProduct, setSummaryByProduct] = useState<Record<string, ProductStockSummary>>({})
   const [historySKU, setHistorySKU] = useState<SKU | null>(null)
+  const [showExpiredReview, setShowExpiredReview] = useState(false)
+  const expiredReview = useExpiredBatchReview(token ?? '')
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -1164,6 +1319,10 @@ export default function Inventory() {
     return <SKUMovementHistoryPage token={token ?? ''} sku={historySKU} warehouses={warehouses} onClose={() => setHistorySKU(null)} />
   }
 
+  if (showExpiredReview) {
+    return <ExpiredBatchReviewPage onClose={() => setShowExpiredReview(false)} {...expiredReview} />
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
@@ -1197,6 +1356,14 @@ export default function Inventory() {
             </button>
           ))}
         </div>
+        {expiredReview.batches.length > 0 && (
+          <button
+            onClick={() => setShowExpiredReview(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
+          >
+            <AlertTriangle size={12} /> Expired batches ({expiredReview.batches.length})
+          </button>
+        )}
         <span className="text-xs dark:text-gray-500 text-gray-400 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
       </div>
 

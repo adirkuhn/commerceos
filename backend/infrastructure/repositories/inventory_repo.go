@@ -41,6 +41,7 @@ type batchModel struct {
 	ExpiryDate  *time.Time
 	ReceivedAt  time.Time
 	Status      string `gorm:"not null;default:'active'"`
+	ReviewedAt  *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -313,6 +314,91 @@ func (r *BatchRepo) ListToExpire(ctx context.Context) ([]invDomain.BatchToExpire
 	return out, nil
 }
 
+func (r *BatchRepo) MarkReviewed(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&batchModel{}).Where("id = ?", id).
+		Update("reviewed_at", time.Now()).Error; err != nil {
+		return fmt.Errorf("batchRepo.MarkReviewed: %w", err)
+	}
+	return nil
+}
+
+func (r *BatchRepo) ExtendExpiry(ctx context.Context, id string, newExpiryDate time.Time) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&batchModel{}).Where("id = ?", id).
+		Updates(map[string]any{
+			"expiry_date": newExpiryDate,
+			"status":      invDomain.BatchStatusActive,
+			"updated_at":  time.Now(),
+		}).Error; err != nil {
+		return fmt.Errorf("batchRepo.ExtendExpiry: %w", err)
+	}
+	return nil
+}
+
+// expiredBatchReviewRow scans ListPendingReview's joined query -- not a
+// persisted model, just a query-result shape (same shape as
+// expiringBatchRow, kept separate since the two queries filter on
+// different things and could diverge).
+type expiredBatchReviewRow struct {
+	BatchID       string `gorm:"column:batch_id"`
+	SKUID         string `gorm:"column:sku_id"`
+	SKUCode       string
+	ProductName   string
+	WarehouseID   string
+	WarehouseName string
+	LotNumber     string
+	ExpiryDate    time.Time
+	Quantity      int64
+}
+
+func (r *BatchRepo) ListPendingReview(ctx context.Context) ([]invDomain.ExpiredBatchReview, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []expiredBatchReviewRow
+	err = tx.Raw(`
+		SELECT
+			b.id AS batch_id,
+			b.sku_id AS sku_id,
+			s.sku_code AS sku_code,
+			p.name AS product_name,
+			b.warehouse_id AS warehouse_id,
+			w.name AS warehouse_name,
+			b.lot_number AS lot_number,
+			b.expiry_date AS expiry_date,
+			COALESCE(SUM(sm.quantity_delta), 0) AS quantity
+		FROM batches b
+		JOIN skus s ON s.id = b.sku_id
+		JOIN variants v ON v.id = s.variant_id
+		JOIN products p ON p.id = v.product_id
+		JOIN warehouses w ON w.id = b.warehouse_id
+		LEFT JOIN stock_movements sm ON sm.batch_id = b.id
+		WHERE b.status = ? AND b.reviewed_at IS NULL
+		GROUP BY b.id, s.sku_code, p.name, w.name
+		ORDER BY b.expiry_date ASC
+	`, invDomain.BatchStatusExpired).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("batchRepo.ListPendingReview: %w", err)
+	}
+	out := make([]invDomain.ExpiredBatchReview, len(rows))
+	for i, row := range rows {
+		out[i] = invDomain.ExpiredBatchReview{
+			BatchID: row.BatchID, SKUID: row.SKUID, SKUCode: row.SKUCode, ProductName: row.ProductName,
+			WarehouseID: row.WarehouseID, WarehouseName: row.WarehouseName, LotNumber: row.LotNumber,
+			ExpiryDate: row.ExpiryDate, Quantity: row.Quantity,
+		}
+	}
+	return out, nil
+}
+
 func (r *BatchRepo) Delete(ctx context.Context, id string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -395,6 +481,7 @@ func toBatchDomain(m batchModel) *invDomain.Batch {
 		ExpiryDate:  m.ExpiryDate,
 		ReceivedAt:  m.ReceivedAt,
 		Status:      m.Status,
+		ReviewedAt:  m.ReviewedAt,
 		CreatedAt:   m.CreatedAt,
 		UpdatedAt:   m.UpdatedAt,
 	}

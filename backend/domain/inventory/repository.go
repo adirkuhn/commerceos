@@ -22,6 +22,22 @@ type ExpiringBatch struct {
 	Quantity      int64
 }
 
+// ExpiredBatchReview is the per-tenant read-model row returned by
+// BatchRepository.ListPendingReview -- an Expired batch a user hasn't
+// acted on yet (ReviewedAt still nil), enriched the same way ExpiringBatch
+// is for the expiring-soon report.
+type ExpiredBatchReview struct {
+	BatchID       string
+	SKUID         string
+	SKUCode       string
+	ProductName   string
+	WarehouseID   string
+	WarehouseName string
+	LotNumber     string
+	ExpiryDate    time.Time
+	Quantity      int64
+}
+
 // BatchToExpire is the cross-tenant read-model row returned by
 // BatchRepository.ListToExpire — just enough to dispatch the expire under
 // the right tenant identity (see cmd/scheduler.runExpiredBatches).
@@ -65,6 +81,19 @@ type BatchRepository interface {
 	ListToExpire(ctx context.Context) ([]BatchToExpire, error)
 	// MarkExpired flips a single batch's Status to BatchStatusExpired.
 	MarkExpired(ctx context.Context, id string) error
+	// ListPendingReview returns every Expired, not-yet-reviewed batch for
+	// the current tenant, soonest-expired first -- the expired-batch
+	// review queue's data source.
+	ListPendingReview(ctx context.Context) ([]ExpiredBatchReview, error)
+	// MarkReviewed sets ReviewedAt to now, removing the batch from the
+	// review queue without changing Status or ExpiryDate (the "Dismiss"
+	// action; also called by the write-off action after its movement is
+	// recorded).
+	MarkReviewed(ctx context.Context, id string) error
+	// ExtendExpiry pushes a batch's ExpiryDate out and flips Status back
+	// to Active (the "Extend" review-queue action) -- ReviewedAt is left
+	// nil so the batch reappears in the queue if it expires again later.
+	ExtendExpiry(ctx context.Context, id string, newExpiryDate time.Time) error
 }
 
 // StockMovementRepository is append-only by design — a ledger entry is

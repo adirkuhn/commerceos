@@ -76,6 +76,18 @@ type receiveStockUC interface {
 type listExpiringBatchesUC interface {
 	Execute(ctx context.Context, withinDays int) ([]invDomain.ExpiringBatch, error)
 }
+type listPendingExpiredBatchesUC interface {
+	Execute(ctx context.Context) ([]invDomain.ExpiredBatchReview, error)
+}
+type writeOffExpiredBatchUC interface {
+	Execute(ctx context.Context, batchID string) error
+}
+type extendBatchExpiryUC interface {
+	Execute(ctx context.Context, batchID string, newExpiryDate time.Time) error
+}
+type dismissExpiredBatchUC interface {
+	Execute(ctx context.Context, batchID string) error
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -98,6 +110,11 @@ type Handler struct {
 	listExpiringBatches listExpiringBatchesUC
 	listStockMovements  listStockMovementsUC
 	receiveStock        receiveStockUC
+
+	listPendingExpiredBatches listPendingExpiredBatchesUC
+	writeOffExpiredBatch      writeOffExpiredBatchUC
+	extendBatchExpiry         extendBatchExpiryUC
+	dismissExpiredBatch       dismissExpiredBatchUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -120,6 +137,10 @@ func NewHandler(
 	listExpiringBatches listExpiringBatchesUC,
 	listStockMovements listStockMovementsUC,
 	receiveStock receiveStockUC,
+	listPendingExpiredBatches listPendingExpiredBatchesUC,
+	writeOffExpiredBatch writeOffExpiredBatchUC,
+	extendBatchExpiry extendBatchExpiryUC,
+	dismissExpiredBatch dismissExpiredBatchUC,
 ) *Handler {
 	return &Handler{
 		listWarehouses:      listWarehouses,
@@ -140,6 +161,11 @@ func NewHandler(
 		listExpiringBatches: listExpiringBatches,
 		listStockMovements:  listStockMovements,
 		receiveStock:        receiveStock,
+
+		listPendingExpiredBatches: listPendingExpiredBatches,
+		writeOffExpiredBatch:      writeOffExpiredBatch,
+		extendBatchExpiry:         extendBatchExpiry,
+		dismissExpiredBatch:       dismissExpiredBatch,
 	}
 }
 
@@ -173,6 +199,10 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
 		appinventory.NewListStockMovementsUseCase(db, movementRepo),
 		appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
+		appinventory.NewListPendingExpiredBatchesUseCase(db, batchRepo),
+		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo)),
+		appinventory.NewExtendBatchExpiryUseCase(db, batchRepo),
+		appinventory.NewDismissExpiredBatchUseCase(db, batchRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
 }
@@ -336,6 +366,47 @@ func (h *Handler) ListExpiringBatches(c *gin.Context, params geninventory.ListEx
 		resp[i] = toGenExpiringBatch(b)
 	}
 	c.JSON(http.StatusOK, geninventory.ExpiringBatchListResponse{Data: &resp})
+}
+
+func (h *Handler) ListPendingExpiredBatches(c *gin.Context) {
+	batches, err := h.listPendingExpiredBatches.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]geninventory.ExpiredBatchReview, len(batches))
+	for i, b := range batches {
+		resp[i] = toGenExpiredBatchReview(b)
+	}
+	c.JSON(http.StatusOK, geninventory.ExpiredBatchReviewListResponse{Data: &resp})
+}
+
+func (h *Handler) WriteOffExpiredBatch(c *gin.Context, id geninventory.Id) {
+	err := h.writeOffExpiredBatch.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
+}
+
+func (h *Handler) ExtendBatchExpiry(c *gin.Context, id geninventory.Id) {
+	var req geninventory.ExtendBatchExpiryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	err := h.extendBatchExpiry.Execute(c.Request.Context(), id, req.NewExpiryDate.Time)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
+}
+
+func (h *Handler) DismissExpiredBatch(c *gin.Context, id geninventory.Id) {
+	err := h.dismissExpiredBatch.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
 }
 
 func (h *Handler) ListStockMovements(c *gin.Context, skuId geninventory.SkuId) {
@@ -518,6 +589,14 @@ func toGenBatch(b invDomain.Batch) geninventory.Batch {
 
 func toGenExpiringBatch(b invDomain.ExpiringBatch) geninventory.ExpiringBatch {
 	return geninventory.ExpiringBatch{
+		BatchId: b.BatchID, SkuId: b.SKUID, SkuCode: b.SKUCode, ProductName: b.ProductName,
+		WarehouseId: b.WarehouseID, WarehouseName: b.WarehouseName, LotNumber: b.LotNumber,
+		ExpiryDate: b.ExpiryDate, Quantity: b.Quantity,
+	}
+}
+
+func toGenExpiredBatchReview(b invDomain.ExpiredBatchReview) geninventory.ExpiredBatchReview {
+	return geninventory.ExpiredBatchReview{
 		BatchId: b.BatchID, SkuId: b.SKUID, SkuCode: b.SKUCode, ProductName: b.ProductName,
 		WarehouseId: b.WarehouseID, WarehouseName: b.WarehouseName, LotNumber: b.LotNumber,
 		ExpiryDate: b.ExpiryDate, Quantity: b.Quantity,

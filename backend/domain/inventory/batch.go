@@ -30,9 +30,17 @@ type Batch struct {
 	ExpiryDate  *time.Time
 	ReceivedAt  time.Time
 	// Status is one of the BatchStatus* constants above.
-	Status    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Status string
+	// ReviewedAt is set once a user has acted on this batch from the
+	// expired-batch review queue (write-off, extend, or dismiss) --
+	// ListPendingReview only returns rows where this is still nil, even
+	// after Status flips back to Active or Status stays Expired forever
+	// (the dismiss case). See application/inventory's
+	// WriteOffExpiredBatchUseCase / ExtendBatchExpiryUseCase /
+	// DismissExpiredBatchUseCase.
+	ReviewedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 	// Quantity is transient -- populated by ListBatchesUseCase from the
 	// StockMovement ledger, never persisted on the batch row itself (see
 	// the type doc comment above).

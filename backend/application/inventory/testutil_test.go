@@ -41,6 +41,18 @@ func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return
 // job), so only the transaction envelope needs to be mocked.
 func newMockGormDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	return newMockGormDBN(t, 1)
+}
+
+// newMockGormDBN is newMockGormDB for a use case that opens more than one
+// tenant.WithTenant transaction sequentially -- e.g.
+// WriteOffExpiredBatchUseCase, which can't nest MarkDamagedOrLostUseCase's
+// own transaction inside its own (see damagedOrLostRecorder's doc comment).
+// n is the total number of Begin/set_config/Commit cycles expected across
+// the whole test, including any opened by an injected use case's own
+// Execute call.
+func newMockGormDBN(t *testing.T, n int) *gorm.DB {
+	t.Helper()
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { mockDB.Close() })
@@ -48,10 +60,12 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mockDB}), &gorm.Config{})
 	require.NoError(t, err)
 
-	mock.ExpectBegin()
 	mock.MatchExpectationsInOrder(false)
-	mock.ExpectExec(`SELECT set_config`).WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectCommit()
+	for i := 0; i < n; i++ {
+		mock.ExpectBegin()
+		mock.ExpectExec(`SELECT set_config`).WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectCommit()
+	}
 
 	return gormDB
 }
@@ -115,6 +129,14 @@ type stubBatchRepo struct {
 	toExpireErr    error
 	markExpiredErr error
 	markExpired    []string
+
+	pendingReview      []invDomain.ExpiredBatchReview
+	pendingReviewErr   error
+	markReviewedErr    error
+	markReviewed       []string
+	extendExpiryErr    error
+	extendedID         string
+	extendedExpiryDate time.Time
 }
 
 func (s *stubBatchRepo) Create(_ context.Context, b *invDomain.Batch) error {
@@ -153,6 +175,24 @@ func (s *stubBatchRepo) MarkExpired(_ context.Context, id string) error {
 		return s.markExpiredErr
 	}
 	s.markExpired = append(s.markExpired, id)
+	return nil
+}
+func (s *stubBatchRepo) ListPendingReview(_ context.Context) ([]invDomain.ExpiredBatchReview, error) {
+	return s.pendingReview, s.pendingReviewErr
+}
+func (s *stubBatchRepo) MarkReviewed(_ context.Context, id string) error {
+	if s.markReviewedErr != nil {
+		return s.markReviewedErr
+	}
+	s.markReviewed = append(s.markReviewed, id)
+	return nil
+}
+func (s *stubBatchRepo) ExtendExpiry(_ context.Context, id string, newExpiryDate time.Time) error {
+	if s.extendExpiryErr != nil {
+		return s.extendExpiryErr
+	}
+	s.extendedID = id
+	s.extendedExpiryDate = newExpiryDate
 	return nil
 }
 

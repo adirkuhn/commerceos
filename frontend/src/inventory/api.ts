@@ -4,7 +4,7 @@ import type {
   StockMovement, StockLevel,
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, TransferStockResult, MarkDamagedOrLostInput,
   ExpiringBatch, ReceiveStockInput, ReceiveStockResult, SplitCaseIntoUnitsInput, SplitCaseIntoUnitsResult,
-  PortionFromBulkInput, PortionFromBulkResult,
+  PortionFromBulkInput, PortionFromBulkResult, ExpiredBatchReview, ExtendBatchExpiryInput,
 } from './types'
 
 function base(): string {
@@ -116,4 +116,22 @@ export function receiveStock(token: string, skuId: string, input: ReceiveStockIn
 
 export function listExpiringBatches(token: string, withinDays = 30): Promise<ExpiringBatch[]> {
   return request<ExpiringBatch[]>(`${base()}/batches/expiring-soon?within_days=${withinDays}`, { method: 'GET' }, token)
+}
+
+// ── Expired-batch review queue ───────────────────────────────────────────────
+
+export function listPendingExpiredBatches(token: string): Promise<ExpiredBatchReview[]> {
+  return request<ExpiredBatchReview[]>(`${base()}/batches/expired-review`, { method: 'GET' }, token)
+}
+
+export function writeOffExpiredBatch(token: string, batchId: string): Promise<null> {
+  return request<null>(`${base()}/batches/${batchId}/write-off`, { method: 'POST' }, token)
+}
+
+export function extendBatchExpiry(token: string, batchId: string, input: ExtendBatchExpiryInput): Promise<null> {
+  return request<null>(`${base()}/batches/${batchId}/extend-expiry`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function dismissExpiredBatch(token: string, batchId: string): Promise<null> {
+  return request<null>(`${base()}/batches/${batchId}/dismiss`, { method: 'POST' }, token)
 }

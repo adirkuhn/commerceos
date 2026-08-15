@@ -175,6 +175,22 @@ export interface ExpiringBatch {
   quantity: number
 }
 
+export interface ExpiredBatchReview {
+  batch_id: string
+  sku_id: string
+  sku_code: string
+  product_name: string
+  warehouse_id: string
+  warehouse_name: string
+  lot_number: string
+  expiry_date: string
+  quantity: number
+}
+
+export interface ExtendBatchExpiryInput {
+  new_expiry_date: string
+}
+
 export interface APIError {
   code: string
   message: string

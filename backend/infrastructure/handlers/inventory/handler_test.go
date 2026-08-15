@@ -275,12 +275,53 @@ func (s *stubReceiveStock) Execute(_ context.Context, in appinventory.ReceiveSto
 	return &appinventory.ReceiveStockResult{Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, Type: invDomain.MovementTypeReceipt, QuantityDelta: in.Quantity}}, nil
 }
 
+type stubListPendingExpiredBatches struct {
+	out []invDomain.ExpiredBatchReview
+	err error
+}
+
+func (s *stubListPendingExpiredBatches) Execute(_ context.Context) ([]invDomain.ExpiredBatchReview, error) {
+	return s.out, s.err
+}
+
+type stubWriteOffExpiredBatch struct {
+	err   error
+	calls []string
+}
+
+func (s *stubWriteOffExpiredBatch) Execute(_ context.Context, batchID string) error {
+	s.calls = append(s.calls, batchID)
+	return s.err
+}
+
+type stubExtendBatchExpiry struct {
+	err          error
+	gotBatchID   string
+	gotNewExpiry time.Time
+}
+
+func (s *stubExtendBatchExpiry) Execute(_ context.Context, batchID string, newExpiryDate time.Time) error {
+	s.gotBatchID, s.gotNewExpiry = batchID, newExpiryDate
+	return s.err
+}
+
+type stubDismissExpiredBatch struct {
+	err   error
+	calls []string
+}
+
+func (s *stubDismissExpiredBatch) Execute(_ context.Context, batchID string) error {
+	s.calls = append(s.calls, batchID)
+	return s.err
+}
+
 func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, update *stubUpdateWarehouse, del *stubDeleteWarehouse) *inventoryhandler.Handler {
 	return inventoryhandler.NewHandler(
 		list, create, update, del,
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 }
 
@@ -305,6 +346,7 @@ func newBatchTestHandlerWithReceive(
 		createBatch, updateBatch, deleteBatch, listBatches,
 		stockLevel, recordMovement, recordRecount, transfer, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, markDamagedOrLost,
 		&stubListExpiringBatches{}, &stubListStockMovements{}, receiveStock,
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 }
 
@@ -314,6 +356,7 @@ func newSplitCaseTestHandler(split *stubSplitCaseIntoUnits) *inventoryhandler.Ha
 		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, split, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 }
 
@@ -516,6 +559,7 @@ func TestListExpiringBatchesHandler_returnsBatches(t *testing.T) {
 			{BatchID: "batch-1", SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", ExpiryDate: expiry, Quantity: 5},
 		}},
 		&stubListStockMovements{}, &stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/batches/expiring-soon?within_days=10", nil)
 
@@ -534,12 +578,78 @@ func TestListStockMovementsHandler_returnsMovements(t *testing.T) {
 			{ID: "movement-1", SKUID: "sku-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10},
 		}},
 		&stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/skus/sku-1/movements", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"id":"movement-1"`)
 	assert.Contains(t, w.Body.String(), `"quantity_delta":10`)
+}
+
+func newExpiredReviewTestHandler(list *stubListPendingExpiredBatches, writeOff *stubWriteOffExpiredBatch, extend *stubExtendBatchExpiry, dismiss *stubDismissExpiredBatch) *inventoryhandler.Handler {
+	return inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+		list, writeOff, extend, dismiss,
+	)
+}
+
+func TestListPendingExpiredBatchesHandler_returnsBatches(t *testing.T) {
+	expiry := time.Now().Add(-10 * 24 * time.Hour)
+	h := newExpiredReviewTestHandler(&stubListPendingExpiredBatches{out: []invDomain.ExpiredBatchReview{
+		{BatchID: "batch-1", SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", ExpiryDate: expiry, Quantity: 4},
+	}}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/batches/expired-review", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"sku_code":"SKU-1"`)
+	assert.Contains(t, w.Body.String(), `"batch_id":"batch-1"`)
+}
+
+func TestWriteOffExpiredBatchHandler_success(t *testing.T) {
+	writeOff := &stubWriteOffExpiredBatch{}
+	h := newExpiredReviewTestHandler(&stubListPendingExpiredBatches{}, writeOff, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{})
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/batches/batch-1/write-off", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, []string{"batch-1"}, writeOff.calls)
+}
+
+func TestWriteOffExpiredBatchHandler_propagatesNotFound(t *testing.T) {
+	h := newExpiredReviewTestHandler(&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{err: invDomain.ErrBatchNotFound}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{})
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/batches/batch-1/write-off", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestExtendBatchExpiryHandler_success(t *testing.T) {
+	extend := &stubExtendBatchExpiry{}
+	h := newExpiredReviewTestHandler(&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, extend, &stubDismissExpiredBatch{})
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/batches/batch-1/extend-expiry",
+		map[string]any{"new_expiry_date": "2026-12-01"})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, "batch-1", extend.gotBatchID)
+	require.Equal(t, 2026, extend.gotNewExpiry.Year())
+	require.Equal(t, time.Month(12), extend.gotNewExpiry.Month())
+	require.Equal(t, 1, extend.gotNewExpiry.Day())
+}
+
+func TestDismissExpiredBatchHandler_success(t *testing.T) {
+	dismiss := &stubDismissExpiredBatch{}
+	h := newExpiredReviewTestHandler(&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, dismiss)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/batches/batch-1/dismiss", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, []string{"batch-1"}, dismiss.calls)
 }
 
 func TestRecordStockMovementHandler_success(t *testing.T) {
@@ -651,6 +761,7 @@ func TestPortionFromBulkHandler_success(t *testing.T) {
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{},
 		&stubSplitCaseIntoUnits{}, portion, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-378g/portion-from-bulk",
 		map[string]any{"warehouse_id": "wh-1", "weight_grams": 378})
@@ -671,6 +782,7 @@ func TestPortionFromBulkHandler_notPortionedReturns422(t *testing.T) {
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{},
 		&stubSplitCaseIntoUnits{}, portion, &stubMarkDamagedOrLost{},
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/portion-from-bulk",
 		map[string]any{"warehouse_id": "wh-1"})
