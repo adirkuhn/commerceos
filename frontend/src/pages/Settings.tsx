@@ -615,7 +615,7 @@ function InventorySyncRulesSection() {
         <div>
           <span className="text-xs dark:text-gray-300 text-gray-700 block">Enable inventory sync rules</span>
           <span className="text-[10px] dark:text-gray-500 text-gray-400">
-            No batches syncs the ledger total; batches with no expiry sync their sum; batches with an expiry sync only the nearest-expiry batch's quantity.
+            Controls what quantity syncs to channels: no batches → ledger total · batches with no expiry → summed together · batches with an expiry → only the nearest-expiring batch's quantity, so channels sell through the oldest stock first.
           </span>
         </div>
         <label className="relative flex items-center shrink-0 cursor-pointer">
