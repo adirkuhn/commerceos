@@ -25,6 +25,7 @@ function mockFetchError(code: string, message: string, status = 422) {
 const sampleSettings: TenantSettings = {
   tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'UTC', date_format: 'YYYY-MM-DD', language: 'en',
   prices_include_tax: false, default_tax_country: '',
+  inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
   updated_at: '2026-07-26T00:00:00Z',
 }
 

@@ -28,12 +28,17 @@ type ErrorResponse struct {
 
 // TenantSettings defines model for TenantSettings.
 type TenantSettings struct {
-	DateFormat      string `json:"date_format"`
-	DefaultCurrency string `json:"default_currency"`
+	// BatchExpiryThresholdDays Days past a batch's expiry date before it is auto-flagged expired. 0 disables auto-expiry.
+	BatchExpiryThresholdDays int    `json:"batch_expiry_threshold_days"`
+	DateFormat               string `json:"date_format"`
+	DefaultCurrency          string `json:"default_currency"`
 
 	// DefaultTaxCountry 2-letter ISO country code used to look up a tax rate when an order/SKU has no more specific country.
 	DefaultTaxCountry string `json:"default_tax_country"`
-	Language          string `json:"language"`
+
+	// InventorySyncRulesEnabled When true, channel stock sync uses batch-expiry-aware quantity (nearest-expiry batch only, or sum when no batch has an expiry) instead of the flat sum-of-non-expired-batches default.
+	InventorySyncRulesEnabled bool   `json:"inventory_sync_rules_enabled"`
+	Language                  string `json:"language"`
 
 	// PricesIncludeTax Whether SKU prices are entered tax-inclusive (true) or tax-exclusive (false).
 	PricesIncludeTax bool      `json:"prices_include_tax"`
@@ -50,12 +55,14 @@ type TenantSettingsResponse struct {
 
 // UpdateTenantSettingsRequest defines model for UpdateTenantSettingsRequest.
 type UpdateTenantSettingsRequest struct {
-	DateFormat        *string `json:"date_format,omitempty"`
-	DefaultCurrency   *string `json:"default_currency,omitempty"`
-	DefaultTaxCountry *string `json:"default_tax_country,omitempty"`
-	Language          *string `json:"language,omitempty"`
-	PricesIncludeTax  *bool   `json:"prices_include_tax,omitempty"`
-	Timezone          *string `json:"timezone,omitempty"`
+	BatchExpiryThresholdDays  *int    `json:"batch_expiry_threshold_days,omitempty"`
+	DateFormat                *string `json:"date_format,omitempty"`
+	DefaultCurrency           *string `json:"default_currency,omitempty"`
+	DefaultTaxCountry         *string `json:"default_tax_country,omitempty"`
+	InventorySyncRulesEnabled *bool   `json:"inventory_sync_rules_enabled,omitempty"`
+	Language                  *string `json:"language,omitempty"`
+	PricesIncludeTax          *bool   `json:"prices_include_tax,omitempty"`
+	Timezone                  *string `json:"timezone,omitempty"`
 }
 
 // Error defines model for Error.
@@ -145,18 +152,21 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

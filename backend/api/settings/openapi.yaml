@@ -48,7 +48,7 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -61,6 +61,15 @@ components:
         default_tax_country:
           type: string
           description: 2-letter ISO country code used to look up a tax rate when an order/SKU has no more specific country.
+        inventory_sync_rules_enabled:
+          type: boolean
+          description: >-
+            When true, channel stock sync uses batch-expiry-aware quantity
+            (nearest-expiry batch only, or sum when no batch has an expiry)
+            instead of the flat sum-of-non-expired-batches default.
+        batch_expiry_threshold_days:
+          type: integer
+          description: Days past a batch's expiry date before it is auto-flagged expired. 0 disables auto-expiry.
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -72,6 +81,8 @@ components:
         language: { type: string }
         prices_include_tax: { type: boolean }
         default_tax_country: { type: string }
+        inventory_sync_rules_enabled: { type: boolean }
+        batch_expiry_threshold_days: { type: integer }
 
     TenantSettingsResponse:
       type: object

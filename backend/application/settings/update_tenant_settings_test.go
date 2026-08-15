@@ -18,6 +18,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	result, err := uc.Execute(ctx, appsettings.UpdateTenantSettingsInput{
 		DefaultCurrency: "USD", Timezone: "Europe/Amsterdam", DateFormat: "DD/MM/YYYY", Language: "en",
 		PricesIncludeTax: true, DefaultTaxCountry: "NL",
+		InventorySyncRulesEnabled: true, BatchExpiryThresholdDays: 30,
 	})
 
 	require.NoError(t, err)
@@ -27,11 +28,15 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	require.Equal(t, "en", result.Language)
 	require.True(t, result.PricesIncludeTax)
 	require.Equal(t, "NL", result.DefaultTaxCountry)
+	require.True(t, result.InventorySyncRulesEnabled)
+	require.Equal(t, 30, result.BatchExpiryThresholdDays)
 	require.Equal(t, "tenant-1", result.TenantID)
 	require.Len(t, repo.upserted, 1)
 	require.Equal(t, "USD", repo.upserted[0].DefaultCurrency)
 	require.True(t, repo.upserted[0].PricesIncludeTax)
 	require.Equal(t, "NL", repo.upserted[0].DefaultTaxCountry)
+	require.True(t, repo.upserted[0].InventorySyncRulesEnabled)
+	require.Equal(t, 30, repo.upserted[0].BatchExpiryThresholdDays)
 }
 
 func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {

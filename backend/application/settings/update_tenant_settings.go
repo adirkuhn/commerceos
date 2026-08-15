@@ -11,12 +11,14 @@ import (
 )
 
 type UpdateTenantSettingsInput struct {
-	DefaultCurrency   string
-	Timezone          string
-	DateFormat        string
-	Language          string
-	PricesIncludeTax  bool
-	DefaultTaxCountry string
+	DefaultCurrency           string
+	Timezone                  string
+	DateFormat                string
+	Language                  string
+	PricesIncludeTax          bool
+	DefaultTaxCountry         string
+	InventorySyncRulesEnabled bool
+	BatchExpiryThresholdDays  int
 }
 
 type UpdateTenantSettingsUseCase struct {
@@ -32,14 +34,16 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 	var result settingsDomain.TenantSettings
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		result = settingsDomain.TenantSettings{
-			TenantID:          tenant.IDFromContext(ctx),
-			DefaultCurrency:   in.DefaultCurrency,
-			Timezone:          in.Timezone,
-			DateFormat:        in.DateFormat,
-			Language:          in.Language,
-			PricesIncludeTax:  in.PricesIncludeTax,
-			DefaultTaxCountry: in.DefaultTaxCountry,
-			UpdatedAt:         time.Now(),
+			TenantID:                  tenant.IDFromContext(ctx),
+			DefaultCurrency:           in.DefaultCurrency,
+			Timezone:                  in.Timezone,
+			DateFormat:                in.DateFormat,
+			Language:                  in.Language,
+			PricesIncludeTax:          in.PricesIncludeTax,
+			DefaultTaxCountry:         in.DefaultTaxCountry,
+			InventorySyncRulesEnabled: in.InventorySyncRulesEnabled,
+			BatchExpiryThresholdDays:  in.BatchExpiryThresholdDays,
+			UpdatedAt:                 time.Now(),
 		}
 		return uc.repo.Upsert(ctx, &result)
 	})

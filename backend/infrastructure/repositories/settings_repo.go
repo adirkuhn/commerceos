@@ -14,14 +14,16 @@ import (
 )
 
 type tenantSettingsModel struct {
-	TenantID          string `gorm:"primaryKey;type:uuid"`
-	DefaultCurrency   string `gorm:"not null;default:''"`
-	Timezone          string `gorm:"not null;default:''"`
-	DateFormat        string `gorm:"column:date_format;not null;default:''"`
-	Language          string `gorm:"not null;default:''"`
-	PricesIncludeTax  bool   `gorm:"not null;default:true"`
-	DefaultTaxCountry string `gorm:"not null;default:''"`
-	UpdatedAt         time.Time
+	TenantID                  string `gorm:"primaryKey;type:uuid"`
+	DefaultCurrency           string `gorm:"not null;default:''"`
+	Timezone                  string `gorm:"not null;default:''"`
+	DateFormat                string `gorm:"column:date_format;not null;default:''"`
+	Language                  string `gorm:"not null;default:''"`
+	PricesIncludeTax          bool   `gorm:"not null;default:true"`
+	DefaultTaxCountry         string `gorm:"not null;default:''"`
+	InventorySyncRulesEnabled bool   `gorm:"not null;default:false"`
+	BatchExpiryThresholdDays  int    `gorm:"not null;default:0"`
+	UpdatedAt                 time.Time
 }
 
 func (tenantSettingsModel) TableName() string { return "tenant_settings" }
@@ -60,13 +62,15 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 	m := tenantSettingsModel{
 		TenantID: s.TenantID, DefaultCurrency: s.DefaultCurrency, Timezone: s.Timezone,
 		DateFormat: s.DateFormat, Language: s.Language, PricesIncludeTax: s.PricesIncludeTax,
-		DefaultTaxCountry: s.DefaultTaxCountry, UpdatedAt: s.UpdatedAt,
+		DefaultTaxCountry: s.DefaultTaxCountry, InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays: s.BatchExpiryThresholdDays, UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"default_currency", "timezone", "date_format", "language",
-			"prices_include_tax", "default_tax_country", "updated_at",
+			"prices_include_tax", "default_tax_country",
+			"inventory_sync_rules_enabled", "batch_expiry_threshold_days", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -79,6 +83,7 @@ func toTenantSettingsDomain(m tenantSettingsModel) *settingsDomain.TenantSetting
 	return &settingsDomain.TenantSettings{
 		TenantID: m.TenantID, DefaultCurrency: m.DefaultCurrency, Timezone: m.Timezone,
 		DateFormat: m.DateFormat, Language: m.Language, PricesIncludeTax: m.PricesIncludeTax,
-		DefaultTaxCountry: m.DefaultTaxCountry, UpdatedAt: m.UpdatedAt,
+		DefaultTaxCountry: m.DefaultTaxCountry, InventorySyncRulesEnabled: m.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays: m.BatchExpiryThresholdDays, UpdatedAt: m.UpdatedAt,
 	}
 }

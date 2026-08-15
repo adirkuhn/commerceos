@@ -58,12 +58,14 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.UpdateTenantSettingsInput{
-		DefaultCurrency:   strPtrOr(req.DefaultCurrency),
-		Timezone:          strPtrOr(req.Timezone),
-		DateFormat:        strPtrOr(req.DateFormat),
-		Language:          strPtrOr(req.Language),
-		PricesIncludeTax:  req.PricesIncludeTax != nil && *req.PricesIncludeTax,
-		DefaultTaxCountry: strPtrOr(req.DefaultTaxCountry),
+		DefaultCurrency:           strPtrOr(req.DefaultCurrency),
+		Timezone:                  strPtrOr(req.Timezone),
+		DateFormat:                strPtrOr(req.DateFormat),
+		Language:                  strPtrOr(req.Language),
+		PricesIncludeTax:          req.PricesIncludeTax != nil && *req.PricesIncludeTax,
+		DefaultTaxCountry:         strPtrOr(req.DefaultTaxCountry),
+		InventorySyncRulesEnabled: req.InventorySyncRulesEnabled != nil && *req.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays:  intPtrOr(req.BatchExpiryThresholdDays),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -74,14 +76,16 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 
 func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSettings {
 	return gensettings.TenantSettings{
-		TenantId:          s.TenantID,
-		DefaultCurrency:   s.DefaultCurrency,
-		Timezone:          s.Timezone,
-		DateFormat:        s.DateFormat,
-		Language:          s.Language,
-		PricesIncludeTax:  s.PricesIncludeTax,
-		DefaultTaxCountry: s.DefaultTaxCountry,
-		UpdatedAt:         s.UpdatedAt,
+		TenantId:                  s.TenantID,
+		DefaultCurrency:           s.DefaultCurrency,
+		Timezone:                  s.Timezone,
+		DateFormat:                s.DateFormat,
+		Language:                  s.Language,
+		PricesIncludeTax:          s.PricesIncludeTax,
+		DefaultTaxCountry:         s.DefaultTaxCountry,
+		InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays:  s.BatchExpiryThresholdDays,
+		UpdatedAt:                 s.UpdatedAt,
 	}
 }
 
@@ -90,6 +94,13 @@ func strPtrOr(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func intPtrOr(i *int) int {
+	if i == nil {
+		return 0
+	}
+	return *i
 }
 
 func mapError(c *gin.Context, err error) error {

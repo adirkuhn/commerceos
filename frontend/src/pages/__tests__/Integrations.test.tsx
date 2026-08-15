@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([sampleWarehouse])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
-    prices_include_tax: false, default_tax_country: '', updated_at: '',
+    prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
   })
   vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
   vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([])
@@ -139,7 +139,7 @@ describe('Import products', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: '' })])
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
-      prices_include_tax: false, default_tax_country: '', updated_at: '',
+      prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
 
     render(<Integrations />)
@@ -153,7 +153,7 @@ describe('Import products', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: 'GBP' })])
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
-      prices_include_tax: false, default_tax_country: '', updated_at: '',
+      prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
 
     render(<Integrations />)

@@ -20,5 +20,12 @@ type TenantSettings struct {
 	// the same way the frontend already falls back for DefaultCurrency.
 	PricesIncludeTax  bool
 	DefaultTaxCountry string
-	UpdatedAt         time.Time
+	// InventorySyncRulesEnabled toggles the batch-expiry-aware channel sync
+	// strategy (see application/inventory.computeStockLevel): off keeps
+	// today's flat sum-of-non-expired-batches behavior. BatchExpiryThresholdDays
+	// is the age (days past ExpiryDate) at which a batch is auto-flagged
+	// expired by the scheduler job; 0 disables auto-expiry.
+	InventorySyncRulesEnabled bool
+	BatchExpiryThresholdDays  int
+	UpdatedAt                 time.Time
 }

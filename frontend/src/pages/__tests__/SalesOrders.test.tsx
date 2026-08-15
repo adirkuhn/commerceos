@@ -86,7 +86,7 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-    prices_include_tax: true, default_tax_country: '', updated_at: '',
+    prices_include_tax: true, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
@@ -330,7 +330,7 @@ describe('Create sales order', () => {
   it('computes per-line and order-level tax from the SKU tax class and tenant defaults', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-      prices_include_tax: true, default_tax_country: 'NL', updated_at: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
       { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },

@@ -92,6 +92,7 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	body := map[string]any{
 		"default_currency": "EUR", "timezone": "Europe/Amsterdam", "date_format": "DD/MM/YYYY", "language": "nl",
 		"prices_include_tax": true, "default_tax_country": "NL",
+		"inventory_sync_rules_enabled": true, "batch_expiry_threshold_days": 30,
 	}
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", body)
 
@@ -102,6 +103,8 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	require.Equal(t, "nl", update.gotInput.Language)
 	require.True(t, update.gotInput.PricesIncludeTax)
 	require.Equal(t, "NL", update.gotInput.DefaultTaxCountry)
+	require.True(t, update.gotInput.InventorySyncRulesEnabled)
+	require.Equal(t, 30, update.gotInput.BatchExpiryThresholdDays)
 }
 
 func TestUpdateTenantSettingsHandler_propagatesError(t *testing.T) {

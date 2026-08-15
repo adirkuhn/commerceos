@@ -25,6 +25,7 @@ function toInput(s: TenantSettings | null): TenantSettingsInput {
   return {
     default_currency: s.default_currency, timezone: s.timezone, date_format: s.date_format, language: s.language,
     prices_include_tax: s.prices_include_tax, default_tax_country: s.default_tax_country,
+    inventory_sync_rules_enabled: s.inventory_sync_rules_enabled, batch_expiry_threshold_days: s.batch_expiry_threshold_days,
   }
 }
 
@@ -137,6 +138,8 @@ export default function Settings() {
               <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Inventory Rules</h2>
               <p className="text-xs dark:text-gray-500 text-gray-400">Configure stock management behavior</p>
             </div>
+
+            <InventorySyncRulesSection />
 
             <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
               <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
@@ -573,6 +576,86 @@ const LANGUAGE_OPTIONS = [
   { value: 'de', label: 'German (DE)' },
   { value: 'fr', label: 'French (FR)' },
 ]
+
+function InventorySyncRulesSection() {
+  const { token } = useAuth()
+  const { settings, save } = useTenantSettings(token ?? '')
+
+  const [enabled, setEnabled] = useState(false)
+  const [thresholdDays, setThresholdDays] = useState(0)
+  const [hydrated, setHydrated] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  if (!hydrated && settings) {
+    setEnabled(settings.inventory_sync_rules_enabled)
+    setThresholdDays(settings.batch_expiry_threshold_days)
+    setHydrated(true)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveError('')
+    setSaved(false)
+    try {
+      await save({ ...toInput(settings), inventory_sync_rules_enabled: enabled, batch_expiry_threshold_days: thresholdDays })
+      setSaved(true)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save inventory rules')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sync & expiry rules</h3>
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="text-xs dark:text-gray-300 text-gray-700 block">Enable inventory sync rules</span>
+          <span className="text-[10px] dark:text-gray-500 text-gray-400">
+            No batches syncs the ledger total; batches with no expiry sync their sum; batches with an expiry sync only the nearest-expiry batch's quantity.
+          </span>
+        </div>
+        <label className="relative flex items-center shrink-0 cursor-pointer">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="Enable inventory sync rules"
+            checked={enabled}
+            onChange={e => { setEnabled(e.target.checked); setSaved(false) }}
+            className="sr-only peer"
+          />
+          <div className="w-8 h-4 dark:bg-[#2D3748] bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors" />
+          <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
+        </label>
+      </div>
+      <div className="max-w-[220px]">
+        <label htmlFor="batch-expiry-threshold-days" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          Auto-expire batches after (days)
+        </label>
+        <input
+          id="batch-expiry-threshold-days"
+          type="number"
+          min={0}
+          value={thresholdDays}
+          onChange={e => { setThresholdDays(parseInt(e.target.value, 10) || 0); setSaved(false) }}
+          className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Save inventory rules'}
+      </button>
+    </div>
+  )
+}
 
 function LocalizationSettingsSection() {
   const { token } = useAuth()

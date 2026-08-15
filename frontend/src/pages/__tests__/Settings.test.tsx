@@ -64,7 +64,8 @@ beforeEach(() => {
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
-    prices_include_tax: false, default_tax_country: '', updated_at: '',
+    prices_include_tax: false, default_tax_country: '',
+    inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
@@ -81,6 +82,10 @@ async function openTaxSection() {
 
 async function openIntegrationsSection() {
   await userEvent.click(await screen.findByText('Integrations'))
+}
+
+async function openInventorySection() {
+  await userEvent.click(await screen.findByText('Inventory Rules'))
 }
 
 describe('Settings > Integrations overview', () => {
@@ -518,7 +523,8 @@ describe('Store defaults currency', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: '' })])
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
-      prices_include_tax: false, default_tax_country: '', updated_at: '',
+      prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -691,6 +697,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'America/New_York', date_format: 'MM/DD/YYYY', language: 'fr',
       prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -707,6 +714,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -723,6 +731,7 @@ describe('Settings > Localization', () => {
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
     }))
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
   })
@@ -730,7 +739,8 @@ describe('Settings > Localization', () => {
   it('Save Changes preserves already-saved tax settings instead of wiping them', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
-      prices_include_tax: true, default_tax_country: 'NL', updated_at: '2026-07-26T00:00:00Z',
+      prices_include_tax: true, default_tax_country: 'NL',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '2026-07-26T00:00:00Z',
     })
     render(<Settings />)
     await openLocalizationSection()
@@ -755,6 +765,65 @@ describe('Settings > Localization', () => {
   })
 })
 
+describe('Settings > Inventory Rules > Sync & expiry rules', () => {
+  it('defaults to off / 0 days when nothing is saved yet', async () => {
+    render(<Settings />)
+    await openInventorySection()
+
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+    expect(screen.getByRole('switch', { name: 'Enable inventory sync rules' })).not.toBeChecked()
+    expect(screen.getByLabelText('Auto-expire batches after (days)')).toHaveValue(0)
+  })
+
+  it('prefills from saved settings', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
+      prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 30, updated_at: '',
+    })
+
+    render(<Settings />)
+    await openInventorySection()
+
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Enable inventory sync rules' })).toBeChecked())
+    expect(screen.getByLabelText('Auto-expire batches after (days)')).toHaveValue(30)
+  })
+
+  it('Save calls updateTenantSettings with the new values and preserves other tenant settings fields', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'NL',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+    })
+
+    render(<Settings />)
+    await openInventorySection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Enable inventory sync rules' }))
+    await userEvent.clear(screen.getByLabelText('Auto-expire batches after (days)'))
+    await userEvent.type(screen.getByLabelText('Auto-expire batches after (days)'), '45')
+    await userEvent.click(screen.getByRole('button', { name: 'Save inventory rules' }))
+
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'NL',
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45,
+    })))
+  })
+
+  it('shows an error if saving fails', async () => {
+    vi.mocked(tenantSettingsApi.updateTenantSettings).mockRejectedValue(new Error('inventory rules save failed'))
+
+    render(<Settings />)
+    await openInventorySection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+    await userEvent.click(screen.getByRole('button', { name: 'Save inventory rules' }))
+
+    expect(await screen.findByText('inventory rules save failed')).toBeInTheDocument()
+  })
+})
+
 describe('Settings > Tax', () => {
   function taxClass(overrides: Partial<import('../../tax/types').TaxClass> = {}): import('../../tax/types').TaxClass {
     return { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '', ...overrides }
@@ -766,7 +835,8 @@ describe('Settings > Tax', () => {
   it('shows store tax defaults prefilled from tenant settings', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
-      prices_include_tax: true, default_tax_country: 'NL', updated_at: '',
+      prices_include_tax: true, default_tax_country: 'NL',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -779,11 +849,13 @@ describe('Settings > Tax', () => {
   it('saving store tax defaults preserves the other tenant settings fields', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
-      prices_include_tax: false, default_tax_country: '', updated_at: '',
+      prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
-      prices_include_tax: true, default_tax_country: 'US', updated_at: '',
+      prices_include_tax: true, default_tax_country: 'US',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
     })
 
     render(<Settings />)

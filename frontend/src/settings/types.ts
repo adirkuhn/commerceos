@@ -6,6 +6,8 @@ export interface TenantSettings {
   language: string
   prices_include_tax: boolean
   default_tax_country: string
+  inventory_sync_rules_enabled: boolean
+  batch_expiry_threshold_days: number
   updated_at: string
 }
 
@@ -16,6 +18,8 @@ export interface TenantSettingsInput {
   language?: string
   prices_include_tax?: boolean
   default_tax_country?: string
+  inventory_sync_rules_enabled?: boolean
+  batch_expiry_threshold_days?: number
 }
 
 export interface APIError {
