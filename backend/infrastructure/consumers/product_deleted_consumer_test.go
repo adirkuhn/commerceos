@@ -34,7 +34,7 @@ func newDeletedMsg(t *testing.T, event events.ProductDeleted) *nats.Msg {
 func TestProductDeletedConsumer_deletesFromChannelsAndMarksProcessedOnSuccess(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	deleter := &stubDeleter{}
-	c := consumers.NewProductDeletedConsumer(processed, deleter)
+	c := consumers.NewProductDeletedConsumer(processed, deleter, &stubDLQPublisher{})
 	listings := []events.ProductDeletedListing{{ConnectionID: "conn-1", Provider: "woocommerce", ExternalID: "555"}}
 	event := events.ProductDeleted{
 		Base:     events.Base{EventID: "evt-1", OccurredAt: time.Now()},
@@ -50,7 +50,7 @@ func TestProductDeletedConsumer_deletesFromChannelsAndMarksProcessedOnSuccess(t 
 func TestProductDeletedConsumer_skipsAlreadyProcessedEvents(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{"evt-1|product-deleted-cleanup": true}}
 	deleter := &stubDeleter{}
-	c := consumers.NewProductDeletedConsumer(processed, deleter)
+	c := consumers.NewProductDeletedConsumer(processed, deleter, &stubDLQPublisher{})
 	event := events.ProductDeleted{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", ProductID: "product-1"}
 
 	c.Handle(newDeletedMsg(t, event))
@@ -61,7 +61,7 @@ func TestProductDeletedConsumer_skipsAlreadyProcessedEvents(t *testing.T) {
 func TestProductDeletedConsumer_doesNotMarkProcessedWhenDeleteFails(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	deleter := &stubDeleter{err: errors.New("db down")}
-	c := consumers.NewProductDeletedConsumer(processed, deleter)
+	c := consumers.NewProductDeletedConsumer(processed, deleter, &stubDLQPublisher{})
 	event := events.ProductDeleted{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", ProductID: "product-1"}
 
 	c.Handle(newDeletedMsg(t, event))
@@ -73,7 +73,7 @@ func TestProductDeletedConsumer_doesNotMarkProcessedWhenDeleteFails(t *testing.T
 func TestProductDeletedConsumer_dropsMalformedPayloadWithoutCallingDeleter(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	deleter := &stubDeleter{}
-	c := consumers.NewProductDeletedConsumer(processed, deleter)
+	c := consumers.NewProductDeletedConsumer(processed, deleter, &stubDLQPublisher{})
 
 	c.Handle(&nats.Msg{Subject: "pms.product.deleted", Data: []byte("not json")})
 

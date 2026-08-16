@@ -34,10 +34,11 @@ type ProductChangedConsumer struct {
 	processed events.ProcessedEventRepository
 	enroller  productSyncer
 	syncer    productSyncer
+	dlq       dlqPublisher
 }
 
-func NewProductChangedConsumer(processed events.ProcessedEventRepository, enroller, syncer productSyncer) *ProductChangedConsumer {
-	return &ProductChangedConsumer{processed: processed, enroller: enroller, syncer: syncer}
+func NewProductChangedConsumer(processed events.ProcessedEventRepository, enroller, syncer productSyncer, dlq dlqPublisher) *ProductChangedConsumer {
+	return &ProductChangedConsumer{processed: processed, enroller: enroller, syncer: syncer, dlq: dlq}
 }
 
 // Handle is the NATS message handler — wire it up via a JetStream durable
@@ -57,8 +58,7 @@ func (c *ProductChangedConsumer) Handle(msg *nats.Msg) {
 
 	alreadyDone, err := c.processed.IsProcessed(ctx, event.EventID, productChangedConsumerName)
 	if err != nil {
-		log.Printf("productChangedConsumer: check processed %s: %v", event.EventID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "productChangedConsumer: check processed "+event.EventID, err)
 		return
 	}
 	if alreadyDone {
@@ -67,22 +67,20 @@ func (c *ProductChangedConsumer) Handle(msg *nats.Msg) {
 	}
 
 	if err := c.enroller.Execute(ctx, event.ProductID); err != nil {
-		log.Printf("productChangedConsumer: enroll product %s: %v", event.ProductID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "productChangedConsumer: enroll product "+event.ProductID, err)
 		return
 	}
 
 	if err := c.syncer.Execute(ctx, event.ProductID); err != nil {
-		log.Printf("productChangedConsumer: sync product %s: %v", event.ProductID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "productChangedConsumer: sync product "+event.ProductID, err)
 		return
 	}
 
 	// Marked *after* the sync succeeds — see ProcessedEventRepository's
 	// doc comment for why the order matters.
 	if err := c.processed.MarkProcessed(ctx, event.EventID, productChangedConsumerName); err != nil {
-		log.Printf("productChangedConsumer: mark processed %s: %v", event.EventID, err)
-		_ = msg.Nak() // safe to retry: syncer.Execute re-pushes current state, so re-running it is harmless
+		// safe to retry: syncer.Execute re-pushes current state, so re-running it is harmless
+		nakOrDeadLetter(c.dlq, msg, "productChangedConsumer: mark processed "+event.EventID, err)
 		return
 	}
 

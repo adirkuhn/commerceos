@@ -23,7 +23,7 @@ func newStockMsg(t *testing.T, event events.InventoryStockChanged) *nats.Msg {
 func TestInventoryStockChangedConsumer_syncsAndMarksProcessedOnSuccess(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubSyncer{}
-	c := consumers.NewInventoryStockChangedConsumer(processed, syncer)
+	c := consumers.NewInventoryStockChangedConsumer(processed, syncer, &stubDLQPublisher{})
 	event := events.InventoryStockChanged{
 		Base:     events.Base{EventID: "evt-1", OccurredAt: time.Now()},
 		TenantID: "tenant-1", SKUID: "sku-1",
@@ -38,7 +38,7 @@ func TestInventoryStockChangedConsumer_syncsAndMarksProcessedOnSuccess(t *testin
 func TestInventoryStockChangedConsumer_skipsAlreadyProcessedEvents(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{"evt-1|inventory-stock-changed-sync": true}}
 	syncer := &stubSyncer{}
-	c := consumers.NewInventoryStockChangedConsumer(processed, syncer)
+	c := consumers.NewInventoryStockChangedConsumer(processed, syncer, &stubDLQPublisher{})
 	event := events.InventoryStockChanged{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", SKUID: "sku-1"}
 
 	c.Handle(newStockMsg(t, event))
@@ -49,7 +49,7 @@ func TestInventoryStockChangedConsumer_skipsAlreadyProcessedEvents(t *testing.T)
 func TestInventoryStockChangedConsumer_doesNotMarkProcessedWhenSyncFails(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubSyncer{err: errors.New("db down")}
-	c := consumers.NewInventoryStockChangedConsumer(processed, syncer)
+	c := consumers.NewInventoryStockChangedConsumer(processed, syncer, &stubDLQPublisher{})
 	event := events.InventoryStockChanged{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", SKUID: "sku-1"}
 
 	c.Handle(newStockMsg(t, event))
@@ -61,7 +61,7 @@ func TestInventoryStockChangedConsumer_doesNotMarkProcessedWhenSyncFails(t *test
 func TestInventoryStockChangedConsumer_dropsMalformedPayloadWithoutCallingSyncer(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubSyncer{}
-	c := consumers.NewInventoryStockChangedConsumer(processed, syncer)
+	c := consumers.NewInventoryStockChangedConsumer(processed, syncer, &stubDLQPublisher{})
 
 	c.Handle(&nats.Msg{Subject: "inventory.stock.changed", Data: []byte("not json")})
 

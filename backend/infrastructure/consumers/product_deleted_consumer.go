@@ -30,10 +30,11 @@ const productDeletedConsumerName = "product-deleted-cleanup"
 type ProductDeletedConsumer struct {
 	processed events.ProcessedEventRepository
 	deleter   productChannelsDeleter
+	dlq       dlqPublisher
 }
 
-func NewProductDeletedConsumer(processed events.ProcessedEventRepository, deleter productChannelsDeleter) *ProductDeletedConsumer {
-	return &ProductDeletedConsumer{processed: processed, deleter: deleter}
+func NewProductDeletedConsumer(processed events.ProcessedEventRepository, deleter productChannelsDeleter, dlq dlqPublisher) *ProductDeletedConsumer {
+	return &ProductDeletedConsumer{processed: processed, deleter: deleter, dlq: dlq}
 }
 
 // Handle is the NATS message handler — wire it up via a JetStream durable
@@ -53,8 +54,7 @@ func (c *ProductDeletedConsumer) Handle(msg *nats.Msg) {
 
 	alreadyDone, err := c.processed.IsProcessed(ctx, event.EventID, productDeletedConsumerName)
 	if err != nil {
-		log.Printf("productDeletedConsumer: check processed %s: %v", event.EventID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "productDeletedConsumer: check processed "+event.EventID, err)
 		return
 	}
 	if alreadyDone {
@@ -63,14 +63,13 @@ func (c *ProductDeletedConsumer) Handle(msg *nats.Msg) {
 	}
 
 	if err := c.deleter.Execute(ctx, event.Listings); err != nil {
-		log.Printf("productDeletedConsumer: delete from channels %s: %v", event.ProductID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "productDeletedConsumer: delete from channels "+event.ProductID, err)
 		return
 	}
 
 	if err := c.processed.MarkProcessed(ctx, event.EventID, productDeletedConsumerName); err != nil {
-		log.Printf("productDeletedConsumer: mark processed %s: %v", event.EventID, err)
-		_ = msg.Nak() // safe to retry: DeleteProductFromChannelsUseCase is itself best-effort per listing
+		// safe to retry: DeleteProductFromChannelsUseCase is itself best-effort per listing
+		nakOrDeadLetter(c.dlq, msg, "productDeletedConsumer: mark processed "+event.EventID, err)
 		return
 	}
 

@@ -57,7 +57,7 @@ func newMsg(t *testing.T, event events.ProductChanged) *nats.Msg {
 func TestProductChangedConsumer_syncsAndMarksProcessedOnSuccess(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubSyncer{}
-	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer)
+	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer, &stubDLQPublisher{})
 	event := events.ProductChanged{
 		Base:     events.Base{EventID: "evt-1", OccurredAt: time.Now()},
 		TenantID: "tenant-1", ProductID: "product-1",
@@ -72,7 +72,7 @@ func TestProductChangedConsumer_syncsAndMarksProcessedOnSuccess(t *testing.T) {
 func TestProductChangedConsumer_skipsAlreadyProcessedEvents(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{"evt-1|product-changed-sync": true}}
 	syncer := &stubSyncer{}
-	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer)
+	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer, &stubDLQPublisher{})
 	event := events.ProductChanged{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", ProductID: "product-1"}
 
 	c.Handle(newMsg(t, event))
@@ -83,7 +83,7 @@ func TestProductChangedConsumer_skipsAlreadyProcessedEvents(t *testing.T) {
 func TestProductChangedConsumer_doesNotMarkProcessedWhenSyncFails(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubSyncer{err: errors.New("db down")}
-	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer)
+	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer, &stubDLQPublisher{})
 	event := events.ProductChanged{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", ProductID: "product-1"}
 
 	c.Handle(newMsg(t, event))
@@ -95,7 +95,7 @@ func TestProductChangedConsumer_doesNotMarkProcessedWhenSyncFails(t *testing.T) 
 func TestProductChangedConsumer_dropsMalformedPayloadWithoutCallingSyncer(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubSyncer{}
-	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer)
+	c := consumers.NewProductChangedConsumer(processed, &stubSyncer{}, syncer, &stubDLQPublisher{})
 
 	c.Handle(&nats.Msg{Subject: "pms.product.changed", Data: []byte("not json")})
 
@@ -106,7 +106,7 @@ func TestProductChangedConsumer_runsEnrollerBeforeSyncer(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	enroller := &stubSyncer{}
 	syncer := &stubSyncer{}
-	c := consumers.NewProductChangedConsumer(processed, enroller, syncer)
+	c := consumers.NewProductChangedConsumer(processed, enroller, syncer, &stubDLQPublisher{})
 	event := events.ProductChanged{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", ProductID: "product-1"}
 
 	c.Handle(newMsg(t, event))
@@ -120,7 +120,7 @@ func TestProductChangedConsumer_enrollerFailure_nacksWithoutRunningSyncerOrMarki
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	enroller := &stubSyncer{err: errors.New("db down")}
 	syncer := &stubSyncer{}
-	c := consumers.NewProductChangedConsumer(processed, enroller, syncer)
+	c := consumers.NewProductChangedConsumer(processed, enroller, syncer, &stubDLQPublisher{})
 	event := events.ProductChanged{Base: events.Base{EventID: "evt-1", OccurredAt: time.Now()}, TenantID: "tenant-1", ProductID: "product-1"}
 
 	c.Handle(newMsg(t, event))

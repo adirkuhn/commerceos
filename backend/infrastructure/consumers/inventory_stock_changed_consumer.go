@@ -29,10 +29,11 @@ const inventoryStockChangedConsumerName = "inventory-stock-changed-sync"
 type InventoryStockChangedConsumer struct {
 	processed events.ProcessedEventRepository
 	syncer    stockSyncer
+	dlq       dlqPublisher
 }
 
-func NewInventoryStockChangedConsumer(processed events.ProcessedEventRepository, syncer stockSyncer) *InventoryStockChangedConsumer {
-	return &InventoryStockChangedConsumer{processed: processed, syncer: syncer}
+func NewInventoryStockChangedConsumer(processed events.ProcessedEventRepository, syncer stockSyncer, dlq dlqPublisher) *InventoryStockChangedConsumer {
+	return &InventoryStockChangedConsumer{processed: processed, syncer: syncer, dlq: dlq}
 }
 
 // Handle is the NATS message handler — wire it up via a JetStream durable
@@ -52,8 +53,7 @@ func (c *InventoryStockChangedConsumer) Handle(msg *nats.Msg) {
 
 	alreadyDone, err := c.processed.IsProcessed(ctx, event.EventID, inventoryStockChangedConsumerName)
 	if err != nil {
-		log.Printf("inventoryStockChangedConsumer: check processed %s: %v", event.EventID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "inventoryStockChangedConsumer: check processed "+event.EventID, err)
 		return
 	}
 	if alreadyDone {
@@ -62,16 +62,15 @@ func (c *InventoryStockChangedConsumer) Handle(msg *nats.Msg) {
 	}
 
 	if err := c.syncer.Execute(ctx, event.SKUID); err != nil {
-		log.Printf("inventoryStockChangedConsumer: sync sku %s: %v", event.SKUID, err)
-		_ = msg.Nak()
+		nakOrDeadLetter(c.dlq, msg, "inventoryStockChangedConsumer: sync sku "+event.SKUID, err)
 		return
 	}
 
 	// Marked *after* the sync succeeds — see ProcessedEventRepository's
 	// doc comment for why the order matters.
 	if err := c.processed.MarkProcessed(ctx, event.EventID, inventoryStockChangedConsumerName); err != nil {
-		log.Printf("inventoryStockChangedConsumer: mark processed %s: %v", event.EventID, err)
-		_ = msg.Nak() // safe to retry: syncer.Execute re-pushes current state, so re-running it is harmless
+		// safe to retry: syncer.Execute re-pushes current state, so re-running it is harmless
+		nakOrDeadLetter(c.dlq, msg, "inventoryStockChangedConsumer: mark processed "+event.EventID, err)
 		return
 	}
 

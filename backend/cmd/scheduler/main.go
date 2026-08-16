@@ -109,6 +109,9 @@ func main() {
 	if err := publishers.EnsureStream(js); err != nil {
 		log.Fatalf("jetstream: %v", err)
 	}
+	if err := publishers.EnsureDLQStream(js); err != nil {
+		log.Fatalf("jetstream: %v", err)
+	}
 
 	connRepo := repositories.NewConnectionRepo(db)
 	wooFactory := woocommerce.NewFactory()
@@ -180,21 +183,28 @@ func main() {
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
 	enrollProductUC := channelsapp.NewEnrollProductInChannelsUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushUC)
-	productChangedConsumer := consumers.NewProductChangedConsumer(processedEventRepo, enrollProductUC, syncProductUC)
+	productChangedConsumer := consumers.NewProductChangedConsumer(processedEventRepo, enrollProductUC, syncProductUC, js)
 	// Durable name persists this subscription's delivery cursor in
 	// JetStream across scheduler restarts — a redeploy resumes from where
-	// it left off instead of replaying (or losing) everything.
+	// it left off instead of replaying (or losing) everything. MaxDeliver
+	// caps redelivery at consumers.MaxDeliverBeforeDeadLetter -- past that,
+	// nakOrDeadLetter routes the message to the DLQ stream instead of
+	// nacking it into another attempt already proven to fail. BackOff
+	// paces those redeliveries instead of hammering the handler at flat
+	// ~30s (AckWait's default) intervals.
 	productChangedSub, err := js.Subscribe(events.ProductChanged{}.EventName(), productChangedConsumer.Handle,
-		nats.Durable("product-changed-scheduler"), nats.ManualAck())
+		nats.Durable("product-changed-scheduler"), nats.ManualAck(),
+		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
 	if err != nil {
 		log.Fatalf("subscribe pms.product.changed: %v", err)
 	}
 	defer productChangedSub.Unsubscribe()
 
 	deleteProductFromChannelsUC := channelsapp.NewDeleteProductFromChannelsUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
-	productDeletedConsumer := consumers.NewProductDeletedConsumer(processedEventRepo, deleteProductFromChannelsUC)
+	productDeletedConsumer := consumers.NewProductDeletedConsumer(processedEventRepo, deleteProductFromChannelsUC, js)
 	productDeletedSub, err := js.Subscribe(events.ProductDeleted{}.EventName(), productDeletedConsumer.Handle,
-		nats.Durable("product-deleted-scheduler"), nats.ManualAck())
+		nats.Durable("product-deleted-scheduler"), nats.ManualAck(),
+		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
 	if err != nil {
 		log.Fatalf("subscribe pms.product.deleted: %v", err)
 	}
@@ -203,9 +213,10 @@ func main() {
 	syncStockUC := channelsapp.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret,
 	)
-	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC)
+	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)
 	stockChangedSub, err := js.Subscribe(events.InventoryStockChanged{}.EventName(), stockChangedConsumer.Handle,
-		nats.Durable("inventory-stock-changed-scheduler"), nats.ManualAck())
+		nats.Durable("inventory-stock-changed-scheduler"), nats.ManualAck(),
+		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
 	if err != nil {
 		log.Fatalf("subscribe inventory.stock.changed: %v", err)
 	}
