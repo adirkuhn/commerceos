@@ -16,9 +16,9 @@ import (
 // ── GORM models ──────────────────────────────────────────────────────────────
 
 type iamGroupModel struct {
-	ID          string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID    string    `gorm:"not null;type:uuid"`
-	Name        string    `gorm:"not null"`
+	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID    string `gorm:"not null;type:uuid"`
+	Name        string `gorm:"not null"`
 	Description string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -27,18 +27,18 @@ type iamGroupModel struct {
 func (iamGroupModel) TableName() string { return "iam_groups" }
 
 type iamUserGroupModel struct {
-	GroupID   string    `gorm:"primaryKey;type:uuid"`
-	UserID    string    `gorm:"primaryKey"`
-	TenantID  string    `gorm:"not null;type:uuid"`
+	GroupID   string `gorm:"primaryKey;type:uuid"`
+	UserID    string `gorm:"primaryKey;type:uuid"`
+	TenantID  string `gorm:"not null;type:uuid"`
 	CreatedAt time.Time
 }
 
 func (iamUserGroupModel) TableName() string { return "iam_user_groups" }
 
 type iamGroupPermissionModel struct {
-	GroupID   string    `gorm:"primaryKey;type:uuid"`
-	TenantID  string    `gorm:"not null;type:uuid"`
-	Rule      string    `gorm:"primaryKey"`
+	GroupID   string `gorm:"primaryKey;type:uuid"`
+	TenantID  string `gorm:"not null;type:uuid"`
+	Rule      string `gorm:"primaryKey"`
 	CreatedAt time.Time
 }
 

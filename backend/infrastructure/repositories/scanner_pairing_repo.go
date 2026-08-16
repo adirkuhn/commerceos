@@ -17,7 +17,7 @@ type scannerPairingCodeModel struct {
 	TenantID  string `gorm:"not null;type:uuid"`
 	Code      string `gorm:"not null"`
 	Token     string `gorm:"not null"`
-	UserID    string `gorm:"not null"`
+	UserID    string `gorm:"not null;type:uuid"`
 	Role      string `gorm:"not null"`
 	Status    string `gorm:"not null;default:pending"`
 	ExpiresAt time.Time
