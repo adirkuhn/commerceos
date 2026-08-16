@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -89,6 +90,10 @@ func (r *WarehouseRepo) Create(ctx context.Context, w *invDomain.Warehouse) erro
 		CreatedAt: w.CreatedAt, UpdatedAt: w.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "warehouses_tenant_id_name_key" {
+			return invDomain.ErrDuplicateWarehouseName
+		}
 		return fmt.Errorf("warehouseRepo.Create: %w", err)
 	}
 	w.ID = m.ID
@@ -137,6 +142,10 @@ func (r *WarehouseRepo) Update(ctx context.Context, w *invDomain.Warehouse) erro
 			"address1": w.Address1, "address2": w.Address2, "city": w.City, "province": w.Province,
 			"zip": w.Zip, "country": w.Country, "phone": w.Phone, "active": w.Active,
 		}).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "warehouses_tenant_id_name_key" {
+			return invDomain.ErrDuplicateWarehouseName
+		}
 		return fmt.Errorf("warehouseRepo.Update: %w", err)
 	}
 	return nil

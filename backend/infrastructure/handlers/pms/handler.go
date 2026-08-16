@@ -733,7 +733,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrMediaNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, pmsDomain.ErrDuplicateSlug),
-		errors.Is(err, pmsDomain.ErrDuplicateSKUCode):
+		errors.Is(err, pmsDomain.ErrDuplicateSKUCode),
+		errors.Is(err, pmsDomain.ErrDuplicateBarcode):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),

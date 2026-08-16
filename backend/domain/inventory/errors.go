@@ -3,11 +3,16 @@ package inventory
 import "errors"
 
 var (
-	ErrWarehouseNotFound   = errors.New("warehouse not found")
-	ErrBatchNotFound       = errors.New("batch not found")
-	ErrInvalidQuantity     = errors.New("invalid quantity for movement type")
-	ErrInvalidMovementType = errors.New("invalid movement type for this operation")
-	ErrBatchHasMovements   = errors.New("batch has stock movements and cannot be deleted")
+	ErrWarehouseNotFound = errors.New("warehouse not found")
+	// ErrDuplicateWarehouseName guards Warehouse.Name: unlike suppliers
+	// (OCR-extracted, name variance expected, matched by human review),
+	// warehouses are staff-created directly, so a duplicate name within a
+	// tenant is just picker/dropdown confusion (warehouses_tenant_id_name_key).
+	ErrDuplicateWarehouseName = errors.New("warehouse name already in use")
+	ErrBatchNotFound          = errors.New("batch not found")
+	ErrInvalidQuantity        = errors.New("invalid quantity for movement type")
+	ErrInvalidMovementType    = errors.New("invalid movement type for this operation")
+	ErrBatchHasMovements      = errors.New("batch has stock movements and cannot be deleted")
 	// ErrInsufficientStock guards every movement that removes stock (sale,
 	// transfer_out, damaged, lost, a negative adjustment) against the
 	// specific batch/general ledger scope (sku_id + warehouse_id + batch_id,

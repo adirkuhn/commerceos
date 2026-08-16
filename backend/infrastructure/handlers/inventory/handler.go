@@ -674,7 +674,7 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, pmsDomain.ErrSKUNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
-	case errors.Is(err, invDomain.ErrBatchHasMovements):
+	case errors.Is(err, invDomain.ErrBatchHasMovements), errors.Is(err, invDomain.ErrDuplicateWarehouseName):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	default:
 		log.Printf("inventory: unhandled error: %v", err)

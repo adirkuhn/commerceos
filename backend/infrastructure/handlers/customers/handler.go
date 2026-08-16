@@ -182,6 +182,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, customersDomain.ErrCustomerNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID):
+		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	default:
 		log.Printf("customers: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

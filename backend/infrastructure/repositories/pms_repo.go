@@ -629,6 +629,10 @@ func (r *SKURepo) Create(ctx context.Context, s *pmsDomain.SKU) error {
 		UpdatedAt:           s.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "skus_tenant_barcode_idx" {
+			return pmsDomain.ErrDuplicateBarcode
+		}
 		return fmt.Errorf("skuRepo.Create: %w", err)
 	}
 	s.ID = m.ID
@@ -745,6 +749,10 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"status":                 string(s.Status),
 			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "skus_tenant_barcode_idx" {
+			return pmsDomain.ErrDuplicateBarcode
+		}
 		return fmt.Errorf("skuRepo.Update: %w", err)
 	}
 	return nil

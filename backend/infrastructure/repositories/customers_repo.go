@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
@@ -117,6 +118,10 @@ func (r *CustomerRepo) Create(ctx context.Context, c *customersDomain.Customer) 
 	}
 	m := customerModelFromDomain(c)
 	if err := tx.Create(&m).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "customers_tenant_woo_customer_id_idx" {
+			return customersDomain.ErrDuplicateWooCustomerID
+		}
 		return fmt.Errorf("customerRepo.Create: %w", err)
 	}
 	c.ID = m.ID
