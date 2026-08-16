@@ -22,6 +22,11 @@ type Message struct {
 	OccurredAt  time.Time
 	PublishedAt *time.Time
 	CreatedAt   time.Time
+	// RetryCount counts publish attempts that failed for a reason other
+	// than NATS/JetStream connectivity (see cmd/relay's isConnectivityErr)
+	// -- a relay unable to reach NATS at all never increments this, so an
+	// outage of any length never strands a row in Failed on its own.
+	RetryCount int
 }
 
 type Repository interface {
