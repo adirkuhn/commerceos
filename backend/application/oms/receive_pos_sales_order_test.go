@@ -51,8 +51,9 @@ func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testin
 func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	taxClassID := "tax-class-standard"
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{
-		"sku-1": {ID: "sku-1", SKUCode: "5601049213991", Barcode: "5601049213991"},
+		"sku-1": {ID: "sku-1", SKUCode: "5601049213991", Barcode: "5601049213991", TaxClassID: &taxClassID},
 	}}
 	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, skuRepo, &stubRecordMovement{})
 
@@ -70,6 +71,8 @@ func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
 	require.Len(t, lineItemRepo.created, 1)
 	assert.Equal(t, "5601049213991", lineItemRepo.created[0].SKUCode)
 	assert.Equal(t, "5601049213991", lineItemRepo.created[0].Barcode)
+	require.NotNil(t, lineItemRepo.created[0].TaxClassID)
+	assert.Equal(t, "tax-class-standard", *lineItemRepo.created[0].TaxClassID)
 }
 
 func TestReceivePOSSalesOrder_propagatesASKUNotFoundError(t *testing.T) {

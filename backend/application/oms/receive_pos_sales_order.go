@@ -159,7 +159,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 				Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity,
 				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-				TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
+				TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: sku.TaxClassID, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

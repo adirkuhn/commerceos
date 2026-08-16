@@ -196,7 +196,6 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	shippingMinorUnits, _ := ParseWooPriceToMinorUnits(wo.ShippingTotal)
 	taxMinorUnits, _ := ParseWooPriceToMinorUnits(wo.TotalTax)
 	stockReducing := status.ReducesStock() && !in.SkipStockMovements
-	wooID := int64(wo.ID)
 
 	var order omsDomain.SalesOrder
 	var createdLineItems []omsDomain.SalesOrderLineItem
@@ -216,7 +215,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 		now := time.Now()
 		order = omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: externalOrderID, WooOrderID: &wooID, ConnectionID: &in.ConnectionID, Number: wo.Number, OrderKey: wo.OrderKey,
+			ExternalOrderID: externalOrderID, ConnectionID: &in.ConnectionID, Number: wo.Number, OrderKey: wo.OrderKey,
 			Status: status, WarehouseID: in.DefaultWarehouseID, CustomerID: customerID,
 			Billing: wooAddressToOMS(wo.Billing), Shipping: wooAddressToOMS(wo.Shipping),
 			CustomerNote: wo.CustomerNote, CurrencyCode: wo.Currency,
@@ -253,7 +252,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: sku.ID,
 				Name: li.Name, SKUCode: li.SKU, Quantity: li.Quantity,
 				PriceMinorUnits: price, SubtotalMinorUnits: subtotal, SubtotalTaxMinorUnits: subtotalTax,
-				TotalMinorUnits: total, TotalTaxMinorUnits: totalTax, CreatedAt: now,
+				TotalMinorUnits: total, TotalTaxMinorUnits: totalTax, TaxClassID: sku.TaxClassID, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

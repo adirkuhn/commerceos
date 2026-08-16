@@ -15,11 +15,10 @@ import (
 // ── GORM models ──────────────────────────────────────────────────────────────
 
 type salesOrderModel struct {
-	ID              string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID        string `gorm:"not null;type:uuid"`
-	Source          string `gorm:"not null"`
-	ExternalOrderID string `gorm:"column:external_order_id;not null"`
-	WooOrderID      *int64
+	ID              string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID        string  `gorm:"not null;type:uuid"`
+	Source          string  `gorm:"not null"`
+	ExternalOrderID string  `gorm:"column:external_order_id;not null"`
 	ConnectionID    *string `gorm:"column:connection_id;type:uuid"`
 	Number          string
 	OrderKey        string `gorm:"column:order_key"`
@@ -84,11 +83,12 @@ type salesOrderLineItemModel struct {
 	Barcode      string `gorm:"column:barcode"`
 	Quantity     int64  `gorm:"not null"`
 
-	PriceMinorUnits       int64 `gorm:"not null;default:0"`
-	SubtotalMinorUnits    int64 `gorm:"not null;default:0"`
-	SubtotalTaxMinorUnits int64 `gorm:"not null;default:0"`
-	TotalMinorUnits       int64 `gorm:"not null;default:0"`
-	TotalTaxMinorUnits    int64 `gorm:"not null;default:0"`
+	PriceMinorUnits       int64   `gorm:"not null;default:0"`
+	SubtotalMinorUnits    int64   `gorm:"not null;default:0"`
+	SubtotalTaxMinorUnits int64   `gorm:"not null;default:0"`
+	TotalMinorUnits       int64   `gorm:"not null;default:0"`
+	TotalTaxMinorUnits    int64   `gorm:"not null;default:0"`
+	TaxClassID            *string `gorm:"column:tax_class_id;type:uuid"`
 
 	CreatedAt time.Time
 }
@@ -118,7 +118,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 	sFirst, sLast, sCompany, sAddr1, sAddr2, sCity, sState, sPostcode, sCountry, _, sPhone := fromAddressDomain(o.Shipping)
 	return salesOrderModel{
 		ID: o.ID, TenantID: o.TenantID, Source: string(o.Source), ExternalOrderID: o.ExternalOrderID,
-		WooOrderID: o.WooOrderID, ConnectionID: o.ConnectionID, Number: o.Number, OrderKey: o.OrderKey, Status: string(o.Status),
+		ConnectionID: o.ConnectionID, Number: o.Number, OrderKey: o.OrderKey, Status: string(o.Status),
 		WarehouseID: o.WarehouseID, CustomerID: o.CustomerID,
 		BillingFirstName: bFirst, BillingLastName: bLast, BillingCompany: bCompany,
 		BillingAddress1: bAddr1, BillingAddress2: bAddr2, BillingCity: bCity, BillingState: bState,
@@ -251,7 +251,7 @@ func (r *SalesOrderRepo) ListByConnection(ctx context.Context, connectionID stri
 func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 	return &omsDomain.SalesOrder{
 		ID: m.ID, TenantID: m.TenantID, Source: omsDomain.SalesOrderSource(m.Source),
-		ExternalOrderID: m.ExternalOrderID, WooOrderID: m.WooOrderID, ConnectionID: m.ConnectionID, Number: m.Number, OrderKey: m.OrderKey,
+		ExternalOrderID: m.ExternalOrderID, ConnectionID: m.ConnectionID, Number: m.Number, OrderKey: m.OrderKey,
 		Status: omsDomain.SalesOrderStatus(m.Status), WarehouseID: m.WarehouseID, CustomerID: m.CustomerID,
 		Billing: omsDomain.Address{
 			FirstName: m.BillingFirstName, LastName: m.BillingLastName, Company: m.BillingCompany,
@@ -330,7 +330,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 		Name: li.Name, SKUCode: li.SKUCode, Barcode: li.Barcode, Quantity: li.Quantity,
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-		TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: li.CreatedAt,
+		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, CreatedAt: li.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("salesOrderLineItemRepo.Create: %w", err)
@@ -355,7 +355,7 @@ func (r *SalesOrderLineItemRepo) ListBySalesOrder(ctx context.Context, salesOrde
 			Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity,
 			PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
 			SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
-			TotalTaxMinorUnits: m.TotalTaxMinorUnits, CreatedAt: m.CreatedAt,
+			TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,
 		}
 	}
 	return out, nil

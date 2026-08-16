@@ -92,12 +92,12 @@ type SalesOrder struct {
 	TenantID string
 	Source   SalesOrderSource
 	// ExternalOrderID is the source system's own reference for this sale --
-	// what makes retries idempotent.
+	// what makes retries idempotent. For a Woo-sourced order this is the
+	// numeric Woo order ID as a string (see application/channels' Woo
+	// import) -- there's no separate typed WooOrderID column; nothing
+	// ever needed the numeric type, and keeping one fact in one place
+	// avoids the two silently drifting.
 	ExternalOrderID string
-	// WooOrderID is set once this order is known to WooCommerce (synced
-	// from Woo, or pushed there) -- nil for a sale that only exists in
-	// CommerceOS (e.g. straight from POS, never touched Woo).
-	WooOrderID *int64
 	// ConnectionID is set on import for an order sourced from a specific
 	// integration connection -- nil for POS/manual orders, and for a
 	// Woo-sourced order imported before this field existed (see migration
@@ -173,6 +173,14 @@ type SalesOrderLineItem struct {
 	SubtotalTaxMinorUnits int64
 	TotalMinorUnits       int64 // post-discount, Woo's line_items.total
 	TotalTaxMinorUnits    int64
+	// TaxClassID snapshots the SKU's tax classification at sale time (same
+	// snapshot reasoning as Name/SKUCode) -- SubtotalTaxMinorUnits/
+	// TotalTaxMinorUnits are the tax amount as computed by whoever sent the
+	// order (POS, Woo, or the amount typed into a manual order); this is
+	// what that amount was classified under, for audit purposes. Nil when
+	// the SKU had no tax class set, or for line items created before this
+	// field existed.
+	TaxClassID *string
 
 	CreatedAt time.Time
 }

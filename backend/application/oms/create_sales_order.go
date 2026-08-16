@@ -76,11 +76,12 @@ type CreateSalesOrderUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
+	skuRepo        skuLookupRepo
 	recordMovement recordSaleMovementUC
 }
 
-func NewCreateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC) *CreateSalesOrderUseCase {
-	return &CreateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement}
+func NewCreateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC) *CreateSalesOrderUseCase {
+	return &CreateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOrderInput) (*CreateSalesOrderResult, error) {
@@ -114,12 +115,21 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			return err
 		}
 		for _, li := range in.LineItems {
+			// Best-effort only: unlike the POS/Woo paths, this use case has
+			// never validated SKUID against the skus table (the FK
+			// constraint is the only thing that ever has) -- a lookup
+			// failure here must not turn into a new way for order creation
+			// to fail. TaxClassID just stays nil (see its doc comment).
+			var taxClassID *string
+			if sku, err := uc.skuRepo.FindByID(ctx, li.SKUID); err == nil {
+				taxClassID = sku.TaxClassID
+			}
 			lineItem := omsDomain.SalesOrderLineItem{
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: li.SKUID,
 				Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
 				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-				TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
+				TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: taxClassID, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

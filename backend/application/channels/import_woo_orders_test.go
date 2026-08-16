@@ -77,7 +77,8 @@ func simpleWooOrder() integrationsDomain.WooOrder {
 
 func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
-	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	taxClassID := "tax-class-standard"
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A", TaxClassID: &taxClassID}
 	uc := h.newImportUseCase(t, 4)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
@@ -91,8 +92,6 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	created := h.salesOrderRepo.created[0]
 	assert.Equal(t, omsDomain.SalesOrderSourceWooCommerce, created.Source)
 	assert.Equal(t, "501", created.ExternalOrderID)
-	require.NotNil(t, created.WooOrderID)
-	assert.Equal(t, int64(501), *created.WooOrderID)
 	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, created.Status)
 	assert.True(t, created.StockDecremented, "processing reduces stock")
 	assert.Equal(t, "flat_rate", created.ShippingMethod)
@@ -100,6 +99,8 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	require.Len(t, h.lineItemRepo.created, 1)
 	assert.Equal(t, "sku-1", h.lineItemRepo.created[0].SKUID)
 	assert.Equal(t, int64(1000), h.lineItemRepo.created[0].PriceMinorUnits)
+	require.NotNil(t, h.lineItemRepo.created[0].TaxClassID)
+	assert.Equal(t, "tax-class-standard", *h.lineItemRepo.created[0].TaxClassID)
 	require.Len(t, h.stock.calls, 1)
 	assert.Equal(t, int64(-2), h.stock.calls[0].QuantityDelta)
 	require.Len(t, h.linkRepo.created, 1)

@@ -66,12 +66,13 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
+	skuRepo := repositories.NewSKURepo(db)
 	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo),
 		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo),
-		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
+		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, recordMovement),
 		appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, recordMovement),
 	)
@@ -148,7 +149,7 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 		ShippingTotalMinorUnits: int64OrZero(req.ShippingTotalMinorUnits), TaxTotalMinorUnits: int64OrZero(req.TaxTotalMinorUnits),
 		TotalMinorUnits: int64OrZero(req.TotalMinorUnits), PaymentMethod: strOrEmpty(req.PaymentMethod),
 		PaymentMethodTitle: strOrEmpty(req.PaymentMethodTitle),
-		ShippingMethod: strOrEmpty(req.ShippingMethod), ShippingMethodTitle: strOrEmpty(req.ShippingMethodTitle),
+		ShippingMethod:     strOrEmpty(req.ShippingMethod), ShippingMethodTitle: strOrEmpty(req.ShippingMethodTitle),
 		TransactionID: strOrEmpty(req.TransactionId),
 		DatePaid:      req.DatePaid, DateCompleted: req.DateCompleted,
 		OccurredAt: req.OccurredAt, LineItems: lineItems,

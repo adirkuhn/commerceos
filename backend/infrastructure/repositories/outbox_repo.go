@@ -12,12 +12,12 @@ import (
 )
 
 type outboxModel struct {
-	ID          uint       `gorm:"primaryKey;autoIncrement"`
-	EventID     string     `gorm:"uniqueIndex;not null"`
-	Subject     string     `gorm:"not null"`
-	Payload     []byte     `gorm:"type:jsonb;not null"`
-	Status      string     `gorm:"default:'pending';index"`
-	OccurredAt  time.Time  `gorm:"not null"`
+	ID          uint      `gorm:"primaryKey;autoIncrement"`
+	EventID     string    `gorm:"uniqueIndex;not null"`
+	Subject     string    `gorm:"not null"`
+	Payload     []byte    `gorm:"type:jsonb;not null"`
+	Status      string    `gorm:"default:'pending';index"`
+	OccurredAt  time.Time `gorm:"not null"`
 	PublishedAt *time.Time
 	CreatedAt   time.Time
 	RetryCount  int `gorm:"not null;default:0"`
