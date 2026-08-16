@@ -135,7 +135,7 @@ func TestImportWooProducts_importsNewSimpleProduct(t *testing.T) {
 	entry := h.syncLogRepo.created[0]
 	require.Equal(t, channelsDomain.SyncFlowImport, entry.Direction)
 	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
-	require.Equal(t, "listing-1", entry.ListingID)
+	require.Equal(t, "listing-1", *entry.ListingID)
 }
 
 // TestImportWooProducts_suppressesStockChangedEventSoAsyncConsumerDoesNotEchoToWoo

@@ -55,7 +55,7 @@ func recordSyncLog(
 		}
 
 		entry := channelsDomain.SyncLogEntry{
-			TenantID: tenant.IDFromContext(ctx), ListingID: listing.ID, ProductID: listing.ProductID,
+			TenantID: tenant.IDFromContext(ctx), ListingID: &listing.ID, ProductID: listing.ProductID,
 			ConnectionID: listing.ConnectionID, Provider: listing.Provider, ExternalID: listing.ExternalID,
 			Direction: direction, Status: status, ErrorMessage: errMsg,
 			Fields: fields, Changes: changes, SyncedAt: time.Now(),

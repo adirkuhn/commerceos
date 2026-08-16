@@ -175,7 +175,7 @@ func TestSyncLogRepo_Integration_CreateAndListByListing(t *testing.T) {
 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		older := channelsDomain.SyncLogEntry{
-			TenantID: tenant.IDFromContext(ctx), ListingID: listingID, ProductID: productID, ConnectionID: connectionID, Provider: "woocommerce",
+			TenantID: tenant.IDFromContext(ctx), ListingID: &listingID, ProductID: productID, ConnectionID: connectionID, Provider: "woocommerce",
 			Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusSuccess,
 			Fields: map[string]string{"name": "old"}, Changes: map[string]channelsDomain.FieldChange{},
 			SyncedAt: time.Now().Add(-time.Hour),
@@ -184,7 +184,7 @@ func TestSyncLogRepo_Integration_CreateAndListByListing(t *testing.T) {
 			return err
 		}
 		newer := channelsDomain.SyncLogEntry{
-			TenantID: tenant.IDFromContext(ctx), ListingID: listingID, ProductID: productID, ConnectionID: connectionID, Provider: "woocommerce",
+			TenantID: tenant.IDFromContext(ctx), ListingID: &listingID, ProductID: productID, ConnectionID: connectionID, Provider: "woocommerce",
 			Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusSuccess,
 			Fields: map[string]string{"name": "new"}, Changes: map[string]channelsDomain.FieldChange{"name": {From: "old", To: "new"}},
 			SyncedAt: time.Now(),
@@ -216,7 +216,7 @@ func TestSyncLogRepo_Integration_ListAllPaginatesAndCountsAcrossTenant(t *testin
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		for i := 0; i < 3; i++ {
 			e := channelsDomain.SyncLogEntry{
-				TenantID: tenant.IDFromContext(ctx), ListingID: listingID, ProductID: productID, ConnectionID: connectionID, Provider: "woocommerce",
+				TenantID: tenant.IDFromContext(ctx), ListingID: &listingID, ProductID: productID, ConnectionID: connectionID, Provider: "woocommerce",
 				Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusSuccess,
 				Fields: map[string]string{}, Changes: map[string]channelsDomain.FieldChange{},
 				SyncedAt: time.Now().Add(time.Duration(i) * time.Second),

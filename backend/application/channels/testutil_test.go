@@ -591,7 +591,9 @@ func (s *stubSyncLogRepo) Create(_ context.Context, e *channelsDomain.SyncLogEnt
 	if s.byListing == nil {
 		s.byListing = map[string][]channelsDomain.SyncLogEntry{}
 	}
-	s.byListing[e.ListingID] = append([]channelsDomain.SyncLogEntry{*e}, s.byListing[e.ListingID]...)
+	if e.ListingID != nil {
+		s.byListing[*e.ListingID] = append([]channelsDomain.SyncLogEntry{*e}, s.byListing[*e.ListingID]...)
+	}
 	return nil
 }
 func (s *stubSyncLogRepo) ListByListing(_ context.Context, listingID string, limit int) ([]channelsDomain.SyncLogEntry, error) {

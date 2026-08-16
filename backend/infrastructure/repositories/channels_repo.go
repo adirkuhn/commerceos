@@ -559,16 +559,16 @@ func toImportJobDomain(m importJobModel) *channelsDomain.ImportJob {
 // ── sync log ─────────────────────────────────────────────────────────────────
 
 type channelSyncLogModel struct {
-	ID           string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID     string `gorm:"not null;type:uuid"`
-	ListingID    string `gorm:"not null;type:uuid"`
-	ProductID    string `gorm:"not null;type:uuid"`
-	ConnectionID string `gorm:"not null;type:uuid"`
-	Provider     string `gorm:"not null"`
-	ExternalID   string `gorm:"not null"`
-	Direction    string `gorm:"not null"`
-	Status       string `gorm:"not null"`
-	ErrorMessage string `gorm:"not null;default:''"`
+	ID           string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID     string  `gorm:"not null;type:uuid"`
+	ListingID    *string `gorm:"type:uuid"`
+	ProductID    string  `gorm:"not null;type:uuid"`
+	ConnectionID string  `gorm:"not null;type:uuid"`
+	Provider     string  `gorm:"not null"`
+	ExternalID   string  `gorm:"not null"`
+	Direction    string  `gorm:"not null"`
+	Status       string  `gorm:"not null"`
+	ErrorMessage string  `gorm:"not null;default:''"`
 	// Fields/Changes are hand-marshaled JSON strings (not GORM's
 	// serializer:json tag) stored in jsonb columns — matches
 	// importJobModel.Errors' reasoning: this app never Update()s a sync

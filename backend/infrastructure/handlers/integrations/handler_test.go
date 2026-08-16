@@ -936,9 +936,10 @@ func TestGetProductChannelListingHandler_notFoundWhenProductNeverLinked(t *testi
 }
 
 func TestListSyncLogsHandler_returnsEntries(t *testing.T) {
+	listingID := "listing-1"
 	h := newListSyncLogsTestHandler(&stubListSyncLogs{out: []channelsDomain.SyncLogEntry{
 		{
-			ID: "log-1", ListingID: "listing-1", ProductID: "prod-1", ConnectionID: "conn-1",
+			ID: "log-1", ListingID: &listingID, ProductID: "prod-1", ConnectionID: "conn-1",
 			Provider: "woocommerce", ExternalID: "23609",
 			Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusSuccess,
 			Fields:  map[string]string{"name": "T-Shirt"},

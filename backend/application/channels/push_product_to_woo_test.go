@@ -305,7 +305,7 @@ func TestPushProductToWoo_writesASyncLogEntryForTheNewListing(t *testing.T) {
 	entry := h.syncLogRepo.created[0]
 	require.Equal(t, channelsDomain.SyncFlowPush, entry.Direction)
 	require.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
-	require.Equal(t, "listing-1", entry.ListingID)
+	require.Equal(t, "listing-1", *entry.ListingID)
 	require.Equal(t, product.Name, entry.Fields["name"])
 }
 

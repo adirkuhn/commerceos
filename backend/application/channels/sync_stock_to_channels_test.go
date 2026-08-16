@@ -70,7 +70,7 @@ func TestSyncStockToChannels_skipsWooCallWhenAlreadySyncedToSameQuantity(t *test
 	}
 	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
 	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
-		"listing-1": {{ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
+		"listing-1": {{ListingID: strPtr("listing-1"), Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
 			"stock_quantity": "12", "lot_number": "", "expiry_date": "",
 		}}},
 	}
@@ -91,7 +91,7 @@ func TestSyncStockToChannels_pushesAgainWhenQuantityDiffers(t *testing.T) {
 	}
 	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
 	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
-		"listing-1": {{ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{"stock_quantity": "5"}}},
+		"listing-1": {{ListingID: strPtr("listing-1"), Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{"stock_quantity": "5"}}},
 	}
 	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 12}}
 	uc := h.newSyncStockUseCase(t, 5, stockLevel)
@@ -133,7 +133,7 @@ func TestSyncStockToChannels_pushesAgainWhenOnlyTheLotChangesEvenIfQuantityIsThe
 	}
 	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
 	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
-		"listing-1": {{ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
+		"listing-1": {{ListingID: strPtr("listing-1"), Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
 			"stock_quantity": "12", "lot_number": "LOT-OLD", "expiry_date": "2026-09-01",
 		}}},
 	}

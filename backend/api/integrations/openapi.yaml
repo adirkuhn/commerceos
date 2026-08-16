@@ -827,9 +827,12 @@ components:
 
     SyncLogEntry:
       type: object
-      required: [id, listing_id, product_id, connection_id, provider, external_id, direction, status, error_message, fields, changes, synced_at]
+      required: [id, product_id, connection_id, provider, external_id, direction, status, error_message, fields, changes, synced_at]
       properties:
         id: { type: string }
+        # listing_id is null once the listing it logged sync activity for
+        # has been deleted -- the log row survives (ON DELETE SET NULL) as
+        # the audit trail, only the live link is gone.
         listing_id: { type: string }
         product_id: { type: string }
         connection_id: { type: string }

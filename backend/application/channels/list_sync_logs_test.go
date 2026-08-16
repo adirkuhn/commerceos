@@ -15,7 +15,7 @@ func TestListSyncLogs_returnsEntriesForTheListing(t *testing.T) {
 		"prod-1": {ID: "listing-1", ProductID: "prod-1", ConnectionID: "conn-1"},
 	}}
 	syncLogRepo := &stubSyncLogRepo{byListing: map[string][]channelsDomain.SyncLogEntry{
-		"listing-1": {{ID: "log-2", ListingID: "listing-1", Status: channelsDomain.SyncLogStatusSuccess}, {ID: "log-1", ListingID: "listing-1", Status: channelsDomain.SyncLogStatusError}},
+		"listing-1": {{ID: "log-2", ListingID: strPtr("listing-1"), Status: channelsDomain.SyncLogStatusSuccess}, {ID: "log-1", ListingID: strPtr("listing-1"), Status: channelsDomain.SyncLogStatusError}},
 	}}
 	uc := appchannels.NewListSyncLogsUseCase(newMockGormDB(t, 1), listingRepo, syncLogRepo)
 

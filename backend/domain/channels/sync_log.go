@@ -27,11 +27,13 @@ type FieldChange struct {
 // SyncLogEntry is an immutable audit record of one sync attempt.
 // ProductChannelListing holds only the *current* state; this is the
 // history of how it got there — created on every push/import/event-driven
-// sync, never updated or deleted (except via the listing's own cascade).
+// sync, never updated. ListingID goes nil (ON DELETE SET NULL) if the
+// listing it logged activity for is later deleted; the log row itself
+// survives as the audit trail.
 type SyncLogEntry struct {
 	ID           string
 	TenantID     string
-	ListingID    string // ProductChannelListing.ID
+	ListingID    *string // ProductChannelListing.ID
 	ProductID    string
 	ConnectionID string
 	Provider     string
