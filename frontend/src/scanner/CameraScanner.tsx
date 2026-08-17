@@ -5,6 +5,8 @@ import { X, Camera } from 'lucide-react'
 interface CameraScannerProps {
   onDecode: (text: string) => void
   onClose: () => void
+  /** Viewfinder shape: 'square' for QR codes (default), 'rect' for 1D barcodes. Cosmetic only -- zxing decodes the full frame regardless. */
+  frameShape?: 'square' | 'rect'
 }
 
 interface ScannerControls {
@@ -17,7 +19,7 @@ interface ScannerControls {
 // app that accepts a hardware-scanner keyboard-wedge also offers this as an
 // alternative entry point, full-screen overlay so it works on small phone
 // screens.
-export function CameraScanner({ onDecode, onClose }: CameraScannerProps) {
+export function CameraScanner({ onDecode, onClose, frameShape = 'square' }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState('')
 
@@ -57,7 +59,25 @@ export function CameraScanner({ onDecode, onClose }: CameraScannerProps) {
         </button>
       </div>
       {error && <p className="px-4 text-sm text-red-400">{error}</p>}
-      <video ref={videoRef} className="flex-1 w-full object-cover" muted playsInline />
+      <div className="relative flex-1 w-full overflow-hidden">
+        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            data-testid="scan-frame"
+            data-shape={frameShape}
+            className={`relative rounded-lg ${frameShape === 'square' ? 'w-60 h-60' : 'w-64 h-28'}`}
+          >
+            <span className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-2 border-l-2 border-blue-400 rounded-tl-lg" />
+            <span className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-2 border-r-2 border-blue-400 rounded-tr-lg" />
+            <span className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-2 border-l-2 border-blue-400 rounded-bl-lg" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-2 border-r-2 border-blue-400 rounded-br-lg" />
+            <div
+              data-testid="scan-line"
+              className="absolute left-0 right-0 h-0.5 bg-blue-400 shadow-[0_0_6px_2px_rgba(96,165,250,0.8)] animate-scan-line"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

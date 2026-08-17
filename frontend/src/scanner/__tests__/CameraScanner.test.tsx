@@ -77,4 +77,18 @@ describe('CameraScanner', () => {
 
     expect(mockStop).toHaveBeenCalled()
   })
+
+  it('defaults to a square viewfinder frame with a scan-line animation', () => {
+    render(<CameraScanner onDecode={() => {}} onClose={() => {}} />)
+
+    expect(screen.getByTestId('scan-frame')).toHaveAttribute('data-shape', 'square')
+    expect(screen.getByTestId('scan-line')).toBeInTheDocument()
+  })
+
+  it('renders a rect viewfinder frame when frameShape="rect" (barcode scans)', () => {
+    render(<CameraScanner onDecode={() => {}} onClose={() => {}} frameShape="rect" />)
+
+    expect(screen.getByTestId('scan-frame')).toHaveAttribute('data-shape', 'rect')
+    expect(screen.getByTestId('scan-line')).toBeInTheDocument()
+  })
 })

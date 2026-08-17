@@ -23,6 +23,15 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+      keyframes: {
+        'scan-line': {
+          '0%, 100%': { top: '4%' },
+          '50%': { top: '92%' },
+        },
+      },
+      animation: {
+        'scan-line': 'scan-line 1.8s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
