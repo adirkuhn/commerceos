@@ -11,10 +11,20 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
+
+// fuzzySearchSimilarityThreshold is the pg_trgm similarity() cutoff (0..1,
+// higher = stricter) below which a product name doesn't count as a fuzzy
+// match at all -- keeps a search for "Widget" from also fuzzy-matching
+// "Gadget" just because they share a few trigrams. 0.25 is more permissive
+// than pg_trgm's own 0.3 default: this app's product names skew short, and
+// a stricter cutoff missed short-name typos ("Widgt" vs "Widget") in
+// testing.
+const fuzzySearchSimilarityThreshold = 0.25
 
 // ── GORM models ──────────────────────────────────────────────────────────────
 
@@ -326,16 +336,21 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	if filter.Search != nil && *filter.Search != "" {
 		// unaccent() so "acai" matches "Açaí", "feijao" matches "Feijão",
 		// etc. — plain ILIKE is case-insensitive but not accent-insensitive.
-		// sku_code/barcode are plain ASCII codes, not natural-language names,
-		// so no unaccent() needed there. EXISTS rather than a JOIN so a
-		// product with several matching SKUs still comes back exactly once.
+		// similarity() (pg_trgm, 077_pg_trgm_extension.sql) is the typo
+		// -tolerant fallback on top of that -- "Wigdet"/"Widgt" still finds
+		// "Widget" even though neither is a substring of it. sku_code/
+		// barcode are plain ASCII codes, not natural-language names, so
+		// neither unaccent() nor fuzzy matching applies there -- exact
+		// ILIKE only. EXISTS rather than a JOIN so a product with several
+		// matching SKUs still comes back exactly once.
 		pattern := "%" + *filter.Search + "%"
 		q = q.Where(
-			"unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?) OR EXISTS ("+
+			"unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?) OR "+
+				"similarity(immutable_unaccent(name), immutable_unaccent(?)) > ? OR EXISTS ("+
 				"SELECT 1 FROM skus s JOIN variants v ON v.id = s.variant_id "+
 				"WHERE v.product_id = products.id AND (s.sku_code ILIKE ? OR s.barcode ILIKE ?)"+
 				")",
-			pattern, pattern, pattern, pattern,
+			pattern, pattern, *filter.Search, fuzzySearchSimilarityThreshold, pattern, pattern,
 		)
 	}
 	if filter.UpdatedAfter != nil {
@@ -352,7 +367,20 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		limit = 200
 	}
 	var rows []productModel
-	if err := q.Order("name asc").Limit(limit).Offset(filter.Offset).Find(&rows).Error; err != nil {
+	orderedQuery := q.Order("name asc")
+	if filter.Search != nil && *filter.Search != "" {
+		// Best fuzzy match first when searching -- an exact/substring hit
+		// naturally scores near 1.0 here too, so this one ORDER BY ranks
+		// both the ILIKE and the pg_trgm-fallback results sensibly without
+		// needing a separate tiered CASE. name asc is just the tiebreak.
+		orderedQuery = q.Clauses(clause.OrderBy{
+			Expression: clause.Expr{
+				SQL:  "similarity(immutable_unaccent(name), immutable_unaccent(?)) DESC, name asc",
+				Vars: []interface{}{*filter.Search},
+			},
+		})
+	}
+	if err := orderedQuery.Limit(limit).Offset(filter.Offset).Find(&rows).Error; err != nil {
 		return nil, 0, fmt.Errorf("productRepo.List: %w", err)
 	}
 	products := make([]pmsDomain.Product, len(rows))

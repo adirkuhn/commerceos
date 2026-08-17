@@ -186,6 +186,64 @@ func TestProductRepo_Integration_SearchMatchesSKUCodeAndBarcode(t *testing.T) {
 	require.Empty(t, noMatch)
 }
 
+// TestProductRepo_Integration_SearchIsTypoTolerant proves the pg_trgm-based
+// fuzzy fallback (077_pg_trgm_extension.sql) actually works against real
+// Postgres -- a plain unit test with sqlmock can't verify the similarity()
+// function/gin_trgm_ops index exist and behave as expected in the target
+// database.
+func TestProductRepo_Integration_SearchIsTypoTolerant(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		for _, name := range []string{"Widget", "Gadget", "Contraption"} {
+			p := &pmsDomain.Product{
+				TenantID: tenant.IDFromContext(ctx), Name: name, Slug: name,
+				Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+			}
+			if err := productRepo.Create(ctx, p); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		query string
+		want  string
+	}{
+		{"Wigdet", "Widget"},  // transposed letters
+		{"Widgt", "Widget"},   // dropped letter
+		{"Gadgett", "Gadget"}, // extra letter
+	} {
+		var products []pmsDomain.Product
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			search := tc.query
+			products, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Search: &search})
+			return err
+		})
+		require.NoError(t, err, "query %q", tc.query)
+		require.NotEmpty(t, products, "query %q should fuzzy-match something", tc.query)
+		require.Equal(t, tc.want, products[0].Name, "query %q should rank %q first", tc.query, tc.want)
+	}
+
+	// Something with no plausible relationship to any product name must
+	// still come back empty -- the fuzzy fallback isn't a match-everything.
+	var noMatch []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		search := "zzzznonexistentqqqq"
+		noMatch, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Search: &search})
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, noMatch)
+}
+
 // TestProductRepo_Integration_SyncVariantsAsWooVariationsRoundTrips proves
 // migration 046's products.sync_variants_as_woo_variations column exists,
 // defaults to false, and survives a real round trip through GORM's
