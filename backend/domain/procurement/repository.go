@@ -130,6 +130,10 @@ type BookingRepository interface {
 	// instead of creating a duplicate. Nil (not an error) when none exists.
 	FindActiveByPurchaseOrder(ctx context.Context, purchaseOrderID string) (*Booking, error)
 	Update(ctx context.Context, b *Booking) error
+	// ListCompleted returns every Completed booking for the tenant, most
+	// recently completed first -- the discrepancies report's data source
+	// (see application/procurement.ListBookingDiscrepanciesUseCase).
+	ListCompleted(ctx context.Context) ([]Booking, error)
 }
 
 type BookingScanRepository interface {

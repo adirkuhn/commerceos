@@ -115,6 +115,62 @@ func TestBookingRepo_Integration_NotFound(t *testing.T) {
 	require.ErrorIs(t, err, procurementDomain.ErrBookingNotFound)
 }
 
+// TestBookingRepo_Integration_ListCompleted proves the discrepancies
+// report's data source (application/procurement.ListBookingDiscrepanciesUseCase)
+// actually filters by status and orders correctly against real Postgres.
+func TestBookingRepo_Integration_ListCompleted(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	bookingRepo := repositories.NewBookingRepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	poID1 := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+	poID2 := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+	poID3 := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+
+	var olderCompletedID, newerCompletedID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		older := time.Now().Add(-time.Hour)
+		olderBooking := procurementDomain.Booking{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID1,
+			Status: procurementDomain.BookingStatusCompleted, StartedAt: older, CompletedAt: &older,
+		}
+		if err := bookingRepo.Create(ctx, &olderBooking); err != nil {
+			return err
+		}
+		olderCompletedID = olderBooking.ID
+
+		newer := time.Now()
+		newerBooking := procurementDomain.Booking{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID2,
+			Status: procurementDomain.BookingStatusCompleted, StartedAt: newer, CompletedAt: &newer,
+		}
+		if err := bookingRepo.Create(ctx, &newerBooking); err != nil {
+			return err
+		}
+		newerCompletedID = newerBooking.ID
+
+		// Still in progress -- must not appear in the report.
+		inProgress := procurementDomain.Booking{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID3,
+			Status: procurementDomain.BookingStatusInProgress, StartedAt: time.Now(),
+		}
+		return bookingRepo.Create(ctx, &inProgress)
+	})
+	require.NoError(t, err)
+
+	var completed []procurementDomain.Booking
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		completed, err = bookingRepo.ListCompleted(ctx)
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Len(t, completed, 2)
+	require.Equal(t, newerCompletedID, completed[0].ID, "most recently completed first")
+	require.Equal(t, olderCompletedID, completed[1].ID)
+}
+
 func TestBookingScanRepo_Integration_CreateAndList(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

@@ -33,6 +33,7 @@ vi.mock('../../procurement/api', () => ({
   listReceivingRecords: vi.fn(),
   getReceivingRecord: vi.fn(),
   completeReceiving: vi.fn(),
+  listBookingDiscrepancies: vi.fn(),
 }))
 
 vi.mock('../../suppliers/api', () => ({
@@ -153,6 +154,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([])
   vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([])
+  vi.mocked(procurementApi.listBookingDiscrepancies).mockResolvedValue({ missing_items: [], damaged_lost: [] })
   vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
   vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
@@ -1231,5 +1233,54 @@ describe('Receiving', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Mark Receiving Complete/ }))
 
     await waitFor(() => expect(procurementApi.completeReceiving).toHaveBeenCalledWith('test-token', 'receiving-record-1'))
+  })
+})
+
+describe('Booking discrepancies report', () => {
+  it('opens from the toolbar and shows missing items by default', async () => {
+    vi.mocked(procurementApi.listBookingDiscrepancies).mockResolvedValue({
+      missing_items: [{
+        booking_id: 'booking-1', purchase_order_id: 'po-1', line_item_id: 'line-1',
+        sku_code: 'WGT-1', product_name: 'Widget', raw_description: 'Widget 12pk',
+        expected_qty: 10, scanned_qty: 4, missing_qty: 6,
+      }],
+      damaged_lost: [],
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByRole('button', { name: /Discrepancies/ }))
+
+    expect(await screen.findByText('Booking Discrepancies')).toBeInTheDocument()
+    expect(screen.getByText('Widget')).toBeInTheDocument()
+    expect(screen.getByText('WGT-1')).toBeInTheDocument()
+  })
+
+  it('Damaged / Lost tab shows write-off scans', async () => {
+    vi.mocked(procurementApi.listBookingDiscrepancies).mockResolvedValue({
+      missing_items: [],
+      damaged_lost: [{
+        booking_id: 'booking-1', purchase_order_id: 'po-1', scan_id: 'scan-1', sku_id: 'sku-1',
+        sku_code: 'WGT-1', product_name: 'Widget', action_type: 'damaged', quantity: 2,
+        reason: 'box crushed', scanned_at: '2026-08-15T00:00:00Z', scanned_by: 'user-1',
+      }],
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByRole('button', { name: /Discrepancies/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Damaged \/ Lost/ }))
+
+    expect(await screen.findByText('box crushed')).toBeInTheDocument()
+    expect(screen.getByText('damaged')).toBeInTheDocument()
+    expect(screen.getByText('user-1')).toBeInTheDocument()
+  })
+
+  it('Back returns to the purchase order list', async () => {
+    render(<Procurement />)
+    await userEvent.click(await screen.findByRole('button', { name: /Discrepancies/ }))
+    await screen.findByText('Booking Discrepancies')
+
+    await userEvent.click(screen.getByRole('button', { name: /Procurement/ }))
+
+    expect(await screen.findByRole('button', { name: /Discrepancies/ })).toBeInTheDocument()
   })
 })

@@ -152,6 +152,9 @@ type pauseBookingUC interface {
 type completeBookingUC interface {
 	Execute(ctx context.Context, id string, completedBy string) (*appprocurement.CompleteBookingResult, error)
 }
+type listBookingDiscrepanciesUC interface {
+	Execute(ctx context.Context) (*appprocurement.BookingDiscrepancyReport, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -181,6 +184,7 @@ type Handler struct {
 	pauseBooking                pauseBookingUC
 	completeBooking             completeBookingUC
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC
+	listBookingDiscrepancies    listBookingDiscrepanciesUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -210,6 +214,7 @@ func NewHandler(
 	pauseBooking pauseBookingUC,
 	completeBooking completeBookingUC,
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
+	listBookingDiscrepancies listBookingDiscrepanciesUC,
 ) *Handler {
 	return &Handler{
 		listPurchaseOrders: listPurchaseOrders, createPurchaseOrder: createPurchaseOrder,
@@ -229,6 +234,7 @@ func NewHandler(
 		pauseBooking:                pauseBooking,
 		completeBooking:             completeBooking,
 		deletePurchaseOrderDocument: deletePurchaseOrderDocument,
+		listBookingDiscrepancies:    listBookingDiscrepancies,
 	}
 }
 
@@ -301,6 +307,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
 		),
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
+		appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
 	)
 	genprocurement.RegisterHandlers(rg, h)
 }
@@ -730,6 +737,32 @@ func (h *Handler) CompleteBooking(c *gin.Context, id genprocurement.Id) {
 	c.JSON(http.StatusOK, genprocurement.CompleteBookingResultResponse{Data: &resp})
 }
 
+func (h *Handler) ListBookingDiscrepancies(c *gin.Context) {
+	report, err := h.listBookingDiscrepancies.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	missing := make([]genprocurement.MissingBookingItemReport, len(report.MissingItems))
+	for i, m := range report.MissingItems {
+		missing[i] = genprocurement.MissingBookingItemReport{
+			BookingId: m.BookingID, PurchaseOrderId: m.PurchaseOrderID, CompletedAt: m.CompletedAt,
+			LineItemId: m.LineItemID, SkuCode: m.SKUCode, ProductName: m.ProductName,
+			RawDescription: m.RawDescription, ExpectedQty: m.ExpectedQty, ScannedQty: m.ScannedQty, MissingQty: m.MissingQty,
+		}
+	}
+	damagedLost := make([]genprocurement.DamagedLostBookingItemReport, len(report.DamagedLost))
+	for i, d := range report.DamagedLost {
+		damagedLost[i] = genprocurement.DamagedLostBookingItemReport{
+			BookingId: d.BookingID, PurchaseOrderId: d.PurchaseOrderID, CompletedAt: d.CompletedAt,
+			ScanId: d.ScanID, SkuId: d.SKUID, SkuCode: d.SKUCode, ProductName: d.ProductName,
+			ActionType: genprocurement.DamagedLostBookingItemReportActionType(d.ActionType),
+			Quantity:   d.Quantity, Reason: d.Reason, ScannedAt: d.ScannedAt, ScannedBy: d.ScannedBy,
+		}
+	}
+	resp := genprocurement.BookingDiscrepancyReport{MissingItems: missing, DamagedLost: damagedLost}
+	c.JSON(http.StatusOK, genprocurement.BookingDiscrepancyReportResponse{Data: &resp})
+}
+
 // ── Mappers + error handling ─────────────────────────────────────────────────
 
 func toGenPurchaseOrder(po procurementDomain.PurchaseOrder) genprocurement.PurchaseOrder {
@@ -818,7 +851,6 @@ func toGenBookingScan(s procurementDomain.BookingScan) genprocurement.BookingSca
 		ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 	}
 }
-
 
 func mapError(c *gin.Context, err error) error {
 	if err == nil {

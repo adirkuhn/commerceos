@@ -5,6 +5,7 @@ import type {
   CreatePurchaseOrderFromDocumentInput, LinkLineItemInput, CreateProductAndLinkLineItemInput,
   CreateSupplierAndAssignInput,
   ReceivingParsingJob, ReceivingRecord, ReceivingRecordDetail,
+  BookingDiscrepancyReport,
   APIResponse,
 } from './types'
 
@@ -135,4 +136,8 @@ export function getReceivingRecord(token: string, id: string): Promise<Receiving
 
 export function completeReceiving(token: string, id: string): Promise<ReceivingRecord> {
   return request<ReceivingRecord>(`${base()}/receiving-records/${id}/complete`, { method: 'POST' }, token)
+}
+
+export function listBookingDiscrepancies(token: string): Promise<BookingDiscrepancyReport> {
+  return request<BookingDiscrepancyReport>(`${base()}/bookings/discrepancies`, { method: 'GET' }, token)
 }

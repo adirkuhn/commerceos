@@ -453,3 +453,27 @@ describe('completeReceiving', () => {
     await expect(api.completeReceiving(TOKEN, 'missing')).rejects.toThrow('receiving record not found')
   })
 })
+
+describe('listBookingDiscrepancies', () => {
+  it('returns the missing/damaged-lost report', async () => {
+    const report: import('../types').BookingDiscrepancyReport = {
+      missing_items: [{
+        booking_id: 'booking-1', purchase_order_id: 'po-1', line_item_id: 'line-1',
+        raw_description: 'Widget 12pk', expected_qty: 10, scanned_qty: 4, missing_qty: 6,
+      }],
+      damaged_lost: [{
+        booking_id: 'booking-1', purchase_order_id: 'po-1', scan_id: 'scan-1', sku_id: 'sku-1',
+        action_type: 'damaged', quantity: 2, reason: 'box crushed', scanned_at: '2026-08-15T00:00:00Z', scanned_by: 'user-1',
+      }],
+    }
+    mockFetch(report)
+
+    const result = await api.listBookingDiscrepancies(TOKEN)
+
+    expect(result).toEqual(report)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/procurement/bookings/discrepancies',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})

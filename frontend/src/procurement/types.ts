@@ -213,6 +213,39 @@ export interface ReceivingRecordDetail {
   discrepancies: ReceivingDiscrepancy[]
 }
 
+export interface MissingBookingItemReport {
+  booking_id: string
+  purchase_order_id: string
+  completed_at?: string | null
+  line_item_id: string
+  sku_code?: string | null
+  product_name?: string | null
+  raw_description: string
+  expected_qty: number
+  scanned_qty: number
+  missing_qty: number
+}
+
+export interface DamagedLostBookingItemReport {
+  booking_id: string
+  purchase_order_id: string
+  completed_at?: string | null
+  scan_id: string
+  sku_id: string
+  sku_code?: string | null
+  product_name?: string | null
+  action_type: 'damaged' | 'lost'
+  quantity: number
+  reason: string
+  scanned_at: string
+  scanned_by: string
+}
+
+export interface BookingDiscrepancyReport {
+  missing_items: MissingBookingItemReport[]
+  damaged_lost: DamagedLostBookingItemReport[]
+}
+
 export interface APIError {
   code: string
   message: string

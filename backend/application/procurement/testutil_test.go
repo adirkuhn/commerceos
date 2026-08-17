@@ -171,6 +171,12 @@ type stubLineItemRepo struct {
 	deleted      []string
 	sumByPO      map[string]int64
 	sumErr       error
+	// byPOMap, when non-nil, keys ListByPurchaseOrder's result by the
+	// purchase order ID passed in -- lets a test give different bookings
+	// (which each have their own PO) different line items, unlike byPO's
+	// single fixed list. Falls back to byPO when nil, so every existing
+	// single-PO test is unaffected.
+	byPOMap map[string][]procurementDomain.PurchaseOrderLineItem
 }
 
 func (s *stubLineItemRepo) Create(_ context.Context, li *procurementDomain.PurchaseOrderLineItem) error {
@@ -185,7 +191,10 @@ func (s *stubLineItemRepo) Create(_ context.Context, li *procurementDomain.Purch
 func (s *stubLineItemRepo) FindByID(_ context.Context, _ string) (*procurementDomain.PurchaseOrderLineItem, error) {
 	return s.findResult, s.findErr
 }
-func (s *stubLineItemRepo) ListByPurchaseOrder(_ context.Context, _ string) ([]procurementDomain.PurchaseOrderLineItem, error) {
+func (s *stubLineItemRepo) ListByPurchaseOrder(_ context.Context, purchaseOrderID string) ([]procurementDomain.PurchaseOrderLineItem, error) {
+	if s.byPOMap != nil {
+		return s.byPOMap[purchaseOrderID], nil
+	}
 	return s.byPO, nil
 }
 func (s *stubLineItemRepo) Update(_ context.Context, li *procurementDomain.PurchaseOrderLineItem) error {
@@ -600,6 +609,8 @@ type stubBookingRepo struct {
 	created      []procurementDomain.Booking
 	updateErr    error
 	updated      []procurementDomain.Booking
+	completed    []procurementDomain.Booking
+	completedErr error
 }
 
 func (s *stubBookingRepo) Create(_ context.Context, b *procurementDomain.Booking) error {
@@ -623,6 +634,9 @@ func (s *stubBookingRepo) Update(_ context.Context, b *procurementDomain.Booking
 	s.updated = append(s.updated, *b)
 	return nil
 }
+func (s *stubBookingRepo) ListCompleted(_ context.Context) ([]procurementDomain.Booking, error) {
+	return s.completed, s.completedErr
+}
 
 type markReplayedCall struct {
 	scanID     string
@@ -636,6 +650,10 @@ type stubBookingScanRepo struct {
 	created         []procurementDomain.BookingScan
 	markReplayedErr error
 	markReplayed    []markReplayedCall
+	// byBookingMap, when non-nil, keys ListByBooking's result by the
+	// booking ID passed in -- same reasoning as stubLineItemRepo.byPOMap.
+	// Falls back to byBooking when nil.
+	byBookingMap map[string][]procurementDomain.BookingScan
 }
 
 func (s *stubBookingScanRepo) Create(_ context.Context, sc *procurementDomain.BookingScan) error {
@@ -646,7 +664,10 @@ func (s *stubBookingScanRepo) Create(_ context.Context, sc *procurementDomain.Bo
 	s.created = append(s.created, *sc)
 	return nil
 }
-func (s *stubBookingScanRepo) ListByBooking(_ context.Context, _ string) ([]procurementDomain.BookingScan, error) {
+func (s *stubBookingScanRepo) ListByBooking(_ context.Context, bookingID string) ([]procurementDomain.BookingScan, error) {
+	if s.byBookingMap != nil {
+		return s.byBookingMap[bookingID], nil
+	}
 	return s.byBooking, nil
 }
 func (s *stubBookingScanRepo) MarkReplayed(_ context.Context, id string, replayedAt time.Time, batchID *string) error {

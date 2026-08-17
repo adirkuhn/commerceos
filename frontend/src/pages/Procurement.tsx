@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
 import { usePurchaseOrderDetail } from '../procurement/hooks/usePurchaseOrderDetail'
 import { useReceivingRecords } from '../procurement/hooks/useReceivingRecords'
+import { useBookingDiscrepancies } from '../procurement/hooks/useBookingDiscrepancies'
 import { pollParsingJob } from '../procurement/pollParsingJob'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import type { Supplier } from '../suppliers/types'
@@ -115,6 +116,7 @@ export default function Procurement() {
   const [pendingParsingJobId, setPendingParsingJobId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState('')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [showDiscrepancies, setShowDiscrepancies] = useState(false)
 
   const supplierName = (id?: string | null) => {
     if (!id) return null
@@ -135,6 +137,10 @@ export default function Procurement() {
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Unknown error')
     }
+  }
+
+  if (showDiscrepancies) {
+    return <BookingDiscrepanciesPage token={token ?? ''} onClose={() => setShowDiscrepancies(false)} />
   }
 
   if (editingId !== null) {
@@ -169,6 +175,12 @@ export default function Procurement() {
           ))}
         </div>
         <div className="flex items-center gap-2 ml-auto shrink-0">
+          <button
+            onClick={() => setShowDiscrepancies(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
+          >
+            <AlertTriangle size={13} /> Discrepancies
+          </button>
           <button
             onClick={() => setUploadModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors font-medium"
@@ -286,6 +298,131 @@ export default function Procurement() {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+// ── Booking discrepancies report ────────────────────────────────────────────
+
+function formatDiscrepancyDate(iso?: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString()
+}
+
+type DiscrepancyTab = 'missing' | 'damaged-lost'
+
+// Tenant-wide, derived on demand (not persisted) from every completed
+// booking's line items vs scans -- same "not a real table" reasoning as
+// the Inventory module's Expiry & Discards report.
+function BookingDiscrepanciesPage({ token, onClose }: { token: string; onClose: () => void }) {
+  const { report, loading, error } = useBookingDiscrepancies(token)
+  const [tab, setTab] = useState<DiscrepancyTab>('missing')
+
+  const TABS: { id: DiscrepancyTab; label: string }[] = [
+    { id: 'missing', label: `Missing${report.missing_items.length ? ` (${report.missing_items.length})` : ''}` },
+    { id: 'damaged-lost', label: `Damaged / Lost${report.damaged_lost.length ? ` (${report.damaged_lost.length})` : ''}` },
+  ]
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+          >
+            <ArrowLeft size={11} /> Procurement
+          </button>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Booking Discrepancies</h1>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Every completed booking's under-scanned line items and damaged/lost stock</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 px-6 pt-4 shrink-0">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={clsx(
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              tab === t.id
+                ? 'bg-blue-600 text-white'
+                : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {error && <p className="px-6 py-4 text-xs text-red-400">{error}</p>}
+
+        {tab === 'missing' && (
+          <>
+            {!error && loading && report.missing_items.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+            {!error && !loading && report.missing_items.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No missing items -- every completed booking was fully scanned.</p>
+            )}
+            {report.missing_items.length > 0 && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                  <tr>
+                    {['SKU', 'Product', 'Expected', 'Scanned', 'Missing', 'Completed'].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                  {report.missing_items.map(m => (
+                    <tr key={m.line_item_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{m.sku_code ?? '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{m.product_name ?? m.raw_description}</td>
+                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{m.expected_qty}</td>
+                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{m.scanned_qty}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-red-400">{m.missing_qty}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{formatDiscrepancyDate(m.completed_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {tab === 'damaged-lost' && (
+          <>
+            {!error && loading && report.damaged_lost.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+            {!error && !loading && report.damaged_lost.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing damaged or lost across any completed booking.</p>
+            )}
+            {report.damaged_lost.length > 0 && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                  <tr>
+                    {['SKU', 'Product', 'Type', 'Qty', 'Reason', 'Scanned by', 'Date'].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                  {report.damaged_lost.map(d => (
+                    <tr key={d.scan_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{d.sku_code ?? '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{d.product_name ?? '—'}</td>
+                      <td className="px-4 py-2.5 capitalize text-red-400">{d.action_type}</td>
+                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{d.quantity}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.reason || '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.scanned_by || '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{formatDiscrepancyDate(d.scanned_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

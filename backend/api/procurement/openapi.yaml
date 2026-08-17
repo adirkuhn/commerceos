@@ -496,6 +496,20 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/bookings/discrepancies:
+    get:
+      operationId: listBookingDiscrepancies
+      summary: >-
+        Tenant-wide report of every completed booking's under-scanned line
+        items and damaged/lost stock -- derived on demand, not persisted.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDiscrepancyReportResponse'
+
 components:
   parameters:
     id:
@@ -1007,6 +1021,65 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CompleteBookingResult' }
+        error: { nullable: true }
+
+    MissingBookingItemReport:
+      type: object
+      required: [booking_id, purchase_order_id, line_item_id, raw_description, expected_qty, scanned_qty, missing_qty]
+      properties:
+        booking_id: { type: string }
+        purchase_order_id: { type: string }
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        line_item_id: { type: string }
+        sku_code: { type: string, nullable: true }
+        product_name: { type: string, nullable: true }
+        raw_description: { type: string }
+        expected_qty: { type: integer, format: int64 }
+        scanned_qty: { type: integer, format: int64 }
+        missing_qty: { type: integer, format: int64 }
+
+    DamagedLostBookingItemReport:
+      type: object
+      required: [booking_id, purchase_order_id, scan_id, sku_id, action_type, quantity, reason, scanned_at, scanned_by]
+      properties:
+        booking_id: { type: string }
+        purchase_order_id: { type: string }
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        scan_id: { type: string }
+        sku_id: { type: string }
+        sku_code: { type: string, nullable: true }
+        product_name: { type: string, nullable: true }
+        action_type:
+          type: string
+          enum: [damaged, lost]
+        quantity: { type: integer, format: int64 }
+        reason: { type: string }
+        scanned_at: { type: string, format: date-time }
+        scanned_by: { type: string }
+
+    BookingDiscrepancyReport:
+      type: object
+      required: [missing_items, damaged_lost]
+      properties:
+        missing_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingBookingItemReport'
+        damaged_lost:
+          type: array
+          items:
+            $ref: '#/components/schemas/DamagedLostBookingItemReport'
+
+    BookingDiscrepancyReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BookingDiscrepancyReport' }
         error: { nullable: true }
 
     EmptyResponse:
