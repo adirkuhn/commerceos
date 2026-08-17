@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
 import type { Warehouse, Batch, StockMovement, StockLevel, TransferStockResult, ExpiringBatch, APIResponse } from '../types'
@@ -303,5 +304,88 @@ describe('listExpiringBatches', () => {
       'https://api.commerceos.dev.localhost/api/v1/inventory/batches/expiring-soon?within_days=7',
       expect.objectContaining({ method: 'GET' }),
     )
+  })
+})
+
+describe('discardBatch', () => {
+  it('sends a multipart form with the fields and photo, and does not force a Content-Type header', async () => {
+    mockFetch({
+      id: 'discard-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
+      movement_id: 'move-1', quantity: 3, reason: 'expired', discarded_by: 'user-1',
+      discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
+    })
+    const photo = new File(['fake-bytes'], 'photo.jpg', { type: 'image/jpeg' })
+
+    const result = await api.discardBatch(TOKEN, 'sku-1', {
+      warehouse_id: 'wh-1', batch_id: 'batch-1', quantity: 3, reason: 'expired', photo,
+    })
+
+    expect(result.id).toBe('discard-1')
+    const call = vi.mocked(fetch).mock.calls[0]
+    expect(call[0]).toBe('https://api.commerceos.dev.localhost/api/v1/inventory/skus/sku-1/discard')
+    const options = call[1] as RequestInit
+    expect(options.method).toBe('POST')
+    expect(options.headers).not.toHaveProperty('Content-Type')
+    const form = options.body as FormData
+    expect(form.get('warehouse_id')).toBe('wh-1')
+    expect(form.get('batch_id')).toBe('batch-1')
+    expect(form.get('quantity')).toBe('3')
+    expect(form.get('reason')).toBe('expired')
+    expect(form.get('photo')).toBe(photo)
+  })
+
+  it('omits batch_id and photo when discarding general-ledger stock with no photo', async () => {
+    mockFetch({
+      id: 'discard-2', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1',
+      movement_id: 'move-2', quantity: 2, reason: '', discarded_by: '',
+      discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
+    })
+
+    await api.discardBatch(TOKEN, 'sku-1', { warehouse_id: 'wh-1', quantity: 2 })
+
+    const form = (vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as FormData
+    expect(form.get('batch_id')).toBeNull()
+    expect(form.get('photo')).toBeNull()
+  })
+
+  it('surfaces the server error message on failure', async () => {
+    mockFetchError('VALIDATION_ERROR', 'insufficient stock for this batch/ledger')
+
+    await expect(api.discardBatch(TOKEN, 'sku-1', { warehouse_id: 'wh-1', quantity: 999 }))
+      .rejects.toThrow('insufficient stock for this batch/ledger')
+  })
+})
+
+describe('listDiscards', () => {
+  it('calls the endpoint with no query params by default and returns discards + total', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ data: [], total: 0, error: null }),
+    }))
+
+    const result = await api.listDiscards(TOKEN)
+
+    expect(result).toEqual({ discards: [], total: 0 })
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/inventory/discards',
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-token' }) }),
+    )
+  })
+
+  it('passes warehouse/sku/date/pagination filters as query params', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ data: [], total: 0, error: null }),
+    }))
+
+    await api.listDiscards(TOKEN, { warehouseId: 'wh-1', skuId: 'sku-1', from: '2026-08-01', to: '2026-08-31', limit: 10, offset: 20 })
+
+    const url = vi.mocked(fetch).mock.calls[0][0] as string
+    expect(url).toContain('warehouse_id=wh-1')
+    expect(url).toContain('sku_id=sku-1')
+    expect(url).toContain('from=2026-08-01')
+    expect(url).toContain('to=2026-08-31')
+    expect(url).toContain('limit=10')
+    expect(url).toContain('offset=20')
   })
 })

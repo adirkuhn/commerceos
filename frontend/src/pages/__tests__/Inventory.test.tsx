@@ -35,6 +35,9 @@ vi.mock('../../inventory/api', () => ({
   extendBatchExpiry: vi.fn(),
   dismissExpiredBatch: vi.fn(),
   listBatchMovements: vi.fn(),
+  listExpiringBatches: vi.fn(),
+  discardBatch: vi.fn(),
+  listDiscards: vi.fn(),
 }))
 
 import * as pmsApi from '../../pms/api'
@@ -88,6 +91,8 @@ beforeEach(() => {
   vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch])
   vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(level)
   vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([])
+  vi.mocked(inventoryApi.listExpiringBatches).mockResolvedValue([])
+  vi.mocked(inventoryApi.listDiscards).mockResolvedValue({ discards: [], total: 0 })
 })
 
 describe('Inventory page', () => {
@@ -629,39 +634,47 @@ describe('Expired batch review queue', () => {
     const badge = await screen.findByRole('button', { name: /Expired batches \(1\)/ })
     await userEvent.click(badge)
 
-    expect(await screen.findByText('Expired Batches')).toBeInTheDocument()
+    expect(await screen.findByText('Expiry & Discards')).toBeInTheDocument()
     expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
     expect(screen.getByText('LOT-2')).toBeInTheDocument()
   })
 
-  it('Write off confirms, calls the API, and removes the batch from the queue', async () => {
+  it('Discard opens a modal, Confirm calls the API, and removes the batch from the queue', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches)
       .mockResolvedValueOnce([expiredBatch])
       .mockResolvedValue([])
-    vi.mocked(inventoryApi.writeOffExpiredBatch).mockResolvedValue(null)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
+      id: 'discard-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-2',
+      movement_id: 'move-1', quantity: 4, reason: 'expired', discarded_by: '',
+      discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
+    })
 
     render(<Inventory />)
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Write off' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await userEvent.type(screen.getByLabelText('Reason'), 'expired')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
-    await waitFor(() => expect(inventoryApi.writeOffExpiredBatch).toHaveBeenCalledWith('test-token', 'batch-2'))
+    await waitFor(() => expect(inventoryApi.discardBatch).toHaveBeenCalledWith('test-token', 'sku-1', {
+      warehouse_id: 'wh-1', batch_id: 'batch-2', quantity: 4, reason: 'expired', photo: undefined,
+    }))
     expect(await screen.findByText('No expired batches pending review.')).toBeInTheDocument()
   })
 
-  it('Write off does nothing if the confirm dialog is cancelled', async () => {
+  it('Discard modal Cancel closes without calling the API', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     render(<Inventory />)
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Write off' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    expect(inventoryApi.writeOffExpiredBatch).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument()
+    expect(inventoryApi.discardBatch).not.toHaveBeenCalled()
   })
 
   it('Extend opens a date field, Confirm calls the API with the chosen date', async () => {
@@ -698,16 +711,16 @@ describe('Expired batch review queue', () => {
     expect(confirmSpy).not.toHaveBeenCalled()
   })
 
-  it('shows an error if write-off fails', async () => {
+  it('shows an error if discard fails', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
-    vi.mocked(inventoryApi.writeOffExpiredBatch).mockRejectedValue(new Error('insufficient stock'))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(inventoryApi.discardBatch).mockRejectedValue(new Error('insufficient stock'))
 
     render(<Inventory />)
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
     await screen.findByText('LOT-2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Write off' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     expect(await screen.findByText('insufficient stock')).toBeInTheDocument()
   })
@@ -717,10 +730,58 @@ describe('Expired batch review queue', () => {
 
     render(<Inventory />)
     await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
-    await screen.findByText('Expired Batches')
+    await screen.findByText('Expiry & Discards')
 
     await userEvent.click(screen.getByRole('button', { name: /Inventory/ }))
 
     expect(await screen.findByText('Widget')).toBeInTheDocument()
+  })
+
+  it('Expiring soon tab lists batches not yet expired and can discard one', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
+    vi.mocked(inventoryApi.listExpiringBatches).mockResolvedValue([{
+      batch_id: 'batch-3', sku_id: 'sku-2', sku_code: 'GADGET-1', product_name: 'Gadget',
+      warehouse_id: 'wh-1', warehouse_name: 'Main DC', lot_number: 'LOT-3',
+      expiry_date: '2026-09-01T00:00:00Z', quantity: 7,
+    }])
+    vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
+      id: 'discard-2', tenant_id: 't1', sku_id: 'sku-2', warehouse_id: 'wh-1', batch_id: 'batch-3',
+      movement_id: 'move-2', quantity: 7, reason: '', discarded_by: '',
+      discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
+    })
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Expiring soon' }))
+
+    expect(await screen.findByText('GADGET-1')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(inventoryApi.discardBatch).toHaveBeenCalledWith('test-token', 'sku-2', {
+      warehouse_id: 'wh-1', batch_id: 'batch-3', quantity: 7, reason: '', photo: undefined,
+    }))
+  })
+
+  it('Discarded tab shows the report, including a photo thumbnail when present', async () => {
+    vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
+    vi.mocked(inventoryApi.listDiscards).mockResolvedValue({
+      discards: [{
+        id: 'discard-1', tenant_id: 't1', sku_id: 'sku-2', sku_code: 'GADGET-1', product_name: 'Gadget',
+        warehouse_id: 'wh-1', warehouse_name: 'Main DC', batch_id: 'batch-3', lot_number: 'LOT-3',
+        movement_id: 'move-1', quantity: 3, reason: 'expired', photo_url: 'https://example.com/photo.jpg',
+        discarded_by: 'user-1', discarded_at: '2026-08-15T00:00:00Z', created_at: '2026-08-15T00:00:00Z',
+      }],
+      total: 1,
+    })
+
+    render(<Inventory />)
+    await userEvent.click(await screen.findByRole('button', { name: /Expired batches \(1\)/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Discarded' }))
+
+    expect(await screen.findByText('GADGET-1')).toBeInTheDocument()
+    expect(screen.getByText('Gadget')).toBeInTheDocument()
+    expect(screen.getByText('expired')).toBeInTheDocument()
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'https://example.com/photo.jpg')
   })
 })

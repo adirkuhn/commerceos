@@ -5,6 +5,7 @@ import type {
   RecordStockMovementInput, RecordRecountInput, TransferStockInput, TransferStockResult, MarkDamagedOrLostInput,
   ExpiringBatch, ReceiveStockInput, ReceiveStockResult, SplitCaseIntoUnitsInput, SplitCaseIntoUnitsResult,
   PortionFromBulkInput, PortionFromBulkResult, ExpiredBatchReview, ExtendBatchExpiryInput,
+  DiscardBatchInput, DiscardRecord, DiscardRecordReport, ListDiscardsParams, ListDiscardsResult,
 } from './types'
 
 function base(): string {
@@ -138,4 +139,50 @@ export function extendBatchExpiry(token: string, batchId: string, input: ExtendB
 
 export function dismissExpiredBatch(token: string, batchId: string): Promise<null> {
   return request<null>(`${base()}/batches/${batchId}/dismiss`, { method: 'POST' }, token)
+}
+
+// ── Discard (expiry write-off with an optional photo) ───────────────────────
+
+// Deliberately doesn't go through request(): that helper always sets
+// Content-Type: application/json, which would break multipart/form-data --
+// the browser must set that header itself (it includes the boundary). Same
+// reasoning as pms/api.ts's uploadProductMedia.
+export async function discardBatch(token: string, skuId: string, input: DiscardBatchInput): Promise<DiscardRecord> {
+  const form = new FormData()
+  form.append('warehouse_id', input.warehouse_id)
+  if (input.batch_id) form.append('batch_id', input.batch_id)
+  form.append('quantity', String(input.quantity))
+  if (input.reason) form.append('reason', input.reason)
+  if (input.photo) form.append('photo', input.photo)
+
+  const res = await fetch(`${base()}/skus/${skuId}/discard`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  })
+  const body: APIResponse<DiscardRecord> = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return body.data as DiscardRecord
+}
+
+export async function listDiscards(token: string, params: ListDiscardsParams = {}): Promise<ListDiscardsResult> {
+  const qs = new URLSearchParams()
+  if (params.warehouseId) qs.set('warehouse_id', params.warehouseId)
+  if (params.skuId) qs.set('sku_id', params.skuId)
+  if (params.from) qs.set('from', params.from)
+  if (params.to) qs.set('to', params.to)
+  if (params.limit) qs.set('limit', String(params.limit))
+  if (params.offset) qs.set('offset', String(params.offset))
+  const query = qs.toString()
+
+  const res = await fetch(`${base()}/discards${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<DiscardRecordReport[]> & { total?: number } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { discards: body.data ?? [], total: body.total ?? 0 }
 }

@@ -191,6 +191,51 @@ export interface ExtendBatchExpiryInput {
   new_expiry_date: string
 }
 
+export interface DiscardBatchInput {
+  warehouse_id: string
+  // Omit for a general-ledger (un-lotted) discard.
+  batch_id?: string
+  quantity: number
+  reason?: string
+  photo?: File
+}
+
+export interface DiscardRecord {
+  id: string
+  tenant_id: string
+  sku_id: string
+  warehouse_id: string
+  batch_id?: string | null
+  movement_id: string
+  quantity: number
+  reason: string
+  photo_url?: string | null
+  discarded_by: string
+  discarded_at: string
+  created_at: string
+}
+
+export interface DiscardRecordReport extends DiscardRecord {
+  sku_code: string
+  product_name: string
+  warehouse_name: string
+  lot_number: string
+}
+
+export interface ListDiscardsParams {
+  warehouseId?: string
+  skuId?: string
+  from?: string
+  to?: string
+  limit?: number
+  offset?: number
+}
+
+export interface ListDiscardsResult {
+  discards: DiscardRecordReport[]
+  total: number
+}
+
 export interface APIError {
   code: string
   message: string

@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import {
   Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
-  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes, Scale,
+  Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes, Scale, Image as ImageIcon,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -11,10 +11,13 @@ import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
 import { useExpiredBatchReview } from '../inventory/hooks/useExpiredBatchReview'
+import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
+import { useDiscards } from '../inventory/hooks/useDiscards'
+import { useDiscardBatch } from '../inventory/hooks/useDiscardBatch'
 import * as pmsApi from '../pms/api'
 import * as inventoryApi from '../inventory/api'
 import type { SKU } from '../pms/types'
-import type { Batch, MovementType, StockMovement } from '../inventory/types'
+import type { Batch, MovementType, StockMovement, ExpiringBatch, ExpiredBatchReview } from '../inventory/types'
 
 const PAGE_SIZE = 20
 
@@ -1319,13 +1322,99 @@ function BatchMovementHistoryPage({ token, sku, batch, warehouses, onClose }: {
   )
 }
 
-function ExpiredBatchReviewPage({ onClose, batches, loading, error, writeOff, extend, dismiss }: {
+// A single discard target, whichever tab it was opened from -- carries
+// everything DiscardBatchInput needs plus enough to refresh the right
+// list(s) afterwards.
+interface DiscardTarget {
+  skuId: string
+  warehouseId: string
+  batchId?: string
+  quantity: number
+  label: string
+  source: 'expired' | 'expiring'
+}
+
+function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
+  target: DiscardTarget
+  submitting: boolean
+  error: string
+  onCancel: () => void
+  onConfirm: (reason: string, photo?: File) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [photo, setPhoto] = useState<File | undefined>(undefined)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-sm rounded-2xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Discard {target.label}</h2>
+            <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+              Records a Lost movement for {target.quantity} unit{target.quantity === 1 ? '' : 's'} — cannot be undone.
+            </p>
+          </div>
+          <button onClick={onCancel} title="Close" className="shrink-0 dark:text-gray-500 text-gray-400 hover:dark:text-gray-300">
+            <X size={16} />
+          </button>
+        </div>
+        {error && <p className="text-xs text-red-400">{error}</p>}
+        <div>
+          <label htmlFor="discard-reason" className="block text-xs dark:text-gray-400 text-gray-500 mb-1.5">Reason</label>
+          <input
+            id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
+            className="w-full px-3 py-2 text-sm rounded-lg dark:bg-[#1F2937] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs dark:text-gray-400 text-gray-500 mb-1.5">Photo (optional)</label>
+          <label className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 cursor-pointer">
+            <ImageIcon size={14} />
+            <span className="truncate">{photo ? photo.name : 'Choose a photo'}</span>
+            <input
+              type="file" accept="image/*" className="hidden"
+              onChange={e => setPhoto(e.target.files?.[0] ?? undefined)}
+            />
+          </label>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-300 text-gray-600 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(reason, photo)}
+            disabled={submitting}
+            className="flex-1 py-2 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+          >
+            {submitting ? 'Discarding…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+type ExpiryTab = 'expired' | 'expiring' | 'discarded'
+
+function ExpiryDiscardPage({
+  onClose, expiredReview, expiringBatches, discardsReport, discardHook,
+}: {
   onClose: () => void
-} & ReturnType<typeof useExpiredBatchReview>) {
+  expiredReview: ReturnType<typeof useExpiredBatchReview>
+  expiringBatches: ReturnType<typeof useExpiringBatches>
+  discardsReport: ReturnType<typeof useDiscards>
+  discardHook: ReturnType<typeof useDiscardBatch>
+}) {
+  const { batches, loading, error, extend, dismiss } = expiredReview
+  const [tab, setTab] = useState<ExpiryTab>('expired')
   const [rowError, setRowError] = useState('')
   const [extendingBatchId, setExtendingBatchId] = useState<string | null>(null)
   const [newExpiryDate, setNewExpiryDate] = useState('')
   const [actingBatchId, setActingBatchId] = useState<string | null>(null)
+  const [discardTarget, setDiscardTarget] = useState<DiscardTarget | null>(null)
 
   const openExtend = (batchId: string) => {
     setRowError('')
@@ -1333,16 +1422,26 @@ function ExpiredBatchReviewPage({ onClose, batches, loading, error, writeOff, ex
     setExtendingBatchId(batchId)
   }
 
-  const handleWriteOff = async (batchId: string, skuCode: string) => {
-    if (!window.confirm(`Write off remaining stock for ${skuCode}? This records a Lost movement and cannot be undone.`)) return
-    setRowError('')
-    setActingBatchId(batchId)
+  function openDiscard(source: 'expired' | 'expiring', row: ExpiredBatchReview | ExpiringBatch) {
+    setDiscardTarget({
+      skuId: row.sku_id, warehouseId: row.warehouse_id, batchId: row.batch_id, quantity: row.quantity,
+      label: `${row.product_name} (${row.sku_code})`, source,
+    })
+  }
+
+  async function handleConfirmDiscard(reason: string, photo?: File) {
+    if (!discardTarget) return
     try {
-      await writeOff(batchId)
-    } catch (err) {
-      setRowError(err instanceof Error ? err.message : 'Failed to write off batch')
-    } finally {
-      setActingBatchId(null)
+      await discardHook.discard(discardTarget.skuId, {
+        warehouse_id: discardTarget.warehouseId, batch_id: discardTarget.batchId,
+        quantity: discardTarget.quantity, reason, photo,
+      })
+      setDiscardTarget(null)
+      if (discardTarget.source === 'expired') expiredReview.refresh()
+      else expiringBatches.refresh()
+      discardsReport.refresh()
+    } catch {
+      // discardHook.error already holds the message; modal stays open.
     }
   }
 
@@ -1372,6 +1471,12 @@ function ExpiredBatchReviewPage({ onClose, batches, loading, error, writeOff, ex
     }
   }
 
+  const TABS: { id: ExpiryTab; label: string }[] = [
+    { id: 'expired', label: `Expired${batches.length ? ` (${batches.length})` : ''}` },
+    { id: 'expiring', label: 'Expiring soon' },
+    { id: 'discarded', label: 'Discarded' },
+  ]
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
@@ -1382,91 +1487,213 @@ function ExpiredBatchReviewPage({ onClose, batches, loading, error, writeOff, ex
           >
             <ArrowLeft size={11} /> Inventory
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Expired Batches</h1>
-          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Batches pending review — write off, extend, or dismiss</p>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">Expiry & Discards</h1>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Review expired/expiring stock, discard it, and see what's already been thrown away</p>
         </div>
       </div>
 
+      <div className="flex gap-2 px-6 pt-4 shrink-0">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={clsx(
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              tab === t.id
+                ? 'bg-blue-600 text-white'
+                : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-auto">
-        {(error || rowError) && <p className="px-6 py-4 text-xs text-red-400">{error || rowError}</p>}
-        {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
-        {!error && !loading && batches.length === 0 && (
-          <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No expired batches pending review.</p>
+        {/* discardHook.error is deliberately not shown here -- the modal (still open on failure) already surfaces it inline. */}
+        {(error || rowError) && (
+          <p className="px-6 py-4 text-xs text-red-400">{error || rowError}</p>
         )}
-        {batches.length > 0 && (
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
-              <tr>
-                {['SKU', 'Product', 'Warehouse', 'Lot', 'Expired', 'Qty', ''].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
-              {batches.map(b => (
-                <tr key={b.batch_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{b.sku_code}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{b.product_name}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.warehouse_name}</td>
-                  <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.lot_number || '—'}</td>
-                  <td className="px-4 py-2.5 text-red-400">{formatDate(b.expiry_date)}</td>
-                  <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{b.quantity}</td>
-                  <td className="px-4 py-2.5">
-                    {extendingBatchId === b.batch_id ? (
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="date"
-                          aria-label="New expiry date"
-                          value={newExpiryDate}
-                          onChange={e => setNewExpiryDate(e.target.value)}
-                          className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
-                        />
+
+        {tab === 'expired' && (
+          <>
+            {!error && loading && batches.length === 0 && <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+            {!error && !loading && batches.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">No expired batches pending review.</p>
+            )}
+            {batches.length > 0 && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                  <tr>
+                    {['SKU', 'Product', 'Warehouse', 'Lot', 'Expired', 'Qty', ''].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                  {batches.map(b => (
+                    <tr key={b.batch_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{b.sku_code}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{b.product_name}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.warehouse_name}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.lot_number || '—'}</td>
+                      <td className="px-4 py-2.5 text-red-400">{formatDate(b.expiry_date)}</td>
+                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{b.quantity}</td>
+                      <td className="px-4 py-2.5">
+                        {extendingBatchId === b.batch_id ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="date"
+                              aria-label="New expiry date"
+                              value={newExpiryDate}
+                              onChange={e => setNewExpiryDate(e.target.value)}
+                              className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={() => handleConfirmExtend(b.batch_id)}
+                              disabled={!newExpiryDate || actingBatchId === b.batch_id}
+                              className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setExtendingBatchId(null)}
+                              className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => openDiscard('expired', b)}
+                              disabled={actingBatchId === b.batch_id}
+                              className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
+                            >
+                              Discard
+                            </button>
+                            <button
+                              onClick={() => openExtend(b.batch_id)}
+                              disabled={actingBatchId === b.batch_id}
+                              className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
+                            >
+                              Extend
+                            </button>
+                            <button
+                              onClick={() => handleDismiss(b.batch_id)}
+                              disabled={actingBatchId === b.batch_id}
+                              className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {tab === 'expiring' && (
+          <>
+            {!expiringBatches.error && expiringBatches.loading && expiringBatches.batches.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+            )}
+            {!expiringBatches.error && !expiringBatches.loading && expiringBatches.batches.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing expiring soon.</p>
+            )}
+            {expiringBatches.batches.length > 0 && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                  <tr>
+                    {['SKU', 'Product', 'Warehouse', 'Lot', 'Expires', 'Qty', ''].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                  {expiringBatches.batches.map(b => (
+                    <tr key={b.batch_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{b.sku_code}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{b.product_name}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.warehouse_name}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{b.lot_number || '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-300 text-gray-700">{formatDate(b.expiry_date)}</td>
+                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{b.quantity}</td>
+                      <td className="px-4 py-2.5">
                         <button
-                          onClick={() => handleConfirmExtend(b.batch_id)}
-                          disabled={!newExpiryDate || actingBatchId === b.batch_id}
-                          className="px-2 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50"
+                          onClick={() => openDiscard('expiring', b)}
+                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100"
                         >
-                          Confirm
+                          Discard
                         </button>
-                        <button
-                          onClick={() => setExtendingBatchId(null)}
-                          className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleWriteOff(b.batch_id, b.sku_code)}
-                          disabled={actingBatchId === b.batch_id}
-                          className="px-2 py-1 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 disabled:opacity-50"
-                        >
-                          Write off
-                        </button>
-                        <button
-                          onClick={() => openExtend(b.batch_id)}
-                          disabled={actingBatchId === b.batch_id}
-                          className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
-                        >
-                          Extend
-                        </button>
-                        <button
-                          onClick={() => handleDismiss(b.batch_id)}
-                          disabled={actingBatchId === b.batch_id}
-                          className="px-2 py-1 rounded-lg dark:bg-[#111827] bg-gray-100 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {tab === 'discarded' && (
+          <>
+            {!discardsReport.error && discardsReport.loading && discardsReport.discards.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+            )}
+            {!discardsReport.error && !discardsReport.loading && discardsReport.discards.length === 0 && (
+              <p className="px-6 py-4 text-xs dark:text-gray-500 text-gray-400">Nothing discarded yet.</p>
+            )}
+            {discardsReport.discards.length > 0 && (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
+                  <tr>
+                    {['Photo', 'SKU', 'Product', 'Warehouse', 'Lot', 'Qty', 'Reason', 'By', 'Discarded'].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                  {discardsReport.discards.map(d => (
+                    <tr key={d.id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5">
+                        {d.photo_url ? (
+                          <img src={d.photo_url} alt={`${d.product_name} discard photo`} className="w-8 h-8 rounded object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded dark:bg-[#1F2937] bg-gray-100 flex items-center justify-center">
+                            <ImageIcon size={12} className="dark:text-gray-600 text-gray-300" />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{d.sku_code}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{d.product_name}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.warehouse_name}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.lot_number || '—'}</td>
+                      <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{d.quantity}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.reason || '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.discarded_by || '—'}</td>
+                      <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{formatDate(d.discarded_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </div>
+
+      {discardTarget && (
+        <DiscardModal
+          target={discardTarget}
+          submitting={discardHook.discarding}
+          error={discardHook.error ?? ''}
+          onCancel={() => setDiscardTarget(null)}
+          onConfirm={handleConfirmDiscard}
+        />
+      )}
     </div>
   )
 }
@@ -1485,6 +1712,9 @@ export default function Inventory() {
   const [historyProduct, setHistoryProduct] = useState<{ name: string; skus: SKU[] } | null>(null)
   const [showExpiredReview, setShowExpiredReview] = useState(false)
   const expiredReview = useExpiredBatchReview(token ?? '')
+  const expiringBatches = useExpiringBatches(token ?? '')
+  const discardsReport = useDiscards(token ?? '')
+  const discardHook = useDiscardBatch(token ?? '')
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -1540,7 +1770,15 @@ export default function Inventory() {
   }
 
   if (showExpiredReview) {
-    return <ExpiredBatchReviewPage onClose={() => setShowExpiredReview(false)} {...expiredReview} />
+    return (
+      <ExpiryDiscardPage
+        onClose={() => setShowExpiredReview(false)}
+        expiredReview={expiredReview}
+        expiringBatches={expiringBatches}
+        discardsReport={discardsReport}
+        discardHook={discardHook}
+      />
+    )
   }
 
   return (
