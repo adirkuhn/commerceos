@@ -380,6 +380,47 @@ describe('InventoryApp SKU screen', () => {
     })))
   })
 
+  it('Move quantity is capped at the row\'s available stock, and Max fills it in one tap', async () => {
+    await resolveAndEnterSKU(sku(), [batch({ quantity: 10 })]) // LOT-1, qty 10
+
+    await userEvent.click(screen.getByText('LOT-1'))
+    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
+    await userEvent.type(screen.getByLabelText('Quantity to move'), '25')
+
+    expect(screen.getByLabelText('Quantity to move')).toHaveValue('10')
+
+    await userEvent.clear(screen.getByLabelText('Quantity to move'))
+    await userEvent.click(screen.getByRole('button', { name: 'Max' }))
+
+    expect(screen.getByLabelText('Quantity to move')).toHaveValue('10')
+  })
+
+  it('Move quantity cannot be decremented below 0', async () => {
+    await resolveAndEnterSKU(sku(), [batch({ quantity: 10 })])
+
+    await userEvent.click(screen.getByText('LOT-1'))
+    await userEvent.click(screen.getByRole('button', { name: /Move/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Decrease Quantity to move' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Decrease Quantity to move' }))
+
+    expect(screen.getByLabelText('Quantity to move')).toHaveValue('0')
+  })
+
+  it('Damaged/Lost quantity is capped at the row\'s available stock, and Max fills it in one tap', async () => {
+    await resolveAndEnterSKU(sku(), [generalLedgerRow({ quantity: 20 })])
+
+    await userEvent.click(screen.getByText('General ledger'))
+    await userEvent.click(screen.getByRole('button', { name: /Damaged.*Lost/ }))
+    await userEvent.type(screen.getByLabelText('Quantity'), '99')
+
+    expect(screen.getByLabelText('Quantity')).toHaveValue('20')
+
+    await userEvent.clear(screen.getByLabelText('Quantity'))
+    await userEvent.click(screen.getByRole('button', { name: 'Max' }))
+
+    expect(screen.getByLabelText('Quantity')).toHaveValue('20')
+  })
+
   it('Price edits the SKU price, round-tripping every other field so nothing gets silently wiped', async () => {
     const mySKU = sku({
       barcode: '012345', price_minor_units: 1999, currency_code: 'USD',

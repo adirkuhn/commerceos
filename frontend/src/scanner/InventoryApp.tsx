@@ -426,23 +426,44 @@ const ROW_ACTION_TABS: { id: RowActionMode; label: string; icon: typeof Plus; he
 
 const NEW_BATCH = 'new'
 
-function QuantityStepper({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (v: string) => void }) {
+// min/max are only passed for a quantity that draws down a specific row's
+// available stock (Move, Damaged/Lost) -- both the stepper buttons and free
+// typing get clamped into range there, plus a Max button to fill it in one
+// tap. Left undefined (Adjust's quantity-change field) the stepper is
+// unbounded either direction, since a recount correction can go either way.
+function QuantityStepper({ id, label, value, onChange, min, max }: { id: string; label: string; value: string; onChange: (v: string) => void; min?: number; max?: number }) {
   const n = Number(value) || 0
+  function clamp(v: number): number {
+    let out = v
+    if (min !== undefined) out = Math.max(min, out)
+    if (max !== undefined) out = Math.min(max, out)
+    return out
+  }
   return (
     <div>
-      <label htmlFor={id} className="block text-xs text-gray-400 mb-1.5">{label}</label>
+      <div className="flex items-center justify-between mb-1.5">
+        <label htmlFor={id} className="block text-xs text-gray-400">{label}</label>
+        {max !== undefined && (
+          <button type="button" onClick={() => onChange(String(clamp(max)))} className="text-xs font-medium text-blue-400">
+            Max
+          </button>
+        )}
+      </div>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => onChange(String(n - 1))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Decrease ${label}`}>
+        <button type="button" onClick={() => onChange(String(clamp(n - 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Decrease ${label}`}>
           <Minus size={14} />
         </button>
         <input
           id={id}
           inputMode="numeric"
           value={value}
-          onChange={e => onChange(e.target.value.replace(/(?!^-)[^\d]/g, ''))}
+          onChange={e => {
+            const digits = e.target.value.replace(/(?!^-)[^\d]/g, '')
+            onChange(digits === '' || digits === '-' ? digits : String(clamp(Number(digits))))
+          }}
           className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <button type="button" onClick={() => onChange(String(n + 1))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Increase ${label}`}>
+        <button type="button" onClick={() => onChange(String(clamp(n + 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Increase ${label}`}>
           <Plus size={14} />
         </button>
       </div>
@@ -506,6 +527,8 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
   const [dlReason, setDlReason] = useState('')
 
   const destinationBatches = batches.filter(b => !b.is_general_ledger && b.id !== row.batchId)
+  const availableQty = batches.find(b =>
+    b.warehouse_id === row.warehouseId && (row.batchId === null ? b.is_general_ledger : b.id === row.batchId))?.quantity ?? 0
 
   function handleConfirm() {
     if (mode === 'adjust') {
@@ -613,7 +636,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
                   </div>
                 </div>
               )}
-              <QuantityStepper id="row-move-qty" label="Quantity to move" value={moveQty} onChange={setMoveQty} />
+              <QuantityStepper id="row-move-qty" label="Quantity to move" value={moveQty} onChange={setMoveQty} min={0} max={availableQty} />
               <div>
                 <label htmlFor="row-move-reason" className="block text-xs text-gray-400 mb-1.5">Reason (optional)</label>
                 <input id="row-move-reason" value={moveReason} onChange={e => setMoveReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
@@ -635,7 +658,7 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
                   </button>
                 ))}
               </div>
-              <QuantityStepper id="row-dl-qty" label="Quantity" value={dlQty} onChange={setDlQty} />
+              <QuantityStepper id="row-dl-qty" label="Quantity" value={dlQty} onChange={setDlQty} min={0} max={availableQty} />
               <div>
                 <label htmlFor="row-dl-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
                 <input id="row-dl-reason" value={dlReason} onChange={e => setDlReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />

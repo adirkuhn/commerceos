@@ -38,39 +38,42 @@ export function ScanCodeScreen({
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center">
-        <Icon size={28} className="text-blue-400" />
-      </div>
-      <p className="text-sm text-gray-400">{prompt}</p>
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-3">
-        <input
-          autoFocus
-          value={code}
-          onChange={e => setCode(e.target.value)}
-          placeholder={placeholder}
-          className="w-full px-4 py-4 text-center text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading || code.trim().length === 0}
-          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? loadingLabel : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={() => setCameraOpen(true)}
-          className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
-        >
-          <Camera size={13} /> Use camera
-        </button>
-      </form>
-
+    <div className="flex-1 flex flex-col p-6 text-center overflow-y-auto">
       {cameraOpen && (
-        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" variant="inline" />
+        <div className="w-full shrink-0 mb-4">
+          <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" variant="inline" />
+        </div>
       )}
+      <div className="flex-1 flex flex-col items-center justify-center gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-blue-600/20 flex items-center justify-center">
+          <Icon size={28} className="text-blue-400" />
+        </div>
+        <p className="text-sm text-gray-400">{prompt}</p>
+        <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-3">
+          <input
+            autoFocus
+            value={code}
+            onChange={e => setCode(e.target.value)}
+            placeholder={placeholder}
+            className="w-full px-4 py-4 text-center text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading || code.trim().length === 0}
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? loadingLabel : submitLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCameraOpen(true)}
+            className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
+          >
+            <Camera size={13} /> Use camera
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

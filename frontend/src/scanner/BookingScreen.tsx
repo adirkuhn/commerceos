@@ -294,6 +294,12 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
         </div>
       )}
 
+      {cameraOpen && (
+        <div className="px-4 pt-3 shrink-0">
+          <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" variant="inline" />
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
         {detail?.line_items.map(li => {
@@ -380,10 +386,6 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           {scanning ? 'Saving…' : 'Add'}
         </button>
       </form>
-
-      {cameraOpen && (
-        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" variant="inline" />
-      )}
 
       {bookingLine && (
         <BookLineSheet
