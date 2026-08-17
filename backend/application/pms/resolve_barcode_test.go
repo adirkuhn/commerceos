@@ -77,6 +77,21 @@ func TestResolveBarcode_fallsBackToSKUCodeWhenNeitherBarcodeNorAliasMatches(t *t
 	assert.Equal(t, "T-Shirt", result.ProductName)
 }
 
+func TestResolveBarcode_trimsWhitespaceFromTheScannedCode(t *testing.T) {
+	db := newMockGormDB(t)
+	skuRepo := &stubSKURepo{findByBarcodeResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
+	aliasRepo := &stubBarcodeAliasRepoForResolve{}
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", Name: "T-Shirt"}}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+
+	result, err := uc.Execute(context.Background(), " 012345\n")
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.SKU.ID)
+	assert.Equal(t, "012345", skuRepo.gotBarcode, "a scanner-emitted or manually-typed code can carry stray whitespace -- the exact-match lookup must not silently fail on it")
+}
+
 func TestResolveBarcode_returnsSKUNotFoundWhenNothingMatches(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{}

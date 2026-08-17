@@ -244,6 +244,69 @@ func TestProductRepo_Integration_SearchIsTypoTolerant(t *testing.T) {
 	require.Empty(t, noMatch)
 }
 
+// TestProductRepo_Integration_SearchRanksBarcodeMatchAboveUnrelatedNameFuzzyMatch
+// proves the "barcode first" priority: a product whose barcode/sku_code
+// exactly matches the search term must outrank a product that only matches
+// by name-similarity (pg_trgm), even when the name-similarity hit scores
+// higher raw similarity (a name literally containing the search term as a
+// substring scores very high). Without this ranking, a real barcode scan
+// can get pushed past a small Limit by irrelevant fuzzy name noise -- see
+// 077_pg_trgm_extension.sql's ORDER BY, which ranked by name similarity
+// alone.
+func TestProductRepo_Integration_SearchRanksBarcodeMatchAboveUnrelatedNameFuzzyMatch(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	const code = "SUPERCODE123"
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		// Matches by barcode only -- name is completely unrelated to the
+		// search term, so its name-similarity score is near zero.
+		barcodeMatch := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Random Gadget", Slug: "random-gadget-barcode-first",
+			Status: pmsDomain.ProductStatusActive, HasVariants: true, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, barcodeMatch); err != nil {
+			return err
+		}
+		v1 := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: barcodeMatch.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, v1); err != nil {
+			return err
+		}
+		if err := skuRepo.Create(ctx, &pmsDomain.SKU{
+			TenantID: tenant.IDFromContext(ctx), VariantID: v1.ID, SKUCode: "RG-1", Barcode: code,
+			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
+		}); err != nil {
+			return err
+		}
+
+		// Matches by name only -- the name contains the search term
+		// verbatim, so it scores a very high (likely higher) similarity,
+		// but has nothing to do with the actual barcode being searched.
+		nameMatch := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: code + " Deluxe Edition", Slug: "deluxe-edition-barcode-first",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		return productRepo.Create(ctx, nameMatch)
+	})
+	require.NoError(t, err)
+
+	var products []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		search := code
+		products, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Search: &search, Limit: 1})
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Len(t, products, 1)
+	require.Equal(t, "Random Gadget", products[0].Name, "the barcode-matching product must rank first (and survive Limit:1) even though the other product's name scores higher fuzzy similarity")
+}
+
 // TestProductRepo_Integration_SyncVariantsAsWooVariationsRoundTrips proves
 // migration 046's products.sync_variants_as_woo_variations column exists,
 // defaults to false, and survives a real round trip through GORM's

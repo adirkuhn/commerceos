@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -56,6 +57,10 @@ func NewResolveBarcodeUseCase(db *gorm.DB, skuRepo pmsDomain.SKURepository, barc
 }
 
 func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*ResolveBarcodeResult, error) {
+	// Defensive trim even though the scanner apps already trim client-side
+	// -- a direct API caller or a scanner that emits a trailing CR/LF
+	// shouldn't silently miss an exact-match lookup over stray whitespace.
+	code = strings.TrimSpace(code)
 	var result ResolveBarcodeResult
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		sku, err := uc.skuRepo.FindByBarcode(ctx, code)

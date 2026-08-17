@@ -3,6 +3,7 @@ package pms
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -50,6 +51,8 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 	if in.UnitType == "" {
 		in.UnitType = pmsDomain.SKUUnitTypeUnit
 	}
+	// See CreateSKUUseCase's identical trim for why.
+	in.Barcode = strings.TrimSpace(in.Barcode)
 	if err := validateVirtualDimensions(in.IsVirtual, in.WeightGrams, in.LengthMM, in.WidthMM, in.HeightMM); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}

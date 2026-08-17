@@ -196,6 +196,40 @@ func TestScanBookingItem_rejectsWhenBookingNotActive(t *testing.T) {
 	assert.ErrorIs(t, err, procurementDomain.ErrBookingNotActive)
 }
 
+func TestScanBookingItem_fallsBackToSKUCodeWhenNeitherBarcodeNorAliasMatches(t *testing.T) {
+	db := newMockGormDB(t)
+	bookingRepo, poRepo := activeBookingFixtures()
+	scanRepo := &stubBookingScanRepo{}
+	// No barcode, no alias -- only a direct SKU.SKUCode match, same
+	// fallback pms.ResolveBarcodeUseCase already has.
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"TSHIRT-1": {ID: "sku-1"}}}
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{})
+
+	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
+		BookingID: "booking-1", Code: "TSHIRT-1", Quantity: 3, ScannedBy: "user-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.Scan.SKUID)
+	assert.Equal(t, int64(3), result.Scan.Quantity)
+}
+
+func TestScanBookingItem_trimsWhitespaceFromTheScannedCode(t *testing.T) {
+	db := newMockGormDB(t)
+	bookingRepo, poRepo := activeBookingFixtures()
+	scanRepo := &stubBookingScanRepo{}
+	skuRepo := &stubSKURepo{byBarcode: map[string]*pmsDomain.SKU{"BARCODE-1": {ID: "sku-1"}}}
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, skuRepo, &stubBarcodeAliasRepo{})
+
+	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
+		BookingID: "booking-1", Code: " BARCODE-1\n", Quantity: 1, ScannedBy: "user-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, scanRepo.created, 1)
+	assert.Equal(t, "sku-1", scanRepo.created[0].SKUID)
+}
+
 func TestScanBookingItem_returnsSKUNotFoundWhenNeitherBarcodeNorAliasMatch(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()

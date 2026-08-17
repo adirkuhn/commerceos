@@ -297,6 +297,20 @@ func TestUpdateSKU_canClearPortionedFromRelationshipBackToNil(t *testing.T) {
 	require.Nil(t, sku.PortionedFromSKUID)
 }
 
+func TestUpdateSKU_trimsWhitespaceFromBarcode(t *testing.T) {
+	skuRepo := &stubSKURepo{}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", Barcode: " 0123456789012\t", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "0123456789012", sku.Barcode)
+}
+
 func TestUpdateSKU_persistsTracksExpiry(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	variantRepo := &stubVariantRepo{}

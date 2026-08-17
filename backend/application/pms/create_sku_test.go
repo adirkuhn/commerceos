@@ -314,6 +314,20 @@ func TestCreateSKU_persistsTracksExpiry(t *testing.T) {
 	require.True(t, sku.TracksExpiry)
 }
 
+func TestCreateSKU_trimsWhitespaceFromBarcode(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", Barcode: "  0123456789012 \n", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "0123456789012", skuRepo.created.Barcode, "a scanner/copy-paste can leave stray whitespace around an otherwise-correct barcode -- must not silently break exact-match lookup")
+}
+
 func TestCreateSKU_rejectsInvalidUnitType(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}

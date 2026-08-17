@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -16,8 +17,10 @@ import (
 type ScanBookingItemInput struct {
 	BookingID string
 	// Code is the raw scanned text -- tried first as a unit barcode
-	// (SKU.Barcode), then as a case/box BarcodeAlias.Code. Mutually
-	// exclusive with SKUID -- exactly one must be set.
+	// (SKU.Barcode), then as a case/box BarcodeAlias.Code, then as a
+	// directly-typed SKU.SKUCode (same fallback order as
+	// pms.ResolveBarcodeUseCase). Mutually exclusive with SKUID -- exactly
+	// one must be set.
 	Code string
 	// SKUID lets a caller book directly against an already-known SKU (e.g.
 	// tapping a booking line item row on the scanner screen) without a
@@ -74,6 +77,10 @@ func NewScanBookingItemUseCase(
 }
 
 func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingItemInput) (*ScanBookingItemResult, error) {
+	// A scanner/manual-entry code can carry stray whitespace -- trim before
+	// the emptiness check below and every lookup that follows, same as
+	// pms.ResolveBarcodeUseCase.
+	in.Code = strings.TrimSpace(in.Code)
 	if in.Quantity <= 0 {
 		return nil, fmt.Errorf("scanBookingItem: %w", invDomain.ErrInvalidQuantity)
 	}
@@ -120,14 +127,22 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 				skuID = sku.ID
 			} else if errors.Is(err, pmsDomain.ErrSKUNotFound) {
 				alias, aerr := uc.barcodeAliasRepo.FindByCode(ctx, in.Code)
-				if aerr != nil {
-					if errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
-						return pmsDomain.ErrSKUNotFound
+				if aerr == nil {
+					skuID = alias.SKUID
+					effectiveQuantity = in.Quantity * alias.UnitsPerScan
+				} else if errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
+					// Same "type a SKU code" fallback pms.ResolveBarcodeUseCase
+					// already has -- Booking's scan resolution was missing it,
+					// even though the input's still called Code (not
+					// BarcodeOrSKUCode) and every scanner prompt promises it.
+					byCode, cerr := uc.skuRepo.FindByCode(ctx, in.Code)
+					if cerr != nil {
+						return cerr
 					}
+					skuID = byCode.ID
+				} else {
 					return aerr
 				}
-				skuID = alias.SKUID
-				effectiveQuantity = in.Quantity * alias.UnitsPerScan
 			} else {
 				return err
 			}

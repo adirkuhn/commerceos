@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -47,6 +48,11 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 	if in.UnitType == "" {
 		in.UnitType = pmsDomain.SKUUnitTypeUnit
 	}
+	// A scanner, copy-paste, or manual entry can leave stray whitespace
+	// around an otherwise-correct barcode -- trim at write time so every
+	// later exact-match lookup (SKURepository.FindByBarcode) actually
+	// works, rather than silently failing to find the SKU.
+	in.Barcode = strings.TrimSpace(in.Barcode)
 	if err := validateVirtualDimensions(in.IsVirtual, in.WeightGrams, in.LengthMM, in.WidthMM, in.HeightMM); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}

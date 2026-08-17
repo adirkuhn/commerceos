@@ -333,6 +333,7 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	if filter.Status != nil {
 		q = q.Where("status = ?", string(*filter.Status))
 	}
+	var pattern string
 	if filter.Search != nil && *filter.Search != "" {
 		// unaccent() so "acai" matches "Açaí", "feijao" matches "Feijão",
 		// etc. — plain ILIKE is case-insensitive but not accent-insensitive.
@@ -343,7 +344,7 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		// neither unaccent() nor fuzzy matching applies there -- exact
 		// ILIKE only. EXISTS rather than a JOIN so a product with several
 		// matching SKUs still comes back exactly once.
-		pattern := "%" + *filter.Search + "%"
+		pattern = "%" + *filter.Search + "%"
 		q = q.Where(
 			"unaccent(name) ILIKE unaccent(?) OR unaccent(slug) ILIKE unaccent(?) OR "+
 				"similarity(immutable_unaccent(name), immutable_unaccent(?)) > ? OR EXISTS ("+
@@ -369,14 +370,22 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	var rows []productModel
 	orderedQuery := q.Order("name asc")
 	if filter.Search != nil && *filter.Search != "" {
-		// Best fuzzy match first when searching -- an exact/substring hit
-		// naturally scores near 1.0 here too, so this one ORDER BY ranks
-		// both the ILIKE and the pg_trgm-fallback results sensibly without
-		// needing a separate tiered CASE. name asc is just the tiebreak.
+		// Barcode is the primary key a scan or a typed code is ever really
+		// about -- a product whose SKU code/barcode actually matches must
+		// outrank one that only fuzzy-matched by name, no matter how high
+		// that name similarity scores (a name containing the search term
+		// verbatim scores very high despite being functionally unrelated to
+		// what was scanned). Tier 0 (barcode/sku_code hit) always sorts
+		// before tier 1 (name-only hit); similarity is only the tiebreak
+		// within a tier.
 		orderedQuery = q.Clauses(clause.OrderBy{
 			Expression: clause.Expr{
-				SQL:  "similarity(immutable_unaccent(name), immutable_unaccent(?)) DESC, name asc",
-				Vars: []interface{}{*filter.Search},
+				SQL: "CASE WHEN EXISTS (" +
+					"SELECT 1 FROM skus s JOIN variants v ON v.id = s.variant_id " +
+					"WHERE v.product_id = products.id AND (s.sku_code ILIKE ? OR s.barcode ILIKE ?)" +
+					") THEN 0 ELSE 1 END, " +
+					"similarity(immutable_unaccent(name), immutable_unaccent(?)) DESC, name asc",
+				Vars: []interface{}{pattern, pattern, *filter.Search},
 			},
 		})
 	}

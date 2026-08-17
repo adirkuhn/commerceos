@@ -39,6 +39,8 @@ type stubSKURepo struct {
 	created             *pmsDomain.SKU
 	createErr           error
 	updated             *pmsDomain.SKU
+	gotCode             string
+	gotBarcode          string
 }
 
 func (s *stubSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -55,13 +57,15 @@ func (s *stubSKURepo) FindByID(_ context.Context, _ string) (*pmsDomain.SKU, err
 	}
 	return s.findByIDResult, s.findByIDErr
 }
-func (s *stubSKURepo) FindByCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU, error) {
+	s.gotCode = code
 	if s.findByCodeResult == nil && s.findByCodeErr == nil {
 		return nil, pmsDomain.ErrSKUNotFound
 	}
 	return s.findByCodeResult, s.findByCodeErr
 }
-func (s *stubSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDomain.SKU, error) {
+	s.gotBarcode = barcode
 	if s.findByBarcodeResult == nil && s.findByBarcodeErr == nil {
 		return nil, pmsDomain.ErrSKUNotFound
 	}
