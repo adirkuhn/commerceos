@@ -3,11 +3,13 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { InventoryApp } from '../InventoryApp'
-import type { SKU } from '../../pms/types'
+import type { SKU, Product, ProductDetail } from '../../pms/types'
 import type { Batch, StockLevel, Warehouse } from '../../inventory/types'
 
 vi.mock('../../pms/api', () => ({
   resolveBarcode: vi.fn(),
+  listProducts: vi.fn(),
+  getProduct: vi.fn(),
   updateSKU: vi.fn(),
 }))
 
@@ -19,6 +21,7 @@ vi.mock('../../inventory/api', () => ({
   transferStock: vi.fn(),
   markDamagedOrLost: vi.fn(),
   createBatch: vi.fn(),
+  deleteBatch: vi.fn(),
 }))
 
 const mockDecodeFromVideoDevice = vi.fn()
@@ -39,6 +42,21 @@ function sku(overrides: Partial<SKU> = {}): SKU {
     price_minor_units: 1999, currency_code: 'USD', is_virtual: false, status: 'active',
     created_at: '', updated_at: '',
     ...overrides,
+  }
+}
+
+function product(overrides: Partial<Product> = {}): Product {
+  return {
+    id: 'product-1', tenant_id: 't1', name: 'Widget', slug: 'widget', description: '',
+    status: 'active', has_variants: false, created_at: '', updated_at: '',
+    ...overrides,
+  } as Product
+}
+
+function productDetail(p: Product, skus: SKU[]): ProductDetail {
+  return {
+    product: p,
+    variants: [{ id: `v-${p.id}`, tenant_id: 't1', product_id: p.id, name: 'Default', position: 0, created_at: '', updated_at: '', skus }],
   }
 }
 
@@ -138,6 +156,59 @@ describe('InventoryApp scan screen', () => {
 
     expect(await screen.findByText('WID-L')).toBeInTheDocument()
     expect(pmsApi.resolveBarcode).toHaveBeenCalledWith(TOKEN, 'WID-L')
+  })
+})
+
+describe('InventoryApp search by name', () => {
+  it('auto-resolves straight to the SKU screen when the name matches exactly one SKU', async () => {
+    const p = product({ id: 'p1', name: 'Widget' })
+    const s = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(productDetail(p, [s]))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
+
+    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
+    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
+
+    expect(pmsApi.listProducts).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ search: 'Widget' }))
+    expect(await screen.findByText('WID-L')).toBeInTheDocument()
+  })
+
+  it('shows a selectable list when the name matches more than one SKU, and resolves on tap', async () => {
+    const p1 = product({ id: 'p1', name: 'Widget' })
+    const p2 = product({ id: 'p2', name: 'Widget Pro' })
+    const s1 = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    const s2 = sku({ id: 'sku-2', sku_code: 'WID-PRO' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p1, p2], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) =>
+      id === 'p1' ? productDetail(p1, [s1]) : productDetail(p2, [s2]))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
+
+    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
+    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
+
+    expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
+    expect(screen.getByText('WID-PRO')).toBeInTheDocument()
+    expect(screen.getByText('WID-L')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Widget Pro'))
+
+    expect(await screen.findByText('WID-PRO')).toBeInTheDocument()
+    expect(screen.getByRole('heading')).toHaveTextContent('Widget Pro')
+  })
+
+  it('shows an error when no product matches the searched name', async () => {
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
+
+    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
+    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Nope{Enter}')
+
+    expect(await screen.findByText('No products found')).toBeInTheDocument()
   })
 })
 
@@ -309,5 +380,79 @@ describe('InventoryApp SKU screen', () => {
 
     expect(await screen.findByText('price update failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+  })
+
+  it('shows a delete icon on real batch rows but not on the general ledger row', async () => {
+    await resolveAndEnterSKU(sku(), [batch(), generalLedgerRow()])
+
+    expect(screen.getByRole('button', { name: 'Delete batch LOT-1' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Delete batch General ledger/ })).not.toBeInTheDocument()
+  })
+
+  it('Delete batch removes a real batch with no movement history, without opening the action sheet', async () => {
+    vi.mocked(inventoryApi.deleteBatch).mockResolvedValue(null)
+    await resolveAndEnterSKU(sku(), [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete batch LOT-1' }))
+
+    await waitFor(() => expect(inventoryApi.deleteBatch).toHaveBeenCalledWith(TOKEN, 'batch-1'))
+    expect(screen.queryByRole('button', { name: /Adjust/ })).not.toBeInTheDocument()
+  })
+
+  it('Delete batch shows an error when the batch has movement history', async () => {
+    vi.mocked(inventoryApi.deleteBatch).mockRejectedValue(new Error('batch has movement history'))
+    await resolveAndEnterSKU(sku(), [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete batch LOT-1' }))
+
+    expect(await screen.findByText('batch has movement history')).toBeInTheDocument()
+  })
+
+  it('+ Add batch creates a new empty batch when no initial quantity is given', async () => {
+    vi.mocked(inventoryApi.createBatch).mockResolvedValue(batch({ id: 'batch-new', lot_number: 'LOT-NEW' }))
+    await resolveAndEnterSKU(sku(), [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add batch' }))
+    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(inventoryApi.createBatch).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      warehouse_id: 'wh-1', lot_number: 'LOT-NEW',
+    })))
+    expect(inventoryApi.recordStockMovement).not.toHaveBeenCalled()
+  })
+
+  it('+ Add batch creates the batch then receives the entered initial quantity into it', async () => {
+    vi.mocked(inventoryApi.createBatch).mockResolvedValue(batch({ id: 'batch-new', lot_number: 'LOT-NEW' }))
+    vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
+      id: 'move-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-new', type: 'receipt',
+      quantity_delta: 15, reason: 'first delivery', occurred_at: '', created_at: '',
+    })
+    await resolveAndEnterSKU(sku(), [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add batch' }))
+    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.type(screen.getByLabelText('Initial quantity'), '15')
+    await userEvent.type(screen.getByLabelText('Reason'), 'first delivery')
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => expect(inventoryApi.createBatch).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      warehouse_id: 'wh-1', lot_number: 'LOT-NEW',
+    })))
+    await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith(TOKEN, 'sku-1', expect.objectContaining({
+      warehouse_id: 'wh-1', batch_id: 'batch-new', type: 'receipt', quantity_delta: 15, reason: 'first delivery',
+    })))
+  })
+
+  it('+ Add batch shows an error and keeps the sheet open on failure', async () => {
+    vi.mocked(inventoryApi.createBatch).mockRejectedValue(new Error('lot number already exists'))
+    await resolveAndEnterSKU(sku(), [batch()])
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add batch' }))
+    await userEvent.type(screen.getByLabelText('Lot number'), 'LOT-NEW')
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    expect(await screen.findByText('lot number already exists')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument()
   })
 })

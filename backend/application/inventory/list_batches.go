@@ -10,13 +10,14 @@ import (
 )
 
 type ListBatchesUseCase struct {
-	db           *gorm.DB
-	batchRepo    invDomain.BatchRepository
-	movementRepo invDomain.StockMovementRepository
+	db            *gorm.DB
+	batchRepo     invDomain.BatchRepository
+	movementRepo  invDomain.StockMovementRepository
+	warehouseRepo invDomain.WarehouseRepository
 }
 
-func NewListBatchesUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, movementRepo invDomain.StockMovementRepository) *ListBatchesUseCase {
-	return &ListBatchesUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo}
+func NewListBatchesUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, movementRepo invDomain.StockMovementRepository, warehouseRepo invDomain.WarehouseRepository) *ListBatchesUseCase {
+	return &ListBatchesUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo, warehouseRepo: warehouseRepo}
 }
 
 // Execute returns one row per warehouse the SKU has any general (un-lotted)
@@ -24,6 +25,11 @@ func NewListBatchesUseCase(db *gorm.DB, batchRepo invDomain.BatchRepository, mov
 // movements, listed first -- followed by every real batch with its own
 // Quantity summed from its movements. Both are computed from the ledger,
 // never stored (see Batch's doc comment).
+//
+// Every tenant warehouse gets a general-ledger row even with zero activity
+// (quantity 0), not just ones the SKU already has history in -- a brand-new
+// SKU would otherwise return an empty list, leaving no row for the UI to
+// act on and no way to ever enter its first stock.
 func (uc *ListBatchesUseCase) Execute(ctx context.Context, skuID string) ([]invDomain.Batch, error) {
 	var result []invDomain.Batch
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -32,6 +38,10 @@ func (uc *ListBatchesUseCase) Execute(ctx context.Context, skuID string) ([]invD
 			return err
 		}
 		movements, err := uc.movementRepo.ListBySKU(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		warehouses, err := uc.warehouseRepo.List(ctx)
 		if err != nil {
 			return err
 		}
@@ -62,6 +72,9 @@ func (uc *ListBatchesUseCase) Execute(ctx context.Context, skuID string) ([]invD
 			}
 			addGeneralWarehouse(m.WarehouseID)
 			generalByWarehouse[m.WarehouseID] += m.QuantityDelta
+		}
+		for _, w := range warehouses {
+			addGeneralWarehouse(w.ID)
 		}
 
 		result = make([]invDomain.Batch, 0, len(batches)+len(generalWarehouseOrder))

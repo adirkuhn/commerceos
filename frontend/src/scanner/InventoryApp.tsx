@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Minus, Tag, X, Check } from 'lucide-react'
+import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Minus, Tag, X, Check, Trash2 } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { ScanCodeScreen } from './ScanCodeScreen'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
+
+const NAME_SEARCH_RESULT_LIMIT = 8
+
+interface NameCandidate {
+  sku: SKU
+  productName: string
+}
 
 export interface Resolved {
   sku: SKU
@@ -53,6 +60,7 @@ export function InventoryApp({ token, onExit, initialResolved }: InventoryAppPro
 }
 
 function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onResolved: (r: Resolved) => void; onExit: () => void }) {
+  const [tab, setTab] = useState<'code' | 'name'>('code')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -77,7 +85,106 @@ function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onR
         </button>
         <h1 className="flex-1 text-base font-semibold">Inventory</h1>
       </div>
-      <ScanCodeScreen icon={Boxes} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+      <div className="flex gap-2 px-4 pt-4 shrink-0">
+        <button
+          type="button"
+          onClick={() => setTab('code')}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'code' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+        >
+          Scan code
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('name')}
+          className={`flex-1 py-2 rounded-lg text-xs font-medium ${tab === 'name' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+        >
+          Search by name
+        </button>
+      </div>
+      {tab === 'code' ? (
+        <ScanCodeScreen icon={Boxes} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+      ) : (
+        <NameSearchScreen token={token} onResolved={onResolved} />
+      )}
+    </div>
+  )
+}
+
+// Resolves a typed product name to a SKU: list_products' Search already
+// matches product name (case/accent-insensitive), then each matched
+// product's SKUs are fetched to flatten into pickable candidates -- exactly
+// one candidate resolves straight through (same as a barcode scan), more
+// than one shows a list to pick from.
+function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r: Resolved) => void }) {
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [candidates, setCandidates] = useState<NameCandidate[]>([])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const query = name.trim()
+    if (!query) return
+    setError('')
+    setCandidates([])
+    setLoading(true)
+    try {
+      const { products } = await pmsApi.listProducts(token, { search: query, perPage: NAME_SEARCH_RESULT_LIMIT })
+      if (products.length === 0) {
+        setError('No products found')
+        return
+      }
+      const details = await Promise.all(products.map(p => pmsApi.getProduct(token, p.id)))
+      const found: NameCandidate[] = details.flatMap(d =>
+        d.variants.flatMap(v => (v.skus ?? []).map(s => ({ sku: s, productName: d.product.name }))))
+      if (found.length === 0) {
+        setError('No products found')
+        return
+      }
+      if (found.length === 1) {
+        onResolved(found[0])
+        return
+      }
+      setCandidates(found)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to search')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex-1 flex flex-col items-center gap-6 p-6 overflow-y-auto">
+      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-3 shrink-0">
+        <input
+          autoFocus
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Product name…"
+          className="w-full px-4 py-4 text-center text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <button
+          type="submit"
+          disabled={loading || name.trim().length === 0}
+          className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {loading ? 'Searching…' : 'Search'}
+        </button>
+      </form>
+      {candidates.length > 0 && (
+        <div className="w-full max-w-xs space-y-1.5">
+          {candidates.map(c => (
+            <BatchOption
+              key={c.sku.id}
+              selected={false}
+              onClick={() => onResolved(c)}
+              title={c.productName}
+              subtitle={c.sku.sku_code}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -92,12 +199,15 @@ interface SelectedRow {
 }
 
 function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: { token: string; sku: SKU; productName: string; onSKUUpdated: (sku: SKU) => void; onBack: () => void }) {
-  const { level, batches, loading, error, addBatch, adjust, transfer, markDamagedOrLost } = useSKUStock(token, sku.id)
+  const { level, batches, loading, error, addBatch, removeBatch, adjust, transfer, markDamagedOrLost } = useSKUStock(token, sku.id)
   const { warehouses } = useWarehouses(token)
   const [selectedRow, setSelectedRow] = useState<SelectedRow | null>(null)
   const [priceOpen, setPriceOpen] = useState(false)
+  const [addBatchOpen, setAddBatchOpen] = useState(false)
   const [actionError, setActionError] = useState('')
   const [priceError, setPriceError] = useState('')
+  const [addBatchError, setAddBatchError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
 
   const warehouseName = (id: string) => warehouses.find(w => w.id === id)?.name ?? id
 
@@ -114,6 +224,28 @@ function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: {
   // Full round-trip of every SKU field, not just price -- UpdateSKU is a
   // full replace, not a patch, so omitting a field (tracks_expiry,
   // case_of_sku_id, unit_type, ...) would silently wipe it.
+  async function handleDeleteBatch(batchId: string) {
+    setDeleteError('')
+    try {
+      await removeBatch(batchId)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete batch')
+    }
+  }
+
+  async function handleAddBatch(warehouseId: string, lotNumber: string, expiryDate: string, quantity: number, reason: string) {
+    setAddBatchError('')
+    try {
+      const created = await addBatch({ warehouse_id: warehouseId, lot_number: lotNumber, expiry_date: expiryDate || null })
+      if (quantity > 0) {
+        await adjust({ warehouse_id: warehouseId, batch_id: created.id, type: 'receipt', quantity_delta: quantity, reason })
+      }
+      setAddBatchOpen(false)
+    } catch (err) {
+      setAddBatchError(err instanceof Error ? err.message : 'Failed to add batch')
+    }
+  }
+
   async function handleSavePrice(price: string, salePrice: string, saleEndDate: string) {
     setPriceError('')
     try {
@@ -169,32 +301,54 @@ function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: {
       </div>
 
       {error && <p className="mx-4 mt-3 text-sm text-red-400">{error}</p>}
+      {deleteError && <p className="mx-4 mt-3 text-sm text-red-400">{deleteError}</p>}
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        <button
+          type="button"
+          onClick={() => setAddBatchOpen(true)}
+          className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-300 text-xs font-medium flex items-center justify-center gap-1.5"
+        >
+          + Add batch
+        </button>
         {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
         {!loading && batches.length === 0 && (
           <p className="text-center text-sm text-gray-500 py-8">No batches yet</p>
         )}
         {batches.map(b => (
-          <button
+          <div
             key={b.is_general_ledger ? `general-${b.warehouse_id}` : b.id}
-            type="button"
-            onClick={() => setSelectedRow({
-              warehouseId: b.warehouse_id,
-              batchId: b.is_general_ledger ? null : b.id,
-              label: b.is_general_ledger ? 'General ledger' : (b.lot_number || 'Batch'),
-            })}
-            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-left hover:border-blue-500 transition-colors"
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-[#1F2937] border border-[#2D3748] hover:border-blue-500 transition-colors"
           >
-            <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0">
-              <Package size={16} className="text-gray-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}</p>
-              <p className="text-xs text-gray-500">{warehouseName(b.warehouse_id)}</p>
-            </div>
-            <p className="text-sm font-mono shrink-0">{b.quantity}</p>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSelectedRow({
+                warehouseId: b.warehouse_id,
+                batchId: b.is_general_ledger ? null : b.id,
+                label: b.is_general_ledger ? 'General ledger' : (b.lot_number || 'Batch'),
+              })}
+              className="flex-1 flex items-center gap-3 min-w-0 text-left"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0">
+                <Package size={16} className="text-gray-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{b.is_general_ledger ? 'General ledger' : (b.lot_number || '—')}</p>
+                <p className="text-xs text-gray-500">{warehouseName(b.warehouse_id)}</p>
+              </div>
+              <p className="text-sm font-mono shrink-0">{b.quantity}</p>
+            </button>
+            {!b.is_general_ledger && (
+              <button
+                type="button"
+                onClick={() => handleDeleteBatch(b.id)}
+                aria-label={`Delete batch ${b.lot_number}`}
+                className="shrink-0 p-1.5 text-gray-500 hover:text-red-400"
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
         ))}
       </div>
 
@@ -227,6 +381,15 @@ function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: {
 
       {priceOpen && (
         <PriceSheet sku={sku} error={priceError} onCancel={() => setPriceOpen(false)} onSave={handleSavePrice} />
+      )}
+
+      {addBatchOpen && (
+        <AddBatchSheet
+          warehouses={warehouses}
+          error={addBatchError}
+          onCancel={() => setAddBatchOpen(false)}
+          onCreate={handleAddBatch}
+        />
       )}
     </div>
   )
@@ -465,6 +628,74 @@ function RowActionSheet({ row, warehouses, batches, error, onCancel, onAdjust, o
             className={`w-full py-3 rounded-xl text-white font-semibold disabled:opacity-50 ${mode === 'damaged-lost' ? 'bg-red-600' : 'bg-blue-600'}`}
           >
             Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Standalone batch creation, distinct from Move's inline "+ New batch": that
+// one always immediately transfers stock in from a source row (there must
+// be a from-row to move out of). This one is for new stock with no source
+// -- e.g. a fresh delivery, or a brand-new SKU with nothing to move from
+// yet -- so quantity is optional and, when given, is recorded as a receipt
+// straight into the new batch rather than a transfer.
+function AddBatchSheet({ warehouses, error, onCancel, onCreate }: {
+  warehouses: Warehouse[]
+  error: string
+  onCancel: () => void
+  onCreate: (warehouseId: string, lotNumber: string, expiryDate: string, quantity: number, reason: string) => void
+}) {
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
+  const [lotNumber, setLotNumber] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [reason, setReason] = useState('')
+
+  const disabled = !warehouseId || !lotNumber.trim()
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+      <div className="w-full max-w-sm rounded-t-2xl bg-[#111827] border-t border-[#2D3748] max-h-[85vh] overflow-y-auto">
+        <div className="flex items-start justify-between gap-3 px-5 pt-5">
+          <h2 className="text-sm font-semibold">Add batch</h2>
+          <button onClick={onCancel} title="Close" className="shrink-0 p-1 -mt-1 -mr-1 text-gray-500 hover:text-gray-300">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div>
+            <label htmlFor="add-batch-warehouse" className="block text-xs text-gray-400 mb-1.5">Warehouse</label>
+            <select
+              id="add-batch-warehouse"
+              value={warehouseId}
+              onChange={e => setWarehouseId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="add-batch-lot" className="block text-xs text-gray-400 mb-1.5">Lot number</label>
+            <input id="add-batch-lot" value={lotNumber} onChange={e => setLotNumber(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label htmlFor="add-batch-expiry" className="block text-xs text-gray-400 mb-1.5">Expiry date (optional)</label>
+            <input id="add-batch-expiry" type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <QuantityStepper id="add-batch-qty" label="Initial quantity" value={quantity} onChange={setQuantity} />
+          <div>
+            <label htmlFor="add-batch-reason" className="block text-xs text-gray-400 mb-1.5">Reason</label>
+            <input id="add-batch-reason" value={reason} onChange={e => setReason(e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <button
+            onClick={() => onCreate(warehouseId, lotNumber.trim(), expiryDate, Number(quantity) || 0, reason)}
+            disabled={disabled}
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50"
+          >
+            Create
           </button>
         </div>
       </div>

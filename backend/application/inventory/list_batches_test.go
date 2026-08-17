@@ -13,7 +13,8 @@ import (
 func TestListBatches_returnsBatchesForSKU(t *testing.T) {
 	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{{ID: "batch-1", SKUID: "sku-1", WarehouseID: "wh-1"}}}
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	warehouseRepo := &stubWarehouseRepo{warehouses: []invDomain.Warehouse{{ID: "wh-1"}}}
+	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo, warehouseRepo)
 
 	batches, err := uc.Execute(context.Background(), "sku-1")
 
@@ -37,7 +38,8 @@ func TestListBatches_populatesQuantityPerBatchFromLedger(t *testing.T) {
 		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID1, QuantityDelta: -30},
 		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: &batchID2, QuantityDelta: 5},
 	}}
-	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	warehouseRepo := &stubWarehouseRepo{warehouses: []invDomain.Warehouse{{ID: "wh-1"}}}
+	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo, warehouseRepo)
 
 	batches, err := uc.Execute(context.Background(), "sku-1")
 
@@ -61,7 +63,8 @@ func TestListBatches_addsGeneralLedgerRowPerWarehouseFirst(t *testing.T) {
 		// un-lotted stock in a second warehouse the SKU has no batch in.
 		{SKUID: "sku-1", WarehouseID: "wh-2", BatchID: nil, QuantityDelta: 12},
 	}}
-	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	warehouseRepo := &stubWarehouseRepo{warehouses: []invDomain.Warehouse{{ID: "wh-1"}, {ID: "wh-2"}}}
+	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo, warehouseRepo)
 
 	batches, err := uc.Execute(context.Background(), "sku-1")
 
@@ -80,13 +83,43 @@ func TestListBatches_addsGeneralLedgerRowPerWarehouseFirst(t *testing.T) {
 	require.Equal(t, batchID, batches[2].ID)
 }
 
-func TestListBatches_noGeneralLedgerRowsWhenSKUHasNoActivity(t *testing.T) {
+// A brand-new SKU that has never had a batch or movement recorded in any
+// warehouse must still surface a qty:0 general-ledger row per tenant
+// warehouse -- otherwise there's no row to tap in the UI at all, and stock
+// can never be entered for it (see CameraScanner/InventoryApp bug report:
+// "Total stock: 0" with no way to adjust or add a batch).
+func TestListBatches_seedsGeneralLedgerRowForEveryWarehouseEvenWithNoActivity(t *testing.T) {
 	batchRepo := &stubBatchRepo{}
 	movementRepo := &stubStockMovementRepo{}
-	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo)
+	warehouseRepo := &stubWarehouseRepo{warehouses: []invDomain.Warehouse{{ID: "wh-1"}, {ID: "wh-2"}}}
+	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo, warehouseRepo)
 
 	batches, err := uc.Execute(context.Background(), "sku-1")
 
 	require.NoError(t, err)
-	require.Empty(t, batches)
+	require.Len(t, batches, 2)
+	require.True(t, batches[0].IsGeneralLedger)
+	require.Equal(t, "wh-1", batches[0].WarehouseID)
+	require.Equal(t, int64(0), batches[0].Quantity)
+	require.True(t, batches[1].IsGeneralLedger)
+	require.Equal(t, "wh-2", batches[1].WarehouseID)
+	require.Equal(t, int64(0), batches[1].Quantity)
+}
+
+// A warehouse that already got a general-ledger row from real activity
+// (seeded earlier in the loop) must not be duplicated when the "every
+// warehouse" seed pass runs afterwards.
+func TestListBatches_doesNotDuplicateGeneralLedgerRowForWarehouseWithActivity(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", WarehouseID: "wh-1", BatchID: nil, QuantityDelta: 7},
+	}}
+	batchRepo := &stubBatchRepo{}
+	warehouseRepo := &stubWarehouseRepo{warehouses: []invDomain.Warehouse{{ID: "wh-1"}}}
+	uc := appinv.NewListBatchesUseCase(newMockGormDB(t), batchRepo, movementRepo, warehouseRepo)
+
+	batches, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, batches, 1)
+	require.Equal(t, int64(7), batches[0].Quantity)
 }
