@@ -79,17 +79,57 @@ func TestS3Storage_Save_uploadsAndReturnsPublicURL(t *testing.T) {
 	client := &stubS3Client{}
 	s := newS3Storage(client, "product-media", "https://media.example.com")
 
-	url, err := s.Save(context.Background(), "tenant-1", "photo.jpg", bytes.NewBufferString("bytes"))
+	url, err := s.Save(context.Background(), "tenant-1", "photo.jpg", bytes.NewReader([]byte("bytes")))
 
 	require.NoError(t, err)
 	assert.True(t, client.putCalled)
 	assert.Equal(t, "product-media", client.putBucket)
 	assert.True(t, strings.HasPrefix(client.putObjectKey, "tenant-1/"))
 	assert.True(t, strings.HasSuffix(client.putObjectKey, ".jpg"))
-	assert.Equal(t, int64(-1), client.putSize)
 	assert.Equal(t, "image/jpeg", client.putOpts.ContentType)
 	assert.Equal(t, "https://media.example.com/"+client.putObjectKey, url)
 }
+
+// TestS3Storage_Save_passesExactSizeForASeekableReader is the production
+// fix: every real caller (application/pms.UploadMediaUseCase,
+// application/procurement's document/invoice uploads) passes
+// bytes.NewReader(data) -- a fully-buffered, seekable upload whose exact
+// size is always known up front. Passing that real size instead of -1
+// avoids minio-go's chunked/streaming SigV4 signing path entirely (see
+// knownSize's doc comment for why that matters).
+func TestS3Storage_Save_passesExactSizeForASeekableReader(t *testing.T) {
+	client := &stubS3Client{}
+	s := newS3Storage(client, "product-media", "https://media.example.com")
+
+	_, err := s.Save(context.Background(), "tenant-1", "invoice.pdf", bytes.NewReader([]byte("hello world")))
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(11), client.putSize)
+}
+
+// TestS3Storage_Save_fallsBackToUnknownSizeForANonSeekableReader proves
+// knownSize degrades safely (-1, matching the old always-streaming
+// behavior) rather than erroring when given a reader with no way to
+// determine its length up front -- Save's io.Reader parameter doesn't
+// guarantee seekability, even though every current caller happens to
+// provide it.
+func TestS3Storage_Save_fallsBackToUnknownSizeForANonSeekableReader(t *testing.T) {
+	client := &stubS3Client{}
+	s := newS3Storage(client, "product-media", "https://media.example.com")
+
+	_, err := s.Save(context.Background(), "tenant-1", "photo.jpg", readOnlyReader{bytes.NewBufferString("bytes")})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(-1), client.putSize)
+}
+
+// readOnlyReader strips any Seek method a wrapped reader might have --
+// used to construct a genuinely non-seekable io.Reader for tests, since
+// most of Go's stdlib readers (bytes.Reader, strings.Reader) implement
+// io.Seeker even when constructed from an in-memory buffer.
+type readOnlyReader struct{ r io.Reader }
+
+func (r readOnlyReader) Read(p []byte) (int, error) { return r.r.Read(p) }
 
 func TestS3Storage_Save_generatesUniqueKeysPerCall(t *testing.T) {
 	client := &stubS3Client{}

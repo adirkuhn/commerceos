@@ -49,13 +49,42 @@ func (s *S3Storage) Save(ctx context.Context, tenantID, filename string, data io
 		contentType = "application/octet-stream"
 	}
 
-	// size -1: stream of unknown length, matches io.Reader inputs from
-	// multipart form uploads (no seekable size available up front).
-	if _, err := s.client.PutObject(ctx, s.bucket, key, data, -1, minio.PutObjectOptions{ContentType: contentType}); err != nil {
+	size, err := knownSize(data)
+	if err != nil {
+		return "", fmt.Errorf("s3Storage.Save: %w", err)
+	}
+	if _, err := s.client.PutObject(ctx, s.bucket, key, data, size, minio.PutObjectOptions{ContentType: contentType}); err != nil {
 		return "", fmt.Errorf("s3Storage.Save: %w", err)
 	}
 
 	return fmt.Sprintf("%s/%s", s.publicBaseURL, key), nil
+}
+
+// knownSize returns data's exact byte length when it's seekable -- every
+// caller in this codebase passes bytes.NewReader(data), a fully-buffered
+// upload that's always seekable -- or -1 (unknown/streaming) otherwise.
+// This matters beyond the response's Content-Length: minio-go signs a
+// PutObject with a known size using a single standard SigV4 signature, but
+// an unknown size (-1) forces STREAMING-AWS4-HMAC-SHA256-PAYLOAD chunked
+// signing instead -- a request shape far more likely to break if anything
+// between here and the S3-compatible server (a reverse proxy, in
+// particular) re-chunks or buffers the body. Confirmed in production:
+// PutObject failed with "SignatureDoesNotMatch" while mc (minio's own
+// CLI, small non-streaming requests) worked fine through the same path
+// with the same credentials.
+func knownSize(data io.Reader) (int64, error) {
+	seeker, ok := data.(io.Seeker)
+	if !ok {
+		return -1, nil
+	}
+	n, err := seeker.Seek(0, io.SeekEnd)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // Delete removes the object at url. S3-compatible DELETE is idempotent —
