@@ -99,6 +99,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+  vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
 })
 
@@ -144,13 +145,51 @@ describe('InventoryApp scan screen', () => {
     expect(priceButton).toHaveTextContent('USD 19.99')
   })
 
-  it('shows an error when nothing matches', async () => {
+  it('shows an error when nothing matches, even after the partial-match fallback', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
     render(<InventoryApp token={TOKEN} onExit={() => {}} />)
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'UNKNOWN{Enter}')
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
+  })
+
+  it('falls back to a partial match when the exact code lookup fails (misread/truncated scan), auto-resolving a single match', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
+    const p = product({ id: 'p1', name: 'Widget' })
+    const s = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(productDetail(p, [s]))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
+
+    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-{Enter}')
+
+    expect(pmsApi.listProducts).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ search: 'WID-' }))
+    expect(await screen.findByText('WID-L')).toBeInTheDocument()
+  })
+
+  it('shows a candidate list when the partial-match fallback finds more than one SKU', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
+    const p1 = product({ id: 'p1', name: 'Widget' })
+    const p2 = product({ id: 'p2', name: 'Widget Pro' })
+    const s1 = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    const s2 = sku({ id: 'sku-2', sku_code: 'WID-PRO' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p1, p2], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) =>
+      id === 'p1' ? productDetail(p1, [s1]) : productDetail(p2, [s2]))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([batch()])
+
+    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID{Enter}')
+
+    expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Widget Pro'))
+
+    expect(await screen.findByText('WID-PRO')).toBeInTheDocument()
+    expect(screen.getByRole('heading')).toHaveTextContent('Widget Pro')
   })
 
   it('resolves a code decoded via the camera', async () => {

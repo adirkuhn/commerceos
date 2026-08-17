@@ -6,6 +6,7 @@ import { BookingScreen } from '../BookingScreen'
 import type { BookingDetail } from '../types'
 import type { PurchaseOrder } from '../../procurement/types'
 import type { Warehouse } from '../../inventory/types'
+import type { SKU, Product, ProductDetail } from '../../pms/types'
 
 vi.mock('../api', () => ({
   getBooking: vi.fn(),
@@ -24,11 +25,42 @@ vi.mock('../../inventory/api', () => ({
   listBatches: vi.fn(),
 }))
 
+vi.mock('../../pms/api', () => ({
+  listProducts: vi.fn(),
+  getProduct: vi.fn(),
+  listProductMedia: vi.fn(),
+}))
+
 import * as api from '../api'
 import * as procurementApi from '../../procurement/api'
 import * as inventoryApi from '../../inventory/api'
+import * as pmsApi from '../../pms/api'
 
 const TOKEN = 'test-token'
+
+function sku(overrides: Partial<SKU> = {}): SKU {
+  return {
+    id: 'sku-1', tenant_id: 't1', variant_id: 'v1', sku_code: 'WID-L',
+    price_minor_units: 1999, currency_code: 'USD', is_virtual: false, status: 'active',
+    created_at: '', updated_at: '',
+    ...overrides,
+  }
+}
+
+function product(overrides: Partial<Product> = {}): Product {
+  return {
+    id: 'product-1', tenant_id: 't1', name: 'Widget', slug: 'widget', description: '',
+    status: 'active', has_variants: false, created_at: '', updated_at: '',
+    ...overrides,
+  } as Product
+}
+
+function productDetail(p: Product, skus: SKU[]): ProductDetail {
+  return {
+    product: p,
+    variants: [{ id: `v-${p.id}`, tenant_id: 't1', product_id: p.id, name: 'Default', position: 0, created_at: '', updated_at: '', skus }],
+  }
+}
 
 function warehouse(overrides: Partial<Warehouse> = {}): Warehouse {
   return {
@@ -97,5 +129,62 @@ describe('BookingScreen / BookLineSheet suggested batch pre-fill', () => {
 
     await waitFor(() => expect(screen.getByText('General ledger').closest('button')).toHaveClass('border-blue-500'))
     expect(screen.queryByLabelText('Lot number')).not.toBeInTheDocument()
+  })
+})
+
+describe('BookingScreen partial-match fallback on a failed code scan', () => {
+  it('falls back to a partial match and books via sku_id when exactly one SKU matches', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.scanBookingItem).mockRejectedValueOnce(new Error('sku not found'))
+    vi.mocked(api.scanBookingItem).mockResolvedValueOnce({
+      scan: { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-9', action_type: 'receive', quantity: 1, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+    })
+    const p = product({ id: 'p1', name: 'Widget' })
+    const s = sku({ id: 'sku-9', sku_code: 'WID-9' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(productDetail(p, [s]))
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Farofa Premium')
+
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'WID-{Enter}')
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
+      sku_id: 'sku-9', code: undefined,
+    })))
+  })
+
+  it('shows a candidate list when the partial-match fallback finds more than one SKU, and books the tapped one via sku_id', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.scanBookingItem).mockRejectedValueOnce(new Error('sku not found'))
+    vi.mocked(api.scanBookingItem).mockResolvedValueOnce({
+      scan: { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-9', action_type: 'receive', quantity: 1, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+    })
+    const p1 = product({ id: 'p1', name: 'Widget' })
+    const p2 = product({ id: 'p2', name: 'Widget Pro' })
+    const s1 = sku({ id: 'sku-8', sku_code: 'WID-L' })
+    const s2 = sku({ id: 'sku-9', sku_code: 'WID-PRO' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p1, p2], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) =>
+      id === 'p1' ? productDetail(p1, [s1]) : productDetail(p2, [s2]))
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Farofa Premium')
+
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'WID{Enter}')
+
+    expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Widget Pro'))
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
+      sku_id: 'sku-9', code: undefined,
+    })))
   })
 })

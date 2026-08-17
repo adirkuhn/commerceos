@@ -3,7 +3,9 @@ import { ArrowLeft, Check, PackageCheck, ChevronDown, ChevronUp, Camera, Plus, M
 import * as api from './api'
 import * as procurementApi from '../procurement/api'
 import * as inventoryApi from '../inventory/api'
+import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { CameraScanner } from './CameraScanner'
+import { ProductCandidateRow } from './ProductCandidateRow'
 import type { BookingDetail, CompleteBookingResult, MissingBookingItem, ScanBookingItemInput, BookingScanActionType } from './types'
 import type { PurchaseOrder } from '../procurement/types'
 import type { Warehouse, Batch } from '../inventory/types'
@@ -76,6 +78,8 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   const [finishing, setFinishing] = useState(false)
   const [confirmingFinish, setConfirmingFinish] = useState(false)
   const [result, setResult] = useState<CompleteBookingResult | null>(null)
+  const [candidates, setCandidates] = useState<SKUCandidate[]>([])
+  const [pendingBookFields, setPendingBookFields] = useState<ScanBookingItemInput | null>(null)
   const [bookingLine, setBookingLine] = useState<{ skuId: string; description: string; remaining: number; scannedSoFar: number; expected: number; suggestedLotNumber?: string; suggestedExpiryDate?: string | null } | null>(null)
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -131,20 +135,53 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   // merge with the outer scan-form's lotNumber/expiryDate state, which
   // would otherwise silently stomp whatever a caller like BookLineSheet
   // passes for its own batch/lot/expiry/reason.
+  // A camera misread or a hand-typed code can be truncated/mistyped -- on an
+  // exact-match miss for a code-based scan, fall back to a partial
+  // (substring) match on product name, SKU code, or barcode (see
+  // searchSKUCandidates). A single match re-books via sku_id (the same path
+  // an already-resolved line-item tap uses -- see ScanBookingItemInput's
+  // doc comment), skipping Code resolution entirely; more than one shows a
+  // picker.
   async function bookItem(fields: ScanBookingItemInput) {
     setError('')
     setScanning(true)
     try {
       await api.scanBookingItem(token, bookingId, fields)
       setCode('')
+      setCandidates([])
+      setPendingBookFields(null)
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
+      if (fields.code) {
+        try {
+          const found = await searchSKUCandidates(token, fields.code)
+          if (found.length === 1) {
+            await bookItem({ ...fields, code: undefined, sku_id: found[0].sku.id })
+            return
+          }
+          if (found.length > 1) {
+            setCandidates(found)
+            setPendingBookFields(fields)
+            return
+          }
+        } catch {
+          // fall through to the original scanBookingItem error below
+        }
+      }
       setError(err instanceof Error ? err.message : 'Scan failed')
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
     }
+  }
+
+  function handleCandidateBook(c: SKUCandidate) {
+    if (!pendingBookFields) return
+    const fields = pendingBookFields
+    setCandidates([])
+    setPendingBookFields(null)
+    bookItem({ ...fields, code: undefined, sku_id: c.sku.id })
   }
 
   function handleScan(e: React.FormEvent) {
@@ -343,6 +380,14 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
 
       <form onSubmit={handleScan} className="border-t border-[#2D3748] p-4 space-y-2 shrink-0">
         {error && <p className="text-sm text-red-400">{error}</p>}
+        {candidates.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs text-gray-500">Multiple matches -- pick one:</p>
+            {candidates.map(c => (
+              <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => handleCandidateBook(c)} />
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             ref={codeInputRef}

@@ -3,18 +3,11 @@ import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Minus, T
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
-import { useProductMedia } from '../pms/hooks/useProductMedia'
+import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { ScanCodeScreen } from './ScanCodeScreen'
+import { ProductCandidateRow } from './ProductCandidateRow'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
-
-const NAME_SEARCH_RESULT_LIMIT = 8
-
-interface NameCandidate {
-  sku: SKU
-  productId: string
-  productName: string
-}
 
 export interface Resolved {
   sku: SKU
@@ -65,14 +58,33 @@ function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onR
   const [tab, setTab] = useState<'code' | 'name'>('code')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [candidates, setCandidates] = useState<SKUCandidate[]>([])
 
+  // A camera misread or a hand-typed code can be truncated/mistyped -- on an
+  // exact-match miss, fall back to the same partial (substring) match used
+  // by "Search by name" (it already matches sku_code/barcode too, see
+  // searchSKUCandidates), instead of just failing.
   async function handleSubmit(code: string) {
     setError('')
+    setCandidates([])
     setLoading(true)
     try {
       const { sku, product_name } = await pmsApi.resolveBarcode(token, code)
       onResolved({ sku, productName: product_name })
     } catch (err) {
+      try {
+        const found = await searchSKUCandidates(token, code)
+        if (found.length === 1) {
+          onResolved({ sku: found[0].sku, productName: found[0].productName })
+          return
+        }
+        if (found.length > 1) {
+          setCandidates(found)
+          return
+        }
+      } catch {
+        // fall through to the original resolveBarcode error below
+      }
       setError(err instanceof Error ? err.message : 'Failed to resolve code')
     } finally {
       setLoading(false)
@@ -104,7 +116,17 @@ function InventoryScanScreen({ token, onResolved, onExit }: { token: string; onR
         </button>
       </div>
       {tab === 'code' ? (
-        <ScanCodeScreen icon={Boxes} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+        <div className="flex-1 flex flex-col overflow-y-auto">
+          <ScanCodeScreen icon={Boxes} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+          {candidates.length > 0 && (
+            <div className="w-full max-w-xs mx-auto px-6 pb-6 space-y-1.5 shrink-0">
+              <p className="text-xs text-gray-500">Multiple matches -- pick one:</p>
+              {candidates.map(c => (
+                <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved({ sku: c.sku, productName: c.productName })} />
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <NameSearchScreen token={token} onResolved={onResolved} />
       )}
@@ -121,7 +143,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [candidates, setCandidates] = useState<NameCandidate[]>([])
+  const [candidates, setCandidates] = useState<SKUCandidate[]>([])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -131,20 +153,13 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
     setCandidates([])
     setLoading(true)
     try {
-      const { products } = await pmsApi.listProducts(token, { search: query, perPage: NAME_SEARCH_RESULT_LIMIT })
-      if (products.length === 0) {
-        setError('No products found')
-        return
-      }
-      const details = await Promise.all(products.map(p => pmsApi.getProduct(token, p.id)))
-      const found: NameCandidate[] = details.flatMap(d =>
-        d.variants.flatMap(v => (v.skus ?? []).map(s => ({ sku: s, productId: d.product.id, productName: d.product.name }))))
+      const found = await searchSKUCandidates(token, query)
       if (found.length === 0) {
         setError('No products found')
         return
       }
       if (found.length === 1) {
-        onResolved(found[0])
+        onResolved({ sku: found[0].sku, productName: found[0].productName })
         return
       }
       setCandidates(found)
@@ -177,36 +192,11 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
       {candidates.length > 0 && (
         <div className="w-full max-w-xs space-y-1.5">
           {candidates.map(c => (
-            <NameCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved(c)} />
+            <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved({ sku: c.sku, productName: c.productName })} />
           ))}
         </div>
       )}
     </div>
-  )
-}
-
-function NameCandidateRow({ token, candidate, onClick }: { token: string; candidate: NameCandidate; onClick: () => void }) {
-  const { media } = useProductMedia(token, candidate.productId)
-  const featured = media[0]
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-[#2D3748] bg-[#1F2937] text-left hover:border-blue-500 transition-colors"
-    >
-      <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden">
-        {featured ? (
-          <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
-        ) : (
-          <Package size={16} className="text-gray-400" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{candidate.productName}</p>
-        <p className="text-xs text-gray-500 truncate">{candidate.sku.sku_code}</p>
-      </div>
-    </button>
   )
 }
 

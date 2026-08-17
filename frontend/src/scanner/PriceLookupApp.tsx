@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { ArrowLeft, Tag, Boxes } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import * as inventoryApi from '../inventory/api'
+import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { ScanCodeScreen } from './ScanCodeScreen'
+import { ProductCandidateRow } from './ProductCandidateRow'
 import type { SKU } from '../pms/types'
 import type { Resolved } from './InventoryApp'
 
@@ -31,20 +33,43 @@ export function PriceLookupApp({ token, onExit, onViewInventory }: PriceLookupAp
   const [result, setResult] = useState<Result | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [candidates, setCandidates] = useState<SKUCandidate[]>([])
 
+  async function showResult(resolvedSKU: SKU, productName: string) {
+    let stockTotal: number | null = null
+    try {
+      stockTotal = (await inventoryApi.getSKUStockLevel(token, resolvedSKU.id)).total
+    } catch {
+      // Stock lookup failing shouldn't hide the price -- just omit it.
+    }
+    setResult({ sku: resolvedSKU, productName, stockTotal })
+  }
+
+  // A camera misread or a hand-typed code can be truncated/mistyped -- on an
+  // exact-match miss, fall back to a partial (substring) match on product
+  // name, SKU code, or barcode (see searchSKUCandidates) instead of just
+  // failing.
   async function handleSubmit(code: string) {
     setError('')
+    setCandidates([])
     setLoading(true)
     try {
       const { sku, product_name } = await pmsApi.resolveBarcode(token, code)
-      let stockTotal: number | null = null
-      try {
-        stockTotal = (await inventoryApi.getSKUStockLevel(token, sku.id)).total
-      } catch {
-        // Stock lookup failing shouldn't hide the price -- just omit it.
-      }
-      setResult({ sku, productName: product_name, stockTotal })
+      await showResult(sku, product_name)
     } catch (err) {
+      try {
+        const found = await searchSKUCandidates(token, code)
+        if (found.length === 1) {
+          await showResult(found[0].sku, found[0].productName)
+          return
+        }
+        if (found.length > 1) {
+          setCandidates(found)
+          return
+        }
+      } catch {
+        // fall through to the original resolveBarcode error below
+      }
       setError(err instanceof Error ? err.message : 'Failed to resolve code')
     } finally {
       setLoading(false)
@@ -53,6 +78,7 @@ export function PriceLookupApp({ token, onExit, onViewInventory }: PriceLookupAp
 
   function reset() {
     setResult(null)
+    setCandidates([])
     setError('')
   }
 
@@ -66,7 +92,17 @@ export function PriceLookupApp({ token, onExit, onViewInventory }: PriceLookupAp
       </div>
 
       {!result && (
-        <ScanCodeScreen icon={Tag} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+        <div className="flex-1 flex flex-col overflow-y-auto">
+          <ScanCodeScreen icon={Tag} prompt="Scan a barcode or type a SKU code" loading={loading} error={error} onSubmit={handleSubmit} />
+          {candidates.length > 0 && (
+            <div className="w-full max-w-xs mx-auto px-6 pb-6 space-y-1.5 shrink-0">
+              <p className="text-xs text-gray-500">Multiple matches -- pick one:</p>
+              {candidates.map(c => (
+                <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => showResult(c.sku, c.productName)} />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {result && (

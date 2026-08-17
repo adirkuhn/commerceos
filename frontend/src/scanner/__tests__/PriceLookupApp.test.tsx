@@ -3,11 +3,14 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PriceLookupApp } from '../PriceLookupApp'
-import type { SKU } from '../../pms/types'
+import type { SKU, Product, ProductDetail } from '../../pms/types'
 import type { StockLevel } from '../../inventory/types'
 
 vi.mock('../../pms/api', () => ({
   resolveBarcode: vi.fn(),
+  listProducts: vi.fn(),
+  getProduct: vi.fn(),
+  listProductMedia: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -39,9 +42,26 @@ function stockLevel(overrides: Partial<StockLevel> = {}): StockLevel {
   return { sku_id: 'sku-1', total: 42, syncable: 42, ...overrides }
 }
 
+function product(overrides: Partial<Product> = {}): Product {
+  return {
+    id: 'product-1', tenant_id: 't1', name: 'Widget', slug: 'widget', description: '',
+    status: 'active', has_variants: false, created_at: '', updated_at: '',
+    ...overrides,
+  } as Product
+}
+
+function productDetail(p: Product, skus: SKU[]): ProductDetail {
+  return {
+    product: p,
+    variants: [{ id: `v-${p.id}`, tenant_id: 't1', product_id: p.id, name: 'Default', position: 0, created_at: '', updated_at: '', skus }],
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
+  vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
+  vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
 })
 
 describe('PriceLookupApp', () => {
@@ -84,13 +104,48 @@ describe('PriceLookupApp', () => {
     expect(screen.getByText('USD 19.99')).toHaveClass('line-through')
   })
 
-  it('shows an error when nothing matches', async () => {
+  it('shows an error when nothing matches, even after the partial-match fallback', async () => {
     vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
 
     render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
     await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'UNKNOWN{Enter}')
 
     expect(await screen.findByText('sku not found')).toBeInTheDocument()
+  })
+
+  it('falls back to a partial match when the exact code lookup fails, auto-resolving a single match', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
+    const p = product({ id: 'p1', name: 'Widget' })
+    const s = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(productDetail(p, [s]))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
+    await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID-{Enter}')
+
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    expect(screen.getByText('WID-L')).toBeInTheDocument()
+  })
+
+  it('shows a candidate list when the partial-match fallback finds more than one SKU', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockRejectedValue(new Error('sku not found'))
+    const p1 = product({ id: 'p1', name: 'Widget' })
+    const p2 = product({ id: 'p2', name: 'Widget Pro' })
+    const s1 = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    const s2 = sku({ id: 'sku-2', sku_code: 'WID-PRO' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p1, p2], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) =>
+      id === 'p1' ? productDetail(p1, [s1]) : productDetail(p2, [s2]))
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValue(stockLevel())
+
+    render(<PriceLookupApp token={TOKEN} onExit={() => {}} onViewInventory={() => {}} />)
+    await userEvent.type(screen.getByPlaceholderText('Scan or type SKU / barcode…'), 'WID{Enter}')
+
+    expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Widget Pro'))
+
+    expect(await screen.findByText('WID-PRO')).toBeInTheDocument()
   })
 
   it('Look up another returns to the scan screen', async () => {
