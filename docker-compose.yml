@@ -1,34 +1,15 @@
-x-logging: &default-logging
+x-logging:
   # No service here wrote to a file to begin with (every Go binary just
   # logs to stdout/stderr) -- the unbounded growth was Docker's own
   # json-file driver, which has no size cap unless told to. 10m x 3 files
   # = 30MB retained per service before the oldest is dropped.
+  &default-logging
   driver: json-file
   options:
     max-size: "10m"
     max-file: "3"
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    logging: *default-logging
-    networks:
-      - commerceos
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-commerceos}
-      POSTGRES_USER: ${POSTGRES_USER:-commerceos}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-commerceos}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-commerceos} -d ${POSTGRES_DB:-commerceos}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   nats:
     image: nats:2.10-alpine
     restart: unless-stopped
@@ -59,11 +40,9 @@ services:
     build:
       context: ./backend
     logging: *default-logging
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - commerceos
+      - database
     environment:
       GOOSE_DRIVER: postgres
       GOOSE_DBSTRING: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} sslmode=disable"
@@ -97,6 +76,7 @@ services:
       - traefik-public
       - commerceos
       - minio
+      - database
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -109,8 +89,6 @@ services:
     extra_hosts:
       - "api-lm2.dev.localhost:host-gateway"
     depends_on:
-      postgres:
-        condition: service_healthy
       nats:
         condition: service_healthy
       migrate:
@@ -154,12 +132,11 @@ services:
     logging: *default-logging
     networks:
       - commerceos
+      - database
     dns:
       - 1.1.1.1
       - 8.8.8.8
     depends_on:
-      postgres:
-        condition: service_healthy
       nats:
         condition: service_healthy
       migrate:
@@ -181,12 +158,11 @@ services:
     networks:
       - commerceos
       - minio
+      - database
     dns:
       - 1.1.1.1
       - 8.8.8.8
     depends_on:
-      postgres:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       createbuckets:
@@ -246,3 +222,5 @@ networks:
   minio:
     external: true
   commerceos:
+  database:
+    external: true
