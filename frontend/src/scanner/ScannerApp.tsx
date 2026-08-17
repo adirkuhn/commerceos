@@ -4,6 +4,7 @@ import { ClaimScreen } from './ClaimScreen'
 import { AppLauncher, type ScannerAppID } from './AppLauncher'
 import { InventoryApp, type Resolved } from './InventoryApp'
 import { PriceLookupApp } from './PriceLookupApp'
+import { DiscardApp } from './DiscardApp'
 import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
 import { BookingScreen } from './BookingScreen'
 
@@ -48,9 +49,13 @@ export default function ScannerApp() {
     )
   }
 
-  // Only 'receive-po', 'inventory', and 'price-lookup' are implemented --
-  // the other tiles in AppLauncher are disabled, so app can't reach this
-  // branch with any other value yet.
+  if (app === 'discard') {
+    return <DiscardApp token={token} onExit={() => setApp(null)} />
+  }
+
+  // Only 'receive-po', 'inventory', 'price-lookup', and 'discard' are
+  // implemented -- the other tiles in AppLauncher are disabled, so app
+  // can't reach this branch with any other value yet.
   if (!bookingId) {
     return (
       <PurchaseOrderPickerScreen

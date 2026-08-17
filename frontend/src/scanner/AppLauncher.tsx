@@ -1,6 +1,6 @@
-import { Boxes, PackageCheck, Tag, ClipboardList, LogOut } from 'lucide-react'
+import { Boxes, PackageCheck, Tag, ClipboardList, LogOut, Trash2 } from 'lucide-react'
 
-export type ScannerAppID = 'receive-po' | 'inventory' | 'price-lookup' | 'pick-order'
+export type ScannerAppID = 'receive-po' | 'inventory' | 'price-lookup' | 'pick-order' | 'discard'
 
 interface AppLauncherProps {
   onSelect: (app: ScannerAppID) => void
@@ -11,6 +11,7 @@ const APPS: { id: ScannerAppID; label: string; icon: typeof PackageCheck; enable
   { id: 'receive-po', label: 'Receive PO', icon: PackageCheck, enabled: true },
   { id: 'inventory', label: 'Inventory', icon: Boxes, enabled: true },
   { id: 'price-lookup', label: 'Price Lookup', icon: Tag, enabled: true },
+  { id: 'discard', label: 'Discard', icon: Trash2, enabled: true },
   { id: 'pick-order', label: 'Pick Order', icon: ClipboardList, enabled: false },
 ]
 

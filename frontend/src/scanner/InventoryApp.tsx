@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Minus, Tag, X, Check, Trash2 } from 'lucide-react'
+import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Tag, X, Check, Trash2 } from 'lucide-react'
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { ScanCodeScreen } from './ScanCodeScreen'
 import { ProductCandidateRow } from './ProductCandidateRow'
+import { QuantityStepper } from './QuantityStepper'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
 
@@ -415,51 +416,6 @@ const ROW_ACTION_TABS: { id: RowActionMode; label: string; icon: typeof Plus; he
 ]
 
 const NEW_BATCH = 'new'
-
-// min/max are only passed for a quantity that draws down a specific row's
-// available stock (Move, Damaged/Lost) -- both the stepper buttons and free
-// typing get clamped into range there, plus a Max button to fill it in one
-// tap. Left undefined (Adjust's quantity-change field) the stepper is
-// unbounded either direction, since a recount correction can go either way.
-function QuantityStepper({ id, label, value, onChange, min, max }: { id: string; label: string; value: string; onChange: (v: string) => void; min?: number; max?: number }) {
-  const n = Number(value) || 0
-  function clamp(v: number): number {
-    let out = v
-    if (min !== undefined) out = Math.max(min, out)
-    if (max !== undefined) out = Math.min(max, out)
-    return out
-  }
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label htmlFor={id} className="block text-xs text-gray-400">{label}</label>
-        {max !== undefined && (
-          <button type="button" onClick={() => onChange(String(clamp(max)))} className="text-xs font-medium text-blue-400">
-            Max
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => onChange(String(clamp(n - 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Decrease ${label}`}>
-          <Minus size={14} />
-        </button>
-        <input
-          id={id}
-          inputMode="numeric"
-          value={value}
-          onChange={e => {
-            const digits = e.target.value.replace(/(?!^-)[^\d]/g, '')
-            onChange(digits === '' || digits === '-' ? digits : String(clamp(Number(digits))))
-          }}
-          className="flex-1 min-w-0 px-2 py-2 text-center text-base rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button type="button" onClick={() => onChange(String(clamp(n + 1)))} className="w-9 h-9 shrink-0 rounded-xl bg-[#1F2937] flex items-center justify-center" aria-label={`Increase ${label}`}>
-          <Plus size={14} />
-        </button>
-      </div>
-    </div>
-  )
-}
 
 function BatchOption({ selected, onClick, title, subtitle }: { selected: boolean; onClick: () => void; title: string; subtitle: string }) {
   return (

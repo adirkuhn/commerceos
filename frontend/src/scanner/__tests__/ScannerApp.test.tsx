@@ -193,6 +193,7 @@ describe('ScannerApp launcher', () => {
     expect(await screen.findByText('Receive PO')).toBeInTheDocument()
     expect(screen.getByText('Inventory')).toBeInTheDocument()
     expect(screen.getByText('Price Lookup')).toBeInTheDocument()
+    expect(screen.getByText('Discard')).toBeInTheDocument()
     expect(screen.getByText('Pick Order')).toBeInTheDocument()
     expect(screen.getAllByText('Coming soon')).toHaveLength(1)
   })
@@ -203,7 +204,15 @@ describe('ScannerApp launcher', () => {
 
     expect(screen.getByRole('button', { name: /Inventory/ })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /Price Lookup/ })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Discard' })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /Pick Order/ })).toBeDisabled()
+  })
+
+  it('Discard tile opens the Discard app scan screen', async () => {
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Discard'))
+
+    expect(await screen.findByPlaceholderText('Scan or type SKU / barcode…')).toBeInTheDocument()
   })
 
   it('Back from the purchase order picker returns to the launcher', async () => {
