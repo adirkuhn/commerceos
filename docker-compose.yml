@@ -33,8 +33,24 @@ services:
     logging: *default-logging
     networks:
       - minio
+    # S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY are passed as real container env
+    # vars (like every other service) and referenced here with $$ (quoted)
+    # so the shell resolves and quotes them at runtime -- not spliced as
+    # raw text into this YAML string by compose's own ${...} substitution
+    # (the old shape), which left them unquoted in the resulting shell
+    # command: word-splits on any whitespace in the secret, and re-evaluates
+    # any $/backtick in it a second time. That's what silently corrupted
+    # credentials for any *other* consumer of the same secret (backend
+    # reads it as a plain env var, no shell involved) once someone
+    # backslash-escaped special characters to work around it here.
+    environment:
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-product-media}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
     entrypoint: >
-      /bin/sh -c ' SCHEME=http; [ ${S3_USE_SSL:-false} = true ] && SCHEME=https; mc alias set target $$SCHEME://${S3_ENDPOINT:?S3_ENDPOINT is required} ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required} ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required} && mc mb -p target/${S3_BUCKET:-product-media} && mc anonymous set download target/${S3_BUCKET:-product-media} '
+      /bin/sh -c ' SCHEME=http; [ "$$S3_USE_SSL" = true ] && SCHEME=https; mc alias set target "$$SCHEME://$$S3_ENDPOINT" "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" && mc mb -p "target/$$S3_BUCKET" && mc anonymous set download "target/$$S3_BUCKET" '
 
   migrate:
     build:
