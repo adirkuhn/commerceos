@@ -3,6 +3,7 @@ import { ArrowLeft, Boxes, Package, ArrowRightLeft, PackageMinus, Plus, Minus, T
 import * as pmsApi from '../pms/api'
 import { useSKUStock } from '../inventory/hooks/useSKUStock'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
+import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { ScanCodeScreen } from './ScanCodeScreen'
 import type { SKU } from '../pms/types'
 import type { Batch, Warehouse } from '../inventory/types'
@@ -11,6 +12,7 @@ const NAME_SEARCH_RESULT_LIMIT = 8
 
 interface NameCandidate {
   sku: SKU
+  productId: string
   productName: string
 }
 
@@ -136,7 +138,7 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
       }
       const details = await Promise.all(products.map(p => pmsApi.getProduct(token, p.id)))
       const found: NameCandidate[] = details.flatMap(d =>
-        d.variants.flatMap(v => (v.skus ?? []).map(s => ({ sku: s, productName: d.product.name }))))
+        d.variants.flatMap(v => (v.skus ?? []).map(s => ({ sku: s, productId: d.product.id, productName: d.product.name }))))
       if (found.length === 0) {
         setError('No products found')
         return
@@ -175,17 +177,36 @@ function NameSearchScreen({ token, onResolved }: { token: string; onResolved: (r
       {candidates.length > 0 && (
         <div className="w-full max-w-xs space-y-1.5">
           {candidates.map(c => (
-            <BatchOption
-              key={c.sku.id}
-              selected={false}
-              onClick={() => onResolved(c)}
-              title={c.productName}
-              subtitle={c.sku.sku_code}
-            />
+            <NameCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onResolved(c)} />
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function NameCandidateRow({ token, candidate, onClick }: { token: string; candidate: NameCandidate; onClick: () => void }) {
+  const { media } = useProductMedia(token, candidate.productId)
+  const featured = media[0]
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-[#2D3748] bg-[#1F2937] text-left hover:border-blue-500 transition-colors"
+    >
+      <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden">
+        {featured ? (
+          <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
+        ) : (
+          <Package size={16} className="text-gray-400" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{candidate.productName}</p>
+        <p className="text-xs text-gray-500 truncate">{candidate.sku.sku_code}</p>
+      </div>
+    </button>
   )
 }
 

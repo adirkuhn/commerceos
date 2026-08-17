@@ -7,6 +7,8 @@ interface CameraScannerProps {
   onClose: () => void
   /** Viewfinder shape: 'square' for QR codes (default), 'rect' for 1D barcodes. Cosmetic only -- zxing decodes the full frame regardless. */
   frameShape?: 'square' | 'rect'
+  /** 'fullscreen' (default) covers the whole screen -- used by the QR pairing flow, the app's entry screen. 'inline' renders as a bounded box in normal page flow instead, for scan entry points embedded in an existing screen (barcode lookups). */
+  variant?: 'fullscreen' | 'inline'
 }
 
 interface ScannerControls {
@@ -19,7 +21,7 @@ interface ScannerControls {
 // app that accepts a hardware-scanner keyboard-wedge also offers this as an
 // alternative entry point, full-screen overlay so it works on small phone
 // screens.
-export function CameraScanner({ onDecode, onClose, frameShape = 'square' }: CameraScannerProps) {
+export function CameraScanner({ onDecode, onClose, frameShape = 'square', variant = 'fullscreen' }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState('')
 
@@ -49,7 +51,10 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square' }: Came
   }, [onDecode])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div
+      data-testid="camera-scanner"
+      className={variant === 'fullscreen' ? 'fixed inset-0 z-50 flex flex-col bg-black' : 'relative w-full max-w-xs mx-auto rounded-xl overflow-hidden flex flex-col bg-black'}
+    >
       <div className="flex items-center justify-between px-4 py-4 shrink-0">
         <p className="flex items-center gap-2 text-sm text-white">
           <Camera size={16} /> Point camera at code
@@ -59,7 +64,7 @@ export function CameraScanner({ onDecode, onClose, frameShape = 'square' }: Came
         </button>
       </div>
       {error && <p className="px-4 text-sm text-red-400">{error}</p>}
-      <div className="relative flex-1 w-full overflow-hidden">
+      <div className={`relative w-full overflow-hidden ${variant === 'fullscreen' ? 'flex-1' : 'h-56 shrink-0'}`}>
         <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div

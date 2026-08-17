@@ -10,6 +10,7 @@ vi.mock('../../pms/api', () => ({
   resolveBarcode: vi.fn(),
   listProducts: vi.fn(),
   getProduct: vi.fn(),
+  listProductMedia: vi.fn(),
   updateSKU: vi.fn(),
 }))
 
@@ -60,6 +61,14 @@ function productDetail(p: Product, skus: SKU[]): ProductDetail {
   }
 }
 
+function media(overrides: Partial<import('../../pms/types').Media> = {}): import('../../pms/types').Media {
+  return {
+    id: 'media-1', tenant_id: 't1', product_id: 'p1', url: 'https://example.com/widget.jpg',
+    type: 'image', position: 0, alt_text: 'Widget', created_at: '',
+    ...overrides,
+  }
+}
+
 function warehouse(overrides: Partial<Warehouse> = {}): Warehouse {
   return {
     id: 'wh-1', tenant_id: 't1', name: 'Main Warehouse',
@@ -89,6 +98,7 @@ function stockLevel(overrides: Partial<StockLevel> = {}): StockLevel {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+  vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
 })
 
@@ -199,6 +209,26 @@ describe('InventoryApp search by name', () => {
 
     expect(await screen.findByText('WID-PRO')).toBeInTheDocument()
     expect(screen.getByRole('heading')).toHaveTextContent('Widget Pro')
+  })
+
+  it('shows each candidate\'s product thumbnail, falling back to a placeholder icon when it has no media', async () => {
+    const p1 = product({ id: 'p1', name: 'Widget' })
+    const p2 = product({ id: 'p2', name: 'Widget Pro' })
+    const s1 = sku({ id: 'sku-1', sku_code: 'WID-L' })
+    const s2 = sku({ id: 'sku-2', sku_code: 'WID-PRO' })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [p1, p2], total: 2 })
+    vi.mocked(pmsApi.getProduct).mockImplementation(async (_token, id) =>
+      id === 'p1' ? productDetail(p1, [s1]) : productDetail(p2, [s2]))
+    vi.mocked(pmsApi.listProductMedia).mockImplementation(async (_token, productId) =>
+      productId === 'p1' ? [media({ product_id: 'p1', url: 'https://example.com/widget.jpg' })] : [])
+
+    render(<InventoryApp token={TOKEN} onExit={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Search by name' }))
+    await userEvent.type(screen.getByPlaceholderText('Product name…'), 'Widget{Enter}')
+    await screen.findByText('Widget Pro')
+
+    expect(await screen.findByRole('img', { name: 'Widget' })).toHaveAttribute('src', 'https://example.com/widget.jpg')
+    expect(screen.queryAllByRole('img')).toHaveLength(1) // p2 has no media -- placeholder icon, not a broken <img>
   })
 
   it('shows an error when no product matches the searched name', async () => {

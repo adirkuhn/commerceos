@@ -382,7 +382,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
       </form>
 
       {cameraOpen && (
-        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" />
+        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" variant="inline" />
       )}
 
       {bookingLine && (

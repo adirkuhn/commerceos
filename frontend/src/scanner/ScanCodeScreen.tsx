@@ -69,7 +69,7 @@ export function ScanCodeScreen({
       </form>
 
       {cameraOpen && (
-        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" />
+        <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} frameShape="rect" variant="inline" />
       )}
     </div>
   )

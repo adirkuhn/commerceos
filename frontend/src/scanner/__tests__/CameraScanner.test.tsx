@@ -91,4 +91,18 @@ describe('CameraScanner', () => {
     expect(screen.getByTestId('scan-frame')).toHaveAttribute('data-shape', 'rect')
     expect(screen.getByTestId('scan-line')).toBeInTheDocument()
   })
+
+  it('defaults to a fullscreen overlay', () => {
+    render(<CameraScanner onDecode={() => {}} onClose={() => {}} />)
+
+    expect(screen.getByTestId('camera-scanner')).toHaveClass('fixed', 'inset-0', 'z-50')
+  })
+
+  it('renders as a bounded inline box in the page when variant="inline"', () => {
+    render(<CameraScanner onDecode={() => {}} onClose={() => {}} variant="inline" />)
+
+    const container = screen.getByTestId('camera-scanner')
+    expect(container).not.toHaveClass('fixed')
+    expect(container).not.toHaveClass('inset-0')
+  })
 })
