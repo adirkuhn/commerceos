@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"io"
 	"testing"
 	"time"
 
@@ -283,3 +284,50 @@ func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, e
 func (s *stubSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }
+
+type stubDiscardRecordRepo struct {
+	createErr error
+	created   []invDomain.DiscardRecord
+	list      []invDomain.DiscardRecordReport
+	listTotal int64
+	listErr   error
+	gotFilter invDomain.DiscardRecordFilter
+}
+
+func (s *stubDiscardRecordRepo) Create(_ context.Context, d *invDomain.DiscardRecord) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	d.ID = "discard-1"
+	s.created = append(s.created, *d)
+	return nil
+}
+func (s *stubDiscardRecordRepo) List(_ context.Context, filter invDomain.DiscardRecordFilter) ([]invDomain.DiscardRecordReport, int64, error) {
+	s.gotFilter = filter
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
+	return s.list, s.listTotal, nil
+}
+
+type stubFileStorage struct {
+	saveURL   string
+	saveErr   error
+	savedName string
+	savedData []byte
+}
+
+func (s *stubFileStorage) Save(_ context.Context, _, filename string, data io.Reader) (string, error) {
+	if s.saveErr != nil {
+		return "", s.saveErr
+	}
+	s.savedName = filename
+	if data != nil {
+		s.savedData, _ = io.ReadAll(data)
+	}
+	if s.saveURL != "" {
+		return s.saveURL, nil
+	}
+	return "https://example.com/" + filename, nil
+}
+func (s *stubFileStorage) Delete(_ context.Context, _ string) error { return nil }

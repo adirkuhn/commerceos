@@ -125,6 +125,57 @@ type CreateWarehouseRequest struct {
 	Zip      *string `json:"zip,omitempty"`
 }
 
+// DiscardRecord defines model for DiscardRecord.
+type DiscardRecord struct {
+	// BatchId Null means the discard was against general-ledger (un-lotted) stock.
+	BatchId     *string   `json:"batch_id,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	DiscardedAt time.Time `json:"discarded_at"`
+	DiscardedBy string    `json:"discarded_by"`
+	Id          string    `json:"id"`
+	MovementId  string    `json:"movement_id"`
+	PhotoUrl    *string   `json:"photo_url,omitempty"`
+	Quantity    int64     `json:"quantity"`
+	Reason      string    `json:"reason"`
+	SkuId       string    `json:"sku_id"`
+	TenantId    string    `json:"tenant_id"`
+	WarehouseId string    `json:"warehouse_id"`
+}
+
+// DiscardRecordListResponse defines model for DiscardRecordListResponse.
+type DiscardRecordListResponse struct {
+	Data  *[]DiscardRecordReport `json:"data,omitempty"`
+	Error interface{}            `json:"error,omitempty"`
+	Total *int                   `json:"total,omitempty"`
+}
+
+// DiscardRecordReport defines model for DiscardRecordReport.
+type DiscardRecordReport struct {
+	// BatchId Null means the discard was against general-ledger (un-lotted) stock.
+	BatchId       *string   `json:"batch_id,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	DiscardedAt   time.Time `json:"discarded_at"`
+	DiscardedBy   string    `json:"discarded_by"`
+	Id            string    `json:"id"`
+	LotNumber     string    `json:"lot_number"`
+	MovementId    string    `json:"movement_id"`
+	PhotoUrl      *string   `json:"photo_url,omitempty"`
+	ProductName   string    `json:"product_name"`
+	Quantity      int64     `json:"quantity"`
+	Reason        string    `json:"reason"`
+	SkuCode       string    `json:"sku_code"`
+	SkuId         string    `json:"sku_id"`
+	TenantId      string    `json:"tenant_id"`
+	WarehouseId   string    `json:"warehouse_id"`
+	WarehouseName string    `json:"warehouse_name"`
+}
+
+// DiscardRecordResponse defines model for DiscardRecordResponse.
+type DiscardRecordResponse struct {
+	Data  *DiscardRecord `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
 // EmptyResponse defines model for EmptyResponse.
 type EmptyResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -421,6 +472,25 @@ type ListExpiringBatchesParams struct {
 	WithinDays *int `form:"within_days,omitempty" json:"within_days,omitempty"`
 }
 
+// ListDiscardsParams defines parameters for ListDiscards.
+type ListDiscardsParams struct {
+	WarehouseId *string    `form:"warehouse_id,omitempty" json:"warehouse_id,omitempty"`
+	SkuId       *string    `form:"sku_id,omitempty" json:"sku_id,omitempty"`
+	From        *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To          *time.Time `form:"to,omitempty" json:"to,omitempty"`
+	Limit       *int       `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset      *int       `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// DiscardBatchMultipartBody defines parameters for DiscardBatch.
+type DiscardBatchMultipartBody struct {
+	BatchId     *string             `json:"batch_id,omitempty"`
+	Photo       *openapi_types.File `json:"photo,omitempty"`
+	Quantity    int64               `json:"quantity"`
+	Reason      *string             `json:"reason,omitempty"`
+	WarehouseId string              `json:"warehouse_id"`
+}
+
 // UpdateBatchJSONRequestBody defines body for UpdateBatch for application/json ContentType.
 type UpdateBatchJSONRequestBody = UpdateBatchRequest
 
@@ -429,6 +499,9 @@ type ExtendBatchExpiryJSONRequestBody = ExtendBatchExpiryRequest
 
 // CreateBatchJSONRequestBody defines body for CreateBatch for application/json ContentType.
 type CreateBatchJSONRequestBody = CreateBatchRequest
+
+// DiscardBatchMultipartRequestBody defines body for DiscardBatch for multipart/form-data ContentType.
+type DiscardBatchMultipartRequestBody DiscardBatchMultipartBody
 
 // MarkDamagedOrLostJSONRequestBody defines body for MarkDamagedOrLost for application/json ContentType.
 type MarkDamagedOrLostJSONRequestBody = MarkDamagedOrLostRequest
@@ -483,12 +556,18 @@ type ServerInterface interface {
 	// WriteOffExpiredBatch Write off an expired batch's remaining stock as lost, then remove it from the review queue.
 	// (POST /inventory/batches/{id}/write-off)
 	WriteOffExpiredBatch(c *gin.Context, id Id)
+	// ListDiscards Tenant-wide discarded-items report, newest first, optionally narrowed by warehouse/SKU/date range.
+	// (GET /inventory/discards)
+	ListDiscards(c *gin.Context, params ListDiscardsParams)
 	// ListBatches List every batch recorded for a SKU
 	// (GET /inventory/skus/{skuId}/batches)
 	ListBatches(c *gin.Context, skuId SkuId)
 	// CreateBatch Create a new batch (lot) for a SKU
 	// (POST /inventory/skus/{skuId}/batches)
 	CreateBatch(c *gin.Context, skuId SkuId)
+	// DiscardBatch Throw away stock as expired/damaged, with an optional photo -- records a Lost movement and a DiscardRecord report row. Works for a real batch (marks it reviewed) or general-ledger stock (batch_id omitted).
+	// (POST /inventory/skus/{skuId}/discard)
+	DiscardBatch(c *gin.Context, skuId SkuId)
 	// MarkDamagedOrLost Write off stock as damaged or lost
 	// (POST /inventory/skus/{skuId}/mark-damaged-lost)
 	MarkDamagedOrLost(c *gin.Context, skuId SkuId)
@@ -729,6 +808,73 @@ func (siw *ServerInterfaceWrapper) WriteOffExpiredBatch(c *gin.Context) {
 	siw.Handler.WriteOffExpiredBatch(c, id)
 }
 
+// ListDiscards operation middleware
+func (siw *ServerInterfaceWrapper) ListDiscards(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDiscardsParams
+
+	// ------------- Optional query parameter "warehouse_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "warehouse_id", c.Request.URL.Query(), &params.WarehouseId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter warehouse_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "sku_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sku_id", c.Request.URL.Query(), &params.SkuId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sku_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", c.Request.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter offset: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListDiscards(c, params)
+}
+
 // ListBatches operation middleware
 func (siw *ServerInterfaceWrapper) ListBatches(c *gin.Context) {
 
@@ -777,6 +923,31 @@ func (siw *ServerInterfaceWrapper) CreateBatch(c *gin.Context) {
 	}
 
 	siw.Handler.CreateBatch(c, skuId)
+}
+
+// DiscardBatch operation middleware
+func (siw *ServerInterfaceWrapper) DiscardBatch(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId SkuId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DiscardBatch(c, skuId)
 }
 
 // MarkDamagedOrLost operation middleware
@@ -1130,6 +1301,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/inventory/batches/:id/write-off", wrapper.WriteOffExpiredBatch)
 	router.POST(options.BaseURL+"/inventory/batches/:id/extend-expiry", wrapper.ExtendBatchExpiry)
 	router.POST(options.BaseURL+"/inventory/batches/:id/dismiss", wrapper.DismissExpiredBatch)
+	router.POST(options.BaseURL+"/inventory/skus/:skuId/discard", wrapper.DiscardBatch)
+	router.GET(options.BaseURL+"/inventory/discards", wrapper.ListDiscards)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -1137,64 +1310,70 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

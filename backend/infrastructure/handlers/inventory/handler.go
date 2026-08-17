@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -91,6 +92,12 @@ type extendBatchExpiryUC interface {
 type dismissExpiredBatchUC interface {
 	Execute(ctx context.Context, batchID string) error
 }
+type discardBatchUC interface {
+	Execute(ctx context.Context, in appinventory.DiscardBatchInput) (*invDomain.DiscardRecord, error)
+}
+type listDiscardsUC interface {
+	Execute(ctx context.Context, in appinventory.ListDiscardsInput) (*appinventory.ListDiscardsResult, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +126,8 @@ type Handler struct {
 	extendBatchExpiry         extendBatchExpiryUC
 	dismissExpiredBatch       dismissExpiredBatchUC
 	listBatchMovements        listBatchMovementsUC
+	discardBatch              discardBatchUC
+	listDiscards              listDiscardsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -146,6 +155,8 @@ func NewHandler(
 	extendBatchExpiry extendBatchExpiryUC,
 	dismissExpiredBatch dismissExpiredBatchUC,
 	listBatchMovements listBatchMovementsUC,
+	discardBatch discardBatchUC,
+	listDiscards listDiscardsUC,
 ) *Handler {
 	return &Handler{
 		listWarehouses:      listWarehouses,
@@ -172,6 +183,8 @@ func NewHandler(
 		extendBatchExpiry:         extendBatchExpiry,
 		dismissExpiredBatch:       dismissExpiredBatch,
 		listBatchMovements:        listBatchMovements,
+		discardBatch:              discardBatch,
+		listDiscards:              listDiscards,
 	}
 }
 
@@ -179,12 +192,16 @@ var _ geninventory.ServerInterface = (*Handler)(nil)
 
 // Register is the production wiring: creates repos + use cases, then
 // mounts the generated routes (matching the OpenAPI spec exactly).
-func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
+// fileStorage backs the Discard app's optional photo upload -- the same
+// adapter cmd/api already builds for pms media (S3Storage/LocalStorage
+// satisfy invDomain.FileStorage structurally, no wrapper needed).
+func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileStorage invDomain.FileStorage) {
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
+	discardRepo := repositories.NewDiscardRecordRepo(db)
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -210,6 +227,8 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		appinventory.NewExtendBatchExpiryUseCase(db, batchRepo),
 		appinventory.NewDismissExpiredBatchUseCase(db, batchRepo),
 		appinventory.NewListBatchMovementsUseCase(db, movementRepo),
+		appinventory.NewDiscardBatchUseCase(db, discardRepo, batchRepo, appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo), fileStorage),
+		appinventory.NewListDiscardsUseCase(db, discardRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
 }
@@ -414,6 +433,66 @@ func (h *Handler) DismissExpiredBatch(c *gin.Context, id geninventory.Id) {
 		return
 	}
 	c.JSON(http.StatusOK, geninventory.EmptyResponse{})
+}
+
+func (h *Handler) DiscardBatch(c *gin.Context, skuId geninventory.SkuId) {
+	warehouseID := c.PostForm("warehouse_id")
+	quantity, err := strconv.ParseInt(c.PostForm("quantity"), 10, 64)
+	if warehouseID == "" || err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "warehouse_id and quantity are required")
+		return
+	}
+	var batchID *string
+	if v := c.PostForm("batch_id"); v != "" {
+		batchID = &v
+	}
+
+	discardedBy := ""
+	if claims := middleware.ClaimsFromGin(c); claims != nil {
+		discardedBy = claims.UserID
+	}
+	in := appinventory.DiscardBatchInput{
+		SKUID: skuId, WarehouseID: warehouseID, BatchID: batchID, Quantity: quantity,
+		Reason: c.PostForm("reason"), DiscardedBy: discardedBy,
+	}
+	if fileHeader, ferr := c.FormFile("photo"); ferr == nil {
+		f, ferr := fileHeader.Open()
+		if ferr != nil {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", ferr.Error())
+			return
+		}
+		defer f.Close()
+		in.PhotoFilename = fileHeader.Filename
+		in.PhotoContentType = fileHeader.Header.Get("Content-Type")
+		in.PhotoData = f
+	}
+
+	record, err := h.discardBatch.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenDiscardRecord(*record)
+	c.JSON(http.StatusCreated, geninventory.DiscardRecordResponse{Data: &resp})
+}
+
+func (h *Handler) ListDiscards(c *gin.Context, params geninventory.ListDiscardsParams) {
+	in := appinventory.ListDiscardsInput{WarehouseID: params.WarehouseId, SKUID: params.SkuId, From: params.From, To: params.To}
+	if params.Limit != nil {
+		in.Limit = *params.Limit
+	}
+	if params.Offset != nil {
+		in.Offset = *params.Offset
+	}
+	result, err := h.listDiscards.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]geninventory.DiscardRecordReport, len(result.Discards))
+	for i, d := range result.Discards {
+		resp[i] = toGenDiscardRecordReport(d)
+	}
+	total := int(result.Total)
+	c.JSON(http.StatusOK, geninventory.DiscardRecordListResponse{Data: &resp, Total: &total})
 }
 
 func (h *Handler) ListBatchMovements(c *gin.Context, id geninventory.Id) {
@@ -630,6 +709,23 @@ func toGenStockMovement(m invDomain.StockMovement) geninventory.StockMovement {
 	}
 }
 
+func toGenDiscardRecord(d invDomain.DiscardRecord) geninventory.DiscardRecord {
+	return geninventory.DiscardRecord{
+		Id: d.ID, TenantId: d.TenantID, SkuId: d.SKUID, WarehouseId: d.WarehouseID, BatchId: d.BatchID,
+		MovementId: d.MovementID, Quantity: d.Quantity, Reason: d.Reason, PhotoUrl: d.PhotoURL,
+		DiscardedBy: d.DiscardedBy, DiscardedAt: d.DiscardedAt, CreatedAt: d.CreatedAt,
+	}
+}
+
+func toGenDiscardRecordReport(d invDomain.DiscardRecordReport) geninventory.DiscardRecordReport {
+	return geninventory.DiscardRecordReport{
+		Id: d.ID, TenantId: d.TenantID, SkuId: d.SKUID, SkuCode: d.SKUCode, ProductName: d.ProductName,
+		WarehouseId: d.WarehouseID, WarehouseName: d.WarehouseName, BatchId: d.BatchID, LotNumber: d.LotNumber,
+		MovementId: d.MovementID, Quantity: d.Quantity, Reason: d.Reason, PhotoUrl: d.PhotoURL,
+		DiscardedBy: d.DiscardedBy, DiscardedAt: d.DiscardedAt, CreatedAt: d.CreatedAt,
+	}
+}
+
 func genDateToTimePtr(d *openapi_types.Date) *time.Time {
 	if d == nil {
 		return nil
@@ -670,7 +766,7 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInvalidMovementType),
 		errors.Is(err, invDomain.ErrInsufficientStock), errors.Is(err, invDomain.ErrSKUIsNotACase),
-		errors.Is(err, invDomain.ErrSKUIsNotPortioned):
+		errors.Is(err, invDomain.ErrSKUIsNotPortioned), errors.Is(err, invDomain.ErrUnsupportedPhotoType):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, pmsDomain.ErrSKUNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())

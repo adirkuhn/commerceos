@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"io"
 	"time"
 )
 
@@ -110,4 +111,23 @@ type StockMovementRepository interface {
 	// ListStockLevelsUseCase's incremental-sync support, ordered by SKU ID
 	// for stable pagination. total is the full matching count, for paging.
 	ListDistinctSKUIDs(ctx context.Context, changedSince *time.Time, limit, offset int) (skuIDs []string, total int64, err error)
+}
+
+// DiscardRecordRepository backs the discarded-items report -- append-only,
+// same reasoning as StockMovementRepository (a discard is a fact that
+// happened, never edited/deleted).
+type DiscardRecordRepository interface {
+	Create(ctx context.Context, d *DiscardRecord) error
+	// List returns the tenant-wide discarded-items report, newest first,
+	// narrowed by filter.
+	List(ctx context.Context, filter DiscardRecordFilter) ([]DiscardRecordReport, int64, error)
+}
+
+// FileStorage is this domain's own copy of pms.FileStorage's shape (same
+// three methods) -- domain packages don't import each other (see CLAUDE.md),
+// so it's redeclared here rather than shared; infrastructure/storage.S3Storage
+// satisfies both structurally with no adapter code needed.
+type FileStorage interface {
+	Save(ctx context.Context, tenantID, filename string, data io.Reader) (url string, err error)
+	Delete(ctx context.Context, url string) error
 }

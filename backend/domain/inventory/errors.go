@@ -27,4 +27,7 @@ var (
 	// must have pms.SKU.PortionedFromSKUID set -- there's no bulk pool to
 	// consume from otherwise.
 	ErrSKUIsNotPortioned = errors.New("sku is not configured as portioned from a bulk sku")
+	// ErrUnsupportedPhotoType guards DiscardBatchUseCase's optional photo
+	// upload -- same allow-list reasoning as pms.ErrUnsupportedMediaType.
+	ErrUnsupportedPhotoType = errors.New("unsupported photo content type")
 )

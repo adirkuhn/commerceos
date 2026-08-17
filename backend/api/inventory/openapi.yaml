@@ -464,6 +464,74 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /inventory/skus/{skuId}/discard:
+    post:
+      operationId: discardBatch
+      summary: >-
+        Throw away stock as expired/damaged, with an optional photo --
+        records a Lost movement and a DiscardRecord report row. Works for a
+        real batch (marks it reviewed) or general-ledger stock
+        (batch_id omitted).
+      parameters:
+        - $ref: '#/components/parameters/skuId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [warehouse_id, quantity]
+              properties:
+                warehouse_id: { type: string }
+                batch_id: { type: string }
+                quantity: { type: integer, format: int64, minimum: 1 }
+                reason: { type: string }
+                photo: { type: string, format: binary }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscardRecordResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /inventory/discards:
+    get:
+      operationId: listDiscards
+      summary: >-
+        Tenant-wide discarded-items report, newest first, optionally
+        narrowed by warehouse/SKU/date range.
+      parameters:
+        - name: warehouse_id
+          in: query
+          schema: { type: string }
+        - name: sku_id
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscardRecordListResponse'
+
 components:
   parameters:
     id:
@@ -862,6 +930,72 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ExpiredBatchReview'
+        error: { nullable: true }
+
+    DiscardRecord:
+      type: object
+      required: [id, tenant_id, sku_id, warehouse_id, movement_id, quantity, reason, discarded_by, discarded_at, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        sku_id: { type: string }
+        warehouse_id: { type: string }
+        batch_id:
+          type: string
+          nullable: true
+          description: Null means the discard was against general-ledger (un-lotted) stock.
+        movement_id: { type: string }
+        quantity: { type: integer, format: int64 }
+        reason: { type: string }
+        photo_url:
+          type: string
+          nullable: true
+        discarded_by: { type: string }
+        discarded_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    DiscardRecordResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/DiscardRecord'
+          nullable: true
+        error: { nullable: true }
+
+    DiscardRecordReport:
+      type: object
+      required: [id, tenant_id, sku_id, sku_code, product_name, warehouse_id, warehouse_name, lot_number, movement_id, quantity, reason, discarded_by, discarded_at, created_at]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        warehouse_id: { type: string }
+        warehouse_name: { type: string }
+        batch_id:
+          type: string
+          nullable: true
+          description: Null means the discard was against general-ledger (un-lotted) stock.
+        lot_number: { type: string }
+        movement_id: { type: string }
+        quantity: { type: integer, format: int64 }
+        reason: { type: string }
+        photo_url:
+          type: string
+          nullable: true
+        discarded_by: { type: string }
+        discarded_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    DiscardRecordListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscardRecordReport'
+        total: { type: integer }
         error: { nullable: true }
 
     ExtendBatchExpiryRequest:

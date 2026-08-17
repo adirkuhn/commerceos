@@ -436,3 +436,85 @@ func TestBatchRepo_Integration_ListExpiringSoon(t *testing.T) {
 	require.Equal(t, "LOT-SOON", row.LotNumber)
 	require.Equal(t, int64(10), row.Quantity)
 }
+
+// TestDiscardRecordRepo_Integration_CreateAndList proves 078_discard_records.sql's
+// schema, FKs, and the report join (skus/variants/products/warehouses/batches)
+// all actually work against real Postgres -- a sqlmock test can only assert
+// the SQL string sent, not that the migration and join are correct.
+func TestDiscardRecordRepo_Integration_CreateAndList(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	batchRepo := repositories.NewBatchRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	discardRepo := repositories.NewDiscardRecordRepo(db)
+
+	var batchID, movementID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		batch := invDomain.Batch{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID,
+			LotNumber: "LOT-DISCARD", ReceivedAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := batchRepo.Create(ctx, &batch); err != nil {
+			return err
+		}
+		batchID = batch.ID
+
+		movement := invDomain.StockMovement{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, BatchID: &batchID,
+			Type: invDomain.MovementTypeLost, QuantityDelta: -4, Reason: "expired", OccurredAt: now, CreatedAt: now,
+		}
+		if err := movementRepo.Create(ctx, &movement); err != nil {
+			return err
+		}
+		movementID = movement.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var created invDomain.DiscardRecord
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		created = invDomain.DiscardRecord{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, BatchID: &batchID,
+			MovementID: movementID, Quantity: 4, Reason: "expired", DiscardedBy: "user-1", DiscardedAt: time.Now(), CreatedAt: time.Now(),
+		}
+		return discardRepo.Create(ctx, &created)
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, created.ID)
+
+	var report []invDomain.DiscardRecordReport
+	var total int64
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		report, total, err = discardRepo.List(ctx, invDomain.DiscardRecordFilter{})
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, int64(1), total)
+	require.Len(t, report, 1)
+	row := report[0]
+	require.Equal(t, created.ID, row.ID)
+	require.Equal(t, skuID, row.SKUID)
+	require.NotEmpty(t, row.SKUCode)
+	require.NotEmpty(t, row.ProductName)
+	require.NotEmpty(t, row.WarehouseName)
+	require.Equal(t, "LOT-DISCARD", row.LotNumber)
+	require.Equal(t, int64(4), row.Quantity)
+	require.Equal(t, "expired", row.Reason)
+	require.Equal(t, "user-1", row.DiscardedBy)
+	require.Nil(t, row.PhotoURL)
+
+	// Filtering by an unrelated warehouse must exclude it.
+	otherWarehouse := "00000000-0000-0000-0000-000000000000"
+	var filtered []invDomain.DiscardRecordReport
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		filtered, _, err = discardRepo.List(ctx, invDomain.DiscardRecordFilter{WarehouseID: &otherWarehouse})
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, filtered)
+}

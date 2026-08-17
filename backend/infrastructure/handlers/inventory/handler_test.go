@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -324,6 +325,38 @@ func (s *stubListBatchMovements) Execute(_ context.Context, _ string) ([]invDoma
 	return s.out, s.err
 }
 
+type stubDiscardBatch struct {
+	out      *invDomain.DiscardRecord
+	err      error
+	gotInput appinventory.DiscardBatchInput
+}
+
+func (s *stubDiscardBatch) Execute(_ context.Context, in appinventory.DiscardBatchInput) (*invDomain.DiscardRecord, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &invDomain.DiscardRecord{ID: "discard-1"}, nil
+}
+
+type stubListDiscards struct {
+	out *appinventory.ListDiscardsResult
+	err error
+}
+
+func (s *stubListDiscards) Execute(_ context.Context, _ appinventory.ListDiscardsInput) (*appinventory.ListDiscardsResult, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appinventory.ListDiscardsResult{}, nil
+}
+
 func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, update *stubUpdateWarehouse, del *stubDeleteWarehouse) *inventoryhandler.Handler {
 	return inventoryhandler.NewHandler(
 		list, create, update, del,
@@ -332,6 +365,7 @@ func newTestHandler(list *stubListWarehouses, create *stubCreateWarehouse, updat
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 }
 
@@ -358,6 +392,7 @@ func newBatchTestHandlerWithReceive(
 		&stubListExpiringBatches{}, &stubListStockMovements{}, receiveStock,
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 }
 
@@ -369,6 +404,7 @@ func newSplitCaseTestHandler(split *stubSplitCaseIntoUnits) *inventoryhandler.Ha
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 }
 
@@ -573,6 +609,7 @@ func TestListExpiringBatchesHandler_returnsBatches(t *testing.T) {
 		&stubListStockMovements{}, &stubReceiveStock{},
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/batches/expiring-soon?within_days=10", nil)
 
@@ -593,6 +630,7 @@ func TestListStockMovementsHandler_returnsMovements(t *testing.T) {
 		&stubReceiveStock{},
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/skus/sku-1/movements", nil)
 
@@ -612,6 +650,7 @@ func TestListBatchMovementsHandler_returnsMovementsForOneBatch(t *testing.T) {
 		&stubListBatchMovements{out: []invDomain.StockMovement{
 			{ID: "movement-1", SKUID: "sku-1", BatchID: &batchID, Type: invDomain.MovementTypeReceipt, QuantityDelta: 6},
 		}},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/batches/batch-1/movements", nil)
 
@@ -628,6 +667,7 @@ func newExpiredReviewTestHandler(list *stubListPendingExpiredBatches, writeOff *
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 		list, writeOff, extend, dismiss,
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 }
 
@@ -797,6 +837,7 @@ func TestPortionFromBulkHandler_success(t *testing.T) {
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-378g/portion-from-bulk",
 		map[string]any{"warehouse_id": "wh-1", "weight_grams": 378})
@@ -819,6 +860,7 @@ func TestPortionFromBulkHandler_notPortionedReturns422(t *testing.T) {
 		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
 		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
 		&stubListBatchMovements{},
+		&stubDiscardBatch{}, &stubListDiscards{},
 	)
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/portion-from-bulk",
 		map[string]any{"warehouse_id": "wh-1"})
@@ -873,4 +915,102 @@ func TestReceiveStockHandler_rejectsInvalidQuantity(t *testing.T) {
 		map[string]any{"warehouse_id": "wh-1", "quantity": 1})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func newDiscardTestHandler(discard *stubDiscardBatch, list *stubListDiscards) *inventoryhandler.Handler {
+	return inventoryhandler.NewHandler(
+		&stubListWarehouses{}, &stubCreateWarehouse{}, &stubUpdateWarehouse{}, &stubDeleteWarehouse{},
+		&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubSplitCaseIntoUnits{}, &stubPortionFromBulk{}, &stubMarkDamagedOrLost{},
+		&stubListExpiringBatches{}, &stubListStockMovements{}, &stubReceiveStock{},
+		&stubListPendingExpiredBatches{}, &stubWriteOffExpiredBatch{}, &stubExtendBatchExpiry{}, &stubDismissExpiredBatch{},
+		&stubListBatchMovements{},
+		discard, list,
+	)
+}
+
+func TestDiscardBatchHandler_withAPhoto(t *testing.T) {
+	discard := &stubDiscardBatch{out: &invDomain.DiscardRecord{ID: "discard-1", SKUID: "sku-1", Quantity: 3}}
+	h := newDiscardTestHandler(discard, &stubListDiscards{})
+	router := newTestRouter(h)
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("warehouse_id", "wh-1"))
+	require.NoError(t, mw.WriteField("batch_id", "batch-1"))
+	require.NoError(t, mw.WriteField("quantity", "3"))
+	require.NoError(t, mw.WriteField("reason", "expired"))
+	fw, err := mw.CreateFormFile("photo", "photo.jpg")
+	require.NoError(t, err)
+	_, err = fw.Write([]byte("fake-jpeg-bytes"))
+	require.NoError(t, err)
+	require.NoError(t, mw.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/inventory/skus/sku-1/discard", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, "sku-1", discard.gotInput.SKUID)
+	require.Equal(t, "wh-1", discard.gotInput.WarehouseID)
+	require.Equal(t, "batch-1", *discard.gotInput.BatchID)
+	require.Equal(t, int64(3), discard.gotInput.Quantity)
+	require.Equal(t, "expired", discard.gotInput.Reason)
+	require.NotNil(t, discard.gotInput.PhotoData)
+	require.Equal(t, "photo.jpg", discard.gotInput.PhotoFilename)
+	assert.Contains(t, w.Body.String(), "discard-1")
+}
+
+func TestDiscardBatchHandler_withoutAPhotoOrBatchIsGeneralLedger(t *testing.T) {
+	discard := &stubDiscardBatch{}
+	h := newDiscardTestHandler(discard, &stubListDiscards{})
+	router := newTestRouter(h)
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("warehouse_id", "wh-1"))
+	require.NoError(t, mw.WriteField("quantity", "5"))
+	require.NoError(t, mw.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/inventory/skus/sku-1/discard", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.Nil(t, discard.gotInput.BatchID)
+	require.Nil(t, discard.gotInput.PhotoData)
+}
+
+func TestDiscardBatchHandler_rejectsInsufficientStock(t *testing.T) {
+	discard := &stubDiscardBatch{err: invDomain.ErrInsufficientStock}
+	h := newDiscardTestHandler(discard, &stubListDiscards{})
+	router := newTestRouter(h)
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("warehouse_id", "wh-1"))
+	require.NoError(t, mw.WriteField("quantity", "5"))
+	require.NoError(t, mw.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/inventory/skus/sku-1/discard", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestListDiscardsHandler_returnsReportAndTotal(t *testing.T) {
+	list := &stubListDiscards{out: &appinventory.ListDiscardsResult{
+		Discards: []invDomain.DiscardRecordReport{{DiscardRecord: invDomain.DiscardRecord{ID: "d1"}, ProductName: "Widget"}},
+		Total:    1,
+	}}
+	h := newDiscardTestHandler(&stubDiscardBatch{}, list)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/inventory/discards?warehouse_id=wh-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Widget")
+	assert.Contains(t, w.Body.String(), `"total":1`)
 }
