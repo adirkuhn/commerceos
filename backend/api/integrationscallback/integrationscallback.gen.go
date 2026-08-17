@@ -27,9 +27,9 @@ type ErrorResponse struct {
 
 // WooCallbackRequest defines model for WooCallbackRequest.
 type WooCallbackRequest struct {
-	ConsumerKey    string  `json:"consumer_key"`
-	ConsumerSecret string  `json:"consumer_secret"`
-	KeyId          *string `json:"key_id,omitempty"`
+	ConsumerKey    string      `json:"consumer_key"`
+	ConsumerSecret string      `json:"consumer_secret"`
+	KeyId          interface{} `json:"key_id,omitempty"`
 
 	// UserId The signed state token minted by startWooConnect, echoed back by WooCommerce.
 	UserId string `json:"user_id"`
@@ -113,20 +113,20 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"tFXBbtw2EP2VAduDDcirtdOTbtvWBxcoGjgGcoiDgEvOrpilOAw59EYwBPQj+oX9koKUdu2NZaSH9iJQ",
-	"nOFw5r03w0ehqPPk0HEUzaMIGD25iOXnOgQKeaHIMTrOS+m9NUqyIVd/juTyXlQtdjKvfgy4EY34oX6K",
-	"Wo/WWJdot1N8MQxDJTRGFYzPwUQjsFyX96cjxxyOp5pH4QN5DGzGFLXkcrFL1sq1RdFwSDhUU7AX/op0",
-	"icK9R9GIyMG4rRgq0WGMcjtnG6rDDq0/o+K5nUq8J/pFWruWaneLXxJGnrvcxdRh+LTDfjaJo0NEFZBn",
-	"fXbYfzJ61pQihsl2iuxdixDN1qGGyJIRmHbooDOOUcO6z7uBcwnkHCquAFVL2STVLtuLqeswKFyIagah",
-	"gF+SCahF8+GYRnVa8MvyPn4Px++x/gLenLwhNw/QHG1HmXwjoBnSh0oYt6HX0HVbi5CcTNyi49wiqCFQ",
-	"YnyOHihpbYSI4QHDBdPFuAK54fyF7NRKxyC9D/SAEbhFuBerp7aD1dMVhty9gKlw2FjaL+BXtGaNQTLa",
-	"HiS8u367ul3dXUP0qGov1U5uETaBOpDe1FkC21AiRTjLl/lAjCpnTz6ew99//gXcmjjV0qXIsEboKBXx",
-	"kCsZBiIePUIFlDgajcXw2/u7i6eI20DJVyCdHgM5LMUrZTQ6ltb2gE5D8rDG1jgNGU7ojNYW9zJg0Wor",
-	"M58gx4pyAWEjFcLecDvmkFGTDJoW9y7L1XAmVhxI+OMd3Dwve/X2Bs58WlujCj9ZfOeiEg8Y4kjx5WKZ",
-	"1UIenfRGNOLNYrl4IyrhJbdFfCdA1nsiNV1WT+zUh8hFuDTOhyzfcuRGi+a59sXYUhj5Z9L9fzaDZ6bU",
-	"cNq+0/g8eQeulsv/J4PX34LfJ5ldLZdZYjEphTEWMT7vJo0WeWoSh3vbgwpYOi9zusM+H5auB0fu4urr",
-	"VzjUlYUxVOKn5eVrCR8RGB+u4n119a+98yuWuk6GfiL2kPLrnXzUHpx9M0eqFwPjfARt/Imi+fAoUrCi",
-	"EXVu6odLMXwc/gkAAP//",
+	"tFXBbiM3DP0Vgu0hASYeJ9vT3Nw2hxQousgG2MNmsZA1tEdrjaiVOPEOjAH6Ef3CfkkhzdhxEgfpob0Y",
+	"GpEiHx8f6R1qbj07chKx2mGg6NlFyh/XIXBIB81OyEk6Ku+t0UoMu/JrZJfuom6oVen0Y6AVVvhD+Ri1",
+	"HK2xzNFup/g4DEOBNUUdjE/BsELK6dL99OSA4fCq2qEP7CmIGSHWSnJi11mrlpawktDRUEzBXvhrrnMU",
+	"6T1hhVGCcWscCmwpRrU+ZRuK/Q0vv5KWUzcFfmT+RVm7VHpzS986inIquYtdS+HLhvqTIA4OkXQgOemz",
+	"of6LqbHaDQV2kcL48YzKu4YgmrWjGqIoIRDekIPWOKEaln26DZIws3OkpQDSDSeT0ptkz6a2paBphsUJ",
+	"SgJ960ygGqtPBxjF0wpf1vP5LeLeavMLPhN4w24i4c3OHenimWJOdHko0LgVv8auW1uCzqlOGnKSZoJq",
+	"CNwJHbMHWlkbIVJ4oHAhfDGeQK0k/UJyapQTUN4HfqAI0hDc4+JxzmDxmMKwu0eYCoeV5e0MfiVrlhSU",
+	"kO1BwYfr94vbxd01RE+69Epv1JpgFbgF5U2ZJLAOOVKEs5TMBxbSCT37eA5///kXSGPiVEvbRYElQctd",
+	"Fg+7jDAwy+gRCuBOoqkpG377eHfxGHEduPMFKFePgRzl4rU2NTlR1vZArobOw5Ia42pIdEJr6trSVgXK",
+	"Wm1U6ieosaJUQFgpTbA10owYEmtKoObZvUtyNZIai/sm/PEBbo7LXry/gTPfLa3RuT9JfOdY4AOFOLb4",
+	"cjZPamFPTnmDFb6bzWfvsECvpMnie0JkuWXWU7Jy6k65j5yFy+NCSPLNT25qrI61j+NIUZSfue7/s6V7",
+	"Yi0NT8d32pdPFv/VfP7/IHh9+f8+yexqPk8Si53WFGMW4/E01WRJpiFxtLU96EB58lJPN9Snx8r14Nhd",
+	"XH3/Dvu6kjCGAn+aX74G+MDA+E+Vva+u/rV3+tvq2laFfmrsHvLrk3zQHpw92yPFi4VxPpI2fkSsPu2w",
+	"CxYrLNNQP1zi8Hn4JwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

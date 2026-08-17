@@ -50,7 +50,15 @@ components:
       type: object
       required: [user_id, consumer_key, consumer_secret]
       properties:
-        key_id: { type: string }
+        # WooCommerce sends this as a JSON number (the API key row's
+        # numeric DB id) -- confirmed in production: a real callback failed
+        # json.Unmarshal with "cannot unmarshal number into Go struct
+        # field ... key_id of type string". Left as an open (typeless)
+        # schema rather than pinned to integer: it's never read past
+        # binding either way, and an open schema accepts whatever shape
+        # any future caller sends (string, number, ...) without ever
+        # rejecting the payload over this one unused field again.
+        key_id: {}
         user_id:
           type: string
           description: The signed state token minted by startWooConnect, echoed back by WooCommerce.

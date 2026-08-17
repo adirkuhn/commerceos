@@ -556,12 +556,51 @@ func TestWooCallbackHandler_publicRoute_returns200OnSuccess(t *testing.T) {
 	r := gin.New()
 	integrationshandler.RegisterPublicRoutes(r, h)
 
-	w := doRequest(r, http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", map[string]string{
-		"key_id":          "1",
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", map[string]any{
+		"key_id":          1,
 		"user_id":         "some-state-token",
 		"consumer_key":    "ck_abc",
 		"consumer_secret": "cs_abc",
 	})
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestWooCallbackHandler_acceptsNumericKeyID is the exact production bug:
+// WooCommerce sends key_id as a JSON number (the API key row's numeric DB
+// id) -- binding it as *string rejected every real callback with a 422
+// before key_id was widened to an open (typeless) schema. The field is
+// unused past binding either way, so the fix accepts any shape rather
+// than pinning to one JSON type.
+func TestWooCallbackHandler_acceptsNumericKeyID(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", Status: integrationsDomain.StatusConnected}
+	h := newTestHandler(&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{out: conn}, &stubManualConnectWooCommerce{}, &stubDisconnectConnection{}, &stubTestConnection{})
+	r := gin.New()
+	integrationshandler.RegisterPublicRoutes(r, h)
+
+	body := []byte(`{"key_id":1,"user_id":"some-state-token","consumer_key":"ck_abc","consumer_secret":"cs_abc"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestWooCallbackHandler_acceptsStringKeyID proves the open schema didn't
+// just flip which single type is accepted -- a string key_id (whatever
+// shape sent it that way) must keep working too.
+func TestWooCallbackHandler_acceptsStringKeyID(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", Status: integrationsDomain.StatusConnected}
+	h := newTestHandler(&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{out: conn}, &stubManualConnectWooCommerce{}, &stubDisconnectConnection{}, &stubTestConnection{})
+	r := gin.New()
+	integrationshandler.RegisterPublicRoutes(r, h)
+
+	body := []byte(`{"key_id":"1","user_id":"some-state-token","consumer_key":"ck_abc","consumer_secret":"cs_abc"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -570,8 +609,8 @@ func TestWooCallbackHandler_invalidState_returns401(t *testing.T) {
 	r := gin.New()
 	integrationshandler.RegisterPublicRoutes(r, h)
 
-	w := doRequest(r, http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", map[string]string{
-		"key_id":          "1",
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", map[string]any{
+		"key_id":          1,
 		"user_id":         "bad-state",
 		"consumer_key":    "ck_abc",
 		"consumer_secret": "cs_abc",
@@ -587,8 +626,8 @@ func TestWooCallbackHandler_isNotBehindJWTGroup(t *testing.T) {
 	engine := gin.New() // no middleware at all, proving no JWT is required
 	integrationshandler.RegisterPublicRoutes(engine, h)
 
-	w := doRequest(engine, http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", map[string]string{
-		"key_id": "1", "user_id": "s", "consumer_key": "k", "consumer_secret": "v",
+	w := doRequest(engine, http.MethodPost, "/api/v1/integrations/woocommerce/connect/callback", map[string]any{
+		"key_id": 1, "user_id": "s", "consumer_key": "k", "consumer_secret": "v",
 	})
 	assert.Equal(t, http.StatusOK, w.Code)
 }
