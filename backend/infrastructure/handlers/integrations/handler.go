@@ -684,9 +684,19 @@ func (h *Handler) SetSalesChannelProductOverride(c *gin.Context, id genintegrati
 // server-to-server after the merchant approves on their own store. Must
 // return 200 quickly: WooCommerce deletes the newly created API key on any
 // non-2xx response.
+// WooCallback is the single unauthenticated, server-to-server route Woo
+// calls after a merchant approves the connect flow -- there's no gin
+// access-log middleware mounted anywhere in this app (see cmd/api/main.go),
+// and mapError only logs truly unhandled errors, so a known failure here
+// (e.g. a state-signature mismatch from JWT_SECRET changing between the
+// connect attempt starting and this callback landing) would otherwise
+// leave zero trace of ever having been hit. Always log the outcome --
+// low-volume, security-sensitive endpoint, worth the audit trail
+// unconditionally. Never logs req.ConsumerKey/ConsumerSecret themselves.
 func (h *Handler) WooCallback(c *gin.Context) {
 	var req gencallback.WooCallbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("wooCallback: bind request: %v", err)
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
@@ -695,9 +705,12 @@ func (h *Handler) WooCallback(c *gin.Context) {
 		ConsumerKey:    req.ConsumerKey,
 		ConsumerSecret: req.ConsumerSecret,
 	})
-	if err := mapError(c, err); err != nil {
+	if err != nil {
+		log.Printf("wooCallback: %v", err)
+		mapError(c, err)
 		return
 	}
+	log.Printf("wooCallback: connected connection_id=%s", conn.ID)
 	middleware.OK(c, gin.H{"connection_id": conn.ID})
 }
 
