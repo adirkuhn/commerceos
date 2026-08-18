@@ -265,7 +265,13 @@ func (uc *CompleteBookingUseCase) markReplayed(ctx context.Context, scanID strin
 func missingBookingItems(lineItems []procurementDomain.PurchaseOrderLineItem, scans []procurementDomain.BookingScan) []MissingBookingItem {
 	scannedBySKU := make(map[string]int64, len(scans))
 	for _, s := range scans {
-		scannedBySKU[s.SKUID] += s.Quantity
+		// WriteOffQuantity counts too -- a damaged/lost unit still arrived
+		// (see BookLineSheet's own copy: "stays counted as received;
+		// written off separately"), it just isn't sellable. Quantity alone
+		// is 0 for damaged/lost rows, so omitting this made every
+		// damaged/lost unit show up as permanently missing even after
+		// Finish, which contradicted that documented intent.
+		scannedBySKU[s.SKUID] += s.Quantity + s.WriteOffQuantity
 	}
 
 	var missing []MissingBookingItem

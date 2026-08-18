@@ -100,6 +100,26 @@ func TestCompleteBooking_replaysADamagedWriteOffWithoutReducingReceivedProgress(
 	assert.Empty(t, result.MissingItems)
 }
 
+func TestCompleteBooking_writeOffCountsTowardScannedProgressAlongsideReceives(t *testing.T) {
+	// The reported case: 24 expected, 23 received, 1 damaged -- the damaged
+	// unit still arrived (it just isn't sellable), so nothing should be
+	// missing.
+	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 24, LineType: procurementDomain.LineItemTypeProduct}}}
+	batchID := "batch-1"
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 23, BatchID: &batchID},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1, BatchID: &batchID},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	result, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, result.MissingItems, "23 received + 1 damaged accounts for all 24 expected")
+}
+
 func TestCompleteBooking_replaysALostWriteOff(t *testing.T) {
 	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
