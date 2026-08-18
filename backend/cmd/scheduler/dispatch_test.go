@@ -15,51 +15,56 @@ import (
 type stubProductsImporter struct {
 	calls []channelsapp.ImportWooProductsInput
 	err   error
+	errs  []string
 }
 
 func (s *stubProductsImporter) Execute(_ context.Context, in channelsapp.ImportWooProductsInput) (*channelsapp.ImportResult, error) {
 	s.calls = append(s.calls, in)
-	return &channelsapp.ImportResult{}, s.err
+	return &channelsapp.ImportResult{Errors: s.errs}, s.err
 }
 
 type stubProductsExporter struct {
 	calls []channelsapp.RunScheduledProductExportInput
 	err   error
+	errs  []string
 }
 
 func (s *stubProductsExporter) Execute(_ context.Context, in channelsapp.RunScheduledProductExportInput) (*channelsapp.ProductExportResult, error) {
 	s.calls = append(s.calls, in)
-	return &channelsapp.ProductExportResult{}, s.err
+	return &channelsapp.ProductExportResult{Errors: s.errs}, s.err
 }
 
 type stubStockImporter struct {
 	calls []channelsapp.ImportWooStockLevelsInput
 	err   error
+	errs  []string
 }
 
 func (s *stubStockImporter) Execute(_ context.Context, in channelsapp.ImportWooStockLevelsInput) (*channelsapp.StockSyncResult, error) {
 	s.calls = append(s.calls, in)
-	return &channelsapp.StockSyncResult{}, s.err
+	return &channelsapp.StockSyncResult{Errors: s.errs}, s.err
 }
 
 type stubStockExporter struct {
 	calls []channelsapp.ExportWooStockLevelsInput
 	err   error
+	errs  []string
 }
 
 func (s *stubStockExporter) Execute(_ context.Context, in channelsapp.ExportWooStockLevelsInput) (*channelsapp.StockSyncResult, error) {
 	s.calls = append(s.calls, in)
-	return &channelsapp.StockSyncResult{}, s.err
+	return &channelsapp.StockSyncResult{Errors: s.errs}, s.err
 }
 
 type stubOrdersImporter struct {
 	calls []channelsapp.ImportWooOrdersInput
 	err   error
+	errs  []string
 }
 
 func (s *stubOrdersImporter) Execute(_ context.Context, in channelsapp.ImportWooOrdersInput) (*channelsapp.ImportOrdersResult, error) {
 	s.calls = append(s.calls, in)
-	return &channelsapp.ImportOrdersResult{}, s.err
+	return &channelsapp.ImportOrdersResult{Errors: s.errs}, s.err
 }
 
 func TestDispatch_routesProductsImportWithWarehouseAndCurrency(t *testing.T) {
@@ -195,4 +200,76 @@ func TestDispatch_propagatesRunnerError(t *testing.T) {
 
 	require.Error(t, err)
 	require.ErrorContains(t, err, "woo down")
+}
+
+// A per-item failure (e.g. one order's customer lookup errored) is
+// reported via the result's Errors slice, not the use case's own returned
+// error -- see ImportOrdersResult/ImportResult/StockSyncResult/
+// ProductExportResult's doc comments ("partial-failure tolerant"). Before
+// this fix, dispatch discarded that slice entirely (`_, err := ...`), so a
+// run where every single item failed still recorded LastRunStatus
+// "success" -- this is what made "orders aren't syncing" invisible.
+func TestDispatch_reportsAnErrorWhenOrdersImportHasPerOrderFailuresEvenWithNoTopLevelError(t *testing.T) {
+	oi := &stubOrdersImporter{errs: []string{"order #123: customer lookup failed", "order #456: sku not linked"}}
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	warehouseID := "wh-1"
+
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
+		DefaultWarehouseID: &warehouseID,
+	})
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "2")
+	require.ErrorContains(t, err, "customer lookup failed")
+}
+
+func TestDispatch_reportsAnErrorWhenProductsImportHasPerItemFailures(t *testing.T) {
+	pi := &stubProductsImporter{errs: []string{"product X: duplicate slug"}}
+	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
+	})
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "duplicate slug")
+}
+
+func TestDispatch_reportsAnErrorWhenProductsExportHasPerItemFailures(t *testing.T) {
+	pe := &stubProductsExporter{errs: []string{"product Y: push failed"}}
+	rs := buildRunners(&stubProductsImporter{}, pe, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionExport,
+	})
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "push failed")
+}
+
+func TestDispatch_reportsAnErrorWhenStockImportHasPerItemFailures(t *testing.T) {
+	si := &stubStockImporter{errs: []string{"sku Z: batch not found"}}
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, si, &stubStockExporter{}, &stubOrdersImporter{})
+	warehouseID := "wh-1"
+
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock, Direction: channelsDomain.SyncDirectionImport,
+		DefaultWarehouseID: &warehouseID,
+	})
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "batch not found")
+}
+
+func TestDispatch_reportsAnErrorWhenStockExportHasPerItemFailures(t *testing.T) {
+	se := &stubStockExporter{errs: []string{"sku Z: push failed"}}
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, se, &stubOrdersImporter{})
+
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock, Direction: channelsDomain.SyncDirectionExport,
+	})
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "push failed")
 }
