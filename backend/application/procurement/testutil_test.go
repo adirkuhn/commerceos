@@ -748,10 +748,11 @@ type stubMarkDamagedOrLostForBooking struct {
 	err   error
 }
 
-func (s *stubMarkDamagedOrLostForBooking) Execute(_ context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error) {
+func (s *stubMarkDamagedOrLostForBooking) Execute(_ context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, *invDomain.DiscardRecord, error) {
 	s.calls = append(s.calls, in)
 	if s.err != nil {
-		return nil, s.err
+		return nil, nil, s.err
 	}
-	return &invDomain.StockMovement{ID: fmt.Sprintf("movement-wo-%d", len(s.calls)), SKUID: in.SKUID, Type: in.Type, QuantityDelta: -in.Quantity}, nil
+	movement := &invDomain.StockMovement{ID: fmt.Sprintf("movement-wo-%d", len(s.calls)), SKUID: in.SKUID, Type: in.Type, QuantityDelta: -in.Quantity}
+	return movement, &invDomain.DiscardRecord{ID: fmt.Sprintf("discard-wo-%d", len(s.calls)), MovementID: movement.ID}, nil
 }

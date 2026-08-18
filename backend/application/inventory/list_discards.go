@@ -18,6 +18,7 @@ const (
 type ListDiscardsInput struct {
 	WarehouseID *string
 	SKUID       *string
+	Type        *invDomain.MovementType
 	From        *time.Time
 	To          *time.Time
 	Limit       int
@@ -53,7 +54,7 @@ func (uc *ListDiscardsUseCase) Execute(ctx context.Context, in ListDiscardsInput
 	result := &ListDiscardsResult{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		discards, total, err := uc.discardRepo.List(ctx, invDomain.DiscardRecordFilter{
-			WarehouseID: in.WarehouseID, SKUID: in.SKUID, From: in.From, To: in.To, Limit: limit, Offset: in.Offset,
+			WarehouseID: in.WarehouseID, SKUID: in.SKUID, Type: in.Type, From: in.From, To: in.To, Limit: limit, Offset: in.Offset,
 		})
 		if err != nil {
 			return err

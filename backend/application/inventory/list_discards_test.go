@@ -50,6 +50,17 @@ func TestListDiscards_passesWarehouseSKUAndDateFiltersThrough(t *testing.T) {
 	require.Equal(t, &sku, discardRepo.gotFilter.SKUID)
 }
 
+func TestListDiscards_passesTypeFilterThrough(t *testing.T) {
+	discardRepo := &stubDiscardRecordRepo{}
+	uc := appinv.NewListDiscardsUseCase(newMockGormDB(t), discardRepo)
+	damagedType := invDomain.MovementTypeDamaged
+
+	_, err := uc.Execute(context.Background(), appinv.ListDiscardsInput{Type: &damagedType})
+
+	require.NoError(t, err)
+	require.Equal(t, &damagedType, discardRepo.gotFilter.Type)
+}
+
 func TestListDiscards_propagatesRepoError(t *testing.T) {
 	discardRepo := &stubDiscardRecordRepo{listErr: invDomain.ErrBatchNotFound}
 	uc := appinv.NewListDiscardsUseCase(newMockGormDB(t), discardRepo)

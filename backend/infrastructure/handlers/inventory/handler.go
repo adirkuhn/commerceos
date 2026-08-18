@@ -72,7 +72,7 @@ type portionFromBulkUC interface {
 	Execute(ctx context.Context, in appinventory.PortionFromBulkInput) (*appinventory.PortionFromBulkResult, error)
 }
 type markDamagedOrLostUC interface {
-	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
+	Execute(ctx context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, *invDomain.DiscardRecord, error)
 }
 type receiveStockUC interface {
 	Execute(ctx context.Context, in appinventory.ReceiveStockInput) (*appinventory.ReceiveStockResult, error)
@@ -84,7 +84,7 @@ type listPendingExpiredBatchesUC interface {
 	Execute(ctx context.Context) ([]invDomain.ExpiredBatchReview, error)
 }
 type writeOffExpiredBatchUC interface {
-	Execute(ctx context.Context, batchID string) error
+	Execute(ctx context.Context, batchID string, performedBy string) error
 }
 type extendBatchExpiryUC interface {
 	Execute(ctx context.Context, batchID string, newExpiryDate time.Time) error
@@ -202,6 +202,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 	skuRepo := repositories.NewSKURepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	discardRepo := repositories.NewDiscardRecordRepo(db)
+	markDamagedOrLost := appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo)
 
 	h := NewHandler(
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -218,16 +219,16 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 		appinventory.NewTransferStockUseCase(db, movementRepo, outboxRepo),
 		appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, movementRepo, outboxRepo),
 		appinventory.NewPortionFromBulkUseCase(db, skuRepo, movementRepo, outboxRepo),
-		appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
+		markDamagedOrLost,
 		appinventory.NewListExpiringBatchesUseCase(db, batchRepo),
 		appinventory.NewListStockMovementsUseCase(db, movementRepo),
 		appinventory.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
 		appinventory.NewListPendingExpiredBatchesUseCase(db, batchRepo),
-		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo)),
+		appinventory.NewWriteOffExpiredBatchUseCase(db, batchRepo, movementRepo, markDamagedOrLost),
 		appinventory.NewExtendBatchExpiryUseCase(db, batchRepo),
 		appinventory.NewDismissExpiredBatchUseCase(db, batchRepo),
 		appinventory.NewListBatchMovementsUseCase(db, movementRepo),
-		appinventory.NewDiscardBatchUseCase(db, discardRepo, batchRepo, appinventory.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo), fileStorage),
+		appinventory.NewDiscardBatchUseCase(db, batchRepo, markDamagedOrLost, fileStorage),
 		appinventory.NewListDiscardsUseCase(db, discardRepo),
 	)
 	geninventory.RegisterHandlers(rg, h)
@@ -407,7 +408,11 @@ func (h *Handler) ListPendingExpiredBatches(c *gin.Context) {
 }
 
 func (h *Handler) WriteOffExpiredBatch(c *gin.Context, id geninventory.Id) {
-	err := h.writeOffExpiredBatch.Execute(c.Request.Context(), id)
+	performedBy := ""
+	if claims := middleware.ClaimsFromGin(c); claims != nil {
+		performedBy = claims.UserID
+	}
+	err := h.writeOffExpiredBatch.Execute(c.Request.Context(), id, performedBy)
 	if err := mapError(c, err); err != nil {
 		return
 	}
@@ -477,6 +482,10 @@ func (h *Handler) DiscardBatch(c *gin.Context, skuId geninventory.SkuId) {
 
 func (h *Handler) ListDiscards(c *gin.Context, params geninventory.ListDiscardsParams) {
 	in := appinventory.ListDiscardsInput{WarehouseID: params.WarehouseId, SKUID: params.SkuId, From: params.From, To: params.To}
+	if params.Type != nil {
+		t := invDomain.MovementType(*params.Type)
+		in.Type = &t
+	}
 	if params.Limit != nil {
 		in.Limit = *params.Limit
 	}
@@ -621,10 +630,14 @@ func (h *Handler) MarkDamagedOrLost(c *gin.Context, skuId geninventory.SkuId) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
-	movement, err := h.markDamagedOrLost.Execute(c.Request.Context(), appinventory.MarkDamagedOrLostInput{
+	discardedBy := ""
+	if claims := middleware.ClaimsFromGin(c); claims != nil {
+		discardedBy = claims.UserID
+	}
+	movement, _, err := h.markDamagedOrLost.Execute(c.Request.Context(), appinventory.MarkDamagedOrLostInput{
 		SKUID: skuId, WarehouseID: req.WarehouseId, BatchID: req.BatchId,
 		Quantity: req.Quantity, Type: invDomain.MovementType(req.Type),
-		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt), DiscardedBy: discardedBy,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -712,7 +725,7 @@ func toGenStockMovement(m invDomain.StockMovement) geninventory.StockMovement {
 func toGenDiscardRecord(d invDomain.DiscardRecord) geninventory.DiscardRecord {
 	return geninventory.DiscardRecord{
 		Id: d.ID, TenantId: d.TenantID, SkuId: d.SKUID, WarehouseId: d.WarehouseID, BatchId: d.BatchID,
-		MovementId: d.MovementID, Quantity: d.Quantity, Reason: d.Reason, PhotoUrl: d.PhotoURL,
+		MovementId: d.MovementID, Type: geninventory.DiscardRecordType(d.Type), Quantity: d.Quantity, Reason: d.Reason, PhotoUrl: d.PhotoURL,
 		DiscardedBy: d.DiscardedBy, DiscardedAt: d.DiscardedAt, CreatedAt: d.CreatedAt,
 	}
 }
@@ -721,7 +734,7 @@ func toGenDiscardRecordReport(d invDomain.DiscardRecordReport) geninventory.Disc
 	return geninventory.DiscardRecordReport{
 		Id: d.ID, TenantId: d.TenantID, SkuId: d.SKUID, SkuCode: d.SKUCode, ProductName: d.ProductName,
 		WarehouseId: d.WarehouseID, WarehouseName: d.WarehouseName, BatchId: d.BatchID, LotNumber: d.LotNumber,
-		MovementId: d.MovementID, Quantity: d.Quantity, Reason: d.Reason, PhotoUrl: d.PhotoURL,
+		MovementId: d.MovementID, Type: geninventory.DiscardRecordReportType(d.Type), Quantity: d.Quantity, Reason: d.Reason, PhotoUrl: d.PhotoURL,
 		DiscardedBy: d.DiscardedBy, DiscardedAt: d.DiscardedAt, CreatedAt: d.CreatedAt,
 	}
 }

@@ -38,7 +38,7 @@ type recordAdjustmentForCompletionUC interface {
 	Execute(ctx context.Context, in invapp.RecordStockMovementInput) (*invDomain.StockMovement, error)
 }
 type markDamagedOrLostForCompletionUC interface {
-	Execute(ctx context.Context, in invapp.MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
+	Execute(ctx context.Context, in invapp.MarkDamagedOrLostInput) (*invDomain.StockMovement, *invDomain.DiscardRecord, error)
 }
 
 // pendingBatchKey correlates a not-yet-real batch across BookingScan rows in
@@ -253,9 +253,9 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 			if reason == "" {
 				reason = fmt.Sprintf("scanner booking %s", bookingID)
 			}
-			if _, err := uc.markDamagedOrLost.Execute(ctx, invapp.MarkDamagedOrLostInput{
+			if _, _, err := uc.markDamagedOrLost.Execute(ctx, invapp.MarkDamagedOrLostInput{
 				SKUID: s.SKUID, WarehouseID: warehouseID, BatchID: batchID, Quantity: s.WriteOffQuantity,
-				Type: movementType, Reason: reason, OccurredAt: s.ScannedAt,
+				Type: movementType, Reason: reason, OccurredAt: s.ScannedAt, DiscardedBy: s.ScannedBy,
 			}); err != nil {
 				return err
 			}

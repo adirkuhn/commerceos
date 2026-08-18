@@ -15,12 +15,12 @@ type stubDamagedOrLostRecorder struct {
 	err   error
 }
 
-func (s *stubDamagedOrLostRecorder) Execute(_ context.Context, in appinv.MarkDamagedOrLostInput) (*invDomain.StockMovement, error) {
+func (s *stubDamagedOrLostRecorder) Execute(_ context.Context, in appinv.MarkDamagedOrLostInput) (*invDomain.StockMovement, *invDomain.DiscardRecord, error) {
 	s.calls = append(s.calls, in)
 	if s.err != nil {
-		return nil, s.err
+		return nil, nil, s.err
 	}
-	return &invDomain.StockMovement{ID: "movement-1"}, nil
+	return &invDomain.StockMovement{ID: "movement-1"}, &invDomain.DiscardRecord{ID: "discard-1", MovementID: "movement-1"}, nil
 }
 
 func TestWriteOffExpiredBatch_recordsALostMovementForTheBatchsRemainingQuantityThenMarksReviewed(t *testing.T) {
@@ -32,7 +32,7 @@ func TestWriteOffExpiredBatch_recordsALostMovementForTheBatchsRemainingQuantityT
 	recorder := &stubDamagedOrLostRecorder{}
 	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDBN(t, 2), batchRepo, movementRepo, recorder)
 
-	err := uc.Execute(context.Background(), "batch-1")
+	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
 	require.NoError(t, err)
 	require.Len(t, recorder.calls, 1)
@@ -53,7 +53,7 @@ func TestWriteOffExpiredBatch_zeroRemainingQuantitySkipsMovementButStillMarksRev
 	recorder := &stubDamagedOrLostRecorder{}
 	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDBN(t, 2), batchRepo, movementRepo, recorder)
 
-	err := uc.Execute(context.Background(), "batch-1")
+	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
 	require.NoError(t, err)
 	require.Empty(t, recorder.calls, "nothing left to write off -- no movement should be created")
@@ -64,7 +64,7 @@ func TestWriteOffExpiredBatch_propagatesFindError(t *testing.T) {
 	batchRepo := &stubBatchRepo{findErr: invDomain.ErrBatchNotFound}
 	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDB(t), batchRepo, &stubStockMovementRepo{}, &stubDamagedOrLostRecorder{})
 
-	err := uc.Execute(context.Background(), "batch-1")
+	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
 	require.Error(t, err)
 }
@@ -75,7 +75,7 @@ func TestWriteOffExpiredBatch_propagatesRecorderError(t *testing.T) {
 	recorder := &stubDamagedOrLostRecorder{err: invDomain.ErrInvalidQuantity}
 	uc := appinv.NewWriteOffExpiredBatchUseCase(newMockGormDB(t), batchRepo, movementRepo, recorder)
 
-	err := uc.Execute(context.Background(), "batch-1")
+	err := uc.Execute(context.Background(), "batch-1", "user-1")
 
 	require.Error(t, err)
 	require.Empty(t, batchRepo.markReviewed, "must not mark reviewed if the write-off movement failed")

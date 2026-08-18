@@ -275,6 +275,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
+	discardRepo := repositories.NewDiscardRecordRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 
 	createPurchaseOrderUC := appprocurement.NewCreatePurchaseOrderUseCase(db, poRepo)
@@ -318,7 +319,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,
 			invapp.NewReceiveStockUseCase(db, batchRepo, movementRepo, outboxRepo),
 			invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo),
-			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, outboxRepo),
+			invapp.NewMarkDamagedOrLostUseCase(db, movementRepo, discardRepo, outboxRepo),
 		),
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
 		appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),

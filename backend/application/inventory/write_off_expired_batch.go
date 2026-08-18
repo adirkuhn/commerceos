@@ -17,7 +17,7 @@ import (
 // this use case's own transaction closure (same reasoning as
 // application/channels's stockLevelGetter).
 type damagedOrLostRecorder interface {
-	Execute(ctx context.Context, in MarkDamagedOrLostInput) (*invDomain.StockMovement, error)
+	Execute(ctx context.Context, in MarkDamagedOrLostInput) (*invDomain.StockMovement, *invDomain.DiscardRecord, error)
 }
 
 // WriteOffExpiredBatchUseCase is the review queue's "Write-off" action --
@@ -42,7 +42,7 @@ func NewWriteOffExpiredBatchUseCase(
 	return &WriteOffExpiredBatchUseCase{db: db, batchRepo: batchRepo, movementRepo: movementRepo, markDamagedOrLost: markDamagedOrLost}
 }
 
-func (uc *WriteOffExpiredBatchUseCase) Execute(ctx context.Context, batchID string) error {
+func (uc *WriteOffExpiredBatchUseCase) Execute(ctx context.Context, batchID string, performedBy string) error {
 	var batch invDomain.Batch
 	var quantity int64
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -66,10 +66,10 @@ func (uc *WriteOffExpiredBatchUseCase) Execute(ctx context.Context, batchID stri
 	}
 
 	if quantity > 0 {
-		if _, err := uc.markDamagedOrLost.Execute(ctx, MarkDamagedOrLostInput{
+		if _, _, err := uc.markDamagedOrLost.Execute(ctx, MarkDamagedOrLostInput{
 			SKUID: batch.SKUID, WarehouseID: batch.WarehouseID, BatchID: &batchID,
 			Quantity: quantity, Type: invDomain.MovementTypeLost,
-			Reason: "expired batch write-off", OccurredAt: time.Now(),
+			Reason: "expired batch write-off", OccurredAt: time.Now(), DiscardedBy: performedBy,
 		}); err != nil {
 			return fmt.Errorf("writeOffExpiredBatch: %w", err)
 		}

@@ -17,6 +17,14 @@ type DiscardRecord struct {
 	BatchID *string
 	// MovementID is the StockMovement this discard produced.
 	MovementID string
+	// Type is the same MovementTypeDamaged/MovementTypeLost distinction as
+	// the StockMovement it was produced alongside -- written by
+	// MarkDamagedOrLostUseCase for every caller (the inventory page's
+	// Damaged/Lost button, a booking's damaged/lost scan replay, expiry
+	// write-off, and the scanner Discard app), so the unified discarded/
+	// damaged/lost list can distinguish them instead of collapsing every
+	// row to one fixed reason.
+	Type       MovementType
 	Quantity   int64
 	Reason     string
 	// PhotoURL is nil when no photo was attached.
@@ -42,6 +50,7 @@ type DiscardRecordReport struct {
 type DiscardRecordFilter struct {
 	WarehouseID *string
 	SKUID       *string
+	Type        *MovementType
 	From        *time.Time
 	To          *time.Time
 	Limit       int

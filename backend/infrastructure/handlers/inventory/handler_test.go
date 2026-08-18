@@ -230,15 +230,16 @@ type stubMarkDamagedOrLost struct {
 	gotInput appinventory.MarkDamagedOrLostInput
 }
 
-func (s *stubMarkDamagedOrLost) Execute(_ context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, error) {
+func (s *stubMarkDamagedOrLost) Execute(_ context.Context, in appinventory.MarkDamagedOrLostInput) (*invDomain.StockMovement, *invDomain.DiscardRecord, error) {
 	s.gotInput = in
 	if s.err != nil {
-		return nil, s.err
+		return nil, nil, s.err
 	}
-	if s.out != nil {
-		return s.out, nil
+	movement := s.out
+	if movement == nil {
+		movement = &invDomain.StockMovement{ID: "movement-1", Type: in.Type, QuantityDelta: -in.Quantity}
 	}
-	return &invDomain.StockMovement{ID: "movement-1", Type: in.Type, QuantityDelta: -in.Quantity}, nil
+	return movement, &invDomain.DiscardRecord{ID: "discard-1", MovementID: movement.ID}, nil
 }
 
 type stubListExpiringBatches struct {
@@ -286,12 +287,14 @@ func (s *stubListPendingExpiredBatches) Execute(_ context.Context) ([]invDomain.
 }
 
 type stubWriteOffExpiredBatch struct {
-	err   error
-	calls []string
+	err            error
+	calls          []string
+	performedByArg []string
 }
 
-func (s *stubWriteOffExpiredBatch) Execute(_ context.Context, batchID string) error {
+func (s *stubWriteOffExpiredBatch) Execute(_ context.Context, batchID string, performedBy string) error {
 	s.calls = append(s.calls, batchID)
+	s.performedByArg = append(s.performedByArg, performedBy)
 	return s.err
 }
 

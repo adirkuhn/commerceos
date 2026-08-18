@@ -512,6 +512,10 @@ paths:
         - name: sku_id
           in: query
           schema: { type: string }
+        - name: type
+          in: query
+          description: Filter to just damaged or just lost (expiry/scanner discards are always "lost").
+          schema: { type: string, enum: [damaged, lost] }
         - name: from
           in: query
           schema: { type: string, format: date-time }
@@ -934,7 +938,7 @@ components:
 
     DiscardRecord:
       type: object
-      required: [id, tenant_id, sku_id, warehouse_id, movement_id, quantity, reason, discarded_by, discarded_at, created_at]
+      required: [id, tenant_id, sku_id, warehouse_id, movement_id, type, quantity, reason, discarded_by, discarded_at, created_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -945,6 +949,10 @@ components:
           nullable: true
           description: Null means the discard was against general-ledger (un-lotted) stock.
         movement_id: { type: string }
+        type:
+          type: string
+          enum: [damaged, lost]
+          description: Expiry/scanner discards are always "lost" -- the inventory page's Damaged/Lost button and a booking's write-off replay can be either.
         quantity: { type: integer, format: int64 }
         reason: { type: string }
         photo_url:
@@ -964,7 +972,7 @@ components:
 
     DiscardRecordReport:
       type: object
-      required: [id, tenant_id, sku_id, sku_code, product_name, warehouse_id, warehouse_name, lot_number, movement_id, quantity, reason, discarded_by, discarded_at, created_at]
+      required: [id, tenant_id, sku_id, sku_code, product_name, warehouse_id, warehouse_name, lot_number, movement_id, type, quantity, reason, discarded_by, discarded_at, created_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -979,6 +987,9 @@ components:
           description: Null means the discard was against general-ledger (un-lotted) stock.
         lot_number: { type: string }
         movement_id: { type: string }
+        type:
+          type: string
+          enum: [damaged, lost]
         quantity: { type: integer, format: int64 }
         reason: { type: string }
         photo_url:

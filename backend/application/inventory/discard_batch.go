@@ -42,7 +42,6 @@ type DiscardBatchInput struct {
 // use elsewhere in this module.
 type DiscardBatchUseCase struct {
 	db                *gorm.DB
-	discardRepo       invDomain.DiscardRecordRepository
 	batchRepo         invDomain.BatchRepository
 	markDamagedOrLost damagedOrLostRecorder
 	storage           invDomain.FileStorage
@@ -50,19 +49,19 @@ type DiscardBatchUseCase struct {
 
 func NewDiscardBatchUseCase(
 	db *gorm.DB,
-	discardRepo invDomain.DiscardRecordRepository,
 	batchRepo invDomain.BatchRepository,
 	markDamagedOrLost damagedOrLostRecorder,
 	storage invDomain.FileStorage,
 ) *DiscardBatchUseCase {
-	return &DiscardBatchUseCase{db: db, discardRepo: discardRepo, batchRepo: batchRepo, markDamagedOrLost: markDamagedOrLost, storage: storage}
+	return &DiscardBatchUseCase{db: db, batchRepo: batchRepo, markDamagedOrLost: markDamagedOrLost, storage: storage}
 }
 
 // Execute uploads the optional photo (external I/O, outside any DB
 // transaction -- same orphan-file-on-failure tradeoff as
-// pms.UploadMediaUseCase), records a Lost movement for the given quantity,
-// then writes the DiscardRecord report row and, for a real batch, marks it
-// reviewed (same as WriteOffExpiredBatchUseCase's queue-clearing step).
+// pms.UploadMediaUseCase), records a Lost movement for the given quantity
+// (MarkDamagedOrLostUseCase writes the DiscardRecord itself -- see its own
+// doc comment), then, for a real batch, marks it reviewed (same as
+// WriteOffExpiredBatchUseCase's queue-clearing step).
 func (uc *DiscardBatchUseCase) Execute(ctx context.Context, in DiscardBatchInput) (*invDomain.DiscardRecord, error) {
 	if in.Quantity <= 0 {
 		return nil, fmt.Errorf("discardBatch: %w", invDomain.ErrInvalidQuantity)
@@ -85,31 +84,22 @@ func (uc *DiscardBatchUseCase) Execute(ctx context.Context, in DiscardBatchInput
 		occurredAt = time.Now()
 	}
 
-	movement, err := uc.markDamagedOrLost.Execute(ctx, MarkDamagedOrLostInput{
+	_, record, err := uc.markDamagedOrLost.Execute(ctx, MarkDamagedOrLostInput{
 		SKUID: in.SKUID, WarehouseID: in.WarehouseID, BatchID: in.BatchID,
 		Quantity: in.Quantity, Type: invDomain.MovementTypeLost, Reason: in.Reason, OccurredAt: occurredAt,
+		DiscardedBy: in.DiscardedBy, PhotoURL: photoURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("discardBatch: %w", err)
 	}
 
-	var record invDomain.DiscardRecord
-	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		record = invDomain.DiscardRecord{
-			TenantID: tenant.IDFromContext(ctx), SKUID: in.SKUID, WarehouseID: in.WarehouseID, BatchID: in.BatchID,
-			MovementID: movement.ID, Quantity: in.Quantity, Reason: in.Reason, PhotoURL: photoURL,
-			DiscardedBy: in.DiscardedBy, DiscardedAt: occurredAt, CreatedAt: time.Now(),
-		}
-		if err := uc.discardRepo.Create(ctx, &record); err != nil {
-			return err
-		}
-		if in.BatchID != nil {
+	if in.BatchID != nil {
+		err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 			return uc.batchRepo.MarkReviewed(ctx, *in.BatchID)
+		})
+		if err != nil {
+			return nil, fmt.Errorf("discardBatch: %w", err)
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("discardBatch: %w", err)
 	}
-	return &record, nil
+	return record, nil
 }

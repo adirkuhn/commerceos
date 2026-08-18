@@ -477,7 +477,8 @@ func TestDiscardRecordRepo_Integration_CreateAndList(t *testing.T) {
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		created = invDomain.DiscardRecord{
 			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, BatchID: &batchID,
-			MovementID: movementID, Quantity: 4, Reason: "expired", DiscardedBy: "user-1", DiscardedAt: time.Now(), CreatedAt: time.Now(),
+			MovementID: movementID, Type: invDomain.MovementTypeLost, Quantity: 4, Reason: "expired",
+			DiscardedBy: "user-1", DiscardedAt: time.Now(), CreatedAt: time.Now(),
 		}
 		return discardRepo.Create(ctx, &created)
 	})
@@ -502,6 +503,7 @@ func TestDiscardRecordRepo_Integration_CreateAndList(t *testing.T) {
 	require.NotEmpty(t, row.ProductName)
 	require.NotEmpty(t, row.WarehouseName)
 	require.Equal(t, "LOT-DISCARD", row.LotNumber)
+	require.Equal(t, invDomain.MovementTypeLost, row.Type)
 	require.Equal(t, int64(4), row.Quantity)
 	require.Equal(t, "expired", row.Reason)
 	require.Equal(t, "user-1", row.DiscardedBy)
@@ -517,4 +519,21 @@ func TestDiscardRecordRepo_Integration_CreateAndList(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Empty(t, filtered)
+
+	// Filtering by type: lost matches, damaged doesn't.
+	lostType := invDomain.MovementTypeLost
+	damagedType := invDomain.MovementTypeDamaged
+	var byLost, byDamaged []invDomain.DiscardRecordReport
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		byLost, _, err = discardRepo.List(ctx, invDomain.DiscardRecordFilter{Type: &lostType})
+		if err != nil {
+			return err
+		}
+		byDamaged, _, err = discardRepo.List(ctx, invDomain.DiscardRecordFilter{Type: &damagedType})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, byLost, 1)
+	require.Empty(t, byDamaged)
 }

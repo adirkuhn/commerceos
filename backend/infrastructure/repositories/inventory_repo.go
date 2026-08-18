@@ -630,6 +630,7 @@ type discardRecordModel struct {
 	WarehouseID string `gorm:"not null;type:uuid"`
 	BatchID     *string
 	MovementID  string `gorm:"not null;type:uuid"`
+	Type        string `gorm:"not null"`
 	Quantity    int64  `gorm:"not null"`
 	Reason      string
 	PhotoURL    *string `gorm:"column:photo_url"`
@@ -659,7 +660,7 @@ func (r *DiscardRecordRepo) Create(ctx context.Context, d *invDomain.DiscardReco
 	}
 	m := discardRecordModel{
 		TenantID: d.TenantID, SKUID: d.SKUID, WarehouseID: d.WarehouseID, BatchID: d.BatchID,
-		MovementID: d.MovementID, Quantity: d.Quantity, Reason: d.Reason, PhotoURL: d.PhotoURL,
+		MovementID: d.MovementID, Type: string(d.Type), Quantity: d.Quantity, Reason: d.Reason, PhotoURL: d.PhotoURL,
 		DiscardedBy: d.DiscardedBy, DiscardedAt: d.DiscardedAt, CreatedAt: d.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -679,6 +680,7 @@ type discardRecordReportRow struct {
 	WarehouseID   string
 	BatchID       *string
 	MovementID    string
+	Type          string
 	Quantity      int64
 	Reason        string
 	PhotoURL      *string `gorm:"column:photo_url"`
@@ -709,6 +711,9 @@ func (r *DiscardRecordRepo) List(ctx context.Context, filter invDomain.DiscardRe
 	if filter.SKUID != nil {
 		base = base.Where("d.sku_id = ?", *filter.SKUID)
 	}
+	if filter.Type != nil {
+		base = base.Where("d.type = ?", string(*filter.Type))
+	}
 	if filter.From != nil {
 		base = base.Where("d.discarded_at >= ?", *filter.From)
 	}
@@ -728,7 +733,7 @@ func (r *DiscardRecordRepo) List(ctx context.Context, filter invDomain.DiscardRe
 	var rows []discardRecordReportRow
 	err = base.Select(`
 			d.id AS id, d.tenant_id AS tenant_id, d.sku_id AS sku_id, d.warehouse_id AS warehouse_id,
-			d.batch_id AS batch_id, d.movement_id AS movement_id, d.quantity AS quantity, d.reason AS reason,
+			d.batch_id AS batch_id, d.movement_id AS movement_id, d.type AS type, d.quantity AS quantity, d.reason AS reason,
 			d.photo_url AS photo_url, d.discarded_by AS discarded_by, d.discarded_at AS discarded_at, d.created_at AS created_at,
 			s.sku_code AS sku_code, p.name AS product_name, w.name AS warehouse_name,
 			COALESCE(b.lot_number, '') AS lot_number
@@ -743,7 +748,7 @@ func (r *DiscardRecordRepo) List(ctx context.Context, filter invDomain.DiscardRe
 		out[i] = invDomain.DiscardRecordReport{
 			DiscardRecord: invDomain.DiscardRecord{
 				ID: row.ID, TenantID: row.TenantID, SKUID: row.SKUID, WarehouseID: row.WarehouseID,
-				BatchID: row.BatchID, MovementID: row.MovementID, Quantity: row.Quantity, Reason: row.Reason,
+				BatchID: row.BatchID, MovementID: row.MovementID, Type: invDomain.MovementType(row.Type), Quantity: row.Quantity, Reason: row.Reason,
 				PhotoURL: row.PhotoURL, DiscardedBy: row.DiscardedBy, DiscardedAt: row.DiscardedAt, CreatedAt: row.CreatedAt,
 			},
 			SKUCode: row.SKUCode, ProductName: row.ProductName, WarehouseName: row.WarehouseName, LotNumber: row.LotNumber,
