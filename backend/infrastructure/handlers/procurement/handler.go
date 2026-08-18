@@ -298,7 +298,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewCompleteReceivingUseCase(db, receivingRecordRepo),
 		appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo),
 		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
-		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo),
+		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, lineItemRepo),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,

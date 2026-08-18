@@ -19,8 +19,9 @@ type ScanBookingItemInput struct {
 	// Code is the raw scanned text -- tried first as a unit barcode
 	// (SKU.Barcode), then as a case/box BarcodeAlias.Code, then as a
 	// directly-typed SKU.SKUCode (same fallback order as
-	// pms.ResolveBarcodeUseCase). Mutually exclusive with SKUID -- exactly
-	// one must be set.
+	// pms.ResolveBarcodeUseCase), then, last resort, against this
+	// booking's own PO line items' RawSKU (see resolveViaLineItem).
+	// Mutually exclusive with SKUID -- exactly one must be set.
 	Code string
 	// SKUID lets a caller book directly against an already-known SKU (e.g.
 	// tapping a booking line item row on the scanner screen) without a
@@ -60,6 +61,7 @@ type ScanBookingItemUseCase struct {
 	scanRepo         procurementDomain.BookingScanRepository
 	skuRepo          pmsDomain.SKURepository
 	barcodeAliasRepo pmsDomain.BarcodeAliasRepository
+	lineItemRepo     procurementDomain.PurchaseOrderLineItemRepository
 }
 
 func NewScanBookingItemUseCase(
@@ -69,10 +71,11 @@ func NewScanBookingItemUseCase(
 	scanRepo procurementDomain.BookingScanRepository,
 	skuRepo pmsDomain.SKURepository,
 	barcodeAliasRepo pmsDomain.BarcodeAliasRepository,
+	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 ) *ScanBookingItemUseCase {
 	return &ScanBookingItemUseCase{
 		db: db, bookingRepo: bookingRepo, poRepo: poRepo, scanRepo: scanRepo,
-		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo,
+		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, lineItemRepo: lineItemRepo,
 	}
 }
 
@@ -136,10 +139,17 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 					// even though the input's still called Code (not
 					// BarcodeOrSKUCode) and every scanner prompt promises it.
 					byCode, cerr := uc.skuRepo.FindByCode(ctx, in.Code)
-					if cerr != nil {
+					if cerr == nil {
+						skuID = byCode.ID
+					} else if errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
+						liSKUID, lerr := uc.resolveViaLineItem(ctx, po.ID, in.Code)
+						if lerr != nil {
+							return lerr
+						}
+						skuID = liSKUID
+					} else {
 						return cerr
 					}
-					skuID = byCode.ID
 				} else {
 					return aerr
 				}
@@ -169,4 +179,25 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 	}
 
 	return &ScanBookingItemResult{Scan: scan}, nil
+}
+
+// resolveViaLineItem is the last-resort fallback: when code doesn't match
+// anything in the tenant-wide catalog (barcode, alias, SKU code), try
+// matching it against this booking's own PO line items' RawSKU -- the
+// identifier exactly as printed on the supplier's document, which is often
+// what a physical barcode/label actually carries even when it was never
+// entered as the linked SKU's own Barcode or SKUCode. Only usable once that
+// line item has been linked to a real SKU (RawSKU alone isn't enough to
+// book against -- there's no product to receive into yet).
+func (uc *ScanBookingItemUseCase) resolveViaLineItem(ctx context.Context, purchaseOrderID, code string) (string, error) {
+	lineItems, err := uc.lineItemRepo.ListByPurchaseOrder(ctx, purchaseOrderID)
+	if err != nil {
+		return "", err
+	}
+	for _, li := range lineItems {
+		if li.SKUID != nil && strings.EqualFold(strings.TrimSpace(li.RawSKU), code) {
+			return *li.SKUID, nil
+		}
+	}
+	return "", pmsDomain.ErrSKUNotFound
 }
