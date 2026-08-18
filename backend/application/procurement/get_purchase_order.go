@@ -60,7 +60,7 @@ func (uc *GetPurchaseOrderUseCase) Execute(ctx context.Context, id string) (*Pur
 		if err != nil {
 			return err
 		}
-		if err := uc.attachProductDisplayNames(ctx, lineItems); err != nil {
+		if err := AttachProductDisplayNames(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, lineItems); err != nil {
 			return err
 		}
 		detail.LineItems = lineItems
@@ -96,32 +96,49 @@ func lineItemSignedAmount(li procurementDomain.PurchaseOrderLineItem) int64 {
 	return amount
 }
 
-// attachProductDisplayNames fills in ProductName/SKUCode (display-only, see
-// PurchaseOrderLineItem's doc comment) for every linked item, in place. Not
-// found is tolerated (leaves the pair nil, item still renders by its raw
-// text) rather than failing the whole PO fetch -- a SKU a line item points
-// at existing at link time doesn't guarantee it still does by the time this
-// runs. Any other repository error still propagates.
-func (uc *GetPurchaseOrderUseCase) attachProductDisplayNames(ctx context.Context, items []procurementDomain.PurchaseOrderLineItem) error {
+// skuFinderForDisplayNames/variantFinderForDisplayNames/productFinderForDisplayNames
+// are narrow interfaces at point of use (ISP) -- pms's
+// SKURepository/VariantRepository/ProductRepository satisfy these
+// structurally, no adapter needed in production wiring.
+type skuFinderForDisplayNames interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
+}
+type variantFinderForDisplayNames interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.Variant, error)
+}
+type productFinderForDisplayNames interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.Product, error)
+}
+
+// AttachProductDisplayNames fills in ProductName/SKUCode/ProductID
+// (display-only, see PurchaseOrderLineItem's doc comment) for every linked
+// item, in place -- shared by GetPurchaseOrderUseCase (the review table)
+// and GetBookingUseCase (the scanner's booking list, which uses ProductID
+// for a thumbnail). Not found is tolerated (leaves the trio nil, item
+// still renders by its raw text) rather than failing the whole fetch -- a
+// SKU a line item points at existing at link time doesn't guarantee it
+// still does by the time this runs. Any other repository error still
+// propagates.
+func AttachProductDisplayNames(ctx context.Context, skuRepo skuFinderForDisplayNames, variantRepo variantFinderForDisplayNames, productRepo productFinderForDisplayNames, items []procurementDomain.PurchaseOrderLineItem) error {
 	for i := range items {
 		if items[i].SKUID == nil {
 			continue
 		}
-		sku, err := uc.skuRepo.FindByID(ctx, *items[i].SKUID)
+		sku, err := skuRepo.FindByID(ctx, *items[i].SKUID)
 		if err != nil {
 			if errors.Is(err, pmsDomain.ErrSKUNotFound) {
 				continue
 			}
 			return err
 		}
-		variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
+		variant, err := variantRepo.FindByID(ctx, sku.VariantID)
 		if err != nil {
 			if errors.Is(err, pmsDomain.ErrVariantNotFound) {
 				continue
 			}
 			return err
 		}
-		product, err := uc.productRepo.FindByID(ctx, variant.ProductID)
+		product, err := productRepo.FindByID(ctx, variant.ProductID)
 		if err != nil {
 			if errors.Is(err, pmsDomain.ErrProductNotFound) {
 				continue
@@ -130,6 +147,7 @@ func (uc *GetPurchaseOrderUseCase) attachProductDisplayNames(ctx context.Context
 		}
 		items[i].SKUCode = &sku.SKUCode
 		items[i].ProductName = &product.Name
+		items[i].ProductID = &product.ID
 	}
 	return nil
 }

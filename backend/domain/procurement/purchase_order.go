@@ -71,14 +71,18 @@ type PurchaseOrderLineItem struct {
 	// document-parsing pipeline when it can't confidently match (see
 	// PurchaseOrderStatusNeedsReview).
 	SKUID *string
-	// ProductName/SKUCode are display-only -- never persisted on this table,
-	// never set by the repository. GetPurchaseOrderUseCase fills them in
-	// (via pms's ProductRepository/VariantRepository/SKURepository) after
-	// loading a PO's line items, purely so the review table can show a
-	// linked item as "Product Name — SKU code" instead of a bare SKU UUID.
-	// Nil whenever SKUID is nil, or the use case didn't populate them.
+	// ProductName/SKUCode/ProductID are display-only -- never persisted on
+	// this table, never set by the repository. GetPurchaseOrderUseCase and
+	// GetBookingUseCase fill them in (via pms's
+	// ProductRepository/VariantRepository/SKURepository, see
+	// AttachProductDisplayNames) after loading a PO's line items -- the
+	// review table shows a linked item as "Product Name — SKU code" instead
+	// of a bare SKU UUID, and the scanner's booking list uses ProductID to
+	// fetch a thumbnail. Nil whenever SKUID is nil, or the use case didn't
+	// populate them.
 	ProductName *string
 	SKUCode     *string
+	ProductID   *string
 	// RawSKU is the SKU/barcode text as printed on the source document, if
 	// any -- kept separate from RawDescription so a manual link made in the
 	// review UI can write an accurate SupplierProductAlias.RawKey (see

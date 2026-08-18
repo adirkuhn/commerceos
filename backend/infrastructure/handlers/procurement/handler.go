@@ -309,7 +309,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewGetReceivingRecordUseCase(db, receivingRecordRepo, discrepancyRepo),
 		appprocurement.NewCompleteReceivingUseCase(db, receivingRecordRepo),
 		appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo),
-		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
+		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
 		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, lineItemRepo),
 		appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, barcodeAliasRepo, lineItemRepo, variantRepo, productRepo),
 		appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, bookingScanRepo),
@@ -823,7 +823,7 @@ func toGenLineItem(li procurementDomain.PurchaseOrderLineItem) genprocurement.Pu
 	}
 	return genprocurement.PurchaseOrderLineItem{
 		Id: li.ID, TenantId: li.TenantID, PurchaseOrderId: li.PurchaseOrderID, SkuId: li.SKUID, RawSku: li.RawSKU,
-		RawDescription: li.RawDescription, Position: li.Position, ProductName: li.ProductName, SkuCode: li.SKUCode,
+		RawDescription: li.RawDescription, Position: li.Position, ProductName: li.ProductName, SkuCode: li.SKUCode, ProductId: li.ProductID,
 		Quantity: li.Quantity, UnitsPerPurchasedItem: li.UnitsPerPurchasedItem, UnitCostMinorUnits: li.UnitCostMinorUnits,
 		LineType: genprocurement.LineItemType(lineType), LineTypeConfirmed: li.LineTypeConfirmed,
 		SuggestedLotNumber: &li.SuggestedLotNumber, SuggestedExpiryDate: timePtrToGenDate(li.SuggestedExpiryDate),

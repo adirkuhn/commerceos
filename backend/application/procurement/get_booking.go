@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -25,6 +26,9 @@ type GetBookingUseCase struct {
 	bookingRepo  procurementDomain.BookingRepository
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository
 	scanRepo     procurementDomain.BookingScanRepository
+	skuRepo      pmsDomain.SKURepository
+	variantRepo  pmsDomain.VariantRepository
+	productRepo  pmsDomain.ProductRepository
 }
 
 func NewGetBookingUseCase(
@@ -32,8 +36,14 @@ func NewGetBookingUseCase(
 	bookingRepo procurementDomain.BookingRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	scanRepo procurementDomain.BookingScanRepository,
+	skuRepo pmsDomain.SKURepository,
+	variantRepo pmsDomain.VariantRepository,
+	productRepo pmsDomain.ProductRepository,
 ) *GetBookingUseCase {
-	return &GetBookingUseCase{db: db, bookingRepo: bookingRepo, lineItemRepo: lineItemRepo, scanRepo: scanRepo}
+	return &GetBookingUseCase{
+		db: db, bookingRepo: bookingRepo, lineItemRepo: lineItemRepo, scanRepo: scanRepo,
+		skuRepo: skuRepo, variantRepo: variantRepo, productRepo: productRepo,
+	}
 }
 
 func (uc *GetBookingUseCase) Execute(ctx context.Context, id string) (*BookingDetail, error) {
@@ -58,6 +68,9 @@ func (uc *GetBookingUseCase) Execute(ctx context.Context, id string) (*BookingDe
 			if li.LineType.IsProduct() {
 				productLineItems = append(productLineItems, li)
 			}
+		}
+		if err := AttachProductDisplayNames(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, productLineItems); err != nil {
+			return err
 		}
 		detail.LineItems = productLineItems
 

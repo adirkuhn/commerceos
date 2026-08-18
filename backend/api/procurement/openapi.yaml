@@ -648,11 +648,13 @@ components:
         # Ordinal place on the source document -- list responses are always
         # sorted by this (see PurchaseOrderLineItemRepo.ListByPurchaseOrder).
         position: { type: integer, format: int64 }
-        # product_name/sku_code are display-only -- populated only by
-        # GetPurchaseOrder (when sku_id is set), null everywhere else. Lets
-        # the UI show "Product Name — SKU code" instead of a bare sku_id.
+        # product_name/sku_code/product_id are display-only -- populated only
+        # by GetPurchaseOrder and GetBooking (when sku_id is set), null
+        # everywhere else. Let the UI show "Product Name — SKU code" instead
+        # of a bare sku_id, and (product_id) fetch a product thumbnail.
         product_name: { type: string, nullable: true }
         sku_code: { type: string, nullable: true }
+        product_id: { type: string, nullable: true }
         quantity: { type: integer, format: int64 }
         # How many stock units one purchased item represents -- almost
         # always 1. Above 1 when the supplier sells a case/box that isn't
