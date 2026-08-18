@@ -96,6 +96,21 @@ export interface ScanBookingItemResult {
   scan: BookingScan
 }
 
+// Result of resolving a scanned code to a SKU WITHOUT booking anything --
+// see BookingScreen.tsx's resolveAndOpenSheet, which uses this to open the
+// same confirm screen (quantity, batch) that tapping a line item row does,
+// instead of ScanBookingItemInput's old instant-book-on-scan behavior.
+export interface ResolveBookingScanCodeResult {
+  sku_id: string
+  product_name: string
+  // 1 for a direct unit-barcode/SKU-code/line-item match, or the case/box
+  // multiplier when resolved via a BarcodeAlias -- multiply the scanned
+  // quantity by this before defaulting the confirm screen's quantity field,
+  // since the eventual book-it call sends sku_id (not code) and so skips
+  // the backend's own alias-multiplier step.
+  units_per_scan: number
+}
+
 export interface MissingBookingItem {
   line_item_id: string
   raw_description: string

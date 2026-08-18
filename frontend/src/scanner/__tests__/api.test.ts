@@ -149,6 +149,24 @@ describe('scanBookingItem', () => {
   })
 })
 
+describe('resolveBookingScanCode', () => {
+  it('sends the code to the correct endpoint', async () => {
+    const result = { sku_id: 'sku-1', product_name: 'Widget', units_per_scan: 12 }
+    mockFetch(result)
+    const got = await api.resolveBookingScanCode(TOKEN, 'booking-1', 'CASE-1')
+
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/procurement/bookings/booking-1/resolve-scan')
+    expect(JSON.parse(opts.body as string)).toEqual({ code: 'CASE-1' })
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'no product matches this barcode')
+    await expect(api.resolveBookingScanCode(TOKEN, 'booking-1', 'UNKNOWN')).rejects.toThrow('no product matches this barcode')
+  })
+})
+
 describe('pauseBooking', () => {
   it('posts to the correct endpoint', async () => {
     mockFetch({ ...sampleBooking, status: 'paused' })

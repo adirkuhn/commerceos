@@ -69,7 +69,6 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [code, setCode] = useState('')
-  const [quantity, setQuantity] = useState('1')
   const [lotNumber, setLotNumber] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -131,43 +130,85 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   useEffect(() => { load() }, [bookingId])
   useEffect(() => { codeInputRef.current?.focus() }, [detail])
 
-  // Every field the caller wants must be passed explicitly -- no implicit
-  // merge with the outer scan-form's lotNumber/expiryDate state, which
-  // would otherwise silently stomp whatever a caller like BookLineSheet
-  // passes for its own batch/lot/expiry/reason.
-  // A camera misread or a hand-typed code can be truncated/mistyped -- on an
-  // exact-match miss for a code-based scan, fall back to a partial
-  // (substring) match on product name, SKU code, or barcode (see
-  // searchSKUCandidates). A single match re-books via sku_id (the same path
-  // an already-resolved line-item tap uses -- see ScanBookingItemInput's
-  // doc comment), skipping Code resolution entirely; more than one shows a
-  // picker.
+  // The actual write -- always called with sku_id already known (either
+  // from BookLineSheet's line-item tap, or from resolveAndOpenSheet's code
+  // resolution below), never with a raw code. Resolution and booking are
+  // deliberately two separate calls so the scanner always sees a confirm
+  // screen (BookLineSheet) before anything is staged, instead of the old
+  // scan-and-instantly-book behavior.
   async function bookItem(fields: ScanBookingItemInput) {
     setError('')
     setScanning(true)
     try {
       await api.scanBookingItem(token, bookingId, fields)
-      setCode('')
-      setCandidates([])
-      setPendingBookFields(null)
       await load()
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
-      if (fields.code) {
-        try {
-          const found = await searchSKUCandidates(token, fields.code)
-          if (found.length === 1) {
-            await bookItem({ ...fields, code: undefined, sku_id: found[0].sku.id })
-            return
-          }
-          if (found.length > 1) {
-            setCandidates(found)
-            setPendingBookFields(fields)
-            return
-          }
-        } catch {
-          // fall through to the original scanBookingItem error below
+      setError(err instanceof Error ? err.message : 'Scan failed')
+    } finally {
+      setScanning(false)
+      codeInputRef.current?.focus()
+    }
+  }
+
+  // Builds BookLineSheet's props for a resolved SKU -- same shape a line
+  // item row's onClick below builds, reused here so scan and tap land on
+  // the identical confirm screen. When the SKU matches one of this
+  // booking's own PO line items, mirrors that row's defaults exactly
+  // (defaults to the FULL remaining quantity -- "book all" is the common
+  // case, and the sheet's qty stepper is right there to change it before
+  // Confirm). When it doesn't match any line item (e.g. a substitute
+  // product), there's no "expected" total to default from -- falls back to
+  // the resolved product name, defaulting qty to unitsPerScan (1 for a
+  // direct match, or a case/box alias's multiplier).
+  function openBookingLineForSKU(skuId: string, productNameFallback: string, unitsPerScan: number, opts: { lotNumber?: string; expiryDate?: string | null }) {
+    const scannedQty = (detail?.scans ?? []).filter(s => s.sku_id === skuId).reduce((sum, s) => sum + s.quantity, 0)
+    const li = detail?.line_items.find(l => l.sku_id === skuId)
+    if (li) {
+      setBookingLine({
+        skuId, description: li.raw_description, expected: li.quantity, scannedSoFar: scannedQty,
+        remaining: Math.max(li.quantity - scannedQty, 0),
+        suggestedLotNumber: opts.lotNumber || li.suggested_lot_number, suggestedExpiryDate: opts.expiryDate ?? li.suggested_expiry_date,
+      })
+      return
+    }
+    setBookingLine({
+      skuId, description: productNameFallback, expected: scannedQty, scannedSoFar: scannedQty,
+      remaining: unitsPerScan,
+      suggestedLotNumber: opts.lotNumber, suggestedExpiryDate: opts.expiryDate,
+    })
+  }
+
+  // Resolves a scanned/typed code to a SKU (never books it -- see
+  // resolveBookingScanCode's own doc comment), then opens the same confirm
+  // screen tapping a line item row does. A camera misread or a hand-typed
+  // code can be truncated/mistyped -- on an exact-match miss, falls back to
+  // a partial (substring) match on product name, SKU code, or barcode (see
+  // searchSKUCandidates), same as before. A single match opens the sheet
+  // directly; more than one shows a picker first.
+  async function resolveAndOpenSheet(code: string, opts: { lotNumber?: string; expiryDate?: string | null }) {
+    setError('')
+    setScanning(true)
+    try {
+      const resolved = await api.resolveBookingScanCode(token, bookingId, code)
+      setCode('')
+      openBookingLineForSKU(resolved.sku_id, resolved.product_name, resolved.units_per_scan, opts)
+    } catch (err) {
+      if (isAuthError(err)) return onAuthError()
+      try {
+        const found = await searchSKUCandidates(token, code)
+        if (found.length === 1) {
+          setCode('')
+          openBookingLineForSKU(found[0].sku.id, found[0].productName, 1, opts)
+          return
         }
+        if (found.length > 1) {
+          setCandidates(found)
+          setPendingBookFields({ code, quantity: 1, lot_number: opts.lotNumber, expiry_date: opts.expiryDate ?? null })
+          return
+        }
+      } catch {
+        // fall through to the original resolve error below
       }
       setError(err instanceof Error ? err.message : 'Scan failed')
     } finally {
@@ -181,19 +222,19 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     const fields = pendingBookFields
     setCandidates([])
     setPendingBookFields(null)
-    bookItem({ ...fields, code: undefined, sku_id: c.sku.id })
+    setCode('')
+    openBookingLineForSKU(c.sku.id, c.productName, 1, { lotNumber: fields.lot_number, expiryDate: fields.expiry_date ?? null })
   }
 
   function handleScan(e: React.FormEvent) {
     e.preventDefault()
     if (!code.trim()) return
-    bookItem({ code: code.trim(), quantity: parseInt(quantity, 10) || 1, lot_number: lotNumber || undefined, expiry_date: expiryDate || null })
+    resolveAndOpenSheet(code.trim(), { lotNumber: lotNumber || undefined, expiryDate: expiryDate || null })
   }
 
   function handleCameraDecode(text: string) {
     setCameraOpen(false)
-    setCode(text)
-    bookItem({ code: text, quantity: parseInt(quantity, 10) || 1, lot_number: lotNumber || undefined, expiry_date: expiryDate || null })
+    resolveAndOpenSheet(text, { lotNumber: lotNumber || undefined, expiryDate: expiryDate || null })
   }
 
   // Receive, Remove (correction), and Damaged/Lost are all just staged
@@ -396,10 +437,6 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
             placeholder="Scan or type barcode…"
             className="flex-1 px-3 py-3 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <input
-            type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)}
-            className="w-16 px-2 py-3 text-sm text-center rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
-          />
           <button
             type="button"
             onClick={() => setCameraOpen(true)}
@@ -428,7 +465,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           type="submit" disabled={scanning || !code.trim()}
           className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
-          {scanning ? 'Saving…' : 'Add'}
+          {scanning ? 'Looking up…' : 'Scan'}
         </button>
       </form>
 

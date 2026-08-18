@@ -16,6 +16,7 @@ vi.mock('../api', () => ({
   startOrResumeBooking: vi.fn(),
   getBooking: vi.fn(),
   scanBookingItem: vi.fn(),
+  resolveBookingScanCode: vi.fn(),
   pauseBooking: vi.fn(),
   completeBooking: vi.fn(),
 }))
@@ -470,7 +471,7 @@ describe('ScannerApp booking screen', () => {
     expect(screen.queryByLabelText('Quantity received')).not.toBeInTheDocument()
   })
 
-  it('scans an item and refreshes progress', async () => {
+  it('scans an item, opens the confirm screen, and refreshes progress once confirmed', async () => {
     const initial: BookingDetail = {
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
@@ -481,6 +482,7 @@ describe('ScannerApp booking screen', () => {
       scans: [{ id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 5, scanned_at: '', scanned_by: '' }],
     }
     vi.mocked(api.getBooking).mockResolvedValueOnce(initial).mockResolvedValueOnce(afterScan)
+    vi.mocked(api.resolveBookingScanCode).mockResolvedValueOnce({ sku_id: 'sku-1', product_name: 'Widget A', units_per_scan: 1 })
     vi.mocked(api.scanBookingItem).mockResolvedValue({
       scan: { id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 5, scanned_at: '', scanned_by: '' },
     })
@@ -488,24 +490,29 @@ describe('ScannerApp booking screen', () => {
     await enterBookingScreen()
     await screen.findByText('0 / 10')
 
-    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'BARCODE-1')
-    await userEvent.clear(screen.getByDisplayValue('1'))
-    await userEvent.type(screen.getByDisplayValue(''), '5')
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'BARCODE-1{Enter}')
+
+    // Resolved, not booked yet -- confirm screen defaults to the full
+    // remaining quantity (10), editable before Confirm.
+    expect(await screen.findByLabelText('Quantity to receive')).toHaveValue('10')
+    await userEvent.clear(screen.getByLabelText('Quantity to receive'))
+    await userEvent.type(screen.getByLabelText('Quantity to receive'), '5')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
-      code: 'BARCODE-1', quantity: 5,
+      sku_id: 'sku-1', quantity: 5,
     })))
     expect(await screen.findByText('5 / 10')).toBeInTheDocument()
   })
 
-  it('scans an item decoded via the camera', async () => {
+  it('scans an item decoded via the camera and opens the confirm screen', async () => {
     const detail: BookingDetail = {
       booking: booking(),
       line_items: [{ id: 'line-1', sku_id: 'sku-1', raw_description: 'Widget A', quantity: 10 }],
       scans: [],
     }
     vi.mocked(api.getBooking).mockResolvedValue(detail)
+    vi.mocked(api.resolveBookingScanCode).mockResolvedValueOnce({ sku_id: 'sku-1', product_name: 'Widget A', units_per_scan: 1 })
     vi.mocked(api.scanBookingItem).mockResolvedValue({
       scan: { id: 'scan-1', tenant_id: 't', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', write_off_quantity: 0, quantity: 1, scanned_at: '', scanned_by: '' },
     })
@@ -516,9 +523,9 @@ describe('ScannerApp booking screen', () => {
     const callback = mockDecodeFromVideoDevice.mock.calls[0][2]
     act(() => { callback({ getText: () => 'CAMERA-BARCODE-1' }, undefined, { stop: vi.fn() }) })
 
-    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(expect.any(String), 'booking-1', expect.objectContaining({
-      code: 'CAMERA-BARCODE-1',
-    })))
+    await waitFor(() => expect(api.resolveBookingScanCode).toHaveBeenCalledWith(expect.any(String), 'booking-1', 'CAMERA-BARCODE-1'))
+    expect(await screen.findByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+    expect(api.scanBookingItem).not.toHaveBeenCalled()
   })
 
   it('Finish shows a preview of what is still missing, computed locally -- no completion yet', async () => {

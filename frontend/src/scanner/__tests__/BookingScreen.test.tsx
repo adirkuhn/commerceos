@@ -11,6 +11,7 @@ import type { SKU, Product, ProductDetail } from '../../pms/types'
 vi.mock('../api', () => ({
   getBooking: vi.fn(),
   scanBookingItem: vi.fn(),
+  resolveBookingScanCode: vi.fn(),
   pauseBooking: vi.fn(),
   completeBooking: vi.fn(),
 }))
@@ -132,13 +133,71 @@ describe('BookingScreen / BookLineSheet suggested batch pre-fill', () => {
   })
 })
 
-describe('BookingScreen partial-match fallback on a failed code scan', () => {
-  it('falls back to a partial match and books via sku_id when exactly one SKU matches', async () => {
+describe('BookingScreen scan-to-confirm-screen flow', () => {
+  it('resolves an exact code match and opens the confirm screen instead of booking instantly', async () => {
     vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
-    vi.mocked(api.scanBookingItem).mockRejectedValueOnce(new Error('sku not found'))
+    vi.mocked(api.resolveBookingScanCode).mockResolvedValueOnce({ sku_id: 'sku-1', product_name: 'Farofa Premium', units_per_scan: 1 })
+    vi.mocked(api.scanBookingItem).mockResolvedValueOnce({
+      scan: { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', quantity: 1, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+    })
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Farofa Premium')
+
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'BARCODE-1{Enter}')
+
+    // The confirm screen (BookLineSheet) is up -- nothing booked yet.
+    expect(await screen.findByText('Received 0 of 36')).toBeInTheDocument()
+    expect(api.scanBookingItem).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
+      sku_id: 'sku-1',
+    })))
+  })
+
+  it('defaults the confirm screen to the full remaining quantity for a line item match, ignoring any alias multiplier', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.resolveBookingScanCode).mockResolvedValueOnce({ sku_id: 'sku-1', product_name: 'Farofa Premium', units_per_scan: 12 })
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Farofa Premium')
+
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'CASE-1{Enter}')
+
+    expect(await screen.findByText('Received 0 of 36')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quantity to receive')).toHaveValue('36')
+  })
+
+  it('defaults the confirm screen quantity to the alias multiplier when the resolved SKU is not on this PO', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.resolveBookingScanCode).mockResolvedValueOnce({ sku_id: 'sku-9', product_name: 'Widget Pro', units_per_scan: 12 })
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Farofa Premium')
+
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'CASE-1{Enter}')
+
+    expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quantity to receive')).toHaveValue('12')
+  })
+
+  it('falls back to a partial match and opens the confirm screen when exactly one SKU matches', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.resolveBookingScanCode).mockRejectedValueOnce(new Error('sku not found'))
     vi.mocked(api.scanBookingItem).mockResolvedValueOnce({
       scan: { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-9', action_type: 'receive', quantity: 1, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
     })
@@ -152,17 +211,20 @@ describe('BookingScreen partial-match fallback on a failed code scan', () => {
 
     await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'WID-{Enter}')
 
+    expect(await screen.findByText('Widget')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
-      sku_id: 'sku-9', code: undefined,
+      sku_id: 'sku-9',
     })))
   })
 
-  it('shows a candidate list when the partial-match fallback finds more than one SKU, and books the tapped one via sku_id', async () => {
+  it('shows a candidate list when the partial-match fallback finds more than one SKU, and opens the confirm screen for the tapped one', async () => {
     vi.mocked(api.getBooking).mockResolvedValue(bookingDetail())
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
-    vi.mocked(api.scanBookingItem).mockRejectedValueOnce(new Error('sku not found'))
+    vi.mocked(api.resolveBookingScanCode).mockRejectedValueOnce(new Error('sku not found'))
     vi.mocked(api.scanBookingItem).mockResolvedValueOnce({
       scan: { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-9', action_type: 'receive', quantity: 1, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
     })
@@ -183,8 +245,11 @@ describe('BookingScreen partial-match fallback on a failed code scan', () => {
     expect(await screen.findByText('Widget Pro')).toBeInTheDocument()
     await userEvent.click(screen.getByText('Widget Pro'))
 
+    expect(await screen.findByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
-      sku_id: 'sku-9', code: undefined,
+      sku_id: 'sku-9',
     })))
   })
 })

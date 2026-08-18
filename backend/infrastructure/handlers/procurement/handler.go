@@ -146,6 +146,9 @@ type getBookingUC interface {
 type scanBookingItemUC interface {
 	Execute(ctx context.Context, in appprocurement.ScanBookingItemInput) (*appprocurement.ScanBookingItemResult, error)
 }
+type resolveBookingScanCodeUC interface {
+	Execute(ctx context.Context, bookingID, code string) (*appprocurement.ResolveBookingScanCodeResult, error)
+}
 type pauseBookingUC interface {
 	Execute(ctx context.Context, id string) (*procurementDomain.Booking, error)
 }
@@ -181,6 +184,7 @@ type Handler struct {
 	startOrResumeBooking        startOrResumeBookingUC
 	getBooking                  getBookingUC
 	scanBookingItem             scanBookingItemUC
+	resolveBookingScanCode      resolveBookingScanCodeUC
 	pauseBooking                pauseBookingUC
 	completeBooking             completeBookingUC
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC
@@ -211,6 +215,7 @@ func NewHandler(
 	startOrResumeBooking startOrResumeBookingUC,
 	getBooking getBookingUC,
 	scanBookingItem scanBookingItemUC,
+	resolveBookingScanCode resolveBookingScanCodeUC,
 	pauseBooking pauseBookingUC,
 	completeBooking completeBookingUC,
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
@@ -231,6 +236,7 @@ func NewHandler(
 		startOrResumeBooking:        startOrResumeBooking,
 		getBooking:                  getBooking,
 		scanBookingItem:             scanBookingItem,
+		resolveBookingScanCode:      resolveBookingScanCode,
 		pauseBooking:                pauseBooking,
 		completeBooking:             completeBooking,
 		deletePurchaseOrderDocument: deletePurchaseOrderDocument,
@@ -299,6 +305,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo),
 		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
 		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, lineItemRepo),
+		appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, barcodeAliasRepo, lineItemRepo, variantRepo, productRepo),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,
@@ -706,6 +713,20 @@ func (h *Handler) ScanBookingItem(c *gin.Context, id genprocurement.Id) {
 	}
 	resp := genprocurement.ScanBookingItemResult{Scan: toGenBookingScan(result.Scan)}
 	c.JSON(http.StatusCreated, genprocurement.ScanBookingItemResultResponse{Data: &resp})
+}
+
+func (h *Handler) ResolveBookingScanCode(c *gin.Context, id genprocurement.Id) {
+	var req genprocurement.ResolveBookingScanCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.resolveBookingScanCode.Execute(c.Request.Context(), id, req.Code)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genprocurement.ResolveBookingScanCodeResult{SkuId: result.SKUID, ProductName: result.ProductName, UnitsPerScan: result.UnitsPerScan}
+	c.JSON(http.StatusOK, genprocurement.ResolveBookingScanCodeResultResponse{Data: &resp})
 }
 
 func (h *Handler) PauseBooking(c *gin.Context, id genprocurement.Id) {

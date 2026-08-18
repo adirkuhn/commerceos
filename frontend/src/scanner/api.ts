@@ -1,6 +1,6 @@
 import type {
   Booking, BookingDetail, ScanBookingItemInput, ScanBookingItemResult,
-  CompleteBookingResult, ScannerPairingCode, APIResponse,
+  ResolveBookingScanCodeResult, CompleteBookingResult, ScannerPairingCode, APIResponse,
 } from './types'
 
 function base(): string {
@@ -64,6 +64,10 @@ export function getBooking(token: string, id: string): Promise<BookingDetail> {
 
 export function scanBookingItem(token: string, bookingId: string, input: ScanBookingItemInput): Promise<ScanBookingItemResult> {
   return request<ScanBookingItemResult>(`${base()}/procurement/bookings/${bookingId}/scan`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function resolveBookingScanCode(token: string, bookingId: string, code: string): Promise<ResolveBookingScanCodeResult> {
+  return request<ResolveBookingScanCodeResult>(`${base()}/procurement/bookings/${bookingId}/resolve-scan`, { method: 'POST', body: JSON.stringify({ code }) }, token)
 }
 
 export function pauseBooking(token: string, id: string): Promise<Booking> {

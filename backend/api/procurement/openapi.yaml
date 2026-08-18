@@ -460,6 +460,34 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/bookings/{id}/resolve-scan:
+    post:
+      operationId: resolveBookingScanCode
+      summary: >-
+        Scanner app -- resolve a scanned barcode/box-alias/SKU code (or this
+        PO's own line item raw SKU) to a SKU, without booking anything yet.
+        Lets the app show a confirm screen (quantity, batch) before staging
+        a BookingScan via POST .../scan.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveBookingScanCodeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveBookingScanCodeResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /procurement/bookings/{id}/pause:
     post:
       operationId: pauseBooking
@@ -991,6 +1019,38 @@ components:
       required: [scan]
       properties:
         scan: { $ref: '#/components/schemas/BookingScan' }
+
+    ResolveBookingScanCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: >-
+            Raw scanned text -- a unit barcode, case/box alias, SKU code, or
+            this PO's own line item raw SKU (same resolution chain as
+            ScanBookingItemRequest.code).
+
+    ResolveBookingScanCodeResult:
+      type: object
+      required: [sku_id, product_name, units_per_scan]
+      properties:
+        sku_id: { type: string }
+        product_name: { type: string }
+        units_per_scan:
+          type: integer
+          format: int64
+          description: >-
+            1 for a direct unit-barcode/SKU-code/line-item match, or the
+            case/box multiplier when resolved via a BarcodeAlias -- multiply
+            the scanned quantity by this before defaulting the confirm
+            screen's quantity field.
+
+    ResolveBookingScanCodeResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ResolveBookingScanCodeResult' }
+        error: { nullable: true }
 
     ScanBookingItemResultResponse:
       type: object
