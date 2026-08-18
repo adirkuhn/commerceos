@@ -24,7 +24,13 @@ function normalizeCurrency(value: string | null | undefined): string {
   return (value ?? '').trim().toUpperCase()
 }
 
+// The scheduler polls for due schedules every 60s (see cmd/scheduler's
+// pollInterval), so 1 minute is the shortest interval that's meaningful --
+// anything sub-minute would just run every poll tick anyway.
 const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
+  { label: '1 minute', minutes: 1 },
+  { label: '5 minutes', minutes: 5 },
+  { label: '10 minutes', minutes: 10 },
   { label: '15 minutes', minutes: 15 },
   { label: '30 minutes', minutes: 30 },
   { label: '1 hour', minutes: 60 },

@@ -336,6 +336,19 @@ describe('WooCommerce sync settings page', () => {
     expect(screen.getByRole('combobox', { name: 'Stock levels export interval' })).toHaveValue('360')
   })
 
+  it('offers intervals shorter than the old 15-minute minimum', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    const combobox = screen.getByRole('combobox', { name: 'Products import interval' })
+    await userEvent.selectOptions(combobox, '1')
+    expect(combobox).toHaveValue('1')
+  })
+
   it('Save sends all rows (including disabled ones) via the bulk PUT', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     vi.mocked(integrationsApi.upsertSyncSchedules).mockResolvedValue([])
