@@ -198,6 +198,35 @@ func TestImportWooOrders_skipsLineItemsWithNoMatchingSKUButStillCreatesTheOrder(
 	assert.NotEmpty(t, result.Errors, "unresolved line item should be surfaced, not silently dropped")
 }
 
+// A refund/adjustment on the Woo side can surface as a negative quantity
+// on an order's line_items -- domain/oms.SalesOrderLineItem has no
+// representation for that (refunds are tracked at the whole-order Status
+// level, see SalesOrderStatusRefunded), and the DB rejects it outright
+// (sales_order_line_items_quantity_check requires quantity > 0). Before
+// this fix, that INSERT failed and aborted the entire order (including
+// every OTHER, valid line item) with a raw constraint-violation error.
+func TestImportWooOrders_skipsNonPositiveQuantityLineItemsButStillCreatesTheOrder(t *testing.T) {
+	order := simpleWooOrder()
+	order.LineItems = append(order.LineItems, integrationsDomain.WooOrderLineItem{
+		ProductID: 13, SKU: "WID-B", Name: "Widget B (refund adjustment)", Quantity: -1, Price: "10", Subtotal: "-10.00", Total: "-10.00",
+	})
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	taxClassID := "tax-class-standard"
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A", TaxClassID: &taxClassID}
+	h.skuRepo.byCode["WID-B"] = pmsDomain.SKU{ID: "sku-2", SKUCode: "WID-B", TaxClassID: &taxClassID}
+	uc := h.newImportUseCase(t, 4)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	require.Len(t, h.lineItemRepo.created, 1, "the valid line item is still created despite the bad one")
+	assert.Equal(t, "WID-A", h.lineItemRepo.created[0].SKUCode)
+	assert.NotEmpty(t, result.Errors, "the skipped non-positive-quantity line should be surfaced, not silently dropped")
+}
+
 func TestImportWooOrders_linksToAnExistingCustomerByWooCustomerID(t *testing.T) {
 	order := simpleWooOrder()
 	order.CustomerID = 77

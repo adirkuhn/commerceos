@@ -235,6 +235,20 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 				skippedLines++
 				continue
 			}
+			// A refund/adjustment on the Woo side can surface as a
+			// negative (or zero) quantity directly on an order's
+			// line_items. domain/oms.SalesOrderLineItem has no
+			// representation for that -- refunds are tracked at the
+			// whole-order Status level (see SalesOrderStatusRefunded) --
+			// and the DB rejects it outright
+			// (sales_order_line_items_quantity_check). Skip it here,
+			// same tolerance as an unresolved SKU, rather than letting
+			// the INSERT fail and abort every other valid line on the
+			// same order.
+			if li.Quantity <= 0 {
+				skippedLines++
+				continue
+			}
 			sku, err := uc.skuRepo.FindByCode(ctx, li.SKU)
 			if err != nil {
 				if errors.Is(err, pmsDomain.ErrSKUNotFound) {
