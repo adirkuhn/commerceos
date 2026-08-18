@@ -15,6 +15,8 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
+func strPtr(s string) *string { return &s }
+
 func newMockGormDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	mockDB, mock, err := sqlmock.New()

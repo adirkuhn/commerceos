@@ -53,8 +53,11 @@ func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error
 	}
 
 	for _, li := range lineItems {
+		if li.SKUID == nil {
+			continue
+		}
 		if _, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: li.SKUID, WarehouseID: order.WarehouseID, Type: invDomain.MovementTypeSale,
+			SKUID: *li.SKUID, WarehouseID: order.WarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: li.Quantity, Reason: fmt.Sprintf("sales order %s deleted", id),
 			OccurredAt: time.Now(),
 		}); err != nil {

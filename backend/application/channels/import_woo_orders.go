@@ -200,6 +200,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	var order omsDomain.SalesOrder
 	var createdLineItems []omsDomain.SalesOrderLineItem
 	skippedLines := 0
+	unlinkedLines := 0
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var customerID *string
 		if wo.CustomerID != 0 {
@@ -231,31 +232,32 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			return err
 		}
 		for _, li := range wo.LineItems {
-			if li.SKU == "" {
-				skippedLines++
-				continue
-			}
 			// A refund/adjustment on the Woo side can surface as a
 			// negative (or zero) quantity directly on an order's
-			// line_items. domain/oms.SalesOrderLineItem has no
-			// representation for that -- refunds are tracked at the
-			// whole-order Status level (see SalesOrderStatusRefunded) --
-			// and the DB rejects it outright
-			// (sales_order_line_items_quantity_check). Skip it here,
-			// same tolerance as an unresolved SKU, rather than letting
-			// the INSERT fail and abort every other valid line on the
-			// same order.
+			// line_items -- the DB rejects that outright
+			// (sales_order_line_items_quantity_check), and there's no
+			// stock-moving meaning for it here. Skip it, same tolerance
+			// as an unlinked SKU below, rather than letting the INSERT
+			// fail and abort every other valid line on the same order.
 			if li.Quantity <= 0 {
 				skippedLines++
 				continue
 			}
-			sku, err := uc.skuRepo.FindByCode(ctx, li.SKU)
-			if err != nil {
-				if errors.Is(err, pmsDomain.ErrSKUNotFound) {
-					skippedLines++
-					continue
+			var skuID *string
+			var taxClassID *string
+			if li.SKU != "" {
+				sku, err := uc.skuRepo.FindByCode(ctx, li.SKU)
+				if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+					return err
 				}
-				return err
+				if err == nil {
+					skuID = &sku.ID
+					taxClassID = sku.TaxClassID
+				} else {
+					unlinkedLines++
+				}
+			} else {
+				unlinkedLines++
 			}
 			price, _ := ParseWooPriceToMinorUnits(li.Price)
 			subtotal, _ := ParseWooPriceToMinorUnits(li.Subtotal)
@@ -263,10 +265,10 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			total, _ := ParseWooPriceToMinorUnits(li.Total)
 			totalTax, _ := ParseWooPriceToMinorUnits(li.TotalTax)
 			lineItem := omsDomain.SalesOrderLineItem{
-				TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: sku.ID,
+				TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
 				Name: li.Name, SKUCode: li.SKU, Quantity: li.Quantity,
 				PriceMinorUnits: price, SubtotalMinorUnits: subtotal, SubtotalTaxMinorUnits: subtotalTax,
-				TotalMinorUnits: total, TotalTaxMinorUnits: totalTax, TaxClassID: sku.TaxClassID, CreatedAt: now,
+				TotalMinorUnits: total, TotalTaxMinorUnits: totalTax, TaxClassID: taxClassID, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err
@@ -281,15 +283,21 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	}
 	result.Created++
 	if skippedLines > 0 {
-		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %d line item(s) skipped (no matching SKU in CommerceOS)", externalOrderID, skippedLines))
+		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %d line item(s) skipped (non-positive quantity, likely a refund/adjustment)", externalOrderID, skippedLines))
+	}
+	if unlinkedLines > 0 {
+		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %d line item(s) imported without a matching SKU (not linked to a catalog product yet)", externalOrderID, unlinkedLines))
 	}
 
 	if !stockReducing {
 		return
 	}
 	for _, li := range createdLineItems {
+		if li.SKUID == nil {
+			continue
+		}
 		movement, err := uc.stock.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: li.SKUID, WarehouseID: in.DefaultWarehouseID, Type: invDomain.MovementTypeSale,
+			SKUID: *li.SKUID, WarehouseID: in.DefaultWarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("woo order %s", externalOrderID), OccurredAt: occurredAt,
 		})
 		if err != nil {

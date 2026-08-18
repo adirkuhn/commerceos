@@ -175,10 +175,15 @@ components:
 
     SalesOrderLineItem:
       type: object
-      required: [id, sku_id, quantity]
+      required: [id, quantity]
       properties:
         id: { type: string }
-        sku_id: { type: string }
+        # Null when this line came from an imported order (e.g.
+        # WooCommerce) whose SKU string never matched any CommerceOS
+        # SKU -- name/sku_code/price/tax below are still populated from
+        # whatever the source provided, so the line reads correctly even
+        # unlinked.
+        sku_id: { type: string, nullable: true }
         name: { type: string }
         sku_code: { type: string }
         barcode: { type: string }

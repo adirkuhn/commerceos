@@ -16,7 +16,7 @@ func TestDeleteSalesOrder_restocksBeforeDeletingWhenStockWasDecremented(t *testi
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.StockDecremented = true
 	})}
-	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: "sku-1", Quantity: 3}}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: strPtr("sku-1"), Quantity: 3}}}
 	recordMovement := &stubRecordMovement{}
 	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, recordMovement)
 
@@ -55,7 +55,7 @@ func TestDeleteSalesOrder_propagatesAStockMovementError(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.StockDecremented = true
 	})}
-	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: "sku-1", Quantity: 3}}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: strPtr("sku-1"), Quantity: 3}}}
 	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
 	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, recordMovement)
 

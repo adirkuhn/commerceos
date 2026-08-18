@@ -164,6 +164,9 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 	}
 
 	for _, li := range lineItems {
+		if li.SKUID == nil {
+			continue
+		}
 		delta := li.Quantity
 		reason := fmt.Sprintf("sales order %s restocked", id)
 		if decrementing {
@@ -171,7 +174,7 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 			reason = fmt.Sprintf("sales order %s status change", id)
 		}
 		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: li.SKUID, WarehouseID: updated.WarehouseID, Type: invDomain.MovementTypeSale,
+			SKUID: *li.SKUID, WarehouseID: updated.WarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: delta, Reason: reason, OccurredAt: time.Now(),
 		})
 		if err != nil {

@@ -539,7 +539,7 @@ func TestProductRepo_Integration_DeleteBlockedBySalesOrderHistory(t *testing.T) 
 			return err
 		}
 		lineItem := omsDomain.SalesOrderLineItem{
-			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: &skuID,
 			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
 		}
 		return lineItemRepo.Create(ctx, &lineItem)

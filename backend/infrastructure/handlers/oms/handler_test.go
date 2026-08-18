@@ -20,6 +20,8 @@ import (
 
 func init() { gin.SetMode(gin.TestMode) }
 
+func strPtr(s string) *string { return &s }
+
 type stubListSalesOrders struct {
 	out      *appoms.ListSalesOrdersResult
 	err      error
@@ -142,7 +144,7 @@ func TestListSalesOrders_passesSortByAndSortDirQueryParamsThrough(t *testing.T) 
 func TestGetSalesOrder_success(t *testing.T) {
 	get := &stubGetSalesOrder{out: &appoms.GetSalesOrderResult{
 		SalesOrder: omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1"},
-		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: "sku-1", Quantity: 2}},
+		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2}},
 	}}
 	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}), "GET", "/api/v1/sales-orders/so-1", nil)
 
@@ -160,7 +162,7 @@ func TestGetSalesOrder_notFound(t *testing.T) {
 func TestCreateSalesOrder_success(t *testing.T) {
 	create := &stubCreateSalesOrder{out: &appoms.CreateSalesOrderResult{
 		SalesOrder: omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "generated-1"},
-		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: "sku-1", Quantity: 2}},
+		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2}},
 	}}
 	body := map[string]any{
 		"warehouse_id": "wh-1", "currency_code": "USD", "occurred_at": "2026-01-01T00:00:00Z",

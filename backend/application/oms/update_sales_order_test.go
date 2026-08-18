@@ -27,7 +27,7 @@ func TestUpdateSalesOrder_transitioningToProcessingDecrementsStock(t *testing.T)
 	db := newMockGormDBN(t, 2)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
-		{SKUID: "sku-1", Quantity: 3},
+		{SKUID: strPtr("sku-1"), Quantity: 3},
 	}}
 	recordMovement := &stubRecordMovement{}
 	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
@@ -50,7 +50,7 @@ func TestUpdateSalesOrder_cancellingARestockedOrderReturnsStock(t *testing.T) {
 		o.StockDecremented = true
 	})}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
-		{SKUID: "sku-1", Quantity: 3},
+		{SKUID: strPtr("sku-1"), Quantity: 3},
 	}}
 	recordMovement := &stubRecordMovement{}
 	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
@@ -141,7 +141,7 @@ func TestUpdateSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 func TestUpdateSalesOrder_propagatesAStockMovementError(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
-	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: "sku-1", Quantity: 3}}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: strPtr("sku-1"), Quantity: 3}}}
 	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
 	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
 

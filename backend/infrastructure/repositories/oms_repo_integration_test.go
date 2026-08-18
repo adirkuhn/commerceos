@@ -39,7 +39,7 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 		orderID = order.ID
 
 		line := omsDomain.SalesOrderLineItem{
-			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: skuID,
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: &skuID,
 			Name: "Widget A", SKUCode: "WID-A", Barcode: "0123456789012", Quantity: 2,
 			PriceMinorUnits: 500, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000, CreatedAt: now,
 		}
@@ -68,13 +68,60 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 	require.NotNil(t, byExternal)
 	require.Equal(t, orderID, byExternal.ID)
 	require.Len(t, lineItems, 1)
-	require.Equal(t, skuID, lineItems[0].SKUID)
+	require.NotNil(t, lineItems[0].SKUID)
+	require.Equal(t, skuID, *lineItems[0].SKUID)
 	require.Equal(t, int64(2), lineItems[0].Quantity)
 	require.Equal(t, "Widget A", lineItems[0].Name)
 	require.Equal(t, "WID-A", lineItems[0].SKUCode)
 	require.Equal(t, "0123456789012", lineItems[0].Barcode)
 	require.Equal(t, int64(500), lineItems[0].PriceMinorUnits)
 	require.Equal(t, int64(1000), lineItems[0].TotalMinorUnits)
+}
+
+// A line item unlinked to any catalog SKU (see ImportWooOrdersUseCase --
+// a Woo order's SKU string that never matched anything in CommerceOS) must
+// still persist and round-trip with a real, nil sku_id column, not error
+// on the now-relaxed NOT NULL constraint (079_sales_order_line_item_sku_optional.sql).
+func TestSalesOrderLineItemRepo_Integration_RoundTripsANilSKUID(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	var orderID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "woo-order-unlinked-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+
+		line := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: nil,
+			Name: "Mystery Item", SKUCode: "UNKNOWN-SKU", Quantity: 1,
+			PriceMinorUnits: 500, CreatedAt: now,
+		}
+		return lineItemRepo.Create(ctx, &line)
+	})
+	require.NoError(t, err)
+
+	var lineItems []omsDomain.SalesOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		lineItems, err = lineItemRepo.ListBySalesOrder(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, lineItems, 1)
+	require.Nil(t, lineItems[0].SKUID)
+	require.Equal(t, "Mystery Item", lineItems[0].Name)
+	require.Equal(t, "UNKNOWN-SKU", lineItems[0].SKUCode)
 }
 
 // TestSalesOrderRepo_Integration_WooFieldsRoundTrip proves the new
@@ -421,7 +468,7 @@ func TestSalesOrderRepo_Integration_DeleteCascadesLineItems(t *testing.T) {
 		}
 		orderID = order.ID
 		line := omsDomain.SalesOrderLineItem{
-			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: skuID,
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: &skuID,
 			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
 		}
 		return lineItemRepo.Create(ctx, &line)
@@ -464,7 +511,7 @@ func TestSalesOrderLineItemStockMovementRepo_Integration_Create(t *testing.T) {
 			return err
 		}
 		line := omsDomain.SalesOrderLineItem{
-			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: &skuID,
 			Quantity: 1, PriceMinorUnits: 500, CreatedAt: now,
 		}
 		if err := lineItemRepo.Create(ctx, &line); err != nil {

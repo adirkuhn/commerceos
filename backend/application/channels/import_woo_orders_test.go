@@ -97,7 +97,8 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.Equal(t, "flat_rate", created.ShippingMethod)
 	assert.Equal(t, "Flat rate", created.ShippingMethodTitle)
 	require.Len(t, h.lineItemRepo.created, 1)
-	assert.Equal(t, "sku-1", h.lineItemRepo.created[0].SKUID)
+	require.NotNil(t, h.lineItemRepo.created[0].SKUID)
+	assert.Equal(t, "sku-1", *h.lineItemRepo.created[0].SKUID)
 	assert.Equal(t, int64(1000), h.lineItemRepo.created[0].PriceMinorUnits)
 	require.NotNil(t, h.lineItemRepo.created[0].TaxClassID)
 	assert.Equal(t, "tax-class-standard", *h.lineItemRepo.created[0].TaxClassID)
@@ -183,7 +184,14 @@ func TestImportWooOrders_updatesStatusOnAnExistingOrder(t *testing.T) {
 	assert.Equal(t, omsDomain.SalesOrderStatusCompleted, *h.updateOrder.calls[0].Status)
 }
 
-func TestImportWooOrders_skipsLineItemsWithNoMatchingSKUButStillCreatesTheOrder(t *testing.T) {
+// A line item whose Woo SKU string never matched a CommerceOS SKU (never
+// imported, or Woo sent none at all) is still imported -- name/quantity/
+// price/tax are already present on the order regardless of a catalog
+// match, so there's no reason to lose that data. It's just left unlinked
+// (SKUID nil, same "not linked to a catalog product yet" pattern
+// procurement.PurchaseOrderLineItem already uses) and reported as an
+// informational note, not an error, since nothing failed.
+func TestImportWooOrders_importsAnUnmatchedLineItemUnlinkedInsteadOfDroppingIt(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
 	// h.skuRepo.byCode intentionally has no "WID-A" entry.
 	uc := h.newImportUseCase(t, 3)
@@ -194,8 +202,16 @@ func TestImportWooOrders_skipsLineItemsWithNoMatchingSKUButStillCreatesTheOrder(
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.Created)
-	assert.Empty(t, h.lineItemRepo.created)
-	assert.NotEmpty(t, result.Errors, "unresolved line item should be surfaced, not silently dropped")
+	require.Len(t, h.lineItemRepo.created, 1, "the line item is kept, just unlinked -- not dropped")
+	created := h.lineItemRepo.created[0]
+	assert.Nil(t, created.SKUID)
+	assert.Equal(t, "Widget A", created.Name)
+	assert.Equal(t, "WID-A", created.SKUCode)
+	assert.Equal(t, int64(2), created.Quantity)
+	assert.Equal(t, int64(1000), created.PriceMinorUnits)
+	assert.Nil(t, created.TaxClassID, "no SKU to source a tax class from")
+	assert.Empty(t, h.stock.calls, "no SKU means nothing to decrement")
+	assert.NotEmpty(t, result.Errors, "unlinked line should be surfaced for later manual linking")
 }
 
 // A refund/adjustment on the Woo side can surface as a negative quantity

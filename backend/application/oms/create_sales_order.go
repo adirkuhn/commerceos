@@ -124,8 +124,9 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			if sku, err := uc.skuRepo.FindByID(ctx, li.SKUID); err == nil {
 				taxClassID = sku.TaxClassID
 			}
+			skuID := li.SKUID
 			lineItem := omsDomain.SalesOrderLineItem{
-				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: li.SKUID,
+				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: &skuID,
 				Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
 				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
@@ -148,8 +149,11 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 	}
 
 	for _, li := range createdLineItems {
+		if li.SKUID == nil {
+			continue
+		}
 		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
+			SKUID: *li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("manual sale %s", order.ID),
 			OccurredAt: in.OccurredAt,
 		})

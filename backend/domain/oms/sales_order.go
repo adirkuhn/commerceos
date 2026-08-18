@@ -151,18 +151,22 @@ type SalesOrder struct {
 	StockDecremented bool
 }
 
-// SalesOrderLineItem is one SKU sold within a SalesOrder. Unlike
-// procurement.PurchaseOrderLineItem, SKUID is required (not nullable) --
-// the POS resolves a barcode to a real SKU client-side before pushing the
-// sale (see pms.ResolveBarcodeUseCase), so there's no "unlinked line" case
-// to represent here. Name/SKUCode are snapshotted at sale time (same as
-// Woo's line_items.name/sku) so the line still reads correctly even if the
-// product is later renamed or the SKU deleted.
+// SalesOrderLineItem is one SKU sold within a SalesOrder. The POS resolves
+// a barcode to a real SKU client-side before pushing the sale (see
+// pms.ResolveBarcodeUseCase), so SKUID is always set there -- but an
+// imported Woo order can carry a line item whose SKU string never matched
+// anything in CommerceOS (never imported, or Woo sent none at all).
+// ImportWooOrdersUseCase keeps that line rather than dropping the data,
+// with SKUID nil -- same "not linked to a catalog product yet" pattern as
+// procurement.PurchaseOrderLineItem.SKUID. Name/SKUCode/price/tax are
+// snapshotted at sale time regardless (same as Woo's line_items.name/sku)
+// so the line still reads correctly whether or not it's linked, or if the
+// linked product is later renamed/deleted.
 type SalesOrderLineItem struct {
 	ID           string
 	TenantID     string
 	SalesOrderID string
-	SKUID        string
+	SKUID        *string
 	Name         string
 	SKUCode      string
 	Barcode      string

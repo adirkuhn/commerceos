@@ -77,7 +77,7 @@ type salesOrderLineItemModel struct {
 	ID           string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID     string `gorm:"not null;type:uuid"`
 	SalesOrderID string `gorm:"column:sales_order_id;not null;type:uuid"`
-	SKUID        string `gorm:"column:sku_id;not null;type:uuid"`
+	SKUID        *string `gorm:"column:sku_id;type:uuid"`
 	Name         string
 	SKUCode      string `gorm:"column:sku_code"`
 	Barcode      string `gorm:"column:barcode"`

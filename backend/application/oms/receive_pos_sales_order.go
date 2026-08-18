@@ -154,8 +154,9 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			if err != nil {
 				return fmt.Errorf("receivePOSSalesOrder: line item sku %s: %w", li.SKUID, err)
 			}
+			skuID := li.SKUID
 			lineItem := omsDomain.SalesOrderLineItem{
-				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: li.SKUID,
+				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: &skuID,
 				Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity,
 				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
@@ -177,8 +178,11 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 	}
 
 	for _, li := range createdLineItems {
+		if li.SKUID == nil {
+			continue
+		}
 		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
+			SKUID: *li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
 			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
 			OccurredAt: in.OccurredAt,
 			// The POS sale already physically happened -- an untracked
