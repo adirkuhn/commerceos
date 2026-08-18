@@ -39,28 +39,31 @@ func NewUpsertSyncScheduleUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleR
 	return &UpsertSyncScheduleUseCase{db: db, repo: repo}
 }
 
-func (uc *UpsertSyncScheduleUseCase) Execute(ctx context.Context, in UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error) {
+// validateUpsertSyncScheduleInput is shared by UpsertSyncScheduleUseCase
+// (single-row) and UpsertSyncSchedulesUseCase (the batch the settings page
+// PUT actually calls) -- kept as one function so the two never drift.
+func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	switch in.EntityType {
 	case channelsDomain.SyncEntityProducts, channelsDomain.SyncEntityStock,
 		channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories:
 	default:
-		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrInvalidSyncEntityType)
+		return channelsDomain.ErrInvalidSyncEntityType
 	}
 	switch in.Direction {
 	case channelsDomain.SyncDirectionImport, channelsDomain.SyncDirectionExport:
 	default:
-		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrInvalidSyncDirection)
+		return channelsDomain.ErrInvalidSyncDirection
 	}
 	if in.Enabled && !runnableSyncEntityTypes[in.EntityType] {
-		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrCannotEnableUnrunnableEntity)
+		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
 	// Orders only imports -- this codebase never pushes a CommerceOS-created
 	// order back to Woo (see cmd/scheduler/dispatch.go's buildRunners doc).
 	if in.Enabled && in.EntityType == channelsDomain.SyncEntityOrders && in.Direction == channelsDomain.SyncDirectionExport {
-		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrCannotEnableUnrunnableEntity)
+		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
 	if in.IntervalMinutes <= 0 {
-		return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrInvalidSyncInterval)
+		return channelsDomain.ErrInvalidSyncInterval
 	}
 	hasWarehouse := in.DefaultWarehouseID != nil && *in.DefaultWarehouseID != ""
 	hasCurrency := in.DefaultCurrency != nil && *in.DefaultCurrency != ""
@@ -68,37 +71,50 @@ func (uc *UpsertSyncScheduleUseCase) Execute(ctx context.Context, in UpsertSyncS
 		switch {
 		case in.EntityType == channelsDomain.SyncEntityProducts && in.Direction == channelsDomain.SyncDirectionImport:
 			if !hasWarehouse || !hasCurrency {
-				return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrDefaultWarehouseAndCurrencyRequired)
+				return channelsDomain.ErrDefaultWarehouseAndCurrencyRequired
 			}
 		case in.EntityType == channelsDomain.SyncEntityStock && in.Direction == channelsDomain.SyncDirectionImport,
 			in.EntityType == channelsDomain.SyncEntityOrders && in.Direction == channelsDomain.SyncDirectionImport:
 			if !hasWarehouse {
-				return nil, fmt.Errorf("upsertSyncSchedule: %w", channelsDomain.ErrDefaultWarehouseRequired)
+				return channelsDomain.ErrDefaultWarehouseRequired
 			}
 		}
+	}
+	return nil
+}
+
+// buildSyncSchedule maps a validated input into the persisted-row shape --
+// shared by both use cases for the same drift-avoidance reason as
+// validateUpsertSyncScheduleInput.
+func buildSyncSchedule(ctx context.Context, in UpsertSyncScheduleInput, now time.Time) channelsDomain.SyncSchedule {
+	var nextRunAt *time.Time
+	if in.Enabled {
+		t := now.Add(time.Duration(in.IntervalMinutes) * time.Minute)
+		nextRunAt = &t
+	}
+	return channelsDomain.SyncSchedule{
+		TenantID:           tenant.IDFromContext(ctx),
+		ConnectionID:       in.ConnectionID,
+		EntityType:         in.EntityType,
+		Direction:          in.Direction,
+		Enabled:            in.Enabled,
+		IntervalMinutes:    in.IntervalMinutes,
+		DefaultWarehouseID: in.DefaultWarehouseID,
+		DefaultCurrency:    in.DefaultCurrency,
+		NextRunAt:          nextRunAt,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+}
+
+func (uc *UpsertSyncScheduleUseCase) Execute(ctx context.Context, in UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error) {
+	if err := validateUpsertSyncScheduleInput(in); err != nil {
+		return nil, fmt.Errorf("upsertSyncSchedule: %w", err)
 	}
 
 	var schedule channelsDomain.SyncSchedule
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		now := time.Now()
-		var nextRunAt *time.Time
-		if in.Enabled {
-			t := now.Add(time.Duration(in.IntervalMinutes) * time.Minute)
-			nextRunAt = &t
-		}
-		schedule = channelsDomain.SyncSchedule{
-			TenantID:           tenant.IDFromContext(ctx),
-			ConnectionID:       in.ConnectionID,
-			EntityType:         in.EntityType,
-			Direction:          in.Direction,
-			Enabled:            in.Enabled,
-			IntervalMinutes:    in.IntervalMinutes,
-			DefaultWarehouseID: in.DefaultWarehouseID,
-			DefaultCurrency:    in.DefaultCurrency,
-			NextRunAt:          nextRunAt,
-			CreatedAt:          now,
-			UpdatedAt:          now,
-		}
+		schedule = buildSyncSchedule(ctx, in, time.Now())
 		return uc.repo.Upsert(ctx, &schedule)
 	})
 	if err != nil {

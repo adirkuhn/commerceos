@@ -123,20 +123,26 @@ func (s *stubListSyncSchedules) Execute(_ context.Context, _ string) ([]channels
 }
 
 type stubUpsertSyncSchedule struct {
-	out *channelsDomain.SyncSchedule
-	err error
+	out      []channelsDomain.SyncSchedule
+	err      error
+	gotInput appchannels.UpsertSyncSchedulesInput
 }
 
-func (s *stubUpsertSyncSchedule) Execute(_ context.Context, in appchannels.UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error) {
+func (s *stubUpsertSyncSchedule) Execute(_ context.Context, in appchannels.UpsertSyncSchedulesInput) ([]channelsDomain.SyncSchedule, error) {
+	s.gotInput = in
 	if s.err != nil {
 		return nil, s.err
 	}
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &channelsDomain.SyncSchedule{
-		EntityType: in.EntityType, Direction: in.Direction, Enabled: in.Enabled, IntervalMinutes: in.IntervalMinutes,
-	}, nil
+	out := make([]channelsDomain.SyncSchedule, len(in.Schedules))
+	for i, sc := range in.Schedules {
+		out[i] = channelsDomain.SyncSchedule{
+			EntityType: sc.EntityType, Direction: sc.Direction, Enabled: sc.Enabled, IntervalMinutes: sc.IntervalMinutes,
+		}
+	}
+	return out, nil
 }
 
 type stubDeleteAllImportedProducts struct {
@@ -777,6 +783,25 @@ func TestUpsertSyncSchedulesHandler_savesEachRow(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "stock")
+}
+
+func TestUpsertSyncSchedulesHandler_sendsTheWholeBatchInOneCall(t *testing.T) {
+	upsert := &stubUpsertSyncSchedule{}
+	h := newSyncScheduleTestHandler(&stubListSyncSchedules{}, upsert)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPut, "/api/v1/integrations/connections/conn-1/sync-schedules", map[string]any{
+		"schedules": []map[string]any{
+			{"entity_type": "products", "direction": "import", "enabled": false, "interval_minutes": 60, "last_run_status": "", "last_run_error": ""},
+			{"entity_type": "stock", "direction": "export", "enabled": true, "interval_minutes": 30, "last_run_status": "", "last_run_error": ""},
+			{"entity_type": "orders", "direction": "import", "enabled": false, "interval_minutes": 60, "last_run_status": "", "last_run_error": ""},
+		},
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, upsert.gotInput.Schedules, 3, "the whole grid is submitted as one batch, not looped one row at a time")
+	assert.Equal(t, channelsDomain.SyncEntityOrders, upsert.gotInput.Schedules[2].EntityType)
 }
 
 func TestUpsertSyncSchedulesHandler_returns422ForUnrunnableEntity(t *testing.T) {

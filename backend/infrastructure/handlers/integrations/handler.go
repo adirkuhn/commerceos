@@ -62,8 +62,8 @@ type listSyncSchedulesUC interface {
 type deleteAllImportedProductsUC interface {
 	Execute(ctx context.Context, in appchannels.DeleteAllImportedProductsInput) (*appchannels.DeleteAllImportedProductsResult, error)
 }
-type upsertSyncScheduleUC interface {
-	Execute(ctx context.Context, in appchannels.UpsertSyncScheduleInput) (*channelsDomain.SyncSchedule, error)
+type upsertSyncSchedulesUC interface {
+	Execute(ctx context.Context, in appchannels.UpsertSyncSchedulesInput) ([]channelsDomain.SyncSchedule, error)
 }
 type getProductChannelListingUC interface {
 	Execute(ctx context.Context, productID, connectionID string) (*channelsDomain.ProductChannelListing, error)
@@ -115,7 +115,7 @@ type Handler struct {
 	createImportJob           createImportJobUC
 	pushProductToWoo          pushProductToWooUC
 	listSyncSchedules         listSyncSchedulesUC
-	upsertSyncSchedule        upsertSyncScheduleUC
+	upsertSyncSchedules       upsertSyncSchedulesUC
 	deleteAllImportedProds    deleteAllImportedProductsUC
 	updateConnectionSettings  updateConnectionSettingsUC
 	getProductChannelListing  getProductChannelListingUC
@@ -144,7 +144,7 @@ func NewHandler(
 	createImportJob createImportJobUC,
 	pushProductToWoo pushProductToWooUC,
 	listSyncSchedules listSyncSchedulesUC,
-	upsertSyncSchedule upsertSyncScheduleUC,
+	upsertSyncSchedules upsertSyncSchedulesUC,
 	deleteAllImportedProds deleteAllImportedProductsUC,
 	updateConnectionSettings updateConnectionSettingsUC,
 	getProductChannelListing getProductChannelListingUC,
@@ -171,7 +171,7 @@ func NewHandler(
 		createImportJob:           createImportJob,
 		pushProductToWoo:          pushProductToWoo,
 		listSyncSchedules:         listSyncSchedules,
-		upsertSyncSchedule:        upsertSyncSchedule,
+		upsertSyncSchedules:       upsertSyncSchedules,
 		deleteAllImportedProds:    deleteAllImportedProds,
 		updateConnectionSettings:  updateConnectionSettings,
 		getProductChannelListing:  getProductChannelListing,
@@ -257,7 +257,7 @@ func Register(
 			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db)),
 		),
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
-		appchannels.NewUpsertSyncScheduleUseCase(db, scheduleRepo),
+		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC),
 		appintegrations.NewUpdateConnectionSettingsUseCase(db, connRepo),
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
@@ -501,21 +501,20 @@ func (h *Handler) ListSyncSchedules(c *gin.Context, id genintegrations.Id) {
 	middleware.OK(c, resp)
 }
 
-// UpsertSyncSchedules saves each row via its own independent upsert
-// (idempotent), rather than one all-or-nothing transaction spanning the
-// whole batch. If a later row in the request fails validation, earlier
-// rows in the same request have already been saved — safe to retry the
-// whole PUT once the bad row is fixed, since re-applying already-saved
-// rows is a no-op (same values in, same values out).
+// UpsertSyncSchedules saves the whole sync-schedule grid in one
+// all-or-nothing batch (see UpsertSyncSchedulesUseCase's doc comment) --
+// either every row in the request saves, or none of them do, so a failing
+// row can never silently block a different row's change from being
+// attempted at all.
 func (h *Handler) UpsertSyncSchedules(c *gin.Context, id genintegrations.Id) {
 	var req genintegrations.UpsertSyncSchedulesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
-	resp := make([]genintegrations.SyncSchedule, 0, len(req.Schedules))
-	for _, s := range req.Schedules {
-		updated, err := h.upsertSyncSchedule.Execute(c.Request.Context(), appchannels.UpsertSyncScheduleInput{
+	inputs := make([]appchannels.UpsertSyncScheduleInput, len(req.Schedules))
+	for i, s := range req.Schedules {
+		inputs[i] = appchannels.UpsertSyncScheduleInput{
 			ConnectionID:       id,
 			EntityType:         channelsDomain.SyncEntityType(s.EntityType),
 			Direction:          channelsDomain.SyncDirection(s.Direction),
@@ -523,11 +522,15 @@ func (h *Handler) UpsertSyncSchedules(c *gin.Context, id genintegrations.Id) {
 			IntervalMinutes:    s.IntervalMinutes,
 			DefaultWarehouseID: s.DefaultWarehouseId,
 			DefaultCurrency:    s.DefaultCurrency,
-		})
-		if err := mapError(c, err); err != nil {
-			return
 		}
-		resp = append(resp, toGenSyncSchedule(*updated))
+	}
+	updated, err := h.upsertSyncSchedules.Execute(c.Request.Context(), appchannels.UpsertSyncSchedulesInput{Schedules: inputs})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.SyncSchedule, len(updated))
+	for i, s := range updated {
+		resp[i] = toGenSyncSchedule(s)
 	}
 	middleware.OK(c, resp)
 }
