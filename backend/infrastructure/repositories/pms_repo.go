@@ -946,6 +946,28 @@ func (r *MediaRepo) ListByProduct(ctx context.Context, productID string) ([]pmsD
 	return out, nil
 }
 
+// ListByProductIDs is ListByProduct's bulk counterpart -- one query for a
+// whole page of products (see ListPOSProductCatalogUseCase) instead of one
+// per product. Still ordered by position asc, so grouping the result by
+// ProductID and taking the first entry per group is still "the featured
+// image" (same convention frontend/src/pms/hooks/useProductMedia.ts's
+// callers already use -- media[0]).
+func (r *MediaRepo) ListByProductIDs(ctx context.Context, productIDs []string) ([]pmsDomain.Media, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []mediaModel
+	if err := tx.Where("product_id IN ?", productIDs).Order("position asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("mediaRepo.ListByProductIDs: %w", err)
+	}
+	out := make([]pmsDomain.Media, len(rows))
+	for i, row := range rows {
+		out[i] = *toMediaDomain(row)
+	}
+	return out, nil
+}
+
 func (r *MediaRepo) Update(ctx context.Context, m *pmsDomain.Media) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

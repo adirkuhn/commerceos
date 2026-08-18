@@ -22,9 +22,15 @@ type skusByVariantIDsRepo interface {
 	ListByVariantIDs(ctx context.Context, variantIDs []string) ([]pmsDomain.SKU, error)
 }
 
+type mediaByProductIDsRepo interface {
+	ListByProductIDs(ctx context.Context, productIDs []string) ([]pmsDomain.Media, error)
+}
+
 // POSProductSKU is a SKU as seen by an external POS integration -- the SKU
 // itself plus its parent variant's name, since a POS has no separate
-// variant concept to display it under.
+// variant concept to display it under. SaleEndDate comes along for free
+// (embedded in pmsDomain.SKU) -- a POS needs it to know when a discounted
+// SalePriceMinorUnits stops applying, same as the admin catalog UI.
 type POSProductSKU struct {
 	pmsDomain.SKU
 	VariantName string
@@ -32,10 +38,14 @@ type POSProductSKU struct {
 
 // POSProductWithSKUs is a catalog product plus every SKU across all of its
 // variants, flattened -- the shape an external POS needs to match/import
-// each purchasable item (see ListPOSProductCatalogUseCase).
+// each purchasable item (see ListPOSProductCatalogUseCase). ImageURL is nil
+// when the product has no media -- otherwise the lowest-Position (see
+// Media's doc comment) image, same "first = featured" convention the admin
+// frontend already uses (ProductCandidateRow.tsx's media[0]).
 type POSProductWithSKUs struct {
 	pmsDomain.Product
-	SKUs []POSProductSKU
+	SKUs     []POSProductSKU
+	ImageURL *string
 }
 
 type ListPOSProductCatalogResult struct {
@@ -52,6 +62,7 @@ type ListPOSProductCatalogUseCase struct {
 	listProducts *ListProductsUseCase
 	variantRepo  variantsByProductIDsRepo
 	skuRepo      skusByVariantIDsRepo
+	mediaRepo    mediaByProductIDsRepo
 }
 
 func NewListPOSProductCatalogUseCase(
@@ -59,8 +70,9 @@ func NewListPOSProductCatalogUseCase(
 	listProducts *ListProductsUseCase,
 	variantRepo variantsByProductIDsRepo,
 	skuRepo skusByVariantIDsRepo,
+	mediaRepo mediaByProductIDsRepo,
 ) *ListPOSProductCatalogUseCase {
-	return &ListPOSProductCatalogUseCase{db: db, listProducts: listProducts, variantRepo: variantRepo, skuRepo: skuRepo}
+	return &ListPOSProductCatalogUseCase{db: db, listProducts: listProducts, variantRepo: variantRepo, skuRepo: skuRepo, mediaRepo: mediaRepo}
 }
 
 func (uc *ListPOSProductCatalogUseCase) Execute(ctx context.Context, in ListProductsInput) (*ListPOSProductCatalogResult, error) {
@@ -102,9 +114,30 @@ func (uc *ListPOSProductCatalogUseCase) Execute(ctx context.Context, in ListProd
 			skusByVariant[s.VariantID] = append(skusByVariant[s.VariantID], s)
 		}
 
+		media, err := uc.mediaRepo.ListByProductIDs(ctx, productIDs)
+		if err != nil {
+			return err
+		}
+		// First entry per product wins -- ListByProductIDs orders by
+		// Position asc, so this is "the featured image" (see
+		// POSProductWithSKUs's doc comment).
+		featuredImageByProduct := make(map[string]string, len(productIDs))
+		for _, m := range media {
+			if m.ProductID == nil {
+				continue
+			}
+			if _, seen := featuredImageByProduct[*m.ProductID]; seen {
+				continue
+			}
+			featuredImageByProduct[*m.ProductID] = m.URL
+		}
+
 		result.Products = make([]POSProductWithSKUs, len(productsResult.Products))
 		for i, p := range productsResult.Products {
 			entry := POSProductWithSKUs{Product: p}
+			if url, ok := featuredImageByProduct[p.ID]; ok {
+				entry.ImageURL = &url
+			}
 			for _, v := range variantsByProduct[p.ID] {
 				for _, s := range skusByVariant[v.ID] {
 					entry.SKUs = append(entry.SKUs, POSProductSKU{SKU: s, VariantName: v.Name})

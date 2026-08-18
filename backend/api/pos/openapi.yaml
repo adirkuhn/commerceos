@@ -145,6 +145,14 @@ components:
           format: int64
           nullable: true
           description: Discounted price, same unit as price_minor_units. Null when no sale is active.
+        sale_end_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When sale_price_minor_units stops applying. Only meaningful
+            when sale_price_minor_units is set -- null otherwise, or for a
+            sale with no end date.
         currency_code: { type: string }
         status: { type: string }
 
@@ -157,6 +165,10 @@ components:
         slug: { type: string }
         status: { type: string }
         has_variants: { type: boolean }
+        image_url:
+          type: string
+          nullable: true
+          description: The product's featured (lowest-position) image. Null when it has none.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         skus:

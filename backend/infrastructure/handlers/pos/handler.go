@@ -65,11 +65,12 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	warehouseRepo := repositories.NewWarehouseRepo(db)
+	mediaRepo := repositories.NewMediaRepo(db)
 
 	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	listProducts := apppms.NewListProductsUseCase(db, productRepo)
 	h := NewHandler(
-		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo),
+		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo),
 		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
 		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, recordMovement),
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
@@ -96,7 +97,7 @@ func (h *Handler) ListPOSProducts(c *gin.Context, params genpos.ListPOSProductsP
 		products[i] = genpos.POSProduct{
 			Id: p.ID, Name: p.Name, Slug: p.Slug, Status: string(p.Status),
 			HasVariants: p.HasVariants, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
-			Skus: toGenPOSProductSKUs(p.SKUs),
+			ImageUrl: p.ImageURL, Skus: toGenPOSProductSKUs(p.SKUs),
 		}
 	}
 	resp := genpos.POSProductList{Products: products, Total: result.Total}
@@ -131,7 +132,7 @@ func toGenPOSProductSKUs(skus []apppms.POSProductSKU) []genpos.POSProductSKU {
 		out[i] = genpos.POSProductSKU{
 			Id: s.ID, VariantId: &s.VariantID, VariantName: &s.VariantName,
 			SkuCode: s.SKUCode, Barcode: &s.Barcode,
-			PriceMinorUnits: s.PriceMinorUnits, SalePriceMinorUnits: s.SalePriceMinorUnits,
+			PriceMinorUnits: s.PriceMinorUnits, SalePriceMinorUnits: s.SalePriceMinorUnits, SaleEndDate: s.SaleEndDate,
 			CurrencyCode: s.CurrencyCode, Status: string(s.Status),
 		}
 	}

@@ -149,6 +149,42 @@ func TestListPOSProducts_includesSKUsFlattenedAcrossVariants(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"sale_price_minor_units":450`)
 }
 
+func TestListPOSProducts_includesImageURLAndSaleEndDate(t *testing.T) {
+	salePrice := int64(450)
+	saleEndDate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	imageURL := "https://example.com/widget.jpg"
+	s := &stubs{listProducts: stubListProducts{out: &apppms.ListPOSProductCatalogResult{
+		Products: []apppms.POSProductWithSKUs{{
+			Product:  pmsDomain.Product{ID: "p1", Name: "Widget", Slug: "widget", Status: pmsDomain.ProductStatusActive},
+			ImageURL: &imageURL,
+			SKUs: []apppms.POSProductSKU{
+				{SKU: pmsDomain.SKU{ID: "sku-1", VariantID: "v1", SKUCode: "WID-S", PriceMinorUnits: 600, SalePriceMinorUnits: &salePrice, SaleEndDate: &saleEndDate, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}, VariantName: "Small"},
+			},
+		}},
+		Total: 1,
+	}}}
+	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/products", nil)
+
+	require.Equal(t, 200, w.Code)
+	assert.Contains(t, w.Body.String(), `"image_url":"https://example.com/widget.jpg"`)
+	assert.Contains(t, w.Body.String(), `"sale_end_date":"2026-09-01T00:00:00Z"`)
+}
+
+func TestListPOSProducts_omitsImageURLAndSaleEndDateWhenAbsent(t *testing.T) {
+	s := &stubs{listProducts: stubListProducts{out: &apppms.ListPOSProductCatalogResult{
+		Products: []apppms.POSProductWithSKUs{{
+			Product: pmsDomain.Product{ID: "p1", Name: "Widget", Slug: "widget", Status: pmsDomain.ProductStatusActive},
+			SKUs:    []apppms.POSProductSKU{{SKU: pmsDomain.SKU{ID: "sku-1", VariantID: "v1", SKUCode: "WID-S", PriceMinorUnits: 600, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}, VariantName: "Small"}},
+		}},
+		Total: 1,
+	}}}
+	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/products", nil)
+
+	require.Equal(t, 200, w.Code)
+	assert.NotContains(t, w.Body.String(), `"image_url"`)
+	assert.NotContains(t, w.Body.String(), `"sale_end_date"`)
+}
+
 func TestListPOSProducts_passesUpdatedAfterThrough(t *testing.T) {
 	s := &stubs{}
 	w := doRequest(newTestRouter(s), "GET", "/api/v1/pos/products?updated_after=2026-08-01T00%3A00%3A00Z", nil)
