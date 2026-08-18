@@ -49,7 +49,11 @@ export interface SalesOrder {
 
 export interface SalesOrderLineItem {
   id: string
-  sku_id: string
+  // Null when this line came from an imported order (e.g. WooCommerce)
+  // whose SKU string never matched any CommerceOS SKU -- name/sku_code/
+  // price/tax below are still populated from whatever the source
+  // provided, so the line reads correctly even unlinked.
+  sku_id?: string | null
   name: string
   sku_code: string
   barcode: string

@@ -182,6 +182,34 @@ describe('Sales order detail page', () => {
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
   })
 
+  it('flags a line item with no sku_id as not linked to a product yet', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      line_items: [{
+        id: 'li-2', sku_id: null, name: 'Mystery Item', sku_code: 'UNKNOWN-SKU', barcode: '',
+        quantity: 1, price_minor_units: 500, subtotal_minor_units: 500, subtotal_tax_minor_units: 0,
+        total_minor_units: 500, total_tax_minor_units: 0,
+      }],
+    }))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Mystery Item')).toBeInTheDocument()
+    expect(screen.getByText('Not linked to a product yet')).toBeInTheDocument()
+  })
+
+  it('does not flag a line item that has a sku_id', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
+    expect(screen.queryByText('Not linked to a product yet')).not.toBeInTheDocument()
+  })
+
   it('shows source and shipping method', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({

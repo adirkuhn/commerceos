@@ -581,6 +581,9 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                           {li.barcode && (
                             <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.barcode}</p>
                           )}
+                          {!li.sku_id && (
+                            <p className="text-[10px] text-amber-500">Not linked to a product yet</p>
+                          )}
                         </td>
                         <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">{li.quantity}</td>
                         <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">
