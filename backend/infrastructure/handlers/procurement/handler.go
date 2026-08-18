@@ -149,6 +149,9 @@ type scanBookingItemUC interface {
 type resolveBookingScanCodeUC interface {
 	Execute(ctx context.Context, bookingID, code string) (*appprocurement.ResolveBookingScanCodeResult, error)
 }
+type deleteBookingScanUC interface {
+	Execute(ctx context.Context, bookingID, scanID string) error
+}
 type pauseBookingUC interface {
 	Execute(ctx context.Context, id string) (*procurementDomain.Booking, error)
 }
@@ -185,6 +188,7 @@ type Handler struct {
 	getBooking                  getBookingUC
 	scanBookingItem             scanBookingItemUC
 	resolveBookingScanCode      resolveBookingScanCodeUC
+	deleteBookingScan           deleteBookingScanUC
 	pauseBooking                pauseBookingUC
 	completeBooking             completeBookingUC
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC
@@ -216,6 +220,7 @@ func NewHandler(
 	getBooking getBookingUC,
 	scanBookingItem scanBookingItemUC,
 	resolveBookingScanCode resolveBookingScanCodeUC,
+	deleteBookingScan deleteBookingScanUC,
 	pauseBooking pauseBookingUC,
 	completeBooking completeBookingUC,
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
@@ -237,6 +242,7 @@ func NewHandler(
 		getBooking:                  getBooking,
 		scanBookingItem:             scanBookingItem,
 		resolveBookingScanCode:      resolveBookingScanCode,
+		deleteBookingScan:           deleteBookingScan,
 		pauseBooking:                pauseBooking,
 		completeBooking:             completeBooking,
 		deletePurchaseOrderDocument: deletePurchaseOrderDocument,
@@ -306,6 +312,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo),
 		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, lineItemRepo),
 		appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, barcodeAliasRepo, lineItemRepo, variantRepo, productRepo),
+		appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, bookingScanRepo),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,
@@ -729,6 +736,14 @@ func (h *Handler) ResolveBookingScanCode(c *gin.Context, id genprocurement.Id) {
 	c.JSON(http.StatusOK, genprocurement.ResolveBookingScanCodeResultResponse{Data: &resp})
 }
 
+func (h *Handler) DeleteBookingScan(c *gin.Context, id genprocurement.Id, scanId genprocurement.ScanId) {
+	err := h.deleteBookingScan.Execute(c.Request.Context(), id, scanId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genprocurement.EmptyResponse{})
+}
+
 func (h *Handler) PauseBooking(c *gin.Context, id genprocurement.Id) {
 	booking, err := h.pauseBooking.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
@@ -880,7 +895,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, procurementDomain.ErrPurchaseOrderNotFound), errors.Is(err, procurementDomain.ErrLineItemNotFound),
 		errors.Is(err, procurementDomain.ErrDocumentNotFound), errors.Is(err, procurementDomain.ErrReceivingRecordNotFound),
-		errors.Is(err, procurementDomain.ErrBookingNotFound), errors.Is(err, procurementDomain.ErrParsingJobNotFound):
+		errors.Is(err, procurementDomain.ErrBookingNotFound), errors.Is(err, procurementDomain.ErrParsingJobNotFound),
+		errors.Is(err, procurementDomain.ErrBookingScanNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, procurementDomain.ErrInvalidQuantity), errors.Is(err, procurementDomain.ErrUnsupportedFileType),
 		errors.Is(err, procurementDomain.ErrMissingRequiredColumns), errors.Is(err, procurementDomain.ErrPDFHasNoExtractableText),

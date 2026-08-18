@@ -488,6 +488,29 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/bookings/{id}/scans/{scanId}:
+    delete:
+      operationId: deleteBookingScan
+      summary: >-
+        Scanner app -- remove a staged scan before it's been replayed to
+        real inventory (correct a mis-scan, e.g. a damaged/lost entry
+        logged in error). Only legal while the booking is still
+        in_progress.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/scanId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /procurement/bookings/{id}/pause:
     post:
       operationId: pauseBooking
@@ -542,6 +565,12 @@ components:
   parameters:
     id:
       name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    scanId:
+      name: scanId
       in: path
       required: true
       schema:

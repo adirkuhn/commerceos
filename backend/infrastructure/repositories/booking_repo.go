@@ -210,3 +210,14 @@ func (r *BookingScanRepo) MarkReplayed(ctx context.Context, id string, replayedA
 	}
 	return nil
 }
+
+func (r *BookingScanRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("id = ?", id).Delete(&bookingScanModel{}).Error; err != nil {
+		return fmt.Errorf("bookingScanRepo.Delete: %w", err)
+	}
+	return nil
+}

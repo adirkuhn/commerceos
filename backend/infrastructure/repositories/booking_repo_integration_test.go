@@ -277,3 +277,50 @@ func TestBookingScanRepo_Integration_MarkReplayed(t *testing.T) {
 	require.NotNil(t, scans[0].BatchID, "MarkReplayed also resolves the not-yet-real batch to its real id")
 	require.Equal(t, realBatchID, *scans[0].BatchID)
 }
+
+func TestBookingScanRepo_Integration_Delete(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	bookingRepo := repositories.NewBookingRepo(db)
+	scanRepo := repositories.NewBookingScanRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	poID := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+
+	var bookingID, scanID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		booking := procurementDomain.Booking{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID,
+			Status: procurementDomain.BookingStatusInProgress, StartedAt: time.Now(),
+		}
+		if err := bookingRepo.Create(ctx, &booking); err != nil {
+			return err
+		}
+		bookingID = booking.ID
+
+		scan := procurementDomain.BookingScan{
+			TenantID: tenant.IDFromContext(ctx), BookingID: bookingID, SKUID: skuID,
+			ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1,
+			ScannedAt: time.Now(), ScannedBy: "user-1",
+		}
+		if err := scanRepo.Create(ctx, &scan); err != nil {
+			return err
+		}
+		scanID = scan.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return scanRepo.Delete(ctx, scanID)
+	})
+	require.NoError(t, err)
+
+	var scans []procurementDomain.BookingScan
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		scans, err = scanRepo.ListByBooking(ctx, bookingID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, scans, "a deleted staged scan no longer appears in the booking's scan list")
+}

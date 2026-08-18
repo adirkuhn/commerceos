@@ -654,6 +654,8 @@ type stubBookingScanRepo struct {
 	// booking ID passed in -- same reasoning as stubLineItemRepo.byPOMap.
 	// Falls back to byBooking when nil.
 	byBookingMap map[string][]procurementDomain.BookingScan
+	deleteErr    error
+	deleted      []string
 }
 
 func (s *stubBookingScanRepo) Create(_ context.Context, sc *procurementDomain.BookingScan) error {
@@ -675,6 +677,13 @@ func (s *stubBookingScanRepo) MarkReplayed(_ context.Context, id string, replaye
 		return s.markReplayedErr
 	}
 	s.markReplayed = append(s.markReplayed, markReplayedCall{scanID: id, replayedAt: replayedAt, batchID: batchID})
+	return nil
+}
+func (s *stubBookingScanRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
 	return nil
 }
 

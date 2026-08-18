@@ -57,4 +57,8 @@ var (
 	// SKUID+LotNumber) that no earlier receive row in the same booking ever
 	// staged -- there's nothing to resolve it against.
 	ErrPendingBatchNotFound = errors.New("no batch found for this correction -- the receive that would have created it is missing")
+	// ErrBookingScanNotFound guards DeleteBookingScanUseCase against a
+	// scanId that doesn't belong to the given booking (wrong booking,
+	// already deleted, or never existed).
+	ErrBookingScanNotFound = errors.New("booking scan not found")
 )

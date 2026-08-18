@@ -145,4 +145,10 @@ type BookingScanRepository interface {
 	// re-replay of this row can still resolve a LATER row's reference to
 	// the same not-yet-real lot without recomputing anything.
 	MarkReplayed(ctx context.Context, id string, replayedAt time.Time, batchID *string) error
+	// Delete removes a staged row before it's ever been replayed to real
+	// inventory -- see DeleteBookingScanUseCase, which is the only caller
+	// and enforces that the row's booking is still in_progress before this
+	// runs. Idempotent like every other Delete in this codebase; the use
+	// case itself is what checks the row actually belongs to the booking.
+	Delete(ctx context.Context, id string) error
 }
