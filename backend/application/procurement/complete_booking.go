@@ -102,6 +102,7 @@ func NewCompleteBookingUseCase(
 
 func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, completedBy string) (*CompleteBookingResult, error) {
 	var booking *procurementDomain.Booking
+	var po *procurementDomain.PurchaseOrder
 	var warehouseID string
 	var lineItems []procurementDomain.PurchaseOrderLineItem
 	var scans []procurementDomain.BookingScan
@@ -116,7 +117,7 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 			return procurementDomain.ErrBookingNotActive
 		}
 
-		po, err := uc.poRepo.FindByID(ctx, booking.PurchaseOrderID)
+		po, err = uc.poRepo.FindByID(ctx, booking.PurchaseOrderID)
 		if err != nil {
 			return err
 		}
@@ -152,7 +153,21 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 			return err
 		}
 		result.Booking = *booking
-		return nil
+
+		// Every product line fully accounted for (received + damaged/lost,
+		// see missingBookingItems) means the PO itself is done -- taking it
+		// off PurchaseOrderPickerScreen's sent/partially_received filter is
+		// what stops it from being tapped into a second, empty booking (see
+		// StartOrResumeBookingUseCase: FindActiveByPurchaseOrder only
+		// matches in_progress/paused, so a completed booking never blocks a
+		// fresh one). A gap leaves it partially_received -- still listed,
+		// since a later shipment legitimately needs its own new booking.
+		if len(result.MissingItems) == 0 {
+			po.Status = procurementDomain.PurchaseOrderStatusReceived
+		} else {
+			po.Status = procurementDomain.PurchaseOrderStatusPartiallyReceived
+		}
+		return uc.poRepo.Update(ctx, po)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("completeBooking: %w", err)

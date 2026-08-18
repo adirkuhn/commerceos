@@ -120,6 +120,38 @@ func TestCompleteBooking_writeOffCountsTowardScannedProgressAlongsideReceives(t 
 	assert.Empty(t, result.MissingItems, "23 received + 1 damaged accounts for all 24 expected")
 }
 
+func TestCompleteBooking_marksThePurchaseOrderReceivedWhenNothingIsMissing(t *testing.T) {
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 row) + mark-completed
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, poRepo.updated, 1)
+	assert.Equal(t, procurementDomain.PurchaseOrderStatusReceived, poRepo.updated[0].Status)
+}
+
+func TestCompleteBooking_marksThePurchaseOrderPartiallyReceivedWhenSomethingIsMissing(t *testing.T) {
+	db := newMockGormDBN(t, 3) // read + mark-replayed(1 row) + mark-completed
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Widget A", Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 7},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, poRepo.updated, 1)
+	assert.Equal(t, procurementDomain.PurchaseOrderStatusPartiallyReceived, poRepo.updated[0].Status)
+}
+
 func TestCompleteBooking_replaysALostWriteOff(t *testing.T) {
 	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()
