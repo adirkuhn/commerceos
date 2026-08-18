@@ -160,7 +160,7 @@ describe('DiscardApp SKU screen', () => {
   it('Discard sends warehouse/batch/quantity/reason to the API and refreshes the list', async () => {
     vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
       id: 'discard-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
-      movement_id: 'move-1', quantity: 6, reason: 'expired', discarded_by: '',
+      movement_id: 'move-1', type: 'lost', quantity: 6, reason: 'expired', discarded_by: '',
       discarded_at: '', created_at: '',
     })
     await resolveAndEnterSKU(sku(), [batch({ quantity: 6 })])
@@ -180,7 +180,7 @@ describe('DiscardApp SKU screen', () => {
   it('Discard on the general ledger row omits batch_id', async () => {
     vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
       id: 'discard-2', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1',
-      movement_id: 'move-2', quantity: 3, reason: '', discarded_by: '',
+      movement_id: 'move-2', type: 'lost', quantity: 3, reason: '', discarded_by: '',
       discarded_at: '', created_at: '',
     })
     await resolveAndEnterSKU(sku(), [generalLedgerRow({ quantity: 20 })])

@@ -200,6 +200,8 @@ export interface DiscardBatchInput {
   photo?: File
 }
 
+export type DiscardRecordType = 'damaged' | 'lost'
+
 export interface DiscardRecord {
   id: string
   tenant_id: string
@@ -207,6 +209,9 @@ export interface DiscardRecord {
   warehouse_id: string
   batch_id?: string | null
   movement_id: string
+  // Expiry/scanner discards are always 'lost' -- the inventory page's
+  // Damaged/Lost button and a booking's write-off replay can be either.
+  type: DiscardRecordType
   quantity: number
   reason: string
   photo_url?: string | null
@@ -225,6 +230,7 @@ export interface DiscardRecordReport extends DiscardRecord {
 export interface ListDiscardsParams {
   warehouseId?: string
   skuId?: string
+  type?: DiscardRecordType
   from?: string
   to?: string
   limit?: number

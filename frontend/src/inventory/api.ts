@@ -171,6 +171,7 @@ export async function listDiscards(token: string, params: ListDiscardsParams = {
   const qs = new URLSearchParams()
   if (params.warehouseId) qs.set('warehouse_id', params.warehouseId)
   if (params.skuId) qs.set('sku_id', params.skuId)
+  if (params.type) qs.set('type', params.type)
   if (params.from) qs.set('from', params.from)
   if (params.to) qs.set('to', params.to)
   if (params.limit) qs.set('limit', String(params.limit))

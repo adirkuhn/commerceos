@@ -627,6 +627,19 @@ describe('Expired batch review queue', () => {
     expect(screen.queryByText(/Expired batches/)).not.toBeInTheDocument()
   })
 
+  it('the Damaged / Lost / Discarded entry is always reachable, even with nothing pending review, and opens straight to the Discarded tab', async () => {
+    vi.mocked(inventoryApi.listDiscards).mockResolvedValue({ discards: [], total: 0 })
+
+    render(<Inventory />)
+    await screen.findByText('Widget')
+    expect(screen.queryByText(/Expired batches/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Damaged \/ Lost \/ Discarded/ }))
+
+    expect(await screen.findByText('Expiry & Discards')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Discarded' })).toHaveClass('bg-blue-600')
+  })
+
   it('shows a badge button with the count when batches are pending review, opens the queue on click', async () => {
     vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([expiredBatch])
 
@@ -645,7 +658,7 @@ describe('Expired batch review queue', () => {
       .mockResolvedValue([])
     vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
       id: 'discard-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-2',
-      movement_id: 'move-1', quantity: 4, reason: 'expired', discarded_by: '',
+      movement_id: 'move-1', type: 'lost', quantity: 4, reason: 'expired', discarded_by: '',
       discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
     })
 
@@ -746,7 +759,7 @@ describe('Expired batch review queue', () => {
     }])
     vi.mocked(inventoryApi.discardBatch).mockResolvedValue({
       id: 'discard-2', tenant_id: 't1', sku_id: 'sku-2', warehouse_id: 'wh-1', batch_id: 'batch-3',
-      movement_id: 'move-2', quantity: 7, reason: '', discarded_by: '',
+      movement_id: 'move-2', type: 'lost', quantity: 7, reason: '', discarded_by: '',
       discarded_at: '2026-08-17T00:00:00Z', created_at: '2026-08-17T00:00:00Z',
     })
 
@@ -769,7 +782,7 @@ describe('Expired batch review queue', () => {
       discards: [{
         id: 'discard-1', tenant_id: 't1', sku_id: 'sku-2', sku_code: 'GADGET-1', product_name: 'Gadget',
         warehouse_id: 'wh-1', warehouse_name: 'Main DC', batch_id: 'batch-3', lot_number: 'LOT-3',
-        movement_id: 'move-1', quantity: 3, reason: 'expired', photo_url: 'https://example.com/photo.jpg',
+        movement_id: 'move-1', type: 'lost', quantity: 3, reason: 'expired', photo_url: 'https://example.com/photo.jpg',
         discarded_by: 'user-1', discarded_at: '2026-08-15T00:00:00Z', created_at: '2026-08-15T00:00:00Z',
       }],
       total: 1,

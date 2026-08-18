@@ -1400,16 +1400,23 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
 type ExpiryTab = 'expired' | 'expiring' | 'discarded'
 
 function ExpiryDiscardPage({
-  onClose, expiredReview, expiringBatches, discardsReport, discardHook,
+  onClose, initialTab, expiredReview, expiringBatches, discardsReport, discardHook,
 }: {
   onClose: () => void
+  // Defaults to 'expired' -- the permanent "Damaged / Lost / Discarded"
+  // submenu entry opens straight to 'discarded' instead, since that's the
+  // whole reason it exists: unlike the red "Expired batches" alert (only
+  // shown when something needs review right now), this history is only
+  // reachable through an explicit menu entry, always -- not gated behind
+  // any current-state condition.
+  initialTab?: ExpiryTab
   expiredReview: ReturnType<typeof useExpiredBatchReview>
   expiringBatches: ReturnType<typeof useExpiringBatches>
   discardsReport: ReturnType<typeof useDiscards>
   discardHook: ReturnType<typeof useDiscardBatch>
 }) {
   const { batches, loading, error, extend, dismiss } = expiredReview
-  const [tab, setTab] = useState<ExpiryTab>('expired')
+  const [tab, setTab] = useState<ExpiryTab>(initialTab ?? 'expired')
   const [rowError, setRowError] = useState('')
   const [extendingBatchId, setExtendingBatchId] = useState<string | null>(null)
   const [newExpiryDate, setNewExpiryDate] = useState('')
@@ -1651,7 +1658,7 @@ function ExpiryDiscardPage({
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
                   <tr>
-                    {['Photo', 'SKU', 'Product', 'Warehouse', 'Lot', 'Qty', 'Reason', 'By', 'Discarded'].map(h => (
+                    {['Photo', 'SKU', 'Product', 'Type', 'Warehouse', 'Lot', 'Qty', 'Reason', 'By', 'Discarded'].map(h => (
                       <th key={h} className="px-4 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -1670,6 +1677,14 @@ function ExpiryDiscardPage({
                       </td>
                       <td className="px-4 py-2.5 font-mono dark:text-gray-300 text-gray-700">{d.sku_code}</td>
                       <td className="px-4 py-2.5 dark:text-gray-200 text-gray-800">{d.product_name}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={clsx(
+                          'px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
+                          d.type === 'damaged' ? 'bg-amber-500/15 text-amber-500' : 'bg-red-500/15 text-red-500',
+                        )}>
+                          {d.type}
+                        </span>
+                      </td>
                       <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.warehouse_name}</td>
                       <td className="px-4 py-2.5 dark:text-gray-400 text-gray-500">{d.lot_number || '—'}</td>
                       <td className="px-4 py-2.5 tabular-nums dark:text-gray-300 text-gray-700">{d.quantity}</td>
@@ -1711,6 +1726,7 @@ export default function Inventory() {
   const [historyBatch, setHistoryBatch] = useState<{ sku: SKU; batch: Batch } | null>(null)
   const [historyProduct, setHistoryProduct] = useState<{ name: string; skus: SKU[] } | null>(null)
   const [showExpiredReview, setShowExpiredReview] = useState(false)
+  const [expiryInitialTab, setExpiryInitialTab] = useState<ExpiryTab>('expired')
   const expiredReview = useExpiredBatchReview(token ?? '')
   const expiringBatches = useExpiringBatches(token ?? '')
   const discardsReport = useDiscards(token ?? '')
@@ -1773,6 +1789,7 @@ export default function Inventory() {
     return (
       <ExpiryDiscardPage
         onClose={() => setShowExpiredReview(false)}
+        initialTab={expiryInitialTab}
         expiredReview={expiredReview}
         expiringBatches={expiringBatches}
         discardsReport={discardsReport}
@@ -1816,12 +1833,18 @@ export default function Inventory() {
         </div>
         {expiredReview.batches.length > 0 && (
           <button
-            onClick={() => setShowExpiredReview(true)}
+            onClick={() => { setExpiryInitialTab('expired'); setShowExpiredReview(true) }}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-red-500/10 bg-red-50 text-red-400 text-[11px] font-medium hover:dark:bg-red-500/20 hover:bg-red-100 transition-colors shrink-0"
           >
             <AlertTriangle size={12} /> Expired batches ({expiredReview.batches.length})
           </button>
         )}
+        <button
+          onClick={() => { setExpiryInitialTab('discarded'); setShowExpiredReview(true) }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-400 text-gray-500 text-[11px] font-medium hover:dark:bg-[#2D3748] hover:bg-gray-100 transition-colors shrink-0"
+        >
+          <Trash2 size={12} /> Damaged / Lost / Discarded
+        </button>
         <span className="text-xs dark:text-gray-500 text-gray-400 ml-auto">{total} product{total === 1 ? '' : 's'}</span>
       </div>
 
