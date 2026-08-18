@@ -1,14 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, ChevronDown, ChevronUp, Camera, Plus, Minus, Warehouse as WarehouseIcon, X, PackagePlus, Undo2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, ChevronDown, ChevronUp, Camera, Plus, Minus, Warehouse as WarehouseIcon, X, PackagePlus, Undo2, AlertTriangle, Package, Trash2 } from 'lucide-react'
 import * as api from './api'
 import * as procurementApi from '../procurement/api'
 import * as inventoryApi from '../inventory/api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
+import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { CameraScanner } from './CameraScanner'
 import { ProductCandidateRow } from './ProductCandidateRow'
-import type { BookingDetail, CompleteBookingResult, MissingBookingItem, ScanBookingItemInput, BookingScanActionType } from './types'
+import type { BookingDetail, BookingScan, CompleteBookingResult, MissingBookingItem, ScanBookingItemInput, BookingScanActionType } from './types'
 import type { PurchaseOrder } from '../procurement/types'
 import type { Warehouse, Batch } from '../inventory/types'
+
+// Small square thumbnail for a booking line-item row -- falls back to a
+// placeholder icon when the line isn't linked to a product yet, or the
+// product has no media. Reuses the same media hook/data ProductCandidateRow
+// already relies on for the scan-fallback picker.
+function LineItemThumb({ token, productId }: { token: string; productId?: string | null }) {
+  const { media } = useProductMedia(token, productId ?? null)
+  const featured = media[0]
+  return (
+    <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden">
+      {featured ? (
+        <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
+      ) : (
+        <Package size={16} className="text-gray-400" />
+      )}
+    </div>
+  )
+}
 
 interface BookingScreenProps {
   token: string
@@ -43,15 +62,26 @@ function pendingBatchesForSKU(detail: BookingDetail | null, skuId: string): Pend
   return Array.from(seen, ([lotNumber, expiryDate]) => ({ lotNumber, expiryDate }))
 }
 
+// A damaged/lost scan's quantity is always 0 (the write-off amount lives in
+// write_off_quantity instead -- see BookingScan's doc comment), but it
+// still counts toward this line's progress: it arrived, it just isn't
+// sellable. Mirrors the backend's missingBookingItems fix exactly -- omitting
+// write_off_quantity here made every damaged/lost unit look permanently
+// missing, even once nothing actually was.
+function scannedQuantityBySKU(scans: BookingDetail['scans']): Map<string, number> {
+  const bySKU = new Map<string, number>()
+  for (const s of scans) {
+    bySKU.set(s.sku_id, (bySKU.get(s.sku_id) ?? 0) + s.quantity + s.write_off_quantity)
+  }
+  return bySKU
+}
+
 // Mirrors PurchaseOrderLineItem.EffectiveUnitsPerPurchasedItem +
 // CompleteBookingUseCase's missing-items math exactly, computed from data
 // already loaded client-side -- lets Finish show a preview before actually
 // completing the booking, no extra backend call needed.
 function computeMissingItems(detail: BookingDetail): MissingBookingItem[] {
-  const scannedBySKU = new Map<string, number>()
-  for (const s of detail.scans) {
-    scannedBySKU.set(s.sku_id, (scannedBySKU.get(s.sku_id) ?? 0) + s.quantity)
-  }
+  const scannedBySKU = scannedQuantityBySKU(detail.scans)
   const missing: MissingBookingItem[] = []
   for (const li of detail.line_items) {
     const scannedQty = li.sku_id ? scannedBySKU.get(li.sku_id) ?? 0 : 0
@@ -247,6 +277,20 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     setBookingLine(null)
   }
 
+  // Undoes a mis-scan (e.g. a damaged/lost entry logged in error) --
+  // reloads afterward so the line's progress and the sheet's own scan list
+  // (rendered live from `detail.scans`, see BookLineSheet's `scans` prop
+  // below) both drop it immediately.
+  async function handleDeleteScan(scanId: string) {
+    try {
+      await api.deleteBookingScan(token, bookingId, scanId)
+      await load()
+    } catch (err) {
+      if (isAuthError(err)) return onAuthError()
+      setError(err instanceof Error ? err.message : 'Failed to delete scan')
+    }
+  }
+
   async function handlePause() {
     try {
       await api.pauseBooking(token, bookingId)
@@ -342,9 +386,11 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     )
   }
 
-  const scannedBySKU = new Map<string, number>()
+  const scannedBySKU = scannedQuantityBySKU(detail?.scans ?? [])
+  const damagedLostBySKU = new Map<string, number>()
   for (const s of detail?.scans ?? []) {
-    scannedBySKU.set(s.sku_id, (scannedBySKU.get(s.sku_id) ?? 0) + s.quantity)
+    if (s.write_off_quantity <= 0) continue
+    damagedLostBySKU.set(s.sku_id, (damagedLostBySKU.get(s.sku_id) ?? 0) + s.write_off_quantity)
   }
 
   return (
@@ -382,14 +428,17 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
         {loading && <p className="text-center text-sm text-gray-500 py-8">Loading…</p>}
         {detail?.line_items.map(li => {
           const scannedQty = li.sku_id ? scannedBySKU.get(li.sku_id) ?? 0 : 0
+          const damagedLostQty = li.sku_id ? damagedLostBySKU.get(li.sku_id) ?? 0 : 0
           const done = scannedQty >= li.quantity
           const skuId = li.sku_id
           const content = (
             <>
+              <LineItemThumb token={token} productId={li.product_id} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.raw_description}</p>
                 {!skuId && <p className="text-xs text-amber-400">Not linked to a product yet</p>}
+                {damagedLostQty > 0 && <p className="text-xs text-red-400">{damagedLostQty} damaged/lost</p>}
               </div>
               <p className={`text-sm font-medium shrink-0 ${done ? 'text-green-400' : 'text-gray-300'}`}>
                 {scannedQty} / {li.quantity}
@@ -481,6 +530,8 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
           pendingBatches={pendingBatchesForSKU(detail, bookingLine.skuId)}
           suggestedLotNumber={bookingLine.suggestedLotNumber}
           suggestedExpiryDate={bookingLine.suggestedExpiryDate}
+          scans={(detail?.scans ?? []).filter(s => s.sku_id === bookingLine.skuId)}
+          onDeleteScan={handleDeleteScan}
           onCancel={() => setBookingLine(null)}
           onBook={handleRowConfirm}
         />
@@ -515,6 +566,18 @@ function formatBatchExpiry(iso?: string | null): string {
   return `Expires ${new Date(iso).toLocaleDateString()}`
 }
 
+// One-line label for a staged scan in BookLineSheet's history list --
+// action_type plus its net effect (Quantity for receive/correction,
+// WriteOffQuantity for damaged/lost, see BookingScan's own doc comment).
+function scanSummary(s: BookingScan): string {
+  switch (s.action_type) {
+    case 'receive': return `+${s.quantity} received`
+    case 'correction': return `${s.quantity} correction`
+    case 'damaged': return `${s.write_off_quantity} damaged`
+    case 'lost': return `${s.write_off_quantity} lost`
+  }
+}
+
 const PENDING_PREFIX = 'pending:'
 
 // Everything you can do to one line item's stock while booking: receive
@@ -525,7 +588,7 @@ const PENDING_PREFIX = 'pending:'
 // staged BookingScan rows now (see ScanBookingItemInput.action_type) --
 // nothing here calls real inventory directly. Never increases stock:
 // receive is the only mode that adds, the other two only ever remove.
-function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, expected, warehouseId, pendingBatches, suggestedLotNumber, suggestedExpiryDate, onCancel, onBook }: {
+function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, expected, warehouseId, pendingBatches, suggestedLotNumber, suggestedExpiryDate, scans, onDeleteScan, onCancel, onBook }: {
   token: string
   skuId: string
   description: string
@@ -540,6 +603,12 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
   // but nothing is created until Confirm is tapped.
   suggestedLotNumber?: string
   suggestedExpiryDate?: string | null
+  // Every staged scan for this SKU, oldest first -- rendered as a small
+  // history list (action, quantity/write-off, batch, who/when) with a
+  // delete action per row. Passed live from BookingScreen's `detail` state
+  // rather than snapshotted, so a delete's refresh is reflected here too.
+  scans: BookingScan[]
+  onDeleteScan: (scanId: string) => void
   onCancel: () => void
   onBook: (fields: { action_type: BookingScanActionType; quantity: number; batch_id?: string | null; lot_number?: string; expiry_date?: string | null; reason?: string }) => void
 }) {
@@ -597,6 +666,30 @@ function BookLineSheet({ token, skuId, description, remaining, scannedSoFar, exp
             <X size={18} />
           </button>
         </div>
+
+        {scans.length > 0 && (
+          <div className="px-5 pt-3 space-y-1.5">
+            <p className="text-xs text-gray-500">Already staged for this line:</p>
+            {scans.map(s => (
+              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-200">{scanSummary(s)}</p>
+                  {(s.lot_number || s.reason) && (
+                    <p className="text-xs text-gray-500 truncate">{[s.lot_number, s.reason].filter(Boolean).join(' · ')}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDeleteScan(s.id)}
+                  title="Delete this staged scan"
+                  className="shrink-0 p-1.5 text-gray-500 hover:text-red-400"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="p-5 space-y-4">
           <div className="flex gap-2">

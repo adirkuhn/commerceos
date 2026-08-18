@@ -70,6 +70,10 @@ export function resolveBookingScanCode(token: string, bookingId: string, code: s
   return request<ResolveBookingScanCodeResult>(`${base()}/procurement/bookings/${bookingId}/resolve-scan`, { method: 'POST', body: JSON.stringify({ code }) }, token)
 }
 
+export function deleteBookingScan(token: string, bookingId: string, scanId: string): Promise<null> {
+  return request<null>(`${base()}/procurement/bookings/${bookingId}/scans/${scanId}`, { method: 'DELETE' }, token)
+}
+
 export function pauseBooking(token: string, id: string): Promise<Booking> {
   return request<Booking>(`${base()}/procurement/bookings/${id}/pause`, { method: 'POST' }, token)
 }

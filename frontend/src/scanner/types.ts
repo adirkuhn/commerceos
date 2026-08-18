@@ -71,6 +71,9 @@ export interface BookingDetail {
     units_per_purchased_item?: number
     suggested_lot_number?: string
     suggested_expiry_date?: string | null
+    // product_id is display-only, set only when sku_id is linked -- lets
+    // the booking list fetch a thumbnail via useProductMedia.
+    product_id?: string | null
   }>
   scans: BookingScan[]
 }

@@ -12,6 +12,7 @@ vi.mock('../api', () => ({
   getBooking: vi.fn(),
   scanBookingItem: vi.fn(),
   resolveBookingScanCode: vi.fn(),
+  deleteBookingScan: vi.fn(),
   pauseBooking: vi.fn(),
   completeBooking: vi.fn(),
 }))
@@ -251,5 +252,79 @@ describe('BookingScreen scan-to-confirm-screen flow', () => {
     await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
       sku_id: 'sku-9',
     })))
+  })
+})
+
+describe('BookingScreen damaged/lost visibility and correction', () => {
+  it('counts a damaged scan toward the line progress counter and checkmark, and flags it separately', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', raw_description: 'Farofa Premium', quantity: 24 }],
+      scans: [
+        { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', quantity: 23, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+        { id: 'scan-2', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'damaged', quantity: 0, write_off_quantity: 1, scanned_at: '', scanned_by: '' },
+      ],
+    }))
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+
+    expect(await screen.findByText('24 / 24')).toBeInTheDocument()
+    expect(screen.getByText('1 damaged/lost')).toBeInTheDocument()
+  })
+
+  it('shows staged scans (including damaged/lost) in the confirm sheet and deletes one on request', async () => {
+    vi.mocked(api.getBooking).mockResolvedValueOnce(bookingDetail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', raw_description: 'Farofa Premium', quantity: 24 }],
+      scans: [
+        { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', quantity: 23, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+        { id: 'scan-2', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'damaged', quantity: 0, write_off_quantity: 1, reason: 'arrived crushed', scanned_at: '', scanned_by: '' },
+      ],
+    })).mockResolvedValueOnce(bookingDetail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', raw_description: 'Farofa Premium', quantity: 24 }],
+      scans: [
+        { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', quantity: 23, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+      ],
+    }))
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.deleteBookingScan).mockResolvedValue(null)
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    const row = await screen.findByText('Farofa Premium')
+    await userEvent.click(row)
+
+    expect(await screen.findByText('+23 received')).toBeInTheDocument()
+    expect(screen.getByText('1 damaged')).toBeInTheDocument()
+    expect(screen.getByText('arrived crushed')).toBeInTheDocument()
+
+    const deleteButtons = screen.getAllByTitle('Delete this staged scan')
+    await userEvent.click(deleteButtons[1])
+
+    await waitFor(() => expect(api.deleteBookingScan).toHaveBeenCalledWith(TOKEN, 'booking-1', 'scan-2'))
+    await waitFor(() => expect(screen.queryByText('1 damaged')).not.toBeInTheDocument())
+  })
+})
+
+describe('BookingScreen product thumbnail', () => {
+  it('shows a product thumbnail for a line item linked to a SKU with media', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', raw_description: 'Farofa Premium', quantity: 36, product_id: 'product-1' }],
+    }))
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([
+      { id: 'media-1', tenant_id: 't1', product_id: 'product-1', url: 'https://example.com/thumb.jpg', type: 'image', position: 0, alt_text: 'Farofa Premium', created_at: '' },
+    ])
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Farofa Premium')
+
+    const img = await screen.findByAltText('Farofa Premium')
+    expect(img).toHaveAttribute('src', 'https://example.com/thumb.jpg')
+    expect(pmsApi.listProductMedia).toHaveBeenCalledWith(TOKEN, 'product-1')
   })
 })
