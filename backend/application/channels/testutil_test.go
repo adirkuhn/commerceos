@@ -866,9 +866,23 @@ type stubOrdersSalesOrderRepo struct {
 	findByExternalIDErr error
 	byConnection        []omsDomain.SalesOrder
 	listByConnectionErr error
+	updateCalls         []struct {
+		ID     string
+		Fields map[string]any
+	}
+	updateErr error
+	// createAttempts/winnerAfterCreateFail simulate the create-race: a
+	// caller who lost the DB unique-constraint race sees Create fail with
+	// createErr (typically ErrDuplicateExternalOrder), then re-queries
+	// FindByExternalID and must find the winner's order now -- even though
+	// the *first* FindByExternalID call (importOne's initial existence
+	// check, before Create was ever attempted) correctly saw nothing.
+	createAttempts        int
+	winnerAfterCreateFail map[string]omsDomain.SalesOrder
 }
 
 func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
+	s.createAttempts++
 	if s.createErr != nil {
 		return s.createErr
 	}
@@ -890,6 +904,11 @@ func (s *stubOrdersSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDoma
 	if o, ok := s.byExternalID[externalOrderID]; ok {
 		return &o, nil
 	}
+	if s.createAttempts > 0 {
+		if o, ok := s.winnerAfterCreateFail[externalOrderID]; ok {
+			return &o, nil
+		}
+	}
 	return nil, nil
 }
 func (s *stubOrdersSalesOrderRepo) List(_ context.Context, _ omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
@@ -898,8 +917,15 @@ func (s *stubOrdersSalesOrderRepo) List(_ context.Context, _ omsDomain.ListSales
 func (s *stubOrdersSalesOrderRepo) ListByConnection(_ context.Context, _ string) ([]omsDomain.SalesOrder, error) {
 	return s.byConnection, s.listByConnectionErr
 }
-func (s *stubOrdersSalesOrderRepo) Update(_ context.Context, _ string, _ map[string]any) error {
-	return nil
+func (s *stubOrdersSalesOrderRepo) Update(_ context.Context, id string, fields map[string]any) error {
+	s.updateCalls = append(s.updateCalls, struct {
+		ID     string
+		Fields map[string]any
+	}{id, fields})
+	return s.updateErr
+}
+func (s *stubOrdersSalesOrderRepo) TrySetStockDecremented(_ context.Context, _ string, _, _ bool) (bool, error) {
+	return true, nil
 }
 func (s *stubOrdersSalesOrderRepo) Delete(_ context.Context, _ string) error { return nil }
 
@@ -922,8 +948,13 @@ func (s *stubDeleteSalesOrderUC) Execute(_ context.Context, id string) error {
 }
 
 type stubOrdersLineItemRepo struct {
-	created   []omsDomain.SalesOrderLineItem
-	createErr error
+	created     []omsDomain.SalesOrderLineItem
+	createErr   error
+	updateCalls []struct {
+		ID     string
+		Fields map[string]any
+	}
+	updateErr error
 }
 
 func (s *stubOrdersLineItemRepo) Create(_ context.Context, li *omsDomain.SalesOrderLineItem) error {
@@ -934,13 +965,27 @@ func (s *stubOrdersLineItemRepo) Create(_ context.Context, li *omsDomain.SalesOr
 	s.created = append(s.created, *li)
 	return nil
 }
+func (s *stubOrdersLineItemRepo) FindByID(_ context.Context, _ string) (*omsDomain.SalesOrderLineItem, error) {
+	return nil, omsDomain.ErrSalesOrderLineItemNotFound
+}
 func (s *stubOrdersLineItemRepo) ListBySalesOrder(_ context.Context, _ string) ([]omsDomain.SalesOrderLineItem, error) {
 	return nil, nil
 }
 func (s *stubOrdersLineItemRepo) DeleteBySalesOrder(_ context.Context, _ string) error { return nil }
+func (s *stubOrdersLineItemRepo) Update(_ context.Context, id string, fields map[string]any) error {
+	s.updateCalls = append(s.updateCalls, struct {
+		ID     string
+		Fields map[string]any
+	}{id, fields})
+	return s.updateErr
+}
 
 type stubOrdersLinkRepo struct {
 	created []omsDomain.SalesOrderLineItemStockMovement
+}
+
+func (s *stubOrdersLinkRepo) ExistsForLineItem(_ context.Context, _ string) (bool, error) {
+	return false, nil
 }
 
 func (s *stubOrdersLinkRepo) Create(_ context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {

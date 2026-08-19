@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -191,8 +192,13 @@ func TestImportWooOrders_updatesStatusOnAnExistingOrder(t *testing.T) {
 // price/tax are already present on the order regardless of a catalog
 // match, so there's no reason to lose that data. It's just left unlinked
 // (SKUID nil, same "not linked to a catalog product yet" pattern
-// procurement.PurchaseOrderLineItem already uses) and reported as an
-// informational note, not an error, since nothing failed.
+// procurement.PurchaseOrderLineItem already uses), the order flagged
+// NeedsSKUReview, and the line marked StockStatusPending (its order is
+// stock-reducing, so a decrement is owed once it's linked) -- surfaced on
+// the "Unmatched SKUs" admin page (LinkLineItemSKUUseCase), not as a run
+// failure: nothing here actually failed, so this must never land in
+// result.Errors (cmd/scheduler/dispatch.go treats any non-empty Errors as
+// last_run_status=error).
 func TestImportWooOrders_importsAnUnmatchedLineItemUnlinkedInsteadOfDroppingIt(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
 	// h.skuRepo.byCode intentionally has no "WID-A" entry.
@@ -211,9 +217,12 @@ func TestImportWooOrders_importsAnUnmatchedLineItemUnlinkedInsteadOfDroppingIt(t
 	assert.Equal(t, "WID-A", created.SKUCode)
 	assert.Equal(t, int64(2), created.Quantity)
 	assert.Equal(t, int64(1000), created.PriceMinorUnits)
+	assert.Equal(t, omsDomain.StockStatusPending, created.StockStatus, "processing is stock-reducing -- a decrement is owed once this line is linked")
 	assert.Nil(t, created.TaxClassID, "no SKU to source a tax class from")
 	assert.Empty(t, h.stock.calls, "no SKU means nothing to decrement")
-	assert.NotEmpty(t, result.Errors, "unlinked line should be surfaced for later manual linking")
+	assert.Empty(t, result.Errors, "unlinked SKU is not a run failure -- it's surfaced via needs_sku_review, not result.Errors")
+	require.NotEmpty(t, h.salesOrderRepo.updateCalls, "order must be flagged for the Unmatched SKUs review page")
+	assert.Equal(t, true, h.salesOrderRepo.updateCalls[len(h.salesOrderRepo.updateCalls)-1].Fields["needs_sku_review"])
 }
 
 // A refund/adjustment on the Woo side can surface as a negative quantity
@@ -243,6 +252,65 @@ func TestImportWooOrders_skipsNonPositiveQuantityLineItemsButStillCreatesTheOrde
 	require.Len(t, h.lineItemRepo.created, 1, "the valid line item is still created despite the bad one")
 	assert.Equal(t, "WID-A", h.lineItemRepo.created[0].SKUCode)
 	assert.NotEmpty(t, result.Errors, "the skipped non-positive-quantity line should be surfaced, not silently dropped")
+}
+
+// TestImportWooOrders_insufficientStockMarksLineItemPendingInsteadOfFailingTheOrder
+// is the direct fix for the reported bug ("woo order 24002: stock movement:
+// recordStockMovement: insufficient stock for this batch/ledger" etc.): a
+// matched-SKU line item whose decrement hits ErrInsufficientStock no longer
+// aborts the whole order import (nor gets counted as a run failure) -- it's
+// created normally, marked StockStatusPending, and the order flagged
+// NeedsStockReview for the "Stock Issues" admin page.
+func TestImportWooOrders_insufficientStockMarksLineItemPendingInsteadOfFailingTheOrder(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	h.stock.err = invDomain.ErrInsufficientStock
+	uc := h.newImportUseCase(t, 5) // connect + findByExternalID + header + setLineItemStockStatus + setOrderNeedsStockReview
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created, "order is still created despite the stock shortfall")
+	assert.Empty(t, result.Errors, "insufficient stock is not a run failure -- it's surfaced via needs_stock_review")
+	require.Len(t, h.lineItemRepo.updateCalls, 1)
+	assert.Equal(t, string(omsDomain.StockStatusPending), h.lineItemRepo.updateCalls[0].Fields["stock_status"])
+	require.NotEmpty(t, h.salesOrderRepo.updateCalls)
+	last := h.salesOrderRepo.updateCalls[len(h.salesOrderRepo.updateCalls)-1]
+	assert.Equal(t, true, last.Fields["needs_stock_review"])
+	assert.Empty(t, h.linkRepo.created, "the failed movement was never recorded, so nothing to link")
+}
+
+// TestImportWooOrders_losingTheCreateRaceRoutesToUpdateInsteadOfFailing is
+// the mid-task-added hardening: a second concurrent import of the same Woo
+// order (two scheduler replicas, or the manual fetch-order endpoint racing
+// the scheduler) can lose the DB's (tenant_id, source, external_order_id)
+// unique-constraint race on Create. That must be treated as "the order
+// already exists now", routed through the same update path importOne uses
+// for a known order, never as a double-created order or a run failure.
+func TestImportWooOrders_losingTheCreateRaceRoutesToUpdateInsteadOfFailing(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	h.salesOrderRepo.createErr = omsDomain.ErrDuplicateExternalOrder
+	// Simulate the winner of the race having already committed the order
+	// under this external ID by the time this call's Create fails and falls
+	// back to looking it up -- the *first* FindByExternalID call (before
+	// Create is attempted) must still see nothing, same as a genuine race.
+	h.salesOrderRepo.winnerAfterCreateFail = map[string]omsDomain.SalesOrder{
+		"501": {ID: "so-winner", Status: omsDomain.SalesOrderStatusProcessing},
+	}
+	uc := h.newImportUseCase(t, 4) // connect + importOne's findByExternalID + failed-create header tx + createOne's findExisting fallback lookup
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, result.Errors, "losing the create race is not a failure")
+	assert.Equal(t, 0, result.Created, "must not double-create")
+	assert.Equal(t, 1, result.Unchanged, "winner's order already has this status -- a no-op, same as importOne's normal existing-order path")
+	assert.Empty(t, h.stock.calls, "must never double-book the winner's stock decrement")
 }
 
 func TestImportWooOrders_linksToAnExistingCustomerByWooCustomerID(t *testing.T) {
@@ -384,11 +452,18 @@ func TestImportWooOrders_ExecuteOne_leavesSalesOrderIDEmptyWhenTheOrderFailsToIm
 	assert.NotEmpty(t, result.Errors)
 }
 
+// TestImportWooOrders_propagatesAStockMovementErrorAsAPerOrderError covers a
+// stock movement failure that is NOT ErrInsufficientStock (a genuinely
+// unexpected error, e.g. a DB error) -- unlike insufficient stock (see
+// TestImportWooOrders_insufficientStockMarksLineItemPendingInsteadOfFailingTheOrder),
+// this still surfaces as a result.Errors entry and does not touch
+// stock_status/needs_stock_review, since it's not the "known, resolvable via
+// the review flow" case.
 func TestImportWooOrders_propagatesAStockMovementErrorAsAPerOrderError(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
 	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
-	h.stock.err = invDomain.ErrInsufficientStock
-	uc := h.newImportUseCase(t, 3)
+	h.stock.err = errors.New("db unreachable")
+	uc := h.newImportUseCase(t, 3) // connect + findByExternalID + header -- no extra tx, since this error never touches stock_status/needs_stock_review
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
@@ -397,4 +472,6 @@ func TestImportWooOrders_propagatesAStockMovementErrorAsAPerOrderError(t *testin
 	require.NoError(t, err, "one order's movement failure must not abort the whole import run")
 	assert.Equal(t, 1, result.Created, "order+line items still recorded even though the movement failed")
 	assert.NotEmpty(t, result.Errors)
+	assert.Empty(t, h.lineItemRepo.updateCalls, "not ErrInsufficientStock -- must not be marked pending")
+	assert.Empty(t, h.salesOrderRepo.updateCalls, "not ErrInsufficientStock -- must not flag needs_stock_review")
 }

@@ -282,19 +282,27 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 	}
 
 	if existing != nil {
-		if existing.Status == status {
-			result.Unchanged++
-			return
-		}
-		if _, err := uc.updateOrder.Execute(ctx, existing.ID, appoms.UpdateSalesOrderInput{Status: &status}); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: update: %v", externalOrderID, err))
-			return
-		}
-		result.Updated++
+		uc.routeToExisting(ctx, existing, externalOrderID, status, result)
 		return
 	}
 
 	uc.createOne(ctx, in, wo, externalOrderID, status, result)
+}
+
+// routeToExisting sends an already-known order through UpdateSalesOrderUseCase
+// (an unchanged status is a no-op) rather than duplicate its stock/status
+// transition logic here -- shared by importOne's normal path and createOne's
+// create-race fallback below.
+func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing *omsDomain.SalesOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
+	if existing.Status == status {
+		result.Unchanged++
+		return
+	}
+	if _, err := uc.updateOrder.Execute(ctx, existing.ID, appoms.UpdateSalesOrderInput{Status: &status}); err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: update: %v", externalOrderID, err))
+		return
+	}
+	result.Updated++
 }
 
 func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrdersInput, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
@@ -383,9 +391,21 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			subtotalTax, _ := ParseWooPriceToMinorUnits(li.SubtotalTax)
 			total, _ := ParseWooPriceToMinorUnits(li.Total)
 			totalTax, _ := ParseWooPriceToMinorUnits(li.TotalTax)
+			// A line that owes a decrement (stockReducing) but has no
+			// sku_id yet to decrement against starts life Pending -- it
+			// can't be attempted at all until LinkLineItemSKUUseCase gives
+			// it one. Everything else (matched-SKU lines, or any line on a
+			// non-stock-reducing order) starts Decremented, the "no
+			// decrement is currently owed" default -- a matched-SKU line
+			// only moves to Pending below if its actual decrement attempt
+			// hits ErrInsufficientStock.
+			stockStatus := omsDomain.StockStatusDecremented
+			if stockReducing && skuID == nil {
+				stockStatus = omsDomain.StockStatusPending
+			}
 			lineItem := omsDomain.SalesOrderLineItem{
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
-				Name: li.Name, SKUCode: li.SKU, Quantity: li.Quantity,
+				Name: li.Name, SKUCode: li.SKU, Quantity: li.Quantity, StockStatus: stockStatus,
 				PriceMinorUnits: price, SubtotalMinorUnits: subtotal, SubtotalTaxMinorUnits: subtotalTax,
 				TotalMinorUnits: total, TotalTaxMinorUnits: totalTax, TaxClassID: taxClassID, CreatedAt: now,
 			}
@@ -394,9 +414,33 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			}
 			createdLineItems = append(createdLineItems, lineItem)
 		}
+		if unlinkedLines > 0 {
+			if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"needs_sku_review": true}); err != nil {
+				return err
+			}
+			order.NeedsSKUReview = true
+		}
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, omsDomain.ErrDuplicateExternalOrder) {
+			// Lost a create race: another concurrent import of this same
+			// order (a second scheduler replica, or the manual fetch-order
+			// endpoint firing at the same moment) won it first. Route
+			// through the same existing-order path importOne uses instead
+			// of surfacing this as a failure -- the winner already created
+			// (and, via UpdateSalesOrderUseCase's own conditional-write
+			// guard, will safely decrement) the order.
+			existing, findErr := uc.findExisting(ctx, externalOrderID)
+			if findErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, findErr))
+				return
+			}
+			if existing != nil {
+				uc.routeToExisting(ctx, existing, externalOrderID, status, result)
+				return
+			}
+		}
 		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
 		return
 	}
@@ -404,15 +448,15 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	if skippedLines > 0 {
 		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %d line item(s) skipped (non-positive quantity, likely a refund/adjustment)", externalOrderID, skippedLines))
 	}
-	if unlinkedLines > 0 {
-		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %d line item(s) imported without a matching SKU (not linked to a catalog product yet)", externalOrderID, unlinkedLines))
-	}
 
 	if !stockReducing {
 		return
 	}
+	stockInsufficient := false
 	for _, li := range createdLineItems {
 		if li.SKUID == nil {
+			// Already Pending + order.NeedsSKUReview from creation above --
+			// nothing to attempt until it's linked to a SKU.
 			continue
 		}
 		movement, err := uc.stock.Execute(ctx, invapp.RecordStockMovementInput{
@@ -420,13 +464,69 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("woo order %s", externalOrderID), OccurredAt: occurredAt,
 		})
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: stock movement: %v", externalOrderID, err))
+			if !errors.Is(err, invDomain.ErrInsufficientStock) {
+				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: stock movement: %v", externalOrderID, err))
+				continue
+			}
+			// Genuinely insufficient tracked stock -- not a caller bug and
+			// not worth aborting/flagging the whole run as failed for
+			// (see cmd/scheduler/dispatch.go's resultErr). Surfaced instead
+			// via order.NeedsStockReview on the "Stock Issues" admin page,
+			// resolved with RetryStockDecrementUseCase once stock is fixed.
+			stockInsufficient = true
+			if err := setChannelsLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusPending); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
+			}
 			continue
 		}
 		if err := linkOrderLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: link movement: %v", externalOrderID, err))
 		}
 	}
+	if stockInsufficient {
+		if err := setChannelsOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, order.ID, true); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
+		}
+	}
+}
+
+// findExisting is FindByExternalID wrapped in its own tenant.WithTenant call
+// -- used by createOne's create-race fallback, outside the (already failed
+// and rolled back) transaction that attempted the original Create.
+func (uc *ImportWooOrdersUseCase) findExisting(ctx context.Context, externalOrderID string) (*omsDomain.SalesOrder, error) {
+	var existing *omsDomain.SalesOrder
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		existing, err = uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, externalOrderID)
+		return err
+	})
+	return existing, err
+}
+
+// setChannelsLineItemStockStatus/setChannelsOrderNeedsStockReview are
+// import_woo_orders.go's own copies of application/oms's unexported
+// setLineItemStockStatus/setOrderNeedsStockReview helpers -- same shape (own
+// tenant.WithTenant call, never nested), duplicated rather than exported
+// across the package boundary for two three-line functions, same convention
+// linkOrderLineItemMovement already follows for linkLineItemMovement.
+func setChannelsLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, lineItemID string, status omsDomain.StockStatus) error {
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return lineItemRepo.Update(ctx, lineItemID, map[string]any{"stock_status": string(status)})
+	})
+	if err != nil {
+		return fmt.Errorf("setChannelsLineItemStockStatus: %w", err)
+	}
+	return nil
+}
+
+func setChannelsOrderNeedsStockReview(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, orderID string, needsReview bool) error {
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_stock_review": needsReview})
+	})
+	if err != nil {
+		return fmt.Errorf("setChannelsOrderNeedsStockReview: %w", err)
+	}
+	return nil
 }
 
 func wooAddressToOMS(a integrationsDomain.WooAddress) omsDomain.Address {
