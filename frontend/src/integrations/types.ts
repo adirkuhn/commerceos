@@ -49,7 +49,7 @@ export interface DeleteAllImportedProductsResult {
   errors: string[]
 }
 
-export type SyncEntityType = 'products' | 'stock' | 'orders' | 'categories'
+export type SyncEntityType = 'products' | 'stock' | 'orders' | 'categories' | 'orders_reconciliation'
 export type SyncDirection = 'import' | 'export'
 
 export interface SyncSchedule {

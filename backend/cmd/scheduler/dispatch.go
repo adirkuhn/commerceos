@@ -38,6 +38,15 @@ func resultErr(err error, itemErrors []string) error {
 // costly than silently missing one.
 const ordersModifiedAfterOverlap = 5 * time.Minute
 
+// reconciliationWindow is how far back SyncEntityOrdersReconciliation
+// re-scans on every run, regardless of its own LastRunAt -- unlike the
+// incremental "orders" schedule, this is never used as a moving cursor.
+// ImportWooOrdersUseCase already dedupes by ExternalID, so re-fetching the
+// same recent orders every day is a cheap no-op for anything already
+// imported; it only does real work for whatever the incremental schedule
+// missed.
+const reconciliationWindow = 5 * 24 * time.Hour
+
 type scheduleKey struct {
 	Entity    channelsDomain.SyncEntityType
 	Direction channelsDomain.SyncDirection
@@ -131,6 +140,20 @@ func buildRunners(
 			result, err := ordersImport.Execute(ctx, channelsapp.ImportWooOrdersInput{
 				ConnectionID: s.ConnectionID, DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
 				ModifiedAfter: modifiedAfter,
+			})
+			if result == nil {
+				return err
+			}
+			return resultErr(err, result.Errors)
+		},
+		// See reconciliationWindow's doc comment -- this always re-scans the
+		// last reconciliationWindow, never advancing off s.LastRunAt like the
+		// incremental "orders" schedule above.
+		{channelsDomain.SyncEntityOrdersReconciliation, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+			modifiedAfter := time.Now().Add(-reconciliationWindow)
+			result, err := ordersImport.Execute(ctx, channelsapp.ImportWooOrdersInput{
+				ConnectionID: s.ConnectionID, DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
+				ModifiedAfter: &modifiedAfter,
 			})
 			if result == nil {
 				return err

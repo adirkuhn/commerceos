@@ -190,6 +190,41 @@ func TestDispatch_routesOrdersImportIncrementallyWithOverlapBufferAfterFirstRun(
 	require.Equal(t, lastRun.Add(-ordersModifiedAfterOverlap), *oi.calls[0].ModifiedAfter)
 }
 
+// TestDispatch_routesOrdersReconciliationWithAFixedRollingWindow proves the
+// reconciliation runner never looks at s.LastRunAt as a cursor -- unlike
+// the incremental "orders" schedule, ModifiedAfter is always "now minus
+// reconciliationWindow", regardless of whether/when this schedule last ran.
+func TestDispatch_routesOrdersReconciliationWithAFixedRollingWindow(t *testing.T) {
+	oi := &stubOrdersImporter{}
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	warehouseID := "wh-1"
+	lastRun := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC) // long ago -- must not be used as the cursor
+
+	before := time.Now()
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrdersReconciliation, Direction: channelsDomain.SyncDirectionImport,
+		DefaultWarehouseID: &warehouseID, LastRunAt: &lastRun,
+	})
+	after := time.Now()
+
+	require.NoError(t, err)
+	require.Len(t, oi.calls, 1)
+	require.Equal(t, "wh-1", oi.calls[0].DefaultWarehouseID)
+	require.NotNil(t, oi.calls[0].ModifiedAfter)
+	require.False(t, oi.calls[0].ModifiedAfter.Equal(lastRun), "must not use LastRunAt as the cursor")
+	require.True(t, !oi.calls[0].ModifiedAfter.Before(before.Add(-reconciliationWindow)) && !oi.calls[0].ModifiedAfter.After(after.Add(-reconciliationWindow)))
+}
+
+func TestDispatch_returnsErrorForOrdersReconciliationExport(t *testing.T) {
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+
+	err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrdersReconciliation, Direction: channelsDomain.SyncDirectionExport,
+	})
+
+	require.Error(t, err, "only import is supported for orders reconciliation -- same as orders")
+}
+
 func TestDispatch_propagatesRunnerError(t *testing.T) {
 	pi := &stubProductsImporter{err: errors.New("woo down")}
 	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})

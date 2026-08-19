@@ -11,9 +11,10 @@ import (
 )
 
 var runnableSyncEntityTypes = map[channelsDomain.SyncEntityType]bool{
-	channelsDomain.SyncEntityProducts: true,
-	channelsDomain.SyncEntityStock:    true,
-	channelsDomain.SyncEntityOrders:   true,
+	channelsDomain.SyncEntityProducts:             true,
+	channelsDomain.SyncEntityStock:                true,
+	channelsDomain.SyncEntityOrders:               true,
+	channelsDomain.SyncEntityOrdersReconciliation: true,
 }
 
 type UpsertSyncScheduleInput struct {
@@ -45,7 +46,8 @@ func NewUpsertSyncScheduleUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleR
 func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	switch in.EntityType {
 	case channelsDomain.SyncEntityProducts, channelsDomain.SyncEntityStock,
-		channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories:
+		channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories,
+		channelsDomain.SyncEntityOrdersReconciliation:
 	default:
 		return channelsDomain.ErrInvalidSyncEntityType
 	}
@@ -57,9 +59,12 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	if in.Enabled && !runnableSyncEntityTypes[in.EntityType] {
 		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
-	// Orders only imports -- this codebase never pushes a CommerceOS-created
-	// order back to Woo (see cmd/scheduler/dispatch.go's buildRunners doc).
-	if in.Enabled && in.EntityType == channelsDomain.SyncEntityOrders && in.Direction == channelsDomain.SyncDirectionExport {
+	// Orders (both the incremental schedule and its reconciliation
+	// counterpart) only import -- this codebase never pushes a
+	// CommerceOS-created order back to Woo (see cmd/scheduler/dispatch.go's
+	// buildRunners doc).
+	if in.Enabled && in.Direction == channelsDomain.SyncDirectionExport &&
+		(in.EntityType == channelsDomain.SyncEntityOrders || in.EntityType == channelsDomain.SyncEntityOrdersReconciliation) {
 		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
 	if in.IntervalMinutes <= 0 {
@@ -73,8 +78,9 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 			if !hasWarehouse || !hasCurrency {
 				return channelsDomain.ErrDefaultWarehouseAndCurrencyRequired
 			}
-		case in.EntityType == channelsDomain.SyncEntityStock && in.Direction == channelsDomain.SyncDirectionImport,
-			in.EntityType == channelsDomain.SyncEntityOrders && in.Direction == channelsDomain.SyncDirectionImport:
+		case in.Direction == channelsDomain.SyncDirectionImport &&
+			(in.EntityType == channelsDomain.SyncEntityStock || in.EntityType == channelsDomain.SyncEntityOrders ||
+				in.EntityType == channelsDomain.SyncEntityOrdersReconciliation):
 			if !hasWarehouse {
 				return channelsDomain.ErrDefaultWarehouseRequired
 			}

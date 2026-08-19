@@ -46,6 +46,7 @@ const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDir
   { entity: 'products', label: 'Products', runnableDirections: ['import', 'export'] },
   { entity: 'stock', label: 'Stock levels', runnableDirections: ['import', 'export'] },
   { entity: 'orders', label: 'Orders', runnableDirections: ['import'] },
+  { entity: 'orders_reconciliation', label: 'Order reconciliation', runnableDirections: ['import'] },
   { entity: 'categories', label: 'Categories', runnableDirections: [] },
 ]
 
@@ -159,7 +160,15 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               lastRunStatus: existing.last_run_status,
               lastRunError: existing.last_run_error,
             }
-          : { ...defaultCell(row.entity === 'products' ? effectiveDefaultCurrency : ''), defaultWarehouseId: effectiveDefaultWarehouse }
+          : {
+              ...defaultCell(row.entity === 'products' ? effectiveDefaultCurrency : ''),
+              defaultWarehouseId: effectiveDefaultWarehouse,
+              // Reconciliation re-scans a fixed window regardless of
+              // interval -- daily is the sensible default, no reason to
+              // start it at the generic 60-minute default like every
+              // other row.
+              ...(row.entity === 'orders_reconciliation' ? { intervalMinutes: 1440 } : {}),
+            }
       }
     }
     setCells(next)
@@ -321,12 +330,18 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                     every run after that is incremental.
                   </p>
                 )}
+                {row.entity === 'orders_reconciliation' && (
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-2">
+                    Re-checks the last 5 days of Woo orders on every run, independent of the Orders schedule above — catches
+                    anything that schedule ever missed. Already-imported orders are skipped, so this is safe to run daily.
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   {DIRECTIONS.map(direction => {
                     const key = cellKey(row.entity, direction)
                     const cell = cells[key] ?? defaultCell()
                     const runnable = row.runnableDirections.includes(direction)
-                    const needsWarehouse = row.entity === 'products' || row.entity === 'stock' || row.entity === 'orders'
+                    const needsWarehouse = row.entity === 'products' || row.entity === 'stock' || row.entity === 'orders' || row.entity === 'orders_reconciliation'
                     const needsCurrency = row.entity === 'products'
                     const showExtraFields = runnable && direction === 'import' && cell.enabled && (needsWarehouse || needsCurrency)
                     return (

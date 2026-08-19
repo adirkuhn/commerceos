@@ -9,6 +9,13 @@ const (
 	SyncEntityStock      SyncEntityType = "stock"
 	SyncEntityOrders     SyncEntityType = "orders"     // import only -- see cmd/scheduler/dispatch.go's buildRunners doc
 	SyncEntityCategories SyncEntityType = "categories" // schema-legal, no runner yet
+	// SyncEntityOrdersReconciliation is a second, independent schedule
+	// alongside SyncEntityOrders for the same connection -- import only,
+	// re-runs ImportWooOrdersUseCase over a fixed rolling window instead of
+	// an incremental cursor, to self-heal any order SyncEntityOrders ever
+	// missed (whatever the cause). See cmd/scheduler/dispatch.go's
+	// reconciliationWindow.
+	SyncEntityOrdersReconciliation SyncEntityType = "orders_reconciliation"
 )
 
 type SyncDirection string
