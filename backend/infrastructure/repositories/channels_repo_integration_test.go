@@ -458,14 +458,14 @@ func TestSyncScheduleRepo_Integration_RecordRunResult_OnlyAdvancesLastRunAtWhenT
 
 		// Seed a first successful run's LastRunAt directly -- Upsert itself
 		// doesn't set it, only RecordRunResult does.
-		return scheduleRepo.RecordRunResult(ctx, scheduleID, firstRunAt, "success", "", now, true)
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, firstRunAt, "success", "", now, firstRunAt, true)
 	})
 	require.NoError(t, err)
 
 	// A failed run (a page-fetch error mid-import) must NOT move LastRunAt.
 	failedRunAt := time.Now()
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return scheduleRepo.RecordRunResult(ctx, scheduleID, failedRunAt, "error", "woocommerce request failed", time.Now(), false)
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, failedRunAt, "error", "woocommerce request failed", time.Now(), failedRunAt, false)
 	})
 	require.NoError(t, err)
 
@@ -491,7 +491,7 @@ func TestSyncScheduleRepo_Integration_RecordRunResult_OnlyAdvancesLastRunAtWhenT
 	// A subsequent successful run DOES advance it.
 	successRunAt := time.Now()
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return scheduleRepo.RecordRunResult(ctx, scheduleID, successRunAt, "success", "", time.Now(), true)
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, successRunAt, "success", "", time.Now(), successRunAt, true)
 	})
 	require.NoError(t, err)
 
@@ -513,4 +513,63 @@ func TestSyncScheduleRepo_Integration_RecordRunResult_OnlyAdvancesLastRunAtWhenT
 	require.WithinDuration(t, successRunAt, *afterSuccess.LastRunAt, time.Second, "a successful run must advance the cursor")
 	require.Equal(t, "success", afterSuccess.LastRunStatus)
 	require.Empty(t, afterSuccess.LastRunError)
+}
+
+// TestSyncScheduleRepo_Integration_RecordRunResult_CursorAtIsIndependentOfRanAt
+// proves LastRunAt is written from cursorAt, not ranAt -- the orders
+// runner's whole point (see dispatch.go's runner doc comment): the cursor
+// needs to be Woo's own date_modified_gmt, not this process's wall-clock
+// time, so the two must be able to diverge.
+func TestSyncScheduleRepo_Integration_RecordRunResult_CursorAtIsIndependentOfRanAt(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	connRepo := repositories.NewConnectionRepo(db)
+	scheduleRepo := repositories.NewSyncScheduleRepo(db)
+
+	var scheduleID, connectionID string
+	ranAt := time.Now()
+	cursorAt := ranAt.Add(-90 * time.Minute) // Woo's own clock, well behind this process's
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL: "https://itest-cursor-vs-ranat.example.com", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := connRepo.Create(ctx, conn); err != nil {
+			return err
+		}
+		connectionID = conn.ID
+
+		schedule := &channelsDomain.SyncSchedule{
+			TenantID: tenant.IDFromContext(ctx), ConnectionID: conn.ID,
+			EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
+			Enabled: true, IntervalMinutes: 15, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := scheduleRepo.Upsert(ctx, schedule); err != nil {
+			return err
+		}
+		scheduleID = schedule.ID
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, ranAt, "success", "", ranAt.Add(15*time.Minute), cursorAt, true)
+	})
+	require.NoError(t, err)
+
+	var schedule *channelsDomain.SyncSchedule
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		schedules, err := scheduleRepo.ListByConnection(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		for i := range schedules {
+			if schedules[i].ID == scheduleID {
+				schedule = &schedules[i]
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, schedule)
+	require.NotNil(t, schedule.LastRunAt)
+	require.WithinDuration(t, cursorAt, *schedule.LastRunAt, time.Second, "LastRunAt must come from cursorAt, not ranAt")
+	require.WithinDuration(t, ranAt, schedule.UpdatedAt, time.Second, "UpdatedAt must still be wall-clock ranAt")
 }

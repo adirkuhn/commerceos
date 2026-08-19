@@ -56,6 +56,9 @@ type createImportJobUC interface {
 type pushProductToWooUC interface {
 	Execute(ctx context.Context, in appchannels.PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error)
 }
+type fetchWooOrderUC interface {
+	ExecuteOne(ctx context.Context, in appchannels.FetchWooOrderInput) (*appchannels.FetchWooOrderResult, error)
+}
 type listSyncSchedulesUC interface {
 	Execute(ctx context.Context, connectionID string) ([]channelsDomain.SyncSchedule, error)
 }
@@ -130,6 +133,7 @@ type Handler struct {
 	deleteSalesChannel        deleteSalesChannelUC
 	listSalesChannelProducts  listSalesChannelProductsUC
 	setProductChannelOverride setProductChannelOverrideUC
+	fetchWooOrder             fetchWooOrderUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -159,6 +163,7 @@ func NewHandler(
 	deleteSalesChannel deleteSalesChannelUC,
 	listSalesChannelProducts listSalesChannelProductsUC,
 	setProductChannelOverride setProductChannelOverrideUC,
+	fetchWooOrder fetchWooOrderUC,
 ) *Handler {
 	return &Handler{
 		listConnections:           listConnections,
@@ -186,6 +191,7 @@ func NewHandler(
 		deleteSalesChannel:        deleteSalesChannel,
 		listSalesChannelProducts:  listSalesChannelProducts,
 		setProductChannelOverride: setProductChannelOverride,
+		fetchWooOrder:             fetchWooOrder,
 	}
 }
 
@@ -240,6 +246,14 @@ func Register(
 		db, salesOrderRepo, salesOrderLineItemRepo,
 		appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo),
 	)
+	salesOrderLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo)
+	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(
+		db, connRepo, wooFactory, encryptionSecret,
+		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
+		stockRecorderUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC),
+	)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -274,6 +288,7 @@ func Register(
 		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),
 		appchannels.NewListProductsWithChannelEnrollmentUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo),
 		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo),
+		fetchWooOrderUC,
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -457,6 +472,33 @@ func toGenImportJob(j channelsDomain.ImportJob) genintegrations.ImportJob {
 		StartedAt:     j.StartedAt,
 		FinishedAt:    j.FinishedAt,
 	}
+}
+
+func (h *Handler) FetchWooOrder(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.FetchWooOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.ExternalOrderId == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "external_order_id is required")
+		return
+	}
+	result, err := h.fetchWooOrder.ExecuteOne(c.Request.Context(), appchannels.FetchWooOrderInput{
+		ConnectionID: id, ExternalOrderID: req.ExternalOrderId,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	var salesOrderID *string
+	if result.SalesOrderID != "" {
+		salesOrderID = &result.SalesOrderID
+	}
+	middleware.OK(c, genintegrations.FetchWooOrderResult{
+		ExternalOrderId: result.ExternalOrderID, SalesOrderId: salesOrderID,
+		Created: result.Created, Updated: result.Updated, Unchanged: result.Unchanged,
+		Errors: emptySliceIfNil(result.Errors),
+	})
 }
 
 func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {

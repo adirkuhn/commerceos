@@ -52,8 +52,12 @@ type scheduleKey struct {
 	Direction channelsDomain.SyncDirection
 }
 
-// runner executes one due schedule.
-type runner func(ctx context.Context, s channelsDomain.SyncSchedule) error
+// runner executes one due schedule, returning the timestamp its own
+// cursor (LastRunAt) should advance to on success. nil means "use the
+// wall-clock time the poll happened" -- the previous, universal behavior,
+// still correct for every runner except orders import (see its own entry
+// below for why that one ties its cursor to Woo's own clock instead).
+type runner func(ctx context.Context, s channelsDomain.SyncSchedule) (cursorAt *time.Time, err error)
 
 type runners map[scheduleKey]runner
 
@@ -92,46 +96,50 @@ func buildRunners(
 	ordersImport ordersImporter,
 ) runners {
 	return runners{
-		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			result, err := productsImport.Execute(ctx, channelsapp.ImportWooProductsInput{
 				ConnectionID:       s.ConnectionID,
 				DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
 				DefaultCurrency:    strOrEmpty(s.DefaultCurrency),
 			})
 			if result == nil {
-				return err
+				return nil, err
 			}
-			return resultErr(err, result.Errors)
+			return nil, resultErr(err, result.Errors)
 		},
-		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			result, err := productsExport.Execute(ctx, channelsapp.RunScheduledProductExportInput{ConnectionID: s.ConnectionID})
 			if result == nil {
-				return err
+				return nil, err
 			}
-			return resultErr(err, result.Errors)
+			return nil, resultErr(err, result.Errors)
 		},
-		{channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+		{channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			result, err := stockImport.Execute(ctx, channelsapp.ImportWooStockLevelsInput{
 				ConnectionID:       s.ConnectionID,
 				DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
 			})
 			if result == nil {
-				return err
+				return nil, err
 			}
-			return resultErr(err, result.Errors)
+			return nil, resultErr(err, result.Errors)
 		},
-		{channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+		{channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			result, err := stockExport.Execute(ctx, channelsapp.ExportWooStockLevelsInput{ConnectionID: s.ConnectionID})
 			if result == nil {
-				return err
+				return nil, err
 			}
-			return resultErr(err, result.Errors)
+			return nil, resultErr(err, result.Errors)
 		},
 		// LastRunAt nil (this schedule has never successfully run before)
 		// means a full import -- no cursor exists yet to be incremental
 		// from. Every subsequent run is incremental off that cursor, with
-		// a small overlap buffer -- see ordersModifiedAfterOverlap.
-		{channelsDomain.SyncEntityOrders, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+		// a small overlap buffer -- see ordersModifiedAfterOverlap. The
+		// cursor itself is ImportOrdersResult.LastModifiedAt (Woo's own
+		// date_modified_gmt of the latest order this run actually saw),
+		// not this poll's wall-clock time -- see that field's doc comment
+		// for why a wall-clock cursor is the wrong choice here.
+		{channelsDomain.SyncEntityOrders, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			var modifiedAfter *time.Time
 			if s.LastRunAt != nil {
 				t := s.LastRunAt.Add(-ordersModifiedAfterOverlap)
@@ -142,23 +150,24 @@ func buildRunners(
 				ModifiedAfter: modifiedAfter,
 			})
 			if result == nil {
-				return err
+				return nil, err
 			}
-			return resultErr(err, result.Errors)
+			return result.LastModifiedAt, resultErr(err, result.Errors)
 		},
 		// See reconciliationWindow's doc comment -- this always re-scans the
 		// last reconciliationWindow, never advancing off s.LastRunAt like the
-		// incremental "orders" schedule above.
-		{channelsDomain.SyncEntityOrdersReconciliation, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) error {
+		// incremental "orders" schedule above -- so its own LastRunAt is
+		// pure "did I run" bookkeeping, wall-clock is fine (nil cursorAt).
+		{channelsDomain.SyncEntityOrdersReconciliation, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			modifiedAfter := time.Now().Add(-reconciliationWindow)
 			result, err := ordersImport.Execute(ctx, channelsapp.ImportWooOrdersInput{
 				ConnectionID: s.ConnectionID, DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
 				ModifiedAfter: &modifiedAfter,
 			})
 			if result == nil {
-				return err
+				return nil, err
 			}
-			return resultErr(err, result.Errors)
+			return nil, resultErr(err, result.Errors)
 		},
 	}
 }
@@ -171,10 +180,10 @@ func strOrEmpty(s *string) string {
 }
 
 // dispatch runs the one runner matching s.EntityType/s.Direction.
-func (rs runners) dispatch(ctx context.Context, s channelsDomain.SyncSchedule) error {
+func (rs runners) dispatch(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 	r, ok := rs[scheduleKey{s.EntityType, s.Direction}]
 	if !ok {
-		return fmt.Errorf("no runner for entity=%s direction=%s", s.EntityType, s.Direction)
+		return nil, fmt.Errorf("no runner for entity=%s direction=%s", s.EntityType, s.Direction)
 	}
 	return r(ctx, s)
 }

@@ -57,6 +57,17 @@ type ImportOrdersResult struct {
 	Updated   int
 	Unchanged int
 	Errors    []string
+	// LastModifiedAt is the latest date_modified_gmt seen across every
+	// order Woo returned this run (regardless of whether that specific
+	// order imported successfully) -- nil if no orders were returned at
+	// all. cmd/scheduler uses this, not its own wall-clock time.Now(), to
+	// advance the next run's ModifiedAfter cursor: tying the cursor to
+	// Woo's own clock instead of the poller's avoids a whole class of
+	// missed-order bug from clock skew/replication lag between this
+	// process and the Woo server (a wall-clock cursor can march past an
+	// order whose write to Woo's DB simply hadn't finished/replicated
+	// yet at the moment the wall clock ticked past it).
+	LastModifiedAt *time.Time
 }
 
 // updateSalesOrderUC is application/oms's UpdateSalesOrderUseCase,
@@ -114,24 +125,9 @@ func NewImportWooOrdersUseCase(
 }
 
 func (uc *ImportWooOrdersUseCase) Execute(ctx context.Context, in ImportWooOrdersInput) (*ImportOrdersResult, error) {
-	var conn integrationsDomain.Connection
-	var secret string
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		existing, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
-		if err != nil {
-			return err
-		}
-		conn = *existing
-		secret, err = crypto.Decrypt(uc.encryptionSecret, conn.ConsumerSecretEncrypted)
-		return err
-	})
+	client, _, err := uc.connect(ctx, in.ConnectionID)
 	if err != nil {
-		return nil, fmt.Errorf("importWooOrders: %w", err)
-	}
-
-	client, err := uc.wooFactory.NewClient(conn.StoreURL.String(), conn.ConsumerKey, secret)
-	if err != nil {
-		return nil, fmt.Errorf("importWooOrders: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+		return nil, err
 	}
 
 	result := ImportOrdersResult{}
@@ -155,11 +151,119 @@ func (uc *ImportWooOrdersUseCase) Execute(ctx context.Context, in ImportWooOrder
 			return &result, nil
 		}
 		for _, wo := range orders {
+			if t, err := parseWooGMTTime(wo.DateModified); err == nil {
+				if result.LastModifiedAt == nil || t.After(*result.LastModifiedAt) {
+					result.LastModifiedAt = &t
+				}
+			}
 			uc.importOne(ctx, in, wo, &result)
 		}
 	}
 	result.Errors = append(result.Errors, fmt.Sprintf("reached the %d-page import cap -- some orders may not have been imported this run", maxOrderImportPages))
 	return &result, nil
+}
+
+// connect decrypts the connection's stored secret and builds a WooClient
+// for it -- shared by Execute and ExecuteOne so the two never drift.
+// Returns the Connection too since ExecuteOne needs its DefaultWarehouseID.
+func (uc *ImportWooOrdersUseCase) connect(ctx context.Context, connectionID string) (integrationsDomain.WooClient, *integrationsDomain.Connection, error) {
+	var conn integrationsDomain.Connection
+	var secret string
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		existing, err := uc.connRepo.FindByID(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		conn = *existing
+		secret, err = crypto.Decrypt(uc.encryptionSecret, conn.ConsumerSecretEncrypted)
+		return err
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("importWooOrders: %w", err)
+	}
+
+	client, err := uc.wooFactory.NewClient(conn.StoreURL.String(), conn.ConsumerKey, secret)
+	if err != nil {
+		return nil, nil, fmt.Errorf("importWooOrders: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+	}
+	return client, &conn, nil
+}
+
+// FetchWooOrderInput drives ExecuteOne -- the manual "fetch this specific
+// known order" admin action (see FetchWooOrderResult).
+type FetchWooOrderInput struct {
+	ConnectionID       string
+	ExternalOrderID    string // the order's own Woo ID/number, as shown in the Woo admin
+	DefaultWarehouseID string
+}
+
+// FetchWooOrderResult mirrors ImportOrdersResult's Created/Updated/
+// Unchanged/Errors shape, narrowed to the one order ExecuteOne fetched.
+type FetchWooOrderResult struct {
+	ExternalOrderID string
+	// SalesOrderID is "" only when Errors is non-empty -- every other
+	// outcome (created, updated, or already unchanged) resolves to a real
+	// CommerceOS sales order id.
+	SalesOrderID string
+	Created      bool
+	Updated      bool
+	Unchanged    bool
+	Errors       []string
+}
+
+// ExecuteOne fetches exactly one order by its Woo order ID and runs it
+// through the same import/update logic Execute's page loop uses (importOne/
+// createOne) -- the manual counterpart to the scheduled incremental sync,
+// for backfilling one specific known-missing order on demand rather than
+// waiting for (or in place of) the next scheduled run.
+func (uc *ImportWooOrdersUseCase) ExecuteOne(ctx context.Context, in FetchWooOrderInput) (*FetchWooOrderResult, error) {
+	client, conn, err := uc.connect(ctx, in.ConnectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	wo, err := client.GetOrder(ctx, in.ExternalOrderID)
+	if err != nil {
+		return nil, fmt.Errorf("importWooOrders: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+	}
+
+	// DefaultWarehouseID falls back to the connection's own configured
+	// default -- unlike a scheduled sync (always driven by a SyncSchedule
+	// row that requires one), this manual one-order fetch has no such row
+	// to require it from the caller.
+	warehouseID := in.DefaultWarehouseID
+	if warehouseID == "" && conn.DefaultWarehouseID != nil {
+		warehouseID = *conn.DefaultWarehouseID
+	}
+
+	importResult := ImportOrdersResult{}
+	uc.importOne(ctx, ImportWooOrdersInput{
+		ConnectionID: in.ConnectionID, DefaultWarehouseID: warehouseID,
+	}, *wo, &importResult)
+
+	result := &FetchWooOrderResult{
+		ExternalOrderID: in.ExternalOrderID,
+		Created:         importResult.Created > 0,
+		Updated:         importResult.Updated > 0,
+		Unchanged:       importResult.Unchanged > 0,
+		Errors:          importResult.Errors,
+	}
+	if len(result.Errors) == 0 {
+		err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+			so, err := uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, in.ExternalOrderID)
+			if err != nil {
+				return err
+			}
+			if so != nil {
+				result.SalesOrderID = so.ID
+			}
+			return nil
+		})
+		if err != nil {
+			result.Errors = append(result.Errors, err.Error())
+		}
+	}
+	return result, nil
 }
 
 func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrdersInput, wo integrationsDomain.WooOrder, result *ImportOrdersResult) {

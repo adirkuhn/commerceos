@@ -53,15 +53,25 @@ type SyncScheduleRepository interface {
 	Upsert(ctx context.Context, s *SyncSchedule) error
 	ListByConnection(ctx context.Context, connectionID string) ([]SyncSchedule, error)
 	ListDue(ctx context.Context, now time.Time) ([]SyncSchedule, error)
-	// RecordRunResult always updates LastRunStatus/LastRunError/NextRunAt.
-	// LastRunAt itself only advances when advanceLastRunAt is true -- a run
-	// that didn't complete (e.g. orders import hit a page-fetch failure
-	// partway through, see ImportWooOrdersUseCase.Execute) must not move
-	// LastRunAt forward, since dispatch.go's orders runner uses it as the
-	// next run's incremental "modified since" cursor. Advancing it
-	// regardless of whether the run actually finished would silently and
-	// permanently skip whatever page(s) were never reached.
-	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, advanceLastRunAt bool) error
+	// RecordRunResult always updates LastRunStatus/LastRunError/NextRunAt
+	// (stamped with ranAt, the wall-clock time this run happened -- also
+	// written to UpdatedAt). LastRunAt itself only advances when
+	// advanceLastRunAt is true -- a run that didn't complete (e.g. orders
+	// import hit a page-fetch failure partway through, see
+	// ImportWooOrdersUseCase.Execute) must not move LastRunAt forward,
+	// since dispatch.go's orders runner uses it as the next run's
+	// incremental "modified since" cursor. Advancing it regardless of
+	// whether the run actually finished would silently and permanently
+	// skip whatever page(s) were never reached.
+	//
+	// cursorAt is the value actually written into LastRunAt when
+	// advancing -- deliberately separate from ranAt: dispatch.go's orders
+	// runner passes Woo's own latest date_modified_gmt seen this run, not
+	// this process's wall-clock time, so the cursor never drifts out of
+	// sync with clock skew between this process and the Woo server. Every
+	// other runner passes cursorAt == ranAt, unchanged from before this
+	// field existed.
+	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, cursorAt time.Time, advanceLastRunAt bool) error
 }
 
 type SalesChannelRepository interface {

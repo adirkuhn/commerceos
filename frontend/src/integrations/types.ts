@@ -49,6 +49,15 @@ export interface DeleteAllImportedProductsResult {
   errors: string[]
 }
 
+export interface FetchWooOrderResult {
+  external_order_id: string
+  sales_order_id?: string | null
+  created: boolean
+  updated: boolean
+  unchanged: boolean
+  errors: string[]
+}
+
 export type SyncEntityType = 'products' | 'stock' | 'orders' | 'categories' | 'orders_reconciliation'
 export type SyncDirection = 'import' | 'export'
 

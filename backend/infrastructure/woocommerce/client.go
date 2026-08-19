@@ -219,6 +219,15 @@ func (c *wooClient) ListOrders(ctx context.Context, page, perPage int, modifiedA
 	return out, nil
 }
 
+func (c *wooClient) GetOrder(ctx context.Context, externalOrderID string) (*integrationsDomain.WooOrder, error) {
+	order, _, err := c.client.Orders.Get(ctx, externalOrderID, nil)
+	if err != nil {
+		return nil, err
+	}
+	result := toWooOrder(*order)
+	return &result, nil
+}
+
 func (c *wooClient) ListCustomers(ctx context.Context, page, perPage int) ([]integrationsDomain.WooCustomer, error) {
 	customers, _, err := c.client.Customers.List(ctx, &wc.ListCustomerParams{Page: page, PerPage: perPage})
 	if err != nil {

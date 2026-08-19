@@ -75,6 +75,8 @@ func simpleWooOrder() integrationsDomain.WooOrder {
 	}
 }
 
+func ptrWooOrder(wo integrationsDomain.WooOrder) *integrationsDomain.WooOrder { return &wo }
+
 func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
 	taxClassID := "tax-class-standard"
@@ -311,6 +313,75 @@ func TestImportWooOrders_aPageFetchFailureStillKeepsOrdersImportedEarlierInTheSa
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.Created, "the order from page 1 must still count, not be discarded")
 	require.NotEmpty(t, result.Errors)
+}
+
+// ── ExecuteOne (manual "fetch this specific order" admin action) ───────────
+
+func TestImportWooOrders_ExecuteOne_fetchesAndCreatesTheOrder(t *testing.T) {
+	h := newOrdersHarness(nil)
+	h.wooClient.getOrderResult = ptrWooOrder(simpleWooOrder())
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 5)
+
+	result, err := uc.ExecuteOne(context.Background(), appchannels.FetchWooOrderInput{
+		ConnectionID: "conn-1", ExternalOrderID: "501", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"501"}, h.wooClient.getOrderCalled)
+	assert.True(t, result.Created)
+	assert.False(t, result.Updated)
+	assert.False(t, result.Unchanged)
+	assert.Empty(t, result.Errors)
+	assert.Equal(t, "sales-order-1", result.SalesOrderID)
+	require.Len(t, h.salesOrderRepo.created, 1)
+	assert.Equal(t, "501", h.salesOrderRepo.created[0].ExternalOrderID)
+}
+
+func TestImportWooOrders_ExecuteOne_updatesAnExistingOrdersStatus(t *testing.T) {
+	h := newOrdersHarness(nil)
+	wo := simpleWooOrder()
+	wo.Status = "completed"
+	h.wooClient.getOrderResult = ptrWooOrder(wo)
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "sales-order-1", ExternalOrderID: "501", Status: omsDomain.SalesOrderStatusProcessing}
+	uc := h.newImportUseCase(t, 3)
+
+	result, err := uc.ExecuteOne(context.Background(), appchannels.FetchWooOrderInput{
+		ConnectionID: "conn-1", ExternalOrderID: "501", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.True(t, result.Updated)
+	assert.Equal(t, "sales-order-1", result.SalesOrderID)
+	require.Len(t, h.updateOrder.calls, 1)
+}
+
+func TestImportWooOrders_ExecuteOne_reportsAnUnknownOrderIDAsAnError(t *testing.T) {
+	h := newOrdersHarness(nil)
+	h.wooClient.getOrderErr = assert.AnError
+	uc := h.newImportUseCase(t, 1)
+
+	_, err := uc.ExecuteOne(context.Background(), appchannels.FetchWooOrderInput{
+		ConnectionID: "conn-1", ExternalOrderID: "999999", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, integrationsDomain.ErrWooRequestFailed)
+}
+
+func TestImportWooOrders_ExecuteOne_leavesSalesOrderIDEmptyWhenTheOrderFailsToImport(t *testing.T) {
+	h := newOrdersHarness(nil)
+	h.wooClient.getOrderResult = ptrWooOrder(simpleWooOrder())
+	h.salesOrderRepo.findByExternalIDErr = assert.AnError
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.ExecuteOne(context.Background(), appchannels.FetchWooOrderInput{
+		ConnectionID: "conn-1", ExternalOrderID: "501", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err, "ExecuteOne itself doesn't hard-fail on a per-order error -- it's reported via result.Errors")
+	assert.Empty(t, result.SalesOrderID)
+	assert.NotEmpty(t, result.Errors)
 }
 
 func TestImportWooOrders_propagatesAStockMovementErrorAsAPerOrderError(t *testing.T) {

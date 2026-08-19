@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useSyncSchedules } from './hooks/useSyncSchedules'
 import * as api from './api'
-import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAllImportedProductsResult, WooTaxClass } from './types'
+import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAllImportedProductsResult, WooTaxClass, FetchWooOrderResult } from './types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
@@ -105,6 +105,27 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       setCurrencyError(err instanceof Error ? err.message : 'Failed to save currency')
     } finally {
       setSavingCurrency(false)
+    }
+  }
+
+  const [fetchOrderNumber, setFetchOrderNumber] = useState('')
+  const [fetchingOrder, setFetchingOrder] = useState(false)
+  const [fetchOrderError, setFetchOrderError] = useState('')
+  const [fetchOrderResult, setFetchOrderResult] = useState<FetchWooOrderResult | null>(null)
+
+  async function handleFetchOrder(e: React.FormEvent) {
+    e.preventDefault()
+    if (!token || !fetchOrderNumber.trim()) return
+    setFetchingOrder(true)
+    setFetchOrderError('')
+    setFetchOrderResult(null)
+    try {
+      const result = await api.fetchWooOrder(token, connection.id, fetchOrderNumber.trim())
+      setFetchOrderResult(result)
+    } catch (err) {
+      setFetchOrderError(err instanceof Error ? err.message : 'Failed to fetch order')
+    } finally {
+      setFetchingOrder(false)
     }
   }
 
@@ -306,6 +327,48 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
             </div>
             {currencyError && <p className="text-[10px] text-red-500 mt-1.5">{currencyError}</p>}
             {currencySaved && <p className="text-[10px] text-green-500 mt-1.5">Saved.</p>}
+          </div>
+
+          <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Fetch a specific order</h2>
+            <p className="text-xs dark:text-gray-500 text-gray-400 mb-3">
+              Import (or update) one known order right now by its WooCommerce order number, without waiting for the
+              next scheduled sync -- useful for backfilling an order you already know is missing.
+            </p>
+            <form onSubmit={handleFetchOrder} className="flex items-end gap-2">
+              <div className="flex-1 max-w-[200px]">
+                <label htmlFor="fetch-order-number" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                  Woo order number
+                </label>
+                <input
+                  id="fetch-order-number"
+                  value={fetchOrderNumber}
+                  onChange={e => { setFetchOrderNumber(e.target.value); setFetchOrderResult(null); setFetchOrderError('') }}
+                  placeholder="e.g. 1234"
+                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={fetchingOrder || !fetchOrderNumber.trim()}
+                className="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {fetchingOrder ? 'Fetching…' : 'Fetch order'}
+              </button>
+            </form>
+            {fetchOrderError && <p className="text-[10px] text-red-500 mt-2">{fetchOrderError}</p>}
+            {fetchOrderResult && (
+              <div className="mt-2 text-[10px] space-y-1">
+                {fetchOrderResult.errors.length > 0 ? (
+                  fetchOrderResult.errors.map((e, i) => <p key={i} className="text-red-500">{e}</p>)
+                ) : (
+                  <p className="text-green-500">
+                    Order {fetchOrderResult.external_order_id}{' '}
+                    {fetchOrderResult.created ? 'imported' : fetchOrderResult.updated ? 'updated' : 'already up to date'}.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div>

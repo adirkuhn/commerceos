@@ -294,6 +294,10 @@ type WooClient interface {
 	// order is ever permanently missed by an incremental cursor that
 	// drifts.
 	ListOrders(ctx context.Context, page, perPage int, modifiedAfter *time.Time) ([]WooOrder, error)
+	// GetOrder fetches exactly one order by its Woo order ID -- the manual
+	// "fetch this specific known order" admin action, for backfilling one
+	// order without waiting for (or in place of) a scheduled sync pass.
+	GetOrder(ctx context.Context, externalOrderID string) (*WooOrder, error)
 	// ListCustomers pages through the store's customer accounts -- always a
 	// full scan (no modified-since filter), used only by the one-time
 	// customers bootstrap that runs alongside a connection's first

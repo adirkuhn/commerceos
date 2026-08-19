@@ -329,15 +329,22 @@ func runOne(adminCtx context.Context, db *gorm.DB, scheduleRepo channelsDomain.S
 	ranAt := time.Now()
 	status := "success"
 	errMsg := ""
-	if err := rs.dispatch(runCtx, s); err != nil {
+	cursorAt, err := rs.dispatch(runCtx, s)
+	if err != nil {
 		status = "error"
 		errMsg = err.Error()
 		log.Printf("sync schedule %s (%s/%s): %v", s.ID, s.EntityType, s.Direction, err)
 	}
+	// cursorAt nil means the runner has no cursor of its own separate from
+	// wall-clock time (every runner except orders import) -- see runner's
+	// doc comment in dispatch.go.
+	if cursorAt == nil {
+		cursorAt = &ranAt
+	}
 
 	nextRunAt := ranAt.Add(time.Duration(s.IntervalMinutes) * time.Minute)
-	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		return scheduleRepo.RecordRunResult(ctx, s.ID, ranAt, status, errMsg, nextRunAt, status == "success")
+	err = tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		return scheduleRepo.RecordRunResult(ctx, s.ID, ranAt, status, errMsg, nextRunAt, *cursorAt, status == "success")
 	})
 	if err != nil {
 		log.Printf("record run result for schedule %s: %v", s.ID, err)

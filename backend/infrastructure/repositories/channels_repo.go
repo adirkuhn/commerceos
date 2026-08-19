@@ -323,7 +323,7 @@ func (r *SyncScheduleRepo) ListDue(ctx context.Context, now time.Time) ([]channe
 	return out, nil
 }
 
-func (r *SyncScheduleRepo) RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, advanceLastRunAt bool) error {
+func (r *SyncScheduleRepo) RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, cursorAt time.Time, advanceLastRunAt bool) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return err
@@ -335,7 +335,7 @@ func (r *SyncScheduleRepo) RecordRunResult(ctx context.Context, id string, ranAt
 		"updated_at":      ranAt,
 	}
 	if advanceLastRunAt {
-		fields["last_run_at"] = ranAt
+		fields["last_run_at"] = cursorAt
 	}
 	if err := tx.Model(&syncScheduleModel{}).Where("id = ?", id).Updates(fields).Error; err != nil {
 		return fmt.Errorf("syncScheduleRepo.RecordRunResult: %w", err)

@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, FetchWooOrderResult } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -77,6 +77,14 @@ export function updateConnectionSettings(token: string, connectionId: string, de
   return request<Connection>(
     `${base()}/connections/${connectionId}/settings`,
     { method: 'PATCH', body: JSON.stringify({ default_currency: defaultCurrency, default_warehouse_id: defaultWarehouseId }) },
+    token,
+  )
+}
+
+export function fetchWooOrder(token: string, connectionId: string, externalOrderId: string): Promise<FetchWooOrderResult> {
+  return request<FetchWooOrderResult>(
+    `${base()}/connections/${connectionId}/fetch-order`,
+    { method: 'POST', body: JSON.stringify({ external_order_id: externalOrderId }) },
     token,
   )
 }

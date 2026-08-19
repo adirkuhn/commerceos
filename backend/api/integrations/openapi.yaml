@@ -343,6 +343,38 @@ paths:
         '502':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/fetch-order:
+    post:
+      operationId: fetchWooOrder
+      summary: >-
+        Fetch and import (or update) a single WooCommerce order by its own
+        Woo order ID/number, on demand -- for backfilling one specific
+        known-missing order without waiting for the next scheduled sync.
+        Runs the exact same import logic the scheduled orders sync uses,
+        idempotent the same way (a re-fetch of an already-imported,
+        unchanged order is a no-op).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FetchWooOrderRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchWooOrderResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/listings/{productId}:
     get:
       operationId: getProductChannelListing
@@ -780,6 +812,38 @@ components:
       required: [product_id]
       properties:
         product_id: { type: string }
+
+    FetchWooOrderRequest:
+      type: object
+      required: [external_order_id]
+      properties:
+        external_order_id:
+          type: string
+          description: >-
+            The order's own Woo order ID/number, as shown in the
+            WooCommerce admin -- not a CommerceOS id.
+
+    FetchWooOrderResult:
+      type: object
+      required: [external_order_id, created, updated, unchanged, errors]
+      properties:
+        external_order_id: { type: string }
+        sales_order_id:
+          type: string
+          nullable: true
+          description: CommerceOS's own sales order id. Null only when errors is non-empty.
+        created: { type: boolean }
+        updated: { type: boolean }
+        unchanged: { type: boolean }
+        errors:
+          type: array
+          items: { type: string }
+
+    FetchWooOrderResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/FetchWooOrderResult' }
+        error: { nullable: true }
 
     ProductChannelListing:
       type: object

@@ -3,6 +3,7 @@ package channels_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -105,14 +106,18 @@ type stubWooClient struct {
 	// ordersByPage maps page number -> orders returned for that page,
 	// nil/missing means empty (end of pagination). ordersModifiedAfter
 	// captures the last ListOrders call's filter, for assertions.
-	ordersByPage        map[int][]integrationsDomain.WooOrder
-	ordersErr           error
+	ordersByPage map[int][]integrationsDomain.WooOrder
+	ordersErr    error
 	// ordersErrOnPage, when nonzero, limits ordersErr to that one page --
 	// every other page behaves normally. Zero (the default) means ordersErr
 	// applies to every page, same as before this field existed.
 	ordersErrOnPage     int
 	ordersModifiedAfter *time.Time
 	ordersCalls         int
+
+	getOrderCalled []string
+	getOrderErr    error
+	getOrderResult *integrationsDomain.WooOrder
 
 	// customersByPage mirrors ordersByPage's convention.
 	customersByPage map[int][]integrationsDomain.WooCustomer
@@ -279,6 +284,17 @@ func (s *stubWooClient) ListOrders(_ context.Context, page, _ int, modifiedAfter
 		return nil, s.ordersErr
 	}
 	return s.ordersByPage[page], nil
+}
+
+func (s *stubWooClient) GetOrder(_ context.Context, externalOrderID string) (*integrationsDomain.WooOrder, error) {
+	s.getOrderCalled = append(s.getOrderCalled, externalOrderID)
+	if s.getOrderErr != nil {
+		return nil, s.getOrderErr
+	}
+	if s.getOrderResult != nil {
+		return s.getOrderResult, nil
+	}
+	return nil, errors.New("stubWooClient: getOrderResult not set")
 }
 
 func (s *stubWooClient) ListCustomers(_ context.Context, page, _ int) ([]integrationsDomain.WooCustomer, error) {
@@ -507,7 +523,7 @@ func (s *stubChannelsSKURepo) Update(_ context.Context, sku *pmsDomain.SKU) erro
 	s.updated = append(s.updated, *sku)
 	return nil
 }
-func (s *stubChannelsSKURepo) Delete(_ context.Context, _ string) error         { return nil }
+func (s *stubChannelsSKURepo) Delete(_ context.Context, _ string) error { return nil }
 func (s *stubChannelsSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
 	return nil, nil
 }
@@ -671,6 +687,7 @@ type stubRunResult struct {
 	Status           string
 	ErrMsg           string
 	NextRunAt        time.Time
+	CursorAt         time.Time
 	AdvanceLastRunAt bool
 }
 
@@ -690,8 +707,8 @@ func (s *stubSyncScheduleRepo) ListByConnection(_ context.Context, _ string) ([]
 func (s *stubSyncScheduleRepo) ListDue(_ context.Context, _ time.Time) ([]channelsDomain.SyncSchedule, error) {
 	return s.due, nil
 }
-func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, advanceLastRunAt bool) error {
-	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt, AdvanceLastRunAt: advanceLastRunAt})
+func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, cursorAt time.Time, advanceLastRunAt bool) error {
+	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt, CursorAt: cursorAt, AdvanceLastRunAt: advanceLastRunAt})
 	return nil
 }
 
@@ -857,6 +874,10 @@ func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesO
 	}
 	o.ID = fmt.Sprintf("sales-order-%d", len(s.created)+1)
 	s.created = append(s.created, *o)
+	if s.byExternalID == nil {
+		s.byExternalID = map[string]omsDomain.SalesOrder{}
+	}
+	s.byExternalID[o.ExternalOrderID] = *o
 	return nil
 }
 func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
