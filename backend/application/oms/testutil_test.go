@@ -71,10 +71,25 @@ type stubSalesOrderRepo struct {
 	updateErr              error
 	gotUpdateID            string
 	gotUpdateFields        map[string]any
-	deleteErr              error
+	updateCalls            []struct {
+		ID     string
+		Fields map[string]any
+	}
+	deleteErr error
 	gotDeleteID            string
 	byConnection           []omsDomain.SalesOrder
 	listByConnectionErr    error
+	// trySwapResult/trySwapErr drive TrySetStockDecremented -- default
+	// (zero value) is "swap succeeded, no error", the common case. Set
+	// trySwapResult=false to simulate losing the race (another caller
+	// already flipped the flag first).
+	trySwapResult    bool
+	trySwapResultSet bool
+	trySwapErr       error
+	gotTrySwapID     string
+	gotTrySwapFrom   bool
+	gotTrySwapTo     bool
+	trySwapCalls     int
 }
 
 func (s *stubSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
@@ -107,11 +122,26 @@ func (s *stubSalesOrderRepo) ListByConnection(_ context.Context, _ string) ([]om
 func (s *stubSalesOrderRepo) Update(_ context.Context, id string, fields map[string]any) error {
 	s.gotUpdateID = id
 	s.gotUpdateFields = fields
+	s.updateCalls = append(s.updateCalls, struct {
+		ID     string
+		Fields map[string]any
+	}{id, fields})
 	return s.updateErr
 }
 func (s *stubSalesOrderRepo) Delete(_ context.Context, id string) error {
 	s.gotDeleteID = id
 	return s.deleteErr
+}
+func (s *stubSalesOrderRepo) TrySetStockDecremented(_ context.Context, id string, from, to bool) (bool, error) {
+	s.trySwapCalls++
+	s.gotTrySwapID, s.gotTrySwapFrom, s.gotTrySwapTo = id, from, to
+	if s.trySwapErr != nil {
+		return false, s.trySwapErr
+	}
+	if !s.trySwapResultSet {
+		return true, nil
+	}
+	return s.trySwapResult, nil
 }
 
 type stubSalesOrderLineItemRepo struct {
@@ -121,6 +151,15 @@ type stubSalesOrderLineItemRepo struct {
 	listErr               error
 	deleteBySalesOrderErr error
 	gotDeleteSalesOrderID string
+	findByIDResult        *omsDomain.SalesOrderLineItem
+	findByIDErr           error
+	updateErr             error
+	gotUpdateID           string
+	gotUpdateFields       map[string]any
+	updateCalls           []struct {
+		ID     string
+		Fields map[string]any
+	}
 }
 
 func (s *stubSalesOrderLineItemRepo) Create(_ context.Context, li *omsDomain.SalesOrderLineItem) error {
@@ -130,6 +169,12 @@ func (s *stubSalesOrderLineItemRepo) Create(_ context.Context, li *omsDomain.Sal
 	li.ID = "sales-order-line-1"
 	s.created = append(s.created, *li)
 	return nil
+}
+func (s *stubSalesOrderLineItemRepo) FindByID(_ context.Context, id string) (*omsDomain.SalesOrderLineItem, error) {
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, omsDomain.ErrSalesOrderLineItemNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
 }
 func (s *stubSalesOrderLineItemRepo) ListBySalesOrder(_ context.Context, _ string) ([]omsDomain.SalesOrderLineItem, error) {
 	if s.listErr != nil {
@@ -141,10 +186,21 @@ func (s *stubSalesOrderLineItemRepo) DeleteBySalesOrder(_ context.Context, sales
 	s.gotDeleteSalesOrderID = salesOrderID
 	return s.deleteBySalesOrderErr
 }
+func (s *stubSalesOrderLineItemRepo) Update(_ context.Context, id string, fields map[string]any) error {
+	s.gotUpdateID = id
+	s.gotUpdateFields = fields
+	s.updateCalls = append(s.updateCalls, struct {
+		ID     string
+		Fields map[string]any
+	}{id, fields})
+	return s.updateErr
+}
 
 type stubSalesOrderLineItemStockMovementRepo struct {
-	createErr error
-	created   []omsDomain.SalesOrderLineItemStockMovement
+	createErr    error
+	created      []omsDomain.SalesOrderLineItemStockMovement
+	existsResult bool
+	existsErr    error
 }
 
 func (s *stubSalesOrderLineItemStockMovementRepo) Create(_ context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {
@@ -154,6 +210,9 @@ func (s *stubSalesOrderLineItemStockMovementRepo) Create(_ context.Context, l *o
 	l.ID = "link-1"
 	s.created = append(s.created, *l)
 	return nil
+}
+func (s *stubSalesOrderLineItemStockMovementRepo) ExistsForLineItem(_ context.Context, _ string) (bool, error) {
+	return s.existsResult, s.existsErr
 }
 
 // stubSKURepo defaults to returning a SKU whose SKUCode/Barcode are derived
@@ -177,10 +236,17 @@ func (s *stubSKURepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, er
 type stubRecordMovement struct {
 	calls []appinventory.RecordStockMovementInput
 	err   error
+	// errBySKU overrides err for a specific SKU -- lets a test simulate one
+	// line item succeeding while another fails differently, within the
+	// same Execute call.
+	errBySKU map[string]error
 }
 
 func (s *stubRecordMovement) Execute(_ context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error) {
 	s.calls = append(s.calls, in)
+	if err, ok := s.errBySKU[in.SKUID]; ok {
+		return nil, err
+	}
 	if s.err != nil {
 		return nil, s.err
 	}

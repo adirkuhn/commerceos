@@ -2,6 +2,7 @@ package oms
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -133,22 +134,43 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		if in.Status != nil && *in.Status != existing.Status {
 			fields["status"] = string(*in.Status)
 			updated.Status = *in.Status
-
-			switch {
-			case !existing.StockDecremented && in.Status.ReducesStock():
-				decrementing = true
-				fields["stock_decremented"] = true
-				updated.StockDecremented = true
-			case existing.StockDecremented && in.Status.Restocks():
-				restocking = true
-				fields["stock_decremented"] = false
-				updated.StockDecremented = false
-			}
 		}
 
 		fields["updated_at"] = time.Now()
 		if err := uc.salesOrderRepo.Update(ctx, id, fields); err != nil {
 			return err
+		}
+
+		// StockDecremented flips through its own conditional write, never
+		// through the fields map above -- FindByID+Update here is a
+		// classic check-then-act with no row lock, so two concurrent
+		// Execute calls for the same order (a manual re-fetch racing the
+		// scheduler, or two scheduler replicas) could otherwise both read
+		// StockDecremented=false and both decrement. TrySetStockDecremented
+		// makes the flip itself atomic: only the caller that actually wins
+		// it proceeds to the movement loop below -- the other treats it as
+		// a no-op, since the winner is already handling it.
+		if in.Status != nil && *in.Status != existing.Status {
+			switch {
+			case !existing.StockDecremented && in.Status.ReducesStock():
+				swapped, err := uc.salesOrderRepo.TrySetStockDecremented(ctx, id, false, true)
+				if err != nil {
+					return err
+				}
+				if swapped {
+					decrementing = true
+					updated.StockDecremented = true
+				}
+			case existing.StockDecremented && in.Status.Restocks():
+				swapped, err := uc.salesOrderRepo.TrySetStockDecremented(ctx, id, true, false)
+				if err != nil {
+					return err
+				}
+				if swapped {
+					restocking = true
+					updated.StockDecremented = false
+				}
+			}
 		}
 
 		if decrementing || restocking {
@@ -163,28 +185,108 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		return nil, fmt.Errorf("updateSalesOrder: %w", err)
 	}
 
-	for _, li := range lineItems {
-		if li.SKUID == nil {
-			continue
-		}
-		delta := li.Quantity
-		reason := fmt.Sprintf("sales order %s restocked", id)
-		if decrementing {
-			delta = -li.Quantity
-			reason = fmt.Sprintf("sales order %s status change", id)
-		}
-		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: *li.SKUID, WarehouseID: updated.WarehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: delta, Reason: reason, OccurredAt: time.Now(),
-		})
-		if err != nil {
+	if decrementing {
+		if err := decrementLineItems(ctx, uc.db, uc.lineItemRepo, uc.linkRepo, uc.salesOrderRepo, uc.recordMovement, id, updated.WarehouseID, lineItems); err != nil {
 			return nil, fmt.Errorf("updateSalesOrder: %w", err)
 		}
-		if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
+	}
+	if restocking {
+		if err := restockLineItems(ctx, uc.db, uc.lineItemRepo, uc.salesOrderRepo, uc.recordMovement, uc.linkRepo, id, updated.WarehouseID, lineItems); err != nil {
 			return nil, fmt.Errorf("updateSalesOrder: %w", err)
 		}
 	}
 	return &updated, nil
+}
+
+// decrementLineItems is import_woo_orders.go's createOne movement loop and
+// UpdateSalesOrderUseCase's decrementing branch sharing the exact same
+// per-line-item pending logic: a SKUID-less line (never matched a catalog
+// SKU) or one whose decrement hits ErrInsufficientStock is marked
+// StockStatusPending and the order's NeedsStockReview/NeedsSKUReview
+// flagged, instead of hard-failing the whole order the way both call sites
+// used to. Staff resolve a pending item via LinkLineItemSKUUseCase (SKU-less
+// case) then RetryStockDecrementUseCase (either case) from the "Stock
+// Issues"/"Unmatched SKUs" admin pages -- see those use cases' docs.
+func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, salesOrderRepo omsDomain.SalesOrderRepository, recordMovement recordSaleMovementUC, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
+	stillPending := false
+	for _, li := range lineItems {
+		if li.SKUID == nil {
+			// Never matched a catalog SKU -- NeedsSKUReview already
+			// reflects this from creation time; nothing to decrement
+			// against until it's linked.
+			stillPending = true
+			continue
+		}
+		movement, err := recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+			SKUID: *li.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
+			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("sales order %s status change", orderID), OccurredAt: time.Now(),
+		})
+		if err != nil {
+			if !errors.Is(err, invDomain.ErrInsufficientStock) {
+				return err
+			}
+			stillPending = true
+			if err := setLineItemStockStatus(ctx, db, lineItemRepo, li.ID, omsDomain.StockStatusPending); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement.ID); err != nil {
+			return err
+		}
+	}
+	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, stillPending)
+}
+
+// restockLineItems only restocks a line item whose StockStatus is already
+// Decremented -- a Pending one (SKUID-less, or a decrement that never
+// succeeded) never actually took stock, so crediting it back would over-add.
+// Those are instead reset straight to Decremented: the order transitioning
+// to a Restocks() status (cancelled/failed) means the decrement is no longer
+// owed at all, pending or not.
+func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, salesOrderRepo omsDomain.SalesOrderRepository, recordMovement recordSaleMovementUC, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
+	for _, li := range lineItems {
+		if li.SKUID == nil {
+			continue
+		}
+		if li.StockStatus == omsDomain.StockStatusPending {
+			if err := setLineItemStockStatus(ctx, db, lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
+				return err
+			}
+			continue
+		}
+		movement, err := recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+			SKUID: *li.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
+			QuantityDelta: li.Quantity, Reason: fmt.Sprintf("sales order %s restocked", orderID), OccurredAt: time.Now(),
+		})
+		if err != nil {
+			return err
+		}
+		if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement.ID); err != nil {
+			return err
+		}
+	}
+	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, false)
+}
+
+func setLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, lineItemID string, status omsDomain.StockStatus) error {
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return lineItemRepo.Update(ctx, lineItemID, map[string]any{"stock_status": string(status)})
+	})
+	if err != nil {
+		return fmt.Errorf("setLineItemStockStatus: %w", err)
+	}
+	return nil
+}
+
+func setOrderNeedsStockReview(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, orderID string, needsReview bool) error {
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_stock_review": needsReview})
+	})
+	if err != nil {
+		return fmt.Errorf("setOrderNeedsStockReview: %w", err)
+	}
+	return nil
 }
 
 func setBillingFields(fields map[string]any, a omsDomain.Address) {
