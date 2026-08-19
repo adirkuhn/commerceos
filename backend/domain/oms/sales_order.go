@@ -57,6 +57,15 @@ func (s SalesOrderStatus) Restocks() bool {
 	}
 }
 
+// StockStatus is a SalesOrderLineItem's decrement obligation state -- see
+// the field's own doc comment.
+type StockStatus string
+
+const (
+	StockStatusDecremented StockStatus = "decremented"
+	StockStatusPending     StockStatus = "pending"
+)
+
 // Address mirrors WooCommerce's billing/shipping address object exactly
 // (same field names/shape) -- a SalesOrder snapshots the customer's address
 // as of the sale (Woo does the same: an order's billing/shipping is a copy,
@@ -149,6 +158,18 @@ type SalesOrder struct {
 	// from Status because a transition needs to know what already
 	// happened (has it been decremented yet?) to decide what to do next.
 	StockDecremented bool
+
+	// NeedsStockReview is true when at least one line item is StockStatus
+	// Pending with a SKUID set -- its decrement was attempted and failed
+	// (ErrInsufficientStock), not that it was never attempted (that's
+	// NeedsSKUReview). Cleared by RetryStockDecrementUseCase once every
+	// such line item resolves. See the "Stock Issues" admin page.
+	NeedsStockReview bool
+	// NeedsSKUReview is true when at least one line item has SKUID nil --
+	// an imported line whose source SKU string never matched a catalog
+	// SKU. Cleared by LinkLineItemSKUUseCase once every such line item is
+	// linked. See the "Unmatched SKUs" admin page.
+	NeedsSKUReview bool
 }
 
 // SalesOrderLineItem is one SKU sold within a SalesOrder. The POS resolves
@@ -174,6 +195,15 @@ type SalesOrderLineItem struct {
 	SKUCode      string
 	Barcode      string
 	Quantity     int64
+	// StockStatus tracks whether this line's stock-reducing obligation (if
+	// its order's status owes one at all -- SalesOrderStatus.ReducesStock)
+	// has actually been carried out. Defaults to Decremented, which also
+	// covers "nothing was ever owed" (a non-stock-reducing order, or an
+	// order created with SkipStockMovements) -- there is deliberately no
+	// third "not applicable" value, since the order-level
+	// NeedsStockReview/NeedsSKUReview rollups are what staff actually act
+	// on, not this column read in isolation.
+	StockStatus StockStatus
 
 	PriceMinorUnits       int64 // per-unit price, Woo's line_items.price
 	SubtotalMinorUnits    int64 // pre-discount, Woo's line_items.subtotal

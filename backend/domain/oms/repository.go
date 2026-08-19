@@ -32,6 +32,14 @@ type ListSalesOrdersFilter struct {
 	// desc -- newest first).
 	SortBy  SalesOrderSortField
 	SortDir SortDirection
+	// NeedsStockReview/NeedsSKUReview nil means "don't filter on this" --
+	// set to a non-nil true to power the "Stock Issues"/"Unmatched SKUs"
+	// admin pages, which list only flagged orders.
+	NeedsStockReview *bool
+	NeedsSKUReview   *bool
+	// Source nil means "don't filter on this" -- used by
+	// cmd/repair-stock-review-flags to scan only WooCommerce-sourced orders.
+	Source *SalesOrderSource
 }
 
 type SalesOrderRepository interface {
@@ -50,16 +58,30 @@ type SalesOrderRepository interface {
 	// convention as channels.ProductChannelListingRepository.ListByConnection.
 	ListByConnection(ctx context.Context, connectionID string) ([]SalesOrder, error)
 	// Update patches header fields (status, customer, billing/shipping,
-	// note, StockDecremented) -- never line items, which are immutable
-	// once created (see UpdateSalesOrderUseCase's doc).
+	// note, NeedsStockReview, NeedsSKUReview) -- never line items, which
+	// are immutable once created (see UpdateSalesOrderUseCase's doc), and
+	// never StockDecremented, which must only ever change through
+	// TrySetStockDecremented's conditional write.
 	Update(ctx context.Context, id string, fields map[string]any) error
+	// TrySetStockDecremented atomically flips StockDecremented from
+	// `from` to `to`, only if the row's current value is still `from` --
+	// see the implementation's doc for why this can't be a plain field in
+	// Update's fields map (the double-decrement race it closes).
+	TrySetStockDecremented(ctx context.Context, id string, from, to bool) (bool, error)
 	Delete(ctx context.Context, id string) error
 }
 
 type SalesOrderLineItemRepository interface {
 	Create(ctx context.Context, li *SalesOrderLineItem) error
+	FindByID(ctx context.Context, id string) (*SalesOrderLineItem, error)
 	ListBySalesOrder(ctx context.Context, salesOrderID string) ([]SalesOrderLineItem, error)
 	DeleteBySalesOrder(ctx context.Context, salesOrderID string) error
+	// Update patches a line item's mutable fields -- today only SKUID
+	// (LinkLineItemSKUUseCase) and StockStatus (RetryStockDecrementUseCase,
+	// ImportWooOrdersUseCase, UpdateSalesOrderUseCase). Everything else
+	// about a line item is immutable once created (see SalesOrderRepository
+	// .Update's doc).
+	Update(ctx context.Context, id string, fields map[string]any) error
 }
 
 // SalesOrderLineItemStockMovement links a line item to the stock movement
@@ -75,4 +97,10 @@ type SalesOrderLineItemStockMovement struct {
 
 type SalesOrderLineItemStockMovementRepository interface {
 	Create(ctx context.Context, l *SalesOrderLineItemStockMovement) error
+	// ExistsForLineItem reports whether lineItemID already has a recorded
+	// stock movement linked to it -- used by
+	// cmd/repair-stock-review-flags to distinguish a line item whose
+	// decrement genuinely never ran (the bug this repairs) from one that
+	// already succeeded.
+	ExistsForLineItem(ctx context.Context, lineItemID string) (bool, error)
 }
