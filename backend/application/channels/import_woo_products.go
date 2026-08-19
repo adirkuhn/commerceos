@@ -401,7 +401,7 @@ func (uc *ImportWooProductsUseCase) importOne(
 		}
 		wooTaxClass, wooTaxStatus := wp.TaxClass, wp.TaxStatus
 		sku := pmsDomain.SKU{
-			TenantID: tenantID, VariantID: variant.ID, SKUCode: skuCode,
+			TenantID: tenantID, VariantID: variant.ID, SKUCode: skuCode, Barcode: wp.GTIN,
 			PriceMinorUnits: priceMinorUnits, CurrencyCode: in.DefaultCurrency,
 			IsVirtual:       wp.Virtual,
 			TaxClassID:      uc.resolveProductTaxClassID(ctx, slugToClassID, wp.TaxClass),

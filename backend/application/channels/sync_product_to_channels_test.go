@@ -94,6 +94,24 @@ func TestSyncProductToChannels_pushesUpdatedImageGalleryToWoo(t *testing.T) {
 		h.wooClient.updateProductCalled[0].Product.Images)
 }
 
+func TestSyncProductToChannels_pushesUpdatedBarcodeAsGTIN(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	sku.Barcode = "0012345678905"
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1)
+	require.Equal(t, "0012345678905", h.wooClient.updateProductCalled[0].Product.GTIN)
+}
+
 // TestSyncProductToChannels_syncsSalePriceExpiry proves the actual path
 // the "sync sale-price expiry to Woo" requirement depends on: this is the
 // exact event (pms.product.changed) ExpireSKUSalePriceUseCase raises after

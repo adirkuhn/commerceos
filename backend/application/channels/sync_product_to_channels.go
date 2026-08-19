@@ -359,7 +359,7 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 
 		salePrice, saleEndDate := WooSaleFields(sku)
 		wooVariation := integrationsDomain.WooVariation{
-			SKU: sku.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
+			SKU: sku.SKUCode, GTIN: sku.Barcode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
 			SalePrice: salePrice, SaleEndDate: saleEndDate,
 			AttributeName: wooVariantAttributeName, AttributeValue: v.Name,
 		}
@@ -471,6 +471,7 @@ func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, cli
 	wooProduct := integrationsDomain.WooProduct{
 		Name: name, Description: product.Description,
 		Status:       MapCommerceStatusToWoo(product.Status),
+		GTIN:         sku.Barcode,
 		RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
 		SalePrice:    salePrice,
 		SaleEndDate:  saleEndDate,

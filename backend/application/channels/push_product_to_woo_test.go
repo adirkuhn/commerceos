@@ -605,6 +605,53 @@ func TestPushProductToWoo_variationsMode_onlyTheParentGetsImages(t *testing.T) {
 		h.wooClient.createVariableCalled[0].Product.Images)
 }
 
+func TestPushProductToWoo_pushesBarcodeAsGTIN(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	sku.Barcode = "0012345678905"
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	require.Equal(t, "0012345678905", h.wooClient.createCalled[0].GTIN)
+}
+
+// TestPushProductToWoo_variationsMode_eachVariationGetsItsOwnGTIN proves
+// GTIN is per-SKU like SKU/price/stock, not parent-level like images --
+// each variation carries its own barcode, not the product's.
+func TestPushProductToWoo_variationsMode_eachVariationGetsItsOwnGTIN(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	skus[0].Barcode = "0012345678905"
+	skus[1].Barcode = "0019876543210"
+	h := newMultiVariantSyncHarness(product, variants, skus, nil)
+	h.wooClient.createVariableWithID = "900"
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, h.wooClient.createVariableCalled[0].Product.GTIN, "parent has no GTIN of its own")
+	require.Len(t, h.wooClient.createVariationCalled, 2)
+	gtins := []string{h.wooClient.createVariationCalled[0].Variation.GTIN, h.wooClient.createVariationCalled[1].Variation.GTIN}
+	require.ElementsMatch(t, []string{"0012345678905", "0019876543210"}, gtins)
+}
+
 func TestPushProductToWoo_rejectsPushWhenOnlyVariantIsBulkPool(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	sku.UnitType = pmsDomain.SKUUnitTypeKilo

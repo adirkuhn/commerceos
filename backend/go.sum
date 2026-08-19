@@ -19,6 +19,8 @@ github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
 github.com/adirkuhn/go-woocommerce-api v1.0.10 h1:PPDpvhiqCjF+oZcOJJz1Jf0lqPrcYOcZbp7OFL58RJA=
 github.com/adirkuhn/go-woocommerce-api v1.0.10/go.mod h1:NBEFl1qSG4o1OmQ6gy3fFDjDSsJ5y4HBsL/WTcn1nOI=
+github.com/adirkuhn/go-woocommerce-api v1.0.11 h1:eQfFu0xSuawHQPwS7QmauRm9YyFfnULV/YPSxILomh8=
+github.com/adirkuhn/go-woocommerce-api v1.0.11/go.mod h1:NBEFl1qSG4o1OmQ6gy3fFDjDSsJ5y4HBsL/WTcn1nOI=
 github.com/anthropics/anthropic-sdk-go v1.61.0 h1:JRTnm1tPqn5xo1xd1zfrcFDlcoWXVMvV1K68YmhpZKw=
 github.com/anthropics/anthropic-sdk-go v1.61.0/go.mod h1:3EfIfmFqxH6rbiLcIP4tPFyXL/IHakx2wDG4OU+TIEI=
 github.com/apapsch/go-jsonmerge/v2 v2.0.0 h1:axGnT1gRIfimI7gJifB699GoE/oq+F2MU7Dml6nw9rQ=

@@ -140,6 +140,26 @@ func TestImportWooProducts_importsNewSimpleProduct(t *testing.T) {
 	require.Equal(t, "listing-1", *entry.ListingID)
 }
 
+// TestImportWooProducts_importsBarcodeFromGTIN proves Woo's
+// global_unique_id ("GTIN, UPC, EAN, or ISBN") lands on the new SKU's
+// Barcode field on import.
+func TestImportWooProducts_importsBarcodeFromGTIN(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.GTIN = "0012345678905"
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.skuRepo.created, 1)
+	require.Equal(t, "0012345678905", h.skuRepo.created[0].Barcode)
+}
+
 // TestImportWooProducts_suppressesStockChangedEventSoAsyncConsumerDoesNotEchoToWoo
 // proves the initial-stock Adjustment doesn't cause an unwanted push right
 // back to Woo: RecordStockMovementUseCase enqueues inventory.stock.changed

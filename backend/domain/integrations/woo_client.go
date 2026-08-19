@@ -11,10 +11,14 @@ import (
 // the large tail of SEO/ads/affiliate/plugin meta_data fields real Woo
 // stores carry, none of which any other channel would ever have.
 type WooProduct struct {
-	ID           string
-	Name         string
-	Slug         string
-	SKU          string
+	ID   string
+	Name string
+	Slug string
+	SKU  string
+	// GTIN maps to Woo's own global_unique_id field ("GTIN, UPC, EAN, or
+	// ISBN" in the product-data UI, native since WC 8.0) -- a barcode, not
+	// this codebase's internal SKU code.
+	GTIN         string
 	Description  string
 	Status       string // woo: publish/draft/private/pending
 	Type         string // woo: simple/variable/grouped/external
@@ -73,8 +77,10 @@ type WooProductDimensions struct {
 // that from its parent product. Only price/stock/physical attributes and
 // which attribute option it represents are per-variation.
 type WooVariation struct {
-	ID            string
-	SKU           string
+	ID  string
+	SKU string
+	// GTIN -- see WooProduct's doc comment, same meaning here, per-variation.
+	GTIN          string
 	RegularPrice  string
 	SalePrice     string
 	SaleEndDate   string

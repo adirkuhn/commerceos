@@ -304,21 +304,22 @@ func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
 
 func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
 	created, _, err := c.client.Products.Create(ctx, &wc.Product{
-		Name:          p.Name,
-		Type:          "simple",
-		Status:        p.Status,
-		Description:   p.Description,
-		Sku:           p.SKU,
-		RegularPrice:  wc.FlexibleString(p.RegularPrice),
-		SalePrice:     wc.FlexibleString(p.SalePrice),
-		DateOnSaleTo:  p.SaleEndDate,
-		Virtual:       p.Virtual,
-		ManageStock:   p.ManageStock,
-		StockQuantity: p.StockQuantity,
-		TaxStatus:     p.TaxStatus,
-		TaxClass:      p.TaxClass,
-		MetaData:      toWcMetaData(p.MetaData),
-		Images:        toWcImages(p.Images),
+		Name:           p.Name,
+		Type:           "simple",
+		Status:         p.Status,
+		Description:    p.Description,
+		Sku:            p.SKU,
+		GlobalUniqueID: p.GTIN,
+		RegularPrice:   wc.FlexibleString(p.RegularPrice),
+		SalePrice:      wc.FlexibleString(p.SalePrice),
+		DateOnSaleTo:   p.SaleEndDate,
+		Virtual:        p.Virtual,
+		ManageStock:    p.ManageStock,
+		StockQuantity:  p.StockQuantity,
+		TaxStatus:      p.TaxStatus,
+		TaxClass:       p.TaxClass,
+		MetaData:       toWcMetaData(p.MetaData),
+		Images:         toWcImages(p.Images),
 	})
 	if err != nil {
 		return nil, err
@@ -382,18 +383,19 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 		return nil, err
 	}
 	created, _, err := c.client.ProductVariations.Create(ctx, parentExternalID, &wc.ProductVariation{
-		Sku:           v.SKU,
-		RegularPrice:  wc.FlexibleString(v.RegularPrice),
-		SalePrice:     wc.FlexibleString(v.SalePrice),
-		DateOnSaleTo:  v.SaleEndDate,
-		ManageStock:   v.ManageStock,
-		StockQuantity: v.StockQuantity,
-		Weight:        v.Weight,
-		Dimensions:    wooVariationDimensions(v.Dimensions),
-		Attributes:    []wc.VariationAttribute{{Name: v.AttributeName, Option: v.AttributeValue}},
-		TaxStatus:     v.TaxStatus,
-		TaxClass:      v.TaxClass,
-		MetaData:      toWcMetaData(v.MetaData),
+		Sku:            v.SKU,
+		GlobalUniqueID: v.GTIN,
+		RegularPrice:   wc.FlexibleString(v.RegularPrice),
+		SalePrice:      wc.FlexibleString(v.SalePrice),
+		DateOnSaleTo:   v.SaleEndDate,
+		ManageStock:    v.ManageStock,
+		StockQuantity:  v.StockQuantity,
+		Weight:         v.Weight,
+		Dimensions:     wooVariationDimensions(v.Dimensions),
+		Attributes:     []wc.VariationAttribute{{Name: v.AttributeName, Option: v.AttributeValue}},
+		TaxStatus:      v.TaxStatus,
+		TaxClass:       v.TaxClass,
+		MetaData:       toWcMetaData(v.MetaData),
 	})
 	if err != nil {
 		return nil, err
@@ -404,16 +406,17 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 
 func (c *wooClient) UpdateVariation(ctx context.Context, parentExternalID, variationExternalID string, v integrationsDomain.WooVariation) (*integrationsDomain.WooVariation, error) {
 	updated, _, err := c.client.ProductVariations.Update(ctx, parentExternalID, variationExternalID, &wc.ProductVariation{
-		RegularPrice:  wc.FlexibleString(v.RegularPrice),
-		SalePrice:     wc.FlexibleString(v.SalePrice),
-		DateOnSaleTo:  v.SaleEndDate,
-		ManageStock:   v.ManageStock,
-		StockQuantity: v.StockQuantity,
-		Weight:        v.Weight,
-		Dimensions:    wooVariationDimensions(v.Dimensions),
-		TaxStatus:     v.TaxStatus,
-		TaxClass:      v.TaxClass,
-		MetaData:      toWcMetaData(v.MetaData),
+		GlobalUniqueID: v.GTIN,
+		RegularPrice:   wc.FlexibleString(v.RegularPrice),
+		SalePrice:      wc.FlexibleString(v.SalePrice),
+		DateOnSaleTo:   v.SaleEndDate,
+		ManageStock:    v.ManageStock,
+		StockQuantity:  v.StockQuantity,
+		Weight:         v.Weight,
+		Dimensions:     wooVariationDimensions(v.Dimensions),
+		TaxStatus:      v.TaxStatus,
+		TaxClass:       v.TaxClass,
+		MetaData:       toWcMetaData(v.MetaData),
 	})
 	if err != nil {
 		return nil, err
@@ -446,7 +449,7 @@ func toWooVariation(v wc.ProductVariation) integrationsDomain.WooVariation {
 		dims = integrationsDomain.WooProductDimensions{Length: v.Dimensions.Length, Width: v.Dimensions.Width, Height: v.Dimensions.Height}
 	}
 	return integrationsDomain.WooVariation{
-		ID: strconv.Itoa(v.ID), SKU: v.Sku,
+		ID: strconv.Itoa(v.ID), SKU: v.Sku, GTIN: v.GlobalUniqueID,
 		RegularPrice: string(v.RegularPrice), SalePrice: string(v.SalePrice),
 		ManageStock: v.ManageStock, StockQuantity: v.StockQuantity,
 		Weight: v.Weight, Dimensions: dims,
@@ -495,21 +498,22 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		dims = &wc.ProductDimensions{Length: p.Dimensions.Length, Width: p.Dimensions.Width, Height: p.Dimensions.Height}
 	}
 	updated, _, err := c.client.Products.Update(ctx, externalProductID, &wc.Product{
-		Name:          p.Name,
-		Status:        p.Status,
-		Description:   p.Description,
-		RegularPrice:  wc.FlexibleString(p.RegularPrice),
-		SalePrice:     wc.FlexibleString(p.SalePrice),
-		DateOnSaleTo:  p.SaleEndDate,
-		Virtual:       p.Virtual,
-		ManageStock:   p.ManageStock,
-		StockQuantity: p.StockQuantity,
-		Weight:        p.Weight,
-		Dimensions:    dims,
-		TaxStatus:     p.TaxStatus,
-		TaxClass:      p.TaxClass,
-		MetaData:      toWcMetaData(p.MetaData),
-		Images:        toWcImages(p.Images),
+		Name:           p.Name,
+		Status:         p.Status,
+		Description:    p.Description,
+		GlobalUniqueID: p.GTIN,
+		RegularPrice:   wc.FlexibleString(p.RegularPrice),
+		SalePrice:      wc.FlexibleString(p.SalePrice),
+		DateOnSaleTo:   p.SaleEndDate,
+		Virtual:        p.Virtual,
+		ManageStock:    p.ManageStock,
+		StockQuantity:  p.StockQuantity,
+		Weight:         p.Weight,
+		Dimensions:     dims,
+		TaxStatus:      p.TaxStatus,
+		TaxClass:       p.TaxClass,
+		MetaData:       toWcMetaData(p.MetaData),
+		Images:         toWcImages(p.Images),
 	})
 	if err != nil {
 		return nil, err
@@ -542,6 +546,7 @@ func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 		Name:          p.Name,
 		Slug:          p.Slug,
 		SKU:           p.Sku,
+		GTIN:          p.GlobalUniqueID,
 		Description:   p.Description,
 		Status:        p.Status,
 		Type:          p.Type,

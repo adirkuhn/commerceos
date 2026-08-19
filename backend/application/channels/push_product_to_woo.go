@@ -307,7 +307,7 @@ func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product 
 	wooProduct := integrationsDomain.WooProduct{
 		Name: name, Description: product.Description,
 		Status: MapCommerceStatusToWoo(product.Status),
-		SKU:    sku.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
+		SKU:    sku.SKUCode, GTIN: sku.Barcode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
 		SalePrice: salePrice, SaleEndDate: saleEndDate,
 		Virtual: sku.IsVirtual,
 		Images:  images,
@@ -345,7 +345,7 @@ func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product 
 func (uc *PushProductToWooUseCase) buildWooVariation(ctx context.Context, vp variantPush) integrationsDomain.WooVariation {
 	salePrice, saleEndDate := WooSaleFields(vp.SKU)
 	variation := integrationsDomain.WooVariation{
-		SKU: vp.SKU.SKUCode, RegularPrice: FormatMinorUnitsAsWooPrice(vp.SKU.PriceMinorUnits),
+		SKU: vp.SKU.SKUCode, GTIN: vp.SKU.Barcode, RegularPrice: FormatMinorUnitsAsWooPrice(vp.SKU.PriceMinorUnits),
 		SalePrice: salePrice, SaleEndDate: saleEndDate,
 		AttributeName: wooVariantAttributeName, AttributeValue: vp.Variant.Name,
 	}
