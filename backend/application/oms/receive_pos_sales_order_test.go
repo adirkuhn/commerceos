@@ -25,8 +25,8 @@ func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testin
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: occurredAt,
 		TotalMinorUnits: 2000,
 		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{
-			{SKUID: "sku-1", Name: "Widget A", SKUCode: "WID-A", Quantity: 2, PriceMinorUnits: 500, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000},
-			{SKUID: "sku-2", Name: "Widget B", SKUCode: "WID-B", Quantity: 1, PriceMinorUnits: 1000, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000},
+			{SKUID: strPtr("sku-1"), Name: "Widget A", SKUCode: "WID-A", Quantity: 2, PriceMinorUnits: 500, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000},
+			{SKUID: strPtr("sku-2"), Name: "Widget B", SKUCode: "WID-B", Quantity: 1, PriceMinorUnits: 1000, SubtotalMinorUnits: 1000, TotalMinorUnits: 1000},
 		},
 	})
 
@@ -63,7 +63,7 @@ func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
 			// POS omitted sku_code entirely -- the exact bug reported: line item
 			// synced with a blank sku_code even though sku_id correctly matches
 			// a real SKU.
-			{SKUID: "sku-1", Quantity: 1, PriceMinorUnits: 182},
+			{SKUID: strPtr("sku-1"), Quantity: 1, PriceMinorUnits: 182},
 		},
 	})
 
@@ -82,10 +82,91 @@ func TestReceivePOSSalesOrder_propagatesASKUNotFoundError(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: "missing-sku", Quantity: 1, PriceMinorUnits: 500}},
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: strPtr("missing-sku"), Quantity: 1, PriceMinorUnits: 500}},
 	})
 
 	assert.ErrorIs(t, err, pmsDomain.ErrSKUNotFound)
+}
+
+// TestReceivePOSSalesOrder_acceptsAnAdhocLineItemWithNoSKU proves a POS
+// "open item"/custom-amount line (no sku_id) is saved as part of the
+// order, not dropped or rejected -- the exact bug reported: an adhoc item
+// used to abort the whole order's sync (skuRepo.FindByID("") ->
+// ErrSKUNotFound -> transaction rollback).
+func TestReceivePOSSalesOrder_acceptsAnAdhocLineItemWithNoSKU(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{})
+
+	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
+		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
+		TotalMinorUnits: 500,
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{
+			{Name: "Gift wrapping", Quantity: 1, PriceMinorUnits: 500, SubtotalMinorUnits: 500, TotalMinorUnits: 500},
+		},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 1)
+	assert.Nil(t, lineItemRepo.created[0].SKUID)
+	assert.Equal(t, "Gift wrapping", lineItemRepo.created[0].Name)
+	assert.Equal(t, int64(500), lineItemRepo.created[0].TotalMinorUnits)
+}
+
+// TestReceivePOSSalesOrder_adhocLineItemDoesNotRecordAStockMovement proves
+// there's nothing to decrement stock for on a line with no SKU -- the
+// nil-SKUID guard in the stock-movement loop, exercised for real now that
+// an adhoc line can actually reach it.
+func TestReceivePOSSalesOrder_adhocLineItemDoesNotRecordAStockMovement(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	recordMovement := &stubRecordMovement{}
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
+
+	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
+		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{Name: "Gift wrapping", Quantity: 1, PriceMinorUnits: 500}},
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, recordMovement.calls, "no SKU on the line -- nothing to decrement stock for")
+}
+
+// TestReceivePOSSalesOrder_rejectsAdhocLineItemWithNoName proves Name is
+// required when there's no SKU -- otherwise the line would carry no
+// identifying data at all.
+func TestReceivePOSSalesOrder_rejectsAdhocLineItemWithNoName(t *testing.T) {
+	db := newMockGormDB(t)
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{})
+
+	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
+		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{Quantity: 1, PriceMinorUnits: 500}},
+	})
+
+	assert.ErrorIs(t, err, omsDomain.ErrAdhocLineItemRequiresName)
+}
+
+// TestReceivePOSSalesOrder_mixesAdhocAndCatalogLineItemsInOneOrder proves
+// a single POS ticket can carry both kinds of line at once.
+func TestReceivePOSSalesOrder_mixesAdhocAndCatalogLineItemsInOneOrder(t *testing.T) {
+	db := newMockGormDBN(t, 2)
+	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	recordMovement := &stubRecordMovement{}
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement)
+
+	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
+		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{
+			{SKUID: strPtr("sku-1"), Quantity: 1, PriceMinorUnits: 500},
+			{Name: "Gift wrapping", Quantity: 1, PriceMinorUnits: 200},
+		},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 2)
+	assert.NotNil(t, lineItemRepo.created[0].SKUID)
+	assert.Nil(t, lineItemRepo.created[1].SKUID)
+	require.Len(t, recordMovement.calls, 1, "only the catalog line moves stock")
 }
 
 func TestReceivePOSSalesOrder_isIdempotentOnExternalOrderID(t *testing.T) {
@@ -98,7 +179,7 @@ func TestReceivePOSSalesOrder_isIdempotentOnExternalOrderID(t *testing.T) {
 
 	order, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 2, PriceMinorUnits: 500}},
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: strPtr("sku-1"), Quantity: 2, PriceMinorUnits: 500}},
 	})
 
 	require.NoError(t, err)
@@ -124,7 +205,7 @@ func TestReceivePOSSalesOrder_propagatesAStockMovementError(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 100, PriceMinorUnits: 500}},
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: strPtr("sku-1"), Quantity: 100, PriceMinorUnits: 500}},
 	})
 
 	assert.ErrorIs(t, err, invDomain.ErrInsufficientStock)
@@ -137,7 +218,7 @@ func TestReceivePOSSalesOrder_propagatesACreateError(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
-		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 1, PriceMinorUnits: 500}},
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: strPtr("sku-1"), Quantity: 1, PriceMinorUnits: 500}},
 	})
 
 	require.Error(t, err)
@@ -151,7 +232,7 @@ func TestReceivePOSSalesOrder_preservesExplicitStatus(t *testing.T) {
 	order, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
 		Status:    omsDomain.SalesOrderStatusRefunded,
-		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 1, PriceMinorUnits: 500}},
+		LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{SKUID: strPtr("sku-1"), Quantity: 1, PriceMinorUnits: 500}},
 	})
 
 	require.NoError(t, err)

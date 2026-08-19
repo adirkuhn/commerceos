@@ -14,7 +14,10 @@ import (
 )
 
 type ReceivePOSSalesOrderLineItemInput struct {
-	SKUID    string
+	// SKUID nil means an adhoc/custom item not tied to a catalog SKU (a
+	// POS "open item"/custom-amount line) -- see SalesOrderLineItem's own
+	// doc comment. Name is required when nil.
+	SKUID    *string
 	Name     string
 	SKUCode  string
 	Quantity int64
@@ -150,17 +153,33 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			return err
 		}
 		for _, li := range in.LineItems {
-			sku, err := uc.skuRepo.FindByID(ctx, li.SKUID)
-			if err != nil {
-				return fmt.Errorf("receivePOSSalesOrder: line item sku %s: %w", li.SKUID, err)
-			}
-			skuID := li.SKUID
-			lineItem := omsDomain.SalesOrderLineItem{
-				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: &skuID,
-				Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity,
-				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
-				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-				TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: sku.TaxClassID, CreatedAt: now,
+			var lineItem omsDomain.SalesOrderLineItem
+			if li.SKUID == nil || *li.SKUID == "" {
+				// Adhoc item -- no catalog SKU to look up, so Name is the
+				// only identifying data this line carries at all.
+				if li.Name == "" {
+					return omsDomain.ErrAdhocLineItemRequiresName
+				}
+				lineItem = omsDomain.SalesOrderLineItem{
+					TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: nil,
+					Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
+					PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
+					SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
+					TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
+				}
+			} else {
+				sku, err := uc.skuRepo.FindByID(ctx, *li.SKUID)
+				if err != nil {
+					return fmt.Errorf("receivePOSSalesOrder: line item sku %s: %w", *li.SKUID, err)
+				}
+				skuID := *li.SKUID
+				lineItem = omsDomain.SalesOrderLineItem{
+					TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: &skuID,
+					Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity,
+					PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
+					SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
+					TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: sku.TaxClassID, CreatedAt: now,
+				}
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

@@ -24,6 +24,8 @@ import (
 
 func init() { gin.SetMode(gin.TestMode) }
 
+func strPtr(s string) *string { return &s }
+
 type stubListProducts struct {
 	out      *apppms.ListPOSProductCatalogResult
 	err      error
@@ -257,14 +259,15 @@ func TestCreatePOSSalesOrder_success(t *testing.T) {
 	}}}
 	body := genpos.CreatePOSSalesOrderRequest{
 		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 1000, OccurredAt: time.Now(),
-		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 2}},
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: strPtr("sku-1"), Quantity: 2}},
 	}
 	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
 
 	require.Equal(t, 200, w.Code)
 	assert.Contains(t, w.Body.String(), `"external_order_id":"pos-1"`)
 	require.Len(t, s.receiveOrder.gotInput.LineItems, 1)
-	assert.Equal(t, "sku-1", s.receiveOrder.gotInput.LineItems[0].SKUID)
+	require.NotNil(t, s.receiveOrder.gotInput.LineItems[0].SKUID)
+	assert.Equal(t, "sku-1", *s.receiveOrder.gotInput.LineItems[0].SKUID)
 	assert.Equal(t, int64(2), s.receiveOrder.gotInput.LineItems[0].Quantity)
 }
 
@@ -272,7 +275,7 @@ func TestCreatePOSSalesOrder_mapsEmptyLineItemsToValidationError(t *testing.T) {
 	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{err: omsDomain.ErrEmptyLineItems}}
 	body := genpos.CreatePOSSalesOrderRequest{
 		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 500, OccurredAt: time.Now(),
-		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 1}},
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: strPtr("sku-1"), Quantity: 1}},
 	}
 	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
 
@@ -283,9 +286,51 @@ func TestCreatePOSSalesOrder_mapsInsufficientStockToValidationError(t *testing.T
 	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{err: invDomain.ErrInsufficientStock}}
 	body := genpos.CreatePOSSalesOrderRequest{
 		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 50000, OccurredAt: time.Now(),
-		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: "sku-1", Quantity: 100}},
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: strPtr("sku-1"), Quantity: 100}},
 	}
 	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
 
 	assert.Equal(t, 422, w.Code)
+}
+
+// TestCreatePOSSalesOrder_acceptsALineItemWithNoSkuId proves an adhoc
+// line item (no sku_id) round-trips through the HTTP layer -- the request
+// binds fine and the use case receives a nil SKUID, not an empty string.
+func TestCreatePOSSalesOrder_acceptsALineItemWithNoSkuId(t *testing.T) {
+	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{out: &omsDomain.SalesOrder{
+		ID: "so-1", ExternalOrderID: "pos-1", WarehouseID: "wh-1", CurrencyCode: "USD",
+		TotalMinorUnits: 500, OccurredAt: time.Now(), CreatedAt: time.Now(),
+	}}}
+	body := genpos.CreatePOSSalesOrderRequest{
+		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 500, OccurredAt: time.Now(),
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{Name: strPtr("Gift wrapping"), Quantity: 1}},
+	}
+	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
+
+	require.Equal(t, 200, w.Code)
+	require.Len(t, s.receiveOrder.gotInput.LineItems, 1)
+	assert.Nil(t, s.receiveOrder.gotInput.LineItems[0].SKUID)
+	assert.Equal(t, "Gift wrapping", s.receiveOrder.gotInput.LineItems[0].Name)
+}
+
+func TestCreatePOSSalesOrder_mapsAdhocLineItemRequiresNameToValidationError(t *testing.T) {
+	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{err: omsDomain.ErrAdhocLineItemRequiresName}}
+	body := genpos.CreatePOSSalesOrderRequest{
+		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 500, OccurredAt: time.Now(),
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{Quantity: 1}},
+	}
+	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
+
+	assert.Equal(t, 422, w.Code)
+}
+
+func TestCreatePOSSalesOrder_mapsSKUNotFoundToValidationError(t *testing.T) {
+	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{err: pmsDomain.ErrSKUNotFound}}
+	body := genpos.CreatePOSSalesOrderRequest{
+		ExternalOrderId: "pos-1", WarehouseId: "wh-1", CurrencyCode: "USD", TotalMinorUnits: 500, OccurredAt: time.Now(),
+		LineItems: []genpos.CreatePOSSalesOrderLineItem{{SkuId: strPtr("missing-sku"), Quantity: 1}},
+	}
+	w := doRequest(newTestRouter(s), "POST", "/api/v1/pos/sales-orders", body)
+
+	assert.Equal(t, 422, w.Code, "a genuinely wrong sku_id should be a clear validation error, not a generic 500")
 }

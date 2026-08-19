@@ -15,6 +15,7 @@ import (
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -245,7 +246,8 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, invDomain.ErrInsufficientStock),
+	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, omsDomain.ErrAdhocLineItemRequiresName),
+		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:

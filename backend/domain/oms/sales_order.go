@@ -153,9 +153,12 @@ type SalesOrder struct {
 
 // SalesOrderLineItem is one SKU sold within a SalesOrder. The POS resolves
 // a barcode to a real SKU client-side before pushing the sale (see
-// pms.ResolveBarcodeUseCase), so SKUID is always set there -- but an
-// imported Woo order can carry a line item whose SKU string never matched
-// anything in CommerceOS (never imported, or Woo sent none at all).
+// pms.ResolveBarcodeUseCase) for a normal catalog item, so SKUID is set
+// then -- but a POS can also ring up an adhoc/custom item with no catalog
+// SKU at all (ReceivePOSSalesOrderUseCase requires Name in that case,
+// since there's nothing else to identify the line by), and an imported Woo
+// order can carry a line item whose SKU string never matched anything in
+// CommerceOS (never imported, or Woo sent none at all).
 // ImportWooOrdersUseCase keeps that line rather than dropping the data,
 // with SKUID nil -- same "not linked to a catalog product yet" pattern as
 // procurement.PurchaseOrderLineItem.SKUID. Name/SKUCode/price/tax are

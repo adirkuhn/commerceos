@@ -263,10 +263,16 @@ components:
 
     CreatePOSSalesOrderLineItem:
       type: object
-      required: [sku_id, quantity]
+      required: [quantity]
       properties:
-        sku_id: { type: string }
-        name: { type: string, description: Product name snapshot, e.g. from resolveBarcode's product_name. }
+        sku_id:
+          type: string
+          nullable: true
+          description: >-
+            Omit/null for an adhoc/custom item not tied to a catalog SKU
+            (e.g. a POS "open item"/custom-amount line) -- name is
+            required in that case.
+        name: { type: string, description: Product name snapshot, e.g. from resolveBarcode's product_name -- required for an adhoc item (no sku_id). }
         sku_code: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
         price_minor_units: { type: integer, format: int64, minimum: 0, description: Per-unit price. }
