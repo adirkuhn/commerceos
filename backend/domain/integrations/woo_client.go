@@ -30,8 +30,16 @@ type WooProduct struct {
 	// clearing a previously-set SalePrice back to "" does not actually
 	// clear it on the Woo side (a pre-existing library limitation, not new
 	// to these two fields).
-	SalePrice     string
-	SaleEndDate   string
+	SalePrice   string
+	SaleEndDate string
+	// OnSale is Woo's own computed "is this sale currently active" flag --
+	// read-direction only (ImportWooProductsUseCase gates on it before
+	// importing SalePrice/SaleEndDate, since Woo can carry a configured
+	// sale_price that isn't active, e.g. one scheduled to start in the
+	// future). Never set on the push direction; this codebase has no
+	// "starts in the future" concept of its own (see SaleEndDate above --
+	// only an end date, no start date), so nothing would read it outbound.
+	OnSale        bool
 	Virtual       bool // digital/non-shippable — never has weight or dimensions
 	ManageStock   bool
 	StockQuantity *int

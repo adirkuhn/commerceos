@@ -400,9 +400,14 @@ func (uc *ImportWooProductsUseCase) importOne(
 			skuCode = "WOO-" + wp.ID
 		}
 		wooTaxClass, wooTaxStatus := wp.TaxClass, wp.TaxStatus
+		salePriceMinorUnits, saleEndDate, err := wooImportedSaleFields(wp, priceMinorUnits)
+		if err != nil {
+			return err
+		}
 		sku := pmsDomain.SKU{
 			TenantID: tenantID, VariantID: variant.ID, SKUCode: skuCode, Barcode: wp.GTIN,
 			PriceMinorUnits: priceMinorUnits, CurrencyCode: in.DefaultCurrency,
+			SalePriceMinorUnits: salePriceMinorUnits, SaleEndDate: saleEndDate,
 			IsVirtual:       wp.Virtual,
 			TaxClassID:      uc.resolveProductTaxClassID(ctx, slugToClassID, wp.TaxClass),
 			WooTaxClassSlug: &wooTaxClass,

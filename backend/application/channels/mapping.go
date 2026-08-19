@@ -235,6 +235,38 @@ func WooSaleFields(sku pmsDomain.SKU) (salePrice, saleEndDate string) {
 	return salePrice, saleEndDate
 }
 
+// wooImportedSaleFields is WooSaleFields' import-direction inverse. Gated
+// on Woo's own OnSale flag, not just SalePrice being non-empty -- Woo can
+// carry a sale_price configured for a future or already-expired window
+// that OnSale correctly excludes, and this codebase has no "starts in the
+// future" concept to represent that half-state (see WooProduct.OnSale's
+// doc comment). Also guards the same invariant
+// application/pms.ErrSalePriceExceedsPrice enforces (sale <= regular) --
+// this codebase writes the SKU directly via the repository during import,
+// never through CreateSKUUseCase, so that guard doesn't run on its own
+// here; a sale price that would violate it is silently dropped (product
+// still imports at its regular price) rather than failing the whole
+// import over one malformed value.
+func wooImportedSaleFields(wp integrationsDomain.WooProduct, priceMinorUnits int64) (*int64, *time.Time, error) {
+	if !wp.OnSale || wp.SalePrice == "" {
+		return nil, nil, nil
+	}
+	salePriceMinorUnits, err := ParseWooPriceToMinorUnits(wp.SalePrice)
+	if err != nil {
+		return nil, nil, err
+	}
+	if salePriceMinorUnits > priceMinorUnits {
+		return nil, nil, nil
+	}
+	var saleEndDate *time.Time
+	if wp.SaleEndDate != "" {
+		if end, err := time.Parse(time.DateOnly, wp.SaleEndDate); err == nil {
+			saleEndDate = &end
+		}
+	}
+	return &salePriceMinorUnits, saleEndDate, nil
+}
+
 // wooVariantAttributeName is the single attribute CommerceOS declares on a
 // Woo variable product when SyncVariantsAsWooVariations is on — every
 // Variant becomes one option of this one attribute (e.g. "367g", "412g").

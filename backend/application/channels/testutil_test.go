@@ -463,9 +463,12 @@ type stubChannelsSKURepo struct {
 	created        []pmsDomain.SKU
 	createErr      error
 	byVariant      map[string][]pmsDomain.SKU
+	byID           map[string]pmsDomain.SKU
 	findByIDResult *pmsDomain.SKU
 	findByIDErr    error
 	byCode         map[string]pmsDomain.SKU
+	updated        []pmsDomain.SKU
+	updateErr      error
 }
 
 func (s *stubChannelsSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -476,7 +479,10 @@ func (s *stubChannelsSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) erro
 	s.created = append(s.created, *sku)
 	return nil
 }
-func (s *stubChannelsSKURepo) FindByID(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubChannelsSKURepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, error) {
+	if sku, ok := s.byID[id]; ok {
+		return &sku, nil
+	}
 	if s.findByIDResult == nil && s.findByIDErr == nil {
 		return nil, pmsDomain.ErrSKUNotFound
 	}
@@ -494,7 +500,13 @@ func (s *stubChannelsSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDo
 func (s *stubChannelsSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
 	return s.byVariant[variantID], nil
 }
-func (s *stubChannelsSKURepo) Update(_ context.Context, _ *pmsDomain.SKU) error { return nil }
+func (s *stubChannelsSKURepo) Update(_ context.Context, sku *pmsDomain.SKU) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *sku)
+	return nil
+}
 func (s *stubChannelsSKURepo) Delete(_ context.Context, _ string) error         { return nil }
 func (s *stubChannelsSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, error) {
 	return nil, nil

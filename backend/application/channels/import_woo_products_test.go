@@ -160,6 +160,71 @@ func TestImportWooProducts_importsBarcodeFromGTIN(t *testing.T) {
 	require.Equal(t, "0012345678905", h.skuRepo.created[0].Barcode)
 }
 
+// TestImportWooProducts_importsActiveSalePrice proves a currently-active
+// Woo sale (on_sale=true, sale_price set) lands on the new SKU.
+func TestImportWooProducts_importsActiveSalePrice(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.SalePrice, wp.OnSale = "0.99", true
+	wp.SaleEndDate = "2026-12-01"
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.skuRepo.created, 1)
+	require.NotNil(t, h.skuRepo.created[0].SalePriceMinorUnits)
+	require.Equal(t, int64(99), *h.skuRepo.created[0].SalePriceMinorUnits)
+	require.NotNil(t, h.skuRepo.created[0].SaleEndDate)
+	require.Equal(t, "2026-12-01", h.skuRepo.created[0].SaleEndDate.Format("2006-01-02"))
+}
+
+// TestImportWooProducts_ignoresSalePriceWhenNotCurrentlyOnSale proves a
+// sale_price Woo carries for a future/expired window (on_sale=false)
+// doesn't get imported as an active discount.
+func TestImportWooProducts_ignoresSalePriceWhenNotCurrentlyOnSale(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.SalePrice, wp.OnSale = "0.99", false
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.skuRepo.created, 1)
+	require.Nil(t, h.skuRepo.created[0].SalePriceMinorUnits)
+}
+
+// TestImportWooProducts_ignoresSalePriceExceedingRegularPrice proves a
+// malformed/inconsistent Woo sale_price greater than the regular price
+// (shouldn't happen, but Woo doesn't guarantee it) is dropped rather than
+// violating this codebase's own sale<=regular invariant.
+func TestImportWooProducts_ignoresSalePriceExceedingRegularPrice(t *testing.T) {
+	wp := simpleWooProduct()
+	wp.RegularPrice = "1.49"
+	wp.SalePrice, wp.OnSale = "1.99", true
+	h := newHarness([]integrationsDomain.WooProduct{wp})
+	h.categoryRepo.bySlug["salgadinhos-e-snacks"] = pmsDomain.Category{ID: "cat-1", Slug: "salgadinhos-e-snacks"}
+
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooProductsInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "wh-1", DefaultCurrency: "EUR",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.skuRepo.created, 1)
+	require.Nil(t, h.skuRepo.created[0].SalePriceMinorUnits)
+}
+
 // TestImportWooProducts_suppressesStockChangedEventSoAsyncConsumerDoesNotEchoToWoo
 // proves the initial-stock Adjustment doesn't cause an unwanted push right
 // back to Woo: RecordStockMovementUseCase enqueues inventory.stock.changed
