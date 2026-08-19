@@ -138,7 +138,7 @@ func main() {
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
+		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo,
 	)
 	taxClassRepo := repositories.NewTaxClassRepo(db)
 	taxRateRepo := repositories.NewTaxRateRepo(db)
@@ -178,7 +178,7 @@ func main() {
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo,
 	)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)

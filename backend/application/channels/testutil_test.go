@@ -310,6 +310,22 @@ func (s *stubMediaUploader) Execute(_ context.Context, in apppms.UploadMediaInpu
 	return &pmsDomain.Media{ID: "media-1"}, nil
 }
 
+// stubMediaRepo stands in for pmsDomain.MediaRepository's ListByProduct --
+// the read side PushProductToWooUseCase/SyncProductToChannelsUseCase use to
+// fetch a product's image gallery, as opposed to stubMediaUploader's write
+// side.
+type stubMediaRepo struct {
+	byProduct map[string][]pmsDomain.Media
+	err       error
+}
+
+func (s *stubMediaRepo) ListByProduct(_ context.Context, productID string) ([]pmsDomain.Media, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.byProduct[productID], nil
+}
+
 type stubWooClientFactory struct {
 	client integrationsDomain.WooClient
 	err    error

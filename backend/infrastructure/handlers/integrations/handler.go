@@ -233,6 +233,7 @@ func Register(
 	aiConnRepo := repositories.NewAIConnectionRepo(db)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
+	mediaRepo := repositories.NewMediaRepo(db)
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
@@ -255,6 +256,7 @@ func Register(
 			db, connRepo, wooFactory, encryptionSecret,
 			productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
 			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db)),
+			mediaRepo,
 		),
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo),

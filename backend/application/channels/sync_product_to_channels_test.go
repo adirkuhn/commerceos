@@ -28,7 +28,7 @@ func (h *harness) newSyncUseCaseWithPusher(t *testing.T, n int, pusher *stubProd
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret, pusher,
+		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo,
 	)
 }
 
@@ -67,6 +67,31 @@ func TestSyncProductToChannels_pushesUpdatedFieldsToWoo(t *testing.T) {
 	require.Len(t, h.listingRepo.updated, 1)
 	require.Equal(t, channelsDomain.SyncStatusSynced, h.listingRepo.updated[0].SyncStatus)
 	require.NotNil(t, h.listingRepo.updated[0].LastSyncedAt)
+}
+
+// TestSyncProductToChannels_pushesUpdatedImageGalleryToWoo proves an edit
+// to a product's media (upload/reorder/delete) reaches Woo the same way
+// every other product-changed edit does -- through this use case's
+// pms.product.changed-triggered re-push, not a separate image-sync path.
+func TestSyncProductToChannels_pushesUpdatedImageGalleryToWoo(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	h.mediaRepo.byProduct = map[string][]pmsDomain.Media{
+		product.ID: {{ID: "media-1", ProductID: &product.ID, URL: "https://cdn.example.com/front.jpg", AltText: "Front", Position: 0}},
+	}
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1)
+	require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg", Alt: "Front"}},
+		h.wooClient.updateProductCalled[0].Product.Images)
 }
 
 // TestSyncProductToChannels_syncsSalePriceExpiry proves the actual path
@@ -321,6 +346,32 @@ func TestSyncProductToChannels_updatesExistingVariationsInPlaceWhenShapeUnchange
 	require.Empty(t, h.wooClient.deleteVariationCalled)
 	require.Empty(t, h.listingRepo.deleted)
 	require.Len(t, h.listingRepo.updated, 2)
+}
+
+// TestSyncProductToChannels_variationsMode_updatesParentImagesNeverVariationImages
+// proves the image gallery lands on the parent product's UpdateProduct
+// call, never on either variation's UpdateVariation call -- Woo variations
+// have no images of their own, they inherit the parent's.
+func TestSyncProductToChannels_variationsMode_updatesParentImagesNeverVariationImages(t *testing.T) {
+	product, variants, skus := twoVariantProduct(true)
+	listings := []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900"},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901", VariantID: strPtr(variants[0].ID), IsVariation: true},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "902", VariantID: strPtr(variants[1].ID), IsVariation: true},
+	}
+	h := newMultiVariantSyncHarness(product, variants, skus, listings)
+	h.mediaRepo.byProduct = map[string][]pmsDomain.Media{
+		product.ID: {{ID: "media-1", ProductID: &product.ID, URL: "https://cdn.example.com/front.jpg", Position: 0}},
+	}
+	uc := h.newSyncUseCase(t, 6)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1)
+	require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg"}},
+		h.wooClient.updateProductCalled[0].Product.Images)
+	require.Len(t, h.wooClient.updateVariationCalled, 2)
 }
 
 // TestSyncProductToChannels_updatesExistingSeparateProductsInPlaceWhenShapeUnchanged

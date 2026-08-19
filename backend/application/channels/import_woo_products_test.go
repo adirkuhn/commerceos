@@ -30,6 +30,7 @@ type harness struct {
 	syncLogRepo  *stubSyncLogRepo
 	stock        *stubStockRecorder
 	media        *stubMediaUploader
+	mediaRepo    *stubMediaRepo
 	taxClassRepo *stubChannelsTaxClassRepo
 	taxRateRepo  *stubChannelsTaxRateRepo
 	taxLinkRepo  *stubChannelsExternalTaxClassLinkRepo
@@ -71,6 +72,7 @@ func newHarness(products []integrationsDomain.WooProduct) *harness {
 		syncLogRepo:  &stubSyncLogRepo{},
 		stock:        &stubStockRecorder{},
 		media:        &stubMediaUploader{},
+		mediaRepo:    &stubMediaRepo{},
 		taxClassRepo: &stubChannelsTaxClassRepo{},
 		taxRateRepo:  &stubChannelsTaxRateRepo{},
 		taxLinkRepo:  &stubChannelsExternalTaxClassLinkRepo{},

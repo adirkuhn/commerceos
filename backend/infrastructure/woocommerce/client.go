@@ -318,6 +318,7 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 		TaxStatus:     p.TaxStatus,
 		TaxClass:      p.TaxClass,
 		MetaData:      toWcMetaData(p.MetaData),
+		Images:        toWcImages(p.Images),
 	})
 	if err != nil {
 		return nil, err
@@ -333,6 +334,7 @@ func (c *wooClient) CreateVariableProduct(ctx context.Context, p integrationsDom
 		Status:      p.Status,
 		Description: p.Description,
 		Virtual:     p.Virtual,
+		Images:      toWcImages(p.Images),
 		Attributes: []wc.ProductAttributes{
 			{Name: attributeName, Variation: true, Visible: true, Options: attributeValues},
 		},
@@ -472,6 +474,21 @@ func toWcMetaData(m []integrationsDomain.WooMetaData) []wc.MetaData {
 	return out
 }
 
+// toWcImages is the push-direction inverse of toWooProduct's image mapping
+// -- Source is the field Woo's API reads as a URL to fetch and re-host, so
+// only it (and Alt) are set; ID/DateCreated* are response-only fields Woo
+// assigns itself.
+func toWcImages(images []integrationsDomain.WooProductImage) []wc.Image {
+	if len(images) == 0 {
+		return nil
+	}
+	out := make([]wc.Image, len(images))
+	for i, img := range images {
+		out[i] = wc.Image{Source: img.URL, Alt: img.Alt}
+	}
+	return out
+}
+
 func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
 	var dims *wc.ProductDimensions
 	if p.Dimensions.Length != "" || p.Dimensions.Width != "" || p.Dimensions.Height != "" {
@@ -492,6 +509,7 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		TaxStatus:     p.TaxStatus,
 		TaxClass:      p.TaxClass,
 		MetaData:      toWcMetaData(p.MetaData),
+		Images:        toWcImages(p.Images),
 	})
 	if err != nil {
 		return nil, err

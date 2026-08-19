@@ -86,6 +86,7 @@ type SyncProductToChannelsUseCase struct {
 	wooFactory  integrationsDomain.WooClientFactory
 	encSecret   string
 	pusher      productPusher
+	mediaRepo   productMediaLister
 }
 
 func NewSyncProductToChannelsUseCase(
@@ -99,11 +100,13 @@ func NewSyncProductToChannelsUseCase(
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 	pusher productPusher,
+	mediaRepo productMediaLister,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
 		db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, pusher: pusher,
+		mediaRepo: mediaRepo,
 	}
 }
 
@@ -118,6 +121,7 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 	var variants []pmsDomain.Variant
 	skuByVariant := map[string]pmsDomain.SKU{}
 	var listings []channelsDomain.ProductChannelListing
+	var media []pmsDomain.Media
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
@@ -134,6 +138,11 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 			return err
 		}
 		product = *p
+
+		media, err = uc.mediaRepo.ListByProduct(ctx, productID)
+		if err != nil {
+			return err
+		}
 
 		variants, err = uc.variantRepo.ListByProduct(ctx, productID)
 		if err != nil {
@@ -170,13 +179,14 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 		byConnection[l.ConnectionID] = append(byConnection[l.ConnectionID], l)
 	}
 
+	images := wooImagesFromMedia(media)
 	for _, connectionID := range order {
-		uc.syncConnection(ctx, product, variants, skuByVariant, connectionID, byConnection[connectionID])
+		uc.syncConnection(ctx, product, variants, skuByVariant, connectionID, byConnection[connectionID], images)
 	}
 	return nil
 }
 
-func (uc *SyncProductToChannelsUseCase) syncConnection(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing) {
+func (uc *SyncProductToChannelsUseCase) syncConnection(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
 	if listings[0].Provider != string(integrationsDomain.ProviderWooCommerce) {
 		return // no other provider implemented yet
 	}
@@ -194,11 +204,11 @@ func (uc *SyncProductToChannelsUseCase) syncConnection(ctx context.Context, prod
 		if !ok {
 			return
 		}
-		uc.syncOne(ctx, product, sku, listings[0])
+		uc.syncOne(ctx, product, sku, listings[0], images)
 	case shapeSeparateProducts:
-		uc.syncSeparateProducts(ctx, product, variants, skuByVariant, connectionID, listings)
+		uc.syncSeparateProducts(ctx, product, variants, skuByVariant, connectionID, listings, images)
 	case shapeVariations:
-		uc.syncVariations(ctx, product, variants, skuByVariant, connectionID, listings)
+		uc.syncVariations(ctx, product, variants, skuByVariant, connectionID, listings, images)
 	}
 }
 
@@ -255,7 +265,7 @@ func (uc *SyncProductToChannelsUseCase) migrateShape(ctx context.Context, produc
 	}
 }
 
-func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing) {
+func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
 	client, err := uc.wooClientFor(ctx, connectionID)
 	if err != nil {
 		log.Printf("syncProductToChannels: product %s -> connection %s: %v", product.ID, connectionID, err)
@@ -278,7 +288,7 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 		present[v.ID] = true
 
 		name := fmt.Sprintf("%s - %s", product.Name, v.Name)
-		wooProduct := uc.buildWooProduct(ctx, client, product, sku, name)
+		wooProduct := uc.buildWooProduct(ctx, client, product, sku, name, images)
 
 		l, existed := listingByVariant[v.ID]
 		if !existed {
@@ -313,7 +323,7 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 	}
 }
 
-func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing) {
+func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
 	client, err := uc.wooClientFor(ctx, connectionID)
 	if err != nil {
 		log.Printf("syncProductToChannels: product %s -> connection %s: %v", product.ID, connectionID, err)
@@ -333,6 +343,7 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 	parentProduct := integrationsDomain.WooProduct{
 		Name: product.Name, Description: product.Description,
 		Status: MapCommerceStatusToWoo(product.Status),
+		Images: images,
 	}
 	if _, err := client.UpdateProduct(ctx, parentListing.ExternalID, parentProduct); err != nil {
 		log.Printf("syncProductToChannels: updating parent product %s: %v", parentListing.ExternalID, err)
@@ -439,13 +450,13 @@ func (uc *SyncProductToChannelsUseCase) recordSyncResult(ctx context.Context, li
 	}
 }
 
-func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, listing channelsDomain.ProductChannelListing) {
+func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, listing channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
 	client, err := uc.wooClientFor(ctx, listing.ConnectionID)
 	if err != nil {
 		log.Printf("syncProductToChannels: product %s -> connection %s: %v", product.ID, listing.ConnectionID, err)
 		return
 	}
-	wooProduct := uc.buildWooProduct(ctx, client, product, sku, product.Name)
+	wooProduct := uc.buildWooProduct(ctx, client, product, sku, product.Name, images)
 	fields := wooProductToFields(wooProduct)
 	_, updateErr := client.UpdateProduct(ctx, listing.ExternalID, wooProduct)
 	var wrapped error
@@ -455,7 +466,7 @@ func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pms
 	uc.recordSyncResult(ctx, listing, wrapped, fields)
 }
 
-func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, sku pmsDomain.SKU, name string) integrationsDomain.WooProduct {
+func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, sku pmsDomain.SKU, name string, images []integrationsDomain.WooProductImage) integrationsDomain.WooProduct {
 	salePrice, saleEndDate := WooSaleFields(sku)
 	wooProduct := integrationsDomain.WooProduct{
 		Name: name, Description: product.Description,
@@ -464,6 +475,7 @@ func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, cli
 		SalePrice:    salePrice,
 		SaleEndDate:  saleEndDate,
 		Virtual:      sku.IsVirtual,
+		Images:       images,
 	}
 	if !sku.IsVirtual {
 		applyWeightAndDimensions(ctx, client, sku, &wooProduct.Weight, &wooProduct.Dimensions)

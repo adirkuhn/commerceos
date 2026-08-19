@@ -1,6 +1,7 @@
 package channels
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,6 +10,28 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
+
+// productMediaLister is the one method PushProductToWooUseCase and
+// SyncProductToChannelsUseCase need to fetch a product's image gallery
+// (ISP) -- matches pmsDomain.MediaRepository.ListByProduct.
+type productMediaLister interface {
+	ListByProduct(ctx context.Context, productID string) ([]pmsDomain.Media, error)
+}
+
+// wooImagesFromMedia maps a product's media rows (already ordered
+// position asc by MediaRepo.ListByProduct) to the WooProduct.Images shape
+// -- array order is what Woo treats as the gallery order, so the lowest
+// Position (CommerceOS's own "featured" convention) lands first. Woo
+// variations never carry their own images (they inherit the parent
+// product's), so this is only ever used to build a product-level
+// WooProduct, never a WooVariation.
+func wooImagesFromMedia(media []pmsDomain.Media) []integrationsDomain.WooProductImage {
+	images := make([]integrationsDomain.WooProductImage, len(media))
+	for i, m := range media {
+		images[i] = integrationsDomain.WooProductImage{URL: m.URL, Alt: m.AltText}
+	}
+	return images
+}
 
 // MapWooStatus maps a WooCommerce product status to our own. publish is the
 // only unambiguous "live" state; pending/draft are still being worked on
