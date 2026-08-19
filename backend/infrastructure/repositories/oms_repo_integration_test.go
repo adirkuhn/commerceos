@@ -4,7 +4,9 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -534,4 +536,311 @@ func TestSalesOrderLineItemStockMovementRepo_Integration_Create(t *testing.T) {
 		})
 	})
 	require.NoError(t, err)
+}
+
+// TestSalesOrderRepo_Integration_CreateReturnsTypedDuplicateExternalOrderError
+// proves Create maps the (tenant_id, source, external_order_id) unique
+// violation to the typed omsDomain.ErrDuplicateExternalOrder -- what
+// ImportWooOrdersUseCase.createOne relies on (errors.Is) to detect it lost a
+// create race against a concurrent import of the same Woo order and fall
+// back to routing through the update path, instead of surfacing a raw DB
+// error as a run failure.
+func TestSalesOrderRepo_Integration_CreateReturnsTypedDuplicateExternalOrderError(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "woo-order-dup-typed", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		return salesOrderRepo.Create(ctx, &order)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		dup := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "woo-order-dup-typed", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		return salesOrderRepo.Create(ctx, &dup)
+	})
+	require.ErrorIs(t, err, omsDomain.ErrDuplicateExternalOrder)
+}
+
+// TestSalesOrderRepo_Integration_ConcurrentCreatesForTheSameExternalOrderIDOnlyOneWins
+// is the mid-task-added hardening test: two goroutines racing to create a
+// sales order for the same (tenant, source, external_order_id) -- simulating
+// two scheduler replicas, or the manual fetch-order endpoint racing the
+// scheduler, both importing the same Woo order at once -- must not both
+// succeed. Exactly one Create call succeeds; the other gets
+// ErrDuplicateExternalOrder from the DB-level unique constraint, never a
+// second row.
+func TestSalesOrderRepo_Integration_ConcurrentCreatesForTheSameExternalOrderIDOnlyOneWins(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	const externalOrderID = "woo-order-race-1"
+	attempt := func() error {
+		return tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			now := time.Now()
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+				ExternalOrderID: externalOrderID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				OccurredAt: now, CreatedAt: now,
+			}
+			return salesOrderRepo.Create(ctx, &order)
+		})
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range errs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs[i] = attempt()
+		}(i)
+	}
+	wg.Wait()
+
+	successes, duplicates := 0, 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, omsDomain.ErrDuplicateExternalOrder):
+			duplicates++
+		default:
+			require.NoError(t, err, "unexpected error type -- must be nil or ErrDuplicateExternalOrder")
+		}
+	}
+	require.Equal(t, 1, successes, "exactly one concurrent create must win")
+	require.Equal(t, 1, duplicates, "the loser must see the typed duplicate error, not silently succeed")
+
+	var total int64
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var listErr error
+		_, total, listErr = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50})
+		return listErr
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total, "the database must hold exactly one order for this external id, never two")
+}
+
+// TestSalesOrderRepo_Integration_TrySetStockDecrementedOnlyOneOfTwoConcurrentCallersWins
+// is the direct integration-level proof for the fix to the reported bug
+// ("insufficient stock for this batch/ledger" cascading from an earlier
+// double-decrement): two goroutines racing to flip the same order's
+// stock_decremented from false to true (simulating UpdateSalesOrderUseCase
+// being invoked twice concurrently for the same order, e.g. by two
+// scheduler replicas or the manual fetch-order endpoint) must not both
+// report success -- exactly one gets swapped=true and is responsible for
+// actually decrementing stock; the other gets swapped=false and must treat
+// it as a no-op.
+func TestSalesOrderRepo_Integration_TrySetStockDecrementedOnlyOneOfTwoConcurrentCallersWins(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var orderID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "woo-order-decrement-race-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			StockDecremented: false, OccurredAt: now, CreatedAt: now,
+		}
+		return salesOrderRepo.Create(ctx, &order)
+	})
+	require.NoError(t, err)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var findErr error
+		var so *omsDomain.SalesOrder
+		so, findErr = salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, "woo-order-decrement-race-1")
+		if findErr != nil {
+			return findErr
+		}
+		orderID = so.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	attempt := func() (bool, error) {
+		var swapped bool
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			swapped, err = salesOrderRepo.TrySetStockDecremented(ctx, orderID, false, true)
+			return err
+		})
+		return swapped, err
+	}
+
+	var wg sync.WaitGroup
+	results := make([]bool, 2)
+	errs := make([]error, 2)
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = attempt()
+		}(i)
+	}
+	wg.Wait()
+
+	swappedCount := 0
+	for i, err := range errs {
+		require.NoError(t, err)
+		if results[i] {
+			swappedCount++
+		}
+	}
+	require.Equal(t, 1, swappedCount, "exactly one concurrent caller must win the swap -- the other must see swapped=false and skip its movement loop")
+
+	var final *omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		final, err = salesOrderRepo.FindByID(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, final.StockDecremented)
+}
+
+// TestSalesOrderLineItemRepo_Integration_StockStatusRoundTripsAndUpdate
+// proves the new stock_status column (StockStatusPending/Decremented) and
+// SalesOrderLineItemRepository.Update/FindByID work against real Postgres --
+// LinkLineItemSKUUseCase and RetryStockDecrementUseCase both depend on
+// Update to move a line item's stock_status/sku_id.
+func TestSalesOrderLineItemRepo_Integration_StockStatusRoundTripsAndUpdate(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	var orderID, lineItemID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "woo-order-stock-status-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+
+		line := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: nil,
+			Name: "Mystery Item", SKUCode: "UNKNOWN-SKU", Quantity: 1, StockStatus: omsDomain.StockStatusPending,
+			PriceMinorUnits: 500, CreatedAt: now,
+		}
+		if err := lineItemRepo.Create(ctx, &line); err != nil {
+			return err
+		}
+		lineItemID = line.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var afterCreate *omsDomain.SalesOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		afterCreate, err = lineItemRepo.FindByID(ctx, lineItemID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, omsDomain.StockStatusPending, afterCreate.StockStatus)
+	require.Nil(t, afterCreate.SKUID)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return lineItemRepo.Update(ctx, lineItemID, map[string]any{
+			"sku_id": skuID, "stock_status": string(omsDomain.StockStatusDecremented),
+		})
+	})
+	require.NoError(t, err)
+
+	var afterUpdate *omsDomain.SalesOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		afterUpdate, err = lineItemRepo.FindByID(ctx, lineItemID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, omsDomain.StockStatusDecremented, afterUpdate.StockStatus)
+	require.NotNil(t, afterUpdate.SKUID)
+	require.Equal(t, skuID, *afterUpdate.SKUID)
+}
+
+// TestSalesOrderRepo_Integration_ListFiltersByNeedsStockReviewAndNeedsSKUReview
+// proves the two new list filters actually narrow the query against real
+// Postgres -- the "Stock Issues"/"Unmatched SKUs" admin pages depend on
+// these to only show flagged orders.
+func TestSalesOrderRepo_Integration_ListFiltersByNeedsStockReviewAndNeedsSKUReview(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var stockReviewID, skuReviewID, cleanID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		specs := []struct {
+			extID            string
+			needsStockReview bool
+			needsSKUReview   bool
+			id               *string
+		}{
+			{"list-filter-stock-review", true, false, &stockReviewID},
+			{"list-filter-sku-review", false, true, &skuReviewID},
+			{"list-filter-clean", false, false, &cleanID},
+		}
+		for _, s := range specs {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				OccurredAt: now, CreatedAt: now,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			*s.id = order.ID
+			if err := salesOrderRepo.Update(ctx, order.ID, map[string]any{
+				"needs_stock_review": s.needsStockReview, "needs_sku_review": s.needsSKUReview,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	trueVal := true
+	var stockReviewOrders, skuReviewOrders []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		stockReviewOrders, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, NeedsStockReview: &trueVal})
+		if err != nil {
+			return err
+		}
+		skuReviewOrders, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, NeedsSKUReview: &trueVal})
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Len(t, stockReviewOrders, 1)
+	require.Equal(t, stockReviewID, stockReviewOrders[0].ID)
+	require.Len(t, skuReviewOrders, 1)
+	require.Equal(t, skuReviewID, skuReviewOrders[0].ID)
 }

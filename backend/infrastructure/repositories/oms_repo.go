@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -69,6 +70,8 @@ type salesOrderModel struct {
 	UpdatedAt  time.Time
 
 	StockDecremented bool `gorm:"not null;default:false"`
+	NeedsStockReview bool `gorm:"column:needs_stock_review;not null;default:false"`
+	NeedsSKUReview   bool `gorm:"column:needs_sku_review;not null;default:false"`
 }
 
 func (salesOrderModel) TableName() string { return "sales_orders" }
@@ -82,6 +85,7 @@ type salesOrderLineItemModel struct {
 	SKUCode      string `gorm:"column:sku_code"`
 	Barcode      string `gorm:"column:barcode"`
 	Quantity     int64  `gorm:"not null"`
+	StockStatus  string `gorm:"column:stock_status;not null;default:decremented"`
 
 	PriceMinorUnits       int64   `gorm:"not null;default:0"`
 	SubtotalMinorUnits    int64   `gorm:"not null;default:0"`
@@ -134,6 +138,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted,
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 		StockDecremented: o.StockDecremented,
+		NeedsStockReview: o.NeedsStockReview, NeedsSKUReview: o.NeedsSKUReview,
 	}
 }
 
@@ -144,10 +149,35 @@ func (r *SalesOrderRepo) Create(ctx context.Context, o *omsDomain.SalesOrder) er
 	}
 	m := salesOrderModelFromDomain(o)
 	if err := tx.Create(&m).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "sales_orders_tenant_source_external_id_unique" {
+			return omsDomain.ErrDuplicateExternalOrder
+		}
 		return fmt.Errorf("salesOrderRepo.Create: %w", err)
 	}
 	o.ID = m.ID
 	return nil
+}
+
+// TrySetStockDecremented atomically flips StockDecremented from `from` to
+// `to`, conditioned on the row's current value still being `from` -- the
+// DB-level guard against the double-decrement race two concurrent callers
+// of UpdateSalesOrderUseCase could otherwise hit (both reading
+// StockDecremented=false via FindByID before either's write lands). Returns
+// false (not an error) when the row's value had already moved on -- the
+// caller's job is done already, by whoever won the race.
+func (r *SalesOrderRepo) TrySetStockDecremented(ctx context.Context, id string, from, to bool) (bool, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return false, err
+	}
+	res := tx.Model(&salesOrderModel{}).
+		Where("id = ? AND stock_decremented = ?", id, from).
+		Updates(map[string]any{"stock_decremented": to, "updated_at": time.Now()})
+	if res.Error != nil {
+		return false, fmt.Errorf("salesOrderRepo.TrySetStockDecremented: %w", res.Error)
+	}
+	return res.RowsAffected > 0, nil
 }
 
 func (r *SalesOrderRepo) FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error) {
@@ -211,6 +241,15 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 		return nil, 0, err
 	}
 	q := tx.Model(&salesOrderModel{})
+	if filter.NeedsStockReview != nil {
+		q = q.Where("needs_stock_review = ?", *filter.NeedsStockReview)
+	}
+	if filter.NeedsSKUReview != nil {
+		q = q.Where("needs_sku_review = ?", *filter.NeedsSKUReview)
+	}
+	if filter.Source != nil {
+		q = q.Where("source = ?", string(*filter.Source))
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -271,6 +310,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted,
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 		StockDecremented: m.StockDecremented,
+		NeedsStockReview: m.NeedsStockReview, NeedsSKUReview: m.NeedsSKUReview,
 	}
 }
 
@@ -325,9 +365,14 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 	if err != nil {
 		return err
 	}
+	stockStatus := li.StockStatus
+	if stockStatus == "" {
+		stockStatus = omsDomain.StockStatusDecremented
+	}
 	m := salesOrderLineItemModel{
 		TenantID: li.TenantID, SalesOrderID: li.SalesOrderID, SKUID: li.SKUID,
 		Name: li.Name, SKUCode: li.SKUCode, Barcode: li.Barcode, Quantity: li.Quantity,
+		StockStatus: string(stockStatus),
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, CreatedAt: li.CreatedAt,
@@ -337,6 +382,47 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 	}
 	li.ID = m.ID
 	return nil
+}
+
+func (r *SalesOrderLineItemRepo) FindByID(ctx context.Context, id string) (*omsDomain.SalesOrderLineItem, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m salesOrderLineItemModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, omsDomain.ErrSalesOrderLineItemNotFound
+		}
+		return nil, fmt.Errorf("salesOrderLineItemRepo.FindByID: %w", err)
+	}
+	return toSalesOrderLineItemDomain(m), nil
+}
+
+func (r *SalesOrderLineItemRepo) Update(ctx context.Context, id string, fields map[string]any) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	res := tx.Model(&salesOrderLineItemModel{}).Where("id = ?", id).Updates(fields)
+	if res.Error != nil {
+		return fmt.Errorf("salesOrderLineItemRepo.Update: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return omsDomain.ErrSalesOrderLineItemNotFound
+	}
+	return nil
+}
+
+func toSalesOrderLineItemDomain(m salesOrderLineItemModel) *omsDomain.SalesOrderLineItem {
+	return &omsDomain.SalesOrderLineItem{
+		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, SKUID: m.SKUID,
+		Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity,
+		StockStatus: omsDomain.StockStatus(m.StockStatus),
+		PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
+		SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
+		TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,
+	}
 }
 
 func (r *SalesOrderLineItemRepo) ListBySalesOrder(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderLineItem, error) {
@@ -350,13 +436,7 @@ func (r *SalesOrderLineItemRepo) ListBySalesOrder(ctx context.Context, salesOrde
 	}
 	out := make([]omsDomain.SalesOrderLineItem, len(rows))
 	for i, m := range rows {
-		out[i] = omsDomain.SalesOrderLineItem{
-			ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, SKUID: m.SKUID,
-			Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity,
-			PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
-			SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
-			TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,
-		}
+		out[i] = *toSalesOrderLineItemDomain(m)
 	}
 	return out, nil
 }
@@ -406,4 +486,17 @@ func (r *SalesOrderLineItemStockMovementRepo) Create(ctx context.Context, l *oms
 	}
 	l.ID = m.ID
 	return nil
+}
+
+func (r *SalesOrderLineItemStockMovementRepo) ExistsForLineItem(ctx context.Context, lineItemID string) (bool, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return false, errors.New("salesOrderLineItemStockMovementRepo: operation called outside a transaction")
+	}
+	var count int64
+	if err := tx.WithContext(ctx).Model(&salesOrderLineItemStockMovementModel{}).
+		Where("sales_order_line_item_id = ?", lineItemID).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("salesOrderLineItemStockMovementRepo.ExistsForLineItem: %w", err)
+	}
+	return count > 0, nil
 }
