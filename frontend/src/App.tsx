@@ -20,6 +20,8 @@ import Suppliers from './pages/Suppliers'
 import Procurement from './pages/Procurement'
 import Customers from './pages/Customers'
 import SalesOrders from './pages/SalesOrders'
+import StockIssues from './pages/StockIssues'
+import UnmatchedSkus from './pages/UnmatchedSkus'
 import Shipping from './pages/Shipping'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -46,6 +48,8 @@ function AppContent() {
       case 'procurement': return <Procurement />
       case 'customers': return <Customers />
       case 'sales-orders': return <SalesOrders />
+      case 'stock-issues': return <StockIssues />
+      case 'unmatched-skus': return <UnmatchedSkus />
       case 'shipping': return <Shipping />
       case 'reports': return <Reports />
       case 'settings': return <Settings />

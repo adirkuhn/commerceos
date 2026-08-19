@@ -16,9 +16,18 @@ interface UseSalesOrdersActions {
 
 export function useSalesOrders(
   token: string,
-  params: { page?: number; perPage?: number; sortBy?: SalesOrderSortField; sortDir?: SortDirection } = {},
+  params: {
+    page?: number
+    perPage?: number
+    sortBy?: SalesOrderSortField
+    sortDir?: SortDirection
+    // needsStockReview/needsSkuReview: see api.ListSalesOrdersParams --
+    // used by the "Stock Issues"/"Unmatched SKUs" pages to narrow the list.
+    needsStockReview?: boolean
+    needsSkuReview?: boolean
+  } = {},
 ): UseSalesOrdersState & UseSalesOrdersActions {
-  const { page, perPage, sortBy, sortDir } = params
+  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview } = params
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -29,7 +38,7 @@ export function useSalesOrders(
     setLoading(true)
     setError(null)
     try {
-      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir })
+      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview })
       setSalesOrders(result.salesOrders)
       setTotal(result.total)
     } catch (e) {
@@ -37,7 +46,7 @@ export function useSalesOrders(
     } finally {
       setLoading(false)
     }
-  }, [token, page, perPage, sortBy, sortDir])
+  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview])
 
   useEffect(() => { load() }, [load])
 

@@ -9,6 +9,8 @@ export type NavItem =
   | 'procurement'
   | 'customers'
   | 'sales-orders'
+  | 'stock-issues'
+  | 'unmatched-skus'
   | 'integrations'
   | 'sales-channels'
   | 'sync-log'

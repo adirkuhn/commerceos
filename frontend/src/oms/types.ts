@@ -45,7 +45,16 @@ export interface SalesOrder {
   date_completed?: string | null
   occurred_at: string
   created_at: string
+  // needs_stock_review: at least one linked (sku_id set) line item's stock
+  // decrement is pending -- it hit insufficient stock and is waiting on the
+  // "Stock Issues" page's retry action. needs_sku_review: at least one line
+  // item was never matched to a catalog SKU -- waiting on the
+  // "Unmatched SKUs" page's link action. An order can carry both flags.
+  needs_stock_review?: boolean
+  needs_sku_review?: boolean
 }
+
+export type StockStatus = 'decremented' | 'pending'
 
 export interface SalesOrderLineItem {
   id: string
@@ -58,6 +67,10 @@ export interface SalesOrderLineItem {
   sku_code: string
   barcode: string
   quantity: number
+  // pending: this line's stock decrement is owed (its order's status
+  // reduces stock) but hasn't happened -- either sku_id is still null, or
+  // the decrement was attempted and hit insufficient stock.
+  stock_status?: StockStatus
   price_minor_units: number
   subtotal_minor_units: number
   subtotal_tax_minor_units: number
@@ -124,6 +137,18 @@ export interface UpdateSalesOrderInput {
   transaction_id?: string
   date_paid?: string
   date_completed?: string
+}
+
+export interface LinkLineItemSKUInput {
+  sku_id: string
+}
+
+export interface RetryStockDecrementResult {
+  sales_order: SalesOrder
+  // resolved: line items whose decrement succeeded this attempt.
+  resolved: number
+  // still_pending: line items still insufficient after retrying.
+  still_pending: number
 }
 
 export interface APIError {

@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  ShoppingCart, Users,
+  ShoppingCart, Users, AlertTriangle, PackageSearch,
   // ScanBarcode,
   // BarChart3,
   ChevronRight, Zap,
@@ -22,6 +22,8 @@ interface NavEntry {
 const NAV_ITEMS: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'sales-orders', label: 'Sales Order', icon: ShoppingCart },
+  { id: 'stock-issues', label: 'Stock Issues', icon: AlertTriangle },
+  { id: 'unmatched-skus', label: 'Unmatched SKUs', icon: PackageSearch },
   { id: 'customers', label: 'Customer', icon: Users },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'warehouses', label: 'Warehouses', icon: Warehouse },

@@ -152,9 +152,16 @@ export default function SalesOrders() {
                 <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500 max-w-[220px] truncate">{customerName(o)}</td>
                 <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{o.source}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[o.status])}>
-                    {o.status}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[o.status])}>
+                      {o.status}
+                    </span>
+                    {(o.needs_stock_review || o.needs_sku_review) && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">
+                        Needs review
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2.5 text-right font-medium dark:text-gray-100 text-gray-900">
                   {formatMoney(o.total_minor_units, o.currency_code)}
@@ -512,8 +519,14 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
           >
             <ArrowLeft size={11} /> Sales Order
           </button>
-          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight flex items-center gap-2">
             {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : 'Sales Order'}
+            {detail?.sales_order.needs_stock_review && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">Stock issue</span>
+            )}
+            {detail?.sales_order.needs_sku_review && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">Unmatched SKU</span>
+            )}
           </h1>
         </div>
         {detail && (
