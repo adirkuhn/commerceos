@@ -105,6 +105,21 @@ func TestCreateProductAndLinkLineItem_composesProductVariantSKUAndLink(t *testin
 	assert.Equal(t, "sku-1", *result.SKUID)
 }
 
+// TestCreateProductAndLinkLineItem_createsProductAsDraft proves a product
+// created this way is never live from the moment it exists -- it hasn't
+// been reviewed (pricing, description, category, images) yet.
+func TestCreateProductAndLinkLineItem_createsProductAsDraft(t *testing.T) {
+	createProduct := &stubCreateProductUC{}
+	uc := appprocurement.NewCreateProductAndLinkLineItemUseCase(createProduct, &stubCreateVariantUC{}, &stubCreateSKUUC{}, &stubLinkUC{})
+
+	_, err := uc.Execute(context.Background(), appprocurement.CreateProductAndLinkLineItemInput{
+		LineItemID: "line-item-1", ProductName: "New Widget",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, pmsDomain.ProductStatusDraft, createProduct.gotInput.Status)
+}
+
 func TestCreateProductAndLinkLineItem_propagatesCreateProductError(t *testing.T) {
 	createProduct := &stubCreateProductUC{err: errors.New("duplicate slug")}
 	uc := appprocurement.NewCreateProductAndLinkLineItemUseCase(createProduct, &stubCreateVariantUC{}, &stubCreateSKUUC{}, &stubLinkUC{})

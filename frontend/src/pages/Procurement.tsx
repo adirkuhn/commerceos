@@ -1770,6 +1770,7 @@ interface ReviewUnmatchedLineItemProps {
 
 function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmatchedLineItemProps) {
   const { token } = useAuth()
+  const { settings: tenantSettings } = useTenantSettings(token ?? '')
   const [mode, setMode] = useState<'choose' | 'link' | 'create'>('choose')
   const [productName, setProductName] = useState(lineItem.raw_description)
   const [skuCode, setSkuCode] = useState(lineItem.raw_sku)
@@ -1798,7 +1799,8 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
     setSaving(true)
     try {
       await procurementApi.createProductAndLinkLineItem(token ?? '', lineItem.id, {
-        product_name: productName, sku_code: skuCode, currency_code: 'USD',
+        product_name: productName, sku_code: skuCode,
+        currency_code: tenantSettings?.default_currency || 'USD',
         price_minor_units: Math.round(parseFloat(price || '0') * 100),
       })
       onResolved()

@@ -336,6 +336,18 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
     setHydrated(true)
   }
 
+  // A brand-new product (productId===null, so nothing to hydrate from
+  // above) still needs its currency seeded from the tenant's own default
+  // rather than sitting on the initial useState('USD') forever -- gated on
+  // tenantSettings actually having loaded (not just !loading, which is
+  // still false for an instant before the fetch effect kicks in) so this
+  // doesn't fire-and-mark-done before the real value arrives.
+  const [currencyDefaulted, setCurrencyDefaulted] = useState(false)
+  if (!currencyDefaulted && productId === null && tenantSettings) {
+    if (tenantSettings.default_currency) setCurrency(tenantSettings.default_currency)
+    setCurrencyDefaulted(true)
+  }
+
   const singleVariant: VariantWithSKUs | null =
     !variantsMode && detail.detail?.variants.length === 1 ? detail.detail.variants[0] : null
   const currentSku = singleVariant?.skus?.[0] ?? null
@@ -1515,6 +1527,8 @@ interface VariantRowProps {
 }
 
 function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
+  const { token } = useAuth()
+  const { settings: tenantSettings } = useTenantSettings(token ?? '')
   const [addingSKU, setAddingSKU] = useState(false)
   const [imageError, setImageError] = useState('')
   const [skuCode, setSkuCode] = useState('')
@@ -1539,6 +1553,14 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // See ProductEditPage's identical currency-defaulting comment -- same
+  // "wait for tenantSettings to actually arrive" reasoning.
+  const [currencyDefaulted, setCurrencyDefaulted] = useState(false)
+  if (!currencyDefaulted && tenantSettings) {
+    if (tenantSettings.default_currency) setCurrency(tenantSettings.default_currency)
+    setCurrencyDefaulted(true)
+  }
+
   const handleAddSKU = async () => {
     setError('')
     setSubmitting(true)
@@ -1560,7 +1582,8 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         status,
       })
       setAddingSKU(false)
-      setSkuCode(''); setBarcode(''); setPrice(''); setSalePrice(''); setSaleEndDate(''); setCurrency('USD'); setStatus('active')
+      setSkuCode(''); setBarcode(''); setPrice(''); setSalePrice(''); setSaleEndDate('')
+      setCurrency(tenantSettings?.default_currency || 'USD'); setStatus('active')
       setIsVirtual(false); setWeightGrams(''); setLengthMM(''); setWidthMM(''); setHeightMM('')
       setUnitType('unit'); setPortionedFromSKUID(null); setPortionedFromLabel('')
     } catch (err) {

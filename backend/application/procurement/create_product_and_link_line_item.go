@@ -64,8 +64,13 @@ func NewCreateProductAndLinkLineItemUseCase(
 }
 
 func (uc *CreateProductAndLinkLineItemUseCase) Execute(ctx context.Context, in CreateProductAndLinkLineItemInput) (*procurementDomain.PurchaseOrderLineItem, error) {
+	// Draft, not Active -- a procurement-created product hasn't been
+	// reviewed (pricing, description, category, images...) yet, so it
+	// shouldn't be live/sellable/pushed to channels the moment it exists.
+	// Mirrors Products.tsx's own manual-creation default for the same
+	// reason.
 	product, err := uc.createProductUC.Execute(ctx, pmsapp.CreateProductInput{
-		Name: in.ProductName, Status: pmsDomain.ProductStatusActive,
+		Name: in.ProductName, Status: pmsDomain.ProductStatusDraft,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createProductAndLinkLineItem: %w", err)
