@@ -107,6 +107,10 @@ type stubWooClient struct {
 	// captures the last ListOrders call's filter, for assertions.
 	ordersByPage        map[int][]integrationsDomain.WooOrder
 	ordersErr           error
+	// ordersErrOnPage, when nonzero, limits ordersErr to that one page --
+	// every other page behaves normally. Zero (the default) means ordersErr
+	// applies to every page, same as before this field existed.
+	ordersErrOnPage     int
 	ordersModifiedAfter *time.Time
 	ordersCalls         int
 
@@ -271,7 +275,7 @@ func (s *stubWooClient) DownloadImage(_ context.Context, url string) (io.ReadClo
 func (s *stubWooClient) ListOrders(_ context.Context, page, _ int, modifiedAfter *time.Time) ([]integrationsDomain.WooOrder, error) {
 	s.ordersCalls++
 	s.ordersModifiedAfter = modifiedAfter
-	if s.ordersErr != nil {
+	if s.ordersErr != nil && (s.ordersErrOnPage == 0 || s.ordersErrOnPage == page) {
 		return nil, s.ordersErr
 	}
 	return s.ordersByPage[page], nil
@@ -634,11 +638,12 @@ type stubSyncScheduleRepo struct {
 }
 
 type stubRunResult struct {
-	ID        string
-	RanAt     time.Time
-	Status    string
-	ErrMsg    string
-	NextRunAt time.Time
+	ID               string
+	RanAt            time.Time
+	Status           string
+	ErrMsg           string
+	NextRunAt        time.Time
+	AdvanceLastRunAt bool
 }
 
 func (s *stubSyncScheduleRepo) Upsert(_ context.Context, sc *channelsDomain.SyncSchedule) error {
@@ -657,8 +662,8 @@ func (s *stubSyncScheduleRepo) ListByConnection(_ context.Context, _ string) ([]
 func (s *stubSyncScheduleRepo) ListDue(_ context.Context, _ time.Time) ([]channelsDomain.SyncSchedule, error) {
 	return s.due, nil
 }
-func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error {
-	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt})
+func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, advanceLastRunAt bool) error {
+	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt, AdvanceLastRunAt: advanceLastRunAt})
 	return nil
 }
 

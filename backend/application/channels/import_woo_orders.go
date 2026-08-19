@@ -22,8 +22,11 @@ import (
 
 // maxOrderImportPages is higher than maxImportPages (products): an active
 // store accumulates orders indefinitely, where the product catalog is
-// comparatively bounded.
-const maxOrderImportPages = 500
+// comparatively bounded. At 50/page this is 250,000 orders per run --
+// generous enough that hitting it on a real store's first (ModifiedAfter
+// nil) full import should be rare, but Execute still reports it via
+// result.Errors rather than silently stopping if it ever does.
+const maxOrderImportPages = 5000
 
 // ImportWooOrdersInput drives both the "full import" and "incremental
 // check" runs off the same use case -- see ModifiedAfter.
@@ -135,15 +138,27 @@ func (uc *ImportWooOrdersUseCase) Execute(ctx context.Context, in ImportWooOrder
 	for page := 1; page <= maxOrderImportPages; page++ {
 		orders, err := client.ListOrders(ctx, page, 50, in.ModifiedAfter)
 		if err != nil {
-			return nil, fmt.Errorf("importWooOrders: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
+			// A transient Woo/network failure mid-run must not turn into a
+			// hard error here -- the caller (cmd/scheduler) only advances
+			// this schedule's incremental cursor (LastRunAt) on a
+			// "success" status, specifically so a run that didn't reach
+			// every page gets retried from the same window next time
+			// instead of silently skipping whatever was never fetched.
+			// Returning the partial result (with everything imported so
+			// far still counted) rather than discarding it via a hard
+			// error keeps that already-real progress visible in this
+			// run's report.
+			result.Errors = append(result.Errors, fmt.Sprintf("page %d: %v", page, fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)))
+			return &result, nil
 		}
 		if len(orders) == 0 {
-			break
+			return &result, nil
 		}
 		for _, wo := range orders {
 			uc.importOne(ctx, in, wo, &result)
 		}
 	}
+	result.Errors = append(result.Errors, fmt.Sprintf("reached the %d-page import cap -- some orders may not have been imported this run", maxOrderImportPages))
 	return &result, nil
 }
 

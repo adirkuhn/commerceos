@@ -418,3 +418,99 @@ func TestProductChannelListingRepo_Integration_VariantDeleteCascadesListingRow(t
 	require.Equal(t, "900", remaining[0].ExternalID)
 	require.Nil(t, remaining[0].VariantID, "the parent row must survive untouched")
 }
+
+// TestSyncScheduleRepo_Integration_RecordRunResult_OnlyAdvancesLastRunAtWhenTold
+// proves the fix for orders permanently going unimported after a page-fetch
+// failure: LastRunAt (the orders runner's incremental "modified since"
+// cursor -- see cmd/scheduler/dispatch.go) must only move forward on a run
+// that actually completed. LastRunStatus/LastRunError/NextRunAt must always
+// update regardless, so a failing run still stays visible and still retries
+// on schedule.
+func TestSyncScheduleRepo_Integration_RecordRunResult_OnlyAdvancesLastRunAtWhenTold(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	connRepo := repositories.NewConnectionRepo(db)
+	scheduleRepo := repositories.NewSyncScheduleRepo(db)
+
+	var scheduleID, connectionID string
+	firstRunAt := time.Now().Add(-time.Hour)
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL: "https://itest-sync-schedule.example.com", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := connRepo.Create(ctx, conn); err != nil {
+			return err
+		}
+		connectionID = conn.ID
+
+		schedule := &channelsDomain.SyncSchedule{
+			TenantID: tenant.IDFromContext(ctx), ConnectionID: conn.ID,
+			EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
+			Enabled: true, IntervalMinutes: 15, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := scheduleRepo.Upsert(ctx, schedule); err != nil {
+			return err
+		}
+		scheduleID = schedule.ID
+
+		// Seed a first successful run's LastRunAt directly -- Upsert itself
+		// doesn't set it, only RecordRunResult does.
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, firstRunAt, "success", "", now, true)
+	})
+	require.NoError(t, err)
+
+	// A failed run (a page-fetch error mid-import) must NOT move LastRunAt.
+	failedRunAt := time.Now()
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, failedRunAt, "error", "woocommerce request failed", time.Now(), false)
+	})
+	require.NoError(t, err)
+
+	var afterFailure *channelsDomain.SyncSchedule
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		schedules, err := scheduleRepo.ListByConnection(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		for i := range schedules {
+			if schedules[i].ID == scheduleID {
+				afterFailure = &schedules[i]
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, afterFailure)
+	require.WithinDuration(t, firstRunAt, *afterFailure.LastRunAt, time.Second, "a failed run must not advance the cursor")
+	require.Equal(t, "error", afterFailure.LastRunStatus)
+	require.Equal(t, "woocommerce request failed", afterFailure.LastRunError)
+
+	// A subsequent successful run DOES advance it.
+	successRunAt := time.Now()
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return scheduleRepo.RecordRunResult(ctx, scheduleID, successRunAt, "success", "", time.Now(), true)
+	})
+	require.NoError(t, err)
+
+	var afterSuccess *channelsDomain.SyncSchedule
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		schedules, err := scheduleRepo.ListByConnection(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		for i := range schedules {
+			if schedules[i].ID == scheduleID {
+				afterSuccess = &schedules[i]
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, afterSuccess)
+	require.WithinDuration(t, successRunAt, *afterSuccess.LastRunAt, time.Second, "a successful run must advance the cursor")
+	require.Equal(t, "success", afterSuccess.LastRunStatus)
+	require.Empty(t, afterSuccess.LastRunError)
+}

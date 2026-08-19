@@ -275,16 +275,42 @@ func TestImportWooOrders_incrementalPassesModifiedAfterThrough(t *testing.T) {
 	assert.True(t, h.wooClient.ordersModifiedAfter.Equal(cutoff))
 }
 
-func TestImportWooOrders_propagatesAWooRequestFailure(t *testing.T) {
+// A page-fetch failure (a transient Woo/network error) must NOT be a hard
+// Execute error -- cmd/scheduler's runOne only advances a schedule's
+// incremental cursor (LastRunAt) when the run's status is "success" (see
+// that fix's own commit), specifically so a run that couldn't reach every
+// page gets retried from the same window next time, instead of the cursor
+// silently skipping past whatever was never fetched. A hard error here
+// would also have discarded every order already imported earlier in this
+// same run's result.
+func TestImportWooOrders_aPageFetchFailureIsReportedNotReturnedAsAHardError(t *testing.T) {
 	h := newOrdersHarness(nil)
 	h.wooClient.ordersErr = assert.AnError
 	uc := h.newImportUseCase(t, 1)
 
-	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
 		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
 	})
 
-	assert.ErrorIs(t, err, integrationsDomain.ErrWooRequestFailed)
+	require.NoError(t, err)
+	require.NotEmpty(t, result.Errors)
+	assert.Contains(t, result.Errors[0], "woocommerce request failed")
+}
+
+func TestImportWooOrders_aPageFetchFailureStillKeepsOrdersImportedEarlierInTheSameRun(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	h.wooClient.ordersErrOnPage = 2
+	h.wooClient.ordersErr = assert.AnError
+	uc := h.newImportUseCase(t, 4)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created, "the order from page 1 must still count, not be discarded")
+	require.NotEmpty(t, result.Errors)
 }
 
 func TestImportWooOrders_propagatesAStockMovementErrorAsAPerOrderError(t *testing.T) {

@@ -337,7 +337,7 @@ func runOne(adminCtx context.Context, db *gorm.DB, scheduleRepo channelsDomain.S
 
 	nextRunAt := ranAt.Add(time.Duration(s.IntervalMinutes) * time.Minute)
 	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		return scheduleRepo.RecordRunResult(ctx, s.ID, ranAt, status, errMsg, nextRunAt)
+		return scheduleRepo.RecordRunResult(ctx, s.ID, ranAt, status, errMsg, nextRunAt, status == "success")
 	})
 	if err != nil {
 		log.Printf("record run result for schedule %s: %v", s.ID, err)

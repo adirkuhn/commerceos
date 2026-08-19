@@ -323,19 +323,21 @@ func (r *SyncScheduleRepo) ListDue(ctx context.Context, now time.Time) ([]channe
 	return out, nil
 }
 
-func (r *SyncScheduleRepo) RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error {
+func (r *SyncScheduleRepo) RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, advanceLastRunAt bool) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return err
 	}
-	if err := tx.Model(&syncScheduleModel{}).Where("id = ?", id).
-		Updates(map[string]any{
-			"last_run_at":     ranAt,
-			"last_run_status": status,
-			"last_run_error":  errMsg,
-			"next_run_at":     nextRunAt,
-			"updated_at":      ranAt,
-		}).Error; err != nil {
+	fields := map[string]any{
+		"last_run_status": status,
+		"last_run_error":  errMsg,
+		"next_run_at":     nextRunAt,
+		"updated_at":      ranAt,
+	}
+	if advanceLastRunAt {
+		fields["last_run_at"] = ranAt
+	}
+	if err := tx.Model(&syncScheduleModel{}).Where("id = ?", id).Updates(fields).Error; err != nil {
 		return fmt.Errorf("syncScheduleRepo.RecordRunResult: %w", err)
 	}
 	return nil

@@ -53,7 +53,15 @@ type SyncScheduleRepository interface {
 	Upsert(ctx context.Context, s *SyncSchedule) error
 	ListByConnection(ctx context.Context, connectionID string) ([]SyncSchedule, error)
 	ListDue(ctx context.Context, now time.Time) ([]SyncSchedule, error)
-	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time) error
+	// RecordRunResult always updates LastRunStatus/LastRunError/NextRunAt.
+	// LastRunAt itself only advances when advanceLastRunAt is true -- a run
+	// that didn't complete (e.g. orders import hit a page-fetch failure
+	// partway through, see ImportWooOrdersUseCase.Execute) must not move
+	// LastRunAt forward, since dispatch.go's orders runner uses it as the
+	// next run's incremental "modified since" cursor. Advancing it
+	// regardless of whether the run actually finished would silently and
+	// permanently skip whatever page(s) were never reached.
+	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, advanceLastRunAt bool) error
 }
 
 type SalesChannelRepository interface {
