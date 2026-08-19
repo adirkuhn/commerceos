@@ -21,31 +21,49 @@ import (
 
 // Defines values for SalesOrderStatus.
 const (
-	Cancelled  SalesOrderStatus = "cancelled"
-	Completed  SalesOrderStatus = "completed"
-	Failed     SalesOrderStatus = "failed"
-	OnHold     SalesOrderStatus = "on-hold"
-	Pending    SalesOrderStatus = "pending"
-	Processing SalesOrderStatus = "processing"
-	Refunded   SalesOrderStatus = "refunded"
+	SalesOrderStatusCancelled  SalesOrderStatus = "cancelled"
+	SalesOrderStatusCompleted  SalesOrderStatus = "completed"
+	SalesOrderStatusFailed     SalesOrderStatus = "failed"
+	SalesOrderStatusOnHold     SalesOrderStatus = "on-hold"
+	SalesOrderStatusPending    SalesOrderStatus = "pending"
+	SalesOrderStatusProcessing SalesOrderStatus = "processing"
+	SalesOrderStatusRefunded   SalesOrderStatus = "refunded"
 )
 
 // Valid indicates whether the value is a known member of the SalesOrderStatus enum.
 func (e SalesOrderStatus) Valid() bool {
 	switch e {
-	case Cancelled:
+	case SalesOrderStatusCancelled:
 		return true
-	case Completed:
+	case SalesOrderStatusCompleted:
 		return true
-	case Failed:
+	case SalesOrderStatusFailed:
 		return true
-	case OnHold:
+	case SalesOrderStatusOnHold:
 		return true
-	case Pending:
+	case SalesOrderStatusPending:
 		return true
-	case Processing:
+	case SalesOrderStatusProcessing:
 		return true
-	case Refunded:
+	case SalesOrderStatusRefunded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StockStatus.
+const (
+	StockStatusDecremented StockStatus = "decremented"
+	StockStatusPending     StockStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the StockStatus enum.
+func (e StockStatus) Valid() bool {
+	switch e {
+	case StockStatusDecremented:
+		return true
+	case StockStatusPending:
 		return true
 	default:
 		return false
@@ -160,18 +178,45 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// LinkLineItemSKURequest defines model for LinkLineItemSKURequest.
+type LinkLineItemSKURequest struct {
+	SkuId string `json:"sku_id"`
+}
+
+// RetryStockDecrementResponse defines model for RetryStockDecrementResponse.
+type RetryStockDecrementResponse struct {
+	Data  *RetryStockDecrementResult `json:"data,omitempty"`
+	Error interface{}                `json:"error,omitempty"`
+}
+
+// RetryStockDecrementResult defines model for RetryStockDecrementResult.
+type RetryStockDecrementResult struct {
+	// Resolved Line items whose decrement succeeded this attempt.
+	Resolved   int        `json:"resolved"`
+	SalesOrder SalesOrder `json:"sales_order"`
+
+	// StillPending Line items still insufficient after retrying.
+	StillPending int `json:"still_pending"`
+}
+
 // SalesOrder defines model for SalesOrder.
 type SalesOrder struct {
-	Billing                 *Address         `json:"billing,omitempty"`
-	CreatedAt               time.Time        `json:"created_at"`
-	CurrencyCode            string           `json:"currency_code"`
-	CustomerId              *string          `json:"customer_id,omitempty"`
-	CustomerNote            *string          `json:"customer_note,omitempty"`
-	DateCompleted           *time.Time       `json:"date_completed,omitempty"`
-	DatePaid                *time.Time       `json:"date_paid,omitempty"`
-	DiscountTotalMinorUnits *int64           `json:"discount_total_minor_units,omitempty"`
-	ExternalOrderId         string           `json:"external_order_id"`
-	Id                      string           `json:"id"`
+	Billing                 *Address   `json:"billing,omitempty"`
+	CreatedAt               time.Time  `json:"created_at"`
+	CurrencyCode            string     `json:"currency_code"`
+	CustomerId              *string    `json:"customer_id,omitempty"`
+	CustomerNote            *string    `json:"customer_note,omitempty"`
+	DateCompleted           *time.Time `json:"date_completed,omitempty"`
+	DatePaid                *time.Time `json:"date_paid,omitempty"`
+	DiscountTotalMinorUnits *int64     `json:"discount_total_minor_units,omitempty"`
+	ExternalOrderId         string     `json:"external_order_id"`
+	Id                      string     `json:"id"`
+
+	// NeedsSkuReview At least one line item was never matched to a catalog SKU. See GET's needs_sku_review filter.
+	NeedsSkuReview *bool `json:"needs_sku_review,omitempty"`
+
+	// NeedsStockReview At least one line item's stock decrement is pending (SKU linked, insufficient stock). See GET's needs_stock_review filter.
+	NeedsStockReview        *bool            `json:"needs_stock_review,omitempty"`
 	Number                  *string          `json:"number,omitempty"`
 	OccurredAt              time.Time        `json:"occurred_at"`
 	OrderKey                *string          `json:"order_key,omitempty"`
@@ -203,17 +248,18 @@ type SalesOrderDetailResponse struct {
 
 // SalesOrderLineItem defines model for SalesOrderLineItem.
 type SalesOrderLineItem struct {
-	Barcode               *string `json:"barcode,omitempty"`
-	Id                    string  `json:"id"`
-	Name                  *string `json:"name,omitempty"`
-	PriceMinorUnits       *int64  `json:"price_minor_units,omitempty"`
-	Quantity              int64   `json:"quantity"`
-	SkuCode               *string `json:"sku_code,omitempty"`
-	SkuId                 *string `json:"sku_id,omitempty"`
-	SubtotalMinorUnits    *int64  `json:"subtotal_minor_units,omitempty"`
-	SubtotalTaxMinorUnits *int64  `json:"subtotal_tax_minor_units,omitempty"`
-	TotalMinorUnits       *int64  `json:"total_minor_units,omitempty"`
-	TotalTaxMinorUnits    *int64  `json:"total_tax_minor_units,omitempty"`
+	Barcode               *string      `json:"barcode,omitempty"`
+	Id                    string       `json:"id"`
+	Name                  *string      `json:"name,omitempty"`
+	PriceMinorUnits       *int64       `json:"price_minor_units,omitempty"`
+	Quantity              int64        `json:"quantity"`
+	SkuCode               *string      `json:"sku_code,omitempty"`
+	SkuId                 *string      `json:"sku_id,omitempty"`
+	StockStatus           *StockStatus `json:"stock_status,omitempty"`
+	SubtotalMinorUnits    *int64       `json:"subtotal_minor_units,omitempty"`
+	SubtotalTaxMinorUnits *int64       `json:"subtotal_tax_minor_units,omitempty"`
+	TotalMinorUnits       *int64       `json:"total_minor_units,omitempty"`
+	TotalTaxMinorUnits    *int64       `json:"total_tax_minor_units,omitempty"`
 }
 
 // SalesOrderList defines model for SalesOrderList.
@@ -236,6 +282,9 @@ type SalesOrderResponse struct {
 
 // SalesOrderStatus defines model for SalesOrderStatus.
 type SalesOrderStatus string
+
+// StockStatus defines model for StockStatus.
+type StockStatus string
 
 // UpdateSalesOrderRequest defines model for UpdateSalesOrderRequest.
 type UpdateSalesOrderRequest struct {
@@ -267,6 +316,12 @@ type ListSalesOrdersParams struct {
 	PerPage *int                          `form:"per_page,omitempty" json:"per_page,omitempty"`
 	SortBy  *ListSalesOrdersParamsSortBy  `form:"sort_by,omitempty" json:"sort_by,omitempty"`
 	SortDir *ListSalesOrdersParamsSortDir `form:"sort_dir,omitempty" json:"sort_dir,omitempty"`
+
+	// NeedsStockReview Filter to orders with at least one line item whose stock decrement is pending (insufficient stock at the time) -- the "Stock Issues" admin page.
+	NeedsStockReview *bool `form:"needs_stock_review,omitempty" json:"needs_stock_review,omitempty"`
+
+	// NeedsSkuReview Filter to orders with at least one line item never matched to a catalog SKU -- the "Unmatched SKUs" admin page.
+	NeedsSkuReview *bool `form:"needs_sku_review,omitempty" json:"needs_sku_review,omitempty"`
 }
 
 // ListSalesOrdersParamsSortBy defines parameters for ListSalesOrders.
@@ -280,6 +335,9 @@ type CreateSalesOrderJSONRequestBody = CreateSalesOrderRequest
 
 // UpdateSalesOrderJSONRequestBody defines body for UpdateSalesOrder for application/json ContentType.
 type UpdateSalesOrderJSONRequestBody = UpdateSalesOrderRequest
+
+// LinkLineItemSKUJSONRequestBody defines body for LinkLineItemSKU for application/json ContentType.
+type LinkLineItemSKUJSONRequestBody = LinkLineItemSKURequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -298,6 +356,12 @@ type ServerInterface interface {
 	// UpdateSalesOrder Update a sales order's header fields (status, customer, notes, etc) -- never line items
 	// (PATCH /sales-orders/{id})
 	UpdateSalesOrder(c *gin.Context, id Id)
+	// LinkLineItemSKU Link a line item that was imported without a matching catalog SKU (sku_id nil) to a real SKU -- the "Unmatched SKUs" admin page's resolve action. Does not itself retry the stock decrement -- call retry-stock separately afterward.
+	// (POST /sales-orders/{id}/line-items/{lineItemId}/link-sku)
+	LinkLineItemSKU(c *gin.Context, id Id, lineItemId string)
+	// RetryStockDecrement Retry the stock decrement for every line item on this order whose decrement is pending (SKU linked, but the earlier attempt hit insufficient stock) -- the "Stock Issues" admin page's resolve action, run after staff fix the underlying stock. A line item still insufficient after retrying is reported in the response, not an error for the call as a whole.
+	// (POST /sales-orders/{id}/retry-stock)
+	RetryStockDecrement(c *gin.Context, id Id)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -347,6 +411,22 @@ func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort_dir", c.Request.URL.Query(), &params.SortDir, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter sort_dir: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "needs_stock_review" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "needs_stock_review", c.Request.URL.Query(), &params.NeedsStockReview, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter needs_stock_review: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "needs_sku_review" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "needs_sku_review", c.Request.URL.Query(), &params.NeedsSkuReview, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter needs_sku_review: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -448,6 +528,65 @@ func (siw *ServerInterfaceWrapper) UpdateSalesOrder(c *gin.Context) {
 	siw.Handler.UpdateSalesOrder(c, id)
 }
 
+// LinkLineItemSKU operation middleware
+func (siw *ServerInterfaceWrapper) LinkLineItemSKU(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "lineItemId" -------------
+	var lineItemId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lineItemId", c.Param("lineItemId"), &lineItemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter lineItemId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LinkLineItemSKU(c, id, lineItemId)
+}
+
+// RetryStockDecrement operation middleware
+func (siw *ServerInterfaceWrapper) RetryStockDecrement(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RetryStockDecrement(c, id)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -480,6 +619,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/sales-orders/:id", wrapper.DeleteSalesOrder)
 	router.GET(options.BaseURL+"/sales-orders/:id", wrapper.GetSalesOrder)
 	router.PATCH(options.BaseURL+"/sales-orders/:id", wrapper.UpdateSalesOrder)
+	router.POST(options.BaseURL+"/sales-orders/:id/retry-stock", wrapper.RetryStockDecrement)
+	router.POST(options.BaseURL+"/sales-orders/:id/line-items/:lineItemId/link-sku", wrapper.LinkLineItemSKU)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -487,34 +628,44 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"Or8yRTSJRq7ZfDqPFneL/wcAAP//",
+	"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",
+	"UrBwFjqZh8oiCyOjm2iMuRg/XEXrT+v/BgAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

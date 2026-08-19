@@ -14,6 +14,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -35,21 +36,30 @@ type updateSalesOrderUC interface {
 type deleteSalesOrderUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type linkLineItemSKUUC interface {
+	Execute(ctx context.Context, in appoms.LinkLineItemSKUInput) (*omsDomain.SalesOrder, error)
+}
+type retryStockDecrementUC interface {
+	Execute(ctx context.Context, salesOrderID string) (*appoms.RetryStockDecrementResult, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listSalesOrders  listSalesOrdersUC
-	getSalesOrder    getSalesOrderUC
-	createSalesOrder createSalesOrderUC
-	updateSalesOrder updateSalesOrderUC
-	deleteSalesOrder deleteSalesOrderUC
+	listSalesOrders     listSalesOrdersUC
+	getSalesOrder       getSalesOrderUC
+	createSalesOrder    createSalesOrderUC
+	updateSalesOrder    updateSalesOrderUC
+	deleteSalesOrder    deleteSalesOrderUC
+	linkLineItemSKU     linkLineItemSKUUC
+	retryStockDecrement retryStockDecrementUC
 }
 
-func NewHandler(listSalesOrders listSalesOrdersUC, getSalesOrder getSalesOrderUC, createSalesOrder createSalesOrderUC, updateSalesOrder updateSalesOrderUC, deleteSalesOrder deleteSalesOrderUC) *Handler {
+func NewHandler(listSalesOrders listSalesOrdersUC, getSalesOrder getSalesOrderUC, createSalesOrder createSalesOrderUC, updateSalesOrder updateSalesOrderUC, deleteSalesOrder deleteSalesOrderUC, linkLineItemSKU linkLineItemSKUUC, retryStockDecrement retryStockDecrementUC) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
 		createSalesOrder: createSalesOrder, updateSalesOrder: updateSalesOrder, deleteSalesOrder: deleteSalesOrder,
+		linkLineItemSKU: linkLineItemSKU, retryStockDecrement: retryStockDecrement,
 	}
 }
 
@@ -75,6 +85,8 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, recordMovement),
 		appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, recordMovement),
+		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo),
+		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -97,6 +109,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	}
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
+		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -198,6 +211,32 @@ func (h *Handler) DeleteSalesOrder(c *gin.Context, id genoms.Id) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *Handler) LinkLineItemSKU(c *gin.Context, id genoms.Id, lineItemId string) {
+	var req genoms.LinkLineItemSKURequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	order, err := h.linkLineItemSKU.Execute(c.Request.Context(), appoms.LinkLineItemSKUInput{
+		SalesOrderID: id, LineItemID: lineItemId, SKUID: req.SkuId,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenSalesOrder(*order)
+	c.JSON(http.StatusOK, genoms.SalesOrderResponse{Data: &resp})
+}
+
+func (h *Handler) RetryStockDecrement(c *gin.Context, id genoms.Id) {
+	result, err := h.retryStockDecrement.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	order := toGenSalesOrder(result.Order)
+	resp := genoms.RetryStockDecrementResult{SalesOrder: order, Resolved: result.Resolved, StillPending: result.StillPending}
+	c.JSON(http.StatusOK, genoms.RetryStockDecrementResponse{Data: &resp})
+}
+
 func strOrEmpty(s *string) string {
 	if s == nil {
 		return ""
@@ -257,12 +296,15 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 		PaymentMethod: &o.PaymentMethod, PaymentMethodTitle: &o.PaymentMethodTitle,
 		ShippingMethod: &o.ShippingMethod, ShippingMethodTitle: &o.ShippingMethodTitle, TransactionId: &o.TransactionID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
+		NeedsStockReview: &o.NeedsStockReview, NeedsSkuReview: &o.NeedsSKUReview,
 	}
 }
 
 func toGenSalesOrderLineItem(li omsDomain.SalesOrderLineItem) genoms.SalesOrderLineItem {
+	stockStatus := genoms.StockStatus(li.StockStatus)
 	return genoms.SalesOrderLineItem{
 		Id: li.ID, SkuId: li.SKUID, Name: &li.Name, SkuCode: &li.SKUCode, Barcode: &li.Barcode, Quantity: li.Quantity,
+		StockStatus:     &stockStatus,
 		PriceMinorUnits: &li.PriceMinorUnits, SubtotalMinorUnits: &li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: &li.SubtotalTaxMinorUnits, TotalMinorUnits: &li.TotalMinorUnits,
 		TotalTaxMinorUnits: &li.TotalTaxMinorUnits,
@@ -274,10 +316,12 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, omsDomain.ErrSalesOrderNotFound):
+	case errors.Is(err, omsDomain.ErrSalesOrderNotFound), errors.Is(err, omsDomain.ErrSalesOrderLineItemNotFound),
+		errors.Is(err, pmsDomain.ErrSKUNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, invDomain.ErrInsufficientStock),
-		errors.Is(err, invDomain.ErrInvalidQuantity):
+		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, omsDomain.ErrLineItemNotOnOrder),
+		errors.Is(err, omsDomain.ErrOrderNotStockReducing), errors.Is(err, omsDomain.ErrDuplicateExternalOrder):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("oms: unhandled error: %v", err)

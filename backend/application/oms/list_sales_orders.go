@@ -21,6 +21,10 @@ type ListSalesOrdersInput struct {
 	// desc -- newest first).
 	SortBy  omsDomain.SalesOrderSortField
 	SortDir omsDomain.SortDirection
+	// NeedsStockReview/NeedsSKUReview nil means "don't filter" -- see
+	// domain/oms.ListSalesOrdersFilter's doc.
+	NeedsStockReview *bool
+	NeedsSKUReview   *bool
 }
 
 type ListSalesOrdersResult struct {
@@ -57,6 +61,7 @@ func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrder
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		orders, total, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
 			Limit: perPage, Offset: (page - 1) * perPage, SortBy: in.SortBy, SortDir: in.SortDir,
+			NeedsStockReview: in.NeedsStockReview, NeedsSKUReview: in.NeedsSKUReview,
 		})
 		if err != nil {
 			return err

@@ -32,6 +32,19 @@ paths:
         - name: sort_dir
           in: query
           schema: { type: string, enum: [asc, desc], default: desc }
+        - name: needs_stock_review
+          in: query
+          description: >
+            Filter to orders with at least one line item whose stock
+            decrement is pending (insufficient stock at the time) -- the
+            "Stock Issues" admin page.
+          schema: { type: boolean }
+        - name: needs_sku_review
+          in: query
+          description: >
+            Filter to orders with at least one line item never matched to a
+            catalog SKU -- the "Unmatched SKUs" admin page.
+          schema: { type: boolean }
       responses:
         '200':
           description: ok
@@ -106,6 +119,62 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/{id}/retry-stock:
+    post:
+      operationId: retryStockDecrement
+      summary: >
+        Retry the stock decrement for every line item on this order whose
+        decrement is pending (SKU linked, but the earlier attempt hit
+        insufficient stock) -- the "Stock Issues" admin page's resolve
+        action, run after staff fix the underlying stock. A line item still
+        insufficient after retrying is reported in the response, not an
+        error for the call as a whole.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryStockDecrementResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /sales-orders/{id}/line-items/{lineItemId}/link-sku:
+    post:
+      operationId: linkLineItemSKU
+      summary: >
+        Link a line item that was imported without a matching catalog SKU
+        (sku_id nil) to a real SKU -- the "Unmatched SKUs" admin page's
+        resolve action. Does not itself retry the stock decrement -- call
+        retry-stock separately afterward.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: lineItemId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkLineItemSKURequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -172,6 +241,16 @@ components:
         date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
+        needs_stock_review:
+          type: boolean
+          description: At least one line item's stock decrement is pending (SKU linked, insufficient stock). See GET's needs_stock_review filter.
+        needs_sku_review:
+          type: boolean
+          description: At least one line item was never matched to a catalog SKU. See GET's needs_sku_review filter.
+
+    StockStatus:
+      type: string
+      enum: [decremented, pending]
 
     SalesOrderLineItem:
       type: object
@@ -188,6 +267,7 @@ components:
         sku_code: { type: string }
         barcode: { type: string }
         quantity: { type: integer, format: int64 }
+        stock_status: { $ref: '#/components/schemas/StockStatus' }
         price_minor_units: { type: integer, format: int64 }
         subtotal_minor_units: { type: integer, format: int64 }
         subtotal_tax_minor_units: { type: integer, format: int64 }
@@ -291,6 +371,30 @@ components:
         transaction_id: { type: string }
         date_paid: { type: string, format: date-time }
         date_completed: { type: string, format: date-time }
+
+    LinkLineItemSKURequest:
+      type: object
+      required: [sku_id]
+      properties:
+        sku_id: { type: string }
+
+    RetryStockDecrementResult:
+      type: object
+      required: [sales_order, resolved, still_pending]
+      properties:
+        sales_order: { $ref: '#/components/schemas/SalesOrder' }
+        resolved:
+          type: integer
+          description: Line items whose decrement succeeded this attempt.
+        still_pending:
+          type: integer
+          description: Line items still insufficient after retrying.
+
+    RetryStockDecrementResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/RetryStockDecrementResult' }
+        error: { nullable: true }
 
     ErrorResponse:
       type: object
