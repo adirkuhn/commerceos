@@ -39,6 +39,14 @@ export interface Product {
   tags: string[]
   created_at: string
   updated_at: string
+  // Only ever populated on the list response (GET /products) -- the
+  // featured (lowest-position) media and the first variant's SKU price,
+  // for the list's thumbnail/price columns. Absent on detail/create/update
+  // responses, which carry the full variant/SKU breakdown instead.
+  image_url?: string | null
+  price_minor_units?: number | null
+  sale_price_minor_units?: number | null
+  currency_code?: string | null
 }
 
 export interface SKU {

@@ -64,7 +64,7 @@ type deleteCategoryUC interface {
 	Execute(ctx context.Context, id string) error
 }
 type listProductsUC interface {
-	Execute(ctx context.Context, in apppms.ListProductsInput) (*apppms.ListProductsResult, error)
+	Execute(ctx context.Context, in apppms.ListProductsInput) (*apppms.ListPOSProductCatalogResult, error)
 }
 type createProductUC interface {
 	Execute(ctx context.Context, in apppms.CreateProductInput) (*pmsDomain.Product, error)
@@ -204,7 +204,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewCreateCategoryUseCase(db, categoryRepo),
 		apppms.NewUpdateCategoryUseCase(db, categoryRepo),
 		apppms.NewDeleteCategoryUseCase(db, categoryRepo),
-		apppms.NewListProductsUseCase(db, productRepo),
+		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo),
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo),
@@ -300,7 +300,7 @@ func (h *Handler) ListProducts(c *gin.Context, params genpms.ListProductsParams)
 	}
 	resp := make([]genpms.Product, len(result.Products))
 	for i, p := range result.Products {
-		resp[i] = toGenProduct(p)
+		resp[i] = toGenProductListItem(p)
 	}
 	total := int(result.Total)
 	c.JSON(http.StatusOK, genpms.ProductListResponse{Data: &resp, Total: &total})
@@ -630,6 +630,25 @@ func toGenProduct(p pmsDomain.Product) genpms.Product {
 		CreatedAt:                   p.CreatedAt,
 		UpdatedAt:                   p.UpdatedAt,
 	}
+}
+
+// toGenProductListItem overlays the featured image and first variant's
+// price/sale price/currency onto the base Product shape -- only the list
+// response (ListProducts) has this data; detail/create/update responses
+// go through the plain toGenProduct instead (see Product's own doc
+// comment in openapi.yaml).
+func toGenProductListItem(entry apppms.POSProductWithSKUs) genpms.Product {
+	p := toGenProduct(entry.Product)
+	p.ImageUrl = entry.ImageURL
+	if len(entry.SKUs) > 0 {
+		sku := entry.SKUs[0].SKU
+		price := sku.PriceMinorUnits
+		currency := sku.CurrencyCode
+		p.PriceMinorUnits = &price
+		p.SalePriceMinorUnits = sku.SalePriceMinorUnits
+		p.CurrencyCode = &currency
+	}
+	return p
 }
 
 func toGenVariant(v pmsDomain.Variant) genpms.Variant {

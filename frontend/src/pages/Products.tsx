@@ -143,16 +143,18 @@ export default function Products() {
               <th className="px-2 py-2.5 w-8" />
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Category</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Price</th>
+              <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sale Price</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
               <th className="px-3 py-2.5 w-8" />
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
             {!loading && products.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products yet</td></tr>
             )}
             {products.map(p => (
               <tr
@@ -161,15 +163,29 @@ export default function Products() {
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
-                    <Package size={12} className="dark:text-gray-500 text-gray-400" />
-                  </div>
+                  {p.image_url ? (
+                    <img src={p.image_url} alt="" className="w-6 h-6 rounded object-cover dark:bg-[#2D3748] bg-gray-200" />
+                  ) : (
+                    <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
+                      <Package size={12} className="dark:text-gray-500 text-gray-400" />
+                    </div>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 max-w-[220px]">
                   <p className="font-medium dark:text-gray-100 text-gray-900 truncate">{p.name}</p>
                   <p className="text-[10px] font-mono dark:text-gray-500 text-gray-400 truncate">{p.slug}</p>
                 </td>
                 <td className="px-3 py-2.5 dark:text-gray-400 text-gray-500">{categoryName(p.category_id)}</td>
+                <td className="px-3 py-2.5 dark:text-gray-300 text-gray-700">
+                  {p.price_minor_units != null ? formatPrice(p.price_minor_units, p.currency_code ?? '') : '—'}
+                </td>
+                <td className="px-3 py-2.5">
+                  {p.sale_price_minor_units != null ? (
+                    <span className="text-red-400 font-medium">{formatPrice(p.sale_price_minor_units, p.currency_code ?? '')}</span>
+                  ) : (
+                    <span className="dark:text-gray-600 text-gray-300">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2.5">
                   <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium capitalize', STATUS_STYLES[p.status])}>
                     {p.status}

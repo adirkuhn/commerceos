@@ -54,13 +54,13 @@ type stubDeleteCategory struct{ err error }
 func (s *stubDeleteCategory) Execute(_ context.Context, _ string) error { return s.err }
 
 type stubListProducts struct {
-	out      []pmsDomain.Product
+	out      []apppms.POSProductWithSKUs
 	total    int64
 	err      error
 	gotInput apppms.ListProductsInput
 }
 
-func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInput) (*apppms.ListProductsResult, error) {
+func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInput) (*apppms.ListPOSProductCatalogResult, error) {
 	s.gotInput = in
 	if s.err != nil {
 		return nil, s.err
@@ -69,7 +69,7 @@ func (s *stubListProducts) Execute(_ context.Context, in apppms.ListProductsInpu
 	if total == 0 {
 		total = int64(len(s.out))
 	}
-	return &apppms.ListProductsResult{Products: s.out, Total: total}, nil
+	return &apppms.ListPOSProductCatalogResult{Products: s.out, Total: total}, nil
 }
 
 type stubCreateProduct struct {
@@ -276,13 +276,49 @@ func TestDeleteCategory_success(t *testing.T) {
 
 func TestListProducts_returnsTotalAlongsideData(t *testing.T) {
 	s := &stubs{listProducts: stubListProducts{
-		out:   []pmsDomain.Product{{ID: "p1", Name: "Widget"}},
+		out:   []apppms.POSProductWithSKUs{{Product: pmsDomain.Product{ID: "p1", Name: "Widget"}}},
 		total: 806,
 	}}
 	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products", nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"total":806`)
+}
+
+// TestListProducts_includesImageAndPriceFromTheFirstVariantsSKU proves
+// the list response carries a thumbnail image and price/sale price --
+// only the list endpoint does this (see toGenProductListItem).
+func TestListProducts_includesImageAndPriceFromTheFirstVariantsSKU(t *testing.T) {
+	imageURL := "https://example.com/widget.jpg"
+	salePrice := int64(450)
+	s := &stubs{listProducts: stubListProducts{out: []apppms.POSProductWithSKUs{{
+		Product:  pmsDomain.Product{ID: "p1", Name: "Widget"},
+		ImageURL: &imageURL,
+		SKUs: []apppms.POSProductSKU{
+			{SKU: pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 600, SalePriceMinorUnits: &salePrice, CurrencyCode: "EUR"}},
+		},
+	}}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"image_url":"https://example.com/widget.jpg"`)
+	assert.Contains(t, w.Body.String(), `"price_minor_units":600`)
+	assert.Contains(t, w.Body.String(), `"sale_price_minor_units":450`)
+	assert.Contains(t, w.Body.String(), `"currency_code":"EUR"`)
+}
+
+// TestListProducts_omitsImageAndPriceWhenProductHasNoSKUYet proves a
+// product with no variant/SKU at all yet (just created) doesn't crash the
+// mapping -- image_url/price fields are simply omitted.
+func TestListProducts_omitsImageAndPriceWhenProductHasNoSKUYet(t *testing.T) {
+	s := &stubs{listProducts: stubListProducts{out: []apppms.POSProductWithSKUs{{
+		Product: pmsDomain.Product{ID: "p1", Name: "Widget"},
+	}}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), `"image_url"`)
+	assert.NotContains(t, w.Body.String(), `"price_minor_units"`)
 }
 
 func TestListProducts_passesPagePerPageAndSearchQueryParams(t *testing.T) {

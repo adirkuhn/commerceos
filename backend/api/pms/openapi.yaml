@@ -462,6 +462,16 @@ components:
           items: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        # image_url/price_minor_units/sale_price_minor_units/currency_code
+        # are only ever populated on the list response (ListProducts) --
+        # the featured (lowest-position) media and the first variant's SKU
+        # price, for a list thumbnail/price column. Always absent on the
+        # detail/create/update responses, which already carry the full
+        # variant/SKU breakdown instead.
+        image_url: { type: string, nullable: true }
+        price_minor_units: { type: integer, format: int64, nullable: true }
+        sale_price_minor_units: { type: integer, format: int64, nullable: true }
+        currency_code: { type: string, nullable: true }
 
     Variant:
       type: object
