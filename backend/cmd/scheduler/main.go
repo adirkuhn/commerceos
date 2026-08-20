@@ -124,6 +124,8 @@ func main() {
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
+	warehouseRepo := repositories.NewWarehouseRepo(db)
+	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	importJobRepo := repositories.NewImportJobRepo(db)
 	notificationRepo := repositories.NewNotificationRepo(db)
@@ -136,6 +138,10 @@ func main() {
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
+	recalculateCostPricesUC := pmsapp.NewRecalculateCostPricesUseCase(
+		db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, costPriceHistoryRepo,
+		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+	)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo,
@@ -284,6 +290,7 @@ func main() {
 			runDue(ctx, db, scheduleRepo, rs)
 			runExpiredSalePrices(ctx, db, skuRepo, expireSalePriceUC)
 			runExpiredBatches(ctx, db, batchRepo, expireBatchUC)
+			runRecalculateCostPrices(ctx, db, skuRepo, recalculateCostPricesUC)
 		case <-importJobTicker.C:
 			runPendingImportJobs(ctx, db, importJobRepo, runManualWooImportUC, notifyUC)
 		case <-documentParsingJobTicker.C:
@@ -380,6 +387,52 @@ func runExpiredSalePrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SK
 			log.Printf("expire sale price for sku %s: %v", s.ID, err)
 		}
 	}
+}
+
+// lastCostPriceRunDate gates runRecalculateCostPrices to once per calendar
+// day (UTC) instead of every poll tick -- unlike runExpiredSalePrices/
+// runExpiredBatches (cheap no-op queries when nothing's due), recomputing
+// every active SKU's weighted-average cost is real work worth doing once a
+// day, not every 60s. Process-local: a restart re-runs it once more that
+// day, which is harmless (RecalculateCostPricesUseCase is idempotent --
+// same-day history rows upsert, cost price just gets recomputed to the same
+// value). Not safe against multiple concurrent scheduler replicas each
+// running it once on their own clock -- same caveat as this file's other
+// unlocked cross-tenant polls, acceptable for a single-scheduler deployment.
+var lastCostPriceRunDate time.Time
+
+// runRecalculateCostPrices is the daily cost-price cron -- computes every
+// active SKU's weighted-average cost price and recommended price (see
+// pms.RecalculateCostPricesUseCase), once per day across every tenant.
+// Same cross-tenant SuperAdmin + per-item tenant-identity dispatch shape as
+// runExpiredSalePrices/runExpiredBatches above. Never crashes the loop: a
+// failure on one SKU is logged and the next day's run tries again.
+func runRecalculateCostPrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SKURepository, recalculateCostPricesUC *pmsapp.RecalculateCostPricesUseCase) {
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	if lastCostPriceRunDate.Equal(today) {
+		return
+	}
+
+	adminCtx := tenant.WithSuperAdmin(ctx)
+
+	var skus []pmsDomain.SKU
+	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
+		var err error
+		skus, err = skuRepo.ListActive(ctx)
+		return err
+	})
+	if err != nil {
+		log.Printf("list active skus for cost-price recalculation: %v", err)
+		return
+	}
+
+	for _, s := range skus {
+		runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
+		if _, err := recalculateCostPricesUC.Execute(runCtx, s.ID); err != nil {
+			log.Printf("recalculate cost price for sku %s: %v", s.ID, err)
+		}
+	}
+	lastCostPriceRunDate = today
 }
 
 // runExpiredBatches polls for batches past their tenant's configured
