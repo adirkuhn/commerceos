@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -86,6 +87,26 @@ func (uc *RecordStockMovementUseCase) Execute(ctx context.Context, in RecordStoc
 		}
 		now := time.Now()
 		if err := requireSufficientStock(movements, in.WarehouseID, in.BatchID, in.QuantityDelta); err != nil {
+			if errors.Is(err, invDomain.ErrInsufficientStock) {
+				batchStockBreakdown := make(map[string]int64)
+				var generalStock int64
+				for _, m := range movements {
+					if m.WarehouseID != in.WarehouseID {
+						continue
+					}
+					if m.BatchID == nil {
+						generalStock += m.QuantityDelta
+					} else {
+						batchStockBreakdown[*m.BatchID] += m.QuantityDelta
+					}
+				}
+				requestedBatch := "nil (general ledger)"
+				if in.BatchID != nil {
+					requestedBatch = *in.BatchID
+				}
+				log.Printf("[DEBUG] Insufficient stock for SKU %s in warehouse %s. Requested BatchID: %s, Delta: %d. Current general ledger stock: %d. Other batches stock: %+v",
+					in.SKUID, in.WarehouseID, requestedBatch, in.QuantityDelta, generalStock, batchStockBreakdown)
+			}
 			if !in.ReconcileShortfall || !errors.Is(err, invDomain.ErrInsufficientStock) {
 				return err
 			}
