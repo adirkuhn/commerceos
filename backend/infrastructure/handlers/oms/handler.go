@@ -42,6 +42,9 @@ type linkLineItemSKUUC interface {
 type retryStockDecrementUC interface {
 	Execute(ctx context.Context, salesOrderID string) (*appoms.RetryStockDecrementResult, error)
 }
+type forceAcceptStockUC interface {
+	Execute(ctx context.Context, salesOrderID string) (*appoms.ForceAcceptStockResult, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -53,13 +56,14 @@ type Handler struct {
 	deleteSalesOrder    deleteSalesOrderUC
 	linkLineItemSKU     linkLineItemSKUUC
 	retryStockDecrement retryStockDecrementUC
+	forceAcceptStock    forceAcceptStockUC
 }
 
-func NewHandler(listSalesOrders listSalesOrdersUC, getSalesOrder getSalesOrderUC, createSalesOrder createSalesOrderUC, updateSalesOrder updateSalesOrderUC, deleteSalesOrder deleteSalesOrderUC, linkLineItemSKU linkLineItemSKUUC, retryStockDecrement retryStockDecrementUC) *Handler {
+func NewHandler(listSalesOrders listSalesOrdersUC, getSalesOrder getSalesOrderUC, createSalesOrder createSalesOrderUC, updateSalesOrder updateSalesOrderUC, deleteSalesOrder deleteSalesOrderUC, linkLineItemSKU linkLineItemSKUUC, retryStockDecrement retryStockDecrementUC, forceAcceptStock forceAcceptStockUC) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
 		createSalesOrder: createSalesOrder, updateSalesOrder: updateSalesOrder, deleteSalesOrder: deleteSalesOrder,
-		linkLineItemSKU: linkLineItemSKU, retryStockDecrement: retryStockDecrement,
+		linkLineItemSKU: linkLineItemSKU, retryStockDecrement: retryStockDecrement, forceAcceptStock: forceAcceptStock,
 	}
 }
 
@@ -89,6 +93,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo),
 		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock),
+		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -237,6 +242,16 @@ func (h *Handler) RetryStockDecrement(c *gin.Context, id genoms.Id) {
 	order := toGenSalesOrder(result.Order)
 	resp := genoms.RetryStockDecrementResult{SalesOrder: order, Resolved: result.Resolved, StillPending: result.StillPending}
 	c.JSON(http.StatusOK, genoms.RetryStockDecrementResponse{Data: &resp})
+}
+
+func (h *Handler) ForceAcceptStock(c *gin.Context, id genoms.Id) {
+	result, err := h.forceAcceptStock.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	order := toGenSalesOrder(result.Order)
+	resp := genoms.ForceAcceptStockResult{SalesOrder: order, Resolved: result.Resolved}
+	c.JSON(http.StatusOK, genoms.ForceAcceptStockResponse{Data: &resp})
 }
 
 func strOrEmpty(s *string) string {

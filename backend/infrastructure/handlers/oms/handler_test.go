@@ -135,8 +135,25 @@ func (s *stubRetryStockDecrement) Execute(_ context.Context, salesOrderID string
 	return &appoms.RetryStockDecrementResult{Order: omsDomain.SalesOrder{ID: salesOrderID}}, nil
 }
 
-func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement) *gin.Engine {
-	h := omshandler.NewHandler(list, get, create, update, del, link, retry)
+type stubForceAcceptStock struct {
+	out      *appoms.ForceAcceptStockResult
+	err      error
+	gotOrder string
+}
+
+func (s *stubForceAcceptStock) Execute(_ context.Context, salesOrderID string) (*appoms.ForceAcceptStockResult, error) {
+	s.gotOrder = salesOrderID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appoms.ForceAcceptStockResult{Order: omsDomain.SalesOrder{ID: salesOrderID}}, nil
+}
+
+func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock) *gin.Engine {
+	h := omshandler.NewHandler(list, get, create, update, del, link, retry, force)
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -159,7 +176,7 @@ func TestListSalesOrders_success(t *testing.T) {
 		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", ExternalOrderID: "pos-1", Status: omsDomain.SalesOrderStatusCompleted}},
 		Total:       1,
 	}}
-	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "GET", "/api/v1/sales-orders", nil)
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "pos-1")
@@ -168,7 +185,7 @@ func TestListSalesOrders_success(t *testing.T) {
 
 func TestListSalesOrders_passesSortByAndSortDirQueryParamsThrough(t *testing.T) {
 	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
-	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}),
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
 		"GET", "/api/v1/sales-orders?sort_by=total&sort_dir=asc", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -181,7 +198,7 @@ func TestGetSalesOrder_success(t *testing.T) {
 		SalesOrder: omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1"},
 		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2}},
 	}}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "GET", "/api/v1/sales-orders/so-1", nil)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders/so-1", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "sku-1")
@@ -189,7 +206,7 @@ func TestGetSalesOrder_success(t *testing.T) {
 
 func TestGetSalesOrder_notFound(t *testing.T) {
 	get := &stubGetSalesOrder{err: omsDomain.ErrSalesOrderNotFound}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "GET", "/api/v1/sales-orders/missing", nil)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders/missing", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
@@ -203,7 +220,7 @@ func TestCreateSalesOrder_success(t *testing.T) {
 		"warehouse_id": "wh-1", "currency_code": "USD", "occurred_at": "2026-01-01T00:00:00Z",
 		"line_items": []map[string]any{{"sku_id": "sku-1", "quantity": 2, "price_minor_units": 500}},
 	}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, create, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "POST", "/api/v1/sales-orders", body)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, create, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "POST", "/api/v1/sales-orders", body)
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	assert.Contains(t, w.Body.String(), "so-1")
@@ -217,7 +234,7 @@ func TestCreateSalesOrder_emptyLineItemsIsUnprocessable(t *testing.T) {
 		"warehouse_id": "wh-1", "currency_code": "USD", "occurred_at": "2026-01-01T00:00:00Z",
 		"line_items": []map[string]any{{"sku_id": "sku-1", "quantity": 2, "price_minor_units": 500}},
 	}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, create, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "POST", "/api/v1/sales-orders", body)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, create, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "POST", "/api/v1/sales-orders", body)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
@@ -225,7 +242,7 @@ func TestCreateSalesOrder_emptyLineItemsIsUnprocessable(t *testing.T) {
 func TestUpdateSalesOrder_success(t *testing.T) {
 	update := &stubUpdateSalesOrder{out: &omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusCancelled}}
 	body := map[string]any{"status": "cancelled"}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, update, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "PATCH", "/api/v1/sales-orders/so-1", body)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, update, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "PATCH", "/api/v1/sales-orders/so-1", body)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "so-1", update.gotID)
@@ -236,14 +253,14 @@ func TestUpdateSalesOrder_success(t *testing.T) {
 
 func TestUpdateSalesOrder_notFound(t *testing.T) {
 	update := &stubUpdateSalesOrder{err: omsDomain.ErrSalesOrderNotFound}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, update, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "PATCH", "/api/v1/sales-orders/missing", map[string]any{"customer_note": "x"})
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, update, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "PATCH", "/api/v1/sales-orders/missing", map[string]any{"customer_note": "x"})
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestDeleteSalesOrder_success(t *testing.T) {
 	del := &stubDeleteSalesOrder{}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, del, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "DELETE", "/api/v1/sales-orders/so-1", nil)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, del, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "DELETE", "/api/v1/sales-orders/so-1", nil)
 
 	require.Equal(t, http.StatusNoContent, w.Code)
 	assert.Equal(t, "so-1", del.gotID)
@@ -251,14 +268,14 @@ func TestDeleteSalesOrder_success(t *testing.T) {
 
 func TestDeleteSalesOrder_notFound(t *testing.T) {
 	del := &stubDeleteSalesOrder{err: omsDomain.ErrSalesOrderNotFound}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, del, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}), "DELETE", "/api/v1/sales-orders/missing", nil)
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, del, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "DELETE", "/api/v1/sales-orders/missing", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestListSalesOrders_passesNeedsReviewFiltersThrough(t *testing.T) {
 	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
-	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}),
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
 		"GET", "/api/v1/sales-orders?needs_stock_review=true&needs_sku_review=false", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -271,7 +288,7 @@ func TestListSalesOrders_passesNeedsReviewFiltersThrough(t *testing.T) {
 func TestLinkLineItemSKU_success(t *testing.T) {
 	link := &stubLinkLineItemSKU{out: &omsDomain.SalesOrder{ID: "so-1", NeedsSKUReview: false}}
 	body := map[string]any{"sku_id": "sku-1"}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, link, &stubRetryStockDecrement{}),
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, link, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
 		"POST", "/api/v1/sales-orders/so-1/line-items/li-1/link-sku", body)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -284,7 +301,7 @@ func TestLinkLineItemSKU_success(t *testing.T) {
 func TestLinkLineItemSKU_lineItemNotOnOrderIsUnprocessable(t *testing.T) {
 	link := &stubLinkLineItemSKU{err: omsDomain.ErrLineItemNotOnOrder}
 	body := map[string]any{"sku_id": "sku-1"}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, link, &stubRetryStockDecrement{}),
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, link, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
 		"POST", "/api/v1/sales-orders/so-1/line-items/li-1/link-sku", body)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -293,7 +310,7 @@ func TestLinkLineItemSKU_lineItemNotOnOrderIsUnprocessable(t *testing.T) {
 func TestLinkLineItemSKU_unknownSKUIsNotFound(t *testing.T) {
 	link := &stubLinkLineItemSKU{err: pmsDomain.ErrSKUNotFound}
 	body := map[string]any{"sku_id": "missing-sku"}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, link, &stubRetryStockDecrement{}),
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, link, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
 		"POST", "/api/v1/sales-orders/so-1/line-items/li-1/link-sku", body)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -303,7 +320,7 @@ func TestRetryStockDecrement_success(t *testing.T) {
 	retry := &stubRetryStockDecrement{out: &appoms.RetryStockDecrementResult{
 		Order: omsDomain.SalesOrder{ID: "so-1", NeedsStockReview: false}, Resolved: 2, StillPending: 1,
 	}}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, retry),
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, retry, &stubForceAcceptStock{}),
 		"POST", "/api/v1/sales-orders/so-1/retry-stock", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -314,7 +331,7 @@ func TestRetryStockDecrement_success(t *testing.T) {
 
 func TestRetryStockDecrement_orderNotStockReducingIsUnprocessable(t *testing.T) {
 	retry := &stubRetryStockDecrement{err: omsDomain.ErrOrderNotStockReducing}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, retry),
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, retry, &stubForceAcceptStock{}),
 		"POST", "/api/v1/sales-orders/so-1/retry-stock", nil)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -322,8 +339,28 @@ func TestRetryStockDecrement_orderNotStockReducingIsUnprocessable(t *testing.T) 
 
 func TestRetryStockDecrement_notFound(t *testing.T) {
 	retry := &stubRetryStockDecrement{err: omsDomain.ErrSalesOrderNotFound}
-	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, retry),
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, retry, &stubForceAcceptStock{}),
 		"POST", "/api/v1/sales-orders/missing/retry-stock", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestForceAcceptStock_success(t *testing.T) {
+	force := &stubForceAcceptStock{out: &appoms.ForceAcceptStockResult{
+		Order: omsDomain.SalesOrder{ID: "so-1", NeedsStockReview: false}, Resolved: 2,
+	}}
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, force),
+		"POST", "/api/v1/sales-orders/so-1/force-accept-stock", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "so-1", force.gotOrder)
+	assert.Contains(t, w.Body.String(), `"resolved":2`)
+}
+
+func TestForceAcceptStock_notFound(t *testing.T) {
+	force := &stubForceAcceptStock{err: omsDomain.ErrSalesOrderNotFound}
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, force),
+		"POST", "/api/v1/sales-orders/missing/force-accept-stock", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

@@ -143,6 +143,32 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/{id}/force-accept-stock:
+    post:
+      operationId: forceAcceptStock
+      summary: >
+        Bypass the insufficient-stock check for every SKU-linked pending
+        line item on this order -- the "Stock Issues" admin page's override
+        action, for when staff know the item physically exists and the
+        tracked ledger is simply wrong. Writes a reconciliation adjustment
+        for whatever's short, same escape hatch POS sales already use, then
+        completes the sale. Unlike retry-stock, this always resolves every
+        eligible line item -- there is no still_pending outcome. A
+        SKU-less line item is left untouched; link it via link-sku first.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForceAcceptStockResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /sales-orders/{id}/line-items/{lineItemId}/link-sku:
     post:
       operationId: linkLineItemSKU
@@ -394,6 +420,21 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/RetryStockDecrementResult' }
+        error: { nullable: true }
+
+    ForceAcceptStockResult:
+      type: object
+      required: [sales_order, resolved]
+      properties:
+        sales_order: { $ref: '#/components/schemas/SalesOrder' }
+        resolved:
+          type: integer
+          description: SKU-linked pending line items reconciled and decremented.
+
+    ForceAcceptStockResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ForceAcceptStockResult' }
         error: { nullable: true }
 
     ErrorResponse:
