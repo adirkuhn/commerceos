@@ -380,6 +380,63 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/margin-insight:
+    get:
+      operationId: getSKUMarginInsight
+      summary: Cost price, recommended price, and profit/margin insight for a SKU
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUMarginInsightResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /pms/skus/{id}/cost-price-history:
+    get:
+      operationId: listSKUCostPriceHistory
+      summary: Daily cost-price/recommended-price history for a SKU (margin trend chart)
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 90 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUCostPriceHistoryListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /pms/margin-report:
+    get:
+      operationId: listMarginReport
+      summary: Tenant-wide margin report — every active SKU with a computed cost price
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: below_target_only
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarginReportResponse'
+
 components:
   parameters:
     id:
@@ -423,6 +480,13 @@ components:
         name: { type: string }
         slug: { type: string }
         position: { type: integer }
+        target_margin_basis_points:
+          type: integer
+          nullable: true
+          description: >-
+            Overrides the tenant's default target margin for every product
+            in this category, when set (0-9999, e.g. 3000 = 30%). Null
+            means "use the tenant default".
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -583,8 +647,91 @@ components:
         woo_tax_class_slug: { type: string, nullable: true }
         woo_tax_status: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
+        cost_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Read-only. Weighted average of on-hand batches' landed cost,
+            recomputed daily by the cost-price cron. Null until the cron
+            has run at least once with a cost basis to average.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    SKUMarginInsight:
+      type: object
+      required: [cost_price_available, cost_price_minor_units, effective_target_margin_basis_points, recommended_price_minor_units, profit_at_price_minor_units, margin_at_price_basis_points, total_on_hand_quantity, total_profit_potential_minor_units, shrinkage_minor_units]
+      properties:
+        cost_price_available:
+          type: boolean
+          description: False until the daily cron has computed at least one cost price for this SKU — every other field is 0/null when false.
+        cost_price_minor_units: { type: integer, format: int64 }
+        effective_target_margin_basis_points: { type: integer }
+        recommended_price_minor_units: { type: integer, format: int64 }
+        profit_at_price_minor_units: { type: integer, format: int64 }
+        margin_at_price_basis_points: { type: integer }
+        profit_at_sale_price_minor_units: { type: integer, format: int64, nullable: true }
+        margin_at_sale_price_basis_points: { type: integer, nullable: true }
+        total_on_hand_quantity: { type: integer, format: int64 }
+        total_profit_potential_minor_units:
+          type: integer
+          format: int64
+          description: Profit/unit at the currently effective selling price times total_on_hand_quantity.
+        shrinkage_minor_units:
+          type: integer
+          format: int64
+          description: Cost value of everything discarded (damaged/lost) for this SKU in the trailing 30 days — a separate figure from cost price.
+
+    SKUMarginInsightResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SKUMarginInsight' }
+        error: { nullable: true }
+
+    SKUCostPriceHistoryEntry:
+      type: object
+      required: [id, sku_id, cost_price_minor_units, recommended_price_minor_units, occurred_on]
+      properties:
+        id: { type: string }
+        sku_id: { type: string }
+        cost_price_minor_units: { type: integer, format: int64 }
+        recommended_price_minor_units: { type: integer, format: int64 }
+        occurred_on: { type: string, format: date }
+
+    SKUCostPriceHistoryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SKUCostPriceHistoryEntry' }
+        error: { nullable: true }
+
+    MarginReportRow:
+      type: object
+      required: [sku_id, sku_code, cost_price_minor_units, price_minor_units, profit_minor_units, margin_basis_points, target_margin_basis_points, recommended_price_minor_units, below_target]
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        cost_price_minor_units: { type: integer, format: int64 }
+        price_minor_units: { type: integer, format: int64 }
+        profit_minor_units: { type: integer, format: int64 }
+        margin_basis_points: { type: integer }
+        target_margin_basis_points: { type: integer }
+        recommended_price_minor_units: { type: integer, format: int64 }
+        below_target: { type: boolean }
+
+    MarginReportResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/MarginReportRow' }
+        meta:
+          type: object
+          properties:
+            total: { type: integer, format: int64 }
+        error: { nullable: true }
 
     VariantWithSKUs:
       allOf:
@@ -620,6 +767,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         parent_id: { type: string, nullable: true }
+        target_margin_basis_points: { type: integer, nullable: true, minimum: 0, maximum: 9999 }
 
     CreateProductRequest:
       type: object

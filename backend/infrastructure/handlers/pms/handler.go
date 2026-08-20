@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	genpms "github.com/adirkuhn/commerceos/api/pms"
+	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -111,30 +112,42 @@ type updateMediaUC interface {
 type resolveBarcodeUC interface {
 	Execute(ctx context.Context, code string) (*apppms.ResolveBarcodeResult, error)
 }
+type getSKUMarginInsightUC interface {
+	Execute(ctx context.Context, skuID string) (*apppms.GetSKUMarginInsightResult, error)
+}
+type listCostPriceHistoryUC interface {
+	Execute(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUCostPriceHistory, error)
+}
+type listMarginReportUC interface {
+	Execute(ctx context.Context, in apppms.ListMarginReportInput) (*apppms.ListMarginReportResult, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listCategories   listCategoriesUC
-	createCategory   createCategoryUC
-	updateCategory   updateCategoryUC
-	deleteCategory   deleteCategoryUC
-	listProducts     listProductsUC
-	createProduct    createProductUC
-	getProduct       getProductUC
-	updateProduct    updateProductUC
-	deleteProduct    deleteProductUC
-	createVariant    createVariantUC
-	updateVariant    updateVariantUC
-	deleteVariant    deleteVariantUC
-	createSKU        createSKUUC
-	updateSKU        updateSKUUC
-	deleteSKU        deleteSKUUC
-	uploadMedia      uploadMediaUC
-	listProductMedia listProductMediaUC
-	deleteMedia      deleteMediaUC
-	updateMedia      updateMediaUC
-	resolveBarcode   resolveBarcodeUC
+	listCategories       listCategoriesUC
+	createCategory       createCategoryUC
+	updateCategory       updateCategoryUC
+	deleteCategory       deleteCategoryUC
+	listProducts         listProductsUC
+	createProduct        createProductUC
+	getProduct           getProductUC
+	updateProduct        updateProductUC
+	deleteProduct        deleteProductUC
+	createVariant        createVariantUC
+	updateVariant        updateVariantUC
+	deleteVariant        deleteVariantUC
+	createSKU            createSKUUC
+	updateSKU            updateSKUUC
+	deleteSKU            deleteSKUUC
+	uploadMedia          uploadMediaUC
+	listProductMedia     listProductMediaUC
+	deleteMedia          deleteMediaUC
+	updateMedia          updateMediaUC
+	resolveBarcode       resolveBarcodeUC
+	getSKUMarginInsight  getSKUMarginInsightUC
+	listCostPriceHistory listCostPriceHistoryUC
+	listMarginReport     listMarginReportUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -159,28 +172,34 @@ func NewHandler(
 	deleteMedia deleteMediaUC,
 	updateMedia updateMediaUC,
 	resolveBarcode resolveBarcodeUC,
+	getSKUMarginInsight getSKUMarginInsightUC,
+	listCostPriceHistory listCostPriceHistoryUC,
+	listMarginReport listMarginReportUC,
 ) *Handler {
 	return &Handler{
-		listCategories:   listCategories,
-		createCategory:   createCategory,
-		updateCategory:   updateCategory,
-		deleteCategory:   deleteCategory,
-		listProducts:     listProducts,
-		createProduct:    createProduct,
-		getProduct:       getProduct,
-		updateProduct:    updateProduct,
-		deleteProduct:    deleteProduct,
-		createVariant:    createVariant,
-		updateVariant:    updateVariant,
-		deleteVariant:    deleteVariant,
-		createSKU:        createSKU,
-		updateSKU:        updateSKU,
-		deleteSKU:        deleteSKU,
-		uploadMedia:      uploadMedia,
-		listProductMedia: listProductMedia,
-		deleteMedia:      deleteMedia,
-		updateMedia:      updateMedia,
-		resolveBarcode:   resolveBarcode,
+		getSKUMarginInsight:  getSKUMarginInsight,
+		listCostPriceHistory: listCostPriceHistory,
+		listMarginReport:     listMarginReport,
+		listCategories:       listCategories,
+		createCategory:       createCategory,
+		updateCategory:       updateCategory,
+		deleteCategory:       deleteCategory,
+		listProducts:         listProducts,
+		createProduct:        createProduct,
+		getProduct:           getProduct,
+		updateProduct:        updateProduct,
+		deleteProduct:        deleteProduct,
+		createVariant:        createVariant,
+		updateVariant:        updateVariant,
+		deleteVariant:        deleteVariant,
+		createSKU:            createSKU,
+		updateSKU:            updateSKU,
+		deleteSKU:            deleteSKU,
+		uploadMedia:          uploadMedia,
+		listProductMedia:     listProductMedia,
+		deleteMedia:          deleteMedia,
+		updateMedia:          updateMedia,
+		resolveBarcode:       resolveBarcode,
 	}
 }
 
@@ -198,6 +217,14 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	mediaRepo := repositories.NewMediaRepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
+	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
+	settingsRepo := repositories.NewTenantSettingsRepo(db)
+	warehouseRepo := repositories.NewWarehouseRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	discardRepo := repositories.NewDiscardRecordRepo(db)
+	batchLister := invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
+	discardLister := invapp.NewListDiscardsUseCase(db, discardRepo)
 
 	h := NewHandler(
 		apppms.NewListCategoriesUseCase(db, categoryRepo),
@@ -220,6 +247,9 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
 		apppms.NewUpdateMediaUseCase(db, mediaRepo),
 		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
+		apppms.NewGetSKUMarginInsightUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, batchLister, discardLister),
+		apppms.NewListCostPriceHistoryUseCase(db, costPriceHistoryRepo),
+		apppms.NewListMarginReportUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -262,9 +292,10 @@ func (h *Handler) UpdateCategory(c *gin.Context, id genpms.Id) {
 		return
 	}
 	category, err := h.updateCategory.Execute(c.Request.Context(), apppms.UpdateCategoryInput{
-		ID:       id,
-		Name:     req.Name,
-		ParentID: req.ParentId,
+		ID:                      id,
+		Name:                    req.Name,
+		ParentID:                req.ParentId,
+		TargetMarginBasisPoints: req.TargetMarginBasisPoints,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -533,6 +564,82 @@ func (h *Handler) ResolveBarcode(c *gin.Context, code string) {
 	c.JSON(http.StatusOK, genpms.ResolveBarcodeResponse{Data: &resp})
 }
 
+func (h *Handler) GetSKUMarginInsight(c *gin.Context, id genpms.Id) {
+	insight, err := h.getSKUMarginInsight.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genpms.SKUMarginInsight{
+		CostPriceAvailable:               insight.CostPriceAvailable,
+		CostPriceMinorUnits:              insight.CostPriceMinorUnits,
+		EffectiveTargetMarginBasisPoints: insight.EffectiveTargetMarginBasisPoints,
+		RecommendedPriceMinorUnits:       insight.RecommendedPriceMinorUnits,
+		ProfitAtPriceMinorUnits:          insight.ProfitAtPriceMinorUnits,
+		MarginAtPriceBasisPoints:         insight.MarginAtPriceBasisPoints,
+		ProfitAtSalePriceMinorUnits:      insight.ProfitAtSalePriceMinorUnits,
+		MarginAtSalePriceBasisPoints:     insight.MarginAtSalePriceBasisPoints,
+		TotalOnHandQuantity:              insight.TotalOnHandQuantity,
+		TotalProfitPotentialMinorUnits:   insight.TotalProfitPotentialMinorUnits,
+		ShrinkageMinorUnits:              insight.ShrinkageMinorUnits,
+	}
+	c.JSON(http.StatusOK, genpms.SKUMarginInsightResponse{Data: &resp})
+}
+
+func (h *Handler) ListSKUCostPriceHistory(c *gin.Context, id genpms.Id, params genpms.ListSKUCostPriceHistoryParams) {
+	limit := 0
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	history, err := h.listCostPriceHistory.Execute(c.Request.Context(), id, limit)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genpms.SKUCostPriceHistoryEntry, len(history))
+	for i, hist := range history {
+		resp[i] = genpms.SKUCostPriceHistoryEntry{
+			Id: hist.ID, SkuId: hist.SKUID,
+			CostPriceMinorUnits: hist.CostPriceMinorUnits, RecommendedPriceMinorUnits: hist.RecommendedPriceMinorUnits,
+			OccurredOn: openapi_types.Date{Time: hist.OccurredOn},
+		}
+	}
+	c.JSON(http.StatusOK, genpms.SKUCostPriceHistoryListResponse{Data: &resp})
+}
+
+func (h *Handler) ListMarginReport(c *gin.Context, params genpms.ListMarginReportParams) {
+	in := apppms.ListMarginReportInput{}
+	if params.Page != nil {
+		in.Page = *params.Page
+	}
+	if params.PerPage != nil {
+		in.PerPage = *params.PerPage
+	}
+	if params.BelowTargetOnly != nil {
+		in.BelowTargetOnly = *params.BelowTargetOnly
+	}
+	result, err := h.listMarginReport.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genpms.MarginReportRow, len(result.Rows))
+	for i, row := range result.Rows {
+		var productName *string
+		if row.ProductName != "" {
+			productName = &row.ProductName
+		}
+		rows[i] = genpms.MarginReportRow{
+			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: productName,
+			CostPriceMinorUnits: row.CostPriceMinorUnits, PriceMinorUnits: row.PriceMinorUnits,
+			ProfitMinorUnits: row.ProfitMinorUnits, MarginBasisPoints: row.MarginBasisPoints,
+			TargetMarginBasisPoints: row.TargetMarginBasisPoints, RecommendedPriceMinorUnits: row.RecommendedPriceMinorUnits,
+			BelowTarget: row.BelowTarget,
+		}
+	}
+	total := result.Total
+	c.JSON(http.StatusOK, genpms.MarginReportResponse{Data: &rows, Meta: &struct {
+		Total *int64 `json:"total,omitempty"`
+	}{Total: &total}})
+}
+
 // ── Media handlers ────────────────────────────────────────────────────────────
 
 func (h *Handler) ListProductMedia(c *gin.Context, id genpms.Id) {
@@ -603,14 +710,15 @@ func (h *Handler) DeleteMedia(c *gin.Context, id genpms.Id) {
 
 func toGenCategory(c pmsDomain.Category) genpms.Category {
 	return genpms.Category{
-		Id:        c.ID,
-		TenantId:  c.TenantID,
-		ParentId:  c.ParentID,
-		Name:      c.Name,
-		Slug:      c.Slug,
-		Position:  c.Position,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		Id:                      c.ID,
+		TenantId:                c.TenantID,
+		ParentId:                c.ParentID,
+		Name:                    c.Name,
+		Slug:                    c.Slug,
+		Position:                c.Position,
+		TargetMarginBasisPoints: c.TargetMarginBasisPoints,
+		CreatedAt:               c.CreatedAt,
+		UpdatedAt:               c.UpdatedAt,
 	}
 }
 
@@ -694,6 +802,7 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		WooTaxClassSlug:     s.WooTaxClassSlug,
 		WooTaxStatus:        s.WooTaxStatus,
 		Status:              genpms.SKUStatus(s.Status),
+		CostPriceMinorUnits: s.CostPriceMinorUnits,
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
 	}

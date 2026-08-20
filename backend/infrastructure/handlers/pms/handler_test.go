@@ -193,29 +193,59 @@ func (s *stubResolveBarcode) Execute(_ context.Context, code string) (*apppms.Re
 	return s.out, s.err
 }
 
+type stubGetSKUMarginInsight struct {
+	out *apppms.GetSKUMarginInsightResult
+	err error
+}
+
+func (s *stubGetSKUMarginInsight) Execute(_ context.Context, _ string) (*apppms.GetSKUMarginInsightResult, error) {
+	return s.out, s.err
+}
+
+type stubListCostPriceHistory struct {
+	out []pmsDomain.SKUCostPriceHistory
+	err error
+}
+
+func (s *stubListCostPriceHistory) Execute(_ context.Context, _ string, _ int) ([]pmsDomain.SKUCostPriceHistory, error) {
+	return s.out, s.err
+}
+
+type stubListMarginReport struct {
+	out *apppms.ListMarginReportResult
+	err error
+}
+
+func (s *stubListMarginReport) Execute(_ context.Context, _ apppms.ListMarginReportInput) (*apppms.ListMarginReportResult, error) {
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
-	listCategories   stubListCategories
-	createCategory   stubCreateCategory
-	updateCategory   stubUpdateCategory
-	deleteCategory   stubDeleteCategory
-	listProducts     stubListProducts
-	createProduct    stubCreateProduct
-	getProduct       stubGetProduct
-	updateProduct    stubUpdateProduct
-	deleteProduct    stubDeleteProduct
-	createVariant    stubCreateVariant
-	updateVariant    stubUpdateVariant
-	deleteVariant    stubDeleteVariant
-	createSKU        stubCreateSKU
-	updateSKU        stubUpdateSKU
-	deleteSKU        stubDeleteSKU
-	uploadMedia      stubUploadMedia
-	listProductMedia stubListProductMedia
-	deleteMedia      stubDeleteMedia
-	updateMedia      stubUpdateMedia
-	resolveBarcode   stubResolveBarcode
+	listCategories       stubListCategories
+	createCategory       stubCreateCategory
+	updateCategory       stubUpdateCategory
+	deleteCategory       stubDeleteCategory
+	listProducts         stubListProducts
+	createProduct        stubCreateProduct
+	getProduct           stubGetProduct
+	updateProduct        stubUpdateProduct
+	deleteProduct        stubDeleteProduct
+	createVariant        stubCreateVariant
+	updateVariant        stubUpdateVariant
+	deleteVariant        stubDeleteVariant
+	createSKU            stubCreateSKU
+	updateSKU            stubUpdateSKU
+	deleteSKU            stubDeleteSKU
+	uploadMedia          stubUploadMedia
+	listProductMedia     stubListProductMedia
+	deleteMedia          stubDeleteMedia
+	updateMedia          stubUpdateMedia
+	resolveBarcode       stubResolveBarcode
+	getSKUMarginInsight  stubGetSKUMarginInsight
+	listCostPriceHistory stubListCostPriceHistory
+	listMarginReport     stubListMarginReport
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -226,6 +256,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.createSKU, &s.updateSKU, &s.deleteSKU,
 		&s.uploadMedia, &s.listProductMedia, &s.deleteMedia, &s.updateMedia,
 		&s.resolveBarcode,
+		&s.getSKUMarginInsight, &s.listCostPriceHistory, &s.listMarginReport,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -528,4 +559,45 @@ func TestResolveBarcode_notFound(t *testing.T) {
 	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/UNKNOWN", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetSKUMarginInsight_success(t *testing.T) {
+	s := &stubs{getSKUMarginInsight: stubGetSKUMarginInsight{out: &apppms.GetSKUMarginInsightResult{
+		CostPriceAvailable: true, CostPriceMinorUnits: 700, RecommendedPriceMinorUnits: 1000,
+		ProfitAtPriceMinorUnits: 300, MarginAtPriceBasisPoints: 3000, TotalOnHandQuantity: 5,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/sku-1/margin-insight", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"cost_price_minor_units":700`)
+	assert.Contains(t, w.Body.String(), `"recommended_price_minor_units":1000`)
+}
+
+func TestGetSKUMarginInsight_notFound(t *testing.T) {
+	s := &stubs{getSKUMarginInsight: stubGetSKUMarginInsight{err: pmsDomain.ErrSKUNotFound}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/missing/margin-insight", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListSKUCostPriceHistory_success(t *testing.T) {
+	s := &stubs{listCostPriceHistory: stubListCostPriceHistory{out: []pmsDomain.SKUCostPriceHistory{
+		{ID: "h1", SKUID: "sku-1", CostPriceMinorUnits: 700, RecommendedPriceMinorUnits: 1000},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/sku-1/cost-price-history", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"cost_price_minor_units":700`)
+}
+
+func TestListMarginReport_success(t *testing.T) {
+	s := &stubs{listMarginReport: stubListMarginReport{out: &apppms.ListMarginReportResult{
+		Rows:  []apppms.MarginReportRow{{SKUID: "sku-1", SKUCode: "WID-L", CostPriceMinorUnits: 700, PriceMinorUnits: 1000, ProfitMinorUnits: 300, MarginBasisPoints: 3000, BelowTarget: false}},
+		Total: 1,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/margin-report", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"sku_code":"WID-L"`)
+	assert.Contains(t, w.Body.String(), `"total":1`)
 }

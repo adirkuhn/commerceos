@@ -106,8 +106,11 @@ type Category struct {
 	ParentId  *string   `json:"parent_id,omitempty"`
 	Position  int       `json:"position"`
 	Slug      string    `json:"slug"`
-	TenantId  string    `json:"tenant_id"`
-	UpdatedAt time.Time `json:"updated_at"`
+
+	// TargetMarginBasisPoints Overrides the tenant's default target margin for every product in this category, when set (0-9999, e.g. 3000 = 30%). Null means "use the tenant default".
+	TargetMarginBasisPoints *int      `json:"target_margin_basis_points,omitempty"`
+	TenantId                string    `json:"tenant_id"`
+	UpdatedAt               time.Time `json:"updated_at"`
 }
 
 // CategoryListResponse defines model for CategoryListResponse.
@@ -180,6 +183,29 @@ type ErrorResponse struct {
 		Code    *string `json:"code,omitempty"`
 		Message *string `json:"message,omitempty"`
 	} `json:"error,omitempty"`
+}
+
+// MarginReportResponse defines model for MarginReportResponse.
+type MarginReportResponse struct {
+	Data  *[]MarginReportRow `json:"data,omitempty"`
+	Error interface{}        `json:"error,omitempty"`
+	Meta  *struct {
+		Total *int64 `json:"total,omitempty"`
+	} `json:"meta,omitempty"`
+}
+
+// MarginReportRow defines model for MarginReportRow.
+type MarginReportRow struct {
+	BelowTarget                bool    `json:"below_target"`
+	CostPriceMinorUnits        int64   `json:"cost_price_minor_units"`
+	MarginBasisPoints          int     `json:"margin_basis_points"`
+	PriceMinorUnits            int64   `json:"price_minor_units"`
+	ProductName                *string `json:"product_name,omitempty"`
+	ProfitMinorUnits           int64   `json:"profit_minor_units"`
+	RecommendedPriceMinorUnits int64   `json:"recommended_price_minor_units"`
+	SkuCode                    string  `json:"sku_code"`
+	SkuId                      string  `json:"sku_id"`
+	TargetMarginBasisPoints    int     `json:"target_margin_basis_points"`
 }
 
 // Media defines model for Media.
@@ -280,12 +306,15 @@ type ResolveBarcodeResult struct {
 
 // SKU defines model for SKU.
 type SKU struct {
-	Barcode      *string   `json:"barcode,omitempty"`
-	CaseOfSkuId  *string   `json:"case_of_sku_id,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	CurrencyCode string    `json:"currency_code"`
-	HeightMm     *int64    `json:"height_mm,omitempty"`
-	Id           string    `json:"id"`
+	Barcode     *string `json:"barcode,omitempty"`
+	CaseOfSkuId *string `json:"case_of_sku_id,omitempty"`
+
+	// CostPriceMinorUnits Read-only. Weighted average of on-hand batches' landed cost, recomputed daily by the cost-price cron. Null until the cron has run at least once with a cost basis to average.
+	CostPriceMinorUnits *int64    `json:"cost_price_minor_units,omitempty"`
+	CreatedAt           time.Time `json:"created_at"`
+	CurrencyCode        string    `json:"currency_code"`
+	HeightMm            *int64    `json:"height_mm,omitempty"`
+	Id                  string    `json:"id"`
 
 	// IsVirtual Digital/non-shippable SKU. A virtual SKU never has weight or dimensions set.
 	IsVirtual          bool    `json:"is_virtual"`
@@ -317,6 +346,47 @@ type SKU struct {
 	WooTaxStatus    *string      `json:"woo_tax_status,omitempty"`
 }
 
+// SKUCostPriceHistoryEntry defines model for SKUCostPriceHistoryEntry.
+type SKUCostPriceHistoryEntry struct {
+	CostPriceMinorUnits        int64              `json:"cost_price_minor_units"`
+	Id                         string             `json:"id"`
+	OccurredOn                 openapi_types.Date `json:"occurred_on"`
+	RecommendedPriceMinorUnits int64              `json:"recommended_price_minor_units"`
+	SkuId                      string             `json:"sku_id"`
+}
+
+// SKUCostPriceHistoryListResponse defines model for SKUCostPriceHistoryListResponse.
+type SKUCostPriceHistoryListResponse struct {
+	Data  *[]SKUCostPriceHistoryEntry `json:"data,omitempty"`
+	Error interface{}                 `json:"error,omitempty"`
+}
+
+// SKUMarginInsight defines model for SKUMarginInsight.
+type SKUMarginInsight struct {
+	// CostPriceAvailable False until the daily cron has computed at least one cost price for this SKU — every other field is 0/null when false.
+	CostPriceAvailable               bool   `json:"cost_price_available"`
+	CostPriceMinorUnits              int64  `json:"cost_price_minor_units"`
+	EffectiveTargetMarginBasisPoints int    `json:"effective_target_margin_basis_points"`
+	MarginAtPriceBasisPoints         int    `json:"margin_at_price_basis_points"`
+	MarginAtSalePriceBasisPoints     *int   `json:"margin_at_sale_price_basis_points,omitempty"`
+	ProfitAtPriceMinorUnits          int64  `json:"profit_at_price_minor_units"`
+	ProfitAtSalePriceMinorUnits      *int64 `json:"profit_at_sale_price_minor_units,omitempty"`
+	RecommendedPriceMinorUnits       int64  `json:"recommended_price_minor_units"`
+
+	// ShrinkageMinorUnits Cost value of everything discarded (damaged/lost) for this SKU in the trailing 30 days — a separate figure from cost price.
+	ShrinkageMinorUnits int64 `json:"shrinkage_minor_units"`
+	TotalOnHandQuantity int64 `json:"total_on_hand_quantity"`
+
+	// TotalProfitPotentialMinorUnits Profit/unit at the currently effective selling price times total_on_hand_quantity.
+	TotalProfitPotentialMinorUnits int64 `json:"total_profit_potential_minor_units"`
+}
+
+// SKUMarginInsightResponse defines model for SKUMarginInsightResponse.
+type SKUMarginInsightResponse struct {
+	Data  *SKUMarginInsight `json:"data,omitempty"`
+	Error interface{}       `json:"error,omitempty"`
+}
+
 // SKUResponse defines model for SKUResponse.
 type SKUResponse struct {
 	Data  *SKU        `json:"data,omitempty"`
@@ -331,8 +401,9 @@ type SKUUnitType string
 
 // UpdateCategoryRequest defines model for UpdateCategoryRequest.
 type UpdateCategoryRequest struct {
-	Name     string  `json:"name"`
-	ParentId *string `json:"parent_id,omitempty"`
+	Name                    string  `json:"name"`
+	ParentId                *string `json:"parent_id,omitempty"`
+	TargetMarginBasisPoints *int    `json:"target_margin_basis_points,omitempty"`
 }
 
 // UpdateMediaRequest defines model for UpdateMediaRequest.
@@ -416,6 +487,13 @@ type Id = string
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// ListMarginReportParams defines parameters for ListMarginReport.
+type ListMarginReportParams struct {
+	Page            *int  `form:"page,omitempty" json:"page,omitempty"`
+	PerPage         *int  `form:"per_page,omitempty" json:"per_page,omitempty"`
+	BelowTargetOnly *bool `form:"below_target_only,omitempty" json:"below_target_only,omitempty"`
+}
+
 // ListProductsParams defines parameters for ListProducts.
 type ListProductsParams struct {
 	Page    *int    `form:"page,omitempty" json:"page,omitempty"`
@@ -427,6 +505,11 @@ type ListProductsParams struct {
 type UploadProductMediaMultipartBody struct {
 	AltText *string            `json:"alt_text,omitempty"`
 	File    openapi_types.File `json:"file"`
+}
+
+// ListSKUCostPriceHistoryParams defines parameters for ListSKUCostPriceHistory.
+type ListSKUCostPriceHistoryParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
@@ -473,6 +556,9 @@ type ServerInterface interface {
 	// UpdateCategory Update a category
 	// (PATCH /pms/categories/{id})
 	UpdateCategory(c *gin.Context, id Id)
+	// ListMarginReport Tenant-wide margin report — every active SKU with a computed cost price
+	// (GET /pms/margin-report)
+	ListMarginReport(c *gin.Context, params ListMarginReportParams)
 	// DeleteMedia Delete a product image
 	// (DELETE /pms/media/{id})
 	DeleteMedia(c *gin.Context, id Id)
@@ -512,6 +598,12 @@ type ServerInterface interface {
 	// UpdateSKU Update a SKU
 	// (PATCH /pms/skus/{id})
 	UpdateSKU(c *gin.Context, id Id)
+	// ListSKUCostPriceHistory Daily cost-price/recommended-price history for a SKU (margin trend chart)
+	// (GET /pms/skus/{id}/cost-price-history)
+	ListSKUCostPriceHistory(c *gin.Context, id Id, params ListSKUCostPriceHistoryParams)
+	// GetSKUMarginInsight Cost price, recommended price, and profit/margin insight for a SKU
+	// (GET /pms/skus/{id}/margin-insight)
+	GetSKUMarginInsight(c *gin.Context, id Id)
 	// DeleteVariant Delete a variant (cascades to its skus)
 	// (DELETE /pms/variants/{id})
 	DeleteVariant(c *gin.Context, id Id)
@@ -606,6 +698,49 @@ func (siw *ServerInterfaceWrapper) UpdateCategory(c *gin.Context) {
 	}
 
 	siw.Handler.UpdateCategory(c, id)
+}
+
+// ListMarginReport operation middleware
+func (siw *ServerInterfaceWrapper) ListMarginReport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMarginReportParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", c.Request.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter per_page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "below_target_only" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "below_target_only", c.Request.URL.Query(), &params.BelowTargetOnly, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter below_target_only: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMarginReport(c, params)
 }
 
 // DeleteMedia operation middleware
@@ -939,6 +1074,67 @@ func (siw *ServerInterfaceWrapper) UpdateSKU(c *gin.Context) {
 	siw.Handler.UpdateSKU(c, id)
 }
 
+// ListSKUCostPriceHistory operation middleware
+func (siw *ServerInterfaceWrapper) ListSKUCostPriceHistory(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListSKUCostPriceHistoryParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", c.Request.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter limit: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSKUCostPriceHistory(c, id, params)
+}
+
+// GetSKUMarginInsight operation middleware
+func (siw *ServerInterfaceWrapper) GetSKUMarginInsight(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSKUMarginInsight(c, id)
+}
+
 // DeleteVariant operation middleware
 func (siw *ServerInterfaceWrapper) DeleteVariant(c *gin.Context) {
 
@@ -1061,6 +1257,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/pms/skus/barcode-lookup/:code", wrapper.ResolveBarcode)
 	router.DELETE(options.BaseURL+"/pms/skus/:id", wrapper.DeleteSKU)
 	router.PATCH(options.BaseURL+"/pms/skus/:id", wrapper.UpdateSKU)
+	router.GET(options.BaseURL+"/pms/skus/:id/margin-insight", wrapper.GetSKUMarginInsight)
+	router.GET(options.BaseURL+"/pms/skus/:id/cost-price-history", wrapper.ListSKUCostPriceHistory)
+	router.GET(options.BaseURL+"/pms/margin-report", wrapper.ListMarginReport)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -1068,59 +1267,74 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"NL3mOD2FelmyzL3VLRizjI+XL4OHzw//HwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
