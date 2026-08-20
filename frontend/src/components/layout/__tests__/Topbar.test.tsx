@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Topbar from '../Topbar'
 import { AppProvider } from '../../../context/AppContext'
@@ -23,7 +24,7 @@ import * as scannerApi from '../../../scanner/api'
 beforeEach(() => { vi.clearAllMocks() })
 
 function renderTopbar() {
-  return render(<AppProvider><Topbar /></AppProvider>)
+  return render(<MemoryRouter><AppProvider><Topbar /></AppProvider></MemoryRouter>)
 }
 
 describe('Topbar Pair Scanner', () => {

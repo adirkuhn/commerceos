@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Sidebar from '../Sidebar'
 import { AppProvider } from '../../../context/AppContext'
@@ -24,7 +25,7 @@ function product(id: string): Product {
 }
 
 function renderSidebar() {
-  return render(<AppProvider><Sidebar /></AppProvider>)
+  return render(<MemoryRouter><AppProvider><Sidebar /></AppProvider></MemoryRouter>)
 }
 
 describe('Sidebar product count badge', () => {

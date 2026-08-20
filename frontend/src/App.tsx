@@ -1,69 +1,41 @@
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { CallbackPage } from './auth/CallbackPage'
 import ScannerApp from './scanner/ScannerApp'
-import { AppProvider, useApp } from './context/AppContext'
+import { AppProvider } from './context/AppContext'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
-import Dashboard from './pages/Dashboard'
-import Products from './pages/Products'
-import Inventory from './pages/Inventory'
-import Warehouses from './pages/Warehouses'
-import Orders from './pages/Orders'
-import Picking from './pages/Picking'
-import Integrations from './pages/Integrations'
-import SalesChannels from './pages/SalesChannels'
-import SyncLog from './pages/SyncLog'
-import Users from './pages/Users'
-import Suppliers from './pages/Suppliers'
-import Procurement from './pages/Procurement'
-import Customers from './pages/Customers'
-import SalesOrders from './pages/SalesOrders'
-import StockIssues from './pages/StockIssues'
-import UnmatchedSkus from './pages/UnmatchedSkus'
-import Shipping from './pages/Shipping'
-import Reports from './pages/Reports'
-import Settings from './pages/Settings'
+import { PAGE_ROUTES } from './routes'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_PATH = '/scanner'
 
+function NotFoundPage() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center">
+        <p className="text-sm font-medium dark:text-gray-200 text-gray-800">Page not found</p>
+        <p className="text-xs dark:text-gray-500 text-gray-400 mt-1">This page doesn&apos;t exist.</p>
+      </div>
+    </div>
+  )
+}
+
 function AppContent() {
-  const { activeNav } = useApp()
-
-  const renderPage = () => {
-    switch (activeNav) {
-      case 'dashboard': return <Dashboard />
-      case 'products': return <Products />
-      case 'inventory': return <Inventory />
-      case 'warehouses': return <Warehouses />
-      case 'orders': return <Orders />
-      case 'picking': return <Picking />
-      case 'integrations': return <Integrations />
-      case 'sales-channels': return <SalesChannels />
-      case 'sync-log': return <SyncLog />
-      case 'users': return <Users />
-      case 'suppliers': return <Suppliers />
-      case 'procurement': return <Procurement />
-      case 'customers': return <Customers />
-      case 'sales-orders': return <SalesOrders />
-      case 'stock-issues': return <StockIssues />
-      case 'unmatched-skus': return <UnmatchedSkus />
-      case 'shipping': return <Shipping />
-      case 'reports': return <Reports />
-      case 'settings': return <Settings />
-      default: return <Dashboard />
-    }
-  }
-
   return (
     <div className="flex h-screen dark:bg-[#0B1220] bg-[#F9FAFB] overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />
         <main className="flex-1 overflow-hidden dark:bg-[#0B1220] bg-[#F9FAFB]">
-          {renderPage()}
+          <Routes>
+            {PAGE_ROUTES.map(({ path, Component }) => (
+              <Route key={path} path={path} element={<Component />} />
+            ))}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
         </main>
       </div>
       <CommandPalette />
@@ -71,10 +43,11 @@ function AppContent() {
   )
 }
 
-function AppShell() {
+export function AppShell() {
   const { isAuthenticated } = useAuth()
-  const isCallback = window.location.pathname === CALLBACK_PATH
-  const isScanner = window.location.pathname === SCANNER_PATH
+  const location = useLocation()
+  const isCallback = location.pathname === CALLBACK_PATH
+  const isScanner = location.pathname === SCANNER_PATH
 
   // The scanner device pairs with its own short-lived token (see
   // ./scanner/useScannerAuth) and never goes through lm2 login -- checked
@@ -93,8 +66,10 @@ function AppShell() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
