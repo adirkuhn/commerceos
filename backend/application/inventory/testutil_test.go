@@ -120,6 +120,7 @@ type stubBatchRepo struct {
 	findErr      error
 	createErr    error
 	createCalled bool
+	created      *invDomain.Batch
 	deleteErr    error
 	deleted      []string
 
@@ -146,6 +147,7 @@ func (s *stubBatchRepo) Create(_ context.Context, b *invDomain.Batch) error {
 		return s.createErr
 	}
 	b.ID = "batch-1"
+	s.created = b
 	return nil
 }
 func (s *stubBatchRepo) FindByID(_ context.Context, _ string) (*invDomain.Batch, error) {
@@ -283,6 +285,14 @@ func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, e
 
 func (s *stubSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
 	return false, nil
+}
+
+func (s *stubSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}
+
+func (s *stubSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
 }
 
 type stubDiscardRecordRepo struct {

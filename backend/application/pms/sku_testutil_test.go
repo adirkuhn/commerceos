@@ -30,17 +30,24 @@ func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return
 func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
 
 type stubSKURepo struct {
-	findByCodeResult    *pmsDomain.SKU
-	findByCodeErr       error
-	findByIDResult      *pmsDomain.SKU
-	findByIDErr         error
-	findByBarcodeResult *pmsDomain.SKU
-	findByBarcodeErr    error
-	created             *pmsDomain.SKU
-	createErr           error
-	updated             *pmsDomain.SKU
-	gotCode             string
-	gotBarcode          string
+	findByCodeResult     *pmsDomain.SKU
+	findByCodeErr        error
+	findByIDResult       *pmsDomain.SKU
+	findByIDErr          error
+	findByBarcodeResult  *pmsDomain.SKU
+	findByBarcodeErr     error
+	created              *pmsDomain.SKU
+	createErr            error
+	updated              *pmsDomain.SKU
+	gotCode              string
+	gotBarcode           string
+	listActiveResult     []pmsDomain.SKU
+	listActiveErr        error
+	updateCostPriceCalls []struct {
+		SKUID               string
+		CostPriceMinorUnits int64
+	}
+	updateCostPriceErr error
 }
 
 func (s *stubSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -85,4 +92,16 @@ func (s *stubSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SKU, e
 
 func (s *stubSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
 	return false, nil
+}
+
+func (s *stubSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
+	return s.listActiveResult, s.listActiveErr
+}
+
+func (s *stubSKURepo) UpdateCostPrice(_ context.Context, skuID string, costPriceMinorUnits int64) error {
+	s.updateCostPriceCalls = append(s.updateCostPriceCalls, struct {
+		SKUID               string
+		CostPriceMinorUnits int64
+	}{skuID, costPriceMinorUnits})
+	return s.updateCostPriceErr
 }

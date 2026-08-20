@@ -19,9 +19,11 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 		DefaultCurrency: "USD", Timezone: "Europe/Amsterdam", DateFormat: "DD/MM/YYYY", Language: "en",
 		PricesIncludeTax: true, DefaultTaxCountry: "NL",
 		InventorySyncRulesEnabled: true, BatchExpiryThresholdDays: 30,
+		DefaultTargetMarginBasisPoints: 3000,
 	})
 
 	require.NoError(t, err)
+	require.Equal(t, 3000, result.DefaultTargetMarginBasisPoints)
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
 	require.Equal(t, "DD/MM/YYYY", result.DateFormat)
@@ -44,6 +46,15 @@ func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
 	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
 
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD"})
+
+	require.Error(t, err)
+}
+
+func TestUpdateTenantSettings_rejectsOutOfRangeTargetMargin(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarginBasisPoints: 10000})
 
 	require.Error(t, err)
 }

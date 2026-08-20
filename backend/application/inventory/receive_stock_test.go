@@ -104,4 +104,39 @@ func TestReceiveStock_setsExpiryDateOnNewBatch(t *testing.T) {
 	assert.Equal(t, expiry, *result.Batch.ExpiryDate)
 }
 
+func TestReceiveStock_persistsLandedCostAndPurchaseOrderLineItemIDOnNewBatch(t *testing.T) {
+	db := newMockGormDB(t)
+	batchRepo := &stubBatchRepo{}
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{})
+
+	lineItemID := "line-item-1"
+	unitCost := int64(1250)
+	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
+		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5,
+		PurchaseOrderLineItemID: &lineItemID, UnitCostMinorUnits: &unitCost,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.Batch)
+	require.NotNil(t, result.Batch.PurchaseOrderLineItemID)
+	assert.Equal(t, lineItemID, *result.Batch.PurchaseOrderLineItemID)
+	require.NotNil(t, result.Batch.LandedCostMinorUnits)
+	assert.Equal(t, unitCost, *result.Batch.LandedCostMinorUnits)
+}
+
+func TestReceiveStock_leavesLandedCostNilWhenNotSupplied(t *testing.T) {
+	db := newMockGormDB(t)
+	batchRepo := &stubBatchRepo{}
+	uc := appinventory.NewReceiveStockUseCase(db, batchRepo, &stubStockMovementRepo{}, &stubOutboxRepo{})
+
+	result, err := uc.Execute(context.Background(), appinventory.ReceiveStockInput{
+		SKUID: "sku-1", WarehouseID: "warehouse-1", Quantity: 5,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.Batch)
+	assert.Nil(t, result.Batch.PurchaseOrderLineItemID)
+	assert.Nil(t, result.Batch.LandedCostMinorUnits)
+}
+
 var errStub = errors.New("stub error")

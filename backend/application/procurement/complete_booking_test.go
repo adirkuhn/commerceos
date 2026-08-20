@@ -46,6 +46,30 @@ func TestCompleteBooking_replaysAStagedReceiveIntoRealStock(t *testing.T) {
 	assert.Equal(t, "user-1", result.Booking.CompletedBy)
 }
 
+func TestCompleteBooking_computesLandedCostForAReceiveFromItsLineItemAndSharedShipping(t *testing.T) {
+	db := newMockGormDBN(t, 3)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{
+		{ID: "line-1", SKUID: strPtr("sku-1"), Quantity: 10, UnitCostMinorUnits: 800, LineType: procurementDomain.LineItemTypeProduct},
+		{ID: "line-2", SKUID: strPtr("sku-2"), Quantity: 5, UnitCostMinorUnits: 400, LineType: procurementDomain.LineItemTypeProduct},
+		{ID: "line-shipping", Quantity: 1, UnitCostMinorUnits: 1000, LineType: procurementDomain.LineItemTypeShipping},
+	}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10},
+	}}
+	receiveStock := &stubReceiveStockForBooking{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, receiveStock, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	require.Len(t, receiveStock.calls, 1)
+	require.NotNil(t, receiveStock.calls[0].PurchaseOrderLineItemID)
+	assert.Equal(t, "line-1", *receiveStock.calls[0].PurchaseOrderLineItemID)
+	require.NotNil(t, receiveStock.calls[0].UnitCostMinorUnits)
+	assert.Equal(t, int64(880), *receiveStock.calls[0].UnitCostMinorUnits) // 800 + 800/1000*1000/10
+}
+
 func TestCompleteBooking_replaysAStagedCorrectionAsANegativeAdjustment(t *testing.T) {
 	db := newMockGormDBN(t, 4) // read + mark-replayed(2 rows) + mark-completed
 	bookingRepo, poRepo := completableBookingFixtures()

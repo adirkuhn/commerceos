@@ -59,14 +59,15 @@ func (s *stringSlice) Scan(value any) error {
 }
 
 type categoryModel struct {
-	ID        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID  string `gorm:"not null;type:uuid"`
-	ParentID  *string
-	Name      string `gorm:"not null"`
-	Slug      string `gorm:"not null"`
-	Position  int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                      string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                string `gorm:"not null;type:uuid"`
+	ParentID                *string
+	Name                    string `gorm:"not null"`
+	Slug                    string `gorm:"not null"`
+	Position                int
+	TargetMarginBasisPoints *int `gorm:"column:target_margin_basis_points"`
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 func (categoryModel) TableName() string { return "categories" }
@@ -125,6 +126,7 @@ type skuModel struct {
 	WooTaxClassSlug     *string `gorm:"column:woo_tax_class_slug"`
 	WooTaxStatus        *string `gorm:"column:woo_tax_status"`
 	Status              string  `gorm:"not null"`
+	CostPriceMinorUnits *int64  `gorm:"column:cost_price_minor_units"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -151,13 +153,14 @@ func (r *CategoryRepo) Create(ctx context.Context, c *pmsDomain.Category) error 
 		return err
 	}
 	m := categoryModel{
-		TenantID:  c.TenantID,
-		ParentID:  c.ParentID,
-		Name:      c.Name,
-		Slug:      c.Slug,
-		Position:  c.Position,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		TenantID:                c.TenantID,
+		ParentID:                c.ParentID,
+		Name:                    c.Name,
+		Slug:                    c.Slug,
+		Position:                c.Position,
+		TargetMarginBasisPoints: c.TargetMarginBasisPoints,
+		CreatedAt:               c.CreatedAt,
+		UpdatedAt:               c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("categoryRepo.Create: %w", err)
@@ -219,9 +222,10 @@ func (r *CategoryRepo) Update(ctx context.Context, c *pmsDomain.Category) error 
 	}
 	if err := tx.Model(&categoryModel{}).Where("id = ?", c.ID).
 		Updates(map[string]any{
-			"parent_id":  c.ParentID,
-			"name":       c.Name,
-			"updated_at": c.UpdatedAt,
+			"parent_id":                  c.ParentID,
+			"name":                       c.Name,
+			"target_margin_basis_points": c.TargetMarginBasisPoints,
+			"updated_at":                 c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("categoryRepo.Update: %w", err)
 	}
@@ -241,14 +245,15 @@ func (r *CategoryRepo) Delete(ctx context.Context, id string) error {
 
 func toCategoryDomain(m categoryModel) *pmsDomain.Category {
 	return &pmsDomain.Category{
-		ID:        m.ID,
-		TenantID:  m.TenantID,
-		ParentID:  m.ParentID,
-		Name:      m.Name,
-		Slug:      m.Slug,
-		Position:  m.Position,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
+		ID:                      m.ID,
+		TenantID:                m.TenantID,
+		ParentID:                m.ParentID,
+		Name:                    m.Name,
+		Slug:                    m.Slug,
+		Position:                m.Position,
+		TargetMarginBasisPoints: m.TargetMarginBasisPoints,
+		CreatedAt:               m.CreatedAt,
+		UpdatedAt:               m.UpdatedAt,
 	}
 }
 
@@ -823,6 +828,38 @@ func (r *SKURepo) ListWithExpiredSale(ctx context.Context) ([]pmsDomain.SKU, err
 	return skus, nil
 }
 
+func (r *SKURepo) ListActive(ctx context.Context) ([]pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []skuModel
+	if err := tx.Where("status = ?", string(pmsDomain.SKUStatusActive)).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuRepo.ListActive: %w", err)
+	}
+	skus := make([]pmsDomain.SKU, len(rows))
+	for i, row := range rows {
+		skus[i] = *toSKUDomain(row)
+	}
+	return skus, nil
+}
+
+// UpdateCostPrice writes only cost_price_minor_units -- deliberately
+// separate from Update (which the ordinary product-edit save path calls
+// and never touches this field), so the cron is the sole writer and can't
+// be clobbered by a stale form round-trip.
+func (r *SKURepo) UpdateCostPrice(ctx context.Context, skuID string, costPriceMinorUnits int64) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&skuModel{}).Where("id = ?", skuID).
+		Update("cost_price_minor_units", costPriceMinorUnits).Error; err != nil {
+		return fmt.Errorf("skuRepo.UpdateCostPrice: %w", err)
+	}
+	return nil
+}
+
 func (r *SKURepo) ExistsWithTaxClass(ctx context.Context, taxClassID string) (bool, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -860,6 +897,7 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		WooTaxClassSlug:     m.WooTaxClassSlug,
 		WooTaxStatus:        m.WooTaxStatus,
 		Status:              pmsDomain.SKUStatus(m.Status),
+		CostPriceMinorUnits: m.CostPriceMinorUnits,
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
 	}
@@ -1003,4 +1041,78 @@ func toMediaDomain(m mediaModel) *pmsDomain.Media {
 		AltText:   m.AltText,
 		CreatedAt: m.CreatedAt,
 	}
+}
+
+// ── SKU cost price history repo ─────────────────────────────────────────────
+
+const defaultCostPriceHistoryLimit = 90
+
+type skuCostPriceHistoryModel struct {
+	ID                         string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                   string    `gorm:"not null;type:uuid"`
+	SKUID                      string    `gorm:"column:sku_id;not null;type:uuid"`
+	CostPriceMinorUnits        int64     `gorm:"not null"`
+	RecommendedPriceMinorUnits int64     `gorm:"not null"`
+	OccurredOn                 time.Time `gorm:"type:date;not null"`
+	CreatedAt                  time.Time
+}
+
+func (skuCostPriceHistoryModel) TableName() string { return "sku_cost_price_history" }
+
+type SKUCostPriceHistoryRepo struct{ db *gorm.DB }
+
+func NewSKUCostPriceHistoryRepo(db *gorm.DB) *SKUCostPriceHistoryRepo {
+	return &SKUCostPriceHistoryRepo{db: db}
+}
+
+func (r *SKUCostPriceHistoryRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *SKUCostPriceHistoryRepo) Upsert(ctx context.Context, h *pmsDomain.SKUCostPriceHistory) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := skuCostPriceHistoryModel{
+		TenantID: h.TenantID, SKUID: h.SKUID,
+		CostPriceMinorUnits: h.CostPriceMinorUnits, RecommendedPriceMinorUnits: h.RecommendedPriceMinorUnits,
+		OccurredOn: h.OccurredOn, CreatedAt: h.CreatedAt,
+	}
+	err = tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "sku_id"}, {Name: "occurred_on"}},
+		DoUpdates: clause.AssignmentColumns([]string{"cost_price_minor_units", "recommended_price_minor_units"}),
+	}).Create(&m).Error
+	if err != nil {
+		return fmt.Errorf("skuCostPriceHistoryRepo.Upsert: %w", err)
+	}
+	h.ID = m.ID
+	return nil
+}
+
+func (r *SKUCostPriceHistoryRepo) ListBySKU(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUCostPriceHistory, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = defaultCostPriceHistoryLimit
+	}
+	var rows []skuCostPriceHistoryModel
+	if err := tx.Where("sku_id = ?", skuID).Order("occurred_on desc").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuCostPriceHistoryRepo.ListBySKU: %w", err)
+	}
+	history := make([]pmsDomain.SKUCostPriceHistory, len(rows))
+	for i, row := range rows {
+		history[i] = pmsDomain.SKUCostPriceHistory{
+			ID: row.ID, TenantID: row.TenantID, SKUID: row.SKUID,
+			CostPriceMinorUnits: row.CostPriceMinorUnits, RecommendedPriceMinorUnits: row.RecommendedPriceMinorUnits,
+			OccurredOn: row.OccurredOn, CreatedAt: row.CreatedAt,
+		}
+	}
+	return history, nil
 }

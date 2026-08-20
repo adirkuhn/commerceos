@@ -338,3 +338,11 @@ func (s *erroringSKURepo) ListWithExpiredSale(_ context.Context) ([]pmsDomain.SK
 func (s *erroringSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }
+
+func (s *erroringSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}
+
+func (s *erroringSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}

@@ -22,6 +22,19 @@ type ReceiveStockInput struct {
 	ExpiryDate *time.Time
 	Reason     string
 	OccurredAt time.Time
+	// PurchaseOrderLineItemID and UnitCostMinorUnits are both nil unless
+	// this receipt is against a specific procurement.PurchaseOrderLineItem
+	// -- the caller (application/procurement, or the desktop receiving
+	// review flow via the landed-cost endpoint) is responsible for
+	// resolving UnitCostMinorUnits (the line's own cost plus its share of
+	// the PO's shipping/fees) before calling Execute; this use case only
+	// persists whatever it's given onto the new batch, it has no
+	// knowledge of procurement's allocation math (keeps this domain free
+	// of a cross-domain repository dependency -- see CLAUDE.md). Both are
+	// ignored when BatchID is set (an existing batch's cost was already
+	// fixed when it was created).
+	PurchaseOrderLineItemID *string
+	UnitCostMinorUnits      *int64
 }
 
 type ReceiveStockResult struct {
@@ -66,6 +79,7 @@ func (uc *ReceiveStockUseCase) Execute(ctx context.Context, in ReceiveStockInput
 			batch := invDomain.Batch{
 				TenantID: tenantID, SKUID: in.SKUID, WarehouseID: in.WarehouseID,
 				LotNumber: in.LotNumber, ExpiryDate: in.ExpiryDate, ReceivedAt: receivedAt,
+				PurchaseOrderLineItemID: in.PurchaseOrderLineItemID, LandedCostMinorUnits: in.UnitCostMinorUnits,
 				CreatedAt: now, UpdatedAt: now,
 			}
 			if err := uc.batchRepo.Create(ctx, &batch); err != nil {

@@ -14,6 +14,13 @@ type UpdateCategoryInput struct {
 	ID       string
 	Name     string
 	ParentID *string
+	// TargetMarginBasisPoints is nil for "use the tenant default", or a
+	// value in [0, 9999) to override it -- see
+	// pms.Category.TargetMarginBasisPoints. Full-replace semantics, same
+	// as UpdateSKUInput.SalePriceMinorUnits: the caller always resends the
+	// whole current value (nil included), there's no separate "leave
+	// untouched" state.
+	TargetMarginBasisPoints *int
 }
 
 type UpdateCategoryUseCase struct {
@@ -26,6 +33,10 @@ func NewUpdateCategoryUseCase(db *gorm.DB, categoryRepo pmsDomain.CategoryReposi
 }
 
 func (uc *UpdateCategoryUseCase) Execute(ctx context.Context, in UpdateCategoryInput) (*pmsDomain.Category, error) {
+	if in.TargetMarginBasisPoints != nil && (*in.TargetMarginBasisPoints < 0 || *in.TargetMarginBasisPoints >= 10000) {
+		return nil, fmt.Errorf("updateCategory: %w", pmsDomain.ErrInvalidTargetMarginBasisPoints)
+	}
+
 	var category pmsDomain.Category
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.categoryRepo.FindByID(ctx, in.ID)
@@ -34,6 +45,7 @@ func (uc *UpdateCategoryUseCase) Execute(ctx context.Context, in UpdateCategoryI
 		}
 		existing.Name = in.Name
 		existing.ParentID = in.ParentID
+		existing.TargetMarginBasisPoints = in.TargetMarginBasisPoints
 		existing.UpdatedAt = time.Now()
 		if err := uc.categoryRepo.Update(ctx, existing); err != nil {
 			return err

@@ -79,6 +79,31 @@ type SKURepository interface {
 	// given tax class -- used to guard tax.TaxClass deletion (see
 	// application/tax.DeleteTaxClassUseCase) without loading every SKU.
 	ExistsWithTaxClass(ctx context.Context, taxClassID string) (bool, error)
+	// ListActive returns every active SKU for the current tenant -- the
+	// daily cost-price cron's (RecalculateCostPricesUseCase) iteration
+	// source. Inactive SKUs are skipped: nothing meaningful to recompute
+	// for a discontinued product.
+	ListActive(ctx context.Context) ([]SKU, error)
+	// UpdateCostPrice writes only CostPriceMinorUnits -- deliberately
+	// narrower than Update, so RecalculateCostPricesUseCase is the sole
+	// writer of this field and an ordinary SKU edit (UpdateSKUUseCase,
+	// which never reads/round-trips a cost price) can't accidentally
+	// clobber it back to nil.
+	UpdateCostPrice(ctx context.Context, skuID string, costPriceMinorUnits int64) error
+}
+
+// SKUCostPriceHistoryRepository backs the margin-trend-over-time chart --
+// append-only in spirit (a day's row is never edited by a human), but the
+// cron itself must be able to safely rerun the same day (crash/redeploy
+// mid-run), hence Upsert rather than a plain Create.
+type SKUCostPriceHistoryRepository interface {
+	// Upsert writes h, replacing any existing row for the same
+	// (tenant_id, sku_id, occurred_on) -- makes a same-day cron rerun a
+	// no-op instead of a duplicate/error.
+	Upsert(ctx context.Context, h *SKUCostPriceHistory) error
+	// ListBySKU returns a SKU's history rows, most recent first, capped at
+	// limit (0 means the repository's own default cap).
+	ListBySKU(ctx context.Context, skuID string, limit int) ([]SKUCostPriceHistory, error)
 }
 
 type MediaRepository interface {

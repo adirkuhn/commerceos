@@ -68,4 +68,9 @@ var (
 	// deliberately -- it's the sales history), so the product can't be
 	// deleted while that history exists.
 	ErrProductHasSalesOrderHistory = errors.New("product has sales order history and cannot be deleted")
+	// ErrInvalidTargetMarginBasisPoints guards Category.TargetMarginBasisPoints
+	// and settings.TenantSettings.DefaultTargetMarginBasisPoints: must be
+	// 0-9999 (a margin strictly under 100%) -- a recommended price is
+	// undefined/infinite at exactly 100% margin and negative above it.
+	ErrInvalidTargetMarginBasisPoints = errors.New("target margin basis points must be between 0 and 9999")
 )

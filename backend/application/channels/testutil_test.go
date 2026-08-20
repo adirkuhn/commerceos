@@ -532,6 +532,14 @@ func (s *stubChannelsSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (b
 	return false, nil
 }
 
+func (s *stubChannelsSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}
+
+func (s *stubChannelsSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+
 // ── channels stub ────────────────────────────────────────────────────────────
 
 type stubListingRepo struct {

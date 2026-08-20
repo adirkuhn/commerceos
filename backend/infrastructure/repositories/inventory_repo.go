@@ -34,17 +34,19 @@ type warehouseModel struct {
 func (warehouseModel) TableName() string { return "warehouses" }
 
 type batchModel struct {
-	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID    string `gorm:"not null;type:uuid"`
-	SKUID       string `gorm:"column:sku_id;not null;type:uuid"`
-	WarehouseID string `gorm:"not null;type:uuid"`
-	LotNumber   string
-	ExpiryDate  *time.Time
-	ReceivedAt  time.Time
-	Status      string `gorm:"not null;default:'active'"`
-	ReviewedAt  *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                      string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                string `gorm:"not null;type:uuid"`
+	SKUID                   string `gorm:"column:sku_id;not null;type:uuid"`
+	WarehouseID             string `gorm:"not null;type:uuid"`
+	LotNumber               string
+	ExpiryDate              *time.Time
+	ReceivedAt              time.Time
+	Status                  string `gorm:"not null;default:'active'"`
+	ReviewedAt              *time.Time
+	PurchaseOrderLineItemID *string `gorm:"column:purchase_order_line_item_id;type:uuid"`
+	LandedCostMinorUnits    *int64  `gorm:"column:landed_cost_minor_units"`
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 func (batchModel) TableName() string { return "batches" }
@@ -195,15 +197,17 @@ func (r *BatchRepo) Create(ctx context.Context, b *invDomain.Batch) error {
 		status = invDomain.BatchStatusActive
 	}
 	m := batchModel{
-		TenantID:    b.TenantID,
-		SKUID:       b.SKUID,
-		WarehouseID: b.WarehouseID,
-		LotNumber:   b.LotNumber,
-		ExpiryDate:  b.ExpiryDate,
-		ReceivedAt:  b.ReceivedAt,
-		Status:      status,
-		CreatedAt:   b.CreatedAt,
-		UpdatedAt:   b.UpdatedAt,
+		TenantID:                b.TenantID,
+		SKUID:                   b.SKUID,
+		WarehouseID:             b.WarehouseID,
+		LotNumber:               b.LotNumber,
+		ExpiryDate:              b.ExpiryDate,
+		ReceivedAt:              b.ReceivedAt,
+		Status:                  status,
+		PurchaseOrderLineItemID: b.PurchaseOrderLineItemID,
+		LandedCostMinorUnits:    b.LandedCostMinorUnits,
+		CreatedAt:               b.CreatedAt,
+		UpdatedAt:               b.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("batchRepo.Create: %w", err)
@@ -482,17 +486,19 @@ func (r *BatchRepo) ListExpiringSoon(ctx context.Context, withinDays int) ([]inv
 
 func toBatchDomain(m batchModel) *invDomain.Batch {
 	return &invDomain.Batch{
-		ID:          m.ID,
-		TenantID:    m.TenantID,
-		SKUID:       m.SKUID,
-		WarehouseID: m.WarehouseID,
-		LotNumber:   m.LotNumber,
-		ExpiryDate:  m.ExpiryDate,
-		ReceivedAt:  m.ReceivedAt,
-		Status:      m.Status,
-		ReviewedAt:  m.ReviewedAt,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:                      m.ID,
+		TenantID:                m.TenantID,
+		SKUID:                   m.SKUID,
+		WarehouseID:             m.WarehouseID,
+		LotNumber:               m.LotNumber,
+		ExpiryDate:              m.ExpiryDate,
+		ReceivedAt:              m.ReceivedAt,
+		Status:                  m.Status,
+		ReviewedAt:              m.ReviewedAt,
+		PurchaseOrderLineItemID: m.PurchaseOrderLineItemID,
+		LandedCostMinorUnits:    m.LandedCostMinorUnits,
+		CreatedAt:               m.CreatedAt,
+		UpdatedAt:               m.UpdatedAt,
 	}
 }
 

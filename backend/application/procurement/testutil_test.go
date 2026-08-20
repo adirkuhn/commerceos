@@ -270,6 +270,14 @@ func (s *stubSKURepo) ExistsWithTaxClass(_ context.Context, _ string) (bool, err
 	return false, nil
 }
 
+func (s *stubSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
+	return nil, nil
+}
+
+func (s *stubSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+
 // stubProductRepo implements pms.ProductRepository -- only List (the
 // name-search matching step uses) and FindByID are exercised; the rest are
 // unused no-ops.

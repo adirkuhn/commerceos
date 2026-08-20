@@ -49,4 +49,18 @@ type Batch struct {
 	// zero-value) representing a warehouse's un-lotted stock rather than a
 	// real batch -- see ListBatchesUseCase.
 	IsGeneralLedger bool
+	// PurchaseOrderLineItemID is nil unless this batch was created by
+	// receiving against a specific procurement.PurchaseOrderLineItem --
+	// nil for manual stock-ins, POS-originated batches, or anything else
+	// with no PO behind it. Set once at batch creation, never updated.
+	PurchaseOrderLineItemID *string
+	// LandedCostMinorUnits is this batch's per-unit cost, same
+	// smallest-currency-unit convention as pms.SKU.PriceMinorUnits: the
+	// PO line item's UnitCostMinorUnits plus this batch's proportional
+	// share of that purchase order's shipping/fee/other-charge lines (see
+	// application/procurement's landed-cost allocation). Nil when the
+	// batch didn't originate from a PO (PurchaseOrderLineItemID nil) or
+	// the caller didn't supply a cost -- pms's cost-price rollup simply
+	// skips batches with no cost basis rather than treating nil as zero.
+	LandedCostMinorUnits *int64
 }

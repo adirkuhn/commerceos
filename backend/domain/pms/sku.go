@@ -44,6 +44,15 @@ type SKU struct {
 	// ErrSaleEndDateRequiresSalePrice).
 	SaleEndDate  *time.Time
 	CurrencyCode string
+	// CostPriceMinorUnits is nil until the daily cost-price cron (see
+	// application/pms.RecalculateCostPricesUseCase) has computed at least
+	// one value for this SKU -- the weighted average of
+	// inventory.Batch.LandedCostMinorUnits across every batch of this SKU
+	// still holding remaining quantity, weight = that batch's remaining
+	// quantity. A SKU whose stock all came in before landed-cost capture
+	// existed, or that has zero on-hand batches, stays nil (there's no
+	// cost basis to average) rather than being reported as zero.
+	CostPriceMinorUnits *int64
 	// WeightGrams and the *MM dimensions are nil when unknown — normalized
 	// to fixed SI units (like PriceMinorUnits normalizes money) so values
 	// from any future channel are comparable without ambiguity.
