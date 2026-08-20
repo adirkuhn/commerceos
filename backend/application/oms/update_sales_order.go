@@ -49,15 +49,16 @@ type UpdateSalesOrderInput struct {
 // needed to know quantities) is one transaction, the stock movements are
 // separate calls after it commits.
 type UpdateSalesOrderUseCase struct {
-	db             *gorm.DB
-	salesOrderRepo omsDomain.SalesOrderRepository
-	lineItemRepo   omsDomain.SalesOrderLineItemRepository
-	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
-	recordMovement recordSaleMovementUC
+	db              *gorm.DB
+	salesOrderRepo  omsDomain.SalesOrderRepository
+	lineItemRepo    omsDomain.SalesOrderLineItemRepository
+	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
+	recordMovement  recordSaleMovementUC
+	reverseMovement movementReverser
 }
 
-func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC) *UpdateSalesOrderUseCase {
-	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement}
+func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC, reverseMovement movementReverser) *UpdateSalesOrderUseCase {
+	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement, reverseMovement: reverseMovement}
 }
 
 func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -191,7 +192,7 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		}
 	}
 	if restocking {
-		if err := restockLineItems(ctx, uc.db, uc.lineItemRepo, uc.salesOrderRepo, uc.recordMovement, uc.linkRepo, id, updated.WarehouseID, lineItems); err != nil {
+		if err := restockLineItems(ctx, uc.db, uc.lineItemRepo, uc.salesOrderRepo, uc.reverseMovement, uc.linkRepo, id, updated.WarehouseID, lineItems); err != nil {
 			return nil, fmt.Errorf("updateSalesOrder: %w", err)
 		}
 	}
@@ -217,9 +218,9 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 			stillPending = true
 			continue
 		}
-		movement, err := recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+		movements, err := recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("sales order %s status change", orderID), OccurredAt: time.Now(),
+			Quantity: li.Quantity, Reason: fmt.Sprintf("sales order %s status change", orderID), OccurredAt: time.Now(),
 		})
 		if err != nil {
 			if !errors.Is(err, invDomain.ErrInsufficientStock) {
@@ -231,8 +232,10 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 			}
 			continue
 		}
-		if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement.ID); err != nil {
-			return err
+		for _, movement := range movements {
+			if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement); err != nil {
+				return err
+			}
 		}
 	}
 	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, stillPending)
@@ -244,7 +247,17 @@ func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain
 // Those are instead reset straight to Decremented: the order transitioning
 // to a Restocks() status (cancelled/failed) means the decrement is no longer
 // owed at all, pending or not.
-func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, salesOrderRepo omsDomain.SalesOrderRepository, recordMovement recordSaleMovementUC, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
+//
+// Reverses each of the line item's ORIGINAL decrement movements batch for
+// batch (via the link table's denormalized BatchID/QuantityDelta -- see
+// SalesOrderLineItemStockMovement's doc), not a fresh general-ledger credit:
+// AllocateSaleStockUseCase can split one line item's decrement across
+// several real batches (FEFO/FIFO), so crediting it all back to the general
+// ledger instead would leave those batches permanently short. Written as
+// Type Adjustment, not Sale -- Sale's sign validation only ever allows a
+// negative delta (removing stock), so a positive "giving it back" movement
+// has to be the other type explicitly allowed either direction.
+func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, salesOrderRepo omsDomain.SalesOrderRepository, reverseMovement movementReverser, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
 	for _, li := range lineItems {
 		if li.SKUID == nil {
 			continue
@@ -255,18 +268,43 @@ func restockLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.S
 			}
 			continue
 		}
-		movement, err := recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: *li.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: li.Quantity, Reason: fmt.Sprintf("sales order %s restocked", orderID), OccurredAt: time.Now(),
-		})
+		links, err := listLineItemMovements(ctx, db, linkRepo, li.ID)
 		if err != nil {
 			return err
 		}
-		if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement.ID); err != nil {
-			return err
+		for _, l := range links {
+			if l.QuantityDelta >= 0 {
+				// Only reverse actual stock-out movements -- a prior
+				// reconciliation Adjustment (see ReconcileShortfall) isn't
+				// linked to the line item at all, but guard anyway in case
+				// a future linked movement is ever non-negative.
+				continue
+			}
+			if _, err := reverseMovement.Execute(ctx, invapp.RecordStockMovementInput{
+				SKUID: *li.SKUID, WarehouseID: warehouseID, BatchID: l.BatchID, Type: invDomain.MovementTypeAdjustment,
+				QuantityDelta: -l.QuantityDelta, Reason: fmt.Sprintf("sales order %s restocked", orderID), OccurredAt: time.Now(),
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, orderID, false)
+}
+
+// listLineItemMovements is linkRepo.ListByLineItem wrapped in its own
+// tenant.WithTenant call -- never nest inside another transaction, same
+// composition rule as recordSaleMovementUC.
+func listLineItemMovements(ctx context.Context, db *gorm.DB, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, lineItemID string) ([]omsDomain.SalesOrderLineItemStockMovement, error) {
+	var links []omsDomain.SalesOrderLineItemStockMovement
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		links, err = linkRepo.ListByLineItem(ctx, lineItemID)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listLineItemMovements: %w", err)
+	}
+	return links, nil
 }
 
 func setLineItemStockStatus(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, lineItemID string, status omsDomain.StockStatus) error {

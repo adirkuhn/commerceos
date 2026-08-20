@@ -21,14 +21,15 @@ import (
 // the order is left untouched rather than deleted with its stock impact
 // unresolved.
 type DeleteSalesOrderUseCase struct {
-	db             *gorm.DB
-	salesOrderRepo omsDomain.SalesOrderRepository
-	lineItemRepo   omsDomain.SalesOrderLineItemRepository
-	recordMovement recordSaleMovementUC
+	db              *gorm.DB
+	salesOrderRepo  omsDomain.SalesOrderRepository
+	lineItemRepo    omsDomain.SalesOrderLineItemRepository
+	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
+	reverseMovement movementReverser
 }
 
-func NewDeleteSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, recordMovement recordSaleMovementUC) *DeleteSalesOrderUseCase {
-	return &DeleteSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, recordMovement: recordMovement}
+func NewDeleteSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, reverseMovement movementReverser) *DeleteSalesOrderUseCase {
+	return &DeleteSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, reverseMovement: reverseMovement}
 }
 
 func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error {
@@ -53,15 +54,24 @@ func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error
 	}
 
 	for _, li := range lineItems {
-		if li.SKUID == nil {
+		if li.SKUID == nil || li.StockStatus == omsDomain.StockStatusPending {
 			continue
 		}
-		if _, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
-			SKUID: *li.SKUID, WarehouseID: order.WarehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: li.Quantity, Reason: fmt.Sprintf("sales order %s deleted", id),
-			OccurredAt: time.Now(),
-		}); err != nil {
+		links, err := listLineItemMovements(ctx, uc.db, uc.linkRepo, li.ID)
+		if err != nil {
 			return fmt.Errorf("deleteSalesOrder: %w", err)
+		}
+		for _, l := range links {
+			if l.QuantityDelta >= 0 {
+				continue
+			}
+			if _, err := uc.reverseMovement.Execute(ctx, invapp.RecordStockMovementInput{
+				SKUID: *li.SKUID, WarehouseID: order.WarehouseID, BatchID: l.BatchID, Type: invDomain.MovementTypeAdjustment,
+				QuantityDelta: -l.QuantityDelta, Reason: fmt.Sprintf("sales order %s deleted", id),
+				OccurredAt: time.Now(),
+			}); err != nil {
+				return fmt.Errorf("deleteSalesOrder: %w", err)
+			}
 		}
 	}
 

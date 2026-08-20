@@ -61,9 +61,22 @@ type ReceivePOSSalesOrderInput struct {
 	LineItems  []ReceivePOSSalesOrderLineItemInput
 }
 
-// recordSaleMovementUC is *inventory.RecordStockMovementUseCase, narrowed
-// to point of use (ISP).
+// recordSaleMovementUC is *inventory.AllocateSaleStockUseCase, narrowed to
+// point of use (ISP) -- picks real batches (FEFO, then FIFO, then the
+// general ledger) instead of only ever checking the general ledger, and can
+// return more than one movement when a line item's quantity spans several
+// batches.
 type recordSaleMovementUC interface {
+	Execute(ctx context.Context, in invapp.AllocateSaleStockInput) ([]invDomain.StockMovement, error)
+}
+
+// movementReverser is *inventory.RecordStockMovementUseCase, narrowed to
+// point of use (ISP) -- used only to write a restock's per-batch reversal
+// movements (Type Adjustment, positive delta, one call per batch a prior
+// decrement actually hit -- see restockLineItems/DeleteSalesOrderUseCase).
+// AllocateSaleStockUseCase always removes stock and rejects a positive
+// delta, so restocking can't go through it.
+type movementReverser interface {
 	Execute(ctx context.Context, in invapp.RecordStockMovementInput) (*invDomain.StockMovement, error)
 }
 
@@ -200,20 +213,22 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		if li.SKUID == nil {
 			continue
 		}
-		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+		movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
+			Quantity: li.Quantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
 			OccurredAt: in.OccurredAt,
 			// The POS sale already physically happened -- an untracked
 			// receipt in CommerceOS must not block recording it. See
-			// RecordStockMovementInput.ReconcileShortfall.
+			// AllocateSaleStockInput.ReconcileShortfall.
 			ReconcileShortfall: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 		}
-		if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
-			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
+		for _, movement := range movements {
+			if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement); err != nil {
+				return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
+			}
 		}
 	}
 	return order, nil

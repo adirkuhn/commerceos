@@ -90,6 +90,15 @@ type updateSalesOrderUC interface {
 // unchanged orders are a no-op. One order's failure is recorded on the
 // result and never aborts the rest of the run -- same tolerance as
 // products import.
+// saleStockAllocator is *inventory.AllocateSaleStockUseCase, narrowed to
+// point of use (ISP) -- picks real batches (FEFO, then FIFO, then the
+// general ledger) for a Woo order's decrement instead of only ever checking
+// the general ledger, splitting across batches when one alone doesn't cover
+// a line item's quantity.
+type saleStockAllocator interface {
+	Execute(ctx context.Context, in invapp.AllocateSaleStockInput) ([]invDomain.StockMovement, error)
+}
+
 type ImportWooOrdersUseCase struct {
 	db               *gorm.DB
 	connRepo         integrationsDomain.ConnectionRepository
@@ -100,7 +109,7 @@ type ImportWooOrdersUseCase struct {
 	linkRepo         omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo          pmsDomain.SKURepository
 	customerRepo     customersDomain.CustomerRepository
-	stock            stockRecorder
+	allocateStock    saleStockAllocator
 	updateOrder      updateSalesOrderUC
 }
 
@@ -114,13 +123,13 @@ func NewImportWooOrdersUseCase(
 	linkRepo omsDomain.SalesOrderLineItemStockMovementRepository,
 	skuRepo pmsDomain.SKURepository,
 	customerRepo customersDomain.CustomerRepository,
-	stock stockRecorder,
+	allocateStock saleStockAllocator,
 	updateOrder updateSalesOrderUC,
 ) *ImportWooOrdersUseCase {
 	return &ImportWooOrdersUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
-		skuRepo: skuRepo, customerRepo: customerRepo, stock: stock, updateOrder: updateOrder,
+		skuRepo: skuRepo, customerRepo: customerRepo, allocateStock: allocateStock, updateOrder: updateOrder,
 	}
 }
 
@@ -459,9 +468,9 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			// nothing to attempt until it's linked to a SKU.
 			continue
 		}
-		movement, err := uc.stock.Execute(ctx, invapp.RecordStockMovementInput{
+		movements, err := uc.allocateStock.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: in.DefaultWarehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("woo order %s", externalOrderID), OccurredAt: occurredAt,
+			Quantity: li.Quantity, Reason: fmt.Sprintf("woo order %s", externalOrderID), OccurredAt: occurredAt,
 		})
 		if err != nil {
 			if !errors.Is(err, invDomain.ErrInsufficientStock) {
@@ -479,8 +488,10 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			}
 			continue
 		}
-		if err := linkOrderLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: link movement: %v", externalOrderID, err))
+		for _, movement := range movements {
+			if err := linkOrderLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: link movement: %v", externalOrderID, err))
+			}
 		}
 	}
 	if stockInsufficient {
@@ -552,11 +563,12 @@ func parseWooGMTTime(s string) (time.Time, error) {
 // (a movement's own tenant.WithTenant call, never nested), duplicated
 // rather than exported across a package boundary for one three-line
 // function.
-func linkOrderLineItemMovement(ctx context.Context, db *gorm.DB, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, lineItemID, movementID string) error {
+func linkOrderLineItemMovement(ctx context.Context, db *gorm.DB, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, lineItemID string, movement invDomain.StockMovement) error {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		return linkRepo.Create(ctx, &omsDomain.SalesOrderLineItemStockMovement{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderLineItemID: lineItemID,
-			StockMovementID: movementID, CreatedAt: time.Now(),
+			StockMovementID: movement.ID, BatchID: movement.BatchID, QuantityDelta: movement.QuantityDelta,
+			CreatedAt: time.Now(),
 		})
 	})
 	if err != nil {

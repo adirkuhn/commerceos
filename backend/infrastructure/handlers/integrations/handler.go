@@ -242,17 +242,18 @@ func Register(
 	mediaRepo := repositories.NewMediaRepo(db)
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
-	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
-		db, salesOrderRepo, salesOrderLineItemRepo,
-		appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo),
-	)
 	salesOrderLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
-	customerRepo := repositories.NewCustomerRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
 	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo)
+	allocateStockUC := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
+	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
+		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
+	)
+	customerRepo := repositories.NewCustomerRepo(db)
 	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-		stockRecorderUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC),
+		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC),
 	)
 
 	h := NewHandler(

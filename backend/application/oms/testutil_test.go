@@ -2,6 +2,7 @@ package oms_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -197,22 +198,30 @@ func (s *stubSalesOrderLineItemRepo) Update(_ context.Context, id string, fields
 }
 
 type stubSalesOrderLineItemStockMovementRepo struct {
-	createErr    error
-	created      []omsDomain.SalesOrderLineItemStockMovement
-	existsResult bool
-	existsErr    error
+	createErr     error
+	created       []omsDomain.SalesOrderLineItemStockMovement
+	existsResult  bool
+	existsErr     error
+	byLineItem    map[string][]omsDomain.SalesOrderLineItemStockMovement
+	listByLineErr error
 }
 
 func (s *stubSalesOrderLineItemStockMovementRepo) Create(_ context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {
 	if s.createErr != nil {
 		return s.createErr
 	}
-	l.ID = "link-1"
+	l.ID = fmt.Sprintf("link-%d", len(s.created)+1)
 	s.created = append(s.created, *l)
 	return nil
 }
 func (s *stubSalesOrderLineItemStockMovementRepo) ExistsForLineItem(_ context.Context, _ string) (bool, error) {
 	return s.existsResult, s.existsErr
+}
+func (s *stubSalesOrderLineItemStockMovementRepo) ListByLineItem(_ context.Context, lineItemID string) ([]omsDomain.SalesOrderLineItemStockMovement, error) {
+	if s.listByLineErr != nil {
+		return nil, s.listByLineErr
+	}
+	return s.byLineItem[lineItemID], nil
 }
 
 // stubSKURepo defaults to returning a SKU whose SKUCode/Barcode are derived
@@ -234,15 +243,20 @@ func (s *stubSKURepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, er
 }
 
 type stubRecordMovement struct {
-	calls []appinventory.RecordStockMovementInput
+	calls []appinventory.AllocateSaleStockInput
 	err   error
 	// errBySKU overrides err for a specific SKU -- lets a test simulate one
 	// line item succeeding while another fails differently, within the
 	// same Execute call.
 	errBySKU map[string]error
+	// batchIDs, if set for a SKU, splits that call's returned movements one
+	// per batch ID listed (nil entries mean the general ledger) instead of
+	// the single-movement default -- lets a test simulate an allocation
+	// that spanned more than one batch.
+	batchIDs map[string][]*string
 }
 
-func (s *stubRecordMovement) Execute(_ context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error) {
+func (s *stubRecordMovement) Execute(_ context.Context, in appinventory.AllocateSaleStockInput) ([]invDomain.StockMovement, error) {
 	s.calls = append(s.calls, in)
 	if err, ok := s.errBySKU[in.SKUID]; ok {
 		return nil, err
@@ -250,5 +264,38 @@ func (s *stubRecordMovement) Execute(_ context.Context, in appinventory.RecordSt
 	if s.err != nil {
 		return nil, s.err
 	}
-	return &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
+	batchIDs, ok := s.batchIDs[in.SKUID]
+	if !ok {
+		batchIDs = []*string{nil}
+	}
+	out := make([]invDomain.StockMovement, len(batchIDs))
+	remaining := in.Quantity
+	for i, b := range batchIDs {
+		qty := remaining
+		if i < len(batchIDs)-1 {
+			qty = remaining / int64(len(batchIDs)-i)
+		}
+		remaining -= qty
+		out[i] = invDomain.StockMovement{
+			ID: fmt.Sprintf("movement-%d", i+1), SKUID: in.SKUID, WarehouseID: in.WarehouseID,
+			BatchID: b, Type: in.Type, QuantityDelta: -qty,
+		}
+	}
+	return out, nil
+}
+
+// stubReverseMovement backs the second, narrower interface UpdateSalesOrderUseCase/
+// DeleteSalesOrderUseCase use to write a restock's per-batch reversal movements --
+// same shape as the old single-movement RecordStockMovementUseCase.
+type stubReverseMovement struct {
+	calls []appinventory.RecordStockMovementInput
+	err   error
+}
+
+func (s *stubReverseMovement) Execute(_ context.Context, in appinventory.RecordStockMovementInput) (*invDomain.StockMovement, error) {
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, BatchID: in.BatchID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
 }

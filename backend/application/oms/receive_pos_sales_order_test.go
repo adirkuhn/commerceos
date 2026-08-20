@@ -43,8 +43,8 @@ func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testin
 	require.Len(t, recordMovement.calls, 2)
 	assert.Equal(t, "sku-1", recordMovement.calls[0].SKUID)
 	assert.Equal(t, invDomain.MovementTypeSale, recordMovement.calls[0].Type)
-	assert.Equal(t, int64(-2), recordMovement.calls[0].QuantityDelta, "negative -- stock going out")
-	assert.Equal(t, int64(-1), recordMovement.calls[1].QuantityDelta)
+	assert.Equal(t, int64(2), recordMovement.calls[0].Quantity)
+	assert.Equal(t, int64(1), recordMovement.calls[1].Quantity)
 	assert.True(t, recordMovement.calls[0].ReconcileShortfall, "a POS sale already physically happened -- insufficient tracked stock must not block it")
 }
 

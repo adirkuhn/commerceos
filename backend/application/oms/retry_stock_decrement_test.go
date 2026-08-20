@@ -29,7 +29,7 @@ func TestRetryStockDecrement_resolvesAPendingLineItemAndClearsNeedsStockReview(t
 	assert.Equal(t, 1, result.Resolved)
 	assert.Equal(t, 0, result.StillPending)
 	require.Len(t, recordMovement.calls, 1)
-	assert.Equal(t, int64(-2), recordMovement.calls[0].QuantityDelta)
+	assert.Equal(t, int64(2), recordMovement.calls[0].Quantity)
 	require.Len(t, lineItemRepo.updateCalls, 1)
 	assert.Equal(t, string(omsDomain.StockStatusDecremented), lineItemRepo.updateCalls[0].Fields["stock_status"])
 	require.NotEmpty(t, salesOrderRepo.updateCalls)

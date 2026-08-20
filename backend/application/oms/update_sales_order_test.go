@@ -31,7 +31,7 @@ func TestUpdateSalesOrder_transitioningToProcessingDecrementsStock(t *testing.T)
 		{SKUID: strPtr("sku-1"), Quantity: 3},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusProcessing
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -39,12 +39,40 @@ func TestUpdateSalesOrder_transitioningToProcessingDecrementsStock(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, recordMovement.calls, 1)
 	assert.Equal(t, "sku-1", recordMovement.calls[0].SKUID)
-	assert.Equal(t, int64(-3), recordMovement.calls[0].QuantityDelta, "stock now being taken")
+	assert.Equal(t, int64(3), recordMovement.calls[0].Quantity, "stock now being taken")
 	assert.Equal(t, true, salesOrderRepo.gotTrySwapTo, "swap flips stock_decremented true, via TrySetStockDecremented not the header fields map")
 	require.NotEmpty(t, salesOrderRepo.updateCalls)
 	headerFields := salesOrderRepo.updateCalls[0].Fields
 	assert.NotContains(t, headerFields, "stock_decremented", "must never be set through the unconditional fields map -- that's the race the fix closes")
 	assert.Equal(t, string(omsDomain.SalesOrderStatusProcessing), headerFields["status"])
+}
+
+// TestUpdateSalesOrder_decrementSplitAcrossBatchesLinksEveryMovement proves
+// the actual production fix end-to-end at the wiring level: when the
+// allocator splits one line item's decrement across more than one batch
+// (see AllocateSaleStockUseCase's own FEFO/FIFO tests for the batch-picking
+// logic itself), every resulting movement gets linked to the line item, not
+// just the first.
+func TestUpdateSalesOrder_decrementSplitAcrossBatchesLinksEveryMovement(t *testing.T) {
+	db := newMockGormDBN(t, 4) // header + 2 link movements + setOrderNeedsStockReview
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
+		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 5},
+	}}
+	batchA, batchB := "batch-a", "batch-b"
+	recordMovement := &stubRecordMovement{batchIDs: map[string][]*string{"sku-1": {&batchA, &batchB}}}
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement, &stubReverseMovement{})
+
+	status := omsDomain.SalesOrderStatusProcessing
+	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
+
+	require.NoError(t, err)
+	require.Len(t, linkRepo.created, 2, "one link row per batch the allocation actually touched")
+	assert.Equal(t, "li-1", linkRepo.created[0].SalesOrderLineItemID)
+	assert.Equal(t, &batchA, linkRepo.created[0].BatchID)
+	assert.Equal(t, "li-1", linkRepo.created[1].SalesOrderLineItemID)
+	assert.Equal(t, &batchB, linkRepo.created[1].BatchID)
 }
 
 // TestUpdateSalesOrder_losingTheDecrementRaceIsANoOp proves that when
@@ -58,7 +86,7 @@ func TestUpdateSalesOrder_losingTheDecrementRaceIsANoOp(t *testing.T) {
 		{SKUID: strPtr("sku-1"), Quantity: 3},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusProcessing
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -68,24 +96,36 @@ func TestUpdateSalesOrder_losingTheDecrementRaceIsANoOp(t *testing.T) {
 	assert.Empty(t, recordMovement.calls, "lost the race -- the winner already decremented, this call must not repeat it")
 }
 
+// TestUpdateSalesOrder_cancellingARestockedOrderReturnsStock proves restock
+// reverses the line item's ORIGINAL decrement movement (via the link
+// table's denormalized BatchID/QuantityDelta), batch for batch -- not a
+// fresh general-ledger credit, since AllocateSaleStockUseCase can split one
+// line item's decrement across several real batches.
 func TestUpdateSalesOrder_cancellingARestockedOrderReturnsStock(t *testing.T) {
-	db := newMockGormDBN(t, 3) // header + link movement + setOrderNeedsStockReview
+	db := newMockGormDBN(t, 3) // header + listLineItemMovements + setOrderNeedsStockReview
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.Status = omsDomain.SalesOrderStatusProcessing
 		o.StockDecremented = true
 	})}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
-		{SKUID: strPtr("sku-1"), Quantity: 3},
+		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 3, StockStatus: omsDomain.StockStatusDecremented},
 	}}
-	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	batchID := "batch-1"
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
+		"li-1": {{SalesOrderLineItemID: "li-1", BatchID: &batchID, QuantityDelta: -3}},
+	}}
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, &stubRecordMovement{}, reverseMovement)
 
 	status := omsDomain.SalesOrderStatusCancelled
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
 
 	require.NoError(t, err)
-	require.Len(t, recordMovement.calls, 1)
-	assert.Equal(t, int64(3), recordMovement.calls[0].QuantityDelta, "positive -- stock coming back")
+	require.Len(t, reverseMovement.calls, 1)
+	assert.Equal(t, "sku-1", reverseMovement.calls[0].SKUID)
+	assert.Equal(t, &batchID, reverseMovement.calls[0].BatchID, "reverses the exact batch the original decrement hit")
+	assert.Equal(t, invDomain.MovementTypeAdjustment, reverseMovement.calls[0].Type)
+	assert.Equal(t, int64(3), reverseMovement.calls[0].QuantityDelta, "positive -- stock coming back")
 	assert.Equal(t, false, salesOrderRepo.gotTrySwapTo)
 	require.NotEmpty(t, salesOrderRepo.updateCalls)
 	assert.NotContains(t, salesOrderRepo.updateCalls[0].Fields, "stock_decremented")
@@ -98,7 +138,7 @@ func TestUpdateSalesOrder_refundingDoesNotAutoRestock(t *testing.T) {
 		o.StockDecremented = true
 	})}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusRefunded
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -114,7 +154,7 @@ func TestUpdateSalesOrder_processingToCompletedIsAStatusChangeWithNoStockMovemen
 		o.StockDecremented = true
 	})}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusCompleted
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -126,7 +166,7 @@ func TestUpdateSalesOrder_processingToCompletedIsAStatusChangeWithNoStockMovemen
 func TestUpdateSalesOrder_updatesHeaderFieldsWithoutTouchingStock(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{})
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
 
 	note := "call before delivery"
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{CustomerNote: &note})
@@ -139,7 +179,7 @@ func TestUpdateSalesOrder_updatesHeaderFieldsWithoutTouchingStock(t *testing.T) 
 func TestUpdateSalesOrder_updatesShippingMethod(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{})
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
 
 	method := "free_shipping"
 	title := "Free shipping"
@@ -157,7 +197,7 @@ func TestUpdateSalesOrder_updatesShippingMethod(t *testing.T) {
 func TestUpdateSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{})
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
 
 	note := "x"
 	_, err := uc.Execute(context.Background(), "missing", appoms.UpdateSalesOrderInput{CustomerNote: &note})
@@ -174,7 +214,7 @@ func TestUpdateSalesOrder_decrementingPropagatesANonInsufficientStockError(t *te
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 1}}}
 	recordMovement := &stubRecordMovement{err: errors.New("db unreachable")}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusProcessing
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -197,7 +237,7 @@ func TestUpdateSalesOrder_decrementingCountsAnUnlinkedLineItemAsStillPending(t *
 		{ID: "li-2", SKUID: nil, Quantity: 1, StockStatus: omsDomain.StockStatusPending},
 	}}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusProcessing
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -216,7 +256,7 @@ func TestUpdateSalesOrder_decrementingCountsAnUnlinkedLineItemAsStillPending(t *
 // Pending+linked item is reset straight to Decremented (no longer owed,
 // order is cancelled); a SKUID-less item is skipped entirely.
 func TestUpdateSalesOrder_restockingSkipsUnlinkedAndResetsPendingLineItems(t *testing.T) {
-	db := newMockGormDBN(t, 4) // header + real restock movement+link (2 tx) + setLineItemStockStatus (pending reset) + setOrderNeedsStockReview
+	db := newMockGormDBN(t, 4) // header + listLineItemMovements + setLineItemStockStatus (pending reset) + setOrderNeedsStockReview
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.Status = omsDomain.SalesOrderStatusProcessing
 		o.StockDecremented = true
@@ -226,16 +266,19 @@ func TestUpdateSalesOrder_restockingSkipsUnlinkedAndResetsPendingLineItems(t *te
 		{ID: "li-pending", SKUID: strPtr("sku-2"), Quantity: 1, StockStatus: omsDomain.StockStatusPending},
 		{ID: "li-unlinked", SKUID: nil, Quantity: 1, StockStatus: omsDomain.StockStatusPending},
 	}}
-	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
+		"li-decremented": {{SalesOrderLineItemID: "li-decremented", QuantityDelta: -2}},
+	}}
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, &stubRecordMovement{}, reverseMovement)
 
 	status := omsDomain.SalesOrderStatusCancelled
 	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
 
 	require.NoError(t, err)
-	require.Len(t, recordMovement.calls, 1, "only the genuinely-decremented item is restocked")
-	assert.Equal(t, "sku-1", recordMovement.calls[0].SKUID)
-	assert.Equal(t, int64(2), recordMovement.calls[0].QuantityDelta)
+	require.Len(t, reverseMovement.calls, 1, "only the genuinely-decremented item is restocked")
+	assert.Equal(t, "sku-1", reverseMovement.calls[0].SKUID)
+	assert.Equal(t, int64(2), reverseMovement.calls[0].QuantityDelta)
 	require.Len(t, lineItemRepo.updateCalls, 1, "only li-pending is reset -- li-unlinked is skipped entirely")
 	assert.Equal(t, "li-pending", lineItemRepo.updateCalls[0].ID)
 	assert.Equal(t, string(omsDomain.StockStatusDecremented), lineItemRepo.updateCalls[0].Fields["stock_status"])
@@ -257,7 +300,7 @@ func TestUpdateSalesOrder_insufficientStockMarksLineItemPendingInsteadOfFailing(
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 3}}}
 	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
-	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement)
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, recordMovement, &stubReverseMovement{})
 
 	status := omsDomain.SalesOrderStatusProcessing
 	order, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})

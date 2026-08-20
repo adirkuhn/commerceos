@@ -865,6 +865,29 @@ func (s *stubStockRecorder) Execute(_ context.Context, in invapp.RecordStockMove
 	return &m, nil
 }
 
+// stubSaleStockAllocator backs saleStockAllocator (import_woo_orders.go) --
+// distinct from stubStockRecorder above since AllocateSaleStockUseCase's
+// Execute has a different shape (Quantity is positive, returns a slice).
+type stubSaleStockAllocator struct {
+	calls    []invapp.AllocateSaleStockInput
+	err      error
+	errBySKU map[string]error
+}
+
+func (s *stubSaleStockAllocator) Execute(_ context.Context, in invapp.AllocateSaleStockInput) ([]invDomain.StockMovement, error) {
+	s.calls = append(s.calls, in)
+	if err, ok := s.errBySKU[in.SKUID]; ok {
+		return nil, err
+	}
+	if s.err != nil {
+		return nil, s.err
+	}
+	return []invDomain.StockMovement{{
+		ID: "movement-1", SKUID: in.SKUID, WarehouseID: in.WarehouseID,
+		Type: in.Type, QuantityDelta: -in.Quantity, Reason: in.Reason, OccurredAt: in.OccurredAt,
+	}}, nil
+}
+
 // ── oms stubs (import_woo_orders_test.go) ───────────────────────────────────
 
 type stubOrdersSalesOrderRepo struct {
@@ -999,6 +1022,16 @@ func (s *stubOrdersLinkRepo) ExistsForLineItem(_ context.Context, _ string) (boo
 func (s *stubOrdersLinkRepo) Create(_ context.Context, l *omsDomain.SalesOrderLineItemStockMovement) error {
 	s.created = append(s.created, *l)
 	return nil
+}
+
+func (s *stubOrdersLinkRepo) ListByLineItem(_ context.Context, lineItemID string) ([]omsDomain.SalesOrderLineItemStockMovement, error) {
+	var out []omsDomain.SalesOrderLineItemStockMovement
+	for _, l := range s.created {
+		if l.SalesOrderLineItemID == lineItemID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
 }
 
 type stubOrdersCustomerRepo struct {

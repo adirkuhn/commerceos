@@ -152,16 +152,18 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 		if li.SKUID == nil {
 			continue
 		}
-		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+		movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("manual sale %s", order.ID),
+			Quantity: li.Quantity, Reason: fmt.Sprintf("manual sale %s", order.ID),
 			OccurredAt: in.OccurredAt,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("createSalesOrder: %w", err)
 		}
-		if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
-			return nil, fmt.Errorf("createSalesOrder: %w", err)
+		for _, movement := range movements {
+			if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement); err != nil {
+				return nil, fmt.Errorf("createSalesOrder: %w", err)
+			}
 		}
 	}
 	return result, nil

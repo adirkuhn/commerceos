@@ -92,11 +92,22 @@ type SalesOrderLineItemStockMovement struct {
 	TenantID             string
 	SalesOrderLineItemID string
 	StockMovementID      string
-	CreatedAt            time.Time
+	// BatchID and QuantityDelta mirror the linked StockMovement's own
+	// fields at the time it was created -- denormalized so a restock can
+	// reverse exactly what was actually decremented (which real batch, how
+	// much) without a second lookup into stock_movements. nil BatchID means
+	// the general/un-lotted ledger, same convention as inventory.Batch.
+	BatchID       *string
+	QuantityDelta int64
+	CreatedAt     time.Time
 }
 
 type SalesOrderLineItemStockMovementRepository interface {
 	Create(ctx context.Context, l *SalesOrderLineItemStockMovement) error
+	// ListByLineItem returns every movement linked to lineItemID, in the
+	// order they were created -- used to reverse a decrement batch-by-batch
+	// when an order restocks (see application/oms's restock helpers).
+	ListByLineItem(ctx context.Context, lineItemID string) ([]SalesOrderLineItemStockMovement, error)
 	// ExistsForLineItem reports whether lineItemID already has a recorded
 	// stock movement linked to it -- used by
 	// cmd/repair-stock-review-flags to distinguish a line item whose

@@ -232,14 +232,15 @@ func main() {
 	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	salesOrderLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
 	customerRepo := repositories.NewCustomerRepo(db)
+	allocateStockUC := invapp.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 	updateSalesOrderUC := appoms.NewUpdateSalesOrderUseCase(
-		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
+		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC,
 	)
 
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-		stockRecorderUC, updateSalesOrderUC,
+		allocateStockUC, updateSalesOrderUC,
 	)
 	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo)
 	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, customersImportUC, ordersImportUC)

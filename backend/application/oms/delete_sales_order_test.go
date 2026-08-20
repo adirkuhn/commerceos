@@ -5,45 +5,53 @@ import (
 	"testing"
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
-	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// TestDeleteSalesOrder_restocksBeforeDeletingWhenStockWasDecremented proves
+// deleting a decremented order reverses its line items' ORIGINAL decrement
+// movement(s) (via the link table's denormalized BatchID/QuantityDelta),
+// not a fresh general-ledger credit -- see restockLineItems's doc for why.
 func TestDeleteSalesOrder_restocksBeforeDeletingWhenStockWasDecremented(t *testing.T) {
-	db := newMockGormDBN(t, 2)
+	db := newMockGormDBN(t, 3) // header + listLineItemMovements + delete tx
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.StockDecremented = true
 	})}
-	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: strPtr("sku-1"), Quantity: 3}}}
-	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, recordMovement)
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
+		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 3, StockStatus: omsDomain.StockStatusDecremented},
+	}}
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
+		"li-1": {{SalesOrderLineItemID: "li-1", QuantityDelta: -3}},
+	}}
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement)
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
 	require.NoError(t, err)
-	require.Len(t, recordMovement.calls, 1)
-	assert.Equal(t, int64(3), recordMovement.calls[0].QuantityDelta, "positive -- stock coming back")
+	require.Len(t, reverseMovement.calls, 1)
+	assert.Equal(t, int64(3), reverseMovement.calls[0].QuantityDelta, "positive -- stock coming back")
 	assert.Equal(t, "sales-order-1", salesOrderRepo.gotDeleteID)
 }
 
 func TestDeleteSalesOrder_doesNotRestockWhenStockWasNeverDecremented(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
-	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, recordMovement)
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, reverseMovement)
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
 	require.NoError(t, err)
-	assert.Empty(t, recordMovement.calls)
+	assert.Empty(t, reverseMovement.calls)
 	assert.Equal(t, "sales-order-1", salesOrderRepo.gotDeleteID)
 }
 
 func TestDeleteSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewDeleteSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubRecordMovement{})
+	uc := appoms.NewDeleteSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -51,16 +59,21 @@ func TestDeleteSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 }
 
 func TestDeleteSalesOrder_propagatesAStockMovementError(t *testing.T) {
-	db := newMockGormDB(t)
+	db := newMockGormDBN(t, 2) // header + listLineItemMovements -- the error aborts before the delete tx
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
 		o.StockDecremented = true
 	})}
-	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: strPtr("sku-1"), Quantity: 3}}}
-	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, recordMovement)
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
+		{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 3, StockStatus: omsDomain.StockStatusDecremented},
+	}}
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
+		"li-1": {{SalesOrderLineItemID: "li-1", QuantityDelta: -3}},
+	}}
+	reverseMovement := &stubReverseMovement{err: assert.AnError}
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement)
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
-	assert.ErrorIs(t, err, invDomain.ErrInsufficientStock)
+	assert.ErrorIs(t, err, assert.AnError)
 	assert.Empty(t, salesOrderRepo.gotDeleteID, "must not delete if the restock failed")
 }

@@ -455,10 +455,12 @@ func (r *SalesOrderLineItemRepo) DeleteBySalesOrder(ctx context.Context, salesOr
 // ── SalesOrderLineItemStockMovementRepo ─────────────────────────────────────
 
 type salesOrderLineItemStockMovementModel struct {
-	ID                   string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID             string `gorm:"not null;type:uuid"`
-	SalesOrderLineItemID string `gorm:"column:sales_order_line_item_id;not null;type:uuid"`
-	StockMovementID      string `gorm:"column:stock_movement_id;not null;type:uuid"`
+	ID                   string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID             string  `gorm:"not null;type:uuid"`
+	SalesOrderLineItemID string  `gorm:"column:sales_order_line_item_id;not null;type:uuid"`
+	StockMovementID      string  `gorm:"column:stock_movement_id;not null;type:uuid"`
+	BatchID              *string `gorm:"column:batch_id;type:uuid"`
+	QuantityDelta        int64   `gorm:"column:quantity_delta;not null;default:0"`
 	CreatedAt            time.Time
 }
 
@@ -479,13 +481,35 @@ func (r *SalesOrderLineItemStockMovementRepo) Create(ctx context.Context, l *oms
 	}
 	m := salesOrderLineItemStockMovementModel{
 		TenantID: l.TenantID, SalesOrderLineItemID: l.SalesOrderLineItemID,
-		StockMovementID: l.StockMovementID, CreatedAt: l.CreatedAt,
+		StockMovementID: l.StockMovementID, BatchID: l.BatchID, QuantityDelta: l.QuantityDelta,
+		CreatedAt: l.CreatedAt,
 	}
 	if err := tx.WithContext(ctx).Create(&m).Error; err != nil {
 		return fmt.Errorf("salesOrderLineItemStockMovementRepo.Create: %w", err)
 	}
 	l.ID = m.ID
 	return nil
+}
+
+func (r *SalesOrderLineItemStockMovementRepo) ListByLineItem(ctx context.Context, lineItemID string) ([]omsDomain.SalesOrderLineItemStockMovement, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("salesOrderLineItemStockMovementRepo: operation called outside a transaction")
+	}
+	var rows []salesOrderLineItemStockMovementModel
+	if err := tx.WithContext(ctx).Where("sales_order_line_item_id = ?", lineItemID).
+		Order("created_at ASC").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("salesOrderLineItemStockMovementRepo.ListByLineItem: %w", err)
+	}
+	out := make([]omsDomain.SalesOrderLineItemStockMovement, len(rows))
+	for i, r := range rows {
+		out[i] = omsDomain.SalesOrderLineItemStockMovement{
+			ID: r.ID, TenantID: r.TenantID, SalesOrderLineItemID: r.SalesOrderLineItemID,
+			StockMovementID: r.StockMovementID, BatchID: r.BatchID, QuantityDelta: r.QuantityDelta,
+			CreatedAt: r.CreatedAt,
+		}
+	}
+	return out, nil
 }
 
 func (r *SalesOrderLineItemStockMovementRepo) ExistsForLineItem(ctx context.Context, lineItemID string) (bool, error) {

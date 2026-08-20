@@ -41,7 +41,7 @@ func TestCreateSalesOrder_completedOrderDecrementsStockPerLine(t *testing.T) {
 	require.Len(t, recordMovement.calls, 1)
 	assert.Equal(t, "sku-1", recordMovement.calls[0].SKUID)
 	assert.Equal(t, invDomain.MovementTypeSale, recordMovement.calls[0].Type)
-	assert.Equal(t, int64(-2), recordMovement.calls[0].QuantityDelta)
+	assert.Equal(t, int64(2), recordMovement.calls[0].Quantity)
 }
 
 func TestCreateSalesOrder_snapshotsTheSKUsTaxClassOntoTheLineItem(t *testing.T) {

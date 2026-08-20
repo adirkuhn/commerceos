@@ -68,9 +68,9 @@ func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID 
 		if li.SKUID == nil || li.StockStatus != omsDomain.StockStatusPending {
 			continue
 		}
-		movement, err := uc.recordMovement.Execute(ctx, invapp.RecordStockMovementInput{
+		movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: order.WarehouseID, Type: invDomain.MovementTypeSale,
-			QuantityDelta: -li.Quantity, Reason: fmt.Sprintf("sales order %s stock retry", salesOrderID), OccurredAt: time.Now(),
+			Quantity: li.Quantity, Reason: fmt.Sprintf("sales order %s stock retry", salesOrderID), OccurredAt: time.Now(),
 		})
 		if err != nil {
 			if !errors.Is(err, invDomain.ErrInsufficientStock) {
@@ -79,8 +79,10 @@ func (uc *RetryStockDecrementUseCase) Execute(ctx context.Context, salesOrderID 
 			stillPending++
 			continue
 		}
-		if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement.ID); err != nil {
-			return nil, fmt.Errorf("retryStockDecrement: %w", err)
+		for _, movement := range movements {
+			if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement); err != nil {
+				return nil, fmt.Errorf("retryStockDecrement: %w", err)
+			}
 		}
 		if err := setLineItemStockStatus(ctx, uc.db, uc.lineItemRepo, li.ID, omsDomain.StockStatusDecremented); err != nil {
 			return nil, fmt.Errorf("retryStockDecrement: %w", err)

@@ -27,7 +27,7 @@ type ordersHarness struct {
 	linkRepo       *stubOrdersLinkRepo
 	skuRepo        *stubChannelsSKURepo
 	customerRepo   *stubOrdersCustomerRepo
-	stock          *stubStockRecorder
+	stock          *stubSaleStockAllocator
 	updateOrder    *stubUpdateSalesOrderUC
 }
 
@@ -49,7 +49,7 @@ func newOrdersHarness(orders map[int][]integrationsDomain.WooOrder) *ordersHarne
 		linkRepo:       &stubOrdersLinkRepo{},
 		skuRepo:        &stubChannelsSKURepo{byCode: map[string]pmsDomain.SKU{}},
 		customerRepo:   &stubOrdersCustomerRepo{byWooID: map[int64]customersDomain.Customer{}},
-		stock:          &stubStockRecorder{},
+		stock:          &stubSaleStockAllocator{},
 		updateOrder:    &stubUpdateSalesOrderUC{},
 	}
 }
@@ -106,7 +106,7 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	require.NotNil(t, h.lineItemRepo.created[0].TaxClassID)
 	assert.Equal(t, "tax-class-standard", *h.lineItemRepo.created[0].TaxClassID)
 	require.Len(t, h.stock.calls, 1)
-	assert.Equal(t, int64(-2), h.stock.calls[0].QuantityDelta)
+	assert.Equal(t, int64(2), h.stock.calls[0].Quantity)
 	require.Len(t, h.linkRepo.created, 1)
 }
 
