@@ -12,6 +12,10 @@ export interface Category {
   name: string
   slug: string
   position: number
+  // Overrides the tenant's default target margin for every product in this
+  // category, when set (0-9999, e.g. 3000 = 30%). Null means "use the
+  // tenant default".
+  target_margin_basis_points?: number | null
   created_at: string
   updated_at: string
 }
@@ -95,8 +99,47 @@ export interface SKU {
   woo_tax_class_slug?: string | null
   woo_tax_status?: string | null
   status: SKUStatus
+  // Read-only. Weighted average of on-hand batches' landed cost, recomputed
+  // daily by the cost-price cron. Null until the cron has run at least once
+  // with a cost basis to average.
+  cost_price_minor_units?: number | null
   created_at: string
   updated_at: string
+}
+
+export interface SKUMarginInsight {
+  cost_price_available: boolean
+  cost_price_minor_units: number
+  effective_target_margin_basis_points: number
+  recommended_price_minor_units: number
+  profit_at_price_minor_units: number
+  margin_at_price_basis_points: number
+  profit_at_sale_price_minor_units?: number | null
+  margin_at_sale_price_basis_points?: number | null
+  total_on_hand_quantity: number
+  total_profit_potential_minor_units: number
+  shrinkage_minor_units: number
+}
+
+export interface SKUCostPriceHistoryEntry {
+  id: string
+  sku_id: string
+  cost_price_minor_units: number
+  recommended_price_minor_units: number
+  occurred_on: string
+}
+
+export interface MarginReportRow {
+  sku_id: string
+  sku_code: string
+  product_name?: string | null
+  cost_price_minor_units: number
+  price_minor_units: number
+  profit_minor_units: number
+  margin_basis_points: number
+  target_margin_basis_points: number
+  recommended_price_minor_units: number
+  below_target: boolean
 }
 
 export interface ResolveBarcodeResult {
@@ -134,7 +177,9 @@ export interface CreateCategoryPayload {
   parent_id?: string | null
 }
 
-export type UpdateCategoryPayload = CreateCategoryPayload
+export interface UpdateCategoryPayload extends CreateCategoryPayload {
+  target_margin_basis_points?: number | null
+}
 
 export interface CreateProductPayload {
   name: string

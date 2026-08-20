@@ -19,6 +19,7 @@ vi.mock('../../pms/api', () => ({
   deleteProduct: vi.fn(),
   listCategories: vi.fn(),
   createCategory: vi.fn(),
+  updateCategory: vi.fn(),
   getProduct: vi.fn(),
   createVariant: vi.fn(),
   updateVariant: vi.fn(),
@@ -26,6 +27,13 @@ vi.mock('../../pms/api', () => ({
   createSKU: vi.fn(),
   updateSKU: vi.fn(),
   deleteSKU: vi.fn(),
+  getSKUMarginInsight: vi.fn(() => Promise.resolve({
+    cost_price_available: false, cost_price_minor_units: 0, effective_target_margin_basis_points: 0,
+    recommended_price_minor_units: 0, profit_at_price_minor_units: 0, margin_at_price_basis_points: 0,
+    total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
+  })),
+  listSKUCostPriceHistory: vi.fn(),
+  listMarginReport: vi.fn(),
   listProductMedia: vi.fn(),
   uploadProductMedia: vi.fn(),
   updateMedia: vi.fn(),
@@ -108,7 +116,7 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-    prices_include_tax: true, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+    prices_include_tax: true, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
@@ -942,7 +950,7 @@ describe('Tax class picker + price preview', () => {
   it('shows an incl./excl. tax price preview when a rate exists for the default tax country', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
     })
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
       { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },

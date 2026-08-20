@@ -15,7 +15,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU, SKUMarginInsight } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
@@ -89,7 +89,7 @@ export default function Products() {
 
   const { products, total, loading, error, create: createProduct, update: updateProduct, remove: removeProduct } =
     useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
-  const { categories, create: createCategory } = useCategories(token ?? '')
+  const { categories, create: createCategory, update: updateCategory } = useCategories(token ?? '')
 
   const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
 
@@ -99,6 +99,7 @@ export default function Products() {
         productId={editingId === 'new' ? null : editingId}
         categories={categories}
         onCreateCategory={createCategory}
+        onUpdateCategory={updateCategory}
         onCreate={createProduct}
         onUpdate={updateProduct}
         onClose={() => setEditingId(null)}
@@ -240,12 +241,13 @@ interface ProductEditorProps {
   productId: string | null
   categories: Category[]
   onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
+  onUpdateCategory: (id: string, payload: { name: string; parent_id?: string | null; target_margin_basis_points?: number | null }) => Promise<Category>
   onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
   onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
   onClose: () => void
 }
 
-function ProductEditPage({ productId, categories, onCreateCategory, onCreate, onUpdate, onClose }: ProductEditorProps) {
+function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCategory, onCreate, onUpdate, onClose }: ProductEditorProps) {
   const { token } = useAuth()
   const [savedProductId, setSavedProductId] = useState<string | null>(productId)
   const detail = useProductDetail(token ?? '', savedProductId)
@@ -811,6 +813,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
             )}
 
             {showFlatSKU && currentSku && (
+              <MarginInsightCard skuId={currentSku.id} currency={currency} />
+            )}
+
+            {showFlatSKU && currentSku && (
               <FormCard
                 title="Case pack"
                 description="If a supplier sells this as a sealed case/box of another product in your catalog, link it here — lets you split case stock into unit stock later."
@@ -994,6 +1000,12 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
                     Add
                   </button>
                 </div>
+                {categoryId && (
+                  <CategoryMarginEditor
+                    category={categories.find(c => c.id === categoryId) ?? null}
+                    onSave={margin => onUpdateCategory(categoryId, { name: categories.find(c => c.id === categoryId)!.name, target_margin_basis_points: margin })}
+                  />
+                )}
               </div>
 
               <div className="pt-4">
@@ -1025,6 +1037,133 @@ function ProductEditPage({ productId, categories, onCreateCategory, onCreate, on
 }
 
 // ── Shared form layout primitives ────────────────────────────────────────────
+
+// MarginInsightCard shows the cost price the daily cron computed, the
+// recommended price from the effective target margin, and profit/margin at
+// whatever price is currently set -- see application/pms's
+// GetSKUMarginInsightUseCase. Fetched fresh whenever skuId changes (e.g.
+// switching between products), not tied to the price/salePrice form state --
+// this reflects the *saved* SKU, not an in-progress unsaved edit.
+function MarginInsightCard({ skuId, currency }: { skuId: string; currency: string }) {
+  const { token } = useAuth()
+  const [insight, setInsight] = useState<SKUMarginInsight | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    pmsApi.getSKUMarginInsight(token, skuId)
+      .then(result => { if (!cancelled) setInsight(result) })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load margin insight') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, skuId])
+
+  const money = (minorUnits: number) => formatPrice(minorUnits, currency)
+  const pct = (basisPoints: number) => `${(basisPoints / 100).toFixed(1)}%`
+
+  return (
+    <FormCard title="Cost & margin insight" description="Cost price is recomputed daily from purchase order receiving history; not a live figure.">
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {!loading && !error && insight && !insight.cost_price_available && (
+        <p className="text-xs dark:text-gray-500 text-gray-400">
+          No cost price yet — this SKU hasn't been received against a purchase order, or the daily cost-price job hasn't run since.
+        </p>
+      )}
+      {!loading && !error && insight && insight.cost_price_available && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+          <div>
+            <div className="dark:text-gray-500 text-gray-400">Cost price</div>
+            <div className="font-medium dark:text-gray-100 text-gray-900">{money(insight.cost_price_minor_units)}</div>
+          </div>
+          <div>
+            <div className="dark:text-gray-500 text-gray-400">Recommended price</div>
+            <div className="font-medium dark:text-gray-100 text-gray-900">
+              {money(insight.recommended_price_minor_units)}
+              <span className="dark:text-gray-500 text-gray-400 font-normal"> ({pct(insight.effective_target_margin_basis_points)} target)</span>
+            </div>
+          </div>
+          <div>
+            <div className="dark:text-gray-500 text-gray-400">Profit at current price</div>
+            <div className={clsx('font-medium', insight.profit_at_price_minor_units < 0 ? 'text-red-400' : 'dark:text-gray-100 text-gray-900')}>
+              {money(insight.profit_at_price_minor_units)} <span className="font-normal">({pct(insight.margin_at_price_basis_points)})</span>
+            </div>
+          </div>
+          {insight.profit_at_sale_price_minor_units != null && (
+            <div>
+              <div className="dark:text-gray-500 text-gray-400">Profit at sale price</div>
+              <div className={clsx('font-medium', insight.profit_at_sale_price_minor_units < 0 ? 'text-red-400' : 'dark:text-gray-100 text-gray-900')}>
+                {money(insight.profit_at_sale_price_minor_units)}
+                {insight.margin_at_sale_price_basis_points != null && <span className="font-normal"> ({pct(insight.margin_at_sale_price_basis_points)})</span>}
+              </div>
+            </div>
+          )}
+          <div>
+            <div className="dark:text-gray-500 text-gray-400">On hand</div>
+            <div className="font-medium dark:text-gray-100 text-gray-900">{insight.total_on_hand_quantity} units</div>
+          </div>
+          <div>
+            <div className="dark:text-gray-500 text-gray-400">Total profit potential</div>
+            <div className="font-medium dark:text-gray-100 text-gray-900">{money(insight.total_profit_potential_minor_units)}</div>
+          </div>
+          {insight.shrinkage_minor_units > 0 && (
+            <div className="col-span-2">
+              <div className="dark:text-gray-500 text-gray-400">Shrinkage (damaged/lost, last 30 days)</div>
+              <div className="font-medium text-amber-400">{money(insight.shrinkage_minor_units)}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </FormCard>
+  )
+}
+
+// CategoryMarginEditor lets staff override the tenant-wide default target
+// margin for every product in the selected category (see
+// pms.Category.TargetMarginBasisPoints) -- an empty input means "use the
+// tenant default", matching UpdateCategoryInput's full-replace semantics.
+function CategoryMarginEditor({ category, onSave }: { category: Category | null; onSave: (basisPoints: number | null) => Promise<Category> }) {
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedMsg, setSavedMsg] = useState(false)
+
+  useEffect(() => {
+    setValue(category?.target_margin_basis_points != null ? (category.target_margin_basis_points / 100).toString() : '')
+    setSavedMsg(false)
+  }, [category?.id, category?.target_margin_basis_points])
+
+  if (!category) return null
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const basisPoints = value.trim() === '' ? null : Math.round(parseFloat(value) * 100)
+      await onSave(basisPoints)
+      setSavedMsg(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      <input
+        type="number" step="0.1" min="0" max="99.9" placeholder="Tenant default"
+        value={value} onChange={e => { setValue(e.target.value); setSavedMsg(false) }}
+        className="w-28 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+      />
+      <span className="text-[10px] dark:text-gray-500 text-gray-400">% target margin for this category</span>
+      <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50">
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+      {savedMsg && <span className="text-[10px] text-green-400">Saved</span>}
+    </div>
+  )
+}
 
 function FormCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (

@@ -4,6 +4,7 @@ import type {
   CreateProductPayload, UpdateProductPayload,
   CreateVariantPayload, UpdateVariantPayload,
   CreateSKUPayload, UpdateSKUPayload,
+  SKUMarginInsight, SKUCostPriceHistoryEntry, MarginReportRow,
   APIResponse,
 } from './types'
 
@@ -121,6 +122,41 @@ export function updateSKU(token: string, id: string, payload: UpdateSKUPayload):
 
 export function deleteSKU(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/skus/${id}`, { method: 'DELETE' }, token)
+}
+
+export function getSKUMarginInsight(token: string, id: string): Promise<SKUMarginInsight> {
+  return request<SKUMarginInsight>(`${base()}/skus/${id}/margin-insight`, { method: 'GET' }, token)
+}
+
+export function listSKUCostPriceHistory(token: string, id: string, limit?: number): Promise<SKUCostPriceHistoryEntry[]> {
+  const qs = limit ? `?limit=${limit}` : ''
+  return request<SKUCostPriceHistoryEntry[]>(`${base()}/skus/${id}/cost-price-history${qs}`, { method: 'GET' }, token)
+}
+
+export interface ListMarginReportParams {
+  page?: number
+  perPage?: number
+  belowTargetOnly?: boolean
+}
+
+export interface ListMarginReportResult {
+  rows: MarginReportRow[]
+  total: number
+}
+
+export async function listMarginReport(token: string, params: ListMarginReportParams = {}): Promise<ListMarginReportResult> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  if (params.belowTargetOnly) qs.set('below_target_only', 'true')
+  const res = await fetch(`${base()}/margin-report?${qs.toString()}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<MarginReportRow[]> & { meta?: { total?: number } } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { rows: body.data ?? [], total: body.meta?.total ?? 0 }
 }
 
 // resolveBarcode is used by every scanner mini-app that turns a scan into a

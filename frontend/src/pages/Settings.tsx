@@ -26,6 +26,7 @@ function toInput(s: TenantSettings | null): TenantSettingsInput {
     default_currency: s.default_currency, timezone: s.timezone, date_format: s.date_format, language: s.language,
     prices_include_tax: s.prices_include_tax, default_tax_country: s.default_tax_country,
     inventory_sync_rules_enabled: s.inventory_sync_rules_enabled, batch_expiry_threshold_days: s.batch_expiry_threshold_days,
+    default_target_margin_basis_points: s.default_target_margin_basis_points,
   }
 }
 
@@ -187,7 +188,12 @@ export default function Settings() {
         )}
 
         {activeSection === 'localization' && <LocalizationSettingsSection />}
-        {activeSection === 'tax' && <TaxSettingsSection />}
+        {activeSection === 'tax' && (
+          <div className="max-w-2xl space-y-6">
+            <TaxSettingsSection />
+            <PricingMarginSection />
+          </div>
+        )}
 
         {activeSection === 'automation' && (
           <div className="max-w-2xl space-y-6">
@@ -652,6 +658,68 @@ function InventorySyncRulesSection() {
         className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
       >
         {saving ? 'Saving…' : 'Save inventory rules'}
+      </button>
+    </div>
+  )
+}
+
+function PricingMarginSection() {
+  const { token } = useAuth()
+  const { settings, save } = useTenantSettings(token ?? '')
+
+  const [marginPercent, setMarginPercent] = useState('')
+  const [hydrated, setHydrated] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  if (!hydrated && settings) {
+    setMarginPercent(settings.default_target_margin_basis_points ? (settings.default_target_margin_basis_points / 100).toString() : '')
+    setHydrated(true)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveError('')
+    setSaved(false)
+    try {
+      const basisPoints = marginPercent.trim() === '' ? 0 : Math.round(parseFloat(marginPercent) * 100)
+      await save({ ...toInput(settings), default_target_margin_basis_points: basisPoints })
+      setSaved(true)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save pricing settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pricing & margin</h3>
+      <div className="max-w-[220px]">
+        <label htmlFor="default-target-margin" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          Default target margin (%)
+        </label>
+        <input
+          id="default-target-margin"
+          type="number" min={0} max={99.9} step={0.1}
+          value={marginPercent}
+          onChange={e => { setMarginPercent(e.target.value); setSaved(false) }}
+          placeholder="e.g. 30"
+          className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+          Used to compute each product's recommended price from its cost price, unless its category has its own target margin set.
+        </p>
+      </div>
+      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+      {saved && <p className="text-xs text-green-400">Saved.</p>}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="px-3 py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Save pricing settings'}
       </button>
     </div>
   )

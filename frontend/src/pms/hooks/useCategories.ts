@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Category, CreateCategoryPayload } from '../types'
+import type { Category, CreateCategoryPayload, UpdateCategoryPayload } from '../types'
 import * as api from '../api'
 
 interface UseCategoriesState {
@@ -11,6 +11,7 @@ interface UseCategoriesState {
 interface UseCategoriesActions {
   refresh: () => void
   create: (payload: CreateCategoryPayload) => Promise<Category>
+  update: (id: string, payload: UpdateCategoryPayload) => Promise<Category>
 }
 
 export function useCategories(token: string): UseCategoriesState & UseCategoriesActions {
@@ -40,5 +41,11 @@ export function useCategories(token: string): UseCategoriesState & UseCategories
     return category
   }, [token])
 
-  return { categories, loading, error, refresh: load, create }
+  const update = useCallback(async (id: string, payload: UpdateCategoryPayload): Promise<Category> => {
+    const category = await api.updateCategory(token, id, payload)
+    setCategories(prev => prev.map(c => (c.id === id ? category : c)))
+    return category
+  }, [token])
+
+  return { categories, loading, error, refresh: load, create, update }
 }

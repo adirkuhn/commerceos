@@ -551,3 +551,227 @@ func TestProductRepo_Integration_DeleteBlockedBySalesOrderHistory(t *testing.T) 
 	})
 	require.ErrorIs(t, err, pmsDomain.ErrProductHasSalesOrderHistory)
 }
+
+// TestSKURepo_Integration_UpdateCostPriceIsIndependentOfUpdate proves the
+// deliberate split between the narrow UpdateCostPrice (the cron's sole
+// writer) and the ordinary Update (the product-edit save path): saving a
+// SKU through Update must never wipe out a cost price the cron already
+// computed.
+func TestSKURepo_Integration_UpdateCostPriceIsIndependentOfUpdate(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Widget", Slug: "widget-cost-price", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "WID-COST-1", PriceMinorUnits: 1000, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return skuRepo.UpdateCostPrice(ctx, skuID, 700)
+	})
+	require.NoError(t, err)
+
+	var fetched *pmsDomain.SKU
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		fetched, err = skuRepo.FindByID(ctx, skuID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, fetched.CostPriceMinorUnits)
+	require.Equal(t, int64(700), *fetched.CostPriceMinorUnits)
+
+	// An ordinary product-edit save (Update) must not touch cost_price_minor_units.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		fetched.PriceMinorUnits = 1200
+		return skuRepo.Update(ctx, fetched)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		fetched, err = skuRepo.FindByID(ctx, skuID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1200), fetched.PriceMinorUnits)
+	require.NotNil(t, fetched.CostPriceMinorUnits, "Update must not clear a cost price only UpdateCostPrice should touch")
+	require.Equal(t, int64(700), *fetched.CostPriceMinorUnits)
+}
+
+// TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears
+// proves the category margin override persists and can be cleared back to
+// nil (falls back to the tenant default -- see
+// application/pms.EffectiveTargetMarginBasisPoints).
+func TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	categoryRepo := repositories.NewCategoryRepo(db)
+
+	var categoryID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		margin := 3500
+		category := &pmsDomain.Category{TenantID: tenant.IDFromContext(ctx), Name: "Beverages", Slug: "beverages-margin-test", TargetMarginBasisPoints: &margin, CreatedAt: now, UpdatedAt: now}
+		if err := categoryRepo.Create(ctx, category); err != nil {
+			return err
+		}
+		categoryID = category.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var fetched *pmsDomain.Category
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		fetched, err = categoryRepo.FindByID(ctx, categoryID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, fetched.TargetMarginBasisPoints)
+	require.Equal(t, 3500, *fetched.TargetMarginBasisPoints)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		fetched.TargetMarginBasisPoints = nil
+		fetched.UpdatedAt = time.Now()
+		return categoryRepo.Update(ctx, fetched)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		fetched, err = categoryRepo.FindByID(ctx, categoryID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, fetched.TargetMarginBasisPoints)
+}
+
+// TestSKUCostPriceHistoryRepo_Integration_UpsertIsIdempotentPerDay proves
+// the same-day cron rerun the daily cost-price cron relies on: a second
+// Upsert for the same (sku_id, occurred_on) overwrites rather than
+// duplicating.
+func TestSKUCostPriceHistoryRepo_Integration_UpsertIsIdempotentPerDay(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	historyRepo := repositories.NewSKUCostPriceHistoryRepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Widget", Slug: "widget-history-test", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "WID-HIST-1", PriceMinorUnits: 1000, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return historyRepo.Upsert(ctx, &pmsDomain.SKUCostPriceHistory{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
+			CostPriceMinorUnits: 700, RecommendedPriceMinorUnits: 1000, OccurredOn: today, CreatedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+	// Rerun the same day with a different cost -- must overwrite, not add a row.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return historyRepo.Upsert(ctx, &pmsDomain.SKUCostPriceHistory{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
+			CostPriceMinorUnits: 750, RecommendedPriceMinorUnits: 1071, OccurredOn: today, CreatedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	var history []pmsDomain.SKUCostPriceHistory
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		history, err = historyRepo.ListBySKU(ctx, skuID, 0)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, history, 1, "same-day rerun must overwrite, not duplicate")
+	require.Equal(t, int64(750), history[0].CostPriceMinorUnits)
+}
+
+// TestSKUCostPriceHistoryRepo_Integration_RLSIsolatesTenants proves the new
+// table's tenant_isolation policy actually enforces isolation (not just
+// that the SQL runs) -- routed through commerceos_app, not the
+// migration-owning superuser, same reasoning as
+// TestBatchRepo_Integration_RLSHidesOtherTenantsBatches: RLS is never
+// enforced against a superuser/BYPASSRLS role regardless of policy, so
+// this test only means something over the same non-superuser connection
+// production actually uses.
+func TestSKUCostPriceHistoryRepo_Integration_RLSIsolatesTenants(t *testing.T) {
+	superDB, superDSN := newIntegrationDBAndDSN(t)
+	db := newAppRoleDB(t, superDSN)
+	_, ctxA := newTestTenant()
+	productRepo := repositories.NewProductRepo(superDB)
+	variantRepo := repositories.NewVariantRepo(superDB)
+	skuRepo := repositories.NewSKURepo(superDB)
+	historyRepo := repositories.NewSKUCostPriceHistoryRepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctxA, superDB, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Widget", Slug: "widget-rls-test", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "WID-RLS-1", PriceMinorUnits: 1000, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctxA, db, func(ctx context.Context) error {
+		return historyRepo.Upsert(ctx, &pmsDomain.SKUCostPriceHistory{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
+			CostPriceMinorUnits: 700, RecommendedPriceMinorUnits: 1000, OccurredOn: time.Now().UTC().Truncate(24 * time.Hour), CreatedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	_, ctxB := newTestTenant()
+	var historyFromOtherTenant []pmsDomain.SKUCostPriceHistory
+	err = tenant.WithTenant(ctxB, db, func(ctx context.Context) error {
+		var err error
+		historyFromOtherTenant, err = historyRepo.ListBySKU(ctx, skuID, 0)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, historyFromOtherTenant, "tenant B must not see tenant A's cost-price history")
+}

@@ -65,7 +65,7 @@ beforeEach(() => {
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
     prices_include_tax: false, default_tax_country: '',
-    inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+    inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
@@ -537,7 +537,7 @@ describe('Store defaults currency', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -710,7 +710,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'America/New_York', date_format: 'MM/DD/YYYY', language: 'fr',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0,
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -727,7 +727,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0,
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -744,7 +744,7 @@ describe('Settings > Localization', () => {
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0,
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0,
     }))
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
   })
@@ -753,7 +753,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '2026-07-26T00:00:00Z',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '2026-07-26T00:00:00Z',
     })
     render(<Settings />)
     await openLocalizationSection()
@@ -792,7 +792,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 30, updated_at: '',
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 30, default_target_margin_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -806,7 +806,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -821,7 +821,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
       default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45,
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45, default_target_margin_basis_points: 0,
     })))
   })
 
@@ -849,7 +849,7 @@ describe('Settings > Tax', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -863,12 +863,12 @@ describe('Settings > Tax', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
     })
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'US',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
