@@ -36,7 +36,7 @@ func resultErr(err error, itemErrors []string) error {
 // an order modified in the same second a previous run's window closed.
 // Cheap insurance: re-fetching a few extra orders every run is far less
 // costly than silently missing one.
-const ordersModifiedAfterOverlap = 5 * time.Minute
+const ordersModifiedAfterOverlap = 10 * time.Hour
 
 // reconciliationWindow is how far back SyncEntityOrdersReconciliation
 // re-scans on every run, regardless of its own LastRunAt -- unlike the
