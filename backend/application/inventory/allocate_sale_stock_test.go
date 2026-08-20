@@ -177,6 +177,46 @@ func TestAllocateSaleStock_trueInsufficiency_writesNoMovementsAtAll(t *testing.T
 	require.Empty(t, movementRepo.created)
 }
 
+func TestAllocateSaleStock_reconcileShortfallWritesAdjustmentThenSucceeds(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{WarehouseID: "wh-1", BatchID: nil, QuantityDelta: 1},
+	}}
+	uc := appinv.NewAllocateSaleStockUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubOutboxRepo{})
+
+	movements, err := uc.Execute(context.Background(), appinv.AllocateSaleStockInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, Quantity: 5, OccurredAt: time.Now(),
+		ReconcileShortfall: true,
+	})
+
+	require.NoError(t, err)
+	// One sale movement against what was genuinely on the general ledger
+	// (-1), one against the reconciled remainder (-4) -- the adjustment
+	// itself is written but not included in the returned sale movements.
+	require.Len(t, movements, 2)
+	require.Nil(t, movements[0].BatchID)
+	require.Equal(t, int64(-1), movements[0].QuantityDelta)
+	require.Nil(t, movements[1].BatchID)
+	require.Equal(t, int64(-4), movements[1].QuantityDelta)
+
+	require.Len(t, movementRepo.created, 3)
+	require.Equal(t, invDomain.MovementTypeAdjustment, movementRepo.created[0].Type)
+	require.Equal(t, int64(4), movementRepo.created[0].QuantityDelta, "shortfall = needed 5 - the 1 already on the ledger")
+	require.Equal(t, invDomain.MovementTypeSale, movementRepo.created[1].Type)
+	require.Equal(t, invDomain.MovementTypeSale, movementRepo.created[2].Type)
+}
+
+func TestAllocateSaleStock_withoutReconcileShortfall_stillFailsOnTrueInsufficiency(t *testing.T) {
+	uc := appinv.NewAllocateSaleStockUseCase(newMockGormDB(t), &stubStockMovementRepo{}, &stubBatchRepo{}, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appinv.AllocateSaleStockInput{
+		SKUID: "sku-1", WarehouseID: "wh-1", Type: invDomain.MovementTypeSale, Quantity: 5, OccurredAt: time.Now(),
+		ReconcileShortfall: false,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
+}
+
 func TestAllocateSaleStock_ignoresBatchesInADifferentWarehouse(t *testing.T) {
 	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{
 		{ID: "batch-other-wh", WarehouseID: "wh-2", Status: invDomain.BatchStatusActive, ReceivedAt: time.Now()},

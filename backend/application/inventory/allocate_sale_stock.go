@@ -32,6 +32,15 @@ type AllocateSaleStockInput struct {
 	// SuppressEvent skips enqueueing inventory.stock.changed -- see
 	// RecordStockMovementInput.SuppressEvent.
 	SuppressEvent bool
+	// ReconcileShortfall mirrors RecordStockMovementInput.ReconcileShortfall,
+	// applied to whatever remains after every real batch and the general
+	// ledger are exhausted: an Adjustment movement for that remainder is
+	// written against the general ledger first (recording that untracked
+	// stock existed), then the sale itself proceeds against it too, instead
+	// of failing. For a source where the removal already happened in the
+	// real world (a completed POS sale) and the ledger just never saw a
+	// matching receipt.
+	ReconcileShortfall bool
 }
 
 type AllocateSaleStockUseCase struct {
@@ -81,13 +90,24 @@ func (uc *AllocateSaleStockUseCase) Execute(ctx context.Context, in AllocateSale
 		}
 
 		plans, remaining := planAllocation(movements, batches, in.WarehouseID, in.Quantity)
-		if remaining > 0 {
-			log.Printf("[DEBUG] Insufficient stock across every batch/ledger for SKU %s in warehouse %s: needed %d, %d short even after checking every batch",
-				in.SKUID, in.WarehouseID, in.Quantity, remaining)
-			return invDomain.ErrInsufficientStock
-		}
-
 		now := time.Now()
+		if remaining > 0 {
+			if !in.ReconcileShortfall {
+				log.Printf("[DEBUG] Insufficient stock across every batch/ledger for SKU %s in warehouse %s: needed %d, %d short even after checking every batch",
+					in.SKUID, in.WarehouseID, in.Quantity, remaining)
+				return invDomain.ErrInsufficientStock
+			}
+			adjustment := invDomain.StockMovement{
+				TenantID: tenant.IDFromContext(ctx), SKUID: in.SKUID, WarehouseID: in.WarehouseID, BatchID: nil,
+				Type: invDomain.MovementTypeAdjustment, QuantityDelta: remaining,
+				Reason:     fmt.Sprintf("reconciliation: untracked stock found for %s", in.Reason),
+				OccurredAt: in.OccurredAt, CreatedAt: now,
+			}
+			if err := uc.movementRepo.Create(ctx, &adjustment); err != nil {
+				return err
+			}
+			plans = append(plans, saleAllocationPlan{batchID: nil, qty: remaining})
+		}
 		for _, p := range plans {
 			m := invDomain.StockMovement{
 				TenantID: tenant.IDFromContext(ctx), SKUID: in.SKUID, WarehouseID: in.WarehouseID,
