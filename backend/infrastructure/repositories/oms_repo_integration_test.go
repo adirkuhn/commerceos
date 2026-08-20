@@ -532,10 +532,22 @@ func TestSalesOrderLineItemStockMovementRepo_Integration_Create(t *testing.T) {
 
 		return linkRepo.Create(ctx, &omsDomain.SalesOrderLineItemStockMovement{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderLineItemID: lineItemID,
-			StockMovementID: movementID, CreatedAt: now,
+			StockMovementID: movementID, BatchID: nil, QuantityDelta: -1, CreatedAt: now,
 		})
 	})
 	require.NoError(t, err)
+
+	var links []omsDomain.SalesOrderLineItemStockMovement
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		links, err = linkRepo.ListByLineItem(ctx, lineItemID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, links, 1)
+	require.Equal(t, movementID, links[0].StockMovementID)
+	require.Nil(t, links[0].BatchID, "nil batch id = the general ledger, same convention as inventory.Batch")
+	require.Equal(t, int64(-1), links[0].QuantityDelta)
 }
 
 // TestSalesOrderRepo_Integration_CreateReturnsTypedDuplicateExternalOrderError
