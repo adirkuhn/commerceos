@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import StockIssues from '../StockIssues'
-import type { SalesOrder, RetryStockDecrementResult } from '../../oms/types'
+import type { SalesOrder, SalesOrderLineItem, SalesOrderDetail, RetryStockDecrementResult, ForceAcceptStockResult } from '../../oms/types'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -12,6 +12,8 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
   retryStockDecrement: vi.fn(),
+  forceAcceptStock: vi.fn(),
+  getSalesOrder: vi.fn(),
 }))
 
 import * as omsApi from '../../oms/api'
@@ -24,6 +26,15 @@ function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
     total_minor_units: 5000, occurred_at: '2026-08-10T12:00:00Z', created_at: '2026-08-10T12:00:00Z',
     billing: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com' },
     needs_stock_review: true,
+    ...overrides,
+  }
+}
+
+function lineItem(overrides: Partial<SalesOrderLineItem> = {}): SalesOrderLineItem {
+  return {
+    id: 'li-1', sku_id: 'sku-1', name: 'Widget A', sku_code: 'WID-A', barcode: '', quantity: 3,
+    stock_status: 'pending', price_minor_units: 500, subtotal_minor_units: 1500,
+    subtotal_tax_minor_units: 0, total_minor_units: 1500, total_tax_minor_units: 0,
     ...overrides,
   }
 }
@@ -87,5 +98,48 @@ describe('StockIssues', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry stock' }))
 
     expect(await screen.findByText('order not stock reducing')).toBeInTheDocument()
+  })
+
+  it('expanding a row fetches and shows which pending line item(s) are the problem', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    const detail: SalesOrderDetail = {
+      sales_order: salesOrder(),
+      line_items: [lineItem(), lineItem({ id: 'li-2', name: 'Widget B', sku_code: 'WID-B', stock_status: 'decremented' })],
+    }
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail)
+
+    render(<StockIssues />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+    expect(await screen.findByText('Widget A')).toBeInTheDocument()
+    expect(screen.getByText('WID-A')).toBeInTheDocument()
+    expect(screen.queryByText('Widget B')).not.toBeInTheDocument()
+  })
+
+  it('force-accepts stock, bypassing the check', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    const result: ForceAcceptStockResult = { sales_order: salesOrder({ needs_stock_review: false }), resolved: 1 }
+    vi.mocked(omsApi.forceAcceptStock).mockResolvedValue(result)
+
+    render(<StockIssues />)
+    await screen.findByText('#1001')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Force accept' }))
+
+    expect(omsApi.forceAcceptStock).toHaveBeenCalledWith('test-token', 'so-1')
+    expect(await screen.findByText('1 force-accepted')).toBeInTheDocument()
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenCalledTimes(2))
+  })
+
+  it('surfaces a force-accept error', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.forceAcceptStock).mockRejectedValue(new Error('order not found'))
+
+    render(<StockIssues />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('button', { name: 'Force accept' }))
+
+    expect(await screen.findByText('order not found')).toBeInTheDocument()
   })
 })

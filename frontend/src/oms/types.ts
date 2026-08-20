@@ -151,6 +151,12 @@ export interface RetryStockDecrementResult {
   still_pending: number
 }
 
+export interface ForceAcceptStockResult {
+  sales_order: SalesOrder
+  // resolved: SKU-linked pending line items reconciled and decremented.
+  resolved: number
+}
+
 export interface APIError {
   code: string
   message: string

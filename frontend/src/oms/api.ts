@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult } from './types'
+import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -73,6 +73,15 @@ export function deleteSalesOrder(token: string, id: string): Promise<null> {
 // insufficient after retrying is not an error -- see still_pending.
 export function retryStockDecrement(token: string, id: string): Promise<RetryStockDecrementResult> {
   return request<RetryStockDecrementResult>(`${base()}/${id}/retry-stock`, token, { method: 'POST' })
+}
+
+// forceAcceptStock bypasses the insufficiency check for every SKU-linked
+// pending line item on this order -- the "Stock Issues" page's override
+// action, for when staff know the item physically exists and the tracked
+// ledger is just wrong. Unlike retryStockDecrement, always resolves every
+// eligible line item.
+export function forceAcceptStock(token: string, id: string): Promise<ForceAcceptStockResult> {
+  return request<ForceAcceptStockResult>(`${base()}/${id}/force-accept-stock`, token, { method: 'POST' })
 }
 
 // linkLineItemSku links a line item that was imported without a matching
