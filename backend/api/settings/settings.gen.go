@@ -33,6 +33,9 @@ type TenantSettings struct {
 	DateFormat               string `json:"date_format"`
 	DefaultCurrency          string `json:"default_currency"`
 
+	// DefaultTargetMarginBasisPoints Tenant-wide fallback target margin (0-9999, e.g. 3000 = 30%) used to compute a SKU's recommended price when its category has no override. 0 on a never-saved tenant means "unset".
+	DefaultTargetMarginBasisPoints int `json:"default_target_margin_basis_points"`
+
 	// DefaultTaxCountry 2-letter ISO country code used to look up a tax rate when an order/SKU has no more specific country.
 	DefaultTaxCountry string `json:"default_tax_country"`
 
@@ -55,14 +58,15 @@ type TenantSettingsResponse struct {
 
 // UpdateTenantSettingsRequest defines model for UpdateTenantSettingsRequest.
 type UpdateTenantSettingsRequest struct {
-	BatchExpiryThresholdDays  *int    `json:"batch_expiry_threshold_days,omitempty"`
-	DateFormat                *string `json:"date_format,omitempty"`
-	DefaultCurrency           *string `json:"default_currency,omitempty"`
-	DefaultTaxCountry         *string `json:"default_tax_country,omitempty"`
-	InventorySyncRulesEnabled *bool   `json:"inventory_sync_rules_enabled,omitempty"`
-	Language                  *string `json:"language,omitempty"`
-	PricesIncludeTax          *bool   `json:"prices_include_tax,omitempty"`
-	Timezone                  *string `json:"timezone,omitempty"`
+	BatchExpiryThresholdDays       *int    `json:"batch_expiry_threshold_days,omitempty"`
+	DateFormat                     *string `json:"date_format,omitempty"`
+	DefaultCurrency                *string `json:"default_currency,omitempty"`
+	DefaultTargetMarginBasisPoints *int    `json:"default_target_margin_basis_points,omitempty"`
+	DefaultTaxCountry              *string `json:"default_tax_country,omitempty"`
+	InventorySyncRulesEnabled      *bool   `json:"inventory_sync_rules_enabled,omitempty"`
+	Language                       *string `json:"language,omitempty"`
+	PricesIncludeTax               *bool   `json:"prices_include_tax,omitempty"`
+	Timezone                       *string `json:"timezone,omitempty"`
 }
 
 // Error defines model for Error.
@@ -152,21 +156,24 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"PpBYZR/uVOdrlak5tma+fq22n7Z/BwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

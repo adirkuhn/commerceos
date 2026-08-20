@@ -648,6 +648,12 @@ components:
         # ("general ledger") stock rather than a real batch -- id/lot_number/
         # expiry_date/received_at are all zero-value on those rows.
         is_general_ledger: { type: boolean }
+        purchase_order_line_item_id: { type: string, nullable: true }
+        landed_cost_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: This batch's per-unit landed cost, captured at receive time. Null for batches with no PO behind them, or received before landed-cost capture existed.
 
     CreateBatchRequest:
       type: object
@@ -796,6 +802,20 @@ components:
         expiry_date: { type: string, format: date, nullable: true }
         reason: { type: string }
         occurred_at: { type: string, format: date-time }
+        purchase_order_line_item_id:
+          type: string
+          nullable: true
+          description: >-
+            Set when this receipt is against a specific purchase order line
+            item -- the desktop receiving review flow resolves
+            unit_cost_minor_units via GET
+            /procurement/purchase-order-line-items/{id}/landed-cost first
+            and passes both together. Omit for a manual/non-PO stock-in.
+        unit_cost_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: This receipt's landed per-unit cost, stored on the new batch. Ignored when batch_id targets an existing batch.
 
     ReceiveStockResult:
       type: object

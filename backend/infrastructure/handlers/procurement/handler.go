@@ -161,6 +161,9 @@ type completeBookingUC interface {
 type listBookingDiscrepanciesUC interface {
 	Execute(ctx context.Context) (*appprocurement.BookingDiscrepancyReport, error)
 }
+type getLandedUnitCostUC interface {
+	Execute(ctx context.Context, lineItemID string) (int64, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -193,6 +196,7 @@ type Handler struct {
 	completeBooking             completeBookingUC
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC
 	listBookingDiscrepancies    listBookingDiscrepanciesUC
+	getLandedUnitCost           getLandedUnitCostUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -225,8 +229,10 @@ func NewHandler(
 	completeBooking completeBookingUC,
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
 	listBookingDiscrepancies listBookingDiscrepanciesUC,
+	getLandedUnitCost getLandedUnitCostUC,
 ) *Handler {
 	return &Handler{
+		getLandedUnitCost:  getLandedUnitCost,
 		listPurchaseOrders: listPurchaseOrders, createPurchaseOrder: createPurchaseOrder,
 		getPurchaseOrder: getPurchaseOrder, updatePurchaseOrder: updatePurchaseOrder, deletePurchaseOrder: deletePurchaseOrder,
 		addLineItem: addLineItem, updateLineItem: updateLineItem, removeLineItem: removeLineItem,
@@ -323,6 +329,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		),
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
 		appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
+		appprocurement.NewGetLandedUnitCostUseCase(db, lineItemRepo),
 	)
 	genprocurement.RegisterHandlers(rg, h)
 }
@@ -556,6 +563,15 @@ func (h *Handler) LinkLineItemToSku(c *gin.Context, id genprocurement.Id) {
 	}
 	resp := toGenLineItem(*li)
 	c.JSON(http.StatusOK, genprocurement.LineItemResponse{Data: &resp})
+}
+
+func (h *Handler) GetLandedUnitCost(c *gin.Context, id genprocurement.Id) {
+	cost, err := h.getLandedUnitCost.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genprocurement.LandedUnitCost{UnitCostMinorUnits: cost}
+	c.JSON(http.StatusOK, genprocurement.LandedUnitCostResponse{Data: &resp})
 }
 
 func (h *Handler) CreateProductAndLinkLineItem(c *gin.Context, id genprocurement.Id) {

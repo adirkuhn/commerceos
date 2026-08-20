@@ -656,6 +656,7 @@ func (h *Handler) ReceiveStock(c *gin.Context, skuId geninventory.SkuId) {
 		SKUID: skuId, WarehouseID: req.WarehouseId, Quantity: req.Quantity, BatchID: req.BatchId,
 		LotNumber: strPtrOr(req.LotNumber), ExpiryDate: genDateToTimePtr(req.ExpiryDate),
 		Reason: strPtrOr(req.Reason), OccurredAt: timeOrNow(req.OccurredAt),
+		PurchaseOrderLineItemID: req.PurchaseOrderLineItemId, UnitCostMinorUnits: req.UnitCostMinorUnits,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -695,6 +696,7 @@ func toGenBatch(b invDomain.Batch) geninventory.Batch {
 		LotNumber: b.LotNumber, ExpiryDate: timePtrToGenDate(b.ExpiryDate),
 		ReceivedAt: b.ReceivedAt, CreatedAt: b.CreatedAt, UpdatedAt: b.UpdatedAt,
 		Quantity: b.Quantity, IsGeneralLedger: b.IsGeneralLedger,
+		PurchaseOrderLineItemId: b.PurchaseOrderLineItemID, LandedCostMinorUnits: b.LandedCostMinorUnits,
 	}
 }
 

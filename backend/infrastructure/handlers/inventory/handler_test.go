@@ -910,6 +910,23 @@ func TestReceiveStockHandler_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "movement-1")
 }
 
+func TestReceiveStockHandler_passesThroughPurchaseOrderLineItemAndUnitCost(t *testing.T) {
+	receive := &stubReceiveStock{out: &appinventory.ReceiveStockResult{
+		Batch:    &invDomain.Batch{ID: "batch-1", SKUID: "sku-1", WarehouseID: "wh-1"},
+		Movement: &invDomain.StockMovement{ID: "movement-1", SKUID: "sku-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 10},
+	}}
+	h := newBatchTestHandlerWithReceive(&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
+		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{}, receive)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/inventory/skus/sku-1/receive",
+		map[string]any{"warehouse_id": "wh-1", "quantity": 10, "purchase_order_line_item_id": "line-1", "unit_cost_minor_units": 900})
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.NotNil(t, receive.gotInput.PurchaseOrderLineItemID)
+	assert.Equal(t, "line-1", *receive.gotInput.PurchaseOrderLineItemID)
+	require.NotNil(t, receive.gotInput.UnitCostMinorUnits)
+	assert.Equal(t, int64(900), *receive.gotInput.UnitCostMinorUnits)
+}
+
 func TestReceiveStockHandler_rejectsInvalidQuantity(t *testing.T) {
 	h := newBatchTestHandlerWithReceive(&stubCreateBatch{}, &stubUpdateBatch{}, &stubDeleteBatch{}, &stubListBatches{},
 		&stubGetSKUStockLevel{}, &stubRecordStockMovement{}, &stubRecordRecount{}, &stubTransferStock{}, &stubMarkDamagedOrLost{},

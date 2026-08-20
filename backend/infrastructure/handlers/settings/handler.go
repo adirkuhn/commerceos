@@ -58,14 +58,15 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		return
 	}
 	s, err := h.updateTenantSettings.Execute(c.Request.Context(), appsettings.UpdateTenantSettingsInput{
-		DefaultCurrency:           strPtrOr(req.DefaultCurrency),
-		Timezone:                  strPtrOr(req.Timezone),
-		DateFormat:                strPtrOr(req.DateFormat),
-		Language:                  strPtrOr(req.Language),
-		PricesIncludeTax:          req.PricesIncludeTax != nil && *req.PricesIncludeTax,
-		DefaultTaxCountry:         strPtrOr(req.DefaultTaxCountry),
-		InventorySyncRulesEnabled: req.InventorySyncRulesEnabled != nil && *req.InventorySyncRulesEnabled,
-		BatchExpiryThresholdDays:  intPtrOr(req.BatchExpiryThresholdDays),
+		DefaultCurrency:                strPtrOr(req.DefaultCurrency),
+		Timezone:                       strPtrOr(req.Timezone),
+		DateFormat:                     strPtrOr(req.DateFormat),
+		Language:                       strPtrOr(req.Language),
+		PricesIncludeTax:               req.PricesIncludeTax != nil && *req.PricesIncludeTax,
+		DefaultTaxCountry:              strPtrOr(req.DefaultTaxCountry),
+		InventorySyncRulesEnabled:      req.InventorySyncRulesEnabled != nil && *req.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays:       intPtrOr(req.BatchExpiryThresholdDays),
+		DefaultTargetMarginBasisPoints: intPtrOr(req.DefaultTargetMarginBasisPoints),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -76,16 +77,17 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 
 func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSettings {
 	return gensettings.TenantSettings{
-		TenantId:                  s.TenantID,
-		DefaultCurrency:           s.DefaultCurrency,
-		Timezone:                  s.Timezone,
-		DateFormat:                s.DateFormat,
-		Language:                  s.Language,
-		PricesIncludeTax:          s.PricesIncludeTax,
-		DefaultTaxCountry:         s.DefaultTaxCountry,
-		InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
-		BatchExpiryThresholdDays:  s.BatchExpiryThresholdDays,
-		UpdatedAt:                 s.UpdatedAt,
+		TenantId:                       s.TenantID,
+		DefaultCurrency:                s.DefaultCurrency,
+		Timezone:                       s.Timezone,
+		DateFormat:                     s.DateFormat,
+		Language:                       s.Language,
+		PricesIncludeTax:               s.PricesIncludeTax,
+		DefaultTaxCountry:              s.DefaultTaxCountry,
+		InventorySyncRulesEnabled:      s.InventorySyncRulesEnabled,
+		BatchExpiryThresholdDays:       s.BatchExpiryThresholdDays,
+		DefaultTargetMarginBasisPoints: s.DefaultTargetMarginBasisPoints,
+		UpdatedAt:                      s.UpdatedAt,
 	}
 }
 

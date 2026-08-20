@@ -308,6 +308,26 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /procurement/purchase-order-line-items/{id}/landed-cost:
+    get:
+      operationId: getLandedUnitCost
+      summary: Compute a product line item's landed unit cost (own cost plus a proportional share of the order's shipping/fee lines)
+      description: >-
+        Called by the desktop receiving review flow right before booking
+        stock via POST /inventory/skus/{skuId}/receive-stock, to fill in
+        that call's unit_cost_minor_units.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandedUnitCostResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /procurement/purchase-orders/{id}/invoices:
     post:
       operationId: uploadInvoice
@@ -780,6 +800,18 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/PurchaseOrderLineItem' }
+        error: { nullable: true }
+
+    LandedUnitCost:
+      type: object
+      required: [unit_cost_minor_units]
+      properties:
+        unit_cost_minor_units: { type: integer, format: int64 }
+
+    LandedUnitCostResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/LandedUnitCost' }
         error: { nullable: true }
 
     DocumentParsingJobStatus:

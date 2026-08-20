@@ -48,7 +48,7 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_margin_basis_points, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -70,6 +70,12 @@ components:
         batch_expiry_threshold_days:
           type: integer
           description: Days past a batch's expiry date before it is auto-flagged expired. 0 disables auto-expiry.
+        default_target_margin_basis_points:
+          type: integer
+          description: >-
+            Tenant-wide fallback target margin (0-9999, e.g. 3000 = 30%)
+            used to compute a SKU's recommended price when its category has
+            no override. 0 on a never-saved tenant means "unset".
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -83,6 +89,7 @@ components:
         default_tax_country: { type: string }
         inventory_sync_rules_enabled: { type: boolean }
         batch_expiry_threshold_days: { type: integer }
+        default_target_margin_basis_points: { type: integer, minimum: 0, maximum: 9999 }
 
     TenantSettingsResponse:
       type: object
