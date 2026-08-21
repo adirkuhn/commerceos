@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard, Plug,
-  ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2,
+  ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2, TrendingUp,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -44,6 +44,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'shipping', label: 'Shipping Rules', icon: Truck, description: 'Default carriers, label format, zones' },
   { id: 'localization', label: 'Localization', icon: Globe, description: 'Currency, timezone, language' },
   { id: 'tax', label: 'Tax', icon: Percent, description: 'Tax classes and rates' },
+  { id: 'pricing', label: 'Pricing', icon: TrendingUp, description: 'Default target margin for recommended prices' },
   { id: 'automation', label: 'Automation', icon: Zap, description: 'Trigger-based rules and workflows' },
   { id: 'security', label: 'Security', icon: Shield, description: 'SSO, 2FA, IP restrictions' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Email, webhook, Slack alerts' },
@@ -191,6 +192,15 @@ export default function Settings() {
         {activeSection === 'tax' && (
           <div className="max-w-2xl space-y-6">
             <TaxSettingsSection />
+          </div>
+        )}
+
+        {activeSection === 'pricing' && (
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Pricing</h2>
+              <p className="text-xs dark:text-gray-500 text-gray-400">Default target margin used to compute recommended prices</p>
+            </div>
             <PricingMarginSection />
           </div>
         )}

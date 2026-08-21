@@ -80,6 +80,10 @@ async function openTaxSection() {
   await userEvent.click(await screen.findByText('Tax'))
 }
 
+async function openPricingSection() {
+  await userEvent.click(await screen.findByText('Pricing'))
+}
+
 async function openIntegrationsSection() {
   await userEvent.click(await screen.findByText('Integrations'))
 }
@@ -981,5 +985,56 @@ describe('Settings > Tax', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove rate' }))
 
     await waitFor(() => expect(taxApi.deleteTaxRate).toHaveBeenCalledWith('test-token', 'rate-1'))
+  })
+})
+
+describe('Settings > Pricing', () => {
+  it('has its own nav item, separate from Tax', async () => {
+    render(<Settings />)
+    await openPricingSection()
+
+    expect(await screen.findByLabelText('Default target margin (%)')).toBeInTheDocument()
+
+    await openTaxSection()
+    expect(screen.queryByLabelText('Default target margin (%)')).not.toBeInTheDocument()
+  })
+
+  it('shows the default target margin prefilled from tenant settings', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 3000, updated_at: '',
+    })
+
+    render(<Settings />)
+    await openPricingSection()
+
+    await waitFor(() => expect(screen.getByLabelText('Default target margin (%)')).toHaveValue(30))
+  })
+
+  it('saves the default target margin, preserving other tenant settings fields', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'NL',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+    })
+    vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'NL',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 2500, updated_at: '',
+    })
+
+    render(<Settings />)
+    await openPricingSection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+
+    await userEvent.type(screen.getByLabelText('Default target margin (%)'), '25')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing settings' }))
+
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
+      prices_include_tax: true, default_tax_country: 'NL',
+      default_target_margin_basis_points: 2500,
+    })))
   })
 })
