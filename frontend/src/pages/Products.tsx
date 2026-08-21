@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
+  Plus, Search, Package, Trash2, Edit3, Copy, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -60,38 +61,72 @@ function parseIntOrUndefined(value: string): number | undefined {
 
 export default function Products() {
   const { token } = useAuth()
-  const { navSignal } = useApp()
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
   const [page, setPage] = useState(1)
 
-  // Re-clicking "Products" in the sidebar while already on this page fires
-  // setActiveNav with the same value, which React bails out of re-rendering
-  // for — this component never unmounts, so editingId (list vs. detail view)
-  // would otherwise stay stuck open. navSignal bumps on every nav click
-  // regardless of value, so use it to snap back to the list.
-  useEffect(() => {
-    setEditingId(null)
-  }, [navSignal])
+  // The URL is the source of truth for "which product is open" (?id=<uuid>,
+  // or ?id=new for the create flow) -- survives a refresh, and doubles as
+  // the "re-clicking Products in the sidebar returns to the list" fix:
+  // Sidebar's setActiveNav navigates to the plain "/products" path (see
+  // AppContext), which has no id param, so editingId below goes back to
+  // null on its own -- no separate reset-on-reclick mechanism needed.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const editingId = searchParams.get('id')
+  const openEditor = (id: string) => setSearchParams({ id })
+  const closeEditor = () => setSearchParams({})
 
   // Debounce the search box so it doesn't fire a server request on every
   // keystroke — the list is now fetched server-side, unlike the old
-  // client-side .filter() over a fully-loaded array.
+  // client-side .filter() over a fully-loaded array. Only commits
+  // setSearch, never setPage directly -- the separate effect below resets
+  // the page, keyed off `search` actually changing. Doing it in one step
+  // here meant this fired ~300ms after every mount regardless of whether
+  // the search box was touched (searchInput debounces to itself), so a
+  // page the user had already navigated to within that window got
+  // silently reset back to 1.
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1)
-    }, 300)
+    const timeout = setTimeout(() => setSearch(searchInput), 300)
     return () => clearTimeout(timeout)
   }, [searchInput])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   const { products, total, loading, error, create: createProduct, update: updateProduct, remove: removeProduct } =
     useProducts(token ?? '', { page, perPage: PAGE_SIZE, search })
   const { categories, create: createCategory, update: updateCategory } = useCategories(token ?? '')
 
   const categoryName = (id?: string | null) => categories.find(c => c.id === id)?.name ?? '—'
+
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [duplicateError, setDuplicateError] = useState('')
+  const handleDuplicate = async (id: string) => {
+    if (!token) return
+    setDuplicatingId(id)
+    setDuplicateError('')
+    try {
+      const detail = await pmsApi.duplicateProduct(token, id)
+      openEditor(detail.product.id)
+    } catch (err) {
+      setDuplicateError(err instanceof Error ? err.message : 'Failed to duplicate product')
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
+
+  // Swaps ?id=new for the real id the instant creation succeeds -- without
+  // this, a refresh in the gap between "create" and the next explicit
+  // navigation would reopen a blank "New Product" form instead of the
+  // product that was just created (it's safely persisted either way; only
+  // the "which product is open" URL state would be stale).
+  const handleCreateProduct = async (payload: Parameters<typeof createProduct>[0]) => {
+    const created = await createProduct(payload)
+    openEditor(created.id)
+    return created
+  }
 
   if (editingId !== null) {
     return (
@@ -100,9 +135,9 @@ export default function Products() {
         categories={categories}
         onCreateCategory={createCategory}
         onUpdateCategory={updateCategory}
-        onCreate={createProduct}
+        onCreate={handleCreateProduct}
         onUpdate={updateProduct}
-        onClose={() => setEditingId(null)}
+        onClose={closeEditor}
       />
     )
   }
@@ -122,7 +157,7 @@ export default function Products() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => setEditingId('new')}
+            onClick={() => openEditor('new')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> New Product
@@ -133,7 +168,7 @@ export default function Products() {
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
         <span className="text-xs dark:text-gray-500 text-gray-400">{total} product{total === 1 ? '' : 's'}</span>
-        {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
+        {(error || duplicateError) && <span className="text-xs text-red-400 ml-auto">{error || duplicateError}</span>}
       </div>
 
       {/* Table */}
@@ -160,7 +195,7 @@ export default function Products() {
             {products.map(p => (
               <tr
                 key={p.id}
-                onClick={() => setEditingId(p.id)}
+                onClick={() => openEditor(p.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
@@ -195,11 +230,19 @@ export default function Products() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={e => { e.stopPropagation(); setEditingId(p.id) }}
+                      onClick={e => { e.stopPropagation(); openEditor(p.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDuplicate(p.id) }}
+                      disabled={duplicatingId === p.id}
+                      className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      title="Duplicate"
+                    >
+                      <Copy size={12} className="dark:text-gray-400 text-gray-500" />
                     </button>
                     <button
                       onClick={e => {

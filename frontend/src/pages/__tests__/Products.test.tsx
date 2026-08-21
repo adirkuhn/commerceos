@@ -17,6 +17,7 @@ vi.mock('../../pms/api', () => ({
   createProduct: vi.fn(),
   updateProduct: vi.fn(),
   deleteProduct: vi.fn(),
+  duplicateProduct: vi.fn(),
   listCategories: vi.fn(),
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
@@ -156,6 +157,36 @@ describe('re-clicking the active "Products" nav item', () => {
   })
 })
 
+describe('which product is open survives a page refresh', () => {
+  // The open product lives in the URL (?id=...), not local component state
+  // -- rendering straight at that URL (what a refresh does, since the SPA
+  // remounts from scratch) must land directly on the edit page, with no
+  // click required to get there.
+  it('opens straight into the edit page when the URL already has ?id=', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+
+    render(
+      <MemoryRouter initialEntries={['/products?id=prod-1']}>
+        <AppProvider><Products /></AppProvider>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-1'))
+    expect(await screen.findByDisplayValue('T-Shirt')).toBeInTheDocument()
+  })
+
+  it('opens straight into the "new product" form when the URL already has ?id=new', async () => {
+    render(
+      <MemoryRouter initialEntries={['/products?id=new']}>
+        <AppProvider><Products /></AppProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Create Product' })).toBeInTheDocument()
+    expect(pmsApi.getProduct).not.toHaveBeenCalled()
+  })
+})
+
 describe('product list', () => {
   it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
@@ -178,6 +209,28 @@ describe('product list', () => {
     expect(pmsApi.getProduct).not.toHaveBeenCalled()
 
     confirmSpy.mockRestore()
+  })
+
+  it('opens the duplicated product for editing once duplication succeeds', async () => {
+    const duplicated: ProductDetail = { product: product({ id: 'prod-2', name: 'T-Shirt (Copy)', slug: 't-shirt-copy', status: 'draft' }), variants: [] }
+    vi.mocked(pmsApi.duplicateProduct).mockResolvedValue(duplicated)
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(duplicated)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Duplicate'))
+
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalledWith('test-token', 'prod-2'))
+    expect(await screen.findByDisplayValue('T-Shirt (Copy)')).toBeInTheDocument()
+  })
+
+  it('surfaces an error instead of silently failing when duplication fails', async () => {
+    vi.mocked(pmsApi.duplicateProduct).mockRejectedValue(new Error('duplicate failed'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Duplicate'))
+
+    expect(await screen.findByText('duplicate failed')).toBeInTheDocument()
+    expect(pmsApi.getProduct).not.toHaveBeenCalled()
   })
 
   it('paginates when there are more than 20 products', async () => {

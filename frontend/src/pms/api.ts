@@ -96,6 +96,12 @@ export function deleteProduct(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/products/${id}`, { method: 'DELETE' }, token)
 }
 
+// Clones name/category/tags plus every variant and SKU into a new product,
+// always draft and never pushed to any channel.
+export function duplicateProduct(token: string, id: string): Promise<ProductDetail> {
+  return request<ProductDetail>(`${base()}/products/${id}/duplicate`, { method: 'POST' }, token)
+}
+
 // ── Variants ──────────────────────────────────────────────────────────────────
 
 export function createVariant(token: string, productId: string, payload: CreateVariantPayload): Promise<Variant> {
