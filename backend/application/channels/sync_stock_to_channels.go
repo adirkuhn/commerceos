@@ -96,12 +96,31 @@ func (uc *SyncStockToChannelsUseCase) Execute(ctx context.Context, skuID string)
 	}
 
 	for _, listing := range listings {
-		uc.syncOne(ctx, listing, qty, fields, metadata)
+		uc.syncOne(ctx, listing, parentExternalIDFor(listings, listing), qty, fields, metadata)
 	}
 	return nil
 }
 
-func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData) {
+// parentExternalIDFor resolves the Woo variation-update endpoint's required
+// parent product id for a listing with IsVariation=true, by finding the
+// sibling product-level row (VariantID nil) for the same connection --
+// listings for one product+connection are always loaded together by
+// Execute, so the sibling is already in hand. Returns "" for a
+// non-variation listing, which UpdateProductStock takes as "this is a
+// standalone product".
+func parentExternalIDFor(listings []channelsDomain.ProductChannelListing, listing channelsDomain.ProductChannelListing) string {
+	if !listing.IsVariation {
+		return ""
+	}
+	for _, l := range listings {
+		if l.ConnectionID == listing.ConnectionID && l.VariantID == nil {
+			return l.ExternalID
+		}
+	}
+	return ""
+}
+
+func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData) {
 	if listing.Provider != string(integrationsDomain.ProviderWooCommerce) {
 		return // no other provider implemented yet
 	}
@@ -117,7 +136,7 @@ func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing chann
 		return
 	}
 
-	syncErr := uc.pushToWoo(ctx, listing, qty, metadata)
+	syncErr := uc.pushToWoo(ctx, listing, parentExternalID, qty, metadata)
 
 	now := time.Now()
 	listing.LastSyncedAt = &now
@@ -157,7 +176,7 @@ func (uc *SyncStockToChannelsUseCase) alreadySyncedTo(ctx context.Context, listi
 	return prev[0].Status == channelsDomain.SyncLogStatusSuccess && maps.Equal(prev[0].Fields, fields)
 }
 
-func (uc *SyncStockToChannelsUseCase) pushToWoo(ctx context.Context, listing channelsDomain.ProductChannelListing, qty string, metadata []integrationsDomain.WooMetaData) error {
+func (uc *SyncStockToChannelsUseCase) pushToWoo(ctx context.Context, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, metadata []integrationsDomain.WooMetaData) error {
 	var conn integrationsDomain.Connection
 	var secret string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -182,7 +201,7 @@ func (uc *SyncStockToChannelsUseCase) pushToWoo(ctx context.Context, listing cha
 	if err != nil {
 		return fmt.Errorf("syncStockToChannels: parse quantity: %w", err)
 	}
-	if err := client.UpdateProductStock(ctx, listing.ExternalID, qtyInt, metadata); err != nil {
+	if err := client.UpdateProductStock(ctx, parentExternalID, listing.ExternalID, qtyInt, metadata); err != nil {
 		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
 	return nil

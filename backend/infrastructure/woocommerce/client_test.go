@@ -77,6 +77,55 @@ func TestCreateProduct_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	require.Equal(t, "0012345678905", result.GTIN)
 }
 
+// TestUpdateProductStock_simpleProduct_assertsManageStockAndHitsProductEndpoint
+// proves a plain product stock push (no parent id) PUTs /products/{id} and
+// always sets manage_stock=true -- without it, Woo ignores stock_quantity
+// for stock_status purposes whenever manage_stock happens to be off on its
+// side (e.g. a product imported from Woo rather than created by
+// CommerceOS), so a recount to zero would silently never show as out of
+// stock.
+func TestUpdateProductStock_simpleProduct_assertsManageStockAndHitsProductEndpoint(t *testing.T) {
+	var body wc.Product
+	var gotPath string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		json.NewEncoder(w).Encode(wc.Product{ID: 555})
+	})
+
+	err := c.UpdateProductStock(context.Background(), "", "555", 0, nil)
+
+	require.NoError(t, err)
+	require.Contains(t, gotPath, "/products/555")
+	require.NotContains(t, gotPath, "variations")
+	require.True(t, body.ManageStock)
+	require.NotNil(t, body.StockQuantity)
+	require.Equal(t, 0, *body.StockQuantity)
+}
+
+// TestUpdateProductStock_variation_routesThroughParentVariationsEndpoint
+// proves a variation stock push (parentExternalID set) PUTs
+// /products/{parent}/variations/{id} -- the standalone /products/{id}
+// endpoint used for a simple product does not exist for a variation id, so
+// routing it there would silently miss the real Woo resource.
+func TestUpdateProductStock_variation_routesThroughParentVariationsEndpoint(t *testing.T) {
+	var body wc.ProductVariation
+	var gotPath string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		json.NewEncoder(w).Encode(wc.ProductVariation{ID: 901})
+	})
+
+	err := c.UpdateProductStock(context.Background(), "900", "901", 0, nil)
+
+	require.NoError(t, err)
+	require.Contains(t, gotPath, "/products/900/variations/901")
+	require.True(t, body.ManageStock)
+	require.NotNil(t, body.StockQuantity)
+	require.Equal(t, 0, *body.StockQuantity)
+}
+
 func TestCreateVariation_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	var body wc.ProductVariation
 	requestCount := 0

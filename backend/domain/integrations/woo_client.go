@@ -233,9 +233,18 @@ type WooClient interface {
 	CreateProduct(ctx context.Context, p WooProduct) (*WooProduct, error)
 	// UpdateProductStock sets the stock quantity (and, if non-empty, the
 	// commerceos-managed lot_number/expiry_date meta fields) on an existing
-	// product, identified by its external (Woo) id. Used by the stock-export
-	// sync job — never touches any other product field.
-	UpdateProductStock(ctx context.Context, externalProductID string, quantity int, metadata []WooMetaData) error
+	// product or variation, identified by its external (Woo) id, and always
+	// asserts manage_stock=true so Woo derives stock_status (in/out of
+	// stock) from the quantity just sent instead of ignoring it -- without
+	// this, a recount to zero on a listing whose manage_stock happened to
+	// be off (e.g. imported from Woo rather than created by CommerceOS)
+	// would never make the item show as out of stock. parentExternalID is
+	// empty for a standalone product; non-empty for a variation id nested
+	// under that parent product (see ProductChannelListing.IsVariation) --
+	// required because Woo variation stock lives under a different
+	// endpoint (/products/{parent}/variations/{id}) than product stock.
+	// Used by the stock-export sync job — never touches any other field.
+	UpdateProductStock(ctx context.Context, parentExternalID, externalID string, quantity int, metadata []WooMetaData) error
 	// UpdateProduct pushes this codebase's current view of a product to an
 	// already-linked Woo product, identified by its external id — used by
 	// the event-driven product->channel sync (see application/channels'

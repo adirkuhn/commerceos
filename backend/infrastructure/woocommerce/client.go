@@ -467,8 +467,17 @@ func toWooVariation(v wc.ProductVariation) integrationsDomain.WooVariation {
 	}
 }
 
-func (c *wooClient) UpdateProductStock(ctx context.Context, externalProductID string, quantity int, metadata []integrationsDomain.WooMetaData) error {
-	_, _, err := c.client.Products.Update(ctx, externalProductID, &wc.Product{
+func (c *wooClient) UpdateProductStock(ctx context.Context, parentExternalID, externalID string, quantity int, metadata []integrationsDomain.WooMetaData) error {
+	if parentExternalID != "" {
+		_, _, err := c.client.ProductVariations.Update(ctx, parentExternalID, externalID, &wc.ProductVariation{
+			ManageStock:   true,
+			StockQuantity: &quantity,
+			MetaData:      toWcMetaData(metadata),
+		})
+		return err
+	}
+	_, _, err := c.client.Products.Update(ctx, externalID, &wc.Product{
+		ManageStock:   true,
 		StockQuantity: &quantity,
 		MetaData:      toWcMetaData(metadata),
 	})

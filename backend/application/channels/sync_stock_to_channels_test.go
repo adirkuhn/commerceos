@@ -184,6 +184,40 @@ func TestSyncStockToChannels_skipsListingsForUnimplementedProviders(t *testing.T
 	require.Empty(t, h.syncLogRepo.created)
 }
 
+// TestSyncStockToChannels_variationListingUsesParentAsRoutingID proves a
+// variation-mode listing (IsVariation=true, ExternalID is the Woo
+// variation id, not a standalone product id) gets its sibling
+// product-level row's ExternalID passed as the parent id -- Woo variation
+// stock lives at /products/{parent}/variations/{id}, a different endpoint
+// than a standalone product's /products/{id}, so pushing without the
+// parent id would hit the wrong resource entirely.
+func TestSyncStockToChannels_variationListingUsesParentAsRoutingID(t *testing.T) {
+	variantID := "variant-1"
+	parentListing := channelsDomain.ProductChannelListing{
+		ID: "listing-parent", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "900",
+	}
+	variationListing := channelsDomain.ProductChannelListing{
+		ID: "listing-variation", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "901",
+		VariantID: &variantID, IsVariation: true,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{parentListing, variationListing})
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 0}}
+	uc := h.newSyncStockUseCase(t, 10, stockLevel)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 2)
+	byExternalID := map[string]stubStockUpdate{}
+	for _, call := range h.wooClient.updateStockCalled {
+		byExternalID[call.ExternalID] = call
+	}
+	require.Equal(t, "", byExternalID["900"].ParentExternalID, "parent-level listing is not itself a variation")
+	require.Equal(t, "900", byExternalID["901"].ParentExternalID, "variation listing must route through its parent product id")
+}
+
 func TestSyncStockToChannels_propagatesSKUNotFound(t *testing.T) {
 	h := newHarness(nil)
 	stockLevel := &stubStockLevelGetter{}

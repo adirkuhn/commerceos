@@ -134,7 +134,7 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	for _, md := range metadata {
 		fields[md.Key] = md.Value
 	}
-	if err := client.UpdateProductStock(ctx, listing.ExternalID, int(level.Syncable), metadata); err != nil {
+	if err := client.UpdateProductStock(ctx, "", listing.ExternalID, int(level.Syncable), metadata); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: %v: %v", skuID, integrationsDomain.ErrWooRequestFailed, err))
 		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
