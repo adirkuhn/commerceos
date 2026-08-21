@@ -634,6 +634,16 @@ func (s *stubListingRepo) Delete(_ context.Context, id string) error {
 	s.deleted = append(s.deleted, id)
 	return nil
 }
+func (s *stubListingRepo) ListAll(_ context.Context) ([]channelsDomain.ProductChannelListing, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	var out []channelsDomain.ProductChannelListing
+	for _, listings := range s.listByProduct {
+		out = append(out, listings...)
+	}
+	return out, nil
+}
 
 func sameVariantID(a, b *string) bool {
 	if a == nil || b == nil {

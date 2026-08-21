@@ -218,6 +218,32 @@ func TestSyncStockToChannels_variationListingUsesParentAsRoutingID(t *testing.T)
 	require.Equal(t, "900", byExternalID["901"].ParentExternalID, "variation listing must route through its parent product id")
 }
 
+// TestSyncStockToChannels_forceExecuteBypassesTheAlreadySyncedSkip proves
+// ForceExecute re-pushes even when the last successful sync already
+// reported the exact same fields -- Execute's alreadySyncedTo short-circuit
+// exists to avoid redundant Woo calls on the routine
+// inventory.stock.changed path, but a deliberate manual/scheduled resync
+// must always actually push.
+func TestSyncStockToChannels_forceExecuteBypassesTheAlreadySyncedSkip(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
+		"listing-1": {{ListingID: strPtr("listing-1"), Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
+			"stock_quantity": "12", "lot_number": "", "expiry_date": "",
+		}}},
+	}
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 12}}
+	uc := h.newSyncStockUseCase(t, 5, stockLevel)
+
+	err := uc.ForceExecute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 1, "force must push even though quantity/fields are unchanged from the last successful sync")
+}
+
 func TestSyncStockToChannels_propagatesSKUNotFound(t *testing.T) {
 	h := newHarness(nil)
 	stockLevel := &stubStockLevelGetter{}

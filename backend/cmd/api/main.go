@@ -195,7 +195,7 @@ func main() {
 	schedulerGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(schedulerSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	schedulerhandler.Register(schedulerGroup, db)
+	schedulerhandler.Register(schedulerGroup, db, wooFactory, cfg.IntegrationsEncryptionSecret)
 
 	suppliersSpec, err := gensuppliers.GetSpec()
 	if err != nil {

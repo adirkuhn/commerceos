@@ -239,6 +239,13 @@ func main() {
 	}
 	defer stockChangedSub.Unsubscribe()
 
+	// jobRunners was built before syncProductUC/syncStockUC existed --
+	// added here instead of at its original declaration. Safe to mutate
+	// after being handed to runJobNowUC: that's the same map by reference,
+	// and nothing reads from it until the poll loop starts further down.
+	resyncProductToChannelsUC := channelsapp.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductUC, syncStockUC)
+	jobRunners[schedulerDomain.JobResyncAllProductsToChannels] = schedulerapp.NewRunResyncProductsToChannelsUseCase(db, listingRepo, resyncProductToChannelsUC)
+
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	salesOrderLineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	salesOrderLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)

@@ -178,6 +178,22 @@ func (r *ProductChannelListingRepo) ListByProduct(ctx context.Context, productID
 	return out, nil
 }
 
+func (r *ProductChannelListingRepo) ListAll(ctx context.Context) ([]channelsDomain.ProductChannelListing, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []productChannelListingModel
+	if err := tx.Order("tenant_id, product_id").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("productChannelListingRepo.ListAll: %w", err)
+	}
+	out := make([]channelsDomain.ProductChannelListing, len(rows))
+	for i, row := range rows {
+		out[i] = *toListingDomain(row)
+	}
+	return out, nil
+}
+
 func (r *ProductChannelListingRepo) Update(ctx context.Context, l *channelsDomain.ProductChannelListing) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

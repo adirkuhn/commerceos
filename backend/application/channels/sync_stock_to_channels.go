@@ -60,6 +60,21 @@ func NewSyncStockToChannelsUseCase(
 // a single channel being unreachable is recorded on that listing instead,
 // never returned, so one flaky store can't block the whole event.
 func (uc *SyncStockToChannelsUseCase) Execute(ctx context.Context, skuID string) error {
+	return uc.run(ctx, skuID, false)
+}
+
+// ForceExecute is Execute's counterpart for a caller that wants the current
+// stock level re-pushed regardless of what the last successful sync already
+// reported (a manual "resync to channels" action, or the periodic bulk
+// resync job) -- it skips syncOne's alreadySyncedTo short-circuit, which
+// exists to avoid redundant Woo calls on the routine
+// inventory.stock.changed path but would defeat the point of a deliberate
+// force-resync.
+func (uc *SyncStockToChannelsUseCase) ForceExecute(ctx context.Context, skuID string) error {
+	return uc.run(ctx, skuID, true)
+}
+
+func (uc *SyncStockToChannelsUseCase) run(ctx context.Context, skuID string, force bool) error {
 	var productID string
 	var listings []channelsDomain.ProductChannelListing
 
@@ -96,7 +111,7 @@ func (uc *SyncStockToChannelsUseCase) Execute(ctx context.Context, skuID string)
 	}
 
 	for _, listing := range listings {
-		uc.syncOne(ctx, listing, parentExternalIDFor(listings, listing), qty, fields, metadata)
+		uc.syncOne(ctx, listing, parentExternalIDFor(listings, listing), qty, fields, metadata, force)
 	}
 	return nil
 }
@@ -120,7 +135,7 @@ func parentExternalIDFor(listings []channelsDomain.ProductChannelListing, listin
 	return ""
 }
 
-func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData) {
+func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData, force bool) {
 	if listing.Provider != string(integrationsDomain.ProviderWooCommerce) {
 		return // no other provider implemented yet
 	}
@@ -131,8 +146,10 @@ func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing chann
 	// does change Syncable, but not always (e.g. an adjustment against an
 	// already-expired batch, which Syncable excludes either way); the
 	// nearest-expiry batch can also change lot with the quantity staying
-	// the same, which fields (not just qty) catches.
-	if uc.alreadySyncedTo(ctx, listing.ID, fields) {
+	// the same, which fields (not just qty) catches. force (a deliberate
+	// resync) always bypasses this -- the caller wants the push to happen
+	// regardless of whether anything looks unchanged.
+	if !force && uc.alreadySyncedTo(ctx, listing.ID, fields) {
 		return
 	}
 

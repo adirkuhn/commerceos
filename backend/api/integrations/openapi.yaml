@@ -483,6 +483,30 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/products/{productId}/resync:
+    post:
+      operationId: resyncProductToChannels
+      summary: >-
+        Force-push this product's current fields and stock to every channel
+        it's already linked to, regardless of whether anything actually
+        changed since the last sync -- the product page's "Resync to
+        channels" action. Unlike retryFailedSync (which requires an
+        existing failed sync-log entry) this always runs, and unlike the
+        routine event-driven sync it never skips a push because the last
+        one already reported the same values. A product with no listings
+        is a no-op, not an error.
+      parameters:
+        - $ref: '#/components/parameters/productId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/listings/{productId}/sync-logs:
     get:
       operationId: listSyncLogs

@@ -15,6 +15,7 @@ import (
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	appscheduler "github.com/adirkuhn/commerceos/application/scheduler"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -54,7 +55,7 @@ var _ genscheduler.ServerInterface = (*Handler)(nil)
 // middleware.RequireRole(middleware.RoleSuperAdmin) already applied --
 // every route here is a cross-tenant platform-operational view/action, not
 // tenant self-service settings (see api/scheduler/openapi.yaml's doc).
-func Register(rg gin.IRouter, db *gorm.DB) {
+func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClientFactory, encryptionSecret string) {
 	jobRepo := repositories.NewScheduledJobRepo(db)
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	connRepo := repositories.NewConnectionRepo(db)
@@ -69,6 +70,9 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	outboxRepo := repositories.NewOutboxRepository(db)
 	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
 	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	listingRepo := repositories.NewProductChannelListingRepo(db)
+	syncLogRepo := repositories.NewSyncLogRepo(db)
+	mediaRepo := repositories.NewMediaRepo(db)
 
 	expireSalePriceUC := apppms.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo)
 	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo)
@@ -77,10 +81,23 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		appprocurement.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
+	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
+	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
+		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo,
+	)
+	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo,
+	)
+	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
+	)
+	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC)
+
 	runners := map[string]appscheduler.JobRunner{
-		schedulerDomain.JobExpiredSalePrices:      appscheduler.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
-		schedulerDomain.JobExpiredBatches:         appscheduler.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
-		schedulerDomain.JobCostPriceRecalculation: appscheduler.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
+		schedulerDomain.JobExpiredSalePrices:           appscheduler.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
+		schedulerDomain.JobExpiredBatches:              appscheduler.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
+		schedulerDomain.JobCostPriceRecalculation:      appscheduler.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
+		schedulerDomain.JobResyncAllProductsToChannels: appscheduler.NewRunResyncProductsToChannelsUseCase(db, listingRepo, resyncProductToChannelsUC),
 	}
 
 	h := NewHandler(

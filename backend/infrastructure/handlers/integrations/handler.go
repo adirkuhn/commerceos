@@ -83,6 +83,9 @@ type listSyncLogsNeedingAttentionUC interface {
 type retryFailedSyncUC interface {
 	Execute(ctx context.Context, syncLogEntryID string) error
 }
+type resyncProductToChannelsUC interface {
+	Execute(ctx context.Context, productID string) error
+}
 type dismissFailedSyncUC interface {
 	Execute(ctx context.Context, syncLogEntryID string) error
 }
@@ -136,6 +139,7 @@ type Handler struct {
 	listSyncLogsNeedingAttention listSyncLogsNeedingAttentionUC
 	retryFailedSync              retryFailedSyncUC
 	dismissFailedSync            dismissFailedSyncUC
+	resyncProductToChannels      resyncProductToChannelsUC
 	getAIConnection              getAIConnectionUC
 	connectAIProvider            connectAIProviderUC
 	disconnectAIConnection       disconnectAIConnectionUC
@@ -169,6 +173,7 @@ func NewHandler(
 	listSyncLogsNeedingAttention listSyncLogsNeedingAttentionUC,
 	retryFailedSync retryFailedSyncUC,
 	dismissFailedSync dismissFailedSyncUC,
+	resyncProductToChannels resyncProductToChannelsUC,
 	getAIConnection getAIConnectionUC,
 	connectAIProvider connectAIProviderUC,
 	disconnectAIConnection disconnectAIConnectionUC,
@@ -200,6 +205,7 @@ func NewHandler(
 		listSyncLogsNeedingAttention: listSyncLogsNeedingAttention,
 		retryFailedSync:              retryFailedSync,
 		dismissFailedSync:            dismissFailedSync,
+		resyncProductToChannels:      resyncProductToChannels,
 		getAIConnection:              getAIConnection,
 		connectAIProvider:            connectAIProvider,
 		disconnectAIConnection:       disconnectAIConnection,
@@ -274,11 +280,21 @@ func Register(
 		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC),
 	)
 
+	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
-		appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db)),
+		stockLevelUC,
 		mediaRepo,
+	)
+	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo,
+	)
+	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
+	)
+	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(
+		db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC,
 	)
 
 	h := NewHandler(
@@ -303,6 +319,7 @@ func Register(
 		appchannels.NewListSyncLogsNeedingAttentionUseCase(db, syncLogRepo, productRepo, connRepo),
 		appchannels.NewRetryFailedSyncUseCase(db, syncLogRepo, pushProductToWooUC),
 		appchannels.NewDismissFailedSyncUseCase(db, syncLogRepo),
+		resyncProductToChannelsUC,
 		appintegrations.NewGetAIConnectionUseCase(db, aiConnRepo),
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
@@ -687,6 +704,14 @@ func (h *Handler) RetryFailedSync(c *gin.Context, id genintegrations.Id) {
 
 func (h *Handler) DismissFailedSync(c *gin.Context, id genintegrations.Id) {
 	if err := h.dismissFailedSync.Execute(c.Request.Context(), id); err != nil {
+		mapError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, genintegrations.EmptyResponse{})
+}
+
+func (h *Handler) ResyncProductToChannels(c *gin.Context, productId genintegrations.ProductId) {
+	if err := h.resyncProductToChannels.Execute(c.Request.Context(), productId); err != nil {
 		mapError(c, err)
 		return
 	}

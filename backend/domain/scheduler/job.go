@@ -18,9 +18,10 @@ var ErrJobNotFound = errors.New("scheduled job not found")
 // and cmd/scheduler dispatches to them the same way dispatch.go's runners
 // map dispatches SyncSchedule rows.
 const (
-	JobExpiredSalePrices      = "expired_sale_prices"
-	JobExpiredBatches         = "expired_batches"
-	JobCostPriceRecalculation = "cost_price_recalculation"
+	JobExpiredSalePrices           = "expired_sale_prices"
+	JobExpiredBatches              = "expired_batches"
+	JobCostPriceRecalculation      = "cost_price_recalculation"
+	JobResyncAllProductsToChannels = "resync_all_products_to_channels"
 )
 
 type Job struct {

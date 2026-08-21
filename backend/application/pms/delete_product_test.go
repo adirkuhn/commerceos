@@ -46,6 +46,9 @@ func (s *stubProductListingRepo) Update(_ context.Context, _ *channelsDomain.Pro
 	return nil
 }
 func (s *stubProductListingRepo) Delete(_ context.Context, _ string) error { return nil }
+func (s *stubProductListingRepo) ListAll(_ context.Context) ([]channelsDomain.ProductChannelListing, error) {
+	return nil, nil
+}
 
 func TestDeleteProduct_raisesProductDeletedEventWithListingSnapshot(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "prod-1"}}

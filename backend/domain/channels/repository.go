@@ -35,6 +35,12 @@ type ProductChannelListingRepository interface {
 	// Delete removes one listing row — used to tear down a stale
 	// representation during a sync-mode migration.
 	Delete(ctx context.Context, id string) error
+	// ListAll is cross-tenant, no WHERE tenant_id of its own -- same
+	// bypass_rls convention as SyncScheduleRepository.ListAll (see that
+	// method's own doc). Used by the "resync all products to channels"
+	// scheduled job to enumerate every linked product across every tenant
+	// in one pass, without walking the whole product catalog.
+	ListAll(ctx context.Context) ([]ProductChannelListing, error)
 }
 
 // SyncLogRepository is insert-only, no-op-free by design — a sync log
