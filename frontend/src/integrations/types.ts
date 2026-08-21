@@ -108,6 +108,9 @@ export interface SyncLogEntry {
   fields: Record<string, string>
   changes: Record<string, FieldChange>
   synced_at: string
+  // Set once staff acknowledge this failure from the "needs attention"
+  // view without retrying it.
+  dismissed_at?: string | null
   // Only populated by listAllSyncLogs (the tenant-wide history list) — the
   // per-listing endpoint's caller already knows the product.
   product_name?: string

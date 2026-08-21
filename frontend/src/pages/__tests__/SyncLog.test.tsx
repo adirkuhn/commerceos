@@ -11,6 +11,9 @@ vi.mock('../../auth/AuthContext', () => ({
 
 vi.mock('../../integrations/api', () => ({
   listAllSyncLogs: vi.fn(),
+  listSyncLogsNeedingAttention: vi.fn(),
+  retryFailedSync: vi.fn(),
+  dismissFailedSync: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -28,6 +31,7 @@ function entry(overrides: Partial<SyncLogEntry> = {}): SyncLogEntry {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [], total: 0 })
+  vi.mocked(integrationsApi.listSyncLogsNeedingAttention).mockResolvedValue({ entries: [], total: 0 })
 })
 
 describe('Sync History page', () => {
@@ -115,5 +119,81 @@ describe('Sync History page', () => {
     await screen.findByText('Product page 1')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await waitFor(() => expect(screen.getByText('Product page 2')).toBeInTheDocument())
+  })
+
+  describe('Needs attention tab', () => {
+    it('switches to the needs-attention view and shows only flagged listings', async () => {
+      vi.mocked(integrationsApi.listSyncLogsNeedingAttention).mockResolvedValue({
+        entries: [entry({ status: 'error', error_message: 'woocommerce request failed', changes: {} })], total: 1,
+      })
+      render(<SyncLog />)
+
+      await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
+
+      expect(await screen.findByText('woocommerce request failed')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
+    })
+
+    it('shows a resolved empty state distinct from the "All" tab', async () => {
+      render(<SyncLog />)
+
+      await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
+
+      expect(await screen.findByText(/everything's resolved/)).toBeInTheDocument()
+    })
+
+    it('retries a failed sync and refreshes the list', async () => {
+      vi.mocked(integrationsApi.listSyncLogsNeedingAttention).mockResolvedValue({
+        entries: [entry({ status: 'error', changes: {} })], total: 1,
+      })
+      vi.mocked(integrationsApi.retryFailedSync).mockResolvedValue(null)
+      render(<SyncLog />)
+      await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
+      await screen.findByRole('button', { name: 'Retry' })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+      expect(integrationsApi.retryFailedSync).toHaveBeenCalledWith('test-token', 'log-1')
+      await waitFor(() => expect(integrationsApi.listSyncLogsNeedingAttention).toHaveBeenCalledTimes(2))
+    })
+
+    it('dismisses a failed sync and refreshes the list', async () => {
+      vi.mocked(integrationsApi.listSyncLogsNeedingAttention).mockResolvedValue({
+        entries: [entry({ status: 'error', changes: {} })], total: 1,
+      })
+      vi.mocked(integrationsApi.dismissFailedSync).mockResolvedValue(null)
+      render(<SyncLog />)
+      await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
+      await screen.findByRole('button', { name: 'Dismiss' })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+      expect(integrationsApi.dismissFailedSync).toHaveBeenCalledWith('test-token', 'log-1')
+      await waitFor(() => expect(integrationsApi.listSyncLogsNeedingAttention).toHaveBeenCalledTimes(2))
+    })
+
+    it('surfaces a retry error', async () => {
+      vi.mocked(integrationsApi.listSyncLogsNeedingAttention).mockResolvedValue({
+        entries: [entry({ status: 'error', changes: {} })], total: 1,
+      })
+      vi.mocked(integrationsApi.retryFailedSync).mockRejectedValue(new Error('sync log entry not found'))
+      render(<SyncLog />)
+      await userEvent.click(screen.getByRole('button', { name: /Needs attention/ }))
+      await screen.findByRole('button', { name: 'Retry' })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+      expect(await screen.findByText('sync log entry not found')).toBeInTheDocument()
+    })
+
+    it('does not show Retry/Dismiss actions on the "All" tab', async () => {
+      vi.mocked(integrationsApi.listAllSyncLogs).mockResolvedValue({ entries: [entry()], total: 1 })
+      render(<SyncLog />)
+
+      await screen.findAllByText('T-Shirt')
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument()
+    })
   })
 })

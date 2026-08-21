@@ -200,6 +200,38 @@ export async function listAllSyncLogs(token: string, params: ListAllSyncLogsPara
   return { entries: body.data ?? [], total: body.total ?? 0 }
 }
 
+// Every listing whose most recent sync attempt failed and hasn't been
+// dismissed, newest first -- the Sync History page's "Needs attention"
+// filter. A successful retry, or a dismiss, drops the listing out of this
+// list on its own.
+export async function listSyncLogsNeedingAttention(token: string, params: ListAllSyncLogsParams = {}): Promise<ListAllSyncLogsResult> {
+  const qs = new URLSearchParams()
+  if (params.page) qs.set('page', String(params.page))
+  if (params.perPage) qs.set('per_page', String(params.perPage))
+  const query = qs.toString()
+
+  const res = await fetch(`${base()}/sync-logs/needing-attention${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  const body: APIResponse<SyncLogEntry[]> & { total?: number } = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return { entries: body.data ?? [], total: body.total ?? 0 }
+}
+
+// Re-push the failed entry's product to the same connection -- a full
+// resync, not a narrow replay of just the field that failed.
+export function retryFailedSync(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/sync-logs/${id}/retry`, { method: 'POST' }, token)
+}
+
+// Silence a failure that isn't worth retrying, without pretending it
+// succeeded.
+export function dismissFailedSync(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/sync-logs/${id}/dismiss`, { method: 'POST' }, token)
+}
+
 export function listSalesChannels(token: string): Promise<SalesChannel[]> {
   return request<SalesChannel[]>(`${base()}/sales-channels`, { method: 'GET' }, token)
 }

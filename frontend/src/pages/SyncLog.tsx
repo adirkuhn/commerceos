@@ -1,8 +1,11 @@
 import { useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
+import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSyncLogs } from '../integrations/hooks/useSyncLogs'
+import { useSyncLogsNeedingAttention } from '../integrations/hooks/useSyncLogsNeedingAttention'
+import * as api from '../integrations/api'
 import type { SyncLogStatus, SyncLogDirection } from '../integrations/types'
 
 const PAGE_SIZE = 20
@@ -25,16 +28,81 @@ function formatValue(v: string): string {
   return v === '' ? '—' : v
 }
 
+// SyncLog is the tenant-wide sync history page -- "All" shows every push/
+// import/stock attempt, newest first; "Needs attention" narrows to
+// listings whose most recent attempt failed and hasn't been dismissed,
+// with Retry (re-push, full resync) and Dismiss (silence without
+// pretending it succeeded) actions. A successful retry, or a dismiss,
+// drops the row out of "Needs attention" on its own -- it's a live query,
+// not separate tracked state (see backend's ListNeedingAttention doc).
 export default function SyncLog() {
   const { token } = useAuth()
+  const [view, setView] = useState<'all' | 'needing-attention'>('all')
   const [page, setPage] = useState(1)
-  const { entries, total, loading, error, refresh } = useSyncLogs(token ?? '', { page, perPage: PAGE_SIZE })
+  const all = useSyncLogs(token ?? '', { page, perPage: PAGE_SIZE })
+  const needingAttention = useSyncLogsNeedingAttention(token ?? '', { page, perPage: PAGE_SIZE })
+  const { entries, total, loading, error, refresh } = view === 'all' ? all : needingAttention
+
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<'retry' | 'dismiss' | null>(null)
+  const [actionError, setActionError] = useState('')
+
+  function switchView(next: 'all' | 'needing-attention') {
+    setView(next)
+    setPage(1)
+  }
+
+  async function handleRetry(id: string) {
+    setBusyId(id)
+    setBusyAction('retry')
+    setActionError('')
+    try {
+      await api.retryFailedSync(token ?? '', id)
+      await needingAttention.refresh()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to retry sync')
+    } finally {
+      setBusyId(null)
+      setBusyAction(null)
+    }
+  }
+
+  async function handleDismiss(id: string) {
+    setBusyId(id)
+    setBusyAction('dismiss')
+    setActionError('')
+    try {
+      await api.dismissFailedSync(token ?? '', id)
+      await needingAttention.refresh()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to dismiss sync')
+    } finally {
+      setBusyId(null)
+      setBusyAction(null)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
         <h1 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sync History</h1>
+        <div className="flex items-center gap-1 ml-4">
+          <button
+            onClick={() => switchView('all')}
+            className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              view === 'all' ? 'bg-blue-600 text-white' : 'dark:text-gray-400 text-gray-500 hover:dark:bg-[#1F2937] hover:bg-gray-100')}
+          >
+            All
+          </button>
+          <button
+            onClick={() => switchView('needing-attention')}
+            className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              view === 'needing-attention' ? 'bg-amber-500 text-white' : 'dark:text-gray-400 text-gray-500 hover:dark:bg-[#1F2937] hover:bg-gray-100')}
+          >
+            <AlertTriangle size={12} /> Needs attention
+          </button>
+        </div>
         <button
           onClick={refresh}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 text-xs dark:text-gray-300 text-gray-700 hover:dark:bg-[#1F2937] hover:bg-gray-100 transition-colors ml-auto"
@@ -45,8 +113,10 @@ export default function SyncLog() {
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{total} sync{total === 1 ? '' : 's'}</span>
-        {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
+        <span className="text-xs dark:text-gray-500 text-gray-400">
+          {total} {view === 'all' ? 'sync' : 'listing'}{total === 1 ? '' : 's'}
+        </span>
+        {(error || actionError) && <span className="text-xs text-red-400 ml-auto">{error || actionError}</span>}
       </div>
 
       {/* Table */}
@@ -60,14 +130,17 @@ export default function SyncLog() {
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Direction</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Changes</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Status</th>
+              {view === 'needing-attention' && <th className="px-3 py-2.5 w-56" />}
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={view === 'needing-attention' ? 7 : 6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
             {!loading && entries.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No syncs yet</td></tr>
+              <tr><td colSpan={view === 'needing-attention' ? 7 : 6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">
+                {view === 'all' ? 'No syncs yet' : "No syncs need attention — everything's resolved"}
+              </td></tr>
             )}
             {entries.map(entry => {
               const changedFields = Object.entries(entry.changes)
@@ -104,6 +177,26 @@ export default function SyncLog() {
                       <p className="text-[10px] text-red-400 mt-1 max-w-[220px]">{entry.error_message}</p>
                     )}
                   </td>
+                  {view === 'needing-attention' && (
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleDismiss(entry.id)}
+                          disabled={busyId === entry.id}
+                          className="px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 text-[11px] font-medium hover:bg-gray-500/10 disabled:opacity-50 transition-colors"
+                        >
+                          {busyId === entry.id && busyAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
+                        </button>
+                        <button
+                          onClick={() => handleRetry(entry.id)}
+                          disabled={busyId === entry.id}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                          {busyId === entry.id && busyAction === 'retry' ? 'Retrying…' : 'Retry'}
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })}
