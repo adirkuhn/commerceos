@@ -21,9 +21,23 @@ vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
 }))
 
+vi.mock('../../dashboard/api', () => ({
+  getDashboardStats: vi.fn(),
+}))
+
 import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
 import * as omsApi from '../../oms/api'
+import * as dashboardApi from '../../dashboard/api'
+import type { DashboardStatsReport } from '../../dashboard/types'
+
+function report(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
+  return {
+    total_stock_units: 0, currency_code: 'USD', revenue_this_month_minor_units: 0,
+    stock_flow_last_7_days: [], sales_by_channel_this_month: [], top_products_this_month: [],
+    ...overrides,
+  }
+}
 
 function batch(overrides: Partial<ExpiringBatch> = {}): ExpiringBatch {
   return {
@@ -49,6 +63,7 @@ beforeEach(() => {
   vi.mocked(inventoryApi.listPendingExpiredBatches).mockResolvedValue([])
   vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [], total: 0 })
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+  vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report())
 })
 
 describe('Dashboard — Expiring Soon widget', () => {
@@ -123,10 +138,52 @@ describe('Dashboard — stat cards', () => {
     expect(inventoryApi.listPendingExpiredBatches).toHaveBeenCalledWith('test-token')
   })
 
-  it('shows "Coming soon" for widgets with no backend aggregate yet', async () => {
+  it('renders real total stock and revenue figures', async () => {
+    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({
+      total_stock_units: 84293, currency_code: 'EUR', revenue_this_month_minor_units: 11600000,
+    }))
     render(<Dashboard />)
-    const comingSoon = await screen.findAllByText('Coming soon')
-    // Total Stock, Est. Revenue, Stock Flow, Sales by Channel, Top Products
-    expect(comingSoon.length).toBe(5)
+    expect(await screen.findByText('84,293')).toBeInTheDocument()
+    expect(await screen.findByText('€116,000.00')).toBeInTheDocument()
+    expect(dashboardApi.getDashboardStats).toHaveBeenCalledWith('test-token')
+  })
+
+  it('renders the stock flow chart from real data', async () => {
+    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({
+      stock_flow_last_7_days: [{ date: '2026-08-16', in: 142, out: 89 }],
+    }))
+    render(<Dashboard />)
+    expect(await screen.findByText('Stock Flow')).toBeInTheDocument()
+    // recharts renders an SVG; presence of the container confirms the
+    // chart mounted instead of the old "Coming soon" placeholder.
+    await screen.findByText('Inbound vs outbound')
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
+  })
+
+  it('renders sales by channel from real data', async () => {
+    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({
+      sales_by_channel_this_month: [{ source: 'woocommerce', total_minor_units: 3150000 }],
+      currency_code: 'EUR',
+    }))
+    render(<Dashboard />)
+    expect(await screen.findByText('WooCommerce')).toBeInTheDocument()
+    expect(screen.getByText('€31,500.00')).toBeInTheDocument()
+  })
+
+  it('renders top products from real data', async () => {
+    vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(report({
+      top_products_this_month: [{ sku_id: 'sku-1', sku_code: 'WHP-001', product_name: 'Wireless Headphones Pro', quantity_sold: 234, revenue_minor_units: 5850000 }],
+      currency_code: 'EUR',
+    }))
+    render(<Dashboard />)
+    expect(await screen.findByText('Wireless Headphones Pro')).toBeInTheDocument()
+    expect(screen.getByText('WHP-001')).toBeInTheDocument()
+    expect(screen.getByText('234')).toBeInTheDocument()
+    expect(screen.getByText('€58,500.00')).toBeInTheDocument()
+  })
+
+  it('shows an empty state for top products when there are none', async () => {
+    render(<Dashboard />)
+    expect(await screen.findByText('No products sold yet this month.')).toBeInTheDocument()
   })
 })

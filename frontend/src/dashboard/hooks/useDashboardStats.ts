@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import * as pmsApi from '../../pms/api'
 import * as omsApi from '../../oms/api'
 import * as inventoryApi from '../../inventory/api'
+import * as dashboardApi from '../api'
+import type { DailyStockFlow, ChannelRevenue, TopProduct } from '../types'
 
 export interface DashboardStats {
   totalProducts: number
@@ -9,6 +11,12 @@ export interface DashboardStats {
   stockIssues: number
   expiringSoon: number
   expired: number
+  totalStockUnits: number
+  currencyCode: string
+  revenueThisMonthMinorUnits: number
+  stockFlowLast7Days: DailyStockFlow[]
+  salesByChannelThisMonth: ChannelRevenue[]
+  topProductsThisMonth: TopProduct[]
 }
 
 interface UseDashboardStatsState {
@@ -17,10 +25,6 @@ interface UseDashboardStatsState {
   error: string | null
 }
 
-// Each figure here comes straight from an existing list endpoint's total/count
-// -- there is no tenant-wide reporting/aggregate backend yet, so anything
-// that would need one (revenue, stock-flow, channel/product breakdowns)
-// is deliberately left off this hook rather than approximated client-side.
 export function useDashboardStats(token: string): UseDashboardStatsState & { refresh: () => void } {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(false)
@@ -31,12 +35,13 @@ export function useDashboardStats(token: string): UseDashboardStatsState & { ref
     setLoading(true)
     setError(null)
     try {
-      const [products, orders, stockIssueOrders, expiringBatches, expiredBatches] = await Promise.all([
+      const [products, orders, stockIssueOrders, expiringBatches, expiredBatches, report] = await Promise.all([
         pmsApi.listProducts(token, { perPage: 1 }),
         omsApi.listSalesOrders(token, { perPage: 1 }),
         omsApi.listSalesOrders(token, { perPage: 1, needsStockReview: true }),
         inventoryApi.listExpiringBatches(token, 7),
         inventoryApi.listPendingExpiredBatches(token),
+        dashboardApi.getDashboardStats(token),
       ])
       setStats({
         totalProducts: products.total,
@@ -44,6 +49,12 @@ export function useDashboardStats(token: string): UseDashboardStatsState & { ref
         stockIssues: stockIssueOrders.total,
         expiringSoon: expiringBatches.length,
         expired: expiredBatches.length,
+        totalStockUnits: report.total_stock_units,
+        currencyCode: report.currency_code,
+        revenueThisMonthMinorUnits: report.revenue_this_month_minor_units,
+        stockFlowLast7Days: report.stock_flow_last_7_days,
+        salesByChannelThisMonth: report.sales_by_channel_this_month,
+        topProductsThisMonth: report.top_products_this_month,
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
