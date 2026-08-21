@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Scheduled Jobs API
+  description: >-
+    The super_admin "Scheduled Jobs" admin page: global cron jobs
+    (domain/scheduler.Job -- cost-price recalculation, expired sale-price/
+    batch sweeps, each touching every tenant in one pass) and every
+    tenant's WooCommerce sync schedules (domain/channels.SyncSchedule) in
+    one cross-tenant view, each with a run-now action. Every route here is
+    super_admin only.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /scheduler/jobs:
+    get:
+      operationId: listJobs
+      summary: List every global cron job, cross-tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobListResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /scheduler/jobs/{jobKey}/run-now:
+    post:
+      operationId: runJobNow
+      summary: >-
+        Run a global cron job synchronously right now and record the
+        outcome -- these are small, bounded cross-tenant sweeps, not
+        paginated per-connection imports.
+      parameters:
+        - $ref: '#/components/parameters/jobKey'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /scheduler/sync-schedules:
+    get:
+      operationId: listSyncSchedules
+      summary: List every tenant's WooCommerce sync schedule, cross-tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncScheduleListResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /scheduler/sync-schedules/{id}/run-now:
+    post:
+      operationId: runSyncScheduleNow
+      summary: >-
+        Pull a Woo sync schedule's next run forward to now -- picked up by
+        the scheduler process's own poll tick (within ~60s), not run
+        synchronously (a Woo import can page through thousands of orders).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    jobKey:
+      name: jobKey
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Job:
+      type: object
+      required: [job_key, enabled, interval_minutes, last_run_status, last_run_error, next_run_at]
+      properties:
+        job_key: { type: string }
+        enabled: { type: boolean }
+        interval_minutes: { type: integer }
+        last_run_at: { type: string, format: date-time, nullable: true }
+        last_run_status: { type: string, enum: ['', success, error] }
+        last_run_error: { type: string }
+        next_run_at: { type: string, format: date-time }
+
+    JobListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+        error: { nullable: true }
+
+    SyncScheduleRow:
+      type: object
+      required: [id, tenant_id, connection_id, connection_store_url, entity_type, direction, enabled, interval_minutes, last_run_status, last_run_error]
+      properties:
+        id: { type: string }
+        tenant_id: { type: string }
+        connection_id: { type: string }
+        connection_store_url: { type: string }
+        entity_type: { type: string, enum: [products, stock, orders, categories, orders_reconciliation] }
+        direction: { type: string, enum: [import, export] }
+        enabled: { type: boolean }
+        interval_minutes: { type: integer }
+        last_run_at: { type: string, format: date-time, nullable: true }
+        last_run_status: { type: string, enum: ['', success, error] }
+        last_run_error: { type: string }
+        next_run_at: { type: string, format: date-time, nullable: true }
+
+    SyncScheduleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncScheduleRow'
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

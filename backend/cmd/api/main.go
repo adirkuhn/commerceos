@@ -23,6 +23,7 @@ import (
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
 	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
 	genscanning "github.com/adirkuhn/commerceos/api/scanning"
+	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
@@ -38,6 +39,7 @@ import (
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
+	schedulerhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scheduler"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
@@ -180,6 +182,20 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	notificationshandler.Register(notificationsGroup, db)
+
+	schedulerSpec, err := genscheduler.GetSpec()
+	if err != nil {
+		log.Fatalf("scheduler: load openapi spec: %v", err)
+	}
+	// Own sub-group, gated to super_admin: every route here is a
+	// cross-tenant platform-operational view/action (see
+	// api/scheduler/openapi.yaml's doc), not tenant self-service settings.
+	schedulerGroup := v1.Group("")
+	schedulerGroup.Use(middleware.RequireRole(middleware.RoleSuperAdmin))
+	schedulerGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(schedulerSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	schedulerhandler.Register(schedulerGroup, db)
 
 	suppliersSpec, err := gensuppliers.GetSpec()
 	if err != nil {
