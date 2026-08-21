@@ -612,6 +612,52 @@ func (r *StockMovementRepo) ListByBatch(ctx context.Context, batchID string) ([]
 	return out, nil
 }
 
+func (r *StockMovementRepo) TotalOnHand(ctx context.Context) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	if err := tx.Model(&stockMovementModel{}).Select("COALESCE(SUM(quantity_delta), 0)").Scan(&total).Error; err != nil {
+		return 0, fmt.Errorf("stockMovementRepo.TotalOnHand: %w", err)
+	}
+	return total, nil
+}
+
+// dailyStockFlowRow avoids the "in"/"out" reserved-word clash SQL would
+// hit aliasing columns to those names directly.
+type dailyStockFlowRow struct {
+	Date   time.Time
+	InQty  int64 `gorm:"column:in_qty"`
+	OutQty int64 `gorm:"column:out_qty"`
+}
+
+func (r *StockMovementRepo) DailyFlow(ctx context.Context, since time.Time) ([]invDomain.DailyStockFlow, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []dailyStockFlowRow
+	err = tx.Raw(`
+		SELECT
+			d::date AS date,
+			COALESCE(SUM(CASE WHEN sm.quantity_delta > 0 THEN sm.quantity_delta ELSE 0 END), 0) AS in_qty,
+			COALESCE(SUM(CASE WHEN sm.quantity_delta < 0 THEN -sm.quantity_delta ELSE 0 END), 0) AS out_qty
+		FROM generate_series(?::date, now()::date, interval '1 day') d
+		LEFT JOIN stock_movements sm ON sm.occurred_at::date = d
+		GROUP BY d
+		ORDER BY d
+	`, since).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("stockMovementRepo.DailyFlow: %w", err)
+	}
+	out := make([]invDomain.DailyStockFlow, len(rows))
+	for i, row := range rows {
+		out[i] = invDomain.DailyStockFlow{Date: row.Date, In: row.InQty, Out: row.OutQty}
+	}
+	return out, nil
+}
+
 func toStockMovementDomain(m stockMovementModel) *invDomain.StockMovement {
 	return &invDomain.StockMovement{
 		ID:            m.ID,

@@ -97,6 +97,27 @@ type BatchRepository interface {
 	ExtendExpiry(ctx context.Context, id string, newExpiryDate time.Time) error
 }
 
+// DailyStockFlow is one day's inbound/outbound totals for
+// DashboardStockReportRepository.DailyFlow -- In is the sum of positive
+// QuantityDelta that day, Out the sum (as a positive number) of negative
+// QuantityDelta, both across every SKU/warehouse for the tenant.
+type DailyStockFlow struct {
+	Date time.Time
+	In   int64
+	Out  int64
+}
+
+// DashboardStockReportRepository backs the dashboard's stock figures.
+// TotalOnHand is the literal tenant-wide ledger sum -- unlike
+// application/inventory.computeStockLevel's per-SKU logic, it has no
+// syncable/nearest-expiry-batch nuance, just every movement added up.
+type DashboardStockReportRepository interface {
+	TotalOnHand(ctx context.Context) (int64, error)
+	// DailyFlow returns one row per day from `since` (inclusive) to today,
+	// oldest first, including days with no movements at all (In/Out both 0).
+	DailyFlow(ctx context.Context, since time.Time) ([]DailyStockFlow, error)
+}
+
 // StockMovementRepository is append-only by design — a ledger entry is
 // never updated or deleted; corrections happen via a new adjustment entry.
 type StockMovementRepository interface {

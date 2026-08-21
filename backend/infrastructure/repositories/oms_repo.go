@@ -77,9 +77,9 @@ type salesOrderModel struct {
 func (salesOrderModel) TableName() string { return "sales_orders" }
 
 type salesOrderLineItemModel struct {
-	ID           string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID     string `gorm:"not null;type:uuid"`
-	SalesOrderID string `gorm:"column:sales_order_id;not null;type:uuid"`
+	ID           string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID     string  `gorm:"not null;type:uuid"`
+	SalesOrderID string  `gorm:"column:sales_order_id;not null;type:uuid"`
 	SKUID        *string `gorm:"column:sku_id;type:uuid"`
 	Name         string
 	SKUCode      string `gorm:"column:sku_code"`
@@ -344,6 +344,100 @@ func (r *SalesOrderRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// revenueCountingStatuses mirrors omsDomain.SalesOrderStatus.ReducesStock's
+// set exactly -- a status that never reduced stock (pending, cancelled,
+// refunded, failed) was never real revenue either. Kept as a package-level
+// slice (rather than calling ReducesStock per-row) since these three
+// queries filter in SQL, not in Go.
+var revenueCountingStatuses = []string{
+	string(omsDomain.SalesOrderStatusOnHold),
+	string(omsDomain.SalesOrderStatusProcessing),
+	string(omsDomain.SalesOrderStatusCompleted),
+}
+
+func (r *SalesOrderRepo) RevenueSince(ctx context.Context, since time.Time, currencyCode string) (int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	err = tx.Model(&salesOrderModel{}).
+		Where("occurred_at >= ? AND currency_code = ? AND status IN ?", since, currencyCode, revenueCountingStatuses).
+		Select("COALESCE(SUM(total_minor_units), 0)").Scan(&total).Error
+	if err != nil {
+		return 0, fmt.Errorf("salesOrderRepo.RevenueSince: %w", err)
+	}
+	return total, nil
+}
+
+type channelRevenueRow struct {
+	Source          string
+	TotalMinorUnits int64
+}
+
+func (r *SalesOrderRepo) RevenueByChannelSince(ctx context.Context, since time.Time, currencyCode string) ([]omsDomain.ChannelRevenue, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []channelRevenueRow
+	err = tx.Model(&salesOrderModel{}).
+		Where("occurred_at >= ? AND currency_code = ? AND status IN ?", since, currencyCode, revenueCountingStatuses).
+		Select("source, COALESCE(SUM(total_minor_units), 0) AS total_minor_units").
+		Group("source").Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelSince: %w", err)
+	}
+	out := make([]omsDomain.ChannelRevenue, len(rows))
+	for i, row := range rows {
+		out[i] = omsDomain.ChannelRevenue{Source: omsDomain.SalesOrderSource(row.Source), TotalMinorUnits: row.TotalMinorUnits}
+	}
+	return out, nil
+}
+
+type productSalesRow struct {
+	SKUID             *string `gorm:"column:sku_id"`
+	SKUCode           string
+	ProductName       string `gorm:"column:name"`
+	QuantitySold      int64
+	RevenueMinorUnits int64
+}
+
+func (r *SalesOrderRepo) TopProductsSince(ctx context.Context, since time.Time, currencyCode string, limit int) ([]omsDomain.ProductSales, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []productSalesRow
+	err = tx.Raw(`
+		SELECT
+			li.sku_id AS sku_id,
+			li.sku_code AS sku_code,
+			li.name AS name,
+			SUM(li.quantity) AS quantity_sold,
+			SUM(li.total_minor_units) AS revenue_minor_units
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		WHERE so.occurred_at >= ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+		GROUP BY li.sku_id, li.sku_code, li.name
+		ORDER BY quantity_sold DESC
+		LIMIT ?
+	`, since, currencyCode, limit).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.TopProductsSince: %w", err)
+	}
+	out := make([]omsDomain.ProductSales, len(rows))
+	for i, row := range rows {
+		out[i] = omsDomain.ProductSales{
+			SKUID: row.SKUID, SKUCode: row.SKUCode, ProductName: row.ProductName,
+			QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits,
+		}
+	}
+	return out, nil
+}
+
 // ── SalesOrderLineItemRepo ───────────────────────────────────────────────────
 
 type SalesOrderLineItemRepo struct{ db *gorm.DB }
@@ -372,7 +466,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 	m := salesOrderLineItemModel{
 		TenantID: li.TenantID, SalesOrderID: li.SalesOrderID, SKUID: li.SKUID,
 		Name: li.Name, SKUCode: li.SKUCode, Barcode: li.Barcode, Quantity: li.Quantity,
-		StockStatus: string(stockStatus),
+		StockStatus:     string(stockStatus),
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, CreatedAt: li.CreatedAt,
@@ -418,7 +512,7 @@ func toSalesOrderLineItemDomain(m salesOrderLineItemModel) *omsDomain.SalesOrder
 	return &omsDomain.SalesOrderLineItem{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, SKUID: m.SKUID,
 		Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity,
-		StockStatus: omsDomain.StockStatus(m.StockStatus),
+		StockStatus:     omsDomain.StockStatus(m.StockStatus),
 		PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 		TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,

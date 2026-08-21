@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -855,4 +856,125 @@ func TestSalesOrderRepo_Integration_ListFiltersByNeedsStockReviewAndNeedsSKURevi
 	require.Equal(t, stockReviewID, stockReviewOrders[0].ID)
 	require.Len(t, skuReviewOrders, 1)
 	require.Equal(t, skuReviewID, skuReviewOrders[0].ID)
+}
+
+// seedDashboardOrder creates one sales order (+ one line item, if qty > 0)
+// with the given source/status/currency/occurred_at -- the shared fixture
+// for the dashboard report queries below, which all care about exactly
+// those dimensions and nothing else about the order.
+func seedDashboardOrder(
+	t *testing.T, db *gorm.DB, ctx context.Context, salesOrderRepo *repositories.SalesOrderRepo, lineItemRepo *repositories.SalesOrderLineItemRepo,
+	warehouseID, externalID string, source omsDomain.SalesOrderSource, status omsDomain.SalesOrderStatus, currency string, occurredAt time.Time,
+	skuCode, productName string, qty, totalMinorUnits int64,
+) string {
+	t.Helper()
+	var orderID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: source, ExternalOrderID: externalID,
+			WarehouseID: warehouseID, Status: status, CurrencyCode: currency,
+			TotalMinorUnits: totalMinorUnits, OccurredAt: occurredAt, CreatedAt: occurredAt,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+		if qty <= 0 {
+			return nil
+		}
+		line := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, Name: productName, SKUCode: skuCode,
+			Quantity: qty, TotalMinorUnits: totalMinorUnits, CreatedAt: occurredAt,
+		}
+		return lineItemRepo.Create(ctx, &line)
+	})
+	require.NoError(t, err)
+	return orderID
+}
+
+func TestSalesOrderRepo_Integration_RevenueSince_CountsOnlyStockReducingStatusAndMatchingCurrency(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	before := now.AddDate(0, -1, 0)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ext-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-A", "A", 1, 1000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ext-2", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusProcessing, "EUR", now, "SKU-B", "B", 1, 500)
+	// Excluded: cancelled (never reduced stock).
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ext-3", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCancelled, "EUR", now, "SKU-C", "C", 1, 9999)
+	// Excluded: different currency.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ext-4", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "USD", now, "SKU-D", "D", 1, 9999)
+	// Excluded: before the window.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ext-5", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", before, "SKU-E", "E", 1, 9999)
+
+	var total int64
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		total, err = salesOrderRepo.RevenueSince(ctx, now.AddDate(0, 0, -1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1500), total)
+}
+
+func TestSalesOrderRepo_Integration_RevenueByChannelSince_GroupsBySource(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ch-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-A", "A", 1, 1000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ch-2", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-B", "B", 1, 250)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "ch-3", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-C", "C", 1, 700)
+
+	var rows []omsDomain.ChannelRevenue
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.RevenueByChannelSince(ctx, now.AddDate(0, 0, -1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+
+	bySource := make(map[omsDomain.SalesOrderSource]int64, len(rows))
+	for _, r := range rows {
+		bySource[r.Source] = r.TotalMinorUnits
+	}
+	require.Equal(t, int64(1250), bySource[omsDomain.SalesOrderSourcePOS])
+	require.Equal(t, int64(700), bySource[omsDomain.SalesOrderSourceWooCommerce])
+}
+
+func TestSalesOrderRepo_Integration_TopProductsSince_RanksByQuantityDescLimited(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "tp-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-A", "Widget A", 5, 5000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "tp-2", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-A", "Widget A", 3, 3000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "tp-3", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-B", "Widget B", 20, 2000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "tp-4", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-C", "Widget C", 1, 100)
+	// Excluded: cancelled.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "tp-5", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCancelled, "EUR", now, "SKU-Z", "Widget Z", 999, 99900)
+
+	var rows []omsDomain.ProductSales
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.TopProductsSince(ctx, now.AddDate(0, 0, -1), "EUR", 2)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, "SKU-B", rows[0].SKUCode)
+	require.Equal(t, int64(20), rows[0].QuantitySold)
+	require.Equal(t, int64(2000), rows[0].RevenueMinorUnits)
+	require.Equal(t, "SKU-A", rows[1].SKUCode)
+	require.Equal(t, int64(8), rows[1].QuantitySold)
+	require.Equal(t, int64(8000), rows[1].RevenueMinorUnits)
 }

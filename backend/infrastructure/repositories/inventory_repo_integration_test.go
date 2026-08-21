@@ -537,3 +537,96 @@ func TestDiscardRecordRepo_Integration_CreateAndList(t *testing.T) {
 	require.Len(t, byLost, 1)
 	require.Empty(t, byDamaged)
 }
+
+func TestStockMovementRepo_Integration_TotalOnHand_SumsAllMovements(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	movementRepo := repositories.NewStockMovementRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		for _, mv := range []invDomain.StockMovement{
+			{TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, Type: invDomain.MovementTypeReceipt, QuantityDelta: 100, OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale, QuantityDelta: -30, OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, Type: invDomain.MovementTypeReceipt, QuantityDelta: 5, OccurredAt: now, CreatedAt: now},
+		} {
+			mv := mv
+			if err := movementRepo.Create(ctx, &mv); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var total int64
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		total, err = movementRepo.TotalOnHand(ctx)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(75), total)
+}
+
+func TestStockMovementRepo_Integration_TotalOnHand_ZeroWithNoMovements(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	movementRepo := repositories.NewStockMovementRepo(db)
+
+	var total int64
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		total, err = movementRepo.TotalOnHand(ctx)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), total)
+}
+
+func TestStockMovementRepo_Integration_DailyFlow_SplitsInAndOutByDayIncludingZeroDays(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	movementRepo := repositories.NewStockMovementRepo(db)
+
+	today := time.Now().UTC().Truncate(24 * time.Hour).Add(12 * time.Hour)
+	twoDaysAgo := today.AddDate(0, 0, -2)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for _, mv := range []invDomain.StockMovement{
+			{TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, Type: invDomain.MovementTypeReceipt, QuantityDelta: 50, OccurredAt: twoDaysAgo, CreatedAt: twoDaysAgo},
+			{TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale, QuantityDelta: -10, OccurredAt: today, CreatedAt: today},
+			{TenantID: tenant.IDFromContext(ctx), SKUID: skuID, WarehouseID: warehouseID, Type: invDomain.MovementTypeReceipt, QuantityDelta: 3, OccurredAt: today, CreatedAt: today},
+		} {
+			mv := mv
+			if err := movementRepo.Create(ctx, &mv); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var flow []invDomain.DailyStockFlow
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		flow, err = movementRepo.DailyFlow(ctx, twoDaysAgo)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, flow, 3)
+
+	byDate := make(map[string]invDomain.DailyStockFlow, len(flow))
+	for _, f := range flow {
+		byDate[f.Date.Format("2006-01-02")] = f
+	}
+	require.Equal(t, int64(50), byDate[twoDaysAgo.Format("2006-01-02")].In)
+	require.Equal(t, int64(0), byDate[twoDaysAgo.Format("2006-01-02")].Out)
+	oneDayAgo := today.AddDate(0, 0, -1)
+	require.Equal(t, int64(0), byDate[oneDayAgo.Format("2006-01-02")].In)
+	require.Equal(t, int64(0), byDate[oneDayAgo.Format("2006-01-02")].Out)
+	require.Equal(t, int64(3), byDate[today.Format("2006-01-02")].In)
+	require.Equal(t, int64(10), byDate[today.Format("2006-01-02")].Out)
+}

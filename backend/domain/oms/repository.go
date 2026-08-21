@@ -71,6 +71,44 @@ type SalesOrderRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// ChannelRevenue is one row of DashboardSalesReportRepository.RevenueByChannelSince
+// -- total revenue for one source (channel) within the queried window,
+// already narrowed to a single currency by the caller.
+type ChannelRevenue struct {
+	Source          SalesOrderSource
+	TotalMinorUnits int64
+}
+
+// ProductSales is one row of DashboardSalesReportRepository.TopProductsSince
+// -- SKUID/SKUCode/ProductName are read straight off the line item's own
+// Name/SKUCode snapshot (see SalesOrderLineItem's doc), not joined from
+// pms, so a since-renamed or deleted product still reports correctly.
+// SKUID is nil for an adhoc/unmatched line item, same convention as
+// SalesOrderLineItem.SKUID.
+type ProductSales struct {
+	SKUID             *string
+	SKUCode           string
+	ProductName       string
+	QuantitySold      int64
+	RevenueMinorUnits int64
+}
+
+// DashboardSalesReportRepository backs the dashboard's revenue/channel/
+// top-products figures -- read-only aggregate queries over sales_orders
+// and sales_order_line_items, scoped to orders whose status actually
+// reduced stock (see SalesOrderStatus.ReducesStock; a
+// pending/cancelled/refunded/failed order was never real revenue) and to
+// a single currency (a tenant reporting in more than one currency has
+// orders outside that currency excluded from these figures entirely --
+// see application/dashboard.GetDashboardStatsUseCase's doc).
+type DashboardSalesReportRepository interface {
+	RevenueSince(ctx context.Context, since time.Time, currencyCode string) (int64, error)
+	RevenueByChannelSince(ctx context.Context, since time.Time, currencyCode string) ([]ChannelRevenue, error)
+	// TopProductsSince ranks by quantity sold (currency-agnostic), highest
+	// first, limited to `limit` rows.
+	TopProductsSince(ctx context.Context, since time.Time, currencyCode string, limit int) ([]ProductSales, error)
+}
+
 type SalesOrderLineItemRepository interface {
 	Create(ctx context.Context, li *SalesOrderLineItem) error
 	FindByID(ctx context.Context, id string) (*SalesOrderLineItem, error)
