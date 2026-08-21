@@ -21,6 +21,14 @@ import (
 // plus the connection id, since SyncLogEntry needs both as UUID FKs.
 func seedListing(t *testing.T, db *gorm.DB, ctx context.Context, productID string) (listingID, connectionID string) {
 	t.Helper()
+	return seedListingWithStoreURL(t, db, ctx, productID, "https://itest.example.com")
+}
+
+// seedListingWithStoreURL is seedListing with an explicit store URL --
+// needed when a test seeds more than one connection for the same tenant,
+// since (tenant_id, provider, store_url) is unique.
+func seedListingWithStoreURL(t *testing.T, db *gorm.DB, ctx context.Context, productID, storeURL string) (listingID, connectionID string) {
+	t.Helper()
 	connRepo := repositories.NewConnectionRepo(db)
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 
@@ -28,7 +36,7 @@ func seedListing(t *testing.T, db *gorm.DB, ctx context.Context, productID strin
 		now := time.Now()
 		conn := &integrationsDomain.Connection{
 			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
-			StoreURL: "https://itest.example.com", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			StoreURL: integrationsDomain.StoreURL(storeURL), ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
 			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := connRepo.Create(ctx, conn); err != nil {
@@ -239,6 +247,132 @@ func TestSyncLogRepo_Integration_ListAllPaginatesAndCountsAcrossTenant(t *testin
 	require.NoError(t, err)
 	require.EqualValues(t, 3, total)
 	require.Len(t, page, 2)
+}
+
+// TestSyncLogRepo_Integration_ListNeedingAttentionFindsOnlyLatestErrorAndUndismissed
+// proves the DISTINCT-ON-based query against real Postgres: a listing whose
+// LATEST entry is success (even after an earlier error) is excluded; a
+// listing whose latest entry is error but dismissed is excluded; only a
+// listing whose latest entry is a live, undismissed error shows up.
+func TestSyncLogRepo_Integration_ListNeedingAttentionFindsOnlyLatestErrorAndUndismissed(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, _ := seedProductSKUWarehouse(t, db, ctx)
+	productID := skuIDToProductID(t, db, ctx, skuID)
+	syncLogRepo := repositories.NewSyncLogRepo(db)
+
+	// listing A: error then success -- latest is success, must NOT appear.
+	listingA, connA := seedListingWithStoreURL(t, db, ctx, productID, "https://itest-needing-attn-a.example.com")
+	// listing B: error, dismissed -- must NOT appear.
+	listingB, connB := seedListingWithStoreURL(t, db, ctx, productID, "https://itest-needing-attn-b.example.com")
+	// listing C: error, undismissed -- the only one that must appear.
+	listingC, connC := seedListingWithStoreURL(t, db, ctx, productID, "https://itest-needing-attn-c.example.com")
+
+	var dismissID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		mk := func(listingID, connID string, status channelsDomain.SyncLogStatus, at time.Time) channelsDomain.SyncLogEntry {
+			return channelsDomain.SyncLogEntry{
+				TenantID: tenant.IDFromContext(ctx), ListingID: &listingID, ProductID: productID, ConnectionID: connID,
+				Provider: "woocommerce", Direction: channelsDomain.SyncFlowPush, Status: status,
+				Fields: map[string]string{}, Changes: map[string]channelsDomain.FieldChange{}, SyncedAt: at,
+			}
+		}
+		now := time.Now()
+
+		eA1 := mk(listingA, connA, channelsDomain.SyncLogStatusError, now.Add(-time.Minute))
+		if err := syncLogRepo.Create(ctx, &eA1); err != nil {
+			return err
+		}
+		eA2 := mk(listingA, connA, channelsDomain.SyncLogStatusSuccess, now)
+		if err := syncLogRepo.Create(ctx, &eA2); err != nil {
+			return err
+		}
+
+		eB := mk(listingB, connB, channelsDomain.SyncLogStatusError, now)
+		if err := syncLogRepo.Create(ctx, &eB); err != nil {
+			return err
+		}
+		dismissID = eB.ID
+
+		eC := mk(listingC, connC, channelsDomain.SyncLogStatusError, now)
+		return syncLogRepo.Create(ctx, &eC)
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return syncLogRepo.Dismiss(ctx, dismissID)
+	}))
+
+	var rows []channelsDomain.SyncLogEntry
+	var total int64
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, total, err = syncLogRepo.ListNeedingAttention(ctx, 1, 20)
+		return err
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Len(t, rows, 1)
+	require.Equal(t, listingC, *rows[0].ListingID)
+	require.Equal(t, channelsDomain.SyncLogStatusError, rows[0].Status)
+	require.Nil(t, rows[0].DismissedAt)
+}
+
+func TestSyncLogRepo_Integration_FindByIDAndDismiss(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, _ := seedProductSKUWarehouse(t, db, ctx)
+	productID := skuIDToProductID(t, db, ctx, skuID)
+	listingID, connID := seedListing(t, db, ctx, productID)
+	syncLogRepo := repositories.NewSyncLogRepo(db)
+
+	var entryID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		e := channelsDomain.SyncLogEntry{
+			TenantID: tenant.IDFromContext(ctx), ListingID: &listingID, ProductID: productID, ConnectionID: connID,
+			Provider: "woocommerce", Direction: channelsDomain.SyncFlowPush, Status: channelsDomain.SyncLogStatusError,
+			ErrorMessage: "woocommerce request failed", Fields: map[string]string{}, Changes: map[string]channelsDomain.FieldChange{},
+			SyncedAt: time.Now(),
+		}
+		err := syncLogRepo.Create(ctx, &e)
+		entryID = e.ID
+		return err
+	})
+	require.NoError(t, err)
+
+	var found *channelsDomain.SyncLogEntry
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = syncLogRepo.FindByID(ctx, entryID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "woocommerce request failed", found.ErrorMessage)
+	require.Nil(t, found.DismissedAt)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return syncLogRepo.Dismiss(ctx, entryID)
+	}))
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = syncLogRepo.FindByID(ctx, entryID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found.DismissedAt)
+}
+
+func TestSyncLogRepo_Integration_FindByIDReturnsTypedNotFound(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	syncLogRepo := repositories.NewSyncLogRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := syncLogRepo.FindByID(ctx, "00000000-0000-0000-0000-000000000099")
+		return err
+	})
+	require.ErrorIs(t, err, channelsDomain.ErrSyncLogNotFound)
 }
 
 // skuIDToProductID resolves a SKU back to its product id via the real

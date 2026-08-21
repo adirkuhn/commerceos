@@ -203,6 +203,36 @@ func (s *stubListAllSyncLogs) Execute(_ context.Context, _, _ int) ([]appchannel
 	return s.out, s.total, s.err
 }
 
+type stubListSyncLogsNeedingAttention struct {
+	out   []appchannels.SyncLogEntryWithNames
+	total int64
+	err   error
+}
+
+func (s *stubListSyncLogsNeedingAttention) Execute(_ context.Context, _, _ int) ([]appchannels.SyncLogEntryWithNames, int64, error) {
+	return s.out, s.total, s.err
+}
+
+type stubRetryFailedSync struct {
+	err   error
+	gotID string
+}
+
+func (s *stubRetryFailedSync) Execute(_ context.Context, id string) error {
+	s.gotID = id
+	return s.err
+}
+
+type stubDismissFailedSync struct {
+	err   error
+	gotID string
+}
+
+func (s *stubDismissFailedSync) Execute(_ context.Context, id string) error {
+	s.gotID = id
+	return s.err
+}
+
 type stubGetAIConnection struct {
 	out *integrationsDomain.AIConnection
 	err error
@@ -330,7 +360,7 @@ func newTestHandler(
 ) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(list, start, complete, manual, disconnect, testConn, &stubListWooTaxes{},
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
-		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{})
 }
@@ -342,7 +372,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -354,7 +384,7 @@ func newListWooTaxesTestHandler(listWooTaxes *stubListWooTaxes) *integrationshan
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, listWooTaxes, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -366,7 +396,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -378,7 +408,7 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -391,7 +421,7 @@ func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integra
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -404,7 +434,7 @@ func newListSyncLogsTestHandler(listLogs *stubListSyncLogs) *integrationshandler
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{},
+		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -418,7 +448,22 @@ func newListAllSyncLogsTestHandler(listAll *stubListAllSyncLogs) *integrationsha
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll,
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
+		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
+	)
+}
+
+// newSyncLogAttentionTestHandler builds a Handler for the "needs attention"/
+// retry/dismiss sync-log routes specifically — every other use case is a
+// harmless zero-value stub.
+func newSyncLogAttentionTestHandler(needingAttn *stubListSyncLogsNeedingAttention, retry *stubRetryFailedSync, dismiss *stubDismissFailedSync) *integrationshandler.Handler {
+	return integrationshandler.NewHandler(
+		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
+		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		needingAttn, retry, dismiss,
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -431,7 +476,7 @@ func newFetchWooOrderTestHandler(fetch *stubFetchWooOrder) *integrationshandler.
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 		fetch,
@@ -880,7 +925,7 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, importUC, &stubPushProductToWoo{},
-		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -895,7 +940,7 @@ func newAIConnectionTestHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		get, connect, disconnect,
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
 	)
@@ -1152,7 +1197,7 @@ func newSalesChannelTestHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
-		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
+		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		list, create, update, del, listProducts, setOverride, &stubFetchWooOrder{},
 	)
@@ -1283,6 +1328,78 @@ func TestSetSalesChannelProductOverrideHandler_returns404WhenProductNotFound(t *
 
 	body := genintegrations.SetSalesChannelProductOverrideRequest{Included: true}
 	w := doRequest(r, http.MethodPut, "/api/v1/integrations/sales-channels/chan-1/products/missing/override", body)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListSyncLogsNeedingAttentionHandler_returnsFlaggedListings(t *testing.T) {
+	needingAttn := &stubListSyncLogsNeedingAttention{out: []appchannels.SyncLogEntryWithNames{
+		{SyncLogEntry: channelsDomain.SyncLogEntry{ID: "log-1", ProductID: "prod-1", Status: channelsDomain.SyncLogStatusError}, ProductName: "Widget A"},
+	}, total: 1}
+	h := newSyncLogAttentionTestHandler(needingAttn, &stubRetryFailedSync{}, &stubDismissFailedSync{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/sync-logs/needing-attention", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Widget A")
+	assert.Contains(t, w.Body.String(), `"total":1`)
+}
+
+func TestRetryFailedSyncHandler_success(t *testing.T) {
+	retry := &stubRetryFailedSync{}
+	h := newSyncLogAttentionTestHandler(&stubListSyncLogsNeedingAttention{}, retry, &stubDismissFailedSync{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sync-logs/log-1/retry", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "log-1", retry.gotID)
+}
+
+func TestRetryFailedSyncHandler_notFound(t *testing.T) {
+	retry := &stubRetryFailedSync{err: channelsDomain.ErrSyncLogNotFound}
+	h := newSyncLogAttentionTestHandler(&stubListSyncLogsNeedingAttention{}, retry, &stubDismissFailedSync{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sync-logs/missing/retry", nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestRetryFailedSyncHandler_rejectsAnEntryWithNoListing(t *testing.T) {
+	retry := &stubRetryFailedSync{err: channelsDomain.ErrSyncLogHasNoListing}
+	h := newSyncLogAttentionTestHandler(&stubListSyncLogsNeedingAttention{}, retry, &stubDismissFailedSync{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sync-logs/log-1/retry", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestDismissFailedSyncHandler_success(t *testing.T) {
+	dismiss := &stubDismissFailedSync{}
+	h := newSyncLogAttentionTestHandler(&stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, dismiss)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sync-logs/log-1/dismiss", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "log-1", dismiss.gotID)
+}
+
+func TestDismissFailedSyncHandler_notFound(t *testing.T) {
+	dismiss := &stubDismissFailedSync{err: channelsDomain.ErrSyncLogNotFound}
+	h := newSyncLogAttentionTestHandler(&stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, dismiss)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sync-logs/missing/dismiss", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

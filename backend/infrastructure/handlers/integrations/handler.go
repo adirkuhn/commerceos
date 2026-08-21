@@ -77,6 +77,15 @@ type listSyncLogsUC interface {
 type listAllSyncLogsUC interface {
 	Execute(ctx context.Context, page, perPage int) ([]appchannels.SyncLogEntryWithNames, int64, error)
 }
+type listSyncLogsNeedingAttentionUC interface {
+	Execute(ctx context.Context, page, perPage int) ([]appchannels.SyncLogEntryWithNames, int64, error)
+}
+type retryFailedSyncUC interface {
+	Execute(ctx context.Context, syncLogEntryID string) error
+}
+type dismissFailedSyncUC interface {
+	Execute(ctx context.Context, syncLogEntryID string) error
+}
 type getAIConnectionUC interface {
 	Execute(ctx context.Context) (*integrationsDomain.AIConnection, error)
 }
@@ -108,32 +117,35 @@ type setProductChannelOverrideUC interface {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listConnections           listConnectionsUC
-	startWooConnect           startWooConnectUC
-	completeWooConnect        completeWooConnectUC
-	manualConnectWoo          manualConnectWooCommerceUC
-	disconnect                disconnectConnectionUC
-	testConnection            testConnectionUC
-	listWooTaxes              listWooTaxesUC
-	createImportJob           createImportJobUC
-	pushProductToWoo          pushProductToWooUC
-	listSyncSchedules         listSyncSchedulesUC
-	upsertSyncSchedules       upsertSyncSchedulesUC
-	deleteAllImportedProds    deleteAllImportedProductsUC
-	updateConnectionSettings  updateConnectionSettingsUC
-	getProductChannelListing  getProductChannelListingUC
-	listSyncLogs              listSyncLogsUC
-	listAllSyncLogs           listAllSyncLogsUC
-	getAIConnection           getAIConnectionUC
-	connectAIProvider         connectAIProviderUC
-	disconnectAIConnection    disconnectAIConnectionUC
-	listSalesChannels         listSalesChannelsUC
-	createSalesChannel        createSalesChannelUC
-	updateSalesChannel        updateSalesChannelUC
-	deleteSalesChannel        deleteSalesChannelUC
-	listSalesChannelProducts  listSalesChannelProductsUC
-	setProductChannelOverride setProductChannelOverrideUC
-	fetchWooOrder             fetchWooOrderUC
+	listConnections              listConnectionsUC
+	startWooConnect              startWooConnectUC
+	completeWooConnect           completeWooConnectUC
+	manualConnectWoo             manualConnectWooCommerceUC
+	disconnect                   disconnectConnectionUC
+	testConnection               testConnectionUC
+	listWooTaxes                 listWooTaxesUC
+	createImportJob              createImportJobUC
+	pushProductToWoo             pushProductToWooUC
+	listSyncSchedules            listSyncSchedulesUC
+	upsertSyncSchedules          upsertSyncSchedulesUC
+	deleteAllImportedProds       deleteAllImportedProductsUC
+	updateConnectionSettings     updateConnectionSettingsUC
+	getProductChannelListing     getProductChannelListingUC
+	listSyncLogs                 listSyncLogsUC
+	listAllSyncLogs              listAllSyncLogsUC
+	listSyncLogsNeedingAttention listSyncLogsNeedingAttentionUC
+	retryFailedSync              retryFailedSyncUC
+	dismissFailedSync            dismissFailedSyncUC
+	getAIConnection              getAIConnectionUC
+	connectAIProvider            connectAIProviderUC
+	disconnectAIConnection       disconnectAIConnectionUC
+	listSalesChannels            listSalesChannelsUC
+	createSalesChannel           createSalesChannelUC
+	updateSalesChannel           updateSalesChannelUC
+	deleteSalesChannel           deleteSalesChannelUC
+	listSalesChannelProducts     listSalesChannelProductsUC
+	setProductChannelOverride    setProductChannelOverrideUC
+	fetchWooOrder                fetchWooOrderUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -154,6 +166,9 @@ func NewHandler(
 	getProductChannelListing getProductChannelListingUC,
 	listSyncLogs listSyncLogsUC,
 	listAllSyncLogs listAllSyncLogsUC,
+	listSyncLogsNeedingAttention listSyncLogsNeedingAttentionUC,
+	retryFailedSync retryFailedSyncUC,
+	dismissFailedSync dismissFailedSyncUC,
 	getAIConnection getAIConnectionUC,
 	connectAIProvider connectAIProviderUC,
 	disconnectAIConnection disconnectAIConnectionUC,
@@ -166,32 +181,35 @@ func NewHandler(
 	fetchWooOrder fetchWooOrderUC,
 ) *Handler {
 	return &Handler{
-		listConnections:           listConnections,
-		startWooConnect:           startWooConnect,
-		completeWooConnect:        completeWooConnect,
-		manualConnectWoo:          manualConnectWoo,
-		disconnect:                disconnect,
-		testConnection:            testConnection,
-		listWooTaxes:              listWooTaxes,
-		createImportJob:           createImportJob,
-		pushProductToWoo:          pushProductToWoo,
-		listSyncSchedules:         listSyncSchedules,
-		upsertSyncSchedules:       upsertSyncSchedules,
-		deleteAllImportedProds:    deleteAllImportedProds,
-		updateConnectionSettings:  updateConnectionSettings,
-		getProductChannelListing:  getProductChannelListing,
-		listSyncLogs:              listSyncLogs,
-		listAllSyncLogs:           listAllSyncLogs,
-		getAIConnection:           getAIConnection,
-		connectAIProvider:         connectAIProvider,
-		disconnectAIConnection:    disconnectAIConnection,
-		listSalesChannels:         listSalesChannels,
-		createSalesChannel:        createSalesChannel,
-		updateSalesChannel:        updateSalesChannel,
-		deleteSalesChannel:        deleteSalesChannel,
-		listSalesChannelProducts:  listSalesChannelProducts,
-		setProductChannelOverride: setProductChannelOverride,
-		fetchWooOrder:             fetchWooOrder,
+		listConnections:              listConnections,
+		startWooConnect:              startWooConnect,
+		completeWooConnect:           completeWooConnect,
+		manualConnectWoo:             manualConnectWoo,
+		disconnect:                   disconnect,
+		testConnection:               testConnection,
+		listWooTaxes:                 listWooTaxes,
+		createImportJob:              createImportJob,
+		pushProductToWoo:             pushProductToWoo,
+		listSyncSchedules:            listSyncSchedules,
+		upsertSyncSchedules:          upsertSyncSchedules,
+		deleteAllImportedProds:       deleteAllImportedProds,
+		updateConnectionSettings:     updateConnectionSettings,
+		getProductChannelListing:     getProductChannelListing,
+		listSyncLogs:                 listSyncLogs,
+		listAllSyncLogs:              listAllSyncLogs,
+		listSyncLogsNeedingAttention: listSyncLogsNeedingAttention,
+		retryFailedSync:              retryFailedSync,
+		dismissFailedSync:            dismissFailedSync,
+		getAIConnection:              getAIConnection,
+		connectAIProvider:            connectAIProvider,
+		disconnectAIConnection:       disconnectAIConnection,
+		listSalesChannels:            listSalesChannels,
+		createSalesChannel:           createSalesChannel,
+		updateSalesChannel:           updateSalesChannel,
+		deleteSalesChannel:           deleteSalesChannel,
+		listSalesChannelProducts:     listSalesChannelProducts,
+		setProductChannelOverride:    setProductChannelOverride,
+		fetchWooOrder:                fetchWooOrder,
 	}
 }
 
@@ -256,6 +274,13 @@ func Register(
 		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC),
 	)
 
+	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
+		db, connRepo, wooFactory, encryptionSecret,
+		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
+		appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db)),
+		mediaRepo,
+	)
+
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
 		appintegrations.NewStartWooConnectUseCase(stateSecret, publicAPIBaseURL, frontendBaseURL),
@@ -267,12 +292,7 @@ func Register(
 		appchannels.NewCreateImportJobUseCase(
 			db, importJobRepo, listingRepo, appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 		),
-		appchannels.NewPushProductToWooUseCase(
-			db, connRepo, wooFactory, encryptionSecret,
-			productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
-			appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db)),
-			mediaRepo,
-		),
+		pushProductToWooUC,
 		appchannels.NewListSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewUpsertSyncSchedulesUseCase(db, scheduleRepo),
 		appchannels.NewDeleteAllImportedProductsUseCase(db, listingRepo, productRepo, categoryRepo, salesOrderRepo, deleteSalesOrderUC),
@@ -280,6 +300,9 @@ func Register(
 		appchannels.NewGetProductChannelListingUseCase(db, listingRepo),
 		appchannels.NewListSyncLogsUseCase(db, listingRepo, syncLogRepo),
 		appchannels.NewListAllSyncLogsUseCase(db, syncLogRepo, productRepo, connRepo),
+		appchannels.NewListSyncLogsNeedingAttentionUseCase(db, syncLogRepo, productRepo, connRepo),
+		appchannels.NewRetryFailedSyncUseCase(db, syncLogRepo, pushProductToWooUC),
+		appchannels.NewDismissFailedSyncUseCase(db, syncLogRepo),
 		appintegrations.NewGetAIConnectionUseCase(db, aiConnRepo),
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
@@ -627,6 +650,49 @@ func (h *Handler) ListAllSyncLogs(c *gin.Context, params genintegrations.ListAll
 	c.JSON(http.StatusOK, genintegrations.SyncLogEntryPageResponse{Data: &resp, Total: &totalInt})
 }
 
+func (h *Handler) ListSyncLogsNeedingAttention(c *gin.Context, params genintegrations.ListSyncLogsNeedingAttentionParams) {
+	page, perPage := 1, 20
+	if params.Page != nil {
+		page = *params.Page
+	}
+	if params.PerPage != nil {
+		perPage = *params.PerPage
+	}
+	entries, total, err := h.listSyncLogsNeedingAttention.Execute(c.Request.Context(), page, perPage)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.SyncLogEntry, len(entries))
+	for i, e := range entries {
+		gen := toGenSyncLogEntry(e.SyncLogEntry)
+		if e.ProductName != "" {
+			gen.ProductName = &e.ProductName
+		}
+		if e.StoreURL != "" {
+			gen.StoreUrl = &e.StoreURL
+		}
+		resp[i] = gen
+	}
+	totalInt := int(total)
+	c.JSON(http.StatusOK, genintegrations.SyncLogEntryPageResponse{Data: &resp, Total: &totalInt})
+}
+
+func (h *Handler) RetryFailedSync(c *gin.Context, id genintegrations.Id) {
+	if err := h.retryFailedSync.Execute(c.Request.Context(), id); err != nil {
+		mapError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, genintegrations.EmptyResponse{})
+}
+
+func (h *Handler) DismissFailedSync(c *gin.Context, id genintegrations.Id) {
+	if err := h.dismissFailedSync.Execute(c.Request.Context(), id); err != nil {
+		mapError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, genintegrations.EmptyResponse{})
+}
+
 func (h *Handler) ListSalesChannels(c *gin.Context) {
 	list, err := h.listSalesChannels.Execute(c.Request.Context())
 	if err := mapError(c, err); err != nil {
@@ -829,7 +895,7 @@ func toGenSyncLogEntry(e channelsDomain.SyncLogEntry) genintegrations.SyncLogEnt
 		Id: e.ID, ListingId: e.ListingID, ProductId: e.ProductID, ConnectionId: e.ConnectionID,
 		Provider: e.Provider, ExternalId: e.ExternalID,
 		Direction: genintegrations.SyncLogEntryDirection(e.Direction), Status: genintegrations.SyncLogEntryStatus(e.Status),
-		ErrorMessage: e.ErrorMessage, Fields: fields, Changes: changes, SyncedAt: e.SyncedAt,
+		ErrorMessage: e.ErrorMessage, Fields: fields, Changes: changes, SyncedAt: e.SyncedAt, DismissedAt: e.DismissedAt,
 	}
 }
 
@@ -890,8 +956,11 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound),
 		errors.Is(err, pmsDomain.ErrProductNotFound),
 		errors.Is(err, channelsDomain.ErrListingNotFound),
-		errors.Is(err, channelsDomain.ErrSalesChannelNotFound):
+		errors.Is(err, channelsDomain.ErrSalesChannelNotFound),
+		errors.Is(err, channelsDomain.ErrSyncLogNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+	case errors.Is(err, channelsDomain.ErrSyncLogHasNoListing):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStoreURLInvalid):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported),

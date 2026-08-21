@@ -419,6 +419,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncLogEntryPageResponse'
 
+  /integrations/sync-logs/needing-attention:
+    get:
+      operationId: listSyncLogsNeedingAttention
+      summary: >-
+        Every listing whose most recent sync attempt failed and hasn't
+        been dismissed, newest first — the Sync History page's "Needs
+        attention" filter. A retry that succeeds, or a dismiss, drops the
+        listing out of this list on its own (live query, not separate
+        tracked state).
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncLogEntryPageResponse'
+
+  /integrations/sync-logs/{id}/retry:
+    post:
+      operationId: retryFailedSync
+      summary: >-
+        Re-push the failed entry's product to the same connection —
+        a full resync (not a narrow replay of just the field that failed),
+        so the retry always leaves the listing fully caught up.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/sync-logs/{id}/dismiss:
+    post:
+      operationId: dismissFailedSync
+      summary: >-
+        Silence a failure that isn't worth retrying (the Woo product was
+        deleted, a known/expected mismatch) from the "needs attention"
+        view, without pretending it succeeded.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/listings/{productId}/sync-logs:
     get:
       operationId: listSyncLogs
@@ -913,6 +977,11 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/FieldChange'
         synced_at: { type: string, format: date-time }
+        dismissed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set once staff acknowledge this failure from the "needs attention" view without retrying it.
         product_name:
           type: string
           description: Only populated by the tenant-wide sync history list — the per-listing endpoint's caller already knows the product.
