@@ -20,12 +20,13 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
+	schedulerapp "github.com/adirkuhn/commerceos/application/scheduler"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
-	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
+	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
@@ -134,6 +135,7 @@ func main() {
 	uploadMediaUC := pmsapp.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage)
 	expireSalePriceUC := pmsapp.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo)
 	expireBatchUC := invapp.NewExpireBatchUseCase(db, batchRepo)
+	jobRepo := repositories.NewScheduledJobRepo(db)
 
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
@@ -142,6 +144,12 @@ func main() {
 		db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, costPriceHistoryRepo,
 		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 	)
+	jobRunners := map[string]schedulerapp.JobRunner{
+		schedulerDomain.JobExpiredSalePrices:      schedulerapp.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
+		schedulerDomain.JobExpiredBatches:         schedulerapp.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
+		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
+	}
+	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo,
@@ -289,9 +297,7 @@ func main() {
 			return
 		case <-ticker.C:
 			runDue(ctx, db, scheduleRepo, rs)
-			runExpiredSalePrices(ctx, db, skuRepo, expireSalePriceUC)
-			runExpiredBatches(ctx, db, batchRepo, expireBatchUC)
-			runRecalculateCostPrices(ctx, db, skuRepo, recalculateCostPricesUC)
+			runDueJobs(ctx, db, jobRepo, runJobNowUC)
 		case <-importJobTicker.C:
 			runPendingImportJobs(ctx, db, importJobRepo, runManualWooImportUC, notifyUC)
 		case <-documentParsingJobTicker.C:
@@ -359,110 +365,31 @@ func runOne(adminCtx context.Context, db *gorm.DB, scheduleRepo channelsDomain.S
 	}
 }
 
-// runExpiredSalePrices polls for SKUs whose sale has passed its end date
-// across every tenant -- a system-level, cross-tenant query, so it runs
-// under SuperAdmin like the rest of this file's polling functions. Each
-// expiry is dispatched under the SKU's own tenant identity (see runOne's
-// comment for why); ExpireSKUSalePriceUseCase clearing the sale raises
-// pms.product.changed, which the existing productChangedConsumer already
-// picks up to re-push the product to Woo -- no separate sync path needed.
-// Never crashes the loop: a failure here or in any one SKU's revert is
-// logged and the next tick tries again.
-func runExpiredSalePrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SKURepository, expireSalePriceUC *pmsapp.ExpireSKUSalePriceUseCase) {
+// runDueJobs polls domain/scheduler's global cron-job registry (see
+// migration 085_scheduled_jobs.sql) the same way runDue above polls
+// SyncSchedule -- a system-level, cross-tenant query under SuperAdmin.
+// Each due job is dispatched through the exact same RunJobNowUseCase a
+// super_admin's manual "run now" on the admin page uses, so "last run"
+// stays accurate and consistent regardless of which path actually
+// triggered it. Never crashes the loop: a failure on one job (or listing
+// due jobs at all) is logged and the next tick tries again.
+func runDueJobs(ctx context.Context, db *gorm.DB, jobRepo schedulerDomain.JobRepository, runJobNowUC *schedulerapp.RunJobNowUseCase) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
-	var expired []pmsDomain.SKU
+	var due []schedulerDomain.Job
 	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
 		var err error
-		expired, err = skuRepo.ListWithExpiredSale(ctx)
+		due, err = jobRepo.ListDue(ctx, time.Now())
 		return err
 	})
 	if err != nil {
-		log.Printf("list skus with expired sale: %v", err)
+		log.Printf("list due scheduled jobs: %v", err)
 		return
 	}
 
-	for _, s := range expired {
-		runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
-		if _, err := expireSalePriceUC.Execute(runCtx, s.ID); err != nil {
-			log.Printf("expire sale price for sku %s: %v", s.ID, err)
-		}
-	}
-}
-
-// lastCostPriceRunDate gates runRecalculateCostPrices to once per calendar
-// day (UTC) instead of every poll tick -- unlike runExpiredSalePrices/
-// runExpiredBatches (cheap no-op queries when nothing's due), recomputing
-// every active SKU's weighted-average cost is real work worth doing once a
-// day, not every 60s. Process-local: a restart re-runs it once more that
-// day, which is harmless (RecalculateCostPricesUseCase is idempotent --
-// same-day history rows upsert, cost price just gets recomputed to the same
-// value). Not safe against multiple concurrent scheduler replicas each
-// running it once on their own clock -- same caveat as this file's other
-// unlocked cross-tenant polls, acceptable for a single-scheduler deployment.
-var lastCostPriceRunDate time.Time
-
-// runRecalculateCostPrices is the daily cost-price cron -- computes every
-// active SKU's weighted-average cost price and recommended price (see
-// pms.RecalculateCostPricesUseCase), once per day across every tenant.
-// Same cross-tenant SuperAdmin + per-item tenant-identity dispatch shape as
-// runExpiredSalePrices/runExpiredBatches above. Never crashes the loop: a
-// failure on one SKU is logged and the next day's run tries again.
-func runRecalculateCostPrices(ctx context.Context, db *gorm.DB, skuRepo pmsDomain.SKURepository, recalculateCostPricesUC *pmsapp.RecalculateCostPricesUseCase) {
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	if lastCostPriceRunDate.Equal(today) {
-		return
-	}
-
-	adminCtx := tenant.WithSuperAdmin(ctx)
-
-	var skus []pmsDomain.SKU
-	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		var err error
-		skus, err = skuRepo.ListActive(ctx)
-		return err
-	})
-	if err != nil {
-		log.Printf("list active skus for cost-price recalculation: %v", err)
-		return
-	}
-
-	for _, s := range skus {
-		runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
-		if _, err := recalculateCostPricesUC.Execute(runCtx, s.ID); err != nil {
-			log.Printf("recalculate cost price for sku %s: %v", s.ID, err)
-		}
-	}
-	lastCostPriceRunDate = today
-}
-
-// runExpiredBatches polls for batches past their tenant's configured
-// auto-expire grace period (tenant_settings.batch_expiry_threshold_days,
-// 0 = disabled) across every tenant -- same cross-tenant SuperAdmin +
-// per-item tenant-identity dispatch shape as runExpiredSalePrices above.
-// This only flips Batch.Status (see BatchStatusExpired's doc comment) --
-// it never touches stock quantity, so it's safe to run unconditionally
-// without checking inventory_sync_rules_enabled. Never crashes the loop: a
-// failure here or in any one batch's expire is logged and the next tick
-// tries again.
-func runExpiredBatches(ctx context.Context, db *gorm.DB, batchRepo invDomain.BatchRepository, expireBatchUC *invapp.ExpireBatchUseCase) {
-	adminCtx := tenant.WithSuperAdmin(ctx)
-
-	var toExpire []invDomain.BatchToExpire
-	err := tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		var err error
-		toExpire, err = batchRepo.ListToExpire(ctx)
-		return err
-	})
-	if err != nil {
-		log.Printf("list batches to expire: %v", err)
-		return
-	}
-
-	for _, b := range toExpire {
-		runCtx := tenant.WithTenantID(adminCtx, b.TenantID)
-		if err := expireBatchUC.Execute(runCtx, b.BatchID); err != nil {
-			log.Printf("expire batch %s: %v", b.BatchID, err)
+	for _, j := range due {
+		if err := runJobNowUC.Execute(adminCtx, j.JobKey); err != nil {
+			log.Printf("run scheduled job %s: %v", j.JobKey, err)
 		}
 	}
 }
