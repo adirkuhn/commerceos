@@ -232,6 +232,13 @@ export function dismissFailedSync(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/sync-logs/${id}/dismiss`, { method: 'POST' }, token)
 }
 
+// Force-push this product's current fields and stock to every channel it's
+// already linked to, regardless of whether anything changed since the last
+// sync.
+export function resyncProductToChannels(token: string, productId: string): Promise<null> {
+  return request<null>(`${base()}/products/${productId}/resync`, { method: 'POST' }, token)
+}
+
 export function listSalesChannels(token: string): Promise<SalesChannel[]> {
   return request<SalesChannel[]>(`${base()}/sales-channels`, { method: 'GET' }, token)
 }

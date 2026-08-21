@@ -45,6 +45,7 @@ vi.mock('../../pms/api', () => ({
 vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
   getProductChannelListing: vi.fn(),
+  resyncProductToChannels: vi.fn(),
 }))
 
 vi.mock('../../settings/api', () => ({
@@ -808,6 +809,55 @@ describe('WooCommerce tab', () => {
 
     await screen.findByText(/not linked to this WooCommerce store yet/i)
     expect(screen.queryByLabelText('Tax class (Woo)')).not.toBeInTheDocument()
+  })
+})
+
+describe('Resync to channels button', () => {
+  it('is not shown for a brand-new, not-yet-saved product', async () => {
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByText('New Product'))
+
+    expect(screen.queryByRole('button', { name: /Resync to channels/ })).not.toBeInTheDocument()
+  })
+
+  it('is not shown when no WooCommerce store is connected', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await waitFor(() => expect(pmsApi.getProduct).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /Resync to channels/ })).not.toBeInTheDocument()
+  })
+
+  it('force-pushes the product to every linked channel when clicked', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.resyncProductToChannels).mockResolvedValue(null)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await userEvent.click(await screen.findByRole('button', { name: /Resync to channels/ }))
+
+    expect(integrationsApi.resyncProductToChannels).toHaveBeenCalledWith('test-token', 'prod-1')
+    expect(await screen.findByText('Resync started.')).toBeInTheDocument()
+  })
+
+  it('surfaces an error instead of a false success message', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.resyncProductToChannels).mockRejectedValue(new Error('woo unreachable'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await userEvent.click(await screen.findByRole('button', { name: /Resync to channels/ }))
+
+    expect(await screen.findByText('woo unreachable')).toBeInTheDocument()
   })
 })
 

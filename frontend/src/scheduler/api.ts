@@ -24,6 +24,13 @@ export function runJobNow(token: string, jobKey: string): Promise<null> {
   return request<null>(`${base()}/jobs/${jobKey}/run-now`, token, { method: 'POST' })
 }
 
+export function updateJobConfig(token: string, jobKey: string, enabled: boolean, intervalMinutes: number): Promise<null> {
+  return request<null>(`${base()}/jobs/${jobKey}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled, interval_minutes: intervalMinutes }),
+  })
+}
+
 export function listSyncSchedules(token: string): Promise<SyncScheduleRow[]> {
   return request<SyncScheduleRow[]>(`${base()}/sync-schedules`, token)
 }

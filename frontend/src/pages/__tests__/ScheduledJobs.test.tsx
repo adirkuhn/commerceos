@@ -13,6 +13,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../scheduler/api', () => ({
   listJobs: vi.fn(),
   runJobNow: vi.fn(),
+  updateJobConfig: vi.fn(),
   listSyncSchedules: vi.fn(),
   runSyncScheduleNow: vi.fn(),
 }))
@@ -96,6 +97,38 @@ describe('ScheduledJobs', () => {
     await screen.findByText('https://mystore.com')
 
     expect(screen.getByRole('button', { name: 'Run now' })).toBeDisabled()
+  })
+
+  it('shows a Save button only after editing a job\'s interval, and saves it', async () => {
+    vi.mocked(schedulerApi.listJobs).mockResolvedValue([job({ interval_minutes: 1440 })])
+    vi.mocked(schedulerApi.updateJobConfig).mockResolvedValue(null)
+
+    render(<ScheduledJobs />)
+    await screen.findByText('cost_price_recalculation')
+
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+
+    const intervalInput = screen.getByLabelText('Interval minutes: cost_price_recalculation')
+    await userEvent.clear(intervalInput)
+    await userEvent.type(intervalInput, '60')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+    expect(schedulerApi.updateJobConfig).toHaveBeenCalledWith('test-token', 'cost_price_recalculation', true, 60)
+    expect(schedulerApi.listJobs).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows a Save button after toggling a job\'s enabled checkbox, and saves it', async () => {
+    vi.mocked(schedulerApi.listJobs).mockResolvedValue([job({ enabled: true })])
+    vi.mocked(schedulerApi.updateJobConfig).mockResolvedValue(null)
+
+    render(<ScheduledJobs />)
+    await screen.findByText('cost_price_recalculation')
+
+    await userEvent.click(screen.getByLabelText('Enabled: cost_price_recalculation'))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
+
+    expect(schedulerApi.updateJobConfig).toHaveBeenCalledWith('test-token', 'cost_price_recalculation', false, 1440)
   })
 
   it('surfaces a load error', async () => {

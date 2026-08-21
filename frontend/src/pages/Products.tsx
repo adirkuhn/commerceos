@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug, X, ImagePlus, Boxes,
+  Plus, Search, Package, Trash2, Edit3, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -266,6 +266,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [activeTab, setActiveTab] = useState<EditorTab>('general')
+  const [resyncing, setResyncing] = useState(false)
+  const [resyncMessage, setResyncMessage] = useState('')
 
   // Integration tabs only ever appear for a provider that's actually
   // connected — an unconnected/disabled integration gets no tab at all,
@@ -548,6 +550,20 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
     }
   }
 
+  const handleResync = async () => {
+    if (!savedProductId) return
+    setResyncing(true)
+    setResyncMessage('')
+    try {
+      await integrationsApi.resyncProductToChannels(token ?? '', savedProductId)
+      setResyncMessage('Resync started.')
+    } catch (err) {
+      setResyncMessage(err instanceof Error ? err.message : 'Failed to resync')
+    } finally {
+      setResyncing(false)
+    }
+  }
+
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
   const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
 
@@ -566,6 +582,17 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {resyncMessage && <span className="text-[11px] dark:text-gray-500 text-gray-400 mr-1">{resyncMessage}</span>}
+          {savedProductId && wooConnection && (
+            <button
+              type="button" onClick={handleResync} disabled={resyncing}
+              title="Force-push this product's current fields and stock to every linked channel, even if nothing changed"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw size={12} className={resyncing ? 'animate-spin' : undefined} />
+              {resyncing ? 'Resyncing…' : 'Resync to channels'}
+            </button>
+          )}
           <button
             type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-semibold dark:text-gray-300 text-gray-700 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors"
