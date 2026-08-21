@@ -309,7 +309,7 @@ export default function Settings() {
           </div>
         )}
 
-        {!['company', 'integrations', 'inventory', 'localization', 'automation', 'security', 'notifications'].includes(activeSection) && (
+        {!['company', 'integrations', 'inventory', 'localization', 'automation', 'security', 'notifications', 'tax', 'pricing'].includes(activeSection) && (
           <div className="max-w-2xl">
             <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1 capitalize">{activeSection}</h2>
             <p className="text-xs dark:text-gray-500 text-gray-400">
@@ -689,11 +689,15 @@ function PricingMarginSection() {
   }
 
   async function handleSave() {
-    setSaving(true)
     setSaveError('')
     setSaved(false)
+    const basisPoints = marginPercent.trim() === '' ? 0 : Math.round(parseFloat(marginPercent) * 100)
+    if (basisPoints < 0 || basisPoints >= 10000) {
+      setSaveError('Target margin must be less than 100% -- at 100% or above, cost / (1 - margin) is undefined or negative.')
+      return
+    }
+    setSaving(true)
     try {
-      const basisPoints = marginPercent.trim() === '' ? 0 : Math.round(parseFloat(marginPercent) * 100)
       await save({ ...toInput(settings), default_target_margin_basis_points: basisPoints })
       setSaved(true)
     } catch (err) {
@@ -712,7 +716,7 @@ function PricingMarginSection() {
         </label>
         <input
           id="default-target-margin"
-          type="number" min={0} max={99.9} step={0.1}
+          type="number" min={0} max={99.99} step={0.01}
           value={marginPercent}
           onChange={e => { setMarginPercent(e.target.value); setSaved(false) }}
           placeholder="e.g. 30"

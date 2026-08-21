@@ -1037,4 +1037,31 @@ describe('Settings > Pricing', () => {
       default_target_margin_basis_points: 2500,
     })))
   })
+
+  it('rejects a 100% target margin client-side instead of round-tripping to the 400 the backend would return', async () => {
+    render(<Settings />)
+    await openPricingSection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+
+    await userEvent.type(screen.getByLabelText('Default target margin (%)'), '100')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing settings' }))
+
+    expect(await screen.findByText(/must be less than 100%/i)).toBeInTheDocument()
+    expect(tenantSettingsApi.updateTenantSettings).not.toHaveBeenCalled()
+  })
+
+  it('does not show the "Configuration coming soon" placeholder on the Pricing tab', async () => {
+    render(<Settings />)
+    await openPricingSection()
+
+    expect(await screen.findByLabelText('Default target margin (%)')).toBeInTheDocument()
+    expect(screen.queryByText('Configuration coming soon')).not.toBeInTheDocument()
+  })
+
+  it('does not show the "Configuration coming soon" placeholder on the Tax tab', async () => {
+    render(<Settings />)
+    await openTaxSection()
+
+    expect(screen.queryByText('Configuration coming soon')).not.toBeInTheDocument()
+  })
 })
