@@ -636,11 +636,17 @@ func sameVariantID(a, b *string) bool {
 }
 
 type stubSyncLogRepo struct {
-	created   []channelsDomain.SyncLogEntry
-	createErr error
-	byListing map[string][]channelsDomain.SyncLogEntry // newest-first
-	all       []channelsDomain.SyncLogEntry            // newest-first, for ListAll
-	listErr   error
+	created          []channelsDomain.SyncLogEntry
+	createErr        error
+	byListing        map[string][]channelsDomain.SyncLogEntry // newest-first
+	all              []channelsDomain.SyncLogEntry            // newest-first, for ListAll
+	listErr          error
+	byID             map[string]channelsDomain.SyncLogEntry
+	findErr          error
+	needingAttention []channelsDomain.SyncLogEntry // newest-first, for ListNeedingAttention
+	needingAttnErr   error
+	dismissedIDs     []string
+	dismissErr       error
 }
 
 func (s *stubSyncLogRepo) Create(_ context.Context, e *channelsDomain.SyncLogEntry) error {
@@ -655,6 +661,37 @@ func (s *stubSyncLogRepo) Create(_ context.Context, e *channelsDomain.SyncLogEnt
 	if e.ListingID != nil {
 		s.byListing[*e.ListingID] = append([]channelsDomain.SyncLogEntry{*e}, s.byListing[*e.ListingID]...)
 	}
+	return nil
+}
+func (s *stubSyncLogRepo) FindByID(_ context.Context, id string) (*channelsDomain.SyncLogEntry, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if e, ok := s.byID[id]; ok {
+		return &e, nil
+	}
+	return nil, channelsDomain.ErrSyncLogNotFound
+}
+func (s *stubSyncLogRepo) ListNeedingAttention(_ context.Context, page, perPage int) ([]channelsDomain.SyncLogEntry, int64, error) {
+	if s.needingAttnErr != nil {
+		return nil, 0, s.needingAttnErr
+	}
+	total := int64(len(s.needingAttention))
+	start := (page - 1) * perPage
+	if start >= len(s.needingAttention) {
+		return nil, total, nil
+	}
+	end := start + perPage
+	if end > len(s.needingAttention) {
+		end = len(s.needingAttention)
+	}
+	return s.needingAttention[start:end], total, nil
+}
+func (s *stubSyncLogRepo) Dismiss(_ context.Context, id string) error {
+	if s.dismissErr != nil {
+		return s.dismissErr
+	}
+	s.dismissedIDs = append(s.dismissedIDs, id)
 	return nil
 }
 func (s *stubSyncLogRepo) ListByListing(_ context.Context, listingID string, limit int) ([]channelsDomain.SyncLogEntry, error) {

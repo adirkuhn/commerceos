@@ -27,9 +27,12 @@ type FieldChange struct {
 // SyncLogEntry is an immutable audit record of one sync attempt.
 // ProductChannelListing holds only the *current* state; this is the
 // history of how it got there — created on every push/import/event-driven
-// sync, never updated. ListingID goes nil (ON DELETE SET NULL) if the
-// listing it logged activity for is later deleted; the log row itself
-// survives as the audit trail.
+// sync, its own fields never updated after creation. ListingID goes nil
+// (ON DELETE SET NULL) if the listing it logged activity for is later
+// deleted; the log row itself survives as the audit trail. The one
+// exception is DismissedAt, set later by staff acknowledging a failure
+// isn't worth retrying (see SyncLogRepository.Dismiss) — that's metadata
+// about how the entry was handled, not a change to what actually happened.
 type SyncLogEntry struct {
 	ID           string
 	TenantID     string
@@ -50,4 +53,9 @@ type SyncLogEntry struct {
 	// nothing changed since the previous entry.
 	Changes  map[string]FieldChange
 	SyncedAt time.Time
+	// DismissedAt is set once staff acknowledge a failed entry from the
+	// "needs attention" view without retrying it (Woo product deleted,
+	// known/expected mismatch, etc.) -- see
+	// SyncLogRepository.ListNeedingAttention's doc for how this excludes it.
+	DismissedAt *time.Time
 }

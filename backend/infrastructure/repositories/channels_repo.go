@@ -608,9 +608,10 @@ type channelSyncLogModel struct {
 	// importJobModel.Errors' reasoning: this app never Update()s a sync
 	// log row (it's insert-only), but keeping the convention consistent
 	// avoids the tag silently doing nothing if that ever changes.
-	Fields   string `gorm:"type:jsonb;not null;default:'{}'"`
-	Changes  string `gorm:"type:jsonb;not null;default:'{}'"`
-	SyncedAt time.Time
+	Fields      string `gorm:"type:jsonb;not null;default:'{}'"`
+	Changes     string `gorm:"type:jsonb;not null;default:'{}'"`
+	SyncedAt    time.Time
+	DismissedAt *time.Time `gorm:"column:dismissed_at"`
 }
 
 func (channelSyncLogModel) TableName() string { return "channel_sync_logs" }
@@ -643,6 +644,76 @@ func (r *SyncLogRepo) Create(ctx context.Context, e *channelsDomain.SyncLogEntry
 		return fmt.Errorf("syncLogRepo.Create: %w", err)
 	}
 	e.ID = m.ID
+	return nil
+}
+
+func (r *SyncLogRepo) FindByID(ctx context.Context, id string) (*channelsDomain.SyncLogEntry, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var row channelSyncLogModel
+	err = tx.Where("id = ?", id).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, channelsDomain.ErrSyncLogNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("syncLogRepo.FindByID: %w", err)
+	}
+	return toSyncLogDomain(row), nil
+}
+
+// ListNeedingAttention finds each listing's single most-recent entry (via
+// DISTINCT ON, Postgres-specific), then filters that set to error+
+// undismissed -- see the interface doc for why this is a live query over
+// the append-only log rather than separate tracked state. RLS applies
+// transparently to the raw SQL here the same as it does to GORM's own
+// query builder, since both run on the same tx (SET LOCAL app.current_tenant
+// already applied by tenant.WithTenant before this is ever called).
+func (r *SyncLogRepo) ListNeedingAttention(ctx context.Context, page, perPage int) ([]channelsDomain.SyncLogEntry, int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	const latestPerListing = `
+		SELECT DISTINCT ON (listing_id) *
+		FROM channel_sync_logs
+		WHERE listing_id IS NOT NULL
+		ORDER BY listing_id, synced_at DESC`
+
+	var total int64
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM (%s) latest WHERE latest.status = 'error' AND latest.dismissed_at IS NULL`, latestPerListing)
+	if err := tx.Raw(countSQL).Scan(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("syncLogRepo.ListNeedingAttention: count: %w", err)
+	}
+
+	var rows []channelSyncLogModel
+	offset := (page - 1) * perPage
+	listSQL := fmt.Sprintf(`SELECT * FROM (%s) latest WHERE latest.status = 'error' AND latest.dismissed_at IS NULL ORDER BY latest.synced_at DESC LIMIT ? OFFSET ?`, latestPerListing)
+	if err := tx.Raw(listSQL, perPage, offset).Scan(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("syncLogRepo.ListNeedingAttention: %w", err)
+	}
+	out := make([]channelsDomain.SyncLogEntry, len(rows))
+	for i, row := range rows {
+		out[i] = *toSyncLogDomain(row)
+	}
+	return out, total, nil
+}
+
+func (r *SyncLogRepo) Dismiss(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	res := tx.Model(&channelSyncLogModel{}).Where("id = ?", id).Update("dismissed_at", now)
+	if res.Error != nil {
+		return fmt.Errorf("syncLogRepo.Dismiss: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return channelsDomain.ErrSyncLogNotFound
+	}
 	return nil
 }
 
@@ -730,7 +801,7 @@ func toSyncLogDomain(m channelSyncLogModel) *channelsDomain.SyncLogEntry {
 		Direction: channelsDomain.SyncDirectionFlow(m.Direction), Status: channelsDomain.SyncLogStatus(m.Status),
 		ErrorMessage: m.ErrorMessage,
 		Fields:       stringMapFromJSON(m.Fields), Changes: changesFromJSON(m.Changes),
-		SyncedAt: m.SyncedAt,
+		SyncedAt: m.SyncedAt, DismissedAt: m.DismissedAt,
 	}
 }
 

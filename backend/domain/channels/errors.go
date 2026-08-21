@@ -42,9 +42,14 @@ var (
 	ErrImportJobAlreadyActive = errors.New("an import is already running for this connection")
 	ErrImportJobNotFound      = errors.New("import job not found")
 	ErrSyncScheduleNotFound   = errors.New("sync schedule not found")
-	ErrSalesChannelNotFound   = errors.New("sales channel not found")
-	ErrInvalidChannelType     = errors.New("invalid sales channel type")
-	ErrInvalidEnrollmentMode  = errors.New("invalid enrollment mode")
+	ErrSyncLogNotFound        = errors.New("sync log entry not found")
+	// ErrSyncLogHasNoListing guards Retry: a log entry whose listing was
+	// since deleted (see SyncLogEntry.ListingID's doc) has nothing left to
+	// retry against.
+	ErrSyncLogHasNoListing   = errors.New("sync log entry's listing no longer exists")
+	ErrSalesChannelNotFound  = errors.New("sales channel not found")
+	ErrInvalidChannelType    = errors.New("invalid sales channel type")
+	ErrInvalidEnrollmentMode = errors.New("invalid enrollment mode")
 	// ErrConnectionRequired guards a channel type where
 	// ChannelType.RequiresConnection() is true (every type implemented
 	// today) against being created/updated with no ConnectionID.

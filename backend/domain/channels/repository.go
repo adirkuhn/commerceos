@@ -41,12 +41,25 @@ type ProductChannelListingRepository interface {
 // entry is never updated once written.
 type SyncLogRepository interface {
 	Create(ctx context.Context, e *SyncLogEntry) error
+	FindByID(ctx context.Context, id string) (*SyncLogEntry, error)
 	// ListByListing returns entries newest-first, capped at limit.
 	ListByListing(ctx context.Context, listingID string, limit int) ([]SyncLogEntry, error)
 	// ListAll returns every sync log entry for the current tenant
 	// (RLS-scoped), newest first, paginated — powers the tenant-wide sync
 	// history page (as opposed to ListByListing's single-product view).
 	ListAll(ctx context.Context, page, perPage int) ([]SyncLogEntry, int64, error)
+	// ListNeedingAttention returns, newest first and paginated, every
+	// listing (ListingID non-nil -- retrying requires a live listing to
+	// retry against) whose MOST RECENT log entry is Status=error and not
+	// yet DismissedAt -- a listing whose latest entry succeeded, or whose
+	// failure was dismissed, drops out on its own without any extra
+	// bookkeeping (this is a live query over the append-only log, not a
+	// separate tracked state). Powers the Sync History page's "Needs
+	// attention" filter.
+	ListNeedingAttention(ctx context.Context, page, perPage int) ([]SyncLogEntry, int64, error)
+	// Dismiss sets DismissedAt on one entry -- see SyncLogEntry's own doc
+	// for why this is the one field ever updated after creation.
+	Dismiss(ctx context.Context, id string) error
 }
 
 type SyncScheduleRepository interface {
