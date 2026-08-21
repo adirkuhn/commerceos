@@ -27,13 +27,14 @@ type TenantSettings struct {
 	// expired by the scheduler job; 0 disables auto-expiry.
 	InventorySyncRulesEnabled bool
 	BatchExpiryThresholdDays  int
-	// DefaultTargetMarginBasisPoints is the tenant-wide fallback target
-	// margin used to compute a SKU's recommended price when its category
-	// has no override (see pms.Category.TargetMarginBasisPoints and
-	// application/pms.EffectiveTargetMarginBasisPoints). Basis points
-	// (0-9999); 0 on a never-saved tenant means "unset", same zero-value
-	// convention as every other field here -- callers needing a real
-	// default before any settings are ever saved check UpdatedAt.IsZero().
-	DefaultTargetMarginBasisPoints int
+	// DefaultTargetMarkupBasisPoints is the tenant-wide fallback target
+	// markup (profit / cost) used to compute a SKU's recommended price when
+	// its category has no override (see pms.Category.TargetMarkupBasisPoints
+	// and application/pms.EffectiveTargetMarkupBasisPoints). Basis points,
+	// no upper bound (unlike margin, markup can exceed 100%); 0 on a
+	// never-saved tenant means "unset", same zero-value convention as every
+	// other field here -- callers needing a real default before any
+	// settings are ever saved check UpdatedAt.IsZero().
+	DefaultTargetMarkupBasisPoints int
 	UpdatedAt                      time.Time
 }

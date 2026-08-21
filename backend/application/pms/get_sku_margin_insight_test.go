@@ -50,7 +50,7 @@ func TestGetSKUMarginInsight_computesProfitAndMarginAtCurrentAndSalePrice(t *tes
 		PriceMinorUnits: 1000, SalePriceMinorUnits: int64Ptr2(800),
 	}}
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{{ID: "batch-1", Quantity: 5, LandedCostMinorUnits: int64Ptr2(700)}}}
-	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarginBasisPoints: 3000}}
+	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 3000}}
 	uc := apppms.NewGetSKUMarginInsightUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, settingsRepo,
 		batchLister, &stubDiscardListerForMarginInsight{},
@@ -61,13 +61,16 @@ func TestGetSKUMarginInsight_computesProfitAndMarginAtCurrentAndSalePrice(t *tes
 	require.NoError(t, err)
 	require.True(t, result.CostPriceAvailable)
 	assert.Equal(t, int64(700), result.CostPriceMinorUnits)
-	assert.Equal(t, int64(1000), result.RecommendedPriceMinorUnits) // 700/0.7
-	assert.Equal(t, int64(300), result.ProfitAtPriceMinorUnits)     // 1000-700
-	assert.Equal(t, 3000, result.MarginAtPriceBasisPoints)          // 300/1000
+	assert.Equal(t, int64(910), result.RecommendedPriceMinorUnits) // 700*1.3
+	assert.Equal(t, int64(300), result.ProfitAtPriceMinorUnits)    // 1000-700
+	assert.Equal(t, 3000, result.MarginAtPriceBasisPoints)         // 300/1000 = 30% margin
+	assert.Equal(t, 4285, result.MarkupAtPriceBasisPoints)         // 300/700 = 42.85% markup
 	require.NotNil(t, result.ProfitAtSalePriceMinorUnits)
 	assert.Equal(t, int64(100), *result.ProfitAtSalePriceMinorUnits) // 800-700
 	require.NotNil(t, result.MarginAtSalePriceBasisPoints)
-	assert.Equal(t, 1250, *result.MarginAtSalePriceBasisPoints) // 100/800 = 12.5%
+	assert.Equal(t, 1250, *result.MarginAtSalePriceBasisPoints) // 100/800 = 12.5% margin
+	require.NotNil(t, result.MarkupAtSalePriceBasisPoints)
+	assert.Equal(t, 1428, *result.MarkupAtSalePriceBasisPoints) // 100/700 = 14.28% markup
 	assert.Equal(t, int64(5), result.TotalOnHandQuantity)
 	assert.Equal(t, int64(500), result.TotalProfitPotentialMinorUnits) // (800-700)*5, sale price is effective
 }

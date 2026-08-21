@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 
@@ -66,7 +67,7 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		DefaultTaxCountry:              strPtrOr(req.DefaultTaxCountry),
 		InventorySyncRulesEnabled:      req.InventorySyncRulesEnabled != nil && *req.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       intPtrOr(req.BatchExpiryThresholdDays),
-		DefaultTargetMarginBasisPoints: intPtrOr(req.DefaultTargetMarginBasisPoints),
+		DefaultTargetMarkupBasisPoints: intPtrOr(req.DefaultTargetMarkupBasisPoints),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -86,7 +87,7 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		DefaultTaxCountry:              s.DefaultTaxCountry,
 		InventorySyncRulesEnabled:      s.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       s.BatchExpiryThresholdDays,
-		DefaultTargetMarginBasisPoints: s.DefaultTargetMarginBasisPoints,
+		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
 		UpdatedAt:                      s.UpdatedAt,
 	}
 }
@@ -108,6 +109,10 @@ func intPtrOr(i *int) int {
 func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return err
 	}
 	log.Printf("settings: unhandled error: %v", err)
 	middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

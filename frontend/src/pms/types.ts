@@ -12,10 +12,10 @@ export interface Category {
   name: string
   slug: string
   position: number
-  // Overrides the tenant's default target margin for every product in this
-  // category, when set (0-9999, e.g. 3000 = 30%). Null means "use the
-  // tenant default".
-  target_margin_basis_points?: number | null
+  // Overrides the tenant's default target markup for every product in this
+  // category, when set (basis points, no upper bound, e.g. 3000 = 30%
+  // markup). Null means "use the tenant default".
+  target_markup_basis_points?: number | null
   created_at: string
   updated_at: string
 }
@@ -117,12 +117,16 @@ export interface SKUMarginInsight {
   cost_price_available: boolean
   cost_price_minor_units: number
   cost_price_source: SKUCostPriceSource
-  effective_target_margin_basis_points: number
+  effective_target_markup_basis_points: number
   recommended_price_minor_units: number
   profit_at_price_minor_units: number
+  // margin = profit / price, markup = profit / cost -- same profit,
+  // expressed two ways.
   margin_at_price_basis_points: number
+  markup_at_price_basis_points: number
   profit_at_sale_price_minor_units?: number | null
   margin_at_sale_price_basis_points?: number | null
+  markup_at_sale_price_basis_points?: number | null
   total_on_hand_quantity: number
   total_profit_potential_minor_units: number
   shrinkage_minor_units: number
@@ -144,7 +148,8 @@ export interface MarginReportRow {
   price_minor_units: number
   profit_minor_units: number
   margin_basis_points: number
-  target_margin_basis_points: number
+  markup_basis_points: number
+  target_markup_basis_points: number
   recommended_price_minor_units: number
   below_target: boolean
 }
@@ -185,7 +190,7 @@ export interface CreateCategoryPayload {
 }
 
 export interface UpdateCategoryPayload extends CreateCategoryPayload {
-  target_margin_basis_points?: number | null
+  target_markup_basis_points?: number | null
 }
 
 export interface CreateProductPayload {

@@ -17,7 +17,7 @@ func TestListMarginReport_skipsSKUsWithNoCostPriceAndSortsWorstMarginFirst(t *te
 		{ID: "sku-good-margin", VariantID: "variant-1", PriceMinorUnits: 1000, CostPriceMinorUnits: int64Ptr2(500)},
 		{ID: "sku-bad-margin", VariantID: "variant-1", PriceMinorUnits: 1000, CostPriceMinorUnits: int64Ptr2(950)},
 	}}
-	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarginBasisPoints: 3000}}
+	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 3000}}
 	uc := apppms.NewListMarginReportUseCase(newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, settingsRepo)
 
 	result, err := uc.Execute(context.Background(), apppms.ListMarginReportInput{})
@@ -36,7 +36,7 @@ func TestListMarginReport_belowTargetOnlyFiltersOutHealthyMargins(t *testing.T) 
 		{ID: "sku-good-margin", VariantID: "variant-1", PriceMinorUnits: 1000, CostPriceMinorUnits: int64Ptr2(500)},
 		{ID: "sku-bad-margin", VariantID: "variant-1", PriceMinorUnits: 1000, CostPriceMinorUnits: int64Ptr2(950)},
 	}}
-	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarginBasisPoints: 3000}}
+	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 3000}}
 	uc := apppms.NewListMarginReportUseCase(newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, settingsRepo)
 
 	result, err := uc.Execute(context.Background(), apppms.ListMarginReportInput{BelowTargetOnly: true})

@@ -14,14 +14,14 @@ import (
 
 func int64Ptr2(v int64) *int64 { return &v }
 
-func TestRecalculateCostPrices_weightedAveragesOnHandBatchesAndAppliesTenantDefaultMargin(t *testing.T) {
+func TestRecalculateCostPrices_weightedAveragesOnHandBatchesAndAppliesTenantDefaultMarkup(t *testing.T) {
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
 		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},
 		{ID: "batch-2", Quantity: 5, LandedCostMinorUnits: int64Ptr2(500)},
 	}}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
 	historyRepo := &stubSKUCostPriceHistoryRepo{}
-	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarginBasisPoints: 3000}}
+	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 3000}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, settingsRepo, historyRepo, batchLister, &stubPurchaseCostLineListerForCostPrice{},
 	)
@@ -32,13 +32,13 @@ func TestRecalculateCostPrices_weightedAveragesOnHandBatchesAndAppliesTenantDefa
 	require.False(t, result.Skipped)
 	// weighted avg: (10*800 + 5*500) / 15 = (8000+2500)/15 = 700
 	assert.Equal(t, int64(700), result.CostPriceMinorUnits)
-	// recommended at 30% margin: 700/0.7 = 1000
-	assert.Equal(t, int64(1000), result.RecommendedPriceMinorUnits)
+	// recommended at 30% markup: 700*1.3 = 910
+	assert.Equal(t, int64(910), result.RecommendedPriceMinorUnits)
 	require.Len(t, skuRepo.updateCostPriceCalls, 1)
 	assert.Equal(t, int64(700), skuRepo.updateCostPriceCalls[0].CostPriceMinorUnits)
 	require.Len(t, historyRepo.upserted, 1)
 	assert.Equal(t, int64(700), historyRepo.upserted[0].CostPriceMinorUnits)
-	assert.Equal(t, int64(1000), historyRepo.upserted[0].RecommendedPriceMinorUnits)
+	assert.Equal(t, int64(910), historyRepo.upserted[0].RecommendedPriceMinorUnits)
 }
 
 func TestRecalculateCostPrices_skipsBatchesWithNoLandedCost(t *testing.T) {
@@ -80,8 +80,8 @@ func TestRecalculateCostPrices_categoryOverrideBeatsTenantDefault(t *testing.T) 
 	}}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", CategoryID: strPtr("category-1")}}
-	categoryRepo := &stubCategoryRepo{findByIDResult: &pmsDomain.Category{ID: "category-1", TargetMarginBasisPoints: intPtr(5000)}}
-	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarginBasisPoints: 1000}}
+	categoryRepo := &stubCategoryRepo{findByIDResult: &pmsDomain.Category{ID: "category-1", TargetMarkupBasisPoints: intPtr(5000)}}
+	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 1000}}
 	uc := apppms.NewRecalculateCostPricesUseCase(
 		newMockGormDB(t), skuRepo, &stubVariantRepo{}, productRepo, categoryRepo, settingsRepo, &stubSKUCostPriceHistoryRepo{}, batchLister, &stubPurchaseCostLineListerForCostPrice{},
 	)
@@ -89,8 +89,8 @@ func TestRecalculateCostPrices_categoryOverrideBeatsTenantDefault(t *testing.T) 
 	result, err := uc.Execute(context.Background(), "sku-1")
 
 	require.NoError(t, err)
-	// 700 / (1 - 0.5) = 1400, not the tenant default's 700/0.9=778
-	assert.Equal(t, int64(1400), result.RecommendedPriceMinorUnits)
+	// 700 * 1.5 = 1050, not the tenant default's 700*1.1=770
+	assert.Equal(t, int64(1050), result.RecommendedPriceMinorUnits)
 }
 
 func TestRecalculateCostPrices_includesReceivedPurchaseOrderLinesWithNoBatch(t *testing.T) {

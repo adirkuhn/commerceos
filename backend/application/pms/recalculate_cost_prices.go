@@ -67,9 +67,9 @@ type RecalculateCostPricesResult struct {
 // both the numerator and the weight, not treated as zero. A SKU with no
 // cost-bearing on-hand batch at all is Skipped, not zeroed.
 //
-// Recommended price is computed from the effective target margin (the
+// Recommended price is computed from the effective target markup (the
 // SKU's product's category override, falling back to the tenant default --
-// see EffectiveTargetMarginBasisPoints) and written alongside cost price to
+// see EffectiveTargetMarkupBasisPoints) and written alongside cost price to
 // today's SKUCostPriceHistory row (upserted, so a same-day rerun is a
 // no-op-that-overwrites rather than a duplicate).
 type RecalculateCostPricesUseCase struct {
@@ -162,8 +162,8 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 			return err
 		}
 		category := resolveCategory(ctx, uc.variantRepo, uc.productRepo, uc.categoryRepo, sku.VariantID)
-		margin := EffectiveTargetMarginBasisPoints(category, settings.DefaultTargetMarginBasisPoints)
-		recommended := RecommendedPriceMinorUnits(costPrice, margin)
+		markup := EffectiveTargetMarkupBasisPoints(category, settings.DefaultTargetMarkupBasisPoints)
+		recommended := RecommendedPriceMinorUnits(costPrice, markup)
 
 		if err := uc.skuRepo.UpdateCostPrice(ctx, skuID, costPrice); err != nil {
 			return err

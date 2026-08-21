@@ -19,7 +19,7 @@ type UpdateTenantSettingsInput struct {
 	DefaultTaxCountry              string
 	InventorySyncRulesEnabled      bool
 	BatchExpiryThresholdDays       int
-	DefaultTargetMarginBasisPoints int
+	DefaultTargetMarkupBasisPoints int
 }
 
 type UpdateTenantSettingsUseCase struct {
@@ -32,8 +32,8 @@ func NewUpdateTenantSettingsUseCase(db *gorm.DB, repo settingsDomain.Repository)
 }
 
 func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTenantSettingsInput) (*settingsDomain.TenantSettings, error) {
-	if in.DefaultTargetMarginBasisPoints < 0 || in.DefaultTargetMarginBasisPoints >= 10000 {
-		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidTargetMarginBasisPoints)
+	if in.DefaultTargetMarkupBasisPoints < 0 {
+		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidTargetMarkupBasisPoints)
 	}
 
 	var result settingsDomain.TenantSettings
@@ -48,7 +48,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			DefaultTaxCountry:              in.DefaultTaxCountry,
 			InventorySyncRulesEnabled:      in.InventorySyncRulesEnabled,
 			BatchExpiryThresholdDays:       in.BatchExpiryThresholdDays,
-			DefaultTargetMarginBasisPoints: in.DefaultTargetMarginBasisPoints,
+			DefaultTargetMarkupBasisPoints: in.DefaultTargetMarkupBasisPoints,
 			UpdatedAt:                      time.Now(),
 		}
 		return uc.repo.Upsert(ctx, &result)

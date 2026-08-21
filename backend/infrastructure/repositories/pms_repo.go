@@ -65,7 +65,7 @@ type categoryModel struct {
 	Name                    string `gorm:"not null"`
 	Slug                    string `gorm:"not null"`
 	Position                int
-	TargetMarginBasisPoints *int `gorm:"column:target_margin_basis_points"`
+	TargetMarkupBasisPoints *int `gorm:"column:target_markup_basis_points"`
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
@@ -159,7 +159,7 @@ func (r *CategoryRepo) Create(ctx context.Context, c *pmsDomain.Category) error 
 		Name:                    c.Name,
 		Slug:                    c.Slug,
 		Position:                c.Position,
-		TargetMarginBasisPoints: c.TargetMarginBasisPoints,
+		TargetMarkupBasisPoints: c.TargetMarkupBasisPoints,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}
@@ -225,7 +225,7 @@ func (r *CategoryRepo) Update(ctx context.Context, c *pmsDomain.Category) error 
 		Updates(map[string]any{
 			"parent_id":                  c.ParentID,
 			"name":                       c.Name,
-			"target_margin_basis_points": c.TargetMarginBasisPoints,
+			"target_markup_basis_points": c.TargetMarkupBasisPoints,
 			"updated_at":                 c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("categoryRepo.Update: %w", err)
@@ -252,7 +252,7 @@ func toCategoryDomain(m categoryModel) *pmsDomain.Category {
 		Name:                    m.Name,
 		Slug:                    m.Slug,
 		Position:                m.Position,
-		TargetMarginBasisPoints: m.TargetMarginBasisPoints,
+		TargetMarkupBasisPoints: m.TargetMarkupBasisPoints,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}

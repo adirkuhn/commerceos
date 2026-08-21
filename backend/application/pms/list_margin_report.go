@@ -17,8 +17,8 @@ const (
 )
 
 // MarginReportRow is one line of the tenant-wide margin report -- every
-// active SKU the cron has computed a cost price for, current price/margin,
-// and how that compares to its recommended price/target margin.
+// active SKU the cron has computed a cost price for, current price/margin/
+// markup, and how that compares to its recommended price/target markup.
 type MarginReportRow struct {
 	SKUID                      string
 	SKUCode                    string
@@ -27,11 +27,13 @@ type MarginReportRow struct {
 	PriceMinorUnits            int64
 	ProfitMinorUnits           int64
 	MarginBasisPoints          int
-	TargetMarginBasisPoints    int
+	MarkupBasisPoints          int
+	TargetMarkupBasisPoints    int
 	RecommendedPriceMinorUnits int64
-	// BelowTarget is true when MarginBasisPoints is under
-	// TargetMarginBasisPoints -- includes negative margin (selling below
-	// cost), the report's flagging signal.
+	// BelowTarget is true when MarkupBasisPoints is under
+	// TargetMarkupBasisPoints -- compares like with like (both markup,
+	// profit/cost), includes a negative value (selling below cost), the
+	// report's flagging signal.
 	BelowTarget bool
 }
 
@@ -106,19 +108,22 @@ func (uc *ListMarginReportUseCase) Execute(ctx context.Context, in ListMarginRep
 			}
 			cost := *sku.CostPriceMinorUnits
 			category := resolveCategory(ctx, uc.variantRepo, uc.productRepo, uc.categoryRepo, sku.VariantID)
-			targetMargin := EffectiveTargetMarginBasisPoints(category, settings.DefaultTargetMarginBasisPoints)
+			targetMarkup := EffectiveTargetMarkupBasisPoints(category, settings.DefaultTargetMarkupBasisPoints)
 
 			row := MarginReportRow{
 				SKUID: sku.ID, SKUCode: sku.SKUCode,
 				CostPriceMinorUnits: cost, PriceMinorUnits: sku.PriceMinorUnits,
 				ProfitMinorUnits:           sku.PriceMinorUnits - cost,
-				TargetMarginBasisPoints:    targetMargin,
-				RecommendedPriceMinorUnits: RecommendedPriceMinorUnits(cost, targetMargin),
+				TargetMarkupBasisPoints:    targetMarkup,
+				RecommendedPriceMinorUnits: RecommendedPriceMinorUnits(cost, targetMarkup),
 			}
 			if sku.PriceMinorUnits > 0 {
 				row.MarginBasisPoints = int(row.ProfitMinorUnits * 10000 / sku.PriceMinorUnits)
 			}
-			row.BelowTarget = row.MarginBasisPoints < targetMargin
+			if cost > 0 {
+				row.MarkupBasisPoints = int(row.ProfitMinorUnits * 10000 / cost)
+			}
+			row.BelowTarget = row.MarkupBasisPoints < targetMarkup
 			if variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID); err == nil && variant != nil {
 				if product, err := uc.productRepo.FindByID(ctx, variant.ProductID); err == nil && product != nil {
 					row.ProductName = product.Name

@@ -162,7 +162,7 @@ beforeEach(() => {
   // applies -- individual tests override this to verify the real default.
   vi.mocked(settingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
-    prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+    prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
   // Configured by default so existing PDF-upload tests aren't interrupted
   // by the "no AI configured" confirm prompt -- tests for that prompt
@@ -291,7 +291,7 @@ describe('Purchase order create', () => {
   it('defaults currency to the tenant system-settings default once it loads', async () => {
     vi.mocked(settingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
-      prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
     render(<Procurement />)
@@ -308,7 +308,7 @@ describe('Purchase order create', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add Purchase Order' }))
     await userEvent.selectOptions(screen.getByLabelText('Currency'), 'GBP')
 
-    resolveSettings!({ tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '', prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '' })
+    resolveSettings!({ tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '', prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '' })
 
     // Give the settings promise's .then() a tick to run before asserting —
     // still wrapped in waitFor so the resulting state update is act()-safe.

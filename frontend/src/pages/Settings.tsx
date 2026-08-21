@@ -26,7 +26,7 @@ function toInput(s: TenantSettings | null): TenantSettingsInput {
     default_currency: s.default_currency, timezone: s.timezone, date_format: s.date_format, language: s.language,
     prices_include_tax: s.prices_include_tax, default_tax_country: s.default_tax_country,
     inventory_sync_rules_enabled: s.inventory_sync_rules_enabled, batch_expiry_threshold_days: s.batch_expiry_threshold_days,
-    default_target_margin_basis_points: s.default_target_margin_basis_points,
+    default_target_markup_basis_points: s.default_target_markup_basis_points,
   }
 }
 
@@ -44,7 +44,7 @@ const SECTIONS: SettingSection[] = [
   { id: 'shipping', label: 'Shipping Rules', icon: Truck, description: 'Default carriers, label format, zones' },
   { id: 'localization', label: 'Localization', icon: Globe, description: 'Currency, timezone, language' },
   { id: 'tax', label: 'Tax', icon: Percent, description: 'Tax classes and rates' },
-  { id: 'pricing', label: 'Pricing', icon: TrendingUp, description: 'Default target margin for recommended prices' },
+  { id: 'pricing', label: 'Pricing', icon: TrendingUp, description: 'Default target markup for recommended prices' },
   { id: 'automation', label: 'Automation', icon: Zap, description: 'Trigger-based rules and workflows' },
   { id: 'security', label: 'Security', icon: Shield, description: 'SSO, 2FA, IP restrictions' },
   { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Email, webhook, Slack alerts' },
@@ -199,7 +199,7 @@ export default function Settings() {
           <div className="max-w-2xl space-y-6">
             <div>
               <h2 className="text-base font-semibold dark:text-gray-100 text-gray-900 mb-1">Pricing</h2>
-              <p className="text-xs dark:text-gray-500 text-gray-400">Default target margin used to compute recommended prices</p>
+              <p className="text-xs dark:text-gray-500 text-gray-400">Default target markup used to compute recommended prices</p>
             </div>
             <PricingMarginSection />
           </div>
@@ -677,28 +677,28 @@ function PricingMarginSection() {
   const { token } = useAuth()
   const { settings, save } = useTenantSettings(token ?? '')
 
-  const [marginPercent, setMarginPercent] = useState('')
+  const [markupPercent, setMarkupPercent] = useState('')
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saved, setSaved] = useState(false)
 
   if (!hydrated && settings) {
-    setMarginPercent(settings.default_target_margin_basis_points ? (settings.default_target_margin_basis_points / 100).toString() : '')
+    setMarkupPercent(settings.default_target_markup_basis_points ? (settings.default_target_markup_basis_points / 100).toString() : '')
     setHydrated(true)
   }
 
   async function handleSave() {
     setSaveError('')
     setSaved(false)
-    const basisPoints = marginPercent.trim() === '' ? 0 : Math.round(parseFloat(marginPercent) * 100)
-    if (basisPoints < 0 || basisPoints >= 10000) {
-      setSaveError('Target margin must be less than 100% -- at 100% or above, cost / (1 - margin) is undefined or negative.')
+    const basisPoints = markupPercent.trim() === '' ? 0 : Math.round(parseFloat(markupPercent) * 100)
+    if (basisPoints < 0) {
+      setSaveError('Target markup cannot be negative.')
       return
     }
     setSaving(true)
     try {
-      await save({ ...toInput(settings), default_target_margin_basis_points: basisPoints })
+      await save({ ...toInput(settings), default_target_markup_basis_points: basisPoints })
       setSaved(true)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save pricing settings')
@@ -709,21 +709,22 @@ function PricingMarginSection() {
 
   return (
     <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pricing & margin</h3>
+      <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Pricing & markup</h3>
       <div className="max-w-[220px]">
-        <label htmlFor="default-target-margin" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
-          Default target margin (%)
+        <label htmlFor="default-target-markup" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          Default target markup (%)
         </label>
         <input
-          id="default-target-margin"
-          type="number" min={0} max={99.99} step={0.01}
-          value={marginPercent}
-          onChange={e => { setMarginPercent(e.target.value); setSaved(false) }}
+          id="default-target-markup"
+          type="number" min={0} step={0.01}
+          value={markupPercent}
+          onChange={e => { setMarkupPercent(e.target.value); setSaved(false) }}
           placeholder="e.g. 30"
           className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
-          Used to compute each product's recommended price from its cost price, unless its category has its own target margin set.
+          Markup is profit as a % of cost (e.g. 300% markup means selling at 4x cost) -- no upper bound, unlike margin.
+          Used to compute each product's recommended price from its cost price, unless its category has its own target markup set.
         </p>
       </div>
       {saveError && <p className="text-xs text-red-400">{saveError}</p>}

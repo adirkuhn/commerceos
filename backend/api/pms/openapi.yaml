@@ -522,13 +522,13 @@ components:
         name: { type: string }
         slug: { type: string }
         position: { type: integer }
-        target_margin_basis_points:
+        target_markup_basis_points:
           type: integer
           nullable: true
           description: >-
-            Overrides the tenant's default target margin for every product
-            in this category, when set (0-9999, e.g. 3000 = 30%). Null
-            means "use the tenant default".
+            Overrides the tenant's default target markup for every product
+            in this category, when set (profit / cost, no upper bound --
+            e.g. 3000 = 30% markup). Null means "use the tenant default".
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -718,7 +718,7 @@ components:
 
     SKUMarginInsight:
       type: object
-      required: [cost_price_available, cost_price_minor_units, cost_price_source, effective_target_margin_basis_points, recommended_price_minor_units, profit_at_price_minor_units, margin_at_price_basis_points, total_on_hand_quantity, total_profit_potential_minor_units, shrinkage_minor_units]
+      required: [cost_price_available, cost_price_minor_units, cost_price_source, effective_target_markup_basis_points, recommended_price_minor_units, profit_at_price_minor_units, margin_at_price_basis_points, markup_at_price_basis_points, total_on_hand_quantity, total_profit_potential_minor_units, shrinkage_minor_units]
       properties:
         cost_price_available:
           type: boolean
@@ -728,12 +728,18 @@ components:
           allOf:
             - $ref: '#/components/schemas/SKUCostPriceSource'
           description: Whether cost_price_minor_units came from the daily cron or a manual override (PUT /pms/skus/{id}/cost-price).
-        effective_target_margin_basis_points: { type: integer }
+        effective_target_markup_basis_points: { type: integer }
         recommended_price_minor_units: { type: integer, format: int64 }
         profit_at_price_minor_units: { type: integer, format: int64 }
-        margin_at_price_basis_points: { type: integer }
+        margin_at_price_basis_points:
+          type: integer
+          description: Profit as a % of price (profit / price).
+        markup_at_price_basis_points:
+          type: integer
+          description: Profit as a % of cost (profit / cost) -- same profit, expressed the other way.
         profit_at_sale_price_minor_units: { type: integer, format: int64, nullable: true }
         margin_at_sale_price_basis_points: { type: integer, nullable: true }
+        markup_at_sale_price_basis_points: { type: integer, nullable: true }
         total_on_hand_quantity: { type: integer, format: int64 }
         total_profit_potential_minor_units:
           type: integer
@@ -770,7 +776,7 @@ components:
 
     MarginReportRow:
       type: object
-      required: [sku_id, sku_code, cost_price_minor_units, price_minor_units, profit_minor_units, margin_basis_points, target_margin_basis_points, recommended_price_minor_units, below_target]
+      required: [sku_id, sku_code, cost_price_minor_units, price_minor_units, profit_minor_units, margin_basis_points, markup_basis_points, target_markup_basis_points, recommended_price_minor_units, below_target]
       properties:
         sku_id: { type: string }
         sku_code: { type: string }
@@ -779,9 +785,12 @@ components:
         price_minor_units: { type: integer, format: int64 }
         profit_minor_units: { type: integer, format: int64 }
         margin_basis_points: { type: integer }
-        target_margin_basis_points: { type: integer }
+        markup_basis_points: { type: integer }
+        target_markup_basis_points: { type: integer }
         recommended_price_minor_units: { type: integer, format: int64 }
-        below_target: { type: boolean }
+        below_target:
+          type: boolean
+          description: markup_basis_points is below target_markup_basis_points -- includes a negative value (selling below cost).
 
     MarginReportResponse:
       type: object
@@ -829,7 +838,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         parent_id: { type: string, nullable: true }
-        target_margin_basis_points: { type: integer, nullable: true, minimum: 0, maximum: 9999 }
+        target_markup_basis_points: { type: integer, nullable: true, minimum: 0 }
 
     CreateProductRequest:
       type: object

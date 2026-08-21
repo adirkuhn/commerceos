@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -19,11 +20,11 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 		DefaultCurrency: "USD", Timezone: "Europe/Amsterdam", DateFormat: "DD/MM/YYYY", Language: "en",
 		PricesIncludeTax: true, DefaultTaxCountry: "NL",
 		InventorySyncRulesEnabled: true, BatchExpiryThresholdDays: 30,
-		DefaultTargetMarginBasisPoints: 3000,
+		DefaultTargetMarkupBasisPoints: 3000,
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 3000, result.DefaultTargetMarginBasisPoints)
+	require.Equal(t, 3000, result.DefaultTargetMarkupBasisPoints)
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
 	require.Equal(t, "DD/MM/YYYY", result.DateFormat)
@@ -50,11 +51,23 @@ func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUpdateTenantSettings_rejectsOutOfRangeTargetMargin(t *testing.T) {
+func TestUpdateTenantSettings_rejectsNegativeTargetMarkup(t *testing.T) {
 	repo := &stubSettingsRepo{}
 	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
 
-	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarginBasisPoints: 10000})
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarkupBasisPoints: -1})
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidTargetMarkupBasisPoints)
+}
+
+func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {
+	// Unlike margin (capped under 100%), markup has no upper bound --
+	// 10000 bps (100% markup, price = 2x cost) and above must be accepted.
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarkupBasisPoints: 30000})
+
+	require.NoError(t, err)
+	require.Equal(t, 30000, result.DefaultTargetMarkupBasisPoints)
 }

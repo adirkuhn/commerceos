@@ -37,15 +37,19 @@ type GetSKUMarginInsightResult struct {
 	// the product edit page uses this to decide whether to show "override"
 	// or "clear override".
 	CostPriceSource                  pmsDomain.SKUCostPriceSource
-	EffectiveTargetMarginBasisPoints int
+	EffectiveTargetMarkupBasisPoints int
 	RecommendedPriceMinorUnits       int64
-	// ProfitAtPriceMinorUnits/MarginAtPriceBasisPoints are computed
-	// against SKU.PriceMinorUnits. MarginAtSalePrice* mirror them against
-	// SalePriceMinorUnits, only populated (non-nil) when a sale is active.
+	// ProfitAtPriceMinorUnits/MarginAtPriceBasisPoints/MarkupAtPriceBasisPoints
+	// are computed against SKU.PriceMinorUnits -- margin is profit as a % of
+	// price, markup is profit as a % of cost, same number expressed two
+	// ways. The *AtSalePrice* fields mirror them against SalePriceMinorUnits,
+	// only populated (non-nil) when a sale is active.
 	ProfitAtPriceMinorUnits      int64
 	MarginAtPriceBasisPoints     int
+	MarkupAtPriceBasisPoints     int
 	ProfitAtSalePriceMinorUnits  *int64
 	MarginAtSalePriceBasisPoints *int
+	MarkupAtSalePriceBasisPoints *int
 	// TotalOnHandQuantity is summed across every batch and every
 	// warehouse's general ledger (ListBatchesUseCase's full result, not
 	// just cost-bearing rows -- this is physical count, unlike the cron's
@@ -128,12 +132,15 @@ func (uc *GetSKUMarginInsightUseCase) Execute(ctx context.Context, skuID string)
 			return err
 		}
 		category := resolveCategory(ctx, uc.variantRepo, uc.productRepo, uc.categoryRepo, sku.VariantID)
-		result.EffectiveTargetMarginBasisPoints = EffectiveTargetMarginBasisPoints(category, settings.DefaultTargetMarginBasisPoints)
-		result.RecommendedPriceMinorUnits = RecommendedPriceMinorUnits(result.CostPriceMinorUnits, result.EffectiveTargetMarginBasisPoints)
+		result.EffectiveTargetMarkupBasisPoints = EffectiveTargetMarkupBasisPoints(category, settings.DefaultTargetMarkupBasisPoints)
+		result.RecommendedPriceMinorUnits = RecommendedPriceMinorUnits(result.CostPriceMinorUnits, result.EffectiveTargetMarkupBasisPoints)
 
 		result.ProfitAtPriceMinorUnits = sku.PriceMinorUnits - result.CostPriceMinorUnits
 		if sku.PriceMinorUnits > 0 {
 			result.MarginAtPriceBasisPoints = int(result.ProfitAtPriceMinorUnits * 10000 / sku.PriceMinorUnits)
+		}
+		if result.CostPriceMinorUnits > 0 {
+			result.MarkupAtPriceBasisPoints = int(result.ProfitAtPriceMinorUnits * 10000 / result.CostPriceMinorUnits)
 		}
 
 		effectivePrice := sku.PriceMinorUnits
@@ -144,6 +151,10 @@ func (uc *GetSKUMarginInsightUseCase) Execute(ctx context.Context, skuID string)
 			if *sku.SalePriceMinorUnits > 0 {
 				margin := int(profit * 10000 / *sku.SalePriceMinorUnits)
 				result.MarginAtSalePriceBasisPoints = &margin
+			}
+			if result.CostPriceMinorUnits > 0 {
+				markup := int(profit * 10000 / result.CostPriceMinorUnits)
+				result.MarkupAtSalePriceBasisPoints = &markup
 			}
 		}
 		result.TotalProfitPotentialMinorUnits = (effectivePrice - result.CostPriceMinorUnits) * result.TotalOnHandQuantity

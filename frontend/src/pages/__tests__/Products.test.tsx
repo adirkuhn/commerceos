@@ -28,8 +28,8 @@ vi.mock('../../pms/api', () => ({
   updateSKU: vi.fn(),
   deleteSKU: vi.fn(),
   getSKUMarginInsight: vi.fn(() => Promise.resolve({
-    cost_price_available: false, cost_price_minor_units: 0, cost_price_source: 'computed', effective_target_margin_basis_points: 0,
-    recommended_price_minor_units: 0, profit_at_price_minor_units: 0, margin_at_price_basis_points: 0,
+    cost_price_available: false, cost_price_minor_units: 0, cost_price_source: 'computed', effective_target_markup_basis_points: 0,
+    recommended_price_minor_units: 0, profit_at_price_minor_units: 0, margin_at_price_basis_points: 0, markup_at_price_basis_points: 0,
     total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
   })),
   setManualCostPrice: vi.fn(),
@@ -119,7 +119,7 @@ beforeEach(() => {
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-    prices_include_tax: true, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+    prices_include_tax: true, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
@@ -1002,7 +1002,7 @@ describe('Tax class picker + price preview', () => {
   it('shows an incl./excl. tax price preview when a rate exists for the default tax country', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
     vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
       { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
@@ -1277,8 +1277,8 @@ describe('Manual cost price override', () => {
   it('shows a revert control and calls clearCostPriceOverride when the cost price is a manual override', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
     vi.mocked(pmsApi.getSKUMarginInsight).mockResolvedValue({
-      cost_price_available: true, cost_price_minor_units: 1250, cost_price_source: 'manual', effective_target_margin_basis_points: 3000,
-      recommended_price_minor_units: 1786, profit_at_price_minor_units: 749, margin_at_price_basis_points: 3746,
+      cost_price_available: true, cost_price_minor_units: 1250, cost_price_source: 'manual', effective_target_markup_basis_points: 3000,
+      recommended_price_minor_units: 1786, profit_at_price_minor_units: 749, margin_at_price_basis_points: 3746, markup_at_price_basis_points: 5992,
       total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
     })
     vi.mocked(pmsApi.clearCostPriceOverride).mockResolvedValue({ ...baseSku, cost_price_minor_units: 1250, cost_price_source: 'computed' })
@@ -1292,5 +1292,51 @@ describe('Manual cost price override', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Revert to automatic' }))
 
     await waitFor(() => expect(pmsApi.clearCostPriceOverride).toHaveBeenCalledWith('test-token', 'sku-1'))
+  })
+})
+
+describe('Margin insight shows both markup and profit, with and without BTW', () => {
+  it('shows margin % and markup % side by side for profit at current price', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.getSKUMarginInsight).mockResolvedValue({
+      cost_price_available: true, cost_price_minor_units: 800, cost_price_source: 'computed', effective_target_markup_basis_points: 2500,
+      recommended_price_minor_units: 1000, profit_at_price_minor_units: 450, margin_at_price_basis_points: 3600, markup_at_price_basis_points: 5625,
+      total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
+    })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText(/36\.0% margin \/ 56\.3% markup/)).toBeInTheDocument()
+    expect(screen.getByText(/25\.0% target markup/)).toBeInTheDocument()
+  })
+
+  it('shows excl./incl. BTW profit and margin/markup breakdown when a tax rate is resolvable', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.getSKUMarginInsight).mockResolvedValue({
+      cost_price_available: true, cost_price_minor_units: 800, cost_price_source: 'computed', effective_target_markup_basis_points: 2500,
+      recommended_price_minor_units: 1000, profit_at_price_minor_units: 450, margin_at_price_basis_points: 3600, markup_at_price_basis_points: 5625,
+      total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
+    })
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
+    })
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
+      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([
+      { id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2500, created_at: '', updated_at: '' },
+    ])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    // stored price (cost 800 + profit 450 = 1250) is tax-inclusive per
+    // prices_include_tax:true; at 25% rate: excl. = 1000 (profit 200, 20.0%
+    // margin / 25.0% markup), incl. = 1250 (profit 450, 36.0% margin / 56.3%
+    // markup, matching the backend-supplied top-line figures).
+    expect(await screen.findByText(/Excl\. BTW: USD 2\.00 \(20\.0% margin \/ 25\.0% markup\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Incl\. BTW: USD 4\.50 \(36\.0% margin \/ 56\.3% markup\)/)).toBeInTheDocument()
   })
 })

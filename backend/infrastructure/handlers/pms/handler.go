@@ -309,7 +309,7 @@ func (h *Handler) UpdateCategory(c *gin.Context, id genpms.Id) {
 		ID:                      id,
 		Name:                    req.Name,
 		ParentID:                req.ParentId,
-		TargetMarginBasisPoints: req.TargetMarginBasisPoints,
+		TargetMarkupBasisPoints: req.TargetMarkupBasisPoints,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -610,12 +610,14 @@ func (h *Handler) GetSKUMarginInsight(c *gin.Context, id genpms.Id) {
 		CostPriceAvailable:               insight.CostPriceAvailable,
 		CostPriceMinorUnits:              insight.CostPriceMinorUnits,
 		CostPriceSource:                  genpms.SKUCostPriceSource(insight.CostPriceSource),
-		EffectiveTargetMarginBasisPoints: insight.EffectiveTargetMarginBasisPoints,
+		EffectiveTargetMarkupBasisPoints: insight.EffectiveTargetMarkupBasisPoints,
 		RecommendedPriceMinorUnits:       insight.RecommendedPriceMinorUnits,
 		ProfitAtPriceMinorUnits:          insight.ProfitAtPriceMinorUnits,
 		MarginAtPriceBasisPoints:         insight.MarginAtPriceBasisPoints,
+		MarkupAtPriceBasisPoints:         insight.MarkupAtPriceBasisPoints,
 		ProfitAtSalePriceMinorUnits:      insight.ProfitAtSalePriceMinorUnits,
 		MarginAtSalePriceBasisPoints:     insight.MarginAtSalePriceBasisPoints,
+		MarkupAtSalePriceBasisPoints:     insight.MarkupAtSalePriceBasisPoints,
 		TotalOnHandQuantity:              insight.TotalOnHandQuantity,
 		TotalProfitPotentialMinorUnits:   insight.TotalProfitPotentialMinorUnits,
 		ShrinkageMinorUnits:              insight.ShrinkageMinorUnits,
@@ -667,8 +669,8 @@ func (h *Handler) ListMarginReport(c *gin.Context, params genpms.ListMarginRepor
 		rows[i] = genpms.MarginReportRow{
 			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: productName,
 			CostPriceMinorUnits: row.CostPriceMinorUnits, PriceMinorUnits: row.PriceMinorUnits,
-			ProfitMinorUnits: row.ProfitMinorUnits, MarginBasisPoints: row.MarginBasisPoints,
-			TargetMarginBasisPoints: row.TargetMarginBasisPoints, RecommendedPriceMinorUnits: row.RecommendedPriceMinorUnits,
+			ProfitMinorUnits: row.ProfitMinorUnits, MarginBasisPoints: row.MarginBasisPoints, MarkupBasisPoints: row.MarkupBasisPoints,
+			TargetMarkupBasisPoints: row.TargetMarkupBasisPoints, RecommendedPriceMinorUnits: row.RecommendedPriceMinorUnits,
 			BelowTarget: row.BelowTarget,
 		}
 	}
@@ -754,7 +756,7 @@ func toGenCategory(c pmsDomain.Category) genpms.Category {
 		Name:                    c.Name,
 		Slug:                    c.Slug,
 		Position:                c.Position,
-		TargetMarginBasisPoints: c.TargetMarginBasisPoints,
+		TargetMarkupBasisPoints: c.TargetMarkupBasisPoints,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}

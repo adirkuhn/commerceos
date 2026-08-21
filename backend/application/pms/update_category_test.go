@@ -11,36 +11,49 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUpdateCategory_persistsTargetMarginBasisPoints(t *testing.T) {
+func TestUpdateCategory_persistsTargetMarkupBasisPoints(t *testing.T) {
 	categoryRepo := &stubCategoryRepo{}
 	uc := apppms.NewUpdateCategoryUseCase(newMockGormDB(t), categoryRepo)
 
-	margin := 3500
-	_, err := uc.Execute(context.Background(), apppms.UpdateCategoryInput{ID: "category-1", Name: "Widgets", TargetMarginBasisPoints: &margin})
+	markup := 3500
+	_, err := uc.Execute(context.Background(), apppms.UpdateCategoryInput{ID: "category-1", Name: "Widgets", TargetMarkupBasisPoints: &markup})
 
 	require.NoError(t, err)
-	require.NotNil(t, categoryRepo.updated.TargetMarginBasisPoints)
-	assert.Equal(t, 3500, *categoryRepo.updated.TargetMarginBasisPoints)
+	require.NotNil(t, categoryRepo.updated.TargetMarkupBasisPoints)
+	assert.Equal(t, 3500, *categoryRepo.updated.TargetMarkupBasisPoints)
 }
 
-func TestUpdateCategory_clearsTargetMarginBasisPointsWhenNil(t *testing.T) {
-	categoryRepo := &stubCategoryRepo{findByIDResult: &pmsDomain.Category{ID: "category-1", TargetMarginBasisPoints: intPtr(3000)}}
+func TestUpdateCategory_clearsTargetMarkupBasisPointsWhenNil(t *testing.T) {
+	categoryRepo := &stubCategoryRepo{findByIDResult: &pmsDomain.Category{ID: "category-1", TargetMarkupBasisPoints: intPtr(3000)}}
 	uc := apppms.NewUpdateCategoryUseCase(newMockGormDB(t), categoryRepo)
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateCategoryInput{ID: "category-1", Name: "Widgets"})
 
 	require.NoError(t, err)
-	assert.Nil(t, categoryRepo.updated.TargetMarginBasisPoints)
+	assert.Nil(t, categoryRepo.updated.TargetMarkupBasisPoints)
 }
 
-func TestUpdateCategory_rejectsOutOfRangeMargin(t *testing.T) {
+func TestUpdateCategory_rejectsNegativeMarkup(t *testing.T) {
 	uc := apppms.NewUpdateCategoryUseCase(newMockGormDB(t), &stubCategoryRepo{})
 
-	tooHigh := 10000
-	_, err := uc.Execute(context.Background(), apppms.UpdateCategoryInput{ID: "category-1", Name: "Widgets", TargetMarginBasisPoints: &tooHigh})
+	negative := -1
+	_, err := uc.Execute(context.Background(), apppms.UpdateCategoryInput{ID: "category-1", Name: "Widgets", TargetMarkupBasisPoints: &negative})
 
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, pmsDomain.ErrInvalidTargetMarginBasisPoints))
+	assert.True(t, errors.Is(err, pmsDomain.ErrInvalidTargetMarkupBasisPoints))
+}
+
+func TestUpdateCategory_allowsMarkupOf100PercentAndAbove(t *testing.T) {
+	// Unlike margin (capped under 100%), markup has no upper bound.
+	categoryRepo := &stubCategoryRepo{}
+	uc := apppms.NewUpdateCategoryUseCase(newMockGormDB(t), categoryRepo)
+
+	high := 30000
+	_, err := uc.Execute(context.Background(), apppms.UpdateCategoryInput{ID: "category-1", Name: "Widgets", TargetMarkupBasisPoints: &high})
+
+	require.NoError(t, err)
+	require.NotNil(t, categoryRepo.updated.TargetMarkupBasisPoints)
+	assert.Equal(t, 30000, *categoryRepo.updated.TargetMarkupBasisPoints)
 }
 
 func intPtr(v int) *int { return &v }

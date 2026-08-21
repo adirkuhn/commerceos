@@ -65,7 +65,7 @@ beforeEach(() => {
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
     prices_include_tax: false, default_tax_country: '',
-    inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+    inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
@@ -541,7 +541,7 @@ describe('Store defaults currency', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -714,7 +714,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'America/New_York', date_format: 'MM/DD/YYYY', language: 'fr',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0,
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0,
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -731,7 +731,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0,
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0,
       updated_at: '2026-07-26T00:00:00Z',
     })
 
@@ -748,7 +748,7 @@ describe('Settings > Localization', () => {
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', {
       default_currency: 'USD', timezone: 'Europe/London', date_format: 'YYYY-MM-DD', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0,
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0,
     }))
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
   })
@@ -757,7 +757,7 @@ describe('Settings > Localization', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '2026-07-26T00:00:00Z',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '2026-07-26T00:00:00Z',
     })
     render(<Settings />)
     await openLocalizationSection()
@@ -796,7 +796,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 30, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 30, default_target_markup_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -810,7 +810,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -825,7 +825,7 @@ describe('Settings > Inventory Rules > Sync & expiry rules', () => {
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
       default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45, default_target_margin_basis_points: 0,
+      inventory_sync_rules_enabled: true, batch_expiry_threshold_days: 45, default_target_markup_basis_points: 0,
     })))
   })
 
@@ -853,7 +853,7 @@ describe('Settings > Tax', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -867,12 +867,12 @@ describe('Settings > Tax', () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: false, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'US',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
     render(<Settings />)
@@ -993,68 +993,87 @@ describe('Settings > Pricing', () => {
     render(<Settings />)
     await openPricingSection()
 
-    expect(await screen.findByLabelText('Default target margin (%)')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Default target markup (%)')).toBeInTheDocument()
 
     await openTaxSection()
-    expect(screen.queryByLabelText('Default target margin (%)')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Default target markup (%)')).not.toBeInTheDocument()
   })
 
-  it('shows the default target margin prefilled from tenant settings', async () => {
+  it('shows the default target markup prefilled from tenant settings', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
       prices_include_tax: true, default_tax_country: '',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 3000, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 3000, updated_at: '',
     })
 
     render(<Settings />)
     await openPricingSection()
 
-    await waitFor(() => expect(screen.getByLabelText('Default target margin (%)')).toHaveValue(30))
+    await waitFor(() => expect(screen.getByLabelText('Default target markup (%)')).toHaveValue(30))
   })
 
-  it('saves the default target margin, preserving other tenant settings fields', async () => {
+  it('saves the default target markup, preserving other tenant settings fields', async () => {
     vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 0, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
     vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
       tenant_id: 'tenant-1', default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_margin_basis_points: 2500, updated_at: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 2500, updated_at: '',
     })
 
     render(<Settings />)
     await openPricingSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
-    await userEvent.type(screen.getByLabelText('Default target margin (%)'), '25')
+    await userEvent.type(screen.getByLabelText('Default target markup (%)'), '25')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing settings' }))
 
     await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
       default_currency: 'EUR', timezone: 'Europe/Amsterdam', date_format: 'DD/MM/YYYY', language: 'nl',
       prices_include_tax: true, default_tax_country: 'NL',
-      default_target_margin_basis_points: 2500,
+      default_target_markup_basis_points: 2500,
     })))
   })
 
-  it('rejects a 100% target margin client-side instead of round-tripping to the 400 the backend would return', async () => {
+  it('rejects a negative target markup client-side instead of round-tripping to the 422 the backend would return', async () => {
     render(<Settings />)
     await openPricingSection()
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
 
-    await userEvent.type(screen.getByLabelText('Default target margin (%)'), '100')
+    await userEvent.type(screen.getByLabelText('Default target markup (%)'), '-5')
     await userEvent.click(screen.getByRole('button', { name: 'Save pricing settings' }))
 
-    expect(await screen.findByText(/must be less than 100%/i)).toBeInTheDocument()
+    expect(await screen.findByText(/cannot be negative/i)).toBeInTheDocument()
     expect(tenantSettingsApi.updateTenantSettings).not.toHaveBeenCalled()
+  })
+
+  it('accepts a 100% (or higher) target markup, unlike margin which was capped under 100%', async () => {
+    vi.mocked(tenantSettingsApi.updateTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
+      prices_include_tax: false, default_tax_country: '',
+      inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 10000, updated_at: '',
+    })
+
+    render(<Settings />)
+    await openPricingSection()
+    await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
+
+    await userEvent.type(screen.getByLabelText('Default target markup (%)'), '100')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing settings' }))
+
+    await waitFor(() => expect(tenantSettingsApi.updateTenantSettings).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      default_target_markup_basis_points: 10000,
+    })))
   })
 
   it('does not show the "Configuration coming soon" placeholder on the Pricing tab', async () => {
     render(<Settings />)
     await openPricingSection()
 
-    expect(await screen.findByLabelText('Default target margin (%)')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Default target markup (%)')).toBeInTheDocument()
     expect(screen.queryByText('Configuration coming soon')).not.toBeInTheDocument()
   })
 

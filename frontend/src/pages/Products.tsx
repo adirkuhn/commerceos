@@ -241,7 +241,7 @@ interface ProductEditorProps {
   productId: string | null
   categories: Category[]
   onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
-  onUpdateCategory: (id: string, payload: { name: string; parent_id?: string | null; target_margin_basis_points?: number | null }) => Promise<Category>
+  onUpdateCategory: (id: string, payload: { name: string; parent_id?: string | null; target_markup_basis_points?: number | null }) => Promise<Category>
   onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
   onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
   onClose: () => void
@@ -840,7 +840,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             )}
 
             {showFlatSKU && currentSku && (
-              <MarginInsightCard skuId={currentSku.id} currency={currency} />
+              <MarginInsightCard
+                skuId={currentSku.id} currency={currency}
+                taxRateBasisPoints={taxRateForPreview?.rate_basis_points ?? null}
+                pricesIncludeTax={tenantSettings?.prices_include_tax ?? false}
+              />
             )}
 
             {showFlatSKU && currentSku && (
@@ -1030,7 +1034,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                 {categoryId && (
                   <CategoryMarginEditor
                     category={categories.find(c => c.id === categoryId) ?? null}
-                    onSave={margin => onUpdateCategory(categoryId, { name: categories.find(c => c.id === categoryId)!.name, target_margin_basis_points: margin })}
+                    onSave={margin => onUpdateCategory(categoryId, { name: categories.find(c => c.id === categoryId)!.name, target_markup_basis_points: margin })}
                   />
                 )}
               </div>
@@ -1071,7 +1075,25 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
 // GetSKUMarginInsightUseCase. Fetched fresh whenever skuId changes (e.g.
 // switching between products), not tied to the price/salePrice form state --
 // this reflects the *saved* SKU, not an in-progress unsaved edit.
-function MarginInsightCard({ skuId, currency }: { skuId: string; currency: string }) {
+// btwVariant computes profit/margin/markup at a given selling price against
+// a fixed cost -- used to derive the "with BTW" / "without BTW" pair from
+// whichever of the two the stored price already represents (per
+// tenant.prices_include_tax), by converting the price with taxRateBasisPoints
+// and re-deriving profit from there. Cost never carries tax (what you paid
+// a supplier), so only price/profit shift between the two variants.
+function btwVariant(priceMinorUnits: number, costMinorUnits: number) {
+  const profit = priceMinorUnits - costMinorUnits
+  return {
+    price: priceMinorUnits,
+    profit,
+    marginBasisPoints: priceMinorUnits > 0 ? Math.round((profit * 10000) / priceMinorUnits) : 0,
+    markupBasisPoints: costMinorUnits > 0 ? Math.round((profit * 10000) / costMinorUnits) : 0,
+  }
+}
+
+function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeTax }: {
+  skuId: string; currency: string; taxRateBasisPoints: number | null; pricesIncludeTax: boolean
+}) {
   const { token } = useAuth()
   const [insight, setInsight] = useState<SKUMarginInsight | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1094,6 +1116,35 @@ function MarginInsightCard({ skuId, currency }: { skuId: string; currency: strin
   const money = (minorUnits: number) => formatPrice(minorUnits, currency)
   const pct = (basisPoints: number) => `${(basisPoints / 100).toFixed(1)}%`
 
+  // withBoth derives the excl./incl.-BTW pair for one selling price, given
+  // the rate and which side the stored price already represents.
+  const withBoth = (sellingPriceMinorUnits: number, costMinorUnits: number) => {
+    if (taxRateBasisPoints == null) return null
+    const rate = taxRateBasisPoints / 10000
+    const exclusivePrice = pricesIncludeTax ? Math.round(sellingPriceMinorUnits / (1 + rate)) : sellingPriceMinorUnits
+    const inclusivePrice = pricesIncludeTax ? sellingPriceMinorUnits : Math.round(sellingPriceMinorUnits * (1 + rate))
+    return { exclusive: btwVariant(exclusivePrice, costMinorUnits), inclusive: btwVariant(inclusivePrice, costMinorUnits) }
+  }
+
+  const profitRow = (label: string, profitMinorUnits: number, marginBps: number, markupBps: number, sellingPriceMinorUnits: number, costMinorUnits: number) => {
+    const both = withBoth(sellingPriceMinorUnits, costMinorUnits)
+    return (
+      <div>
+        <div className="dark:text-gray-500 text-gray-400">{label}</div>
+        <div className={clsx('font-medium', profitMinorUnits < 0 ? 'text-red-400' : 'dark:text-gray-100 text-gray-900')}>
+          {money(profitMinorUnits)} <span className="font-normal">({pct(marginBps)} margin / {pct(markupBps)} markup)</span>
+        </div>
+        {both && (
+          <div className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+            Excl. BTW: {money(both.exclusive.profit)} ({pct(both.exclusive.marginBasisPoints)} margin / {pct(both.exclusive.markupBasisPoints)} markup)
+            {' · '}
+            Incl. BTW: {money(both.inclusive.profit)} ({pct(both.inclusive.marginBasisPoints)} margin / {pct(both.inclusive.markupBasisPoints)} markup)
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <FormCard title="Cost & margin insight" description="Cost price is recomputed daily from purchase order receiving history; not a live figure.">
       {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
@@ -1113,23 +1164,18 @@ function MarginInsightCard({ skuId, currency }: { skuId: string; currency: strin
             <div className="dark:text-gray-500 text-gray-400">Recommended price</div>
             <div className="font-medium dark:text-gray-100 text-gray-900">
               {money(insight.recommended_price_minor_units)}
-              <span className="dark:text-gray-500 text-gray-400 font-normal"> ({pct(insight.effective_target_margin_basis_points)} target)</span>
+              <span className="dark:text-gray-500 text-gray-400 font-normal"> ({pct(insight.effective_target_markup_basis_points)} target markup)</span>
             </div>
           </div>
-          <div>
-            <div className="dark:text-gray-500 text-gray-400">Profit at current price</div>
-            <div className={clsx('font-medium', insight.profit_at_price_minor_units < 0 ? 'text-red-400' : 'dark:text-gray-100 text-gray-900')}>
-              {money(insight.profit_at_price_minor_units)} <span className="font-normal">({pct(insight.margin_at_price_basis_points)})</span>
-            </div>
-          </div>
-          {insight.profit_at_sale_price_minor_units != null && (
-            <div>
-              <div className="dark:text-gray-500 text-gray-400">Profit at sale price</div>
-              <div className={clsx('font-medium', insight.profit_at_sale_price_minor_units < 0 ? 'text-red-400' : 'dark:text-gray-100 text-gray-900')}>
-                {money(insight.profit_at_sale_price_minor_units)}
-                {insight.margin_at_sale_price_basis_points != null && <span className="font-normal"> ({pct(insight.margin_at_sale_price_basis_points)})</span>}
-              </div>
-            </div>
+          {profitRow(
+            'Profit at current price', insight.profit_at_price_minor_units, insight.margin_at_price_basis_points, insight.markup_at_price_basis_points,
+            insight.cost_price_minor_units + insight.profit_at_price_minor_units, insight.cost_price_minor_units,
+          )}
+          {insight.profit_at_sale_price_minor_units != null && insight.margin_at_sale_price_basis_points != null && insight.markup_at_sale_price_basis_points != null && (
+            profitRow(
+              'Profit at sale price', insight.profit_at_sale_price_minor_units, insight.margin_at_sale_price_basis_points, insight.markup_at_sale_price_basis_points,
+              insight.cost_price_minor_units + insight.profit_at_sale_price_minor_units, insight.cost_price_minor_units,
+            )
           )}
           <div>
             <div className="dark:text-gray-500 text-gray-400">On hand</div>
@@ -1233,8 +1279,8 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
 }
 
 // CategoryMarginEditor lets staff override the tenant-wide default target
-// margin for every product in the selected category (see
-// pms.Category.TargetMarginBasisPoints) -- an empty input means "use the
+// markup for every product in the selected category (see
+// pms.Category.TargetMarkupBasisPoints) -- an empty input means "use the
 // tenant default", matching UpdateCategoryInput's full-replace semantics.
 function CategoryMarginEditor({ category, onSave }: { category: Category | null; onSave: (basisPoints: number | null) => Promise<Category> }) {
   const [value, setValue] = useState('')
@@ -1242,9 +1288,9 @@ function CategoryMarginEditor({ category, onSave }: { category: Category | null;
   const [savedMsg, setSavedMsg] = useState(false)
 
   useEffect(() => {
-    setValue(category?.target_margin_basis_points != null ? (category.target_margin_basis_points / 100).toString() : '')
+    setValue(category?.target_markup_basis_points != null ? (category.target_markup_basis_points / 100).toString() : '')
     setSavedMsg(false)
-  }, [category?.id, category?.target_margin_basis_points])
+  }, [category?.id, category?.target_markup_basis_points])
 
   if (!category) return null
 
@@ -1262,11 +1308,11 @@ function CategoryMarginEditor({ category, onSave }: { category: Category | null;
   return (
     <div className="flex items-center gap-1.5 mt-1.5">
       <input
-        type="number" step="0.1" min="0" max="99.9" placeholder="Tenant default"
+        type="number" step="0.1" min="0" placeholder="Tenant default"
         value={value} onChange={e => { setValue(e.target.value); setSavedMsg(false) }}
         className="w-28 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
       />
-      <span className="text-[10px] dark:text-gray-500 text-gray-400">% target margin for this category</span>
+      <span className="text-[10px] dark:text-gray-500 text-gray-400">% target markup for this category</span>
       <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50">
         {saving ? 'Saving…' : 'Save'}
       </button>

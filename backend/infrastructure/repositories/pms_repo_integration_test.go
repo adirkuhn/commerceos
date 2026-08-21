@@ -612,11 +612,11 @@ func TestSKURepo_Integration_UpdateCostPriceIsIndependentOfUpdate(t *testing.T) 
 	require.Equal(t, int64(700), *fetched.CostPriceMinorUnits)
 }
 
-// TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears
-// proves the category margin override persists and can be cleared back to
+// TestCategoryRepo_Integration_TargetMarkupBasisPointsRoundTripsAndClears
+// proves the category markup override persists and can be cleared back to
 // nil (falls back to the tenant default -- see
-// application/pms.EffectiveTargetMarginBasisPoints).
-func TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears(t *testing.T) {
+// application/pms.EffectiveTargetMarkupBasisPoints).
+func TestCategoryRepo_Integration_TargetMarkupBasisPointsRoundTripsAndClears(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
 	categoryRepo := repositories.NewCategoryRepo(db)
@@ -624,8 +624,8 @@ func TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears(t *
 	var categoryID string
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
-		margin := 3500
-		category := &pmsDomain.Category{TenantID: tenant.IDFromContext(ctx), Name: "Beverages", Slug: "beverages-margin-test", TargetMarginBasisPoints: &margin, CreatedAt: now, UpdatedAt: now}
+		markup := 3500
+		category := &pmsDomain.Category{TenantID: tenant.IDFromContext(ctx), Name: "Beverages", Slug: "beverages-markup-test", TargetMarkupBasisPoints: &markup, CreatedAt: now, UpdatedAt: now}
 		if err := categoryRepo.Create(ctx, category); err != nil {
 			return err
 		}
@@ -641,11 +641,11 @@ func TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears(t *
 		return err
 	})
 	require.NoError(t, err)
-	require.NotNil(t, fetched.TargetMarginBasisPoints)
-	require.Equal(t, 3500, *fetched.TargetMarginBasisPoints)
+	require.NotNil(t, fetched.TargetMarkupBasisPoints)
+	require.Equal(t, 3500, *fetched.TargetMarkupBasisPoints)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		fetched.TargetMarginBasisPoints = nil
+		fetched.TargetMarkupBasisPoints = nil
 		fetched.UpdatedAt = time.Now()
 		return categoryRepo.Update(ctx, fetched)
 	})
@@ -657,7 +657,7 @@ func TestCategoryRepo_Integration_TargetMarginBasisPointsRoundTripsAndClears(t *
 		return err
 	})
 	require.NoError(t, err)
-	require.Nil(t, fetched.TargetMarginBasisPoints)
+	require.Nil(t, fetched.TargetMarkupBasisPoints)
 }
 
 // TestSKUCostPriceHistoryRepo_Integration_UpsertIsIdempotentPerDay proves
