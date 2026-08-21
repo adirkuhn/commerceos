@@ -320,7 +320,7 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 		Sku:            p.SKU,
 		GlobalUniqueID: p.GTIN,
 		RegularPrice:   wc.FlexibleString(p.RegularPrice),
-		SalePrice:      wc.FlexibleString(p.SalePrice),
+		SalePrice:      salePricePtr(p.SalePrice),
 		DateOnSaleTo:   p.SaleEndDate,
 		Virtual:        p.Virtual,
 		ManageStock:    p.ManageStock,
@@ -395,7 +395,7 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 		Sku:            v.SKU,
 		GlobalUniqueID: v.GTIN,
 		RegularPrice:   wc.FlexibleString(v.RegularPrice),
-		SalePrice:      wc.FlexibleString(v.SalePrice),
+		SalePrice:      salePricePtr(v.SalePrice),
 		DateOnSaleTo:   v.SaleEndDate,
 		ManageStock:    v.ManageStock,
 		StockQuantity:  v.StockQuantity,
@@ -417,7 +417,7 @@ func (c *wooClient) UpdateVariation(ctx context.Context, parentExternalID, varia
 	updated, _, err := c.client.ProductVariations.Update(ctx, parentExternalID, variationExternalID, &wc.ProductVariation{
 		GlobalUniqueID: v.GTIN,
 		RegularPrice:   wc.FlexibleString(v.RegularPrice),
-		SalePrice:      wc.FlexibleString(v.SalePrice),
+		SalePrice:      salePricePtr(v.SalePrice),
 		DateOnSaleTo:   v.SaleEndDate,
 		ManageStock:    v.ManageStock,
 		StockQuantity:  v.StockQuantity,
@@ -441,6 +441,28 @@ func (c *wooClient) DeleteVariation(ctx context.Context, parentExternalID, varia
 	return err
 }
 
+// salePricePtr always returns a non-nil pointer, even for "" -- every
+// caller of this helper is on the product-fields sync path, which always
+// has an opinion on the current sale price (including "none", represented
+// as ""). A nil *wc.FlexibleString instead means "don't touch this field",
+// which is what a stock-only push (UpdateProductStock) leaves it as by
+// simply never calling this helper.
+func salePricePtr(s string) *wc.FlexibleString {
+	fs := wc.FlexibleString(s)
+	return &fs
+}
+
+// salePriceFromWire is salePricePtr's read-side inverse -- a Woo response
+// always includes sale_price (unlike an outgoing partial update, there's no
+// "omitted means untouched" concern reading a GET/POST/PUT response), but
+// the pointer is still nil-checked defensively rather than assumed non-nil.
+func salePriceFromWire(fs *wc.FlexibleString) string {
+	if fs == nil {
+		return ""
+	}
+	return string(*fs)
+}
+
 func wooVariationDimensions(d integrationsDomain.WooProductDimensions) *wc.ProductDimensions {
 	if d.Length == "" && d.Width == "" && d.Height == "" {
 		return nil
@@ -459,7 +481,7 @@ func toWooVariation(v wc.ProductVariation) integrationsDomain.WooVariation {
 	}
 	return integrationsDomain.WooVariation{
 		ID: strconv.Itoa(v.ID), SKU: v.Sku, GTIN: v.GlobalUniqueID,
-		RegularPrice: string(v.RegularPrice), SalePrice: string(v.SalePrice),
+		RegularPrice: string(v.RegularPrice), SalePrice: salePriceFromWire(v.SalePrice),
 		ManageStock: v.ManageStock, StockQuantity: v.StockQuantity,
 		Weight: v.Weight, Dimensions: dims,
 		AttributeName: attrName, AttributeValue: attrValue,
@@ -521,7 +543,7 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		Description:    p.Description,
 		GlobalUniqueID: p.GTIN,
 		RegularPrice:   wc.FlexibleString(p.RegularPrice),
-		SalePrice:      wc.FlexibleString(p.SalePrice),
+		SalePrice:      salePricePtr(p.SalePrice),
 		DateOnSaleTo:   p.SaleEndDate,
 		Virtual:        p.Virtual,
 		ManageStock:    p.ManageStock,
@@ -569,7 +591,7 @@ func toWooProduct(p wc.Product) integrationsDomain.WooProduct {
 		Status:        p.Status,
 		Type:          p.Type,
 		RegularPrice:  string(p.RegularPrice),
-		SalePrice:     string(p.SalePrice),
+		SalePrice:     salePriceFromWire(p.SalePrice),
 		SaleEndDate:   p.DateOnSaleTo,
 		OnSale:        p.OnSale,
 		Virtual:       p.Virtual,

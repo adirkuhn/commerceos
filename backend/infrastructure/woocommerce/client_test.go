@@ -126,6 +126,65 @@ func TestUpdateProductStock_variation_routesThroughParentVariationsEndpoint(t *t
 	require.Equal(t, 0, *body.StockQuantity)
 }
 
+// TestUpdateProductStock_neverTouchesSalePrice is a regression test for a
+// live bug: UpdateProductStock never sets WooProduct.SalePrice, so its
+// zero value ("") used to get marshaled as an explicit "sale_price":"" on
+// every stock-only push once go-woocommerce-api's SalePrice field lost its
+// omitempty (fixed for a *different* bug -- clearing a sale price wasn't
+// reaching Woo at all). Every recount silently wiped the product's real
+// sale price on Woo's side. Fixed by making SalePrice a pointer: nil
+// (never set here) is omitted from the wire; only an explicit push that
+// means to convey price (UpdateProduct/UpdateVariation) sends a non-nil
+// pointer.
+func TestUpdateProductStock_neverTouchesSalePrice(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Product{ID: 555})
+	})
+
+	err := c.UpdateProductStock(context.Background(), "", "555", 0, nil)
+
+	require.NoError(t, err)
+	_, present := raw["sale_price"]
+	require.False(t, present, "stock-only push must never send sale_price -- would clear the real sale price on Woo's side")
+}
+
+// TestUpdateProductStock_variation_neverTouchesSalePrice is the variation
+// counterpart of TestUpdateProductStock_neverTouchesSalePrice.
+func TestUpdateProductStock_variation_neverTouchesSalePrice(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.ProductVariation{ID: 901})
+	})
+
+	err := c.UpdateProductStock(context.Background(), "900", "901", 0, nil)
+
+	require.NoError(t, err)
+	_, present := raw["sale_price"]
+	require.False(t, present, "stock-only push must never send sale_price -- would clear the real sale price on Woo's side")
+}
+
+// TestUpdateProduct_alwaysSendsSalePriceExplicitly proves the field-fields
+// sync path (unlike UpdateProductStock) always sends sale_price on the
+// wire, even when clearing it to "" -- this is the path that owns
+// conveying the product's current sale price state to Woo.
+func TestUpdateProduct_alwaysSendsSalePriceExplicitly(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Product{ID: 20})
+	})
+
+	_, err := c.UpdateProduct(context.Background(), "20", integrationsDomain.WooProduct{RegularPrice: "29.99", SalePrice: ""})
+
+	require.NoError(t, err)
+	v, present := raw["sale_price"]
+	require.True(t, present, "product-fields sync must always convey sale price, including clearing it")
+	require.Equal(t, `""`, string(v))
+}
+
 func TestCreateVariation_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	var body wc.ProductVariation
 	requestCount := 0

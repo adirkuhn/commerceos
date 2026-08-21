@@ -17,8 +17,8 @@ github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
-github.com/adirkuhn/go-woocommerce-api v1.0.12 h1:5MyTskyrPiCpnKKxfbX56wguFTeHQuzpl0yt2q+nKjU=
-github.com/adirkuhn/go-woocommerce-api v1.0.12/go.mod h1:NBEFl1qSG4o1OmQ6gy3fFDjDSsJ5y4HBsL/WTcn1nOI=
+github.com/adirkuhn/go-woocommerce-api v1.0.13 h1:hvoZOgnrnY8TfHr531uKi3CrX+2tswmqUDA3qExjJN4=
+github.com/adirkuhn/go-woocommerce-api v1.0.13/go.mod h1:NBEFl1qSG4o1OmQ6gy3fFDjDSsJ5y4HBsL/WTcn1nOI=
 github.com/anthropics/anthropic-sdk-go v1.61.0 h1:JRTnm1tPqn5xo1xd1zfrcFDlcoWXVMvV1K68YmhpZKw=
 github.com/anthropics/anthropic-sdk-go v1.61.0/go.mod h1:3EfIfmFqxH6rbiLcIP4tPFyXL/IHakx2wDG4OU+TIEI=
 github.com/apapsch/go-jsonmerge/v2 v2.0.0 h1:axGnT1gRIfimI7gJifB699GoE/oq+F2MU7Dml6nw9rQ=

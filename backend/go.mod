@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/adirkuhn/go-woocommerce-api v1.0.12
+	github.com/adirkuhn/go-woocommerce-api v1.0.13
 	github.com/anthropics/anthropic-sdk-go v1.61.0
 	github.com/coregx/gxpdf v0.9.4
 	github.com/getkin/kin-openapi v0.142.0
