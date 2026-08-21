@@ -52,7 +52,19 @@ type SyncLogRepository interface {
 type SyncScheduleRepository interface {
 	Upsert(ctx context.Context, s *SyncSchedule) error
 	ListByConnection(ctx context.Context, connectionID string) ([]SyncSchedule, error)
+	// ListAll is cross-tenant, no WHERE tenant_id of its own -- same
+	// bypass_rls convention as integrations.ConnectionRepository.ListByTenant
+	// (see that method's own doc). Used by the super_admin "Scheduled Jobs"
+	// admin page to show every tenant's Woo sync schedules in one list.
+	ListAll(ctx context.Context) ([]SyncSchedule, error)
 	ListDue(ctx context.Context, now time.Time) ([]SyncSchedule, error)
+	// TriggerNow pulls NextRunAt to now, without touching LastRun* -- makes
+	// cmd/scheduler's next poll tick (within pollInterval) pick this
+	// schedule up, the super_admin "run now" action's whole implementation
+	// -- deliberately not a synchronous run (a Woo import can page through
+	// thousands of orders; that belongs on the scheduler process's own
+	// polling loop, not blocking an HTTP request).
+	TriggerNow(ctx context.Context, id string) error
 	// RecordRunResult always updates LastRunStatus/LastRunError/NextRunAt
 	// (stamped with ranAt, the wall-clock time this run happened -- also
 	// written to UpdatedAt). LastRunAt itself only advances when

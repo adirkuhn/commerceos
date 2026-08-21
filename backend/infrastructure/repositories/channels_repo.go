@@ -307,6 +307,38 @@ func (r *SyncScheduleRepo) ListByConnection(ctx context.Context, connectionID st
 	return out, nil
 }
 
+func (r *SyncScheduleRepo) ListAll(ctx context.Context) ([]channelsDomain.SyncSchedule, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []syncScheduleModel
+	if err := tx.Order("connection_id, entity_type, direction").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("syncScheduleRepo.ListAll: %w", err)
+	}
+	out := make([]channelsDomain.SyncSchedule, len(rows))
+	for i, row := range rows {
+		out[i] = *toSyncScheduleDomain(row)
+	}
+	return out, nil
+}
+
+func (r *SyncScheduleRepo) TriggerNow(ctx context.Context, id string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	res := tx.Model(&syncScheduleModel{}).Where("id = ?", id).Updates(map[string]any{"next_run_at": now, "updated_at": now})
+	if res.Error != nil {
+		return fmt.Errorf("syncScheduleRepo.TriggerNow: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return channelsDomain.ErrSyncScheduleNotFound
+	}
+	return nil
+}
+
 func (r *SyncScheduleRepo) ListDue(ctx context.Context, now time.Time) ([]channelsDomain.SyncSchedule, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {

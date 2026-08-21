@@ -57,8 +57,10 @@ func newMockGormDB(t *testing.T, n int) *gorm.DB {
 // ── integrations stubs ────────────────────────────────────────────────────────
 
 type stubConnectionRepo struct {
-	conn    *integrationsDomain.Connection
-	findErr error
+	conn        *integrationsDomain.Connection
+	findErr     error
+	allByTenant []integrationsDomain.Connection
+	listErr     error
 }
 
 func (s *stubConnectionRepo) Create(_ context.Context, _ *integrationsDomain.Connection) error {
@@ -68,7 +70,10 @@ func (s *stubConnectionRepo) FindByID(_ context.Context, _ string) (*integration
 	return s.conn, s.findErr
 }
 func (s *stubConnectionRepo) ListByTenant(_ context.Context) ([]integrationsDomain.Connection, error) {
-	return nil, nil
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.allByTenant, nil
 }
 func (s *stubConnectionRepo) Update(_ context.Context, _ *integrationsDomain.Connection) error {
 	return nil
@@ -685,8 +690,12 @@ type stubSyncScheduleRepo struct {
 	upserted     []channelsDomain.SyncSchedule
 	upsertErr    error
 	byConnection []channelsDomain.SyncSchedule
+	all          []channelsDomain.SyncSchedule
+	allErr       error
 	due          []channelsDomain.SyncSchedule
 	recorded     []stubRunResult
+	triggeredIDs []string
+	triggerErr   error
 }
 
 type stubRunResult struct {
@@ -711,6 +720,19 @@ func (s *stubSyncScheduleRepo) Upsert(_ context.Context, sc *channelsDomain.Sync
 }
 func (s *stubSyncScheduleRepo) ListByConnection(_ context.Context, _ string) ([]channelsDomain.SyncSchedule, error) {
 	return s.byConnection, nil
+}
+func (s *stubSyncScheduleRepo) ListAll(_ context.Context) ([]channelsDomain.SyncSchedule, error) {
+	if s.allErr != nil {
+		return nil, s.allErr
+	}
+	return s.all, nil
+}
+func (s *stubSyncScheduleRepo) TriggerNow(_ context.Context, id string) error {
+	if s.triggerErr != nil {
+		return s.triggerErr
+	}
+	s.triggeredIDs = append(s.triggeredIDs, id)
+	return nil
 }
 func (s *stubSyncScheduleRepo) ListDue(_ context.Context, _ time.Time) ([]channelsDomain.SyncSchedule, error) {
 	return s.due, nil

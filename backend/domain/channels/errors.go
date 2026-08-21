@@ -41,6 +41,7 @@ var (
 	// backstop if two requests race.
 	ErrImportJobAlreadyActive = errors.New("an import is already running for this connection")
 	ErrImportJobNotFound      = errors.New("import job not found")
+	ErrSyncScheduleNotFound   = errors.New("sync schedule not found")
 	ErrSalesChannelNotFound   = errors.New("sales channel not found")
 	ErrInvalidChannelType     = errors.New("invalid sales channel type")
 	ErrInvalidEnrollmentMode  = errors.New("invalid enrollment mode")
