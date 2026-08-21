@@ -99,6 +99,17 @@ func (s *stubUpdateProduct) Execute(_ context.Context, _ apppms.UpdateProductInp
 	return s.out, s.err
 }
 
+type stubDuplicateProduct struct {
+	out          *apppms.ProductDetail
+	err          error
+	gotProductID string
+}
+
+func (s *stubDuplicateProduct) Execute(_ context.Context, sourceProductID string) (*apppms.ProductDetail, error) {
+	s.gotProductID = sourceProductID
+	return s.out, s.err
+}
+
 type stubDeleteProduct struct{ err error }
 
 func (s *stubDeleteProduct) Execute(_ context.Context, _ string) error { return s.err }
@@ -255,6 +266,7 @@ type stubs struct {
 	createProduct          stubCreateProduct
 	getProduct             stubGetProduct
 	updateProduct          stubUpdateProduct
+	duplicateProduct       stubDuplicateProduct
 	deleteProduct          stubDeleteProduct
 	createVariant          stubCreateVariant
 	updateVariant          stubUpdateVariant
@@ -277,7 +289,7 @@ type stubs struct {
 func newTestRouter(s *stubs) *gin.Engine {
 	h := pmshandler.NewHandler(
 		&s.listCategories, &s.createCategory, &s.updateCategory, &s.deleteCategory,
-		&s.listProducts, &s.createProduct, &s.getProduct, &s.updateProduct, &s.deleteProduct,
+		&s.listProducts, &s.createProduct, &s.getProduct, &s.updateProduct, &s.duplicateProduct, &s.deleteProduct,
 		&s.createVariant, &s.updateVariant, &s.deleteVariant,
 		&s.createSKU, &s.updateSKU, &s.deleteSKU,
 		&s.setManualCostPrice, &s.clearCostPriceOverride,
@@ -422,6 +434,32 @@ func TestGetProduct_returnsNestedVariantsAndSKUs(t *testing.T) {
 func TestGetProduct_notFound(t *testing.T) {
 	s := &stubs{getProduct: stubGetProduct{err: pmsDomain.ErrProductNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products/missing", nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDuplicateProduct_success(t *testing.T) {
+	detail := &apppms.ProductDetail{
+		Product: pmsDomain.Product{ID: "p2", Name: "Widget (Copy)", Status: pmsDomain.ProductStatusDraft},
+		Variants: []apppms.VariantDetail{
+			{
+				Variant: pmsDomain.Variant{ID: "v2", Name: "Large"},
+				SKUs:    []pmsDomain.SKU{{ID: "s2", SKUCode: "WID-L-COPY", PriceMinorUnits: 1999, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}},
+			},
+		},
+	}
+	s := &stubs{duplicateProduct: stubDuplicateProduct{out: detail}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/products/p1/duplicate", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "p1", s.duplicateProduct.gotProductID)
+	assert.Contains(t, w.Body.String(), "Widget (Copy)")
+	assert.Contains(t, w.Body.String(), "\"status\":\"draft\"")
+	assert.Contains(t, w.Body.String(), "WID-L-COPY")
+}
+
+func TestDuplicateProduct_notFound(t *testing.T) {
+	s := &stubs{duplicateProduct: stubDuplicateProduct{err: pmsDomain.ErrProductNotFound}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/products/missing/duplicate", nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 

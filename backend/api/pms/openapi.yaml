@@ -162,6 +162,28 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/products/{id}/duplicate:
+    post:
+      operationId: duplicateProduct
+      summary: >-
+        Clone a product's name/category/tags plus every variant and SKU
+        (pricing, physical attributes) into a brand-new product. Always
+        created as draft and never pushed to any channel, regardless of the
+        source product's status or sync links -- media/images, barcodes,
+        and cost price are not copied (see DuplicateProductUseCase's doc
+        comment for why).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /pms/products/{id}/media:
     get:
       operationId: listProductMedia

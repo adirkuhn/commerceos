@@ -374,7 +374,12 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		limit = 200
 	}
 	var rows []productModel
-	orderedQuery := q.Order("name asc")
+	// No search term: most-recently-created first, so a newly created or
+	// duplicated product is immediately visible at the top of the list
+	// instead of buried alphabetically. A search still ranks by relevance
+	// (below) -- recency isn't a useful signal once the user has typed
+	// something specific to find.
+	orderedQuery := q.Order("created_at desc")
 	if filter.Search != nil && *filter.Search != "" {
 		// Barcode is the primary key a scan or a typed code is ever really
 		// about -- a product whose SKU code/barcode actually matches must

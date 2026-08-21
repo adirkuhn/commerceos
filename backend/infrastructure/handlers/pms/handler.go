@@ -76,6 +76,9 @@ type getProductUC interface {
 type updateProductUC interface {
 	Execute(ctx context.Context, in apppms.UpdateProductInput) (*pmsDomain.Product, error)
 }
+type duplicateProductUC interface {
+	Execute(ctx context.Context, sourceProductID string) (*apppms.ProductDetail, error)
+}
 type deleteProductUC interface {
 	Execute(ctx context.Context, id string) error
 }
@@ -139,6 +142,7 @@ type Handler struct {
 	createProduct          createProductUC
 	getProduct             getProductUC
 	updateProduct          updateProductUC
+	duplicateProduct       duplicateProductUC
 	deleteProduct          deleteProductUC
 	createVariant          createVariantUC
 	updateVariant          updateVariantUC
@@ -168,6 +172,7 @@ func NewHandler(
 	createProduct createProductUC,
 	getProduct getProductUC,
 	updateProduct updateProductUC,
+	duplicateProduct duplicateProductUC,
 	deleteProduct deleteProductUC,
 	createVariant createVariantUC,
 	updateVariant updateVariantUC,
@@ -198,6 +203,7 @@ func NewHandler(
 		createProduct:          createProduct,
 		getProduct:             getProduct,
 		updateProduct:          updateProduct,
+		duplicateProduct:       duplicateProduct,
 		deleteProduct:          deleteProduct,
 		createVariant:          createVariant,
 		updateVariant:          updateVariant,
@@ -247,6 +253,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo),
+		apppms.NewDuplicateProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewDeleteProductUseCase(db, productRepo, listingRepo, outboxRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
 		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo),
@@ -383,6 +390,15 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 
 func (h *Handler) GetProduct(c *gin.Context, id genpms.Id) {
 	detail, err := h.getProduct.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenProductDetail(*detail)
+	c.JSON(http.StatusOK, genpms.ProductDetailResponse{Data: &resp})
+}
+
+func (h *Handler) DuplicateProduct(c *gin.Context, id genpms.Id) {
+	detail, err := h.duplicateProduct.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}

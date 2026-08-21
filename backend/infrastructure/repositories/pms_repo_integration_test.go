@@ -124,6 +124,69 @@ func TestProductRepo_Integration_UpdatedAfterFiltersByRealUpdatedAtColumn(t *tes
 	require.Equal(t, recentProductID, filtered[0].ID)
 }
 
+// TestProductRepo_Integration_DefaultOrderIsMostRecentlyCreatedFirst proves
+// List's no-search default order is created_at desc, not alphabetical --
+// so a just-created or just-duplicated product is immediately visible at
+// the top of the list.
+func TestProductRepo_Integration_DefaultOrderIsMostRecentlyCreatedFirst(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+
+	var firstID, secondID, thirdID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		base := time.Now().Add(-time.Hour)
+		// Named so alphabetical order would put this LAST -- proves the
+		// default isn't "name asc" anymore.
+		first := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Zzz First Created", Slug: "zzz-first-created-order-test",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: base, UpdatedAt: base,
+		}
+		if err := productRepo.Create(ctx, first); err != nil {
+			return err
+		}
+		firstID = first.ID
+
+		second := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Aaa Second Created", Slug: "aaa-second-created-order-test",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: base.Add(time.Minute), UpdatedAt: base.Add(time.Minute),
+		}
+		if err := productRepo.Create(ctx, second); err != nil {
+			return err
+		}
+		secondID = second.ID
+
+		third := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Mmm Third Created", Slug: "mmm-third-created-order-test",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: base.Add(2 * time.Minute), UpdatedAt: base.Add(2 * time.Minute),
+		}
+		if err := productRepo.Create(ctx, third); err != nil {
+			return err
+		}
+		thirdID = third.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var byID = map[string]bool{firstID: true, secondID: true, thirdID: true}
+	var ordered []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		all, _, err := productRepo.List(ctx, pmsDomain.ProductFilter{Limit: 1000})
+		if err != nil {
+			return err
+		}
+		for _, p := range all {
+			if byID[p.ID] {
+				ordered = append(ordered, p)
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.Len(t, ordered, 3)
+	require.Equal(t, []string{thirdID, secondID, firstID}, []string{ordered[0].ID, ordered[1].ID, ordered[2].ID})
+}
+
 // TestProductRepo_Integration_SearchMatchesSKUCodeAndBarcode proves the
 // EXISTS-subquery join to variants/skus actually works against real
 // Postgres, and doesn't return a product more than once for a product with
