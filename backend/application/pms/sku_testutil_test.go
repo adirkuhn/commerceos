@@ -47,7 +47,14 @@ type stubSKURepo struct {
 		SKUID               string
 		CostPriceMinorUnits int64
 	}
-	updateCostPriceErr error
+	updateCostPriceErr      error
+	setManualCostPriceCalls []struct {
+		SKUID               string
+		CostPriceMinorUnits int64
+	}
+	setManualCostPriceErr error
+	clearOverrideCalls    []string
+	clearOverrideErr      error
 }
 
 func (s *stubSKURepo) Create(_ context.Context, sku *pmsDomain.SKU) error {
@@ -104,4 +111,17 @@ func (s *stubSKURepo) UpdateCostPrice(_ context.Context, skuID string, costPrice
 		CostPriceMinorUnits int64
 	}{skuID, costPriceMinorUnits})
 	return s.updateCostPriceErr
+}
+
+func (s *stubSKURepo) SetManualCostPrice(_ context.Context, skuID string, costPriceMinorUnits int64) error {
+	s.setManualCostPriceCalls = append(s.setManualCostPriceCalls, struct {
+		SKUID               string
+		CostPriceMinorUnits int64
+	}{skuID, costPriceMinorUnits})
+	return s.setManualCostPriceErr
+}
+
+func (s *stubSKURepo) ClearCostPriceOverride(_ context.Context, skuID string) error {
+	s.clearOverrideCalls = append(s.clearOverrideCalls, skuID)
+	return s.clearOverrideErr
 }

@@ -28,10 +28,12 @@ vi.mock('../../pms/api', () => ({
   updateSKU: vi.fn(),
   deleteSKU: vi.fn(),
   getSKUMarginInsight: vi.fn(() => Promise.resolve({
-    cost_price_available: false, cost_price_minor_units: 0, effective_target_margin_basis_points: 0,
+    cost_price_available: false, cost_price_minor_units: 0, cost_price_source: 'computed', effective_target_margin_basis_points: 0,
     recommended_price_minor_units: 0, profit_at_price_minor_units: 0, margin_at_price_basis_points: 0,
     total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
   })),
+  setManualCostPrice: vi.fn(),
+  clearCostPriceOverride: vi.fn(),
   listSKUCostPriceHistory: vi.fn(),
   listMarginReport: vi.fn(),
   listProductMedia: vi.fn(),
@@ -1204,5 +1206,41 @@ describe('Media section', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save title' }))
 
     expect(await screen.findByText('title too long')).toBeInTheDocument()
+  })
+})
+
+describe('Manual cost price override', () => {
+  it('lets staff set a cost price manually when none has been computed yet', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.setManualCostPrice).mockResolvedValue({ ...baseSku, cost_price_minor_units: 1250, cost_price_source: 'manual' })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await screen.findByText('Set cost price manually')
+    await userEvent.type(screen.getByPlaceholderText('USD'), '12.50')
+    await userEvent.click(screen.getByRole('button', { name: 'Set' }))
+
+    await waitFor(() => expect(pmsApi.setManualCostPrice).toHaveBeenCalledWith('test-token', 'sku-1', 1250))
+  })
+
+  it('shows a revert control and calls clearCostPriceOverride when the cost price is a manual override', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.getSKUMarginInsight).mockResolvedValue({
+      cost_price_available: true, cost_price_minor_units: 1250, cost_price_source: 'manual', effective_target_margin_basis_points: 3000,
+      recommended_price_minor_units: 1786, profit_at_price_minor_units: 749, margin_at_price_basis_points: 3746,
+      total_on_hand_quantity: 0, total_profit_potential_minor_units: 0, shrinkage_minor_units: 0,
+    })
+    vi.mocked(pmsApi.clearCostPriceOverride).mockResolvedValue({ ...baseSku, cost_price_minor_units: 1250, cost_price_source: 'computed' })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await screen.findByText(/Cost price set manually/)
+    expect(screen.queryByText('Set cost price manually')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Revert to automatic' }))
+
+    await waitFor(() => expect(pmsApi.clearCostPriceOverride).toHaveBeenCalledWith('test-token', 'sku-1'))
   })
 })

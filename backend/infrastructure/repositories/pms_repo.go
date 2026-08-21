@@ -127,6 +127,7 @@ type skuModel struct {
 	WooTaxStatus        *string `gorm:"column:woo_tax_status"`
 	Status              string  `gorm:"not null"`
 	CostPriceMinorUnits *int64  `gorm:"column:cost_price_minor_units"`
+	CostPriceSource     string  `gorm:"column:cost_price_source;not null;default:computed"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -860,6 +861,39 @@ func (r *SKURepo) UpdateCostPrice(ctx context.Context, skuID string, costPriceMi
 	return nil
 }
 
+// SetManualCostPrice writes cost_price_minor_units and flips
+// cost_price_source to manual in one update -- see
+// pmsDomain.SKURepository.SetManualCostPrice.
+func (r *SKURepo) SetManualCostPrice(ctx context.Context, skuID string, costPriceMinorUnits int64) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&skuModel{}).Where("id = ?", skuID).
+		Updates(map[string]any{
+			"cost_price_minor_units": costPriceMinorUnits,
+			"cost_price_source":      string(pmsDomain.SKUCostPriceSourceManual),
+		}).Error; err != nil {
+		return fmt.Errorf("skuRepo.SetManualCostPrice: %w", err)
+	}
+	return nil
+}
+
+// ClearCostPriceOverride resets cost_price_source back to computed --
+// cost_price_minor_units is left as-is until the next cron run; see
+// pmsDomain.SKURepository.ClearCostPriceOverride.
+func (r *SKURepo) ClearCostPriceOverride(ctx context.Context, skuID string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&skuModel{}).Where("id = ?", skuID).
+		Update("cost_price_source", string(pmsDomain.SKUCostPriceSourceComputed)).Error; err != nil {
+		return fmt.Errorf("skuRepo.ClearCostPriceOverride: %w", err)
+	}
+	return nil
+}
+
 func (r *SKURepo) ExistsWithTaxClass(ctx context.Context, taxClassID string) (bool, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -898,6 +932,7 @@ func toSKUDomain(m skuModel) *pmsDomain.SKU {
 		WooTaxStatus:        m.WooTaxStatus,
 		Status:              pmsDomain.SKUStatus(m.Status),
 		CostPriceMinorUnits: m.CostPriceMinorUnits,
+		CostPriceSource:     pmsDomain.SKUCostPriceSource(m.CostPriceSource),
 		CreatedAt:           m.CreatedAt,
 		UpdatedAt:           m.UpdatedAt,
 	}

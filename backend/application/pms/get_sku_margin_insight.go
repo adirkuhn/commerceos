@@ -30,8 +30,13 @@ type GetSKUMarginInsightResult struct {
 	// least one value for this SKU (see SKU.CostPriceMinorUnits's doc
 	// comment) -- every other field is zero when false, there's no cost
 	// basis to derive them from yet.
-	CostPriceAvailable               bool
-	CostPriceMinorUnits              int64
+	CostPriceAvailable  bool
+	CostPriceMinorUnits int64
+	// CostPriceSource says whether CostPriceMinorUnits came from the daily
+	// cron or a human's manual override (see pmsDomain.SKUCostPriceSource) --
+	// the product edit page uses this to decide whether to show "override"
+	// or "clear override".
+	CostPriceSource                  pmsDomain.SKUCostPriceSource
 	EffectiveTargetMarginBasisPoints int
 	RecommendedPriceMinorUnits       int64
 	// ProfitAtPriceMinorUnits/MarginAtPriceBasisPoints are computed
@@ -94,6 +99,10 @@ func (uc *GetSKUMarginInsightUseCase) Execute(ctx context.Context, skuID string)
 		sku, err := uc.skuRepo.FindByID(ctx, skuID)
 		if err != nil {
 			return err
+		}
+		result.CostPriceSource = sku.CostPriceSource
+		if result.CostPriceSource == "" {
+			result.CostPriceSource = pmsDomain.SKUCostPriceSourceComputed
 		}
 
 		batches, err := uc.batchLister.Execute(ctx, skuID)

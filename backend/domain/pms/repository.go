@@ -88,8 +88,20 @@ type SKURepository interface {
 	// narrower than Update, so RecalculateCostPricesUseCase is the sole
 	// writer of this field and an ordinary SKU edit (UpdateSKUUseCase,
 	// which never reads/round-trips a cost price) can't accidentally
-	// clobber it back to nil.
+	// clobber it back to nil. Does not touch CostPriceSource -- the cron
+	// only ever calls this after confirming the SKU's source isn't manual
+	// (see RecalculateCostPricesUseCase.Execute).
 	UpdateCostPrice(ctx context.Context, skuID string, costPriceMinorUnits int64) error
+	// SetManualCostPrice writes CostPriceMinorUnits and flips CostPriceSource
+	// to manual in one call -- see SetManualCostPriceUseCase. The cron
+	// (RecalculateCostPricesUseCase) checks CostPriceSource and skips any
+	// SKU set this way entirely, so the value sticks until
+	// ClearCostPriceOverride runs.
+	SetManualCostPrice(ctx context.Context, skuID string, costPriceMinorUnits int64) error
+	// ClearCostPriceOverride resets CostPriceSource back to computed --
+	// CostPriceMinorUnits is left as-is (still the last manual value) until
+	// the next cron run recomputes it; see ClearCostPriceOverrideUseCase.
+	ClearCostPriceOverride(ctx context.Context, skuID string) error
 }
 
 // SKUCostPriceHistoryRepository backs the margin-trend-over-time chart --

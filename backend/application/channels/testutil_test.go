@@ -544,6 +544,12 @@ func (s *stubChannelsSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, er
 func (s *stubChannelsSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
 	return nil
 }
+func (s *stubChannelsSKURepo) SetManualCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+func (s *stubChannelsSKURepo) ClearCostPriceOverride(_ context.Context, _ string) error {
+	return nil
+}
 
 // ── channels stub ────────────────────────────────────────────────────────────
 

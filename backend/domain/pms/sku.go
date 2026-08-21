@@ -9,6 +9,21 @@ const (
 	SKUStatusInactive SKUStatus = "inactive"
 )
 
+// SKUCostPriceSource says who last set CostPriceMinorUnits.
+type SKUCostPriceSource string
+
+const (
+	// SKUCostPriceSourceComputed is the default -- the daily cron (see
+	// application/pms.RecalculateCostPricesUseCase) owns the value.
+	SKUCostPriceSourceComputed SKUCostPriceSource = "computed"
+	// SKUCostPriceSourceManual means a human set CostPriceMinorUnits
+	// directly (see application/pms.SetManualCostPriceUseCase) -- the cron
+	// skips any SKU with this source entirely, leaving the manual value in
+	// place until ClearCostPriceOverrideUseCase resets the source back to
+	// computed.
+	SKUCostPriceSourceManual SKUCostPriceSource = "manual"
+)
+
 // SKUUnitType is how this SKU's stock quantity is denominated. "unit" (the
 // default) and "box" are both whole-count stock -- box is purely a
 // descriptive/display distinction from unit, carrying no different
@@ -53,6 +68,9 @@ type SKU struct {
 	// existed, or that has zero on-hand batches, stays nil (there's no
 	// cost basis to average) rather than being reported as zero.
 	CostPriceMinorUnits *int64
+	// CostPriceSource says who last set CostPriceMinorUnits -- see
+	// SKUCostPriceSource. Defaults to SKUCostPriceSourceComputed.
+	CostPriceSource SKUCostPriceSource
 	// WeightGrams and the *MM dimensions are nil when unknown — normalized
 	// to fixed SI units (like PriceMinorUnits normalizes money) so values
 	// from any future channel are comparable without ambiguity.

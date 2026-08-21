@@ -1050,7 +1050,7 @@ function MarginInsightCard({ skuId, currency }: { skuId: string; currency: strin
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const reload = () => {
     if (!token) return
     let cancelled = false
     setLoading(true)
@@ -1060,7 +1060,9 @@ function MarginInsightCard({ skuId, currency }: { skuId: string; currency: strin
       .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load margin insight') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [token, skuId])
+  }
+
+  useEffect(reload, [token, skuId])
 
   const money = (minorUnits: number) => formatPrice(minorUnits, currency)
   const pct = (basisPoints: number) => `${(basisPoints / 100).toFixed(1)}%`
@@ -1118,7 +1120,88 @@ function MarginInsightCard({ skuId, currency }: { skuId: string; currency: strin
           )}
         </div>
       )}
+      {!loading && !error && insight && (
+        <ManualCostPriceEditor skuId={skuId} insight={insight} currency={currency} onChanged={reload} />
+      )}
     </FormCard>
+  )
+}
+
+// ManualCostPriceEditor lets staff set a SKU's cost price by hand -- for a
+// SKU the daily cron has no basis to compute at all (e.g. a purchase order
+// marked received without ever creating a batch), or to correct a value
+// staff know is wrong. Setting one sticks until "Revert to automatic" is
+// pressed -- the cron skips any SKU with a manual override entirely (see
+// application/pms's RecalculateCostPricesUseCase).
+function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId: string; insight: SKUMarginInsight; currency: string; onChanged: () => void }) {
+  const { token } = useAuth()
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const isManual = insight.cost_price_source === 'manual'
+
+  const handleSet = async () => {
+    if (!token || value.trim() === '') return
+    setSaving(true)
+    setError('')
+    try {
+      await pmsApi.setManualCostPrice(token, skuId, parsePriceToMinorUnits(value))
+      setValue('')
+      onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set cost price')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleClear = async () => {
+    if (!token) return
+    setSaving(true)
+    setError('')
+    try {
+      await pmsApi.clearCostPriceOverride(token, skuId)
+      onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revert cost price')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="pt-3 border-t dark:border-[#2D3748] border-gray-200">
+      {isManual ? (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="dark:text-gray-500 text-gray-400">
+            Cost price set manually ({currency} {(insight.cost_price_minor_units / 100).toFixed(2)}) -- the daily job won't overwrite it.
+          </span>
+          <button
+            type="button" onClick={handleClear} disabled={saving}
+            className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {saving ? 'Reverting…' : 'Revert to automatic'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] dark:text-gray-500 text-gray-400 shrink-0">Set cost price manually</span>
+          <input
+            type="number" step="0.01" min="0" placeholder={currency}
+            value={value} onChange={e => setValue(e.target.value)}
+            className="w-24 px-3 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          />
+          <button
+            type="button" onClick={handleSet} disabled={saving || value.trim() === ''}
+            className="px-2 py-1 rounded-lg dark:bg-[#1F2937] bg-gray-100 text-[10px] font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Set'}
+          </button>
+        </div>
+      )}
+      {error && <p className="text-[10px] text-red-400 mt-1">{error}</p>}
+    </div>
   )
 }
 

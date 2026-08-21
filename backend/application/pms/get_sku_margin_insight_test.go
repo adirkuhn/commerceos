@@ -25,6 +25,23 @@ func TestGetSKUMarginInsight_reportsUnavailableWhenCronHasNeverRun(t *testing.T)
 	require.NoError(t, err)
 	assert.False(t, result.CostPriceAvailable)
 	assert.Equal(t, int64(0), result.CostPriceMinorUnits)
+	assert.Equal(t, pmsDomain.SKUCostPriceSourceComputed, result.CostPriceSource)
+}
+
+func TestGetSKUMarginInsight_reportsManualCostPriceSource(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{
+		ID: "sku-1", VariantID: "variant-1", PriceMinorUnits: 1000,
+		CostPriceMinorUnits: int64Ptr2(700), CostPriceSource: pmsDomain.SKUCostPriceSourceManual,
+	}}
+	uc := apppms.NewGetSKUMarginInsightUseCase(
+		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{},
+		&stubBatchListerForCostPrice{}, &stubDiscardListerForMarginInsight{},
+	)
+
+	result, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, pmsDomain.SKUCostPriceSourceManual, result.CostPriceSource)
 }
 
 func TestGetSKUMarginInsight_computesProfitAndMarginAtCurrentAndSalePrice(t *testing.T) {

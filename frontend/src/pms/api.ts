@@ -133,6 +133,14 @@ export function listSKUCostPriceHistory(token: string, id: string, limit?: numbe
   return request<SKUCostPriceHistoryEntry[]>(`${base()}/skus/${id}/cost-price-history${qs}`, { method: 'GET' }, token)
 }
 
+export function setManualCostPrice(token: string, id: string, costPriceMinorUnits: number): Promise<SKU> {
+  return request<SKU>(`${base()}/skus/${id}/cost-price`, { method: 'PUT', body: JSON.stringify({ cost_price_minor_units: costPriceMinorUnits }) }, token)
+}
+
+export function clearCostPriceOverride(token: string, id: string): Promise<SKU> {
+  return request<SKU>(`${base()}/skus/${id}/cost-price`, { method: 'DELETE' }, token)
+}
+
 export interface ListMarginReportParams {
   page?: number
   perPage?: number

@@ -396,6 +396,48 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/cost-price:
+    put:
+      operationId: setManualCostPrice
+      summary: Manually set a SKU's cost price, overriding the daily cron
+      description: >-
+        The daily cost-price cron skips any SKU set this way entirely, so
+        the value sticks until DELETE on this same path clears it.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetManualCostPriceRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: clearCostPriceOverride
+      summary: Revert a SKU's cost price back to the daily cron's computed value
+      description: >-
+        cost_price_minor_units is left as-is until the next cron run
+        recomputes it -- this only flips cost_price_source back to computed.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /pms/skus/{id}/cost-price-history:
     get:
       operationId: listSKUCostPriceHistory
@@ -653,19 +695,39 @@ components:
           nullable: true
           description: >-
             Read-only. Weighted average of on-hand batches' landed cost,
-            recomputed daily by the cost-price cron. Null until the cron
-            has run at least once with a cost basis to average.
+            recomputed daily by the cost-price cron -- unless
+            cost_price_source is "manual", in which case this is whatever a
+            human last set via PUT /pms/skus/{id}/cost-price. Null until
+            either has happened at least once.
+        cost_price_source:
+          allOf:
+            - $ref: '#/components/schemas/SKUCostPriceSource'
+          description: Read-only. Whether cost_price_minor_units came from the daily cron or a manual override.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
+    SKUCostPriceSource:
+      type: string
+      enum: [computed, manual]
+
+    SetManualCostPriceRequest:
+      type: object
+      required: [cost_price_minor_units]
+      properties:
+        cost_price_minor_units: { type: integer, format: int64, minimum: 0 }
+
     SKUMarginInsight:
       type: object
-      required: [cost_price_available, cost_price_minor_units, effective_target_margin_basis_points, recommended_price_minor_units, profit_at_price_minor_units, margin_at_price_basis_points, total_on_hand_quantity, total_profit_potential_minor_units, shrinkage_minor_units]
+      required: [cost_price_available, cost_price_minor_units, cost_price_source, effective_target_margin_basis_points, recommended_price_minor_units, profit_at_price_minor_units, margin_at_price_basis_points, total_on_hand_quantity, total_profit_potential_minor_units, shrinkage_minor_units]
       properties:
         cost_price_available:
           type: boolean
           description: False until the daily cron has computed at least one cost price for this SKU — every other field is 0/null when false.
         cost_price_minor_units: { type: integer, format: int64 }
+        cost_price_source:
+          allOf:
+            - $ref: '#/components/schemas/SKUCostPriceSource'
+          description: Whether cost_price_minor_units came from the daily cron or a manual override (PUT /pms/skus/{id}/cost-price).
         effective_target_margin_basis_points: { type: integer }
         recommended_price_minor_units: { type: integer, format: int64 }
         profit_at_price_minor_units: { type: integer, format: int64 }

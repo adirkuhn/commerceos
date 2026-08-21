@@ -151,6 +151,30 @@ type stubDeleteSKU struct{ err error }
 
 func (s *stubDeleteSKU) Execute(_ context.Context, _ string) error { return s.err }
 
+type stubSetManualCostPrice struct {
+	out                    *pmsDomain.SKU
+	err                    error
+	gotSKUID               string
+	gotCostPriceMinorUnits int64
+}
+
+func (s *stubSetManualCostPrice) Execute(_ context.Context, skuID string, costPriceMinorUnits int64) (*pmsDomain.SKU, error) {
+	s.gotSKUID = skuID
+	s.gotCostPriceMinorUnits = costPriceMinorUnits
+	return s.out, s.err
+}
+
+type stubClearCostPriceOverride struct {
+	out      *pmsDomain.SKU
+	err      error
+	gotSKUID string
+}
+
+func (s *stubClearCostPriceOverride) Execute(_ context.Context, skuID string) (*pmsDomain.SKU, error) {
+	s.gotSKUID = skuID
+	return s.out, s.err
+}
+
 type stubUploadMedia struct {
 	out *pmsDomain.Media
 	err error
@@ -223,29 +247,31 @@ func (s *stubListMarginReport) Execute(_ context.Context, _ apppms.ListMarginRep
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
-	listCategories       stubListCategories
-	createCategory       stubCreateCategory
-	updateCategory       stubUpdateCategory
-	deleteCategory       stubDeleteCategory
-	listProducts         stubListProducts
-	createProduct        stubCreateProduct
-	getProduct           stubGetProduct
-	updateProduct        stubUpdateProduct
-	deleteProduct        stubDeleteProduct
-	createVariant        stubCreateVariant
-	updateVariant        stubUpdateVariant
-	deleteVariant        stubDeleteVariant
-	createSKU            stubCreateSKU
-	updateSKU            stubUpdateSKU
-	deleteSKU            stubDeleteSKU
-	uploadMedia          stubUploadMedia
-	listProductMedia     stubListProductMedia
-	deleteMedia          stubDeleteMedia
-	updateMedia          stubUpdateMedia
-	resolveBarcode       stubResolveBarcode
-	getSKUMarginInsight  stubGetSKUMarginInsight
-	listCostPriceHistory stubListCostPriceHistory
-	listMarginReport     stubListMarginReport
+	listCategories         stubListCategories
+	createCategory         stubCreateCategory
+	updateCategory         stubUpdateCategory
+	deleteCategory         stubDeleteCategory
+	listProducts           stubListProducts
+	createProduct          stubCreateProduct
+	getProduct             stubGetProduct
+	updateProduct          stubUpdateProduct
+	deleteProduct          stubDeleteProduct
+	createVariant          stubCreateVariant
+	updateVariant          stubUpdateVariant
+	deleteVariant          stubDeleteVariant
+	createSKU              stubCreateSKU
+	updateSKU              stubUpdateSKU
+	deleteSKU              stubDeleteSKU
+	setManualCostPrice     stubSetManualCostPrice
+	clearCostPriceOverride stubClearCostPriceOverride
+	uploadMedia            stubUploadMedia
+	listProductMedia       stubListProductMedia
+	deleteMedia            stubDeleteMedia
+	updateMedia            stubUpdateMedia
+	resolveBarcode         stubResolveBarcode
+	getSKUMarginInsight    stubGetSKUMarginInsight
+	listCostPriceHistory   stubListCostPriceHistory
+	listMarginReport       stubListMarginReport
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -254,6 +280,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.listProducts, &s.createProduct, &s.getProduct, &s.updateProduct, &s.deleteProduct,
 		&s.createVariant, &s.updateVariant, &s.deleteVariant,
 		&s.createSKU, &s.updateSKU, &s.deleteSKU,
+		&s.setManualCostPrice, &s.clearCostPriceOverride,
 		&s.uploadMedia, &s.listProductMedia, &s.deleteMedia, &s.updateMedia,
 		&s.resolveBarcode,
 		&s.getSKUMarginInsight, &s.listCostPriceHistory, &s.listMarginReport,
@@ -536,6 +563,47 @@ func TestUpdateSKU_passesTaxClassIdThrough(t *testing.T) {
 func TestDeleteSKU_notFound(t *testing.T) {
 	s := &stubs{deleteSKU: stubDeleteSKU{err: pmsDomain.ErrSKUNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/missing", nil)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestSetManualCostPrice_success(t *testing.T) {
+	costPrice := int64(1250)
+	s := &stubs{setManualCostPrice: stubSetManualCostPrice{out: &pmsDomain.SKU{
+		ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+		CostPriceMinorUnits: &costPrice, CostPriceSource: pmsDomain.SKUCostPriceSourceManual,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/s1/cost-price", map[string]any{
+		"cost_price_minor_units": 1250,
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "s1", s.setManualCostPrice.gotSKUID)
+	assert.Equal(t, int64(1250), s.setManualCostPrice.gotCostPriceMinorUnits)
+	assert.Contains(t, w.Body.String(), `"cost_price_source":"manual"`)
+}
+
+func TestSetManualCostPrice_notFound(t *testing.T) {
+	s := &stubs{setManualCostPrice: stubSetManualCostPrice{err: pmsDomain.ErrSKUNotFound}}
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/missing/cost-price", map[string]any{
+		"cost_price_minor_units": 1250,
+	})
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestClearCostPriceOverride_success(t *testing.T) {
+	costPrice := int64(900)
+	s := &stubs{clearCostPriceOverride: stubClearCostPriceOverride{out: &pmsDomain.SKU{
+		ID: "s1", SKUCode: "WID-L", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+		CostPriceMinorUnits: &costPrice, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/s1/cost-price", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "s1", s.clearCostPriceOverride.gotSKUID)
+	assert.Contains(t, w.Body.String(), `"cost_price_source":"computed"`)
+}
+
+func TestClearCostPriceOverride_notFound(t *testing.T) {
+	s := &stubs{clearCostPriceOverride: stubClearCostPriceOverride{err: pmsDomain.ErrSKUNotFound}}
+	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/missing/cost-price", nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 

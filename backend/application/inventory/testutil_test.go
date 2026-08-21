@@ -294,6 +294,12 @@ func (s *stubSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
 func (s *stubSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
 	return nil
 }
+func (s *stubSKURepo) SetManualCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+func (s *stubSKURepo) ClearCostPriceOverride(_ context.Context, _ string) error {
+	return nil
+}
 
 type stubDiscardRecordRepo struct {
 	createErr error

@@ -97,6 +97,12 @@ type updateSKUUC interface {
 type deleteSKUUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type setManualCostPriceUC interface {
+	Execute(ctx context.Context, skuID string, costPriceMinorUnits int64) (*pmsDomain.SKU, error)
+}
+type clearCostPriceOverrideUC interface {
+	Execute(ctx context.Context, skuID string) (*pmsDomain.SKU, error)
+}
 type uploadMediaUC interface {
 	Execute(ctx context.Context, in apppms.UploadMediaInput) (*pmsDomain.Media, error)
 }
@@ -125,29 +131,31 @@ type listMarginReportUC interface {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listCategories       listCategoriesUC
-	createCategory       createCategoryUC
-	updateCategory       updateCategoryUC
-	deleteCategory       deleteCategoryUC
-	listProducts         listProductsUC
-	createProduct        createProductUC
-	getProduct           getProductUC
-	updateProduct        updateProductUC
-	deleteProduct        deleteProductUC
-	createVariant        createVariantUC
-	updateVariant        updateVariantUC
-	deleteVariant        deleteVariantUC
-	createSKU            createSKUUC
-	updateSKU            updateSKUUC
-	deleteSKU            deleteSKUUC
-	uploadMedia          uploadMediaUC
-	listProductMedia     listProductMediaUC
-	deleteMedia          deleteMediaUC
-	updateMedia          updateMediaUC
-	resolveBarcode       resolveBarcodeUC
-	getSKUMarginInsight  getSKUMarginInsightUC
-	listCostPriceHistory listCostPriceHistoryUC
-	listMarginReport     listMarginReportUC
+	listCategories         listCategoriesUC
+	createCategory         createCategoryUC
+	updateCategory         updateCategoryUC
+	deleteCategory         deleteCategoryUC
+	listProducts           listProductsUC
+	createProduct          createProductUC
+	getProduct             getProductUC
+	updateProduct          updateProductUC
+	deleteProduct          deleteProductUC
+	createVariant          createVariantUC
+	updateVariant          updateVariantUC
+	deleteVariant          deleteVariantUC
+	createSKU              createSKUUC
+	updateSKU              updateSKUUC
+	deleteSKU              deleteSKUUC
+	setManualCostPrice     setManualCostPriceUC
+	clearCostPriceOverride clearCostPriceOverrideUC
+	uploadMedia            uploadMediaUC
+	listProductMedia       listProductMediaUC
+	deleteMedia            deleteMediaUC
+	updateMedia            updateMediaUC
+	resolveBarcode         resolveBarcodeUC
+	getSKUMarginInsight    getSKUMarginInsightUC
+	listCostPriceHistory   listCostPriceHistoryUC
+	listMarginReport       listMarginReportUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -167,6 +175,8 @@ func NewHandler(
 	createSKU createSKUUC,
 	updateSKU updateSKUUC,
 	deleteSKU deleteSKUUC,
+	setManualCostPrice setManualCostPriceUC,
+	clearCostPriceOverride clearCostPriceOverrideUC,
 	uploadMedia uploadMediaUC,
 	listProductMedia listProductMediaUC,
 	deleteMedia deleteMediaUC,
@@ -177,29 +187,31 @@ func NewHandler(
 	listMarginReport listMarginReportUC,
 ) *Handler {
 	return &Handler{
-		getSKUMarginInsight:  getSKUMarginInsight,
-		listCostPriceHistory: listCostPriceHistory,
-		listMarginReport:     listMarginReport,
-		listCategories:       listCategories,
-		createCategory:       createCategory,
-		updateCategory:       updateCategory,
-		deleteCategory:       deleteCategory,
-		listProducts:         listProducts,
-		createProduct:        createProduct,
-		getProduct:           getProduct,
-		updateProduct:        updateProduct,
-		deleteProduct:        deleteProduct,
-		createVariant:        createVariant,
-		updateVariant:        updateVariant,
-		deleteVariant:        deleteVariant,
-		createSKU:            createSKU,
-		updateSKU:            updateSKU,
-		deleteSKU:            deleteSKU,
-		uploadMedia:          uploadMedia,
-		listProductMedia:     listProductMedia,
-		deleteMedia:          deleteMedia,
-		updateMedia:          updateMedia,
-		resolveBarcode:       resolveBarcode,
+		getSKUMarginInsight:    getSKUMarginInsight,
+		listCostPriceHistory:   listCostPriceHistory,
+		listMarginReport:       listMarginReport,
+		listCategories:         listCategories,
+		createCategory:         createCategory,
+		updateCategory:         updateCategory,
+		deleteCategory:         deleteCategory,
+		listProducts:           listProducts,
+		createProduct:          createProduct,
+		getProduct:             getProduct,
+		updateProduct:          updateProduct,
+		deleteProduct:          deleteProduct,
+		createVariant:          createVariant,
+		updateVariant:          updateVariant,
+		deleteVariant:          deleteVariant,
+		createSKU:              createSKU,
+		updateSKU:              updateSKU,
+		deleteSKU:              deleteSKU,
+		setManualCostPrice:     setManualCostPrice,
+		clearCostPriceOverride: clearCostPriceOverride,
+		uploadMedia:            uploadMedia,
+		listProductMedia:       listProductMedia,
+		deleteMedia:            deleteMedia,
+		updateMedia:            updateMedia,
+		resolveBarcode:         resolveBarcode,
 	}
 }
 
@@ -242,6 +254,8 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo),
 		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo),
 		apppms.NewDeleteSKUUseCase(db, skuRepo),
+		apppms.NewSetManualCostPriceUseCase(db, skuRepo),
+		apppms.NewClearCostPriceOverrideUseCase(db, skuRepo),
 		apppms.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage),
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
@@ -547,6 +561,29 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 	c.JSON(http.StatusOK, genpms.SKUResponse{Data: &resp})
 }
 
+func (h *Handler) SetManualCostPrice(c *gin.Context, id genpms.Id) {
+	var req genpms.SetManualCostPriceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	sku, err := h.setManualCostPrice.Execute(c.Request.Context(), id, req.CostPriceMinorUnits)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenSKU(*sku)
+	c.JSON(http.StatusOK, genpms.SKUResponse{Data: &resp})
+}
+
+func (h *Handler) ClearCostPriceOverride(c *gin.Context, id genpms.Id) {
+	sku, err := h.clearCostPriceOverride.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenSKU(*sku)
+	c.JSON(http.StatusOK, genpms.SKUResponse{Data: &resp})
+}
+
 func (h *Handler) DeleteSKU(c *gin.Context, id genpms.Id) {
 	err := h.deleteSKU.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
@@ -572,6 +609,7 @@ func (h *Handler) GetSKUMarginInsight(c *gin.Context, id genpms.Id) {
 	resp := genpms.SKUMarginInsight{
 		CostPriceAvailable:               insight.CostPriceAvailable,
 		CostPriceMinorUnits:              insight.CostPriceMinorUnits,
+		CostPriceSource:                  genpms.SKUCostPriceSource(insight.CostPriceSource),
 		EffectiveTargetMarginBasisPoints: insight.EffectiveTargetMarginBasisPoints,
 		RecommendedPriceMinorUnits:       insight.RecommendedPriceMinorUnits,
 		ProfitAtPriceMinorUnits:          insight.ProfitAtPriceMinorUnits,
@@ -803,9 +841,22 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		WooTaxStatus:        s.WooTaxStatus,
 		Status:              genpms.SKUStatus(s.Status),
 		CostPriceMinorUnits: s.CostPriceMinorUnits,
+		CostPriceSource:     costPriceSourcePtr(s.CostPriceSource),
 		CreatedAt:           s.CreatedAt,
 		UpdatedAt:           s.UpdatedAt,
 	}
+}
+
+// costPriceSourcePtr defaults an unset (zero-value) CostPriceSource to
+// "computed" -- matches the DB column's own default, for SKU rows read
+// before this field existed in the domain struct at all (shouldn't happen
+// post-migration, but avoids emitting an empty string over the wire).
+func costPriceSourcePtr(s pmsDomain.SKUCostPriceSource) *genpms.SKUCostPriceSource {
+	if s == "" {
+		s = pmsDomain.SKUCostPriceSourceComputed
+	}
+	v := genpms.SKUCostPriceSource(s)
+	return &v
 }
 
 func toGenMedia(m pmsDomain.Media) genpms.Media {
