@@ -346,3 +346,9 @@ func (s *erroringSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error)
 func (s *erroringSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
 	return nil
 }
+func (s *erroringSKURepo) SetManualCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+func (s *erroringSKURepo) ClearCostPriceOverride(_ context.Context, _ string) error {
+	return nil
+}

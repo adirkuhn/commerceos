@@ -12,6 +12,7 @@ import (
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	appscheduler "github.com/adirkuhn/commerceos/application/scheduler"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
@@ -67,12 +68,14 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
 
 	expireSalePriceUC := apppms.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo)
 	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo)
 	recalculateCostPricesUC := apppms.NewRecalculateCostPricesUseCase(
 		db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, costPriceHistoryRepo,
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+		appprocurement.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
 	runners := map[string]appscheduler.JobRunner{
 		schedulerDomain.JobExpiredSalePrices:      appscheduler.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),

@@ -47,6 +47,14 @@ type PurchaseOrderLineItemRepository interface {
 	// of loading every PO's full line items. A PO with no rows in the
 	// result has zero line items (sum is 0, not present in the map).
 	SumByPurchaseOrders(ctx context.Context, purchaseOrderIDs []string) (map[string]int64, error)
+	// ListPurchaseOrderIDsReceivedBySKU returns the distinct IDs of every
+	// received/partially_received PO with a product line item for skuID --
+	// used by procurement.ListReceivedCostLinesForSKUUseCase (see its doc
+	// comment) to source pms's cost-price rollup from a PO's own line items
+	// when it was marked received without ever creating an inventory.Batch
+	// (e.g. the desktop Edit Purchase Order form's status field has no
+	// stock-booking gate of its own).
+	ListPurchaseOrderIDsReceivedBySKU(ctx context.Context, skuID string) ([]string, error)
 }
 
 type PurchaseOrderDocumentRepository interface {

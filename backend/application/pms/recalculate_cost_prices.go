@@ -21,6 +21,29 @@ type batchListerForCostPrice interface {
 	Execute(ctx context.Context, skuID string) ([]invDomain.Batch, error)
 }
 
+// PurchaseCostLine mirrors procurement.SKUPurchaseCostLine -- a local copy,
+// not an import of application/procurement, because that package already
+// imports application/pms (create_product_and_link_line_item.go), so the
+// reverse import here would be a cycle. cmd/scheduler's wiring adapts
+// *procurement.ListReceivedCostLinesForSKUUseCase's real result into this
+// shape when constructing RecalculateCostPricesUseCase.
+type PurchaseCostLine struct {
+	PurchaseOrderLineItemID  string
+	Quantity                 int64
+	LandedUnitCostMinorUnits int64
+}
+
+// purchaseCostLineListerForCostPrice is the narrow slice of
+// *procurement.ListReceivedCostLinesForSKUUseCase this use case needs (ISP)
+// -- same cross-domain-via-use-case rationale as batchListerForCostPrice.
+// Its results cover received/partially_received POs that never created a
+// Batch (see that use case's doc comment); Execute below excludes any line
+// item a real Batch already accounts for, so the two sources never
+// double-count the same receipt.
+type purchaseCostLineListerForCostPrice interface {
+	Execute(ctx context.Context, skuID string) ([]PurchaseCostLine, error)
+}
+
 // RecalculateCostPricesResult reports what happened for one SKU.
 type RecalculateCostPricesResult struct {
 	// Skipped is true when the SKU has no on-hand batch with a cost basis
@@ -50,14 +73,15 @@ type RecalculateCostPricesResult struct {
 // today's SKUCostPriceHistory row (upserted, so a same-day rerun is a
 // no-op-that-overwrites rather than a duplicate).
 type RecalculateCostPricesUseCase struct {
-	db           *gorm.DB
-	skuRepo      pmsDomain.SKURepository
-	variantRepo  pmsDomain.VariantRepository
-	productRepo  pmsDomain.ProductRepository
-	categoryRepo pmsDomain.CategoryRepository
-	settingsRepo settingsDomain.Repository
-	historyRepo  pmsDomain.SKUCostPriceHistoryRepository
-	batchLister  batchListerForCostPrice
+	db                 *gorm.DB
+	skuRepo            pmsDomain.SKURepository
+	variantRepo        pmsDomain.VariantRepository
+	productRepo        pmsDomain.ProductRepository
+	categoryRepo       pmsDomain.CategoryRepository
+	settingsRepo       settingsDomain.Repository
+	historyRepo        pmsDomain.SKUCostPriceHistoryRepository
+	batchLister        batchListerForCostPrice
+	purchaseCostLister purchaseCostLineListerForCostPrice
 }
 
 func NewRecalculateCostPricesUseCase(
@@ -69,38 +93,70 @@ func NewRecalculateCostPricesUseCase(
 	settingsRepo settingsDomain.Repository,
 	historyRepo pmsDomain.SKUCostPriceHistoryRepository,
 	batchLister batchListerForCostPrice,
+	purchaseCostLister purchaseCostLineListerForCostPrice,
 ) *RecalculateCostPricesUseCase {
 	return &RecalculateCostPricesUseCase{
 		db: db, skuRepo: skuRepo, variantRepo: variantRepo, productRepo: productRepo,
-		categoryRepo: categoryRepo, settingsRepo: settingsRepo, historyRepo: historyRepo, batchLister: batchLister,
+		categoryRepo: categoryRepo, settingsRepo: settingsRepo, historyRepo: historyRepo,
+		batchLister: batchLister, purchaseCostLister: purchaseCostLister,
 	}
 }
 
 func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID string) (*RecalculateCostPricesResult, error) {
 	var result RecalculateCostPricesResult
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		sku, err := uc.skuRepo.FindByID(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		if sku.CostPriceSource == pmsDomain.SKUCostPriceSourceManual {
+			// A human set this SKU's cost price directly (see
+			// SetManualCostPriceUseCase) -- it sticks until
+			// ClearCostPriceOverrideUseCase runs, so there's nothing for the
+			// cron to average or overwrite.
+			result.Skipped = true
+			return nil
+		}
+
 		batches, err := uc.batchLister.Execute(ctx, skuID)
 		if err != nil {
 			return err
 		}
 		var totalQty, weightedCost int64
+		// linkedLineItems tracks every PO line item a real Batch already
+		// references (regardless of whether that batch itself has a cost
+		// basis) -- purchaseCostLister below must skip these, or a properly
+		// booked receipt would be counted twice.
+		linkedLineItems := make(map[string]bool, len(batches))
 		for _, b := range batches {
+			if b.PurchaseOrderLineItemID != nil {
+				linkedLineItems[*b.PurchaseOrderLineItemID] = true
+			}
 			if b.Quantity <= 0 || b.LandedCostMinorUnits == nil {
 				continue
 			}
 			totalQty += b.Quantity
 			weightedCost += b.Quantity * *b.LandedCostMinorUnits
 		}
+
+		poCostLines, err := uc.purchaseCostLister.Execute(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		for _, l := range poCostLines {
+			if linkedLineItems[l.PurchaseOrderLineItemID] || l.Quantity <= 0 {
+				continue
+			}
+			totalQty += l.Quantity
+			weightedCost += l.Quantity * l.LandedUnitCostMinorUnits
+		}
+
 		if totalQty <= 0 {
 			result.Skipped = true
 			return nil
 		}
 		costPrice := (weightedCost + totalQty/2) / totalQty
 
-		sku, err := uc.skuRepo.FindByID(ctx, skuID)
-		if err != nil {
-			return err
-		}
 		settings, err := uc.settingsRepo.Get(ctx)
 		if err != nil {
 			return err

@@ -3,6 +3,7 @@ package pms_test
 import (
 	"context"
 
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
@@ -15,6 +16,15 @@ type stubBatchListerForCostPrice struct {
 
 func (s *stubBatchListerForCostPrice) Execute(_ context.Context, _ string) ([]invDomain.Batch, error) {
 	return s.batches, s.err
+}
+
+type stubPurchaseCostLineListerForCostPrice struct {
+	lines []apppms.PurchaseCostLine
+	err   error
+}
+
+func (s *stubPurchaseCostLineListerForCostPrice) Execute(_ context.Context, _ string) ([]apppms.PurchaseCostLine, error) {
+	return s.lines, s.err
 }
 
 type stubSKUCostPriceHistoryRepo struct {

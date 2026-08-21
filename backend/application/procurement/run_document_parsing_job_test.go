@@ -318,3 +318,6 @@ func (s *stubCountingLineItemRepo) Delete(_ context.Context, _ string) error { r
 func (s *stubCountingLineItemRepo) SumByPurchaseOrders(_ context.Context, _ []string) (map[string]int64, error) {
 	return map[string]int64{}, nil
 }
+func (s *stubCountingLineItemRepo) ListPurchaseOrderIDsReceivedBySKU(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}

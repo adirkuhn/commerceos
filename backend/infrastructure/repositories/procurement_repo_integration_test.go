@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -327,6 +328,97 @@ func TestPurchaseOrderLineItemRepo_Integration_CreateListUpdateDeleteAndCascade(
 		return err
 	})
 	require.ErrorIs(t, err, procurementDomain.ErrLineItemNotFound, "line item must be gone once its PO is deleted (ON DELETE CASCADE)")
+}
+
+// TestPurchaseOrderLineItemRepo_Integration_ListPurchaseOrderIDsReceivedBySKU
+// covers the cost-price rollup gap: a PO marked received/partially_received
+// with no inventory.Batch behind it (e.g. via the desktop Edit Purchase
+// Order form's status field -- see application/pms's
+// RecalculateCostPricesUseCase and application/procurement's
+// ListReceivedCostLinesForSKUUseCase) must still surface for cost-basis
+// purposes, but only received/partially_received POs, and only the
+// product-type line matching the SKU.
+func TestPurchaseOrderLineItemRepo_Integration_ListPurchaseOrderIDsReceivedBySKU(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+
+	supplierRepo := repositories.NewSupplierRepo(db)
+	poRepo := repositories.NewPurchaseOrderRepo(db)
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+
+	// A second, distinct SKU for the "wrong SKU, excluded" case --
+	// seedProductSKUWarehouse always uses the same fixed SKUCode, so it
+	// can't be called twice in one tenant (unique tenant_id+sku_code).
+	var otherSKUID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Other Product", Slug: "other-product",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{
+			TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "ITEST-SKU-OTHER",
+			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		otherSKUID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	makePO := func(ctx context.Context, status procurementDomain.PurchaseOrderStatus, lineSKUID *string, lineType procurementDomain.LineItemType) string {
+		now := time.Now()
+		supplier := &suppliersDomain.Supplier{
+			TenantID: tenant.IDFromContext(ctx), Name: "Acme Foods", Status: suppliersDomain.SupplierStatusActive,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		require.NoError(t, supplierRepo.Create(ctx, supplier))
+		po := procurementDomain.PurchaseOrder{
+			TenantID: tenant.IDFromContext(ctx), SupplierID: &supplier.ID, WarehouseID: &warehouseID,
+			Status: status, CurrencyCode: "USD", CreatedAt: now, UpdatedAt: now,
+		}
+		require.NoError(t, poRepo.Create(ctx, &po))
+		li := procurementDomain.PurchaseOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: po.ID, SKUID: lineSKUID,
+			RawDescription: "Widget", Quantity: 10, UnitCostMinorUnits: 500, LineType: lineType,
+			CreatedAt: now, UpdatedAt: now,
+		}
+		require.NoError(t, lineItemRepo.Create(ctx, &li))
+		return po.ID
+	}
+
+	var receivedPOID, partiallyReceivedPOID string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		receivedPOID = makePO(ctx, procurementDomain.PurchaseOrderStatusReceived, &skuID, procurementDomain.LineItemTypeProduct)
+		partiallyReceivedPOID = makePO(ctx, procurementDomain.PurchaseOrderStatusPartiallyReceived, &skuID, procurementDomain.LineItemTypeProduct)
+		makePO(ctx, procurementDomain.PurchaseOrderStatusDraft, &skuID, procurementDomain.LineItemTypeProduct)         // wrong status, excluded
+		makePO(ctx, procurementDomain.PurchaseOrderStatusReceived, &otherSKUID, procurementDomain.LineItemTypeProduct) // wrong SKU, excluded
+		makePO(ctx, procurementDomain.PurchaseOrderStatusReceived, &skuID, procurementDomain.LineItemTypeShipping)     // not a product line, excluded
+		return nil
+	})
+	require.NoError(t, err)
+
+	var ids []string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		ids, err = lineItemRepo.ListPurchaseOrderIDsReceivedBySKU(ctx, skuID)
+		return err
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{receivedPOID, partiallyReceivedPOID}, ids)
 }
 
 // TestPurchaseOrderLineItemRepo_Integration_ListOrderSurvivesUpdateWithTiedCreatedAt

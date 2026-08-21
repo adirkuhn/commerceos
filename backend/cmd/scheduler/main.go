@@ -140,9 +140,13 @@ func main() {
 	stockRecorderUC := invapp.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	stockLevelUC := invapp.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
+	// lineItemRepo is constructed here (earlier than the rest of procurement's
+	// wiring below) because recalculateCostPricesUC needs it too.
+	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
 	recalculateCostPricesUC := pmsapp.NewRecalculateCostPricesUseCase(
 		db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, costPriceHistoryRepo,
 		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
+		procurementapp.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
 	jobRunners := map[string]schedulerapp.JobRunner{
 		schedulerDomain.JobExpiredSalePrices:      schedulerapp.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
@@ -165,7 +169,6 @@ func main() {
 	notifyUC := notificationsapp.NewCreateNotificationUseCase(db, notificationRepo)
 
 	poRepo := repositories.NewPurchaseOrderRepo(db)
-	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
 	documentRepo := repositories.NewPurchaseOrderDocumentRepo(db)
 	parsingJobRepo := repositories.NewDocumentParsingJobRepo(db)
 	aliasRepo := repositories.NewSupplierProductAliasRepo(db)

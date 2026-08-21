@@ -291,6 +291,24 @@ func (r *PurchaseOrderLineItemRepo) ListByPurchaseOrder(ctx context.Context, pur
 	return out, nil
 }
 
+func (r *PurchaseOrderLineItemRepo) ListPurchaseOrderIDsReceivedBySKU(ctx context.Context, skuID string) ([]string, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	if err := tx.Model(&purchaseOrderLineItemModel{}).
+		Joins("JOIN purchase_orders ON purchase_orders.id = purchase_order_line_items.purchase_order_id").
+		Where("purchase_order_line_items.sku_id = ?", skuID).
+		Where("purchase_order_line_items.line_type IN ?", []string{string(procurementDomain.LineItemTypeProduct), ""}).
+		Where("purchase_orders.status IN ?", []string{string(procurementDomain.PurchaseOrderStatusReceived), string(procurementDomain.PurchaseOrderStatusPartiallyReceived)}).
+		Group("purchase_order_line_items.purchase_order_id").
+		Pluck("purchase_order_line_items.purchase_order_id", &ids).Error; err != nil {
+		return nil, fmt.Errorf("purchaseOrderLineItemRepo.ListPurchaseOrderIDsReceivedBySKU: %w", err)
+	}
+	return ids, nil
+}
+
 func (r *PurchaseOrderLineItemRepo) Update(ctx context.Context, li *procurementDomain.PurchaseOrderLineItem) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

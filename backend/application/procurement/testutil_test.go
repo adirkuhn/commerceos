@@ -177,6 +177,9 @@ type stubLineItemRepo struct {
 	// single fixed list. Falls back to byPO when nil, so every existing
 	// single-PO test is unaffected.
 	byPOMap map[string][]procurementDomain.PurchaseOrderLineItem
+	// poIDsBySKU backs ListPurchaseOrderIDsReceivedBySKU, keyed by skuID.
+	poIDsBySKU    map[string][]string
+	poIDsBySKUErr error
 }
 
 func (s *stubLineItemRepo) Create(_ context.Context, li *procurementDomain.PurchaseOrderLineItem) error {
@@ -227,6 +230,12 @@ func (s *stubLineItemRepo) SumByPurchaseOrders(_ context.Context, _ []string) (m
 	}
 	return map[string]int64{}, nil
 }
+func (s *stubLineItemRepo) ListPurchaseOrderIDsReceivedBySKU(_ context.Context, skuID string) ([]string, error) {
+	if s.poIDsBySKUErr != nil {
+		return nil, s.poIDsBySKUErr
+	}
+	return s.poIDsBySKU[skuID], nil
+}
 
 // stubSKURepo implements pms.SKURepository -- FindByCode is exercised by the
 // document-matching pipeline, FindByBarcode by the scanner booking flow,
@@ -275,6 +284,12 @@ func (s *stubSKURepo) ListActive(_ context.Context) ([]pmsDomain.SKU, error) {
 }
 
 func (s *stubSKURepo) UpdateCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+func (s *stubSKURepo) SetManualCostPrice(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+func (s *stubSKURepo) ClearCostPriceOverride(_ context.Context, _ string) error {
 	return nil
 }
 
