@@ -1214,6 +1214,14 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
 
   const isManual = insight.cost_price_source === 'manual'
 
+  // Prefill from the computed cost price when one exists, so overriding it
+  // is a tweak starting from the real value rather than blank re-entry --
+  // only a SKU with no cost basis at all starts empty.
+  useEffect(() => {
+    if (isManual) return
+    setValue(insight.cost_price_available ? (insight.cost_price_minor_units / 100).toFixed(2) : '')
+  }, [skuId, isManual, insight.cost_price_available, insight.cost_price_minor_units])
+
   const handleSet = async () => {
     if (!token || value.trim() === '') return
     setSaving(true)
@@ -1259,7 +1267,9 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
         </div>
       ) : (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] dark:text-gray-500 text-gray-400 shrink-0">Set cost price manually</span>
+          <span className="text-[10px] dark:text-gray-500 text-gray-400 shrink-0">
+            {insight.cost_price_available ? 'Override cost price' : 'Set cost price manually'}
+          </span>
           <input
             type="number" step="0.01" min="0" placeholder={currency}
             value={value} onChange={e => setValue(e.target.value)}
