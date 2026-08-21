@@ -930,8 +930,9 @@ components:
 
     UpdateSKURequest:
       type: object
-      required: [price_minor_units, currency_code, status]
+      required: [sku_code, price_minor_units, currency_code, status]
       properties:
+        sku_code: { type: string, minLength: 1 }
         barcode: { type: string }
         price_minor_units: { type: integer, format: int64, minimum: 0 }
         sale_price_minor_units: { type: integer, format: int64, minimum: 0, nullable: true }

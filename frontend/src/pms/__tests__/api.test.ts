@@ -211,7 +211,7 @@ describe('createSKU', () => {
 describe('updateSKU', () => {
   it('calls correct endpoint', async () => {
     mockFetch(sampleSKU)
-    await api.updateSKU(TOKEN, 's1', { price_minor_units: 2499, currency_code: 'USD', status: 'active' })
+    await api.updateSKU(TOKEN, 's1', { sku_code: 'WID-L', price_minor_units: 2499, currency_code: 'USD', status: 'active' })
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/skus/s1`, expect.objectContaining({ method: 'PATCH' }))
   })
 })

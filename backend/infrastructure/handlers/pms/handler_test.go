@@ -598,6 +598,24 @@ func TestUpdateSKU_passesTaxClassIdThrough(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "class-2")
 }
 
+func TestUpdateSKU_passesSKUCodeThrough(t *testing.T) {
+	s := &stubs{updateSKU: stubUpdateSKU{out: &pmsDomain.SKU{ID: "s1", SKUCode: "WID-L-NEW", PriceMinorUnits: 2499, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive}}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/skus/s1", map[string]any{
+		"sku_code": "WID-L-NEW", "price_minor_units": 2499, "currency_code": "USD", "status": "active",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "WID-L-NEW", s.updateSKU.gotInput.SKUCode)
+	assert.Contains(t, w.Body.String(), "WID-L-NEW")
+}
+
+func TestUpdateSKU_duplicateSKUCodeReturns409(t *testing.T) {
+	s := &stubs{updateSKU: stubUpdateSKU{err: pmsDomain.ErrDuplicateSKUCode}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/skus/s1", map[string]any{
+		"sku_code": "TAKEN", "price_minor_units": 2499, "currency_code": "USD", "status": "active",
+	})
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
 func TestDeleteSKU_notFound(t *testing.T) {
 	s := &stubs{deleteSKU: stubDeleteSKU{err: pmsDomain.ErrSKUNotFound}}
 	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/missing", nil)

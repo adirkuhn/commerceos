@@ -1409,3 +1409,28 @@ describe('Margin insight shows both markup and profit, with and without BTW', ()
     expect(screen.getByText(/Incl\. BTW: USD 4\.50 \(36\.0% margin \/ 56\.3% markup\)/)).toBeInTheDocument()
   })
 })
+
+describe('editing SKU code on an already-saved SKU', () => {
+  // Regression: UpdateSKUPayload had no sku_code field at all, so every
+  // save site (this form included) silently dropped whatever the user
+  // typed into the SKU code input -- most visible right after duplicating
+  // a product, since the auto-generated "<code>-COPY" is exactly what a
+  // user wants to replace immediately.
+  it('sends the edited SKU code on save', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(product())
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue({ ...baseSku, sku_code: 'NEW-CODE' })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    const skuCodeInput = await screen.findByDisplayValue('TSHIRT-1')
+    await userEvent.clear(skuCodeInput)
+    await userEvent.type(skuCodeInput, 'NEW-CODE')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      sku_code: 'NEW-CODE',
+    })))
+  })
+})

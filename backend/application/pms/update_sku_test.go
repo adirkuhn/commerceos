@@ -41,6 +41,53 @@ func TestUpdateSKU_persistsTaxClassID(t *testing.T) {
 	require.Equal(t, "class-2", *sku.TaxClassID)
 }
 
+func TestUpdateSKU_renamesSKUCode(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "OLD-CODE"}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", SKUCode: "NEW-CODE", PriceMinorUnits: 100, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "NEW-CODE", sku.SKUCode)
+	require.NotNil(t, skuRepo.updated)
+	require.Equal(t, "NEW-CODE", skuRepo.updated.SKUCode)
+	require.Equal(t, "NEW-CODE", skuRepo.gotCode, "must check the new code for a collision")
+}
+
+func TestUpdateSKU_rejectsRenameToACodeAlreadyUsedByAnotherSKU(t *testing.T) {
+	skuRepo := &stubSKURepo{
+		findByIDResult:   &pmsDomain.SKU{ID: "sku-1", SKUCode: "OLD-CODE"},
+		findByCodeResult: &pmsDomain.SKU{ID: "sku-2", SKUCode: "TAKEN-CODE"},
+	}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", SKUCode: "TAKEN-CODE", PriceMinorUnits: 100, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrDuplicateSKUCode))
+	require.Nil(t, skuRepo.updated, "must not persist when the new code collides with another SKU")
+}
+
+func TestUpdateSKU_reSavingTheSameCodeSkipsTheCollisionCheck(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", SKUCode: "SAME-CODE"}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.UpdateSKUInput{
+		ID: "sku-1", SKUCode: "SAME-CODE", PriceMinorUnits: 100, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "SAME-CODE", sku.SKUCode)
+	require.Equal(t, "", skuRepo.gotCode, "unchanged code must not even trigger a FindByCode lookup")
+}
+
 func TestUpdateSKU_allowsVirtualSKUWithoutDimensions(t *testing.T) {
 	skuRepo := &stubSKURepo{}
 	variantRepo := &stubVariantRepo{}

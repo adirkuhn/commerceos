@@ -552,6 +552,7 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 	}
 	sku, err := h.updateSKU.Execute(c.Request.Context(), apppms.UpdateSKUInput{
 		ID:                  id,
+		SKUCode:             req.SkuCode,
 		Barcode:             barcode,
 		PriceMinorUnits:     req.PriceMinorUnits,
 		SalePriceMinorUnits: req.SalePriceMinorUnits,

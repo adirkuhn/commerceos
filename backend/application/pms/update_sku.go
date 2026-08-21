@@ -2,6 +2,7 @@ package pms
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 type UpdateSKUInput struct {
 	ID                  string
+	SKUCode             string
 	Barcode             string
 	PriceMinorUnits     int64
 	SalePriceMinorUnits *int64
@@ -44,9 +46,10 @@ func NewUpdateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, s
 	return &UpdateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, outboxRepo: outboxRepo}
 }
 
-// Execute updates price/barcode/currency/status. SKUCode is deliberately
-// not editable here — it's the stable external identifier; changing it is
-// effectively a different SKU (delete + create).
+// Execute updates every editable SKU field, including SKUCode -- guarded
+// by the same per-tenant uniqueness check CreateSKUUseCase applies
+// (ErrDuplicateSKUCode), skipped when the code is unchanged so a SKU
+// re-saving its own current code doesn't collide with itself.
 func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pmsDomain.SKU, error) {
 	if in.UnitType == "" {
 		in.UnitType = pmsDomain.SKUUnitTypeUnit
@@ -78,6 +81,15 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		if err != nil {
 			return err
 		}
+		if in.SKUCode != existing.SKUCode {
+			other, err := uc.skuRepo.FindByCode(ctx, in.SKUCode)
+			if err == nil && other.ID != in.ID {
+				return pmsDomain.ErrDuplicateSKUCode
+			}
+			if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+				return err
+			}
+		}
 		if in.CaseOfSKUID != nil {
 			if err := validateCaseOfSKU(ctx, uc.skuRepo, in.ID, *in.CaseOfSKUID); err != nil {
 				return err
@@ -88,6 +100,7 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 				return err
 			}
 		}
+		existing.SKUCode = in.SKUCode
 		existing.Barcode = in.Barcode
 		existing.PriceMinorUnits = in.PriceMinorUnits
 		existing.SalePriceMinorUnits = in.SalePriceMinorUnits

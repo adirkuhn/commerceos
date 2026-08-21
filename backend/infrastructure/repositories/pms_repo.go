@@ -776,6 +776,7 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 	}
 	if err := tx.Model(&skuModel{}).Where("id = ?", s.ID).
 		Updates(map[string]any{
+			"sku_code":               s.SKUCode,
 			"barcode":                s.Barcode,
 			"price_minor_units":      s.PriceMinorUnits,
 			"sale_price_minor_units": s.SalePriceMinorUnits,
@@ -798,8 +799,13 @@ func (r *SKURepo) Update(ctx context.Context, s *pmsDomain.SKU) error {
 			"updated_at":             s.UpdatedAt,
 		}).Error; err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.ConstraintName == "skus_tenant_barcode_idx" {
-			return pmsDomain.ErrDuplicateBarcode
+		if errors.As(err, &pgErr) {
+			switch pgErr.ConstraintName {
+			case "skus_tenant_barcode_idx":
+				return pmsDomain.ErrDuplicateBarcode
+			case "skus_tenant_id_sku_code_key":
+				return pmsDomain.ErrDuplicateSKUCode
+			}
 		}
 		return fmt.Errorf("skuRepo.Update: %w", err)
 	}

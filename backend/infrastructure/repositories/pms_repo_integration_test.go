@@ -675,6 +675,73 @@ func TestSKURepo_Integration_UpdateCostPriceIsIndependentOfUpdate(t *testing.T) 
 	require.Equal(t, int64(700), *fetched.CostPriceMinorUnits)
 }
 
+// TestSKURepo_Integration_UpdateRenamesSKUCodeAndEnforcesUniqueness proves
+// SKUCode round-trips through Update against real Postgres (the repo's
+// column map used to omit it entirely), and that the DB's own
+// (tenant_id, sku_code) unique constraint still backstops the app-level
+// check -- surfacing as ErrDuplicateSKUCode, not a raw Postgres error.
+func TestSKURepo_Integration_UpdateRenamesSKUCodeAndEnforcesUniqueness(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	var skuAID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Widget", Slug: "widget-sku-rename", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		skuA := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "WID-RENAME-A", PriceMinorUnits: 1000, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, skuA); err != nil {
+			return err
+		}
+		skuAID = skuA.ID
+		skuB := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "WID-RENAME-B", PriceMinorUnits: 1000, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		return skuRepo.Create(ctx, skuB)
+	})
+	require.NoError(t, err)
+
+	// Rename actually persists.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		skuA, err := skuRepo.FindByID(ctx, skuAID)
+		if err != nil {
+			return err
+		}
+		skuA.SKUCode = "WID-RENAME-A2"
+		return skuRepo.Update(ctx, skuA)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		fetched, err := skuRepo.FindByID(ctx, skuAID)
+		if err != nil {
+			return err
+		}
+		require.Equal(t, "WID-RENAME-A2", fetched.SKUCode)
+		return nil
+	})
+	require.NoError(t, err)
+
+	// The DB constraint itself rejects a collision that somehow bypassed
+	// the app-level check, mapped to the typed domain error.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		skuA, err := skuRepo.FindByID(ctx, skuAID)
+		if err != nil {
+			return err
+		}
+		skuA.SKUCode = "WID-RENAME-B"
+		return skuRepo.Update(ctx, skuA)
+	})
+	require.ErrorIs(t, err, pmsDomain.ErrDuplicateSKUCode)
+}
+
 // TestCategoryRepo_Integration_TargetMarkupBasisPointsRoundTripsAndClears
 // proves the category markup override persists and can be cleared back to
 // nil (falls back to the tenant default -- see

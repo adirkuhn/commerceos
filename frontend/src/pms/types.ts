@@ -234,6 +234,7 @@ export interface CreateSKUPayload {
 }
 
 export interface UpdateSKUPayload {
+  sku_code: string
   barcode?: string
   price_minor_units: number
   sale_price_minor_units?: number | null

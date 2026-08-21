@@ -262,6 +262,7 @@ function InventorySKUScreen({ token, sku, productName, onSKUUpdated, onBack }: {
     setPriceError('')
     try {
       const updated = await pmsApi.updateSKU(token, sku.id, {
+        sku_code: sku.sku_code,
         barcode: sku.barcode ?? undefined,
         price_minor_units: parsePriceToMinorUnits(price),
         sale_price_minor_units: salePrice.trim() === '' ? null : parsePriceToMinorUnits(salePrice),

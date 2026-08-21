@@ -503,6 +503,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
           const currentSku = singleVariant.skus?.[0]
           if (currentSku) {
             await detail.updateSKU(currentSku.id, {
+              sku_code: skuCode,
               barcode: barcode || undefined,
               price_minor_units: parsePriceToMinorUnits(price),
               sale_price_minor_units: parseOptionalPriceToMinorUnits(salePrice),
@@ -1972,6 +1973,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
     setBulkSaving(true)
     try {
       await detail.updateSKU(sku.id, {
+        sku_code: sku.sku_code,
         barcode: sku.barcode ?? undefined,
         price_minor_units: sku.price_minor_units,
         sale_price_minor_units: sku.sale_price_minor_units,
