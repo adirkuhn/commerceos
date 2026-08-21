@@ -18,6 +18,7 @@ export type NavItem =
   | 'reports'
   | 'users'
   | 'settings'
+  | 'scheduled-jobs'
 
 export type ThemeMode = 'dark' | 'light'
 

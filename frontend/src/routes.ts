@@ -20,6 +20,7 @@ import UnmatchedSkus from './pages/UnmatchedSkus'
 import Shipping from './pages/Shipping'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import ScheduledJobs from './pages/ScheduledJobs'
 
 export interface PageRoute {
   nav: NavItem
@@ -51,6 +52,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'reports', path: '/reports', Component: Reports },
   { nav: 'users', path: '/users', Component: Users },
   { nav: 'settings', path: '/settings', Component: Settings },
+  { nav: 'scheduled-jobs', path: '/scheduled-jobs', Component: ScheduledJobs },
 ]
 
 const NAV_TO_PATH = Object.fromEntries(

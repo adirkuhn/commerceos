@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  ShoppingCart, Users, AlertTriangle, PackageSearch,
+  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock,
   // ScanBarcode,
   // BarChart3,
   ChevronRight, Zap,
@@ -41,6 +41,14 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
+// SUPER_ADMIN_NAV_ITEMS are cross-tenant platform-operational pages --
+// visible only to the super_admin role (matches the backend's
+// middleware.RequireRole(RoleSuperAdmin) gate on their APIs), never shown
+// to a regular tenant user.
+const SUPER_ADMIN_NAV_ITEMS: NavEntry[] = [
+  { id: 'scheduled-jobs', label: 'Scheduled Jobs', icon: Clock },
+]
+
 const BADGE_COLORS: Record<string, string> = {
   red: 'bg-red-500/20 text-red-400',
   blue: 'bg-blue-500/20 text-blue-400',
@@ -55,7 +63,7 @@ export default function Sidebar() {
   // not the current page's item count, now that products are paginated.
   const { total } = useProducts(token ?? '', { page: 1, perPage: 1 })
 
-  const navItems = NAV_ITEMS.map(item =>
+  const navItems = [...NAV_ITEMS, ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : [])].map(item =>
     item.id === 'products' && total > 0
       ? { ...item, badge: total }
       : item,
