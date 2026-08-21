@@ -28,7 +28,7 @@ func (h *harness) newSyncUseCaseWithPusher(t *testing.T, n int, pusher *stubProd
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 }
 
@@ -110,6 +110,33 @@ func TestSyncProductToChannels_pushesUpdatedBarcodeAsGTIN(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, h.wooClient.updateProductCalled, 1)
 	require.Equal(t, "0012345678905", h.wooClient.updateProductCalled[0].Product.GTIN)
+}
+
+// TestSyncProductToChannels_setsWooCategoryWhenLinkResolves proves a
+// product's category is resolved and pushed on every re-sync, not just the
+// initial push -- the same categoryLinkResolver PushProductToWooUseCase
+// uses.
+func TestSyncProductToChannels_setsWooCategoryWhenLinkResolves(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	categoryID := "cat-1"
+	product.CategoryID = &categoryID
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 4), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{externalID: "20"},
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1)
+	require.Equal(t, []integrationsDomain.WooProductCategory{{ExternalID: "20"}}, h.wooClient.updateProductCalled[0].Product.Categories)
 }
 
 // TestSyncProductToChannels_syncsSalePriceExpiry proves the actual path

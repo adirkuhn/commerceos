@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, FetchWooOrderResult } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -50,6 +50,30 @@ export function testConnection(token: string, id: string): Promise<Connection> {
 
 export function listWooTaxes(token: string, connectionId: string): Promise<WooTaxClass[]> {
   return request<WooTaxClass[]>(`${base()}/connections/${connectionId}/woo-taxes`, { method: 'GET' }, token)
+}
+
+export function listWooCategories(token: string, connectionId: string): Promise<WooCategory[]> {
+  return request<WooCategory[]>(`${base()}/connections/${connectionId}/woo-categories`, { method: 'GET' }, token)
+}
+
+export function listExternalCategoryLinks(token: string, connectionId: string): Promise<ExternalCategoryLink[]> {
+  return request<ExternalCategoryLink[]>(`${base()}/connections/${connectionId}/category-links`, { method: 'GET' }, token)
+}
+
+export function upsertExternalCategoryLink(
+  token: string,
+  connectionId: string,
+  payload: { external_id: string; category_id: string },
+): Promise<ExternalCategoryLink> {
+  return request<ExternalCategoryLink>(
+    `${base()}/connections/${connectionId}/category-links`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    token,
+  )
+}
+
+export function deleteExternalCategoryLink(token: string, connectionId: string, linkId: string): Promise<null> {
+  return request<null>(`${base()}/connections/${connectionId}/category-links/${linkId}`, { method: 'DELETE' }, token)
 }
 
 export interface ManualConnectWooCommercePayload {

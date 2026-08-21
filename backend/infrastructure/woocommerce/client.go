@@ -329,6 +329,7 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 		TaxClass:       p.TaxClass,
 		MetaData:       toWcMetaData(p.MetaData),
 		Images:         toWcImages(p.Images),
+		Categories:     toWcCategories(p.Categories),
 	})
 	if err != nil {
 		return nil, err
@@ -345,6 +346,7 @@ func (c *wooClient) CreateVariableProduct(ctx context.Context, p integrationsDom
 		Description: p.Description,
 		Virtual:     p.Virtual,
 		Images:      toWcImages(p.Images),
+		Categories:  toWcCategories(p.Categories),
 		Attributes: []wc.ProductAttributes{
 			{Name: attributeName, Variation: true, Visible: true, Options: attributeValues},
 		},
@@ -532,6 +534,27 @@ func toWcImages(images []integrationsDomain.WooProductImage) []wc.Image {
 	return out
 }
 
+// toWcCategories is the push-direction inverse of toWooProduct's category
+// mapping -- Woo's write API only ever looks at a category's numeric id
+// (name/slug are read-direction/display only, ignored on write), so only
+// ID is set. A CommerceOS category with no resolved Woo id (see
+// application/channels.ResolveCategoryLinkUseCase) never reaches here --
+// callers only append entries once they have a real ExternalID.
+func toWcCategories(categories []integrationsDomain.WooProductCategory) []wc.ProductCategory {
+	if len(categories) == 0 {
+		return nil
+	}
+	out := make([]wc.ProductCategory, 0, len(categories))
+	for _, cat := range categories {
+		id, err := strconv.Atoi(cat.ExternalID)
+		if err != nil {
+			continue
+		}
+		out = append(out, wc.ProductCategory{ID: id})
+	}
+	return out
+}
+
 func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
 	var dims *wc.ProductDimensions
 	if p.Dimensions.Length != "" || p.Dimensions.Width != "" || p.Dimensions.Height != "" {
@@ -554,6 +577,7 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		TaxClass:       p.TaxClass,
 		MetaData:       toWcMetaData(p.MetaData),
 		Images:         toWcImages(p.Images),
+		Categories:     toWcCategories(p.Categories),
 	})
 	if err != nil {
 		return nil, err

@@ -57,6 +57,7 @@ var (
 	// ErrEnrollmentCategoryRequired/ErrEnrollmentTagRequired guard
 	// EnrollmentModeCategory/EnrollmentModeTag against being set with no
 	// category/tag to match against.
-	ErrEnrollmentCategoryRequired = errors.New("a category is required for category-based enrollment")
-	ErrEnrollmentTagRequired      = errors.New("a tag is required for tag-based enrollment")
+	ErrEnrollmentCategoryRequired   = errors.New("a category is required for category-based enrollment")
+	ErrEnrollmentTagRequired        = errors.New("a tag is required for tag-based enrollment")
+	ErrExternalCategoryLinkNotFound = errors.New("external category link not found")
 )

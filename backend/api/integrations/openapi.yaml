@@ -246,6 +246,82 @@ paths:
         '502':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/woo-categories:
+    get:
+      operationId: listWooCategories
+      summary: List the categories configured in this connection's live WooCommerce store (read-only, not persisted)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WooCategoryListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/category-links:
+    get:
+      operationId: listExternalCategoryLinks
+      summary: List this connection's CommerceOS-category -> Woo-category links (auto-matched on push, or set manually here)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalCategoryLinkListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: upsertExternalCategoryLink
+      summary: Create or repoint a category link for this connection
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertExternalCategoryLinkRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalCategoryLinkResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/category-links/{linkId}:
+    delete:
+      operationId: deleteExternalCategoryLink
+      summary: Remove a category link
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/linkId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { nullable: true }
+                  error: { nullable: true }
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/test:
     post:
       operationId: testConnection
@@ -621,6 +697,13 @@ components:
       schema:
         type: string
 
+    linkId:
+      name: linkId
+      in: path
+      required: true
+      schema:
+        type: string
+
   responses:
     Error:
       description: error
@@ -894,6 +977,57 @@ components:
           items:
             $ref: '#/components/schemas/WooTaxClass'
         error: { nullable: true }
+
+    WooCategory:
+      type: object
+      required: [external_id, name, slug]
+      properties:
+        external_id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+
+    WooCategoryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WooCategory'
+        error: { nullable: true }
+
+    ExternalCategoryLink:
+      type: object
+      required: [id, connection_id, provider, external_id, category_id, created_at, updated_at]
+      properties:
+        id: { type: string }
+        connection_id: { type: string }
+        provider: { type: string }
+        external_id: { type: string }
+        category_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ExternalCategoryLinkListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalCategoryLink'
+        error: { nullable: true }
+
+    ExternalCategoryLinkResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ExternalCategoryLink' }
+        error: { nullable: true }
+
+    UpsertExternalCategoryLinkRequest:
+      type: object
+      required: [external_id, category_id]
+      properties:
+        external_id: { type: string }
+        category_id: { type: string }
 
     PushProductToWooRequest:
       type: object

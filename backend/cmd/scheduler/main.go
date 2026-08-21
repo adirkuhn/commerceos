@@ -154,9 +154,11 @@ func main() {
 		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
 	}
 	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners)
+	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
+	resolveCategoryLinkUC := channelsapp.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
 	pushUC := channelsapp.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo,
+		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,
 	)
 	taxClassRepo := repositories.NewTaxClassRepo(db)
 	taxRateRepo := repositories.NewTaxRateRepo(db)
@@ -195,7 +197,7 @@ func main() {
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC,
 	)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)

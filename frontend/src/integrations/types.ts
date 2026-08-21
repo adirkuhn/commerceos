@@ -3,6 +3,22 @@ export interface WooTaxClass {
   label: string
 }
 
+export interface WooCategory {
+  external_id: string
+  name: string
+  slug: string
+}
+
+export interface ExternalCategoryLink {
+  id: string
+  connection_id: string
+  provider: string
+  external_id: string
+  category_id: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Connection {
   id: string
   provider: string

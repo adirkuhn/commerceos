@@ -19,6 +19,14 @@ vi.mock('../../integrations/api', () => ({
   connectAIProvider: vi.fn(),
   disconnectAIProvider: vi.fn(),
   listWooTaxes: vi.fn(),
+  listWooCategories: vi.fn(),
+  listExternalCategoryLinks: vi.fn(),
+  upsertExternalCategoryLink: vi.fn(),
+  deleteExternalCategoryLink: vi.fn(),
+}))
+
+vi.mock('../../pms/api', () => ({
+  listCategories: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -50,6 +58,7 @@ import * as integrationsApi from '../../integrations/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
+import * as pmsApi from '../../pms/api'
 import { subscribeProductsChanged } from '../../pms/productsBus'
 
 function wooConnection(overrides: Partial<Connection> = {}): Connection {
@@ -70,6 +79,9 @@ beforeEach(() => {
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
   vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([])
+  vi.mocked(integrationsApi.listWooCategories).mockResolvedValue([])
+  vi.mocked(integrationsApi.listExternalCategoryLinks).mockResolvedValue([])
+  vi.mocked(pmsApi.listCategories).mockResolvedValue([])
 })
 
 async function openLocalizationSection() {
@@ -220,6 +232,84 @@ describe('Settings > Integrations > WooCommerce > Taxes tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove link' }))
 
     await waitFor(() => expect(taxApi.deleteExternalTaxClassLink).toHaveBeenCalledWith('test-token', 'link-1'))
+  })
+})
+
+describe('Settings > Integrations > WooCommerce > Categories tab', () => {
+  function category(overrides: Partial<import('../../pms/types').Category> = {}): import('../../pms/types').Category {
+    return { id: 'cat-1', tenant_id: 'tenant-1', name: 'Beverages', slug: 'beverages', position: 0, created_at: '', updated_at: '', ...overrides }
+  }
+
+  function wooCategory(overrides: Partial<import('../../integrations/types').WooCategory> = {}): import('../../integrations/types').WooCategory {
+    return { external_id: '20', name: 'Beverages', slug: 'beverages', ...overrides }
+  }
+
+  function externalCategoryLink(overrides: Partial<import('../../integrations/types').ExternalCategoryLink> = {}): import('../../integrations/types').ExternalCategoryLink {
+    return { id: 'link-1', connection_id: 'conn-1', provider: 'woocommerce', external_id: '20', category_id: 'cat-1', created_at: '', updated_at: '', ...overrides }
+  }
+
+  async function openWooCategoriesTab() {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Categories' }))
+  }
+
+  it('lists category links with category name and linked Woo category name', async () => {
+    vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
+    vi.mocked(integrationsApi.listExternalCategoryLinks).mockResolvedValue([externalCategoryLink()])
+
+    await openWooCategoriesTab()
+
+    expect(await screen.findByText('Beverages', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Linked Woo category')).toHaveValue('20')
+  })
+
+  it('repointing a link calls upsertExternalCategoryLink', async () => {
+    vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
+    vi.mocked(integrationsApi.listExternalCategoryLinks).mockResolvedValue([externalCategoryLink()])
+    vi.mocked(integrationsApi.listWooCategories).mockResolvedValue([wooCategory(), wooCategory({ external_id: '30', name: 'Snacks', slug: 'snacks' })])
+    vi.mocked(integrationsApi.upsertExternalCategoryLink).mockResolvedValue(externalCategoryLink({ external_id: '30' }))
+
+    await openWooCategoriesTab()
+    await screen.findByText('Beverages', { selector: 'span' })
+
+    await userEvent.selectOptions(screen.getByLabelText('Linked Woo category'), '30')
+
+    await waitFor(() => expect(integrationsApi.upsertExternalCategoryLink).toHaveBeenCalledWith('test-token', 'conn-1', {
+      external_id: '30', category_id: 'cat-1',
+    }))
+  })
+
+  it('adding a link calls upsertExternalCategoryLink', async () => {
+    vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
+    vi.mocked(integrationsApi.listWooCategories).mockResolvedValue([wooCategory()])
+    vi.mocked(integrationsApi.upsertExternalCategoryLink).mockResolvedValue(externalCategoryLink())
+
+    await openWooCategoriesTab()
+    const wooSelect = await screen.findByLabelText('Woo category')
+    await waitFor(() => expect(wooSelect).not.toBeDisabled())
+
+    await userEvent.selectOptions(screen.getByLabelText('Category'), 'cat-1')
+    await userEvent.selectOptions(wooSelect, '20')
+    await userEvent.click(screen.getByRole('button', { name: 'Add link' }))
+
+    await waitFor(() => expect(integrationsApi.upsertExternalCategoryLink).toHaveBeenCalledWith('test-token', 'conn-1', {
+      external_id: '20', category_id: 'cat-1',
+    }))
+  })
+
+  it('removing a link calls deleteExternalCategoryLink', async () => {
+    vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
+    vi.mocked(integrationsApi.listExternalCategoryLinks).mockResolvedValue([externalCategoryLink()])
+
+    await openWooCategoriesTab()
+    await screen.findByText('Beverages', { selector: 'span' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove link' }))
+
+    await waitFor(() => expect(integrationsApi.deleteExternalCategoryLink).toHaveBeenCalledWith('test-token', 'conn-1', 'link-1'))
   })
 })
 

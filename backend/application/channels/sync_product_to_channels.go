@@ -76,17 +76,18 @@ func desiredShape(product pmsDomain.Product) listingShape {
 // schedule's job (ExportWooStockLevelsUseCase); duplicating it here would
 // just mean two code paths racing to set the same field.
 type SyncProductToChannelsUseCase struct {
-	db          *gorm.DB
-	productRepo pmsDomain.ProductRepository
-	variantRepo pmsDomain.VariantRepository
-	skuRepo     pmsDomain.SKURepository
-	listingRepo channelsDomain.ProductChannelListingRepository
-	syncLogRepo channelsDomain.SyncLogRepository
-	connRepo    integrationsDomain.ConnectionRepository
-	wooFactory  integrationsDomain.WooClientFactory
-	encSecret   string
-	pusher      productPusher
-	mediaRepo   productMediaLister
+	db           *gorm.DB
+	productRepo  pmsDomain.ProductRepository
+	variantRepo  pmsDomain.VariantRepository
+	skuRepo      pmsDomain.SKURepository
+	listingRepo  channelsDomain.ProductChannelListingRepository
+	syncLogRepo  channelsDomain.SyncLogRepository
+	connRepo     integrationsDomain.ConnectionRepository
+	wooFactory   integrationsDomain.WooClientFactory
+	encSecret    string
+	pusher       productPusher
+	mediaRepo    productMediaLister
+	categoryLink categoryLinkResolver
 }
 
 func NewSyncProductToChannelsUseCase(
@@ -101,12 +102,13 @@ func NewSyncProductToChannelsUseCase(
 	encryptionSecret string,
 	pusher productPusher,
 	mediaRepo productMediaLister,
+	categoryLink categoryLinkResolver,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
 		db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, pusher: pusher,
-		mediaRepo: mediaRepo,
+		mediaRepo: mediaRepo, categoryLink: categoryLink,
 	}
 }
 
@@ -288,7 +290,7 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 		present[v.ID] = true
 
 		name := fmt.Sprintf("%s - %s", product.Name, v.Name)
-		wooProduct := uc.buildWooProduct(ctx, client, product, sku, name, images)
+		wooProduct := uc.buildWooProduct(ctx, client, connectionID, product, sku, name, images)
 
 		l, existed := listingByVariant[v.ID]
 		if !existed {
@@ -342,8 +344,9 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 
 	parentProduct := integrationsDomain.WooProduct{
 		Name: product.Name, Description: product.Description,
-		Status: MapCommerceStatusToWoo(product.Status),
-		Images: images,
+		Status:     MapCommerceStatusToWoo(product.Status),
+		Images:     images,
+		Categories: uc.resolveCategoryForWoo(ctx, client, connectionID, product.CategoryID),
 	}
 	if _, err := client.UpdateProduct(ctx, parentListing.ExternalID, parentProduct); err != nil {
 		log.Printf("syncProductToChannels: updating parent product %s: %v", parentListing.ExternalID, err)
@@ -456,7 +459,7 @@ func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pms
 		log.Printf("syncProductToChannels: product %s -> connection %s: %v", product.ID, listing.ConnectionID, err)
 		return
 	}
-	wooProduct := uc.buildWooProduct(ctx, client, product, sku, product.Name, images)
+	wooProduct := uc.buildWooProduct(ctx, client, listing.ConnectionID, product, sku, product.Name, images)
 	fields := wooProductToFields(wooProduct)
 	_, updateErr := client.UpdateProduct(ctx, listing.ExternalID, wooProduct)
 	var wrapped error
@@ -466,7 +469,7 @@ func (uc *SyncProductToChannelsUseCase) syncOne(ctx context.Context, product pms
 	uc.recordSyncResult(ctx, listing, wrapped, fields)
 }
 
-func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, sku pmsDomain.SKU, name string, images []integrationsDomain.WooProductImage) integrationsDomain.WooProduct {
+func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, client integrationsDomain.WooClient, connectionID string, product pmsDomain.Product, sku pmsDomain.SKU, name string, images []integrationsDomain.WooProductImage) integrationsDomain.WooProduct {
 	salePrice, saleEndDate := WooSaleFields(sku)
 	wooProduct := integrationsDomain.WooProduct{
 		Name: name, Description: product.Description,
@@ -477,11 +480,25 @@ func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, cli
 		SaleEndDate:  saleEndDate,
 		Virtual:      sku.IsVirtual,
 		Images:       images,
+		Categories:   uc.resolveCategoryForWoo(ctx, client, connectionID, product.CategoryID),
 	}
 	if !sku.IsVirtual {
 		applyWeightAndDimensions(ctx, client, sku, &wooProduct.Weight, &wooProduct.Dimensions)
 	}
 	return wooProduct
+}
+
+// resolveCategoryForWoo mirrors PushProductToWooUseCase's helper of the
+// same name -- see its doc comment.
+func (uc *SyncProductToChannelsUseCase) resolveCategoryForWoo(ctx context.Context, client integrationsDomain.WooClient, connectionID string, categoryID *string) []integrationsDomain.WooProductCategory {
+	if categoryID == nil {
+		return nil
+	}
+	externalID, err := uc.categoryLink.Execute(ctx, client, connectionID, *categoryID)
+	if err != nil || externalID == "" {
+		return nil
+	}
+	return []integrationsDomain.WooProductCategory{{ExternalID: externalID}}
 }
 
 // applyWeightAndDimensions needs the store's configured unit to convert

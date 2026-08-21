@@ -116,6 +116,18 @@ type listSalesChannelProductsUC interface {
 type setProductChannelOverrideUC interface {
 	Execute(ctx context.Context, in appchannels.SetProductChannelOverrideInput) (*channelsDomain.SalesChannelProductOverride, error)
 }
+type listWooCategoriesUC interface {
+	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.WooCategory, error)
+}
+type listExternalCategoryLinksUC interface {
+	Execute(ctx context.Context, connectionID string) ([]channelsDomain.ExternalCategoryLink, error)
+}
+type upsertExternalCategoryLinkUC interface {
+	Execute(ctx context.Context, in appchannels.UpsertExternalCategoryLinkInput) (*channelsDomain.ExternalCategoryLink, error)
+}
+type deleteExternalCategoryLinkUC interface {
+	Execute(ctx context.Context, id string) error
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -150,6 +162,10 @@ type Handler struct {
 	listSalesChannelProducts     listSalesChannelProductsUC
 	setProductChannelOverride    setProductChannelOverrideUC
 	fetchWooOrder                fetchWooOrderUC
+	listWooCategories            listWooCategoriesUC
+	listExternalCategoryLinks    listExternalCategoryLinksUC
+	upsertExternalCategoryLink   upsertExternalCategoryLinkUC
+	deleteExternalCategoryLink   deleteExternalCategoryLinkUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -184,6 +200,10 @@ func NewHandler(
 	listSalesChannelProducts listSalesChannelProductsUC,
 	setProductChannelOverride setProductChannelOverrideUC,
 	fetchWooOrder fetchWooOrderUC,
+	listWooCategories listWooCategoriesUC,
+	listExternalCategoryLinks listExternalCategoryLinksUC,
+	upsertExternalCategoryLink upsertExternalCategoryLinkUC,
+	deleteExternalCategoryLink deleteExternalCategoryLinkUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -216,6 +236,10 @@ func NewHandler(
 		listSalesChannelProducts:     listSalesChannelProducts,
 		setProductChannelOverride:    setProductChannelOverride,
 		fetchWooOrder:                fetchWooOrder,
+		listWooCategories:            listWooCategories,
+		listExternalCategoryLinks:    listExternalCategoryLinks,
+		upsertExternalCategoryLink:   upsertExternalCategoryLink,
+		deleteExternalCategoryLink:   deleteExternalCategoryLink,
 	}
 }
 
@@ -281,14 +305,17 @@ func Register(
 	)
 
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))
+	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
+	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo,
 		stockLevelUC,
 		mediaRepo,
+		resolveCategoryLinkUC,
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC,
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
@@ -330,6 +357,10 @@ func Register(
 		appchannels.NewListProductsWithChannelEnrollmentUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo),
 		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo),
 		fetchWooOrderUC,
+		appintegrations.NewListWooCategoriesUseCase(db, connRepo, wooFactory, encryptionSecret),
+		appchannels.NewListExternalCategoryLinksUseCase(db, categoryLinkRepo),
+		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo),
+		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -462,6 +493,61 @@ func (h *Handler) ListWooTaxes(c *gin.Context, id genintegrations.Id) {
 		resp[i] = genintegrations.WooTaxClass{Slug: o.Slug, Label: o.Label}
 	}
 	middleware.OK(c, resp)
+}
+
+func (h *Handler) ListWooCategories(c *gin.Context, id genintegrations.Id) {
+	categories, err := h.listWooCategories.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.WooCategory, len(categories))
+	for i, cat := range categories {
+		resp[i] = genintegrations.WooCategory{ExternalId: cat.ExternalID, Name: cat.Name, Slug: cat.Slug}
+	}
+	middleware.OK(c, resp)
+}
+
+func (h *Handler) ListExternalCategoryLinks(c *gin.Context, id genintegrations.Id) {
+	links, err := h.listExternalCategoryLinks.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.ExternalCategoryLink, len(links))
+	for i, l := range links {
+		resp[i] = toGenExternalCategoryLink(l)
+	}
+	middleware.OK(c, resp)
+}
+
+func (h *Handler) UpsertExternalCategoryLink(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.UpsertExternalCategoryLinkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	link, err := h.upsertExternalCategoryLink.Execute(c.Request.Context(), appchannels.UpsertExternalCategoryLinkInput{
+		ConnectionID: id, ExternalID: req.ExternalId, CategoryID: req.CategoryId,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenExternalCategoryLink(*link))
+}
+
+func (h *Handler) DeleteExternalCategoryLink(c *gin.Context, id genintegrations.Id, linkId genintegrations.LinkId) {
+	err := h.deleteExternalCategoryLink.Execute(c.Request.Context(), linkId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func toGenExternalCategoryLink(l channelsDomain.ExternalCategoryLink) genintegrations.ExternalCategoryLink {
+	return genintegrations.ExternalCategoryLink{
+		Id: l.ID, ConnectionId: l.ConnectionID, Provider: l.Provider,
+		ExternalId: l.ExternalID, CategoryId: l.CategoryID,
+		CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
+	}
 }
 
 func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id) {
@@ -980,8 +1066,10 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound),
 		errors.Is(err, pmsDomain.ErrProductNotFound),
+		errors.Is(err, pmsDomain.ErrCategoryNotFound),
 		errors.Is(err, channelsDomain.ErrListingNotFound),
 		errors.Is(err, channelsDomain.ErrSalesChannelNotFound),
+		errors.Is(err, channelsDomain.ErrExternalCategoryLinkNotFound),
 		errors.Is(err, channelsDomain.ErrSyncLogNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, channelsDomain.ErrSyncLogHasNoListing):

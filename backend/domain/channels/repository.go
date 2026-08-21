@@ -155,3 +155,20 @@ type ImportJobRepository interface {
 	// requeue itself forever. Returns (requeued, failed).
 	RecoverOrphanedRunning(ctx context.Context, maxRetries int, errMsg string, finishedAt time.Time) (requeued, failed int64, err error)
 }
+
+// ExternalCategoryLinkRepository is upsert-shaped per (ConnectionID,
+// ExternalID) -- same convention as SalesChannelProductOverrideRepository:
+// a repeat auto-match or manual repoint overwrites the prior link for that
+// Woo category rather than accumulating rows.
+type ExternalCategoryLinkRepository interface {
+	Upsert(ctx context.Context, l *ExternalCategoryLink) error
+	FindByConnectionAndExternalID(ctx context.Context, connectionID, externalID string) (*ExternalCategoryLink, error)
+	// FindByConnectionAndCategory answers "does this CommerceOS category
+	// already have a Woo category on this connection" -- the push path's
+	// first lookup, before falling back to a live slug match.
+	FindByConnectionAndCategory(ctx context.Context, connectionID, categoryID string) (*ExternalCategoryLink, error)
+	// ListByConnection powers the Settings mapping UI -- every link for
+	// one connection, newest first.
+	ListByConnection(ctx context.Context, connectionID string) ([]ExternalCategoryLink, error)
+	Delete(ctx context.Context, id string) error
+}

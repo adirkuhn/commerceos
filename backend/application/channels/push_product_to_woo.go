@@ -39,17 +39,18 @@ type variantPush struct {
 }
 
 type PushProductToWooUseCase struct {
-	db          *gorm.DB
-	connRepo    integrationsDomain.ConnectionRepository
-	wooFactory  integrationsDomain.WooClientFactory
-	encSecret   string
-	productRepo pmsDomain.ProductRepository
-	variantRepo pmsDomain.VariantRepository
-	skuRepo     pmsDomain.SKURepository
-	listingRepo channelsDomain.ProductChannelListingRepository
-	syncLogRepo channelsDomain.SyncLogRepository
-	stockLevel  stockLevelGetter
-	mediaRepo   productMediaLister
+	db           *gorm.DB
+	connRepo     integrationsDomain.ConnectionRepository
+	wooFactory   integrationsDomain.WooClientFactory
+	encSecret    string
+	productRepo  pmsDomain.ProductRepository
+	variantRepo  pmsDomain.VariantRepository
+	skuRepo      pmsDomain.SKURepository
+	listingRepo  channelsDomain.ProductChannelListingRepository
+	syncLogRepo  channelsDomain.SyncLogRepository
+	stockLevel   stockLevelGetter
+	mediaRepo    productMediaLister
+	categoryLink categoryLinkResolver
 }
 
 func NewPushProductToWooUseCase(
@@ -64,12 +65,13 @@ func NewPushProductToWooUseCase(
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 	mediaRepo productMediaLister,
+	categoryLink categoryLinkResolver,
 ) *PushProductToWooUseCase {
 	return &PushProductToWooUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
-		mediaRepo: mediaRepo,
+		mediaRepo: mediaRepo, categoryLink: categoryLink,
 	}
 }
 
@@ -199,7 +201,7 @@ func rowVariantID(product pmsDomain.Product, variantID string) *string {
 }
 
 func (uc *PushProductToWooUseCase) pushSingleSKU(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, vp variantPush, in PushProductToWooInput, images []integrationsDomain.WooProductImage) ([]channelsDomain.ProductChannelListing, error) {
-	wooProduct := uc.buildWooProduct(ctx, product, vp.SKU, product.Name, images)
+	wooProduct := uc.buildWooProduct(ctx, client, in.ConnectionID, product, vp.SKU, product.Name, images)
 	created, err := client.CreateProduct(ctx, wooProduct)
 	if err != nil {
 		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
@@ -224,7 +226,7 @@ func (uc *PushProductToWooUseCase) pushSeparateProducts(ctx context.Context, cli
 		}
 
 		name := fmt.Sprintf("%s - %s", product.Name, vp.Variant.Name)
-		wooProduct := uc.buildWooProduct(ctx, product, vp.SKU, name, images)
+		wooProduct := uc.buildWooProduct(ctx, client, in.ConnectionID, product, vp.SKU, name, images)
 		created, err := client.CreateProduct(ctx, wooProduct)
 		if err != nil {
 			return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
@@ -256,8 +258,9 @@ func (uc *PushProductToWooUseCase) pushVariations(ctx context.Context, client in
 		}
 		parentProduct := integrationsDomain.WooProduct{
 			Name: product.Name, Description: product.Description,
-			Status: MapCommerceStatusToWoo(product.Status),
-			Images: images,
+			Status:     MapCommerceStatusToWoo(product.Status),
+			Images:     images,
+			Categories: uc.resolveCategoryForWoo(ctx, client, in.ConnectionID, product.CategoryID),
 		}
 		createdParent, err := client.CreateVariableProduct(ctx, parentProduct, wooVariantAttributeName, attributeValues)
 		if err != nil {
@@ -302,15 +305,16 @@ func (uc *PushProductToWooUseCase) pushVariations(ctx context.Context, client in
 // used for both the single-SKU shape and each row of separate-products
 // mode, which differ only in the name passed in (product name alone vs.
 // "product - variant").
-func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product pmsDomain.Product, sku pmsDomain.SKU, name string, images []integrationsDomain.WooProductImage) integrationsDomain.WooProduct {
+func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, client integrationsDomain.WooClient, connectionID string, product pmsDomain.Product, sku pmsDomain.SKU, name string, images []integrationsDomain.WooProductImage) integrationsDomain.WooProduct {
 	salePrice, saleEndDate := WooSaleFields(sku)
 	wooProduct := integrationsDomain.WooProduct{
 		Name: name, Description: product.Description,
 		Status: MapCommerceStatusToWoo(product.Status),
 		SKU:    sku.SKUCode, GTIN: sku.Barcode, RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
 		SalePrice: salePrice, SaleEndDate: saleEndDate,
-		Virtual: sku.IsVirtual,
-		Images:  images,
+		Virtual:    sku.IsVirtual,
+		Images:     images,
+		Categories: uc.resolveCategoryForWoo(ctx, client, connectionID, product.CategoryID),
 	}
 	// Only round-tripped when this SKU actually came from Woo originally
 	// (WooTaxClassSlug set by ImportWooProductsUseCase) -- a native
@@ -337,6 +341,22 @@ func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, product 
 		}
 	}
 	return wooProduct
+}
+
+// resolveCategoryForWoo returns the single-entry Categories slice Woo's
+// write API expects, or nil when the product has no category or none of
+// this connection's Woo categories match it (see
+// ResolveCategoryLinkUseCase) -- nil leaves the product Uncategorized on
+// Woo's side, same as today, rather than failing the push.
+func (uc *PushProductToWooUseCase) resolveCategoryForWoo(ctx context.Context, client integrationsDomain.WooClient, connectionID string, categoryID *string) []integrationsDomain.WooProductCategory {
+	if categoryID == nil {
+		return nil
+	}
+	externalID, err := uc.categoryLink.Execute(ctx, client, connectionID, *categoryID)
+	if err != nil || externalID == "" {
+		return nil
+	}
+	return []integrationsDomain.WooProductCategory{{ExternalID: externalID}}
 }
 
 // buildWooVariation is buildWooProduct's counterpart for variations mode —

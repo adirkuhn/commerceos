@@ -12,6 +12,7 @@ import (
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -706,4 +707,107 @@ func TestSyncScheduleRepo_Integration_RecordRunResult_CursorAtIsIndependentOfRan
 	require.NotNil(t, schedule.LastRunAt)
 	require.WithinDuration(t, cursorAt, *schedule.LastRunAt, time.Second, "LastRunAt must come from cursorAt, not ranAt")
 	require.WithinDuration(t, ranAt, schedule.UpdatedAt, time.Second, "UpdatedAt must still be wall-clock ranAt")
+}
+
+func TestExternalCategoryLinkRepo_Integration_UpsertFindListDelete(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	categoryRepo := repositories.NewCategoryRepo(db)
+	linkRepo := repositories.NewExternalCategoryLinkRepo(db)
+
+	var categoryID, otherCategoryID, connectionID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenantID, Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL:    integrationsDomain.StoreURL("https://category-link-itest.example.com"),
+			ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := repositories.NewConnectionRepo(db).Create(ctx, conn); err != nil {
+			return err
+		}
+		connectionID = conn.ID
+
+		c := &pmsDomain.Category{TenantID: tenantID, Name: "Beverages", Slug: "beverages-link-test", CreatedAt: now, UpdatedAt: now}
+		if err := categoryRepo.Create(ctx, c); err != nil {
+			return err
+		}
+		categoryID = c.ID
+
+		c2 := &pmsDomain.Category{TenantID: tenantID, Name: "Snacks", Slug: "snacks-link-test", CreatedAt: now, UpdatedAt: now}
+		if err := categoryRepo.Create(ctx, c2); err != nil {
+			return err
+		}
+		otherCategoryID = c2.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var linkID string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		l := channelsDomain.ExternalCategoryLink{
+			TenantID: tenantID, ConnectionID: connectionID, Provider: string(integrationsDomain.ProviderWooCommerce),
+			ExternalID: "20", CategoryID: categoryID, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := linkRepo.Upsert(ctx, &l); err != nil {
+			return err
+		}
+		linkID = l.ID
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, linkID)
+
+	var found *channelsDomain.ExternalCategoryLink
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = linkRepo.FindByConnectionAndExternalID(ctx, connectionID, "20")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, categoryID, found.CategoryID)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = linkRepo.FindByConnectionAndCategory(ctx, connectionID, categoryID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "20", found.ExternalID)
+
+	// Upserting the same (connection, external_id) again repoints the
+	// existing row to a different category -- same row ID, not a duplicate.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		l := channelsDomain.ExternalCategoryLink{
+			TenantID: tenantID, ConnectionID: connectionID, Provider: string(integrationsDomain.ProviderWooCommerce),
+			ExternalID: "20", CategoryID: otherCategoryID, CreatedAt: now, UpdatedAt: now,
+		}
+		return linkRepo.Upsert(ctx, &l)
+	})
+	require.NoError(t, err)
+
+	var listed []channelsDomain.ExternalCategoryLink
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		listed, err = linkRepo.ListByConnection(ctx, connectionID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.Equal(t, linkID, listed[0].ID)
+	require.Equal(t, otherCategoryID, listed[0].CategoryID)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return linkRepo.Delete(ctx, linkID)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := linkRepo.FindByConnectionAndExternalID(ctx, connectionID, "20")
+		return err
+	})
+	require.ErrorIs(t, err, channelsDomain.ErrExternalCategoryLinkNotFound)
 }

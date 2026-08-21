@@ -24,6 +24,18 @@ func (s *stubStockLevelGetter) Execute(_ context.Context, _ string) (*invapp.Sto
 	return s.level, s.err
 }
 
+// stubCategoryLinkResolver defaults to "no match" ("" , nil) -- the vast
+// majority of push tests don't exercise category linking, so a fixed
+// external ID would be a lie for them.
+type stubCategoryLinkResolver struct {
+	externalID string
+	err        error
+}
+
+func (s *stubCategoryLinkResolver) Execute(_ context.Context, _ integrationsDomain.WooClient, _, _ string) (string, error) {
+	return s.externalID, s.err
+}
+
 func simplePhysicalProduct() (pmsDomain.Product, pmsDomain.Variant, pmsDomain.SKU) {
 	product := pmsDomain.Product{
 		ID: "product-1", Name: "T-Shirt", Slug: "t-shirt", Description: "A shirt",
@@ -55,7 +67,7 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -78,6 +90,56 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 	require.Equal(t, 4, *pushed.StockQuantity)
 }
 
+// TestPushProductToWoo_setsWooCategoryWhenLinkResolves proves a product's
+// category is resolved via categoryLinkResolver and set on the pushed Woo
+// product -- the fix for products always landing "Uncategorized" on Woo.
+func TestPushProductToWoo_setsWooCategoryWhenLinkResolves(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	categoryID := "cat-1"
+	product.CategoryID = &categoryID
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 4}}
+	h.wooClient.createdWithID = "555"
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		&stubCategoryLinkResolver{externalID: "20"},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	require.Equal(t, []integrationsDomain.WooProductCategory{{ExternalID: "20"}}, h.wooClient.createCalled[0].Categories)
+}
+
+// TestPushProductToWoo_noCategoryLinkLeavesProductUncategorized proves a
+// product with no category set, or one with no Woo match, is pushed with
+// no Categories -- same "Uncategorized" behavior as before this feature.
+func TestPushProductToWoo_noCategoryLinkLeavesProductUncategorized(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 4}}
+	h.wooClient.createdWithID = "555"
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		&stubCategoryLinkResolver{},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	require.Nil(t, h.wooClient.createCalled[0].Categories)
+}
+
 func TestPushProductToWoo_includesLotMetadataWhenStockLevelHasASourceBatch(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	h := newPushHarness(product, variant, sku)
@@ -90,7 +152,7 @@ func TestPushProductToWoo_includesLotMetadataWhenStockLevelHasASourceBatch(t *te
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -113,7 +175,7 @@ func TestPushProductToWoo_sendsEmptyLotMetadataWhenStockLevelHasNoSourceBatch(t 
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -140,7 +202,7 @@ func TestPushProductToWoo_roundTripsWooTaxClassWhenSKUWasImportedFromWoo(t *test
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -160,7 +222,7 @@ func TestPushProductToWoo_sendsNoTaxClassForANativeSKUNeverImportedFromWoo(t *te
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -185,7 +247,7 @@ func TestPushProductToWoo_pushesSalePriceAndEndDate(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -207,7 +269,7 @@ func TestPushProductToWoo_returnsExistingListingWithoutRepushing(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -233,7 +295,7 @@ func TestPushProductToWoo_rejectsVariantWithoutExactlyOneSKU(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -253,7 +315,7 @@ func TestPushProductToWoo_wrapsWooCreateFailureAsErrWooRequestFailed(t *testing.
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -272,7 +334,7 @@ func TestPushProductToWoo_pushesVirtualProductWithoutStockManagement(t *testing.
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -295,7 +357,7 @@ func TestPushProductToWoo_writesASyncLogEntryForTheNewListing(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{ProductID: product.ID, ConnectionID: "conn-1"})
@@ -319,7 +381,7 @@ func TestPushProductToWoo_doesNotLogWhenAlreadyLinked(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{ProductID: product.ID, ConnectionID: "conn-1"})
@@ -339,7 +401,7 @@ func TestPushProductToWoo_pushesEachVariantAsASeparateSimpleProduct(t *testing.T
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -370,7 +432,7 @@ func TestPushProductToWoo_pushesVariantsAsOneVariableProductWithVariations(t *te
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -417,7 +479,7 @@ func TestPushProductToWoo_variationsMode_onlyCreatesMissingVariations(t *testing
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -456,7 +518,7 @@ func TestPushProductToWoo_excludesBulkPoolVariantFromSeparateProductsPush(t *tes
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -482,7 +544,7 @@ func TestPushProductToWoo_excludesBulkPoolVariantFromVariationsPush(t *testing.T
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -516,7 +578,7 @@ func TestPushProductToWoo_includesProductImageGalleryOnCreate(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -538,7 +600,7 @@ func TestPushProductToWoo_sendsNoImagesWhenProductHasNoMedia(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -563,7 +625,7 @@ func TestPushProductToWoo_separateProductsMode_eachVariantGetsTheSameProductImag
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -592,7 +654,7 @@ func TestPushProductToWoo_variationsMode_onlyTheParentGetsImages(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -613,7 +675,7 @@ func TestPushProductToWoo_pushesBarcodeAsGTIN(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -638,7 +700,7 @@ func TestPushProductToWoo_variationsMode_eachVariationGetsItsOwnGTIN(t *testing.
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 7), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
@@ -660,7 +722,7 @@ func TestPushProductToWoo_rejectsPushWhenOnlyVariantIsBulkPool(t *testing.T) {
 
 	uc := appchannels.NewPushProductToWooUseCase(
 		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
 	)
 
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{

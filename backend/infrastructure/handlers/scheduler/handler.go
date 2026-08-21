@@ -86,11 +86,13 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 		appprocurement.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
+	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
+	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo)
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
-		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo,
+		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC,
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
