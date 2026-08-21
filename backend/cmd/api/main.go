@@ -13,6 +13,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
+	gendashboard "github.com/adirkuhn/commerceos/api/dashboard"
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
@@ -29,6 +30,7 @@ import (
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
+	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
@@ -220,6 +222,20 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	customershandler.Register(customersGroup, db)
+
+	dashboardSpec, err := gendashboard.GetSpec()
+	if err != nil {
+		log.Fatalf("dashboard: load openapi spec: %v", err)
+	}
+	// Own sub-group so the dashboard-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	// Read-only, no RequireRole -- any authenticated role can view their
+	// own tenant's summary figures.
+	dashboardGroup := v1.Group("")
+	dashboardGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(dashboardSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	dashboardhandler.Register(dashboardGroup, db)
 
 	omsSpec, err := genoms.GetSpec()
 	if err != nil {

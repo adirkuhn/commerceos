@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Dashboard API
+  description: >-
+    Tenant-wide summary figures for the admin dashboard screen -- stock on
+    hand, revenue/channel/top-products this month, stock flow over the last
+    7 days. Every figure is a real aggregate over existing data (no mock
+    values); see application/dashboard.GetDashboardStatsUseCase's doc for
+    exactly what each one counts and its currency/status-filtering rules.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      summary: Get the current tenant's dashboard summary figures
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStatsResponse'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    DailyStockFlow:
+      type: object
+      required: [date, in, out]
+      properties:
+        date: { type: string, format: date }
+        in:
+          type: integer
+          format: int64
+          description: Units received that day (sum of positive stock-movement quantity deltas), across every SKU and warehouse.
+        out:
+          type: integer
+          format: int64
+          description: Units shipped/consumed that day (sum of negative deltas, reported as a positive number).
+
+    ChannelRevenue:
+      type: object
+      required: [source, total_minor_units]
+      properties:
+        source:
+          type: string
+          description: Sales order source -- pos, manual, or woocommerce.
+        total_minor_units: { type: integer, format: int64 }
+
+    TopProduct:
+      type: object
+      required: [sku_code, product_name, quantity_sold, revenue_minor_units]
+      properties:
+        sku_id:
+          type: string
+          nullable: true
+          description: Null for an adhoc/unmatched line item with no linked catalog SKU.
+        sku_code: { type: string }
+        product_name: { type: string }
+        quantity_sold: { type: integer, format: int64 }
+        revenue_minor_units: { type: integer, format: int64 }
+
+    DashboardStats:
+      type: object
+      required:
+        - total_stock_units
+        - currency_code
+        - revenue_this_month_minor_units
+        - stock_flow_last_7_days
+        - sales_by_channel_this_month
+        - top_products_this_month
+      properties:
+        total_stock_units:
+          type: integer
+          format: int64
+          description: Tenant-wide sum of every stock movement's quantity delta -- the literal on-hand ledger total.
+        currency_code:
+          type: string
+          description: >-
+            The tenant's default currency (tenant_settings), or USD if never
+            set. revenue_this_month_minor_units, sales_by_channel_this_month,
+            and top_products_this_month all report only orders in this
+            currency -- a tenant taking orders in more than one currency has
+            the others excluded from those three figures.
+        revenue_this_month_minor_units: { type: integer, format: int64 }
+        stock_flow_last_7_days:
+          type: array
+          items: { $ref: '#/components/schemas/DailyStockFlow' }
+        sales_by_channel_this_month:
+          type: array
+          items: { $ref: '#/components/schemas/ChannelRevenue' }
+        top_products_this_month:
+          type: array
+          items: { $ref: '#/components/schemas/TopProduct' }
+
+    DashboardStatsResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/DashboardStats' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
