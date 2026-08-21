@@ -13,6 +13,7 @@ import (
 )
 
 var ErrJobNotFound = errors.New("scheduled job not found")
+var ErrInvalidIntervalMinutes = errors.New("interval_minutes must be at least 1")
 
 // Known job keys -- application/scheduler's use cases are keyed by these,
 // and cmd/scheduler dispatches to them the same way dispatch.go's runners
@@ -51,4 +52,15 @@ type JobRepository interface {
 	// the periodic poll doesn't immediately re-run it again seconds later
 	// -- see application/scheduler.RunJobNowUseCase).
 	TriggerNow(ctx context.Context, jobKey string) error
+	// UpdateConfig sets Enabled/IntervalMinutes -- the super_admin
+	// "Scheduled Jobs" page's edit action. Does not touch NextRunAt:
+	// enabling a job that was previously disabled picks it up on the next
+	// poll tick using whatever NextRunAt already holds (normally already
+	// due, since disabling never advances it), and changing the interval
+	// only affects the schedule computed after the next run finishes --
+	// consistent with how every other config change here behaves, and
+	// avoids a wide gap of inactivity if this were called right after a
+	// run had just pushed NextRunAt far into the future under the old
+	// interval.
+	UpdateConfig(ctx context.Context, jobKey string, enabled bool, intervalMinutes int) error
 }

@@ -37,6 +37,18 @@ func (s *stubRunJobNow) Execute(_ context.Context, jobKey string) error {
 	return s.err
 }
 
+type stubUpdateJobConfig struct {
+	err             error
+	gotJobKey       string
+	gotEnabled      bool
+	gotIntervalMins int
+}
+
+func (s *stubUpdateJobConfig) Execute(_ context.Context, jobKey string, enabled bool, intervalMinutes int) error {
+	s.gotJobKey, s.gotEnabled, s.gotIntervalMins = jobKey, enabled, intervalMinutes
+	return s.err
+}
+
 type stubListSyncSchedules struct {
 	out []appchannels.SyncScheduleWithConnection
 	err error
@@ -57,7 +69,17 @@ func (s *stubRunSyncScheduleNow) Execute(_ context.Context, id string) error {
 }
 
 func newTestRouter(list *stubListJobs, run *stubRunJobNow, listSync *stubListSyncSchedules, runSync *stubRunSyncScheduleNow) *gin.Engine {
-	h := schedulerhandler.NewHandler(list, run, listSync, runSync)
+	h := schedulerhandler.NewHandler(list, run, &stubUpdateJobConfig{}, listSync, runSync)
+	r := gin.New()
+	genscheduler.RegisterHandlers(r.Group("/api/v1"), h)
+	return r
+}
+
+// newUpdateJobConfigTestRouter builds a router for the PATCH
+// /scheduler/jobs/{jobKey} route specifically — every other use case is a
+// harmless zero-value stub.
+func newUpdateJobConfigTestRouter(update *stubUpdateJobConfig) *gin.Engine {
+	h := schedulerhandler.NewHandler(&stubListJobs{}, &stubRunJobNow{}, update, &stubListSyncSchedules{}, &stubRunSyncScheduleNow{})
 	r := gin.New()
 	genscheduler.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -98,6 +120,33 @@ func TestRunJobNow_notFound(t *testing.T) {
 	w := doRequest(newTestRouter(&stubListJobs{}, run, &stubListSyncSchedules{}, &stubRunSyncScheduleNow{}), "POST", "/api/v1/scheduler/jobs/unknown/run-now", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUpdateJobConfig_success(t *testing.T) {
+	update := &stubUpdateJobConfig{}
+	w := doRequest(newUpdateJobConfigTestRouter(update), "PATCH", "/api/v1/scheduler/jobs/resync_all_products_to_channels",
+		genscheduler.UpdateJobConfigRequest{Enabled: true, IntervalMinutes: 60})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "resync_all_products_to_channels", update.gotJobKey)
+	assert.True(t, update.gotEnabled)
+	assert.Equal(t, 60, update.gotIntervalMins)
+}
+
+func TestUpdateJobConfig_notFound(t *testing.T) {
+	update := &stubUpdateJobConfig{err: schedulerDomain.ErrJobNotFound}
+	w := doRequest(newUpdateJobConfigTestRouter(update), "PATCH", "/api/v1/scheduler/jobs/unknown",
+		genscheduler.UpdateJobConfigRequest{Enabled: true, IntervalMinutes: 60})
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestUpdateJobConfig_invalidInterval(t *testing.T) {
+	update := &stubUpdateJobConfig{err: schedulerDomain.ErrInvalidIntervalMinutes}
+	w := doRequest(newUpdateJobConfigTestRouter(update), "PATCH", "/api/v1/scheduler/jobs/expired_batches",
+		genscheduler.UpdateJobConfigRequest{Enabled: true, IntervalMinutes: 0})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestListSyncSchedules_success(t *testing.T) {

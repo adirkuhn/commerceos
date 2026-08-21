@@ -58,6 +58,15 @@ type stubJobRepo struct {
 
 	triggeredKeys []string
 	triggerErr    error
+
+	updateConfigCalls []updateConfigCall
+	updateConfigErr   error
+}
+
+type updateConfigCall struct {
+	JobKey          string
+	Enabled         bool
+	IntervalMinutes int
 }
 
 type recordRunCall struct {
@@ -102,6 +111,14 @@ func (s *stubJobRepo) TriggerNow(_ context.Context, jobKey string) error {
 		return s.triggerErr
 	}
 	s.triggeredKeys = append(s.triggeredKeys, jobKey)
+	return nil
+}
+
+func (s *stubJobRepo) UpdateConfig(_ context.Context, jobKey string, enabled bool, intervalMinutes int) error {
+	if s.updateConfigErr != nil {
+		return s.updateConfigErr
+	}
+	s.updateConfigCalls = append(s.updateConfigCalls, updateConfigCall{JobKey: jobKey, Enabled: enabled, IntervalMinutes: intervalMinutes})
 	return nil
 }
 

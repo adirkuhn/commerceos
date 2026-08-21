@@ -106,6 +106,22 @@ func (r *ScheduledJobRepo) RecordRunResult(ctx context.Context, jobKey string, r
 	return nil
 }
 
+func (r *ScheduledJobRepo) UpdateConfig(ctx context.Context, jobKey string, enabled bool, intervalMinutes int) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	res := tx.Model(&scheduledJobModel{}).Where("job_key = ?", jobKey).
+		Updates(map[string]any{"enabled": enabled, "interval_minutes": intervalMinutes, "updated_at": time.Now()})
+	if res.Error != nil {
+		return fmt.Errorf("scheduledJobRepo.UpdateConfig: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return schedulerDomain.ErrJobNotFound
+	}
+	return nil
+}
+
 func (r *ScheduledJobRepo) TriggerNow(ctx context.Context, jobKey string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {

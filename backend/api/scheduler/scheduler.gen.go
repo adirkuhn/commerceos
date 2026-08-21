@@ -172,6 +172,12 @@ type SyncScheduleRowEntityType string
 // SyncScheduleRowLastRunStatus defines model for SyncScheduleRow.LastRunStatus.
 type SyncScheduleRowLastRunStatus string
 
+// UpdateJobConfigRequest defines model for UpdateJobConfigRequest.
+type UpdateJobConfigRequest struct {
+	Enabled         bool `json:"enabled"`
+	IntervalMinutes int  `json:"interval_minutes"`
+}
+
 // Id defines model for id.
 type Id = string
 
@@ -181,11 +187,17 @@ type JobKey = string
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// UpdateJobConfigJSONRequestBody defines body for UpdateJobConfig for application/json ContentType.
+type UpdateJobConfigJSONRequestBody = UpdateJobConfigRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ListJobs List every global cron job, cross-tenant
 	// (GET /scheduler/jobs)
 	ListJobs(c *gin.Context)
+	// UpdateJobConfig Change a global cron job's enabled flag and/or interval_minutes -- the only way to edit these besides a one-time migration seed row (see 085_scheduled_jobs.sql). Does not touch NextRunAt/LastRun*.
+	// (PATCH /scheduler/jobs/{jobKey})
+	UpdateJobConfig(c *gin.Context, jobKey JobKey)
 	// RunJobNow Run a global cron job synchronously right now and record the outcome -- these are small, bounded cross-tenant sweeps, not paginated per-connection imports.
 	// (POST /scheduler/jobs/{jobKey}/run-now)
 	RunJobNow(c *gin.Context, jobKey JobKey)
@@ -217,6 +229,31 @@ func (siw *ServerInterfaceWrapper) ListJobs(c *gin.Context) {
 	}
 
 	siw.Handler.ListJobs(c)
+}
+
+// UpdateJobConfig operation middleware
+func (siw *ServerInterfaceWrapper) UpdateJobConfig(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "jobKey" -------------
+	var jobKey JobKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "jobKey", c.Param("jobKey"), &jobKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter jobKey: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateJobConfig(c, jobKey)
 }
 
 // RunJobNow operation middleware
@@ -311,6 +348,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/scheduler/jobs", wrapper.ListJobs)
 	router.POST(options.BaseURL+"/scheduler/jobs/:jobKey/run-now", wrapper.RunJobNow)
+	router.PATCH(options.BaseURL+"/scheduler/jobs/:jobKey", wrapper.UpdateJobConfig)
 	router.GET(options.BaseURL+"/scheduler/sync-schedules", wrapper.ListSyncSchedules)
 	router.POST(options.BaseURL+"/scheduler/sync-schedules/:id/run-now", wrapper.RunSyncScheduleNow)
 }
@@ -320,26 +358,29 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"3FZPbxu3E/0qA/5+QGJgJTl/0INuRZFD3KINnAI9JIbAJcda2rscdkhaEQz1sxck9W+llZ2k9iUXQ14O",
-	"h49v3hvOvVDUObJogxfTe+Ekyw4Dcv7P6PzXiqlwMjSiElZ2KKZpoRKMf0fDqMU0cMRKeNVgJ9OOsHQp",
-	"ygc2di5Wq0rcUP0rLk9kWy9+S8ZVCvaOrMeM9B0zcfqhyAa0If2UzrVGyWDITm482fRtl/H/jNdiKv43",
-	"2REwKat+krNdrvOX0zR6xcalZGIqMB+Xvq+3ZAydC8vtrkQmk0MOpkDUMuSDbWxbWbdYLrmq1smOV1bV",
-	"5tpU36AKYlWJPrLvOKMfr0jjAL2V6NB7OcfhYh6gGsJ5QfXxaWgTJr2XtCZqUdq0w9iAfCfbWWdsDGXD",
-	"OiotzZFF0dHstgjpCHMrfZhxtDOZy39N3KVfiRQcBdNhUlyPmOqBJFvGTof4IENc3yx2YvpJiEr4qBR6",
-	"LzacXw0cYvHLo0iPad+549OWh2pL6gCDx1CP7tfHcjVcyd+MD49rzgTs/GPOSrrY6UUyy6X4Rgt8XFr1",
-	"UTWoY4tPiGw/7SUtnhJlSjdgPWtRpX4yM3pQZ3sRPhDjLHI7GKgNl7h9KZrOEYckkC/5x5AOHzQk2mDC",
-	"clYWdnkdk44qJC35QOpWVIJYpwejEkoGnBObrL3ydcaoyCrTmtyIB2GcuP/XdYQfy/WPIg1opQ3Dkjno",
-	"EfmR3sVXB5I7IbB+4ffF9V97zXF3WeUqX1M2a++B/bNB8NEhz6TujIXPYmMmDRdU+88CyoKTc5zCvKVa",
-	"tqCYLNxQ7eGlpk4am92ddvH4gmoYjUCRDyPHRiEwKtmq2GZhVoBfXGIOvGyxREyglkE14BeIzleAUjUQ",
-	"KKrG2DngHfISCr9gLJBFcNL7M5BW91ZfePiL6BfqOmSF4JdWwQbYDqpqpLXY+vF+6zjbZFZM3o/Wp90Z",
-	"XKzhLExoQAJHO7K0AJlLNYZ3+XimGBAaZATje3ySbZfjJA8TktjEBtwfH6FPNPz84b2oxB2yL5V5NT5P",
-	"OiSHVjojpuLN+Hz8RlR5psu22JE+SbVIn+aYJZ/6X2b7vRZTkZp3OkIczHKvz8+fbJI7fL0GZjm6Tfd5",
-	"e/7mVK4tuDIXlrEvdp3k5foW62ofqLDqFS1vO6Bmcl9G39VkXb/8TJAfIOsy2guqf6dFZno3pH8axrwL",
-	"mayn69XVM9LcH32fhOQU/fZbol+//r4CXkYL8rB22aQNk6Xo2yWwmTcBssGsTo2DWENoECgGRR2mzhIa",
-	"9AiSEXwn27aCmqLVqPvW3fQSSyH1LmNlQA0OebTrxlDebj8+1EwCNdp2jgeNtd9EntVhJ8exZ7Xa4431",
-	"Yff1mZzcG/11Hty/7feY0egf3Ii9gn2IbQsy1ahfmxce0jCUXi24Jl7I5CbK/hqNwBl1ixqig3qZTbYt",
-	"GzimNGa98EALC47aFoJRt/AyPYPGwj8/nfuzYq6Uu2/ilwVJMRcoWYYHCA1TnDcQGopeWu2BrqEMr2fj",
-	"QqFHvtsUOA/hYiKdmdy9Equr1b8BAAD//w==",
+	"3Ffdbhs3E32VAb8PsF2sJCdOi0J3aZqLuEEaOC16kRgClxzv0t7lbDhcy4KhPntBcmVppbWcH6cFciOs",
+	"+DM8nDlnZngrFNUNWbSexfRWNNLJGj26+M/o+GvFVDTSlyITVtYopmEiEw4/tsahFlPvWswEqxJrGXb4",
+	"RRNWsXfGFmK5zMQl5b/h4h5r3eTnWFyGxdyQZYxIXzpHLnwosh6tD5+yaSqjpDdkJ5dMNoytLf7f4YWY",
+	"iv9N1g6YpFmeRGtnnf10mkZWzjTBmJgKjMeF8W5LxFA3fnG3KzjTUYPOmwRRSx8Ptm1VybzCdMll1hnb",
+	"nVlmq2tTfonKi2Um+si+4Iz+ekUaB9ybiRqZZYHDwdxCNYTzlPLd09AGTHrDaE5UobRhh7Ee3bWsZrWx",
+	"rU8bulVhqkAnEo9mV4lIO5gryX7mWjuTMfwX5OrwFZyCI29qDIzrOSbbY+TOY/cvYS99292srcX0vRCZ",
+	"4FYpZBYrn58PHGLx5kGku25fq+P9nR+yO6cOeHAX6s79+ljOhyP52rB/mHPGY80PKSvwYs0X6ZxciM+U",
+	"wLuFVe9Uibqt8BGRbZo9o/ljogzmBqRnLaqQT2ZGD/JsYwV7cjhrXTW4UBuX1m1S0dQNOR8IchM/hni4",
+	"V5BovfGLWZpY220c6Vb5wCX2pK5EJsjpUDAyoaTHgpyJ3EujM4eKrDKViYl4EMY99/+0jPB9qf5BpB6t",
+	"tH6YMls5Ihbp9fpsi3L3EKwf+E1yfW2uGcoufzbh9qeUvyB7YYoz/Ngi+0coHbWxpg7heZLtkGbLT3tu",
+	"tQt5Gc+7oJhfej3BHyUCtw26mdS1sfBBrPSv4ZRy/iAgTTSywCkUFeWyAuXIwiXlDIeaamlsTEhhlxuf",
+	"Ug6jEShiP2qcUQgOlaxUW0UtZYA3TbgEsKwwrZhALr0qgeeIDWeAUpXgqVWlsQXgNboFJEqAsUAWoZHM",
+	"RyCt7s0eMPxF9ILqGp1C4IVVsAK2hqpKaS1WPN7Mdkcry8oR86g77drgvIMzN74ECa61I0tzkJFdY3gZ",
+	"j3fUeoQSHYLhnj/JVotxYLTxQR9iBe73d9B3NDx/+0pk4hodp8g8GR8HmlCDVjZGTMXJ+Hh8IrLYhka2",
+	"rJ0+CbEIQwVGGgYSRm+/0mIqQr0JR4it9vPp8fGjNZ/bBXeg/aSrcJ9nxyf32boDl1rZ1Km2dS3dortF",
+	"F+0tFma9oMVtW66Z3KZufZleC16Vu17aEnV09PpZ8X4Y8nrJpHsPLM+TTpH9L6QXj+bge3LOsp8Xusb5",
+	"m4W5/1rYE+RnnxzkTDx7+vTLKPGilLZAkNuEOGDo0iNcVLIIeWJCDrYTZUhTvsSoUZjLBXgC1MaHQUbI",
+	"kY1GBhnyQix1UJsiMQYYUYOjORwyIhz//ONsxTg9C4wb88fqaAy/EjJY8imbwRu88Wetfe4nryWHrx/G",
+	"e+k66dJNpC3xgLbPWntK+Ruafx1f/2u6nHwOXf4dcp21dpdZsaaUjiy1XC3AmaL0EOuB1aHOkdOJUq1X",
+	"VGPHMEaQDoFrWVUZ5NRajbpfaValL3ClkYWx0qOGBt1o3e9A6o55hzMB1Oiu0O2tA5s175sWhHsfPN+0",
+	"MjzcB+wvFn1PTm6N/jQNbt72S8Ro9HcuxF7A3rZVBTLEqB+bA4bw3AhNFlyQm8ugJor6Go2gMeoKNbQN",
+	"5IsosruwQeMoPGQOGGhuoaGqAm/UFRyGrs1Y+PunYz5K4gq2+yI+TEiSuEDJ1OuCLx21RQm+pJal1Qx0",
+	"Ael5eDROLmR016sAx2eumMjGTK6fiOX58p8AAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

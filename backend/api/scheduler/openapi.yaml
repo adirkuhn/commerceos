@@ -49,6 +49,33 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /scheduler/jobs/{jobKey}:
+    patch:
+      operationId: updateJobConfig
+      summary: >-
+        Change a global cron job's enabled flag and/or interval_minutes --
+        the only way to edit these besides a one-time migration seed row
+        (see 085_scheduled_jobs.sql). Does not touch NextRunAt/LastRun*.
+      parameters:
+        - $ref: '#/components/parameters/jobKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobConfigRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /scheduler/sync-schedules:
     get:
       operationId: listSyncSchedules
@@ -117,6 +144,13 @@ components:
         last_run_status: { type: string, enum: ['', success, error] }
         last_run_error: { type: string }
         next_run_at: { type: string, format: date-time }
+
+    UpdateJobConfigRequest:
+      type: object
+      required: [enabled, interval_minutes]
+      properties:
+        enabled: { type: boolean }
+        interval_minutes: { type: integer, minimum: 1 }
 
     JobListResponse:
       type: object

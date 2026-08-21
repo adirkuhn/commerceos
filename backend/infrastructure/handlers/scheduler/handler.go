@@ -29,6 +29,9 @@ type listJobsUC interface {
 type runJobNowUC interface {
 	Execute(ctx context.Context, jobKey string) error
 }
+type updateJobConfigUC interface {
+	Execute(ctx context.Context, jobKey string, enabled bool, intervalMinutes int) error
+}
 type listSyncSchedulesUC interface {
 	Execute(ctx context.Context) ([]appchannels.SyncScheduleWithConnection, error)
 }
@@ -41,12 +44,13 @@ type runSyncScheduleNowUC interface {
 type Handler struct {
 	listJobs           listJobsUC
 	runJobNow          runJobNowUC
+	updateJobConfig    updateJobConfigUC
 	listSyncSchedules  listSyncSchedulesUC
 	runSyncScheduleNow runSyncScheduleNowUC
 }
 
-func NewHandler(listJobs listJobsUC, runJobNow runJobNowUC, listSyncSchedules listSyncSchedulesUC, runSyncScheduleNow runSyncScheduleNowUC) *Handler {
-	return &Handler{listJobs: listJobs, runJobNow: runJobNow, listSyncSchedules: listSyncSchedules, runSyncScheduleNow: runSyncScheduleNow}
+func NewHandler(listJobs listJobsUC, runJobNow runJobNowUC, updateJobConfig updateJobConfigUC, listSyncSchedules listSyncSchedulesUC, runSyncScheduleNow runSyncScheduleNowUC) *Handler {
+	return &Handler{listJobs: listJobs, runJobNow: runJobNow, updateJobConfig: updateJobConfig, listSyncSchedules: listSyncSchedules, runSyncScheduleNow: runSyncScheduleNow}
 }
 
 var _ genscheduler.ServerInterface = (*Handler)(nil)
@@ -103,6 +107,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	h := NewHandler(
 		appscheduler.NewListJobsUseCase(db, jobRepo),
 		appscheduler.NewRunJobNowUseCase(db, jobRepo, runners),
+		appscheduler.NewUpdateJobConfigUseCase(db, jobRepo),
 		appchannels.NewListAllSyncSchedulesUseCase(db, scheduleRepo, connRepo),
 		appchannels.NewTriggerSyncScheduleNowUseCase(db, scheduleRepo),
 	)
@@ -127,6 +132,19 @@ func (h *Handler) ListJobs(c *gin.Context) {
 
 func (h *Handler) RunJobNow(c *gin.Context, jobKey genscheduler.JobKey) {
 	if err := h.runJobNow.Execute(c.Request.Context(), jobKey); err != nil {
+		mapError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, genscheduler.EmptyResponse{})
+}
+
+func (h *Handler) UpdateJobConfig(c *gin.Context, jobKey genscheduler.JobKey) {
+	var req genscheduler.UpdateJobConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if err := h.updateJobConfig.Execute(c.Request.Context(), jobKey, req.Enabled, req.IntervalMinutes); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -168,6 +186,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, schedulerDomain.ErrJobNotFound), errors.Is(err, channelsDomain.ErrSyncScheduleNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+	case errors.Is(err, schedulerDomain.ErrInvalidIntervalMinutes):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	}
