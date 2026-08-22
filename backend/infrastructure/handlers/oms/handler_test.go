@@ -326,6 +326,23 @@ func TestListSalesOrders_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"total":1`)
 }
 
+// TestListSalesOrders_includesFulfilled guards toGenSalesOrder against
+// silently dropping the fulfilled field from every response -- it did once
+// (the field existed on the domain type and the generated DTO but was never
+// copied across in the mapping literal), which rendered every order
+// "Unfulfilled" in the UI regardless of its real DB value, with no error
+// anywhere to surface the gap.
+func TestListSalesOrders_includesFulfilled(t *testing.T) {
+	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{
+		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", ExternalOrderID: "pos-1", Status: omsDomain.SalesOrderStatusCompleted, Fulfilled: true}},
+		Total:       1,
+	}}
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"fulfilled":true`)
+}
+
 func TestListSalesOrders_passesSortByAndSortDirQueryParamsThrough(t *testing.T) {
 	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
 	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
@@ -338,13 +355,14 @@ func TestListSalesOrders_passesSortByAndSortDirQueryParamsThrough(t *testing.T) 
 
 func TestGetSalesOrder_success(t *testing.T) {
 	get := &stubGetSalesOrder{out: &appoms.GetSalesOrderResult{
-		SalesOrder: omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1"},
+		SalesOrder: omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1", Fulfilled: true},
 		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2}},
 	}}
 	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders/so-1", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "sku-1")
+	assert.Contains(t, w.Body.String(), `"fulfilled":true`)
 }
 
 func TestGetSalesOrder_notFound(t *testing.T) {

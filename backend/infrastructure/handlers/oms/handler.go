@@ -493,7 +493,7 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 		PaymentMethod: &o.PaymentMethod, PaymentMethodTitle: &o.PaymentMethodTitle,
 		ShippingMethod: &o.ShippingMethod, ShippingMethodTitle: &o.ShippingMethodTitle, TransactionId: &o.TransactionID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted, OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt,
-		NeedsStockReview: &o.NeedsStockReview, NeedsSkuReview: &o.NeedsSKUReview,
+		NeedsStockReview: &o.NeedsStockReview, NeedsSkuReview: &o.NeedsSKUReview, Fulfilled: &o.Fulfilled,
 	}
 }
 
