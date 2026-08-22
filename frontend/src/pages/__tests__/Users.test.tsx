@@ -6,8 +6,9 @@ import type { CompanyMember, CompanyInvite } from '../../team/types'
 import type { Group } from '../../iam/types'
 
 let mockRole = 'customer_owner'
+let mockUserId = 'logged-in-user'
 vi.mock('../../auth/AuthContext', () => ({
-  useAuth: () => ({ token: 'test-token', user: { role: mockRole }, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
+  useAuth: () => ({ token: 'test-token', user: { role: mockRole, user_id: mockUserId }, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))
 
 vi.mock('../../team/api', () => ({
@@ -62,6 +63,7 @@ function group(overrides: Partial<Group> = {}): Group {
 beforeEach(() => {
   vi.clearAllMocks()
   mockRole = 'customer_owner'
+  mockUserId = 'logged-in-user'
   vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(teamApi.listInvites).mockResolvedValue([])
   vi.mocked(iamApi.listGroups).mockResolvedValue([])
@@ -97,6 +99,15 @@ describe('Users page — real member data', () => {
     fireEvent.click(screen.getByLabelText(/remove alex kuhn/i))
 
     await waitFor(() => expect(teamApi.removeMember).toHaveBeenCalledWith('test-token', 'm-1'))
+  })
+
+  it('hides the Remove control on the logged-in user\'s own row', async () => {
+    mockUserId = 'u-1'
+    vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
+    render(<Users />)
+    await screen.findByText('Alex Kuhn')
+
+    expect(screen.queryByLabelText(/remove alex kuhn/i)).not.toBeInTheDocument()
   })
 
   it('surfaces an error removing the last owner', async () => {

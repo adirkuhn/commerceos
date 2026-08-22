@@ -356,13 +356,15 @@ export default function Users() {
                       {m.last_login_at ? new Date(m.last_login_at).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-3 py-3">
-                      <button
-                        aria-label={`Remove ${fullName(m)}`}
-                        onClick={() => handleRemove(m)}
-                        className="opacity-0 group-hover:opacity-100 text-[10px] text-red-400 hover:text-red-300"
-                      >
-                        Remove
-                      </button>
+                      {m.user_id !== user?.user_id && (
+                        <button
+                          aria-label={`Remove ${fullName(m)}`}
+                          onClick={() => handleRemove(m)}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] text-red-400 hover:text-red-300"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
