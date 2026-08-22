@@ -425,6 +425,55 @@ func TestProductRepo_Integration_SyncVariantsAsWooVariationsRoundTrips(t *testin
 // round-trip through GORM's Create/Update, and that the self-referential
 // FK is ON DELETE SET NULL: deleting the bulk SKU must not delete the
 // portioned SKU, just clear its link to the (now-gone) pool.
+// TestProductRepo_Integration_SlugRoundTripsThroughUpdate proves Update's
+// map-based Updates() call actually includes the slug column -- a field
+// present in the map-literal Create path but missing from Update's map
+// would silently drop every slug edit with no error, exactly the "slug not
+// saved" bug this guards against.
+func TestProductRepo_Integration_SlugRoundTripsThroughUpdate(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+
+	var productID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		p := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Carne Seca", Slug: "carne-seca-original",
+			Status: pmsDomain.ProductStatusActive, HasVariants: true, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, p); err != nil {
+			return err
+		}
+		productID = p.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var fetched *pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		fetched, err = productRepo.FindByID(ctx, productID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "carne-seca-original", fetched.Slug)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		fetched.Slug = "carne-seca-renamed"
+		return productRepo.Update(ctx, fetched)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		fetched, err = productRepo.FindByID(ctx, productID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "carne-seca-renamed", fetched.Slug)
+}
+
 func TestSKURepo_Integration_BulkPoolRoundTripsAndCascadesOnDelete(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

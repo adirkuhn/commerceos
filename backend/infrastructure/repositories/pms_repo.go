@@ -453,6 +453,7 @@ func (r *ProductRepo) Update(ctx context.Context, p *pmsDomain.Product) error {
 		Updates(map[string]any{
 			"category_id":                     p.CategoryID,
 			"name":                            p.Name,
+			"slug":                            p.Slug,
 			"description":                     p.Description,
 			"status":                          string(p.Status),
 			"has_variants":                    p.HasVariants,
