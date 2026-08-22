@@ -85,7 +85,11 @@ type PickScan struct {
 	// PriceMinorUnits is nil for Pick/Substitute (no real line item
 	// created), 0 for Freebie, picker-entered for NewItem.
 	PriceMinorUnits *int64
-	// Reason is an optional user comment -- most useful on a substitute row.
+	// Reason is an optional user comment on a Pick/Substitute row -- for
+	// Freebie/NewItem it doubles as the new SalesOrderLineItem's Name
+	// (picker-entered description of what was added), since PickScan has
+	// no separate Name field of its own. May be empty either way -- the
+	// line item still shows its SKUCode/Barcode.
 	Reason    string
 	ScannedAt time.Time
 	ScannedBy string
