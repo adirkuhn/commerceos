@@ -63,4 +63,8 @@ var (
 	// ErrInvalidPrice guards AddSalesOrderLineItemUseCase against a
 	// negative price -- 0 is valid (a freebie).
 	ErrInvalidPrice = errors.New("price must not be negative")
+	// ErrPriceRequiredForNewItem guards ScanPickItemUseCase's new_item
+	// action -- unlike freebie (always forced to 0), a new item has no
+	// default price to fall back to.
+	ErrPriceRequiredForNewItem = errors.New("price is required for a new item")
 )

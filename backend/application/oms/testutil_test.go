@@ -229,8 +229,31 @@ func (s *stubSalesOrderLineItemStockMovementRepo) ListByLineItem(_ context.Conte
 // from the requested ID (sku-1 -> SKU-1/BARCODE-1) so tests that don't care
 // about the exact snapshotted values don't need to configure it.
 type stubSKURepo struct {
-	byID    map[string]*pmsDomain.SKU
-	findErr error
+	byID      map[string]*pmsDomain.SKU
+	byCode    map[string]*pmsDomain.SKU
+	byBarcode map[string]*pmsDomain.SKU
+	findErr   error
+	codeErr   error
+	barcodeErr error
+}
+
+func (s *stubSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU, error) {
+	if s.codeErr != nil {
+		return nil, s.codeErr
+	}
+	if sku, ok := s.byCode[code]; ok {
+		return sku, nil
+	}
+	return nil, pmsDomain.ErrSKUNotFound
+}
+func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDomain.SKU, error) {
+	if s.barcodeErr != nil {
+		return nil, s.barcodeErr
+	}
+	if sku, ok := s.byBarcode[barcode]; ok {
+		return sku, nil
+	}
+	return nil, pmsDomain.ErrSKUNotFound
 }
 
 func (s *stubSKURepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, error) {
@@ -241,6 +264,51 @@ func (s *stubSKURepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, er
 		return sku, nil
 	}
 	return &pmsDomain.SKU{ID: id, SKUCode: "SKU-" + id, Barcode: "BARCODE-" + id}, nil
+}
+
+type stubBarcodeAliasRepo struct {
+	byCode  map[string]*pmsDomain.BarcodeAlias
+	findErr error
+}
+
+func (s *stubBarcodeAliasRepo) FindByCode(_ context.Context, code string) (*pmsDomain.BarcodeAlias, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if a, ok := s.byCode[code]; ok {
+		return a, nil
+	}
+	return nil, pmsDomain.ErrBarcodeAliasNotFound
+}
+
+type stubVariantRepoForPicking struct {
+	byID    map[string]*pmsDomain.Variant
+	findErr error
+}
+
+func (s *stubVariantRepoForPicking) FindByID(_ context.Context, id string) (*pmsDomain.Variant, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if v, ok := s.byID[id]; ok {
+		return v, nil
+	}
+	return &pmsDomain.Variant{ID: id, ProductID: "product-" + id}, nil
+}
+
+type stubProductRepoForPicking struct {
+	byID    map[string]*pmsDomain.Product
+	findErr error
+}
+
+func (s *stubProductRepoForPicking) FindByID(_ context.Context, id string) (*pmsDomain.Product, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if p, ok := s.byID[id]; ok {
+		return p, nil
+	}
+	return &pmsDomain.Product{ID: id, Name: "Product " + id}, nil
 }
 
 type stubRecordMovement struct {
