@@ -67,4 +67,14 @@ var (
 	// action -- unlike freebie (always forced to 0), a new item has no
 	// default price to fall back to.
 	ErrPriceRequiredForNewItem = errors.New("price is required for a new item")
+
+	// ErrBulkUpdateOrderIDsRequired guards BulkUpdateSalesOrderStatusUseCase
+	// against an empty selection -- a bulk action bar with nothing checked
+	// has nothing to apply to.
+	ErrBulkUpdateOrderIDsRequired = errors.New("at least one order id is required")
+	// ErrBulkUpdateNoFieldsGiven guards BulkUpdateSalesOrderStatusUseCase
+	// against a call that sets neither Status nor Fulfilled -- same
+	// "at least one field" contract as a partial-update PATCH, just applied
+	// before the loop instead of per-order.
+	ErrBulkUpdateNoFieldsGiven = errors.New("at least one of status or fulfilled is required")
 )

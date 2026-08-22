@@ -88,6 +88,30 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/bulk-status:
+    post:
+      operationId: bulkUpdateSalesOrderStatus
+      summary: >
+        Apply the same status and/or fulfilled change to many orders at
+        once -- the Sales Orders page's bulk action bar. Every order_id is
+        attempted independently: one failing (e.g. since deleted) does not
+        stop the rest, see the response's updated/failed split.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkUpdateSalesOrderStatusRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkUpdateSalesOrderStatusResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /sales-orders/{id}:
     get:
       operationId: getSalesOrder
@@ -539,6 +563,37 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SalesOrder' }
+        error: { nullable: true }
+
+    BulkUpdateSalesOrderStatusRequest:
+      type: object
+      required: [order_ids]
+      properties:
+        order_ids:
+          type: array
+          minItems: 1
+          items: { type: string }
+        status: { $ref: '#/components/schemas/SalesOrderStatus' }
+        fulfilled: { type: boolean }
+
+    BulkUpdateSalesOrderStatusResult:
+      type: object
+      properties:
+        updated:
+          type: array
+          items: { type: string }
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              order_id: { type: string }
+              error: { type: string }
+
+    BulkUpdateSalesOrderStatusResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BulkUpdateSalesOrderStatusResult' }
         error: { nullable: true }
 
     CreateSalesOrderLineItem:

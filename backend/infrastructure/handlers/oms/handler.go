@@ -36,6 +36,9 @@ type updateSalesOrderUC interface {
 type deleteSalesOrderUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type bulkUpdateSalesOrderStatusUC interface {
+	Execute(ctx context.Context, in appoms.BulkUpdateSalesOrderStatusInput) (*appoms.BulkUpdateSalesOrderStatusResult, error)
+}
 type linkLineItemSKUUC interface {
 	Execute(ctx context.Context, in appoms.LinkLineItemSKUInput) (*omsDomain.SalesOrder, error)
 }
@@ -73,22 +76,23 @@ type completePickingUC interface {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listSalesOrders       listSalesOrdersUC
-	getSalesOrder         getSalesOrderUC
-	createSalesOrder      createSalesOrderUC
-	updateSalesOrder      updateSalesOrderUC
-	deleteSalesOrder      deleteSalesOrderUC
-	linkLineItemSKU       linkLineItemSKUUC
-	retryStockDecrement   retryStockDecrementUC
-	forceAcceptStock      forceAcceptStockUC
-	addSalesOrderLineItem addSalesOrderLineItemUC
-	startOrResumePicking  startOrResumePickingUC
-	getPickingSession     getPickingSessionUC
-	scanPickItem          scanPickItemUC
-	resolvePickScanCode   resolvePickScanCodeUC
-	deletePickScan        deletePickScanUC
-	pausePicking          pausePickingUC
-	completePicking       completePickingUC
+	listSalesOrders            listSalesOrdersUC
+	getSalesOrder              getSalesOrderUC
+	createSalesOrder           createSalesOrderUC
+	updateSalesOrder           updateSalesOrderUC
+	deleteSalesOrder           deleteSalesOrderUC
+	linkLineItemSKU            linkLineItemSKUUC
+	retryStockDecrement        retryStockDecrementUC
+	forceAcceptStock           forceAcceptStockUC
+	addSalesOrderLineItem      addSalesOrderLineItemUC
+	startOrResumePicking       startOrResumePickingUC
+	getPickingSession          getPickingSessionUC
+	scanPickItem               scanPickItemUC
+	resolvePickScanCode        resolvePickScanCodeUC
+	deletePickScan             deletePickScanUC
+	pausePicking               pausePickingUC
+	completePicking            completePickingUC
+	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC
 }
 
 func NewHandler(
@@ -98,6 +102,7 @@ func NewHandler(
 	addSalesOrderLineItem addSalesOrderLineItemUC, startOrResumePicking startOrResumePickingUC,
 	getPickingSession getPickingSessionUC, scanPickItem scanPickItemUC, resolvePickScanCode resolvePickScanCodeUC,
 	deletePickScan deletePickScanUC, pausePicking pausePickingUC, completePicking completePickingUC,
+	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -106,6 +111,7 @@ func NewHandler(
 		addSalesOrderLineItem: addSalesOrderLineItem, startOrResumePicking: startOrResumePicking,
 		getPickingSession: getPickingSession, scanPickItem: scanPickItem, resolvePickScanCode: resolvePickScanCode,
 		deletePickScan: deletePickScan, pausePicking: pausePicking, completePicking: completePicking,
+		bulkUpdateSalesOrderStatus: bulkUpdateSalesOrderStatus,
 	}
 }
 
@@ -133,12 +139,13 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
+	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement)
 
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo),
 		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo),
 		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock),
-		appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement),
+		updateSalesOrder,
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement),
 		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo),
 		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock),
@@ -156,6 +163,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		// movementReverser param. Same swap UpdateSalesOrderUseCase's own
 		// wiring above already has -- see CompletePickingUseCase's doc.
 		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement),
+		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -278,6 +286,33 @@ func (h *Handler) UpdateSalesOrder(c *gin.Context, id genoms.Id) {
 	}
 	resp := toGenSalesOrder(*order)
 	c.JSON(http.StatusOK, genoms.SalesOrderResponse{Data: &resp})
+}
+
+func (h *Handler) BulkUpdateSalesOrderStatus(c *gin.Context) {
+	var req genoms.BulkUpdateSalesOrderStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	in := appoms.BulkUpdateSalesOrderStatusInput{OrderIDs: req.OrderIds, Fulfilled: req.Fulfilled}
+	if req.Status != nil {
+		status := omsDomain.SalesOrderStatus(*req.Status)
+		in.Status = &status
+	}
+	result, err := h.bulkUpdateSalesOrderStatus.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	failed := make([]struct {
+		Error   *string `json:"error,omitempty"`
+		OrderId *string `json:"order_id,omitempty"`
+	}, len(result.Failed))
+	for i := range result.Failed {
+		failed[i].OrderId = &result.Failed[i].OrderID
+		failed[i].Error = &result.Failed[i].Error
+	}
+	resp := genoms.BulkUpdateSalesOrderStatusResult{Updated: &result.Updated, Failed: &failed}
+	c.JSON(http.StatusOK, genoms.BulkUpdateSalesOrderStatusResponse{Data: &resp})
 }
 
 func (h *Handler) DeleteSalesOrder(c *gin.Context, id genoms.Id) {
@@ -547,7 +582,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrPickScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrInvalidPickScanActionType),
 		errors.Is(err, omsDomain.ErrPickLineItemRequired), errors.Is(err, omsDomain.ErrLineItemSKUMismatch),
 		errors.Is(err, omsDomain.ErrInvalidLineItemQuantity), errors.Is(err, omsDomain.ErrInvalidPrice),
-		errors.Is(err, omsDomain.ErrPriceRequiredForNewItem):
+		errors.Is(err, omsDomain.ErrPriceRequiredForNewItem), errors.Is(err, omsDomain.ErrBulkUpdateOrderIDsRequired),
+		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("oms: unhandled error: %v", err)

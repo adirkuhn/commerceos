@@ -91,6 +91,23 @@ func (s *stubUpdateSalesOrder) Execute(_ context.Context, id string, in appoms.U
 	return &omsDomain.SalesOrder{ID: id}, nil
 }
 
+type stubBulkUpdateSalesOrderStatus struct {
+	out      *appoms.BulkUpdateSalesOrderStatusResult
+	err      error
+	gotInput appoms.BulkUpdateSalesOrderStatusInput
+}
+
+func (s *stubBulkUpdateSalesOrderStatus) Execute(_ context.Context, in appoms.BulkUpdateSalesOrderStatusInput) (*appoms.BulkUpdateSalesOrderStatusResult, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appoms.BulkUpdateSalesOrderStatusResult{}, nil
+}
+
 type stubDeleteSalesOrder struct {
 	err   error
 	gotID string
@@ -285,7 +302,7 @@ func (s *stubCompletePicking) Execute(_ context.Context, id, completedBy string)
 func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock) *gin.Engine {
 	return newTestRouterWithPicking(list, get, create, update, del, link, retry, force,
 		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
-		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{})
+		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{})
 }
 
 func newTestRouterWithPicking(
@@ -293,10 +310,10 @@ func newTestRouterWithPicking(
 	del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock,
 	addLineItem *stubAddSalesOrderLineItem, startPicking *stubStartOrResumePicking, getPicking *stubGetPickingSession,
 	scan *stubScanPickItem, resolve *stubResolvePickScanCode, deleteScan *stubDeletePickScan,
-	pause *stubPausePicking, complete *stubCompletePicking,
+	pause *stubPausePicking, complete *stubCompletePicking, bulk *stubBulkUpdateSalesOrderStatus,
 ) *gin.Engine {
 	h := omshandler.NewHandler(list, get, create, update, del, link, retry, force,
-		addLineItem, startPicking, getPicking, scan, resolve, deleteScan, pause, complete)
+		addLineItem, startPicking, getPicking, scan, resolve, deleteScan, pause, complete, bulk)
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -543,6 +560,34 @@ func TestForceAcceptStock_notFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestBulkUpdateSalesOrderStatus_success(t *testing.T) {
+	bulk := &stubBulkUpdateSalesOrderStatus{out: &appoms.BulkUpdateSalesOrderStatusResult{Updated: []string{"so-1", "so-2"}}}
+	body := map[string]any{"order_ids": []string{"so-1", "so-2"}, "status": "processing"}
+	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
+		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
+		"POST", "/api/v1/sales-orders/bulk-status", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"so-1", "so-2"}, bulk.gotInput.OrderIDs)
+	require.NotNil(t, bulk.gotInput.Status)
+	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, *bulk.gotInput.Status)
+	assert.Contains(t, w.Body.String(), "so-1")
+}
+
+func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
+	bulk := &stubBulkUpdateSalesOrderStatus{err: omsDomain.ErrBulkUpdateOrderIDsRequired}
+	body := map[string]any{"order_ids": []string{"so-1"}, "fulfilled": true}
+	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
+		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
+		"POST", "/api/v1/sales-orders/bulk-status", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	s := &pickingStubs{
 		addLineItem: &stubAddSalesOrderLineItem{}, startPicking: &stubStartOrResumePicking{}, getPicking: &stubGetPickingSession{},
@@ -554,7 +599,7 @@ func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	}
 	return newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.resolve, s.deleteScan, s.pause, s.complete)
+		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
 }
 
 type pickingStubs struct {
