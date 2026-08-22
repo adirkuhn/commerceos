@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import {
   Search, ChevronRight, ChevronDown, Plus, ArrowRightLeft, AlertTriangle,
   Trash2, Edit3, X, PackageMinus, ClipboardList, Tag, ArrowLeft, History, Boxes, Scale, Image as ImageIcon,
@@ -731,8 +731,17 @@ function PriceModal({ sku, onSave, onClose }: {
 
 type ActiveModal = 'adjust' | 'recount' | 'transfer' | 'split-case' | 'portion-from-bulk' | 'damaged-lost' | 'batch-new' | 'price' | { edit: Batch } | null
 
-function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory, onViewBatchHistory }: {
-  token: string; sku: SKU; warehouses: { id: string; name: string }[]; onSKUUpdated: () => void
+function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
+  token: string; sku: SKU; warehouses: { id: string; name: string }[]
+  // onSKUUpdated refetches product/variant/SKU metadata (name, price, ...)
+  // -- reserved for price edits. Stock-quantity mutations must use
+  // onStockChanged instead: onSKUUpdated flips the parent's `loading` flag,
+  // which unmounts/remounts this whole panel (see ProductStockRow's
+  // `{!loading && skus.map(...)}`), discarding showAllBatches/modal state
+  // on every adjust/recount/transfer/etc. onStockChanged only refetches the
+  // collapsed row's aggregate total, no unmount.
+  onSKUUpdated: () => void
+  onStockChanged: () => void
   onViewHistory: (sku: SKU) => void; onViewBatchHistory: (sku: SKU, batch: Batch) => void
 }) {
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
@@ -779,6 +788,7 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory, on
     setDeleteError(null)
     try {
       await removeBatch(id)
+      onStockChanged()
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Failed to delete batch')
     }
@@ -914,38 +924,40 @@ function SKUStockPanel({ token, sku, warehouses, onSKUUpdated, onViewHistory, on
 
       {modal === 'adjust' && (
         <AdjustStockModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
-          onSave={input => adjust(input).then(() => undefined)} />
+          onSave={input => adjust(input).then(() => onStockChanged())} />
       )}
       {modal === 'recount' && (
         <RecountModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
-          onSave={input => recount(input).then(() => undefined)} />
+          onSave={input => recount(input).then(() => onStockChanged())} />
       )}
       {modal === 'transfer' && (
-        <TransferModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)} onSave={transfer} />
+        <TransferModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+          onSave={input => transfer(input).then(() => onStockChanged())} />
       )}
       {modal === 'split-case' && (
-        <SplitCaseModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)} onSave={splitCase} />
+        <SplitCaseModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
+          onSave={input => splitCase(input).then(() => onStockChanged())} />
       )}
       {modal === 'portion-from-bulk' && (
         <PortionFromBulkModal
           warehouses={warehouses} batches={batches} nominalWeightGrams={sku.weight_grams}
-          onClose={() => setModal(null)} onSave={portionFromBulk}
+          onClose={() => setModal(null)} onSave={input => portionFromBulk(input).then(() => onStockChanged())}
         />
       )}
       {modal === 'damaged-lost' && (
         <DamagedLostModal warehouses={warehouses} batches={batches} onClose={() => setModal(null)}
-          onSave={input => markDamagedOrLost(input).then(() => undefined)} />
+          onSave={input => markDamagedOrLost(input).then(() => onStockChanged())} />
       )}
       {modal === 'batch-new' && (
         <BatchFormModal batch={null} warehouses={warehouses} onClose={() => setModal(null)}
-          onSave={input => addBatch(input).then(() => undefined)} />
+          onSave={input => addBatch(input).then(() => { setShowAllBatches(true); onStockChanged() })} />
       )}
       {modal === 'price' && (
         <PriceModal sku={sku} onClose={() => setModal(null)} onSave={handleSavePrice} />
       )}
       {modal !== null && typeof modal === 'object' && (
         <BatchFormModal batch={modal.edit} warehouses={warehouses} onClose={() => setModal(null)}
-          onSave={input => editBatch(modal.edit.id, input).then(() => undefined)} />
+          onSave={input => editBatch(modal.edit.id, input).then(() => onStockChanged())} />
       )}
     </div>
   )
@@ -969,7 +981,21 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
   onViewBatchHistory: (sku: SKU, batch: Batch) => void
   onViewProductHistory: (productName: string, skus: SKU[]) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
+  // Persisted per product so a page refresh doesn't collapse a row the user
+  // deliberately left open -- sessionStorage rather than localStorage since
+  // this is a "remember for this visit" convenience, not a long-lived
+  // preference worth surviving a browser restart.
+  const expandedStorageKey = `commerceos:inventory:expanded:${productId}`
+  const [expanded, setExpandedState] = useState(() => sessionStorage.getItem(expandedStorageKey) === '1')
+  const setExpanded = (updater: boolean | ((prev: boolean) => boolean)) => {
+    setExpandedState(prev => {
+      const next = typeof updater === 'function' ? (updater as (prev: boolean) => boolean)(prev) : updater
+      if (next) sessionStorage.setItem(expandedStorageKey, '1')
+      else sessionStorage.removeItem(expandedStorageKey)
+      return next
+    })
+  }
+
   const { detail, loading, refresh } = useProductDetail(token, productId)
   const skus = (detail?.variants ?? []).flatMap(v => v.skus ?? [])
   const skusKey = skus.map(s => s.id).join(',')
@@ -977,20 +1003,23 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
   const [stockBySKU, setStockBySKU] = useState<Record<string, number>>({})
   const [stockLoading, setStockLoading] = useState(true)
 
-  useEffect(() => {
+  // Also called directly (not just from the effect below) after any stock
+  // mutation in a child SKUStockPanel, via onSKUUpdated -- so the collapsed
+  // row's total never goes stale without a full page reload.
+  const loadStock = useCallback(() => {
     if (!token || skus.length === 0) {
       setStockBySKU({})
       setStockLoading(false)
       return
     }
-    let cancelled = false
     setStockLoading(true)
     Promise.all(skus.map(sku => inventoryApi.getSKUStockLevel(token, sku.id).then(l => [sku.id, l.total] as const).catch(() => [sku.id, 0] as const)))
-      .then(pairs => { if (!cancelled) setStockBySKU(Object.fromEntries(pairs)) })
-      .finally(() => { if (!cancelled) setStockLoading(false) })
-    return () => { cancelled = true }
+      .then(pairs => setStockBySKU(Object.fromEntries(pairs)))
+      .finally(() => setStockLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- skusKey is the stable dependency; skus itself is a new array every render
   }, [token, skusKey])
+
+  useEffect(() => { loadStock() }, [loadStock])
 
   const totalStock = Object.values(stockBySKU).reduce((sum, n) => sum + n, 0)
 
@@ -1065,7 +1094,7 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
             {!loading && skus.map(sku => (
-              <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
+              <SKUStockPanel key={sku.id} token={token} sku={sku} warehouses={warehouses} onSKUUpdated={refresh} onStockChanged={loadStock} onViewHistory={onViewHistory} onViewBatchHistory={onViewBatchHistory} />
             ))}
           </td>
         </tr>

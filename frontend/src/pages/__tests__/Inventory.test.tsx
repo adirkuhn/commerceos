@@ -85,6 +85,7 @@ const level: StockLevel = { sku_id: 'sku-1', total: 10, syncable: 10 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  sessionStorage.clear()
   vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [product], total: 1 })
   vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse])
@@ -170,6 +171,33 @@ describe('Inventory page', () => {
     })
   })
 
+  it('keeps a row expanded across a remount (page refresh)', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    unmount()
+    render(<Inventory />)
+
+    expect(await screen.findByText('WIDGET-1')).toBeInTheDocument()
+  })
+
+  it('collapses again after the user explicitly re-collapses it, even across a remount', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('WIDGET-1')
+    await user.click(screen.getByText('Widget'))
+    expect(screen.queryByText('WIDGET-1')).not.toBeInTheDocument()
+
+    unmount()
+    render(<Inventory />)
+    await screen.findByText('Widget')
+
+    expect(screen.queryByText('WIDGET-1')).not.toBeInTheDocument()
+  })
+
   it('shows the item count per batch', async () => {
     vi.mocked(inventoryApi.listBatches).mockResolvedValue([{ ...batch, quantity: 82 }])
 
@@ -200,6 +228,25 @@ describe('Inventory page', () => {
 
     expect(await screen.findByText('LOT-EMPTY')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Hide zero-stock batches' })).toBeInTheDocument()
+  })
+
+  it('shows a newly created batch immediately -- a fresh batch always starts at zero stock, so it must not be swallowed by the zero-stock filter', async () => {
+    const newBatch: Batch = { ...batch, id: 'batch-new', lot_number: 'LOT-NEW', quantity: 0 }
+    vi.mocked(inventoryApi.createBatch).mockResolvedValue(newBatch)
+    vi.mocked(inventoryApi.listBatches).mockResolvedValueOnce([batch]).mockResolvedValue([batch, newBatch])
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    await user.click(await screen.findByText('Widget'))
+    await screen.findByText('LOT-1')
+
+    await user.click(screen.getByRole('button', { name: '+ New batch' }))
+    const dialog = await screen.findByText('New Batch')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/lot number/i), 'LOT-NEW')
+    await user.click(within(modal).getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText('LOT-NEW')).toBeInTheDocument()
   })
 
   it('the general ledger row is never hidden even at zero quantity', async () => {
@@ -279,6 +326,31 @@ describe('Inventory page', () => {
         warehouse_id: 'wh-1', type: 'receipt', quantity_delta: 5,
       }))
     })
+  })
+
+  it("updates the collapsed product row's total after a stock adjustment, without a page reload", async () => {
+    const movement: StockMovement = {
+      id: 'mv-1', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: null,
+      type: 'receipt', quantity_delta: 5, reason: '', occurred_at: '', created_at: '',
+    }
+    vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue(movement)
+    vi.mocked(inventoryApi.getSKUStockLevel).mockResolvedValueOnce(level).mockResolvedValue({ sku_id: 'sku-1', total: 15, syncable: 15 })
+
+    const user = userEvent.setup()
+    render(<Inventory />)
+    const productRow = (await screen.findByText('Widget')).closest('tr')!
+    await waitFor(() => expect(within(productRow).getByText('10')).toBeInTheDocument())
+
+    await user.click(within(productRow).getByText('Widget'))
+    await screen.findByText('WIDGET-1')
+
+    await user.click(screen.getByRole('button', { name: /adjust/i }))
+    const dialog = await screen.findByText('Adjust Stock')
+    const modal = dialog.closest('div')!.parentElement!
+    await user.type(within(modal).getByLabelText(/quantity/i), '5')
+    await user.click(within(modal).getByRole('button', { name: /record/i }))
+
+    await waitFor(() => expect(within(productRow).getByText('15')).toBeInTheDocument())
   })
 
   it('surfaces an API error when creating a movement fails', async () => {
