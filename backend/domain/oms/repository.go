@@ -40,6 +40,10 @@ type ListSalesOrdersFilter struct {
 	// Source nil means "don't filter on this" -- used by
 	// cmd/repair-stock-review-flags to scan only WooCommerce-sourced orders.
 	Source *SalesOrderSource
+	// Fulfilled nil means "don't filter on this" -- false powers the
+	// picking scanner app's "unfulfilled orders" search; also usable from
+	// the OMS Orders page's own filter.
+	Fulfilled *bool
 }
 
 type SalesOrderRepository interface {
@@ -152,4 +156,28 @@ type SalesOrderLineItemStockMovementRepository interface {
 	// decrement genuinely never ran (the bug this repairs) from one that
 	// already succeeded.
 	ExistsForLineItem(ctx context.Context, lineItemID string) (bool, error)
+}
+
+type PickingSessionRepository interface {
+	Create(ctx context.Context, s *PickingSession) error
+	FindByID(ctx context.Context, id string) (*PickingSession, error)
+	// FindActiveBySalesOrder returns the order's current in_progress or
+	// paused session, if any -- StartOrResumePickingUseCase reuses it
+	// instead of creating a duplicate. Nil (not an error) when none exists.
+	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*PickingSession, error)
+	Update(ctx context.Context, s *PickingSession) error
+}
+
+type PickScanRepository interface {
+	Create(ctx context.Context, s *PickScan) error
+	// ListBySession returns every scan for the session in ScannedAt order
+	// (oldest first) -- CompletePickingUseCase's replay depends on this
+	// ordering.
+	ListBySession(ctx context.Context, sessionID string) ([]PickScan, error)
+	// MarkReplayed records that CompletePickingUseCase's replay applied
+	// this row for real -- see PickScan.ReplayedAt's doc.
+	MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error
+	// Delete removes a staged row before it's ever been replayed -- see
+	// DeletePickScanUseCase, mirrors procurement.BookingScanRepository.Delete.
+	Delete(ctx context.Context, id string) error
 }

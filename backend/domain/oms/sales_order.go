@@ -170,6 +170,16 @@ type SalesOrder struct {
 	// SKU. Cleared by LinkLineItemSKUUseCase once every such line item is
 	// linked. See the "Unmatched SKUs" admin page.
 	NeedsSKUReview bool
+
+	// Fulfilled is a binary secondary status, independent of Status -- true
+	// once every item has physically shipped/been picked. Set automatically
+	// the moment Status transitions to Completed (any path: manual edit,
+	// WooCommerce import/sync) and at creation for an order that arrives
+	// already completed, and explicitly by CompletePickingUseCase when a
+	// picking session finishes. Never auto-cleared by a later status change
+	// -- see UpdateSalesOrderInput.Fulfilled for the manual override escape
+	// hatch.
+	Fulfilled bool
 }
 
 // SalesOrderLineItem is one SKU sold within a SalesOrder. The POS resolves

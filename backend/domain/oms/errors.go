@@ -32,4 +32,29 @@ var (
 	// a decrement only makes sense for an order whose current status
 	// actually owes one (SalesOrderStatus.ReducesStock).
 	ErrOrderNotStockReducing = errors.New("sales order's current status does not reduce stock")
+
+	// ErrPickingSessionNotFound guards every picking use case's session lookup.
+	ErrPickingSessionNotFound = errors.New("picking session not found")
+	// ErrPickingSessionNotActive guards actions (scan, pause, complete)
+	// against a session that's already completed -- mirrors
+	// procurement.ErrBookingNotActive.
+	ErrPickingSessionNotActive = errors.New("picking session is not active")
+	// ErrOrderAlreadyFulfilled guards StartOrResumePickingUseCase against
+	// starting a session for an order that's already fulfilled.
+	ErrOrderAlreadyFulfilled = errors.New("sales order is already fulfilled")
+	// ErrPickScanCodeOrSKURequired mirrors procurement.ErrScanCodeOrSKURequired.
+	ErrPickScanCodeOrSKURequired = errors.New("either a scanned code or a sku_id is required")
+	// ErrInvalidPickScanActionType guards ScanPickItemUseCase against an
+	// action type outside PickScanActionType's known set, or one missing a
+	// field it requires (e.g. new_item with no price).
+	ErrInvalidPickScanActionType = errors.New("invalid pick scan action type")
+	// ErrPickLineItemRequired guards a pick/substitute scan, which must
+	// reference an existing SalesOrderLineItem.
+	ErrPickLineItemRequired = errors.New("a line item is required for this action")
+	// ErrLineItemSKUMismatch guards a 'pick' scan whose resolved SKU
+	// doesn't match any line item on the order.
+	ErrLineItemSKUMismatch = errors.New("scanned item does not match any line item on this order")
+	// ErrPickScanNotFound guards DeletePickScanUseCase against a scan ID
+	// that doesn't belong to the named session.
+	ErrPickScanNotFound = errors.New("pick scan not found")
 )
