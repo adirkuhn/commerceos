@@ -123,6 +123,65 @@ func TestUpdateProduct_allowsReSubmittingItsOwnCurrentSlug(t *testing.T) {
 	require.Equal(t, "t-shirt", product.Slug)
 }
 
+// TestUpdateProduct_regeneratesSlugFromNameWhenSlugCleared proves an
+// explicitly empty slug regenerates from Name (same as create) rather than
+// being rejected as malformed -- the empty string is never persisted.
+func TestUpdateProduct_regeneratesSlugFromNameWhenSlugCleared(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	emptySlug := ""
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+		ID: "p1", Name: "Biscoito de Maizena - Renata - 360g", Status: pmsDomain.ProductStatusActive, Slug: &emptySlug,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "biscoito-de-maizena-renata-360g", product.Slug)
+}
+
+// TestUpdateProduct_clearingSlugWithUnchangedNameIsANoop proves regenerating
+// from an unchanged Name, when it happens to match the current slug, skips
+// the uniqueness check entirely rather than false-positiving against the
+// product's own row.
+func TestUpdateProduct_clearingSlugWithUnchangedNameIsANoop(t *testing.T) {
+	productRepo := &stubProductRepo{
+		product:   &pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		slugTaken: "should-not-be-queried",
+	}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	emptySlug := ""
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+		ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &emptySlug,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "t-shirt", product.Slug)
+}
+
+// TestUpdateProduct_regeneratedSlugStillRejectsCollision proves a
+// regenerated (not just an explicitly-typed) slug still goes through the
+// same duplicate check as any other slug change.
+func TestUpdateProduct_regeneratedSlugStillRejectsCollision(t *testing.T) {
+	productRepo := &stubProductRepo{
+		product:   &pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		slugTaken: "other-product",
+		slugOwner: &pmsDomain.Product{ID: "p2", Slug: "other-product"},
+	}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	emptySlug := ""
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+		ID: "p1", Name: "Other Product", Status: pmsDomain.ProductStatusActive, Slug: &emptySlug,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrDuplicateSlug))
+}
+
 func TestUpdateProduct_rejectsMalformedSlug(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{}

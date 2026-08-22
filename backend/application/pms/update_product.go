@@ -24,7 +24,8 @@ type UpdateProductInput struct {
 	// Slug, when non-nil, explicitly changes the product's slug -- nil
 	// leaves it untouched (the "never re-slug on rename" behavior below
 	// still holds for Name changes). This is the only way to fix a
-	// product stuck with a duplicate's "-copy" slug suffix.
+	// product stuck with a duplicate's "-copy" slug suffix. An empty
+	// string regenerates the slug from Name rather than being rejected.
 	Slug *string
 }
 
@@ -41,7 +42,9 @@ func NewUpdateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepositor
 
 // Execute updates product fields. Slug is only changed when in.Slug is
 // explicitly set -- re-slugging on every Name change would churn the
-// product's canonical URL, so a bare rename never touches it.
+// product's canonical URL, so a bare rename never touches it. An explicitly
+// empty slug regenerates from the (possibly also-changing) Name, same as
+// CreateProductUseCase derives it -- an empty slug is never persisted.
 func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInput) (*pmsDomain.Product, error) {
 	var product pmsDomain.Product
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -58,19 +61,24 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 				return pmsDomain.ErrVariantsNotEnabled
 			}
 		}
-		if in.Slug != nil && *in.Slug != existing.Slug {
+		if in.Slug != nil {
 			slug := *in.Slug
-			if slug == "" || Slugify(slug) != slug {
-				return pmsDomain.ErrInvalidSlug
+			if slug == "" {
+				slug = Slugify(in.Name)
 			}
-			other, err := uc.productRepo.FindBySlug(ctx, slug)
-			if err == nil && other.ID != existing.ID {
-				return pmsDomain.ErrDuplicateSlug
+			if slug != existing.Slug {
+				if Slugify(slug) != slug {
+					return pmsDomain.ErrInvalidSlug
+				}
+				other, err := uc.productRepo.FindBySlug(ctx, slug)
+				if err == nil && other.ID != existing.ID {
+					return pmsDomain.ErrDuplicateSlug
+				}
+				if err != nil && !errors.Is(err, pmsDomain.ErrProductNotFound) {
+					return err
+				}
+				existing.Slug = slug
 			}
-			if err != nil && !errors.Is(err, pmsDomain.ErrProductNotFound) {
-				return err
-			}
-			existing.Slug = slug
 		}
 		existing.Name = in.Name
 		existing.Description = in.Description
