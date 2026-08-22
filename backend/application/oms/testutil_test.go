@@ -77,10 +77,10 @@ type stubSalesOrderRepo struct {
 		ID     string
 		Fields map[string]any
 	}
-	deleteErr error
-	gotDeleteID            string
-	byConnection           []omsDomain.SalesOrder
-	listByConnectionErr    error
+	deleteErr           error
+	gotDeleteID         string
+	byConnection        []omsDomain.SalesOrder
+	listByConnectionErr error
 	// trySwapResult/trySwapErr drive TrySetStockDecremented -- default
 	// (zero value) is "swap succeeded, no error", the common case. Set
 	// trySwapResult=false to simulate losing the race (another caller
@@ -229,11 +229,11 @@ func (s *stubSalesOrderLineItemStockMovementRepo) ListByLineItem(_ context.Conte
 // from the requested ID (sku-1 -> SKU-1/BARCODE-1) so tests that don't care
 // about the exact snapshotted values don't need to configure it.
 type stubSKURepo struct {
-	byID      map[string]*pmsDomain.SKU
-	byCode    map[string]*pmsDomain.SKU
-	byBarcode map[string]*pmsDomain.SKU
-	findErr   error
-	codeErr   error
+	byID       map[string]*pmsDomain.SKU
+	byCode     map[string]*pmsDomain.SKU
+	byBarcode  map[string]*pmsDomain.SKU
+	findErr    error
+	codeErr    error
 	barcodeErr error
 }
 
@@ -354,14 +354,14 @@ func (s *stubRecordMovement) Execute(_ context.Context, in appinventory.Allocate
 }
 
 type stubPickingSessionRepo struct {
-	createErr     error
-	created       []omsDomain.PickingSession
+	createErr      error
+	created        []omsDomain.PickingSession
 	findByIDResult *omsDomain.PickingSession
-	findByIDErr   error
-	activeResult  *omsDomain.PickingSession
-	activeErr     error
-	updateErr     error
-	updated       []omsDomain.PickingSession
+	findByIDErr    error
+	activeResult   *omsDomain.PickingSession
+	activeErr      error
+	updateErr      error
+	updated        []omsDomain.PickingSession
 }
 
 func (s *stubPickingSessionRepo) Create(_ context.Context, session *omsDomain.PickingSession) error {
@@ -390,14 +390,14 @@ func (s *stubPickingSessionRepo) Update(_ context.Context, session *omsDomain.Pi
 }
 
 type stubPickScanRepo struct {
-	createErr      error
-	created        []omsDomain.PickScan
-	listBySession  []omsDomain.PickScan
-	listErr        error
-	markReplayed   []string
+	createErr       error
+	created         []omsDomain.PickScan
+	listBySession   []omsDomain.PickScan
+	listErr         error
+	markReplayed    []string
 	markReplayedErr error
-	deleteErr      error
-	deleted        []string
+	deleteErr       error
+	deleted         []string
 }
 
 func (s *stubPickScanRepo) Create(_ context.Context, scan *omsDomain.PickScan) error {
