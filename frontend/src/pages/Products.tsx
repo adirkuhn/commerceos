@@ -694,6 +694,16 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         )}
       </div>
 
+      {formError && (
+        // Rendered here (shrink-0, above the scrolling form body) rather
+        // than inline in the General tab -- a save error must be visible
+        // without the user having to scroll past every FormCard to the
+        // bottom of the page to notice the save silently failed.
+        <div className="px-6 pt-3 shrink-0">
+          <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{formError}</p>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         <div className={clsx('max-w-5xl mx-auto p-6', activeTab !== 'general' && 'hidden')}>
           {renderGeneralTab()}
@@ -1061,7 +1071,6 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               </FormCard>
             )}
 
-            {formError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-3 py-2">{formError}</p>}
           </div>
 
           {/* Sidebar column */}

@@ -396,6 +396,31 @@ describe('editing a product\'s slug', () => {
       slug: 'biscoito-de-maizena-renata-360g',
     })))
   })
+
+  // Regression: a save error (e.g. the backend's 409 "slug already exists")
+  // used to render as the very last element of the General tab's main
+  // column, below five FormCards -- visually invisible without scrolling
+  // past all of them. It must render outside the scrollable form body.
+  it('shows a save error outside the scrollable form body, not buried at the bottom of the page', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true, slug: 't-shirt' }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockRejectedValue(new Error('updateProduct: slug already exists'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByLabelText('Slug')).toHaveValue('t-shirt'))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    const error = await screen.findByText('updateProduct: slug already exists')
+    expect(error.closest('.overflow-y-auto')).toBeNull()
+  })
 })
 
 describe('Add Variant / Add SKU are not nested <form> elements', () => {
