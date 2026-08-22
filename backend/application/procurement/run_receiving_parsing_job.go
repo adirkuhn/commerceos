@@ -106,69 +106,146 @@ func (uc *RunReceivingParsingJobUseCase) Execute(ctx context.Context, job procur
 	return len(discrepancies), nil
 }
 
-// diffInvoiceAgainstPurchaseOrder matches invoice lines to PO line items via
-// NormalizeRawKey (the same raw-text key used by the catalog-matching
-// pipeline in match_extracted_line_items.go) and reports every gap: PO
-// lines the invoice never mentions (missing_item), invoice lines that don't
-// correspond to any PO line (unexpected_item), quantity differences on
-// matched lines (quantity_mismatch), and a received expiry date that's
-// already passed or imminent (expiry_mismatch). It's a pure function so the
-// matching logic itself is unit-testable without a DB.
+// diffInvoiceAgainstPurchaseOrder matches invoice lines to PO line items and
+// reports every gap: PO lines the invoice never mentions (missing_item),
+// invoice lines that don't correspond to any PO line (unexpected_item),
+// quantity differences on matched lines (quantity_mismatch), and a received
+// expiry date that's already passed or imminent (expiry_mismatch). It's a
+// pure function so the matching logic itself is unit-testable without a DB.
+//
+// Matching is two-tier, not a single exact-key lookup: PO line items and
+// invoice line items come from two independent extraction passes (the PO's
+// own document parse, and this receiving invoice's parse) that can even be
+// the same physical file uploaded twice -- AI/PDF extraction isn't
+// byte-deterministic, so RawSKU/RawDescription commonly differ between the
+// two passes for the same product (e.g. one pass captures a barcode as
+// RawSKU, the other leaves it blank). An exact-string key alone would then
+// show the same product as both missing and unexpected. So:
+//  1. Try an exact match on normalized RawSKU first (cheap, precise when
+//     both sides captured it).
+//  2. Otherwise fall back to fuzzy RawDescription matching, reusing the
+//     same significantTokens/nameMatchScore pair (and acceptance bar) the
+//     Phase-3 catalog-matching pipeline already uses in
+//     match_extracted_line_items.go, instead of inventing a second
+//     normalization scheme.
+//
+// Invoice quantities are accumulated per PO line (not compared 1:1 per
+// invoice line) before diffing against the ordered quantity, so a supplier
+// splitting one PO line across multiple invoice lines by batch/expiry
+// (ExtractedLineItem.BatchCode/ExpiryDate) sums correctly instead of
+// producing a spurious quantity_mismatch per split line. PO lines are
+// tracked individually (never collapsed into a single-key map), so a
+// duplicate RawSKU across two PO lines can't cause one to silently vanish
+// from the diff.
+//
+// A genuinely ambiguous item (no SKU match, no fuzzy match clearing the
+// bar) is left as an ordinary missing_item/unexpected_item pair -- this
+// function never guesses past its threshold. LinkReceivingDiscrepanciesUseCase
+// is the deliberate escape hatch for a human to pair those up by hand.
 func diffInvoiceAgainstPurchaseOrder(lineItems []procurementDomain.PurchaseOrderLineItem, extracted []procurementDomain.ExtractedLineItem) []procurementDomain.ReceivingDiscrepancy {
-	byKey := make(map[string]*procurementDomain.PurchaseOrderLineItem, len(lineItems))
+	bySKU := make(map[string][]*procurementDomain.PurchaseOrderLineItem, len(lineItems))
+	allLines := make([]*procurementDomain.PurchaseOrderLineItem, len(lineItems))
 	for i := range lineItems {
-		key := NormalizeRawKey(lineItems[i].RawSKU, lineItems[i].RawDescription)
-		if key != "" {
-			byKey[key] = &lineItems[i]
+		li := &lineItems[i]
+		allLines[i] = li
+		if key := NormalizeRawKey(li.RawSKU, ""); key != "" {
+			bySKU[key] = append(bySKU[key], li)
 		}
 	}
 
+	receivedQty := make(map[string]int64, len(lineItems))
 	var discrepancies []procurementDomain.ReceivingDiscrepancy
-	matched := make(map[string]bool, len(lineItems))
 	now := time.Now()
 
 	for _, item := range extracted {
-		key := NormalizeRawKey(item.RawSKU, item.RawDescription)
-		li, ok := byKey[key]
-		if !ok || key == "" {
+		var li *procurementDomain.PurchaseOrderLineItem
+		if key := NormalizeRawKey(item.RawSKU, ""); key != "" {
+			if candidates := bySKU[key]; len(candidates) > 0 {
+				li = pickLeastFilledLineItem(candidates, receivedQty)
+			}
+		}
+		if li == nil {
+			li = matchLineItemByDescription(item.RawDescription, allLines)
+		}
+		if li == nil {
 			discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
-				Type: procurementDomain.DiscrepancyTypeUnexpectedItem, ExpectedQty: 0, ReceivedQty: item.Quantity,
+				Type: procurementDomain.DiscrepancyTypeUnexpectedItem, Status: procurementDomain.DiscrepancyStatusOpen,
+				ExpectedQty: 0, ReceivedQty: item.Quantity,
 				Details: fmt.Sprintf("invoice line %q was not on the purchase order", item.RawDescription),
 			})
 			continue
 		}
-		matched[key] = true
-
-		if li.Quantity != item.Quantity {
-			lineItemID := li.ID
-			discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
-				LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeQuantityMismatch,
-				ExpectedQty: li.Quantity, ReceivedQty: item.Quantity,
-				Details: fmt.Sprintf("expected %d, invoice shows %d", li.Quantity, item.Quantity),
-			})
-		}
+		receivedQty[li.ID] += item.Quantity
 
 		if item.ExpiryDate != nil && item.ExpiryDate.Before(now.AddDate(0, 0, expiryMismatchWindowDays)) {
 			lineItemID := li.ID
 			discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
-				LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeExpiryMismatch,
+				LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeExpiryMismatch, Status: procurementDomain.DiscrepancyStatusOpen,
 				ExpectedQty: li.Quantity, ReceivedQty: item.Quantity,
 				Details: fmt.Sprintf("expiry date %s is within %d days (or already past)", item.ExpiryDate.Format("2006-01-02"), expiryMismatchWindowDays),
 			})
 		}
 	}
 
-	for key, li := range byKey {
-		if matched[key] {
-			continue
-		}
+	for _, li := range allLines {
+		got := receivedQty[li.ID]
 		lineItemID := li.ID
-		discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
-			LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeMissingItem,
-			ExpectedQty: li.Quantity, ReceivedQty: 0,
-			Details: fmt.Sprintf("%q was on the purchase order but not on the invoice", li.RawDescription),
-		})
+		switch {
+		case got == 0:
+			discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
+				LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeMissingItem, Status: procurementDomain.DiscrepancyStatusOpen,
+				ExpectedQty: li.Quantity, ReceivedQty: 0,
+				Details: fmt.Sprintf("%q was on the purchase order but not on the invoice", li.RawDescription),
+			})
+		case got != li.Quantity:
+			discrepancies = append(discrepancies, procurementDomain.ReceivingDiscrepancy{
+				LineItemID: &lineItemID, Type: procurementDomain.DiscrepancyTypeQuantityMismatch, Status: procurementDomain.DiscrepancyStatusOpen,
+				ExpectedQty: li.Quantity, ReceivedQty: got,
+				Details: fmt.Sprintf("expected %d, invoice shows %d", li.Quantity, got),
+			})
+		}
 	}
 
 	return discrepancies
+}
+
+// pickLeastFilledLineItem resolves a duplicate-RawSKU collision: returns the
+// first candidate that hasn't yet received its full ordered quantity, or
+// candidates[0] if every candidate is already filled (extra invoice qty in
+// that case surfaces as a quantity_mismatch overflow on that line, which is
+// the correct signal -- the supplier over-shipped, not under-shipped).
+func pickLeastFilledLineItem(candidates []*procurementDomain.PurchaseOrderLineItem, receivedQty map[string]int64) *procurementDomain.PurchaseOrderLineItem {
+	for _, li := range candidates {
+		if receivedQty[li.ID] < li.Quantity {
+			return li
+		}
+	}
+	return candidates[0]
+}
+
+// matchLineItemByDescription is diffInvoiceAgainstPurchaseOrder's fallback
+// when no PO line shares the invoice line's RawSKU -- same acceptance bar
+// as matchByName in match_extracted_line_items.go (score >= nameMatchMinScore,
+// margin >= nameMatchMinMargin over the runner-up), scored against every PO
+// line's RawDescription instead of a catalog product name. Returns nil (not
+// an error) when nothing clears both bars.
+func matchLineItemByDescription(rawDescription string, candidates []*procurementDomain.PurchaseOrderLineItem) *procurementDomain.PurchaseOrderLineItem {
+	tokens := significantTokens(rawDescription)
+	if len(tokens) == 0 {
+		return nil
+	}
+	best := -1
+	bestScore, secondScore := -1.0, -1.0
+	for i, li := range candidates {
+		score := nameMatchScore(li.RawDescription, tokens)
+		if score > bestScore {
+			best, bestScore, secondScore = i, score, bestScore
+		} else if score > secondScore {
+			secondScore = score
+		}
+	}
+	if best == -1 || bestScore < nameMatchMinScore || bestScore-secondScore < nameMatchMinMargin {
+		return nil
+	}
+	return candidates[best]
 }

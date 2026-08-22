@@ -535,9 +535,17 @@ func (s *stubReceivingRecordRepo) Update(_ context.Context, r *procurementDomain
 }
 
 type stubReceivingDiscrepancyRepo struct {
-	byRecord  []procurementDomain.ReceivingDiscrepancy
-	createErr error
-	created   []procurementDomain.ReceivingDiscrepancy
+	byRecord   []procurementDomain.ReceivingDiscrepancy
+	createErr  error
+	created    []procurementDomain.ReceivingDiscrepancy
+	findResult *procurementDomain.ReceivingDiscrepancy
+	findErr    error
+	// byID, when set, answers FindByID per-id -- lets a single stub stand in
+	// for more than one discrepancy (e.g. linking two in the same test),
+	// unlike findResult which answers every call the same way.
+	byID      map[string]*procurementDomain.ReceivingDiscrepancy
+	updateErr error
+	updated   []procurementDomain.ReceivingDiscrepancy
 }
 
 func (s *stubReceivingDiscrepancyRepo) Create(_ context.Context, d *procurementDomain.ReceivingDiscrepancy) error {
@@ -548,8 +556,29 @@ func (s *stubReceivingDiscrepancyRepo) Create(_ context.Context, d *procurementD
 	s.created = append(s.created, *d)
 	return nil
 }
+func (s *stubReceivingDiscrepancyRepo) FindByID(_ context.Context, id string) (*procurementDomain.ReceivingDiscrepancy, error) {
+	if s.byID != nil {
+		if d, ok := s.byID[id]; ok {
+			return d, nil
+		}
+	}
+	return s.findResult, s.findErr
+}
 func (s *stubReceivingDiscrepancyRepo) ListByReceivingRecord(_ context.Context, _ string) ([]procurementDomain.ReceivingDiscrepancy, error) {
 	return s.byRecord, nil
+}
+func (s *stubReceivingDiscrepancyRepo) Update(_ context.Context, d *procurementDomain.ReceivingDiscrepancy) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *d)
+	if s.byID != nil {
+		if _, ok := s.byID[d.ID]; ok {
+			cp := *d
+			s.byID[d.ID] = &cp
+		}
+	}
+	return nil
 }
 
 type stubReceivingParsingJobRepo struct {

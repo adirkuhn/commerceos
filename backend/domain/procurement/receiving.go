@@ -90,6 +90,21 @@ const (
 	// there's no PO-side expiry to diff against, this is a data-quality
 	// flag for the human, not a mismatch against an expectation.
 	DiscrepancyTypeExpiryMismatch DiscrepancyType = "expiry_mismatch"
+	// DiscrepancyTypeDamagedItem: stock arrived but a human flagged some of
+	// it damaged on physical inspection -- unlike the other three types this
+	// is never produced by diffInvoiceAgainstPurchaseOrder (nothing on an
+	// invoice signals damage), only by FlagDamagedLineItemUseCase.
+	DiscrepancyTypeDamagedItem DiscrepancyType = "damaged_item"
+)
+
+// DiscrepancyStatus tracks whether a human has reviewed a discrepancy --
+// purely a UI/review-tracking flag, see ReceivingDiscrepancy's doc comment
+// for why it doesn't gate stock booking.
+type DiscrepancyStatus string
+
+const (
+	DiscrepancyStatusOpen         DiscrepancyStatus = "open"
+	DiscrepancyStatusAcknowledged DiscrepancyStatus = "acknowledged"
 )
 
 // ReceivingDiscrepancy is one line of the diff between a ReceivingRecord's
@@ -108,5 +123,12 @@ type ReceivingDiscrepancy struct {
 	ExpectedQty int64
 	ReceivedQty int64
 	Details     string
-	CreatedAt   time.Time
+	// Status defaults to open on creation; a human flips it to acknowledged
+	// via AcknowledgeReceivingDiscrepancyUseCase (a direct "reviewed, no
+	// action needed" call) or LinkReceivingDiscrepanciesUseCase (pairing an
+	// unexpected_item with a missing_item the matcher couldn't confidently
+	// connect on its own).
+	Status         DiscrepancyStatus
+	AcknowledgedAt *time.Time
+	CreatedAt      time.Time
 }

@@ -112,7 +112,9 @@ type ReceivingRecordRepository interface {
 
 type ReceivingDiscrepancyRepository interface {
 	Create(ctx context.Context, d *ReceivingDiscrepancy) error
+	FindByID(ctx context.Context, id string) (*ReceivingDiscrepancy, error)
 	ListByReceivingRecord(ctx context.Context, receivingRecordID string) ([]ReceivingDiscrepancy, error)
+	Update(ctx context.Context, d *ReceivingDiscrepancy) error
 }
 
 // ReceivingParsingJobRepository mirrors DocumentParsingJobRepository's

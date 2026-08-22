@@ -45,14 +45,16 @@ type receivingParsingJobModel struct {
 func (receivingParsingJobModel) TableName() string { return "receiving_parsing_jobs" }
 
 type receivingDiscrepancyModel struct {
-	ID                string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID          string  `gorm:"not null;type:uuid"`
-	ReceivingRecordID string  `gorm:"column:receiving_record_id;not null;type:uuid"`
-	LineItemID        *string `gorm:"column:line_item_id"`
-	Type              string  `gorm:"not null"`
-	ExpectedQty       int64   `gorm:"column:expected_qty;not null;default:0"`
-	ReceivedQty       int64   `gorm:"column:received_qty;not null;default:0"`
-	Details           string  `gorm:"not null;default:''"`
+	ID                string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID          string     `gorm:"not null;type:uuid"`
+	ReceivingRecordID string     `gorm:"column:receiving_record_id;not null;type:uuid"`
+	LineItemID        *string    `gorm:"column:line_item_id"`
+	Type              string     `gorm:"not null"`
+	ExpectedQty       int64      `gorm:"column:expected_qty;not null;default:0"`
+	ReceivedQty       int64      `gorm:"column:received_qty;not null;default:0"`
+	Details           string     `gorm:"not null;default:''"`
+	Status            string     `gorm:"not null;default:'open'"`
+	AcknowledgedAt    *time.Time `gorm:"column:acknowledged_at"`
 	CreatedAt         time.Time
 }
 
@@ -193,16 +195,35 @@ func (r *ReceivingDiscrepancyRepo) Create(ctx context.Context, d *procurementDom
 	if err != nil {
 		return err
 	}
+	status := string(d.Status)
+	if status == "" {
+		status = string(procurementDomain.DiscrepancyStatusOpen)
+	}
 	m := receivingDiscrepancyModel{
 		TenantID: d.TenantID, ReceivingRecordID: d.ReceivingRecordID, LineItemID: d.LineItemID,
 		Type: string(d.Type), ExpectedQty: d.ExpectedQty, ReceivedQty: d.ReceivedQty,
-		Details: d.Details, CreatedAt: d.CreatedAt,
+		Details: d.Details, Status: status, AcknowledgedAt: d.AcknowledgedAt, CreatedAt: d.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("receivingDiscrepancyRepo.Create: %w", err)
 	}
 	d.ID = m.ID
 	return nil
+}
+
+func (r *ReceivingDiscrepancyRepo) FindByID(ctx context.Context, id string) (*procurementDomain.ReceivingDiscrepancy, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m receivingDiscrepancyModel
+	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, procurementDomain.ErrDiscrepancyNotFound
+		}
+		return nil, fmt.Errorf("receivingDiscrepancyRepo.FindByID: %w", err)
+	}
+	return toReceivingDiscrepancyDomain(m), nil
 }
 
 func (r *ReceivingDiscrepancyRepo) ListByReceivingRecord(ctx context.Context, receivingRecordID string) ([]procurementDomain.ReceivingDiscrepancy, error) {
@@ -216,13 +237,30 @@ func (r *ReceivingDiscrepancyRepo) ListByReceivingRecord(ctx context.Context, re
 	}
 	out := make([]procurementDomain.ReceivingDiscrepancy, len(rows))
 	for i, row := range rows {
-		out[i] = procurementDomain.ReceivingDiscrepancy{
-			ID: row.ID, TenantID: row.TenantID, ReceivingRecordID: row.ReceivingRecordID, LineItemID: row.LineItemID,
-			Type: procurementDomain.DiscrepancyType(row.Type), ExpectedQty: row.ExpectedQty, ReceivedQty: row.ReceivedQty,
-			Details: row.Details, CreatedAt: row.CreatedAt,
-		}
+		out[i] = *toReceivingDiscrepancyDomain(row)
 	}
 	return out, nil
+}
+
+func (r *ReceivingDiscrepancyRepo) Update(ctx context.Context, d *procurementDomain.ReceivingDiscrepancy) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&receivingDiscrepancyModel{}).Where("id = ?", d.ID).
+		Updates(map[string]any{"status": string(d.Status), "acknowledged_at": d.AcknowledgedAt}).Error; err != nil {
+		return fmt.Errorf("receivingDiscrepancyRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func toReceivingDiscrepancyDomain(m receivingDiscrepancyModel) *procurementDomain.ReceivingDiscrepancy {
+	return &procurementDomain.ReceivingDiscrepancy{
+		ID: m.ID, TenantID: m.TenantID, ReceivingRecordID: m.ReceivingRecordID, LineItemID: m.LineItemID,
+		Type: procurementDomain.DiscrepancyType(m.Type), ExpectedQty: m.ExpectedQty, ReceivedQty: m.ReceivedQty,
+		Details: m.Details, Status: procurementDomain.DiscrepancyStatus(m.Status), AcknowledgedAt: m.AcknowledgedAt,
+		CreatedAt: m.CreatedAt,
+	}
 }
 
 // ── ReceivingParsingJobRepo ──────────────────────────────────────────────────

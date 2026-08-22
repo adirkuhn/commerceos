@@ -61,4 +61,14 @@ var (
 	// scanId that doesn't belong to the given booking (wrong booking,
 	// already deleted, or never existed).
 	ErrBookingScanNotFound = errors.New("booking scan not found")
+	ErrDiscrepancyNotFound = errors.New("receiving discrepancy not found")
+	// ErrDiscrepancyMismatch guards LinkReceivingDiscrepanciesUseCase (wrong
+	// receiving_record_id pairing, or either side isn't the expected
+	// unexpected_item/missing_item type) and FlagDamagedLineItemUseCase (the
+	// line item doesn't belong to the receiving record's purchase order).
+	ErrDiscrepancyMismatch            = errors.New("receiving discrepancies do not match for this action")
+	ErrDiscrepancyAlreadyAcknowledged = errors.New("receiving discrepancy is already acknowledged")
+	// ErrInvalidDamagedQuantity guards FlagDamagedLineItemUseCase: must be
+	// positive.
+	ErrInvalidDamagedQuantity = errors.New("damaged quantity must be positive")
 )
