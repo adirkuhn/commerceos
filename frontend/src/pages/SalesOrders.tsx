@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import type { SalesOrder, SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address, SalesOrderSortField, SortDirection } from '../oms/types'
+import { PickingListPrintView } from './print/PickingListPrintView'
+import { InvoicePrintView } from './print/InvoicePrintView'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { ProductSkuPicker } from './Procurement'
 import type { SKU } from '../pms/types'
@@ -155,6 +157,12 @@ export default function SalesOrders() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className={clsx('px-2 py-0.5 rounded-full text-[10px] font-medium', STATUS_COLORS[o.status])}>
                       {o.status}
+                    </span>
+                    <span className={clsx(
+                      'px-2 py-0.5 rounded-full text-[10px] font-medium',
+                      o.fulfilled ? 'bg-green-500/15 text-green-400' : 'bg-gray-500/15 text-gray-400',
+                    )}>
+                      {o.fulfilled ? 'Fulfilled' : 'Unfulfilled'}
                     </span>
                     {(o.needs_stock_review || o.needs_sku_review) && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-500">
@@ -482,6 +490,18 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [savingStatus, setSavingStatus] = useState(false)
   const [actionError, setActionError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  // Full-screen overlay in place of the normal detail chrome, same pattern
+  // as this page's own list<->detail<->create switch -- this app has no
+  // router, so a one-off view is just a conditional render, not a route.
+  const [printMode, setPrintMode] = useState<'picking-list' | 'invoice' | null>(null)
+
+  if (printMode && detail) {
+    return printMode === 'picking-list' ? (
+      <PickingListPrintView order={detail.sales_order} lineItems={detail.line_items} onClose={() => setPrintMode(null)} />
+    ) : (
+      <InvoicePrintView order={detail.sales_order} lineItems={detail.line_items} onClose={() => setPrintMode(null)} />
+    )
+  }
 
   async function handleStatusChange(status: SalesOrderStatus) {
     setSavingStatus(true)
@@ -531,6 +551,20 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
         </div>
         {detail && (
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPrintMode('picking-list')}
+              title="Print picking list"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+            >
+              <Printer size={13} /> Picking list
+            </button>
+            <button
+              onClick={() => setPrintMode('invoice')}
+              title="Print invoice"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+            >
+              <Printer size={13} /> Invoice
+            </button>
             <select
               value={detail.sales_order.status}
               disabled={savingStatus}

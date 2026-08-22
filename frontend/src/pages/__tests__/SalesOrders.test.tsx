@@ -110,6 +110,19 @@ describe('Sales orders list', () => {
     expect(screen.getByText('$50.00')).toBeInTheDocument()
   })
 
+  it('shows a fulfilled/unfulfilled badge per order', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({ id: 'so-1', number: '1001', fulfilled: true }), salesOrder({ id: 'so-2', number: '1002', fulfilled: false })],
+      total: 2,
+    })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    expect(screen.getByText('Fulfilled')).toBeInTheDocument()
+    expect(screen.getByText('Unfulfilled')).toBeInTheDocument()
+  })
+
   it('paginates using the server page param', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 25 })
 
@@ -180,6 +193,41 @@ describe('Sales order detail page', () => {
     expect(screen.getByText('WID-BLU')).toBeInTheDocument()
     expect(screen.getByText('5601049213991')).toBeInTheDocument()
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+  })
+
+  it('Picking list opens the printable view and triggers the browser print dialog', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    const printSpy = vi.fn()
+    vi.stubGlobal('print', printSpy)
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByTitle('Print picking list'))
+
+    expect(await screen.findByText('Picking List')).toBeInTheDocument()
+    expect(printSpy).toHaveBeenCalled()
+
+    await userEvent.click(screen.getByTitle('Close'))
+    expect(screen.getByText('Blue Widget')).toBeInTheDocument()
+  })
+
+  it('Invoice opens the printable view and triggers the browser print dialog', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    const printSpy = vi.fn()
+    vi.stubGlobal('print', printSpy)
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByTitle('Print invoice'))
+
+    expect(await screen.findByText('Invoice')).toBeInTheDocument()
+    expect(printSpy).toHaveBeenCalled()
   })
 
   it('flags a line item with no sku_id as not linked to a product yet', async () => {
