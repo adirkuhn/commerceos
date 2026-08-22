@@ -12,7 +12,7 @@ const APPS: { id: ScannerAppID; label: string; icon: typeof PackageCheck; enable
   { id: 'inventory', label: 'Inventory', icon: Boxes, enabled: true },
   { id: 'price-lookup', label: 'Price Lookup', icon: Tag, enabled: true },
   { id: 'discard', label: 'Discard', icon: Trash2, enabled: true },
-  { id: 'pick-order', label: 'Pick Order', icon: ClipboardList, enabled: false },
+  { id: 'pick-order', label: 'Pick Order', icon: ClipboardList, enabled: true },
 ]
 
 // Entry point once a handheld is paired -- hosts every scanner mini-app.

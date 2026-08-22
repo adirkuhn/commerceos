@@ -3,10 +3,11 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ScannerApp from '../ScannerApp'
-import type { Booking, BookingDetail } from '../types'
+import type { Booking, BookingDetail, PickingSession, PickingSessionDetail } from '../types'
 import type { PurchaseOrder } from '../../procurement/types'
 import type { Supplier } from '../../suppliers/types'
 import type { Warehouse, Batch } from '../../inventory/types'
+import type { SalesOrder } from '../../oms/types'
 
 vi.mock('../api', () => ({
   claimPairingCode: vi.fn(),
@@ -19,6 +20,14 @@ vi.mock('../api', () => ({
   resolveBookingScanCode: vi.fn(),
   pauseBooking: vi.fn(),
   completeBooking: vi.fn(),
+  startOrResumePicking: vi.fn(),
+  getPickingSession: vi.fn(),
+  scanPickItem: vi.fn(),
+  resolvePickScanCode: vi.fn(),
+  deletePickScan: vi.fn(),
+  pausePicking: vi.fn(),
+  completePicking: vi.fn(),
+  addSalesOrderLineItem: vi.fn(),
 }))
 
 vi.mock('../../procurement/api', () => ({
@@ -37,6 +46,16 @@ vi.mock('../../inventory/api', () => ({
   markDamagedOrLost: vi.fn(),
 }))
 
+vi.mock('../../oms/api', () => ({
+  listSalesOrders: vi.fn(),
+}))
+
+vi.mock('../../pms/api', () => ({
+  listProducts: vi.fn(),
+  getProduct: vi.fn(),
+  listProductMedia: vi.fn(),
+}))
+
 const mockDecodeFromVideoDevice = vi.fn()
 vi.mock('@zxing/browser', () => ({
   BrowserMultiFormatReader: vi.fn().mockImplementation(() => ({
@@ -48,6 +67,8 @@ import * as api from '../api'
 import * as procurementApi from '../../procurement/api'
 import * as suppliersApi from '../../suppliers/api'
 import * as inventoryApi from '../../inventory/api'
+import * as omsApi from '../../oms/api'
+import * as pmsApi from '../../pms/api'
 
 function makeJWT(exp: number): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -95,10 +116,28 @@ function batch(overrides: Partial<Batch> = {}): Batch {
   }
 }
 
+function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
+  return {
+    id: 'order-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1',
+    number: '1001', order_key: 'key-1', status: 'processing', warehouse_id: 'warehouse-1',
+    billing: { first_name: 'Jane', last_name: 'Doe' },
+    currency_code: 'USD', discount_total_minor_units: 0, shipping_total_minor_units: 0,
+    tax_total_minor_units: 0, total_minor_units: 2999,
+    occurred_at: '2026-08-05T00:00:00Z', created_at: '2026-08-05T00:00:00Z',
+    fulfilled: false,
+    ...overrides,
+  }
+}
+
+function pickingSession(overrides: Partial<PickingSession> = {}): PickingSession {
+  return { id: 'session-1', sales_order_id: 'order-1', status: 'in_progress', started_at: '', completed_by: '', ...overrides }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
+  vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   mockDecodeFromVideoDevice.mockResolvedValue({ stop: vi.fn() })
 })
 
@@ -188,7 +227,7 @@ describe('ScannerApp launcher', () => {
     localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
   })
 
-  it('shows every mini-app, with only Pick Order disabled', async () => {
+  it('shows every mini-app, all enabled', async () => {
     render(<ScannerApp />)
 
     expect(await screen.findByText('Receive PO')).toBeInTheDocument()
@@ -196,17 +235,17 @@ describe('ScannerApp launcher', () => {
     expect(screen.getByText('Price Lookup')).toBeInTheDocument()
     expect(screen.getByText('Discard')).toBeInTheDocument()
     expect(screen.getByText('Pick Order')).toBeInTheDocument()
-    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
   })
 
-  it('disabled tiles are not clickable', async () => {
+  it('no tiles are disabled', async () => {
     render(<ScannerApp />)
     await screen.findByText('Receive PO')
 
     expect(screen.getByRole('button', { name: /Inventory/ })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /Price Lookup/ })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: 'Discard' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: /Pick Order/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Pick Order/ })).not.toBeDisabled()
   })
 
   it('Discard tile opens the Discard app scan screen', async () => {
@@ -591,5 +630,190 @@ describe('ScannerApp booking screen', () => {
 
     expect(await screen.findByText('Select a purchase order')).toBeInTheDocument()
     expect(api.pauseBooking).toHaveBeenCalledWith(expect.any(String), 'booking-1')
+  })
+})
+
+describe('ScannerApp sales order picker', () => {
+  beforeEach(() => {
+    localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
+  })
+
+  it('lists unfulfilled orders by customer name and order number', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Pick Order'))
+
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.getByText('#1001')).toBeInTheDocument()
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ fulfilled: false }))
+  })
+
+  it('starts a picking session and moves to the picking screen', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(api.startOrResumePicking).mockResolvedValue(pickingSession())
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [], scans: [] })
+
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Pick Order'))
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    expect(await screen.findByText('Picking')).toBeInTheDocument()
+    expect(api.startOrResumePicking).toHaveBeenCalledWith(expect.any(String), 'order-1')
+  })
+
+  it('Back from the sales order picker returns to the launcher', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Pick Order'))
+    await screen.findByText('Select an order to pick')
+
+    await userEvent.click(screen.getByTitle('Back to apps'))
+
+    expect(await screen.findByText('Pick Order')).toBeInTheDocument()
+  })
+})
+
+describe('ScannerApp picking screen', () => {
+  beforeEach(() => {
+    localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(api.startOrResumePicking).mockResolvedValue(pickingSession())
+  })
+
+  async function enterPickingScreen() {
+    render(<ScannerApp />)
+    await userEvent.click(await screen.findByText('Pick Order'))
+    await userEvent.click(await screen.findByText('Jane Doe'))
+    await screen.findByText('Picking')
+  }
+
+  const lineItem: PickingSessionDetail['line_items'][number] = {
+    id: 'li-1', sku_id: 'sku-1', name: 'Widget A', sku_code: 'WID-A', barcode: '', quantity: 10,
+    price_minor_units: 100, total_minor_units: 1000,
+  }
+
+  it('shows expected vs picked progress per line', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({
+      session: pickingSession(), line_items: [lineItem],
+      scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 4, scanned_at: '', scanned_by: '' }],
+    })
+
+    await enterPickingScreen()
+
+    expect(await screen.findByText('Widget A')).toBeInTheDocument()
+    expect(screen.getByText('4 / 10')).toBeInTheDocument()
+  })
+
+  it('tapping a line item and confirming Pick stages a pick scan for the remaining quantity', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    vi.mocked(api.scanPickItem).mockResolvedValue({
+      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 10, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+
+    expect(screen.getByLabelText('Quantity to pick')).toHaveValue('10')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm pick' }))
+
+    await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
+      line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 10,
+    })))
+  })
+
+  it('Substitute mode swaps the whole line for a searched replacement at the original quantity', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [{ id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' }], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: { id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' },
+      variants: [{ id: 'v-2', tenant_id: 't1', product_id: 'product-2', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-2', tenant_id: 't1', variant_id: 'v-2', sku_code: 'WID-B', price_minor_units: 100, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
+    })
+    vi.mocked(api.scanPickItem).mockResolvedValue({
+      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 10, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+    await userEvent.click(screen.getByRole('button', { name: /Substitute/ }))
+    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget B')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    await userEvent.click(await screen.findByText('Widget B'))
+
+    await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
+      line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute',
+    })))
+  })
+
+  it('adds a freebie via the search flow, forcing no price input', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [{ id: 'product-3', tenant_id: 't1', name: 'Free Sample', slug: 'free-sample', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' }], total: 1 })
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: { id: 'product-3', tenant_id: 't1', name: 'Free Sample', slug: 'free-sample', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' },
+      variants: [{ id: 'v-3', tenant_id: 't1', product_id: 'product-3', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-3', tenant_id: 't1', variant_id: 'v-3', sku_code: 'FREE-1', price_minor_units: 0, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
+    })
+    vi.mocked(api.scanPickItem).mockResolvedValue({
+      scan: { id: 'scan-1', session_id: 'session-1', sku_id: 'sku-3', action_type: 'freebie', quantity: 1, price_minor_units: 0, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(await screen.findByText('Add freebie or new item'))
+    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Free Sample')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    await userEvent.click(await screen.findByText('Free Sample'))
+
+    expect(screen.queryByLabelText('Price (each)')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Add to order' }))
+
+    await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
+      sku_id: 'sku-3', action_type: 'freebie', quantity: 1,
+    })))
+  })
+
+  it('Finish shows a preview of what is still missing, computed locally -- no completion yet', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({
+      session: pickingSession(), line_items: [lineItem],
+      scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 6, scanned_at: '', scanned_by: '' }],
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+
+    expect(await screen.findByText('Review before finishing')).toBeInTheDocument()
+    expect(screen.getByText('Widget A')).toBeInTheDocument()
+    expect(screen.getByText('expected 10 · picked 6')).toBeInTheDocument()
+    expect(api.completePicking).not.toHaveBeenCalled()
+  })
+
+  it('Confirm & Complete finishes the session and shows the missing-items result', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({
+      session: pickingSession(), line_items: [lineItem],
+      scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 6, scanned_at: '', scanned_by: '' }],
+    })
+    vi.mocked(api.completePicking).mockResolvedValue({
+      session: pickingSession({ status: 'completed' }),
+      missing_items: [{ line_item_id: 'li-1', name: 'Widget A', expected_qty: 10, picked_qty: 6 }],
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+    await screen.findByText('Review before finishing')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+
+    expect(await screen.findByText('Order picked')).toBeInTheDocument()
+    expect(screen.getByText(/weren't fully picked/)).toBeInTheDocument()
+    expect(api.completePicking).toHaveBeenCalledWith(expect.any(String), 'session-1')
+  })
+
+  it('pauses the picking session and returns to the sales order picker', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [], scans: [] })
+    vi.mocked(api.pausePicking).mockResolvedValue(pickingSession({ status: 'paused' }))
+
+    await enterPickingScreen()
+    await userEvent.click(screen.getByTitle('Pause and go back'))
+
+    expect(await screen.findByText('Select an order to pick')).toBeInTheDocument()
+    expect(api.pausePicking).toHaveBeenCalledWith(expect.any(String), 'session-1')
   })
 })

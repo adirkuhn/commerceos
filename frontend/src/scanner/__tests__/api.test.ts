@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { Booking, BookingDetail, ScannerPairingCode, APIResponse } from '../types'
+import type { Booking, BookingDetail, ScannerPairingCode, APIResponse, PickingSession } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -190,5 +190,118 @@ describe('completeBooking', () => {
       'https://api.commerceos.dev.localhost/api/v1/procurement/bookings/booking-1/complete',
       expect.objectContaining({ method: 'POST' }),
     )
+  })
+})
+
+const samplePickingSession: PickingSession = {
+  id: 'session-1', sales_order_id: 'order-1', status: 'in_progress', started_at: '2026-08-05T00:00:00Z', completed_by: '',
+}
+
+describe('startOrResumePicking', () => {
+  it('posts to the correct sales-order-scoped endpoint (no /oms prefix)', async () => {
+    mockFetch(samplePickingSession)
+    const result = await api.startOrResumePicking(TOKEN, 'order-1')
+
+    expect(result).toEqual(samplePickingSession)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/sales-orders/order-1/picking',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+})
+
+describe('getPickingSession', () => {
+  it('calls the correct endpoint', async () => {
+    const detail = { session: samplePickingSession, line_items: [], scans: [] }
+    mockFetch(detail)
+    const result = await api.getPickingSession(TOKEN, 'session-1')
+
+    expect(result).toEqual(detail)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})
+
+describe('scanPickItem', () => {
+  it('sends the scan input to the correct endpoint', async () => {
+    const result = { scan: { id: 'scan-1', session_id: 'session-1', sku_id: 'sku-1', action_type: 'pick', quantity: 3, scanned_at: '', scanned_by: '' } }
+    mockFetch(result, 201)
+    const got = await api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-1', action_type: 'pick', quantity: 3, line_item_id: 'li-1' })
+
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/scan')
+    expect(JSON.parse(opts.body as string)).toEqual({ sku_id: 'sku-1', action_type: 'pick', quantity: 3, line_item_id: 'li-1' })
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'a line item is required for this action')
+    await expect(api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-2', action_type: 'substitute', quantity: 1 })).rejects.toThrow('a line item is required for this action')
+  })
+})
+
+describe('resolvePickScanCode', () => {
+  it('sends the code to the correct endpoint', async () => {
+    const result = { sku_id: 'sku-1', product_name: 'Widget' }
+    mockFetch(result)
+    const got = await api.resolvePickScanCode(TOKEN, 'session-1', 'BARCODE-1')
+
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/resolve-scan')
+    expect(JSON.parse(opts.body as string)).toEqual({ code: 'BARCODE-1' })
+  })
+})
+
+describe('deletePickScan', () => {
+  it('deletes the correct scan', async () => {
+    mockFetch(null)
+    await api.deletePickScan(TOKEN, 'session-1', 'scan-1')
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/scans/scan-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+})
+
+describe('pausePicking', () => {
+  it('posts to the correct endpoint', async () => {
+    mockFetch({ ...samplePickingSession, status: 'paused' })
+    const result = await api.pausePicking(TOKEN, 'session-1')
+
+    expect(result.status).toBe('paused')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/pause',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+})
+
+describe('completePicking', () => {
+  it('posts to the correct endpoint', async () => {
+    mockFetch({ session: { ...samplePickingSession, status: 'completed' }, missing_items: [] })
+    const result = await api.completePicking(TOKEN, 'session-1')
+
+    expect(result.session.status).toBe('completed')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/complete',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+})
+
+describe('addSalesOrderLineItem', () => {
+  it('posts to the sales-order line-items endpoint', async () => {
+    const lineItem = { id: 'li-new', name: 'Freebie Widget', sku_code: 'FREE-1', barcode: '', quantity: 1, price_minor_units: 0, subtotal_minor_units: 0, subtotal_tax_minor_units: 0, total_minor_units: 0, total_tax_minor_units: 0 }
+    mockFetch(lineItem, 201)
+    const result = await api.addSalesOrderLineItem(TOKEN, 'order-1', { sku_id: 'sku-9', quantity: 1, price_minor_units: 0 })
+
+    expect(result).toEqual(lineItem)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/sales-orders/order-1/line-items')
+    expect(JSON.parse(opts.body as string)).toEqual({ sku_id: 'sku-9', quantity: 1, price_minor_units: 0 })
   })
 })

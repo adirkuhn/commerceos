@@ -7,6 +7,8 @@ import { PriceLookupApp } from './PriceLookupApp'
 import { DiscardApp } from './DiscardApp'
 import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
 import { BookingScreen } from './BookingScreen'
+import { SalesOrderPickerScreen } from './SalesOrderPickerScreen'
+import { PickingScreen } from './PickingScreen'
 
 // Full-screen kiosk-style app for the handheld scanner device -- bypasses
 // the normal Sidebar/Topbar chrome and ../auth/AuthContext entirely (see
@@ -17,6 +19,7 @@ export default function ScannerApp() {
   const { token, setToken, clearToken } = useScannerAuth()
   const [app, setApp] = useState<ScannerAppID | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [pickingSessionId, setPickingSessionId] = useState<string | null>(null)
   // Set by Price Lookup's "View in Inventory" -- lets Inventory open
   // straight to this SKU's screen instead of showing its own scan step.
   const [inventoryInitialResolved, setInventoryInitialResolved] = useState<Resolved | null>(null)
@@ -53,9 +56,30 @@ export default function ScannerApp() {
     return <DiscardApp token={token} onExit={() => setApp(null)} />
   }
 
-  // Only 'receive-po', 'inventory', 'price-lookup', and 'discard' are
-  // implemented -- the other tiles in AppLauncher are disabled, so app
-  // can't reach this branch with any other value yet.
+  if (app === 'pick-order') {
+    if (!pickingSessionId) {
+      return (
+        <SalesOrderPickerScreen
+          token={token}
+          onPickingStarted={setPickingSessionId}
+          onLogout={clearToken}
+          onBack={() => setApp(null)}
+        />
+      )
+    }
+    return (
+      <PickingScreen
+        token={token}
+        sessionId={pickingSessionId}
+        onExit={() => setPickingSessionId(null)}
+        onAuthError={clearToken}
+      />
+    )
+  }
+
+  // Only 'receive-po', 'inventory', 'price-lookup', 'discard', and
+  // 'pick-order' are implemented -- the other tiles in AppLauncher are
+  // disabled, so app can't reach this branch with any other value yet.
   if (!bookingId) {
     return (
       <PurchaseOrderPickerScreen
