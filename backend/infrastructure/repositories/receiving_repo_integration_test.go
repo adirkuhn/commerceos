@@ -175,8 +175,48 @@ func TestReceivingDiscrepancyRepo_Integration_CreateAndList(t *testing.T) {
 	require.Len(t, listed, 2)
 	require.Equal(t, procurementDomain.DiscrepancyTypeQuantityMismatch, listed[0].Type)
 	require.NotNil(t, listed[0].LineItemID)
+	require.Equal(t, procurementDomain.DiscrepancyStatusOpen, listed[0].Status)
 	require.Equal(t, procurementDomain.DiscrepancyTypeUnexpectedItem, listed[1].Type)
 	require.Nil(t, listed[1].LineItemID)
+
+	var found *procurementDomain.ReceivingDiscrepancy
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = discRepo.FindByID(ctx, listed[0].ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, procurementDomain.DiscrepancyStatusOpen, found.Status)
+	require.Nil(t, found.AcknowledgedAt)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		found.Status = procurementDomain.DiscrepancyStatusAcknowledged
+		found.AcknowledgedAt = &now
+		return discRepo.Update(ctx, found)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = discRepo.FindByID(ctx, listed[0].ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, procurementDomain.DiscrepancyStatusAcknowledged, found.Status)
+	require.NotNil(t, found.AcknowledgedAt)
+}
+
+func TestReceivingDiscrepancyRepo_Integration_FindByIDNotFound(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	discRepo := repositories.NewReceivingDiscrepancyRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := discRepo.FindByID(ctx, "00000000-0000-0000-0000-000000000000")
+		return err
+	})
+	require.ErrorIs(t, err, procurementDomain.ErrDiscrepancyNotFound)
 }
 
 func TestReceivingParsingJobRepo_Integration_Lifecycle(t *testing.T) {
