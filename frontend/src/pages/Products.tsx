@@ -507,7 +507,21 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         return
       }
 
-      await onUpdate(savedProductId, payload)
+      const updatedProduct = await onUpdate(savedProductId, payload)
+      // The `hydrated` sync-from-`existing` block above only ever runs
+      // once (by design, so it doesn't clobber in-progress edits every
+      // time `existing` changes) -- so a server-side transform like slug
+      // regeneration would otherwise sit in `detail` unseen until a full
+      // page reload. Patch every field the save just touched directly
+      // from the response, which -- unlike a subsequent GET -- already
+      // reflects transforms UpdateProductUseCase applied in memory before
+      // persisting (e.g. slug regeneration/disambiguation).
+      setName(updatedProduct.name)
+      setSlug(updatedProduct.slug)
+      setDescription(updatedProduct.description)
+      setCategoryId(updatedProduct.category_id ?? '')
+      setStatus(updatedProduct.status)
+      setTags(updatedProduct.tags ?? [])
       // addSKU/updateSKU below already refresh `detail` themselves, but a
       // save with no SKU changes wouldn't otherwise touch it -- without
       // this, `existing` (used for the slug-changed diff above) stays

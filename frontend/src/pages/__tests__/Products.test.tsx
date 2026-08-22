@@ -397,6 +397,33 @@ describe('editing a product\'s slug', () => {
     })))
   })
 
+  // Regression: the server regenerates a cleared slug from the product name
+  // (and can further disambiguate it on collision), so what gets persisted
+  // can differ from the empty string the user submitted. The `hydrated`
+  // sync-from-`existing` effect only ever runs once, so without patching
+  // local state directly from the save response, the field kept showing
+  // empty until a full page reload.
+  it('shows the server-regenerated slug immediately after clearing it, without a page reload', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true, name: 'T-Shirt', slug: 't-shirt' }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(product({ name: 'T-Shirt', slug: 't-shirt-2' }))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByLabelText('Slug')).toHaveValue('t-shirt'))
+
+    await userEvent.clear(screen.getByLabelText('Slug'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Slug')).toHaveValue('t-shirt-2'))
+  })
+
   // Regression: a save error (e.g. the backend's 409 "slug already exists")
   // used to render as the very last element of the General tab's main
   // column, below five FormCards -- visually invisible without scrolling
