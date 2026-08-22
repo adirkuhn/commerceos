@@ -417,7 +417,7 @@ describe('getReceivingRecord', () => {
       discrepancies: [{
         id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
         line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
-        details: 'expected 10, invoice shows 8', created_at: '2026-08-05T00:00:00Z',
+        details: 'expected 10, invoice shows 8', status: 'open', created_at: '2026-08-05T00:00:00Z',
       }],
     }
     mockFetch(detail)
@@ -451,6 +451,68 @@ describe('completeReceiving', () => {
   it('throws on not found', async () => {
     mockFetchError('NOT_FOUND', 'receiving record not found', 404)
     await expect(api.completeReceiving(TOKEN, 'missing')).rejects.toThrow('receiving record not found')
+  })
+})
+
+const sampleReceivingDiscrepancy: import('../types').ReceivingDiscrepancy = {
+  id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+  line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
+  details: 'expected 10, invoice shows 8', status: 'open', created_at: '2026-08-05T00:00:00Z',
+}
+
+describe('acknowledgeReceivingDiscrepancy', () => {
+  it('posts to the correct endpoint and returns the acknowledged discrepancy', async () => {
+    const acknowledged = { ...sampleReceivingDiscrepancy, status: 'acknowledged' as const, acknowledged_at: '2026-08-22T00:00:00Z' }
+    mockFetch(acknowledged)
+    const result = await api.acknowledgeReceivingDiscrepancy(TOKEN, 'discrepancy-1')
+
+    expect(result).toEqual(acknowledged)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/procurement/receiving-discrepancies/discrepancy-1/acknowledge')
+    expect(opts.method).toBe('POST')
+  })
+
+  it('throws on already acknowledged', async () => {
+    mockFetchError('VALIDATION_ERROR', 'receiving discrepancy is already acknowledged', 422)
+    await expect(api.acknowledgeReceivingDiscrepancy(TOKEN, 'discrepancy-1')).rejects.toThrow('already acknowledged')
+  })
+})
+
+describe('linkReceivingDiscrepancies', () => {
+  it('posts both discrepancy ids to the link endpoint', async () => {
+    mockFetch(null)
+    await api.linkReceivingDiscrepancies(TOKEN, 'unexpected-1', 'missing-1')
+
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/procurement/receiving-discrepancies/link')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({ unexpected_discrepancy_id: 'unexpected-1', missing_discrepancy_id: 'missing-1' })
+  })
+
+  it('throws on mismatch', async () => {
+    mockFetchError('VALIDATION_ERROR', 'receiving discrepancies do not match for this action', 422)
+    await expect(api.linkReceivingDiscrepancies(TOKEN, 'unexpected-1', 'missing-1')).rejects.toThrow('do not match')
+  })
+})
+
+describe('flagDamagedLineItem', () => {
+  it('posts damaged qty and note to the correct endpoint', async () => {
+    const damaged: import('../types').ReceivingDiscrepancy = {
+      ...sampleReceivingDiscrepancy, id: 'discrepancy-2', type: 'damaged_item', expected_qty: 0, received_qty: 3, details: 'crushed box',
+    }
+    mockFetch(damaged, 201)
+    const result = await api.flagDamagedLineItem(TOKEN, 'receiving-record-1', 'line-item-1', 3, 'crushed box')
+
+    expect(result).toEqual(damaged)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/procurement/receiving-records/receiving-record-1/line-items/line-item-1/damaged')
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body as string)).toEqual({ damaged_qty: 3, note: 'crushed box' })
+  })
+
+  it('throws on invalid quantity', async () => {
+    mockFetchError('VALIDATION_ERROR', 'damaged quantity must be positive', 422)
+    await expect(api.flagDamagedLineItem(TOKEN, 'receiving-record-1', 'line-item-1', 0, '')).rejects.toThrow('must be positive')
   })
 })
 

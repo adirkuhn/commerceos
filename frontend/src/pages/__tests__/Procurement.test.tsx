@@ -33,6 +33,9 @@ vi.mock('../../procurement/api', () => ({
   listReceivingRecords: vi.fn(),
   getReceivingRecord: vi.fn(),
   completeReceiving: vi.fn(),
+  acknowledgeReceivingDiscrepancy: vi.fn(),
+  linkReceivingDiscrepancies: vi.fn(),
+  flagDamagedLineItem: vi.fn(),
   listBookingDiscrepancies: vi.fn(),
 }))
 
@@ -1119,7 +1122,7 @@ describe('Receiving', () => {
       discrepancies: [{
         id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
         line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
-        details: 'expected 10, invoice shows 8', created_at: '',
+        details: 'expected 10, invoice shows 8', status: 'open', created_at: '',
       }],
     }))
 
@@ -1158,7 +1161,7 @@ describe('Receiving', () => {
       discrepancies: [{
         id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
         line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
-        details: 'expected 10, invoice shows 8', created_at: '',
+        details: 'expected 10, invoice shows 8', status: 'open', created_at: '',
       }],
     }))
     vi.mocked(inventoryApi.receiveStock).mockResolvedValue({
@@ -1192,7 +1195,7 @@ describe('Receiving', () => {
       discrepancies: [{
         id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
         line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
-        details: 'expected 10, invoice shows 8', created_at: '',
+        details: 'expected 10, invoice shows 8', status: 'open', created_at: '',
       }],
     }))
     vi.mocked(procurementApi.updatePurchaseOrder).mockResolvedValue(po({ warehouse_id: 'warehouse-1' }))
@@ -1233,6 +1236,111 @@ describe('Receiving', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Mark Receiving Complete/ }))
 
     await waitFor(() => expect(procurementApi.completeReceiving).toHaveBeenCalledWith('test-token', 'receiving-record-1'))
+  })
+
+  it('acknowledges a discrepancy and shows it as acknowledged', async () => {
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord()])
+    const openDetail = receivingDetail({
+      discrepancies: [{
+        id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+        line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
+        details: 'expected 10, invoice shows 8', status: 'open', created_at: '',
+      }],
+    })
+    const acknowledgedDetail = receivingDetail({
+      discrepancies: [{ ...openDetail.discrepancies[0], status: 'acknowledged', acknowledged_at: '2026-08-22T00:00:00Z' }],
+    })
+    vi.mocked(procurementApi.getReceivingRecord).mockResolvedValueOnce(openDetail).mockResolvedValue(acknowledgedDetail)
+    vi.mocked(procurementApi.acknowledgeReceivingDiscrepancy).mockResolvedValue(acknowledgedDetail.discrepancies[0])
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.csv')
+    await userEvent.click(screen.getByText('invoice.csv'))
+    await userEvent.click(await screen.findByRole('button', { name: /Mark as valid/ }))
+
+    await waitFor(() => expect(procurementApi.acknowledgeReceivingDiscrepancy).toHaveBeenCalledWith('test-token', 'discrepancy-1'))
+    expect(await screen.findByText('Acknowledged')).toBeInTheDocument()
+  })
+
+  it('links an unexpected item to a missing item', async () => {
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord()])
+    vi.mocked(procurementApi.getReceivingRecord).mockResolvedValue(receivingDetail({
+      discrepancies: [
+        {
+          id: 'unexpected-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+          line_item_id: null, type: 'unexpected_item', expected_qty: 0, received_qty: 5,
+          details: 'invoice line "Widget B" was not on the purchase order', status: 'open', created_at: '',
+        },
+        {
+          id: 'missing-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+          line_item_id: 'line-item-1', type: 'missing_item', expected_qty: 5, received_qty: 0,
+          details: '"Widget A" was on the purchase order but not on the invoice', status: 'open', created_at: '',
+        },
+      ],
+    }))
+    vi.mocked(procurementApi.linkReceivingDiscrepancies).mockResolvedValue(undefined)
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.csv')
+    await userEvent.click(screen.getByText('invoice.csv'))
+    await userEvent.click((await screen.findAllByRole('button', { name: /Link to…/ }))[0])
+    await userEvent.selectOptions(screen.getByLabelText('Link to discrepancy'), 'missing-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(procurementApi.linkReceivingDiscrepancies).toHaveBeenCalledWith('test-token', 'unexpected-1', 'missing-1'))
+  })
+
+  it('flags a line item as damaged', async () => {
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord()])
+    vi.mocked(procurementApi.getReceivingRecord).mockResolvedValue(receivingDetail())
+    vi.mocked(procurementApi.flagDamagedLineItem).mockResolvedValue({
+      id: 'discrepancy-2', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+      line_item_id: 'line-item-1', type: 'damaged_item', expected_qty: 0, received_qty: 2,
+      details: 'crushed box', status: 'open', created_at: '',
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.csv')
+    await userEvent.click(screen.getByText('invoice.csv'))
+    await userEvent.click(await screen.findByRole('button', { name: /Flag damaged item/ }))
+    await userEvent.clear(screen.getByRole('spinbutton'))
+    await userEvent.type(screen.getByRole('spinbutton'), '2')
+    await userEvent.type(screen.getByPlaceholderText('Note (optional)'), 'crushed box')
+    await userEvent.click(screen.getByRole('button', { name: 'Flag as damaged' }))
+
+    await waitFor(() => expect(procurementApi.flagDamagedLineItem).toHaveBeenCalledWith('test-token', 'receiving-record-1', 'line-item-1', 2, 'crushed box'))
+  })
+
+  it('generates a discrepancy report grouped by type', async () => {
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord()])
+    vi.mocked(procurementApi.getReceivingRecord).mockResolvedValue(receivingDetail({
+      discrepancies: [
+        {
+          id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+          line_item_id: 'line-item-1', type: 'quantity_mismatch', expected_qty: 10, received_qty: 8,
+          details: 'expected 10, invoice shows 8', status: 'open', created_at: '',
+        },
+        {
+          id: 'discrepancy-2', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+          line_item_id: 'line-item-1', type: 'damaged_item', expected_qty: 0, received_qty: 2,
+          details: 'crushed box', status: 'open', created_at: '',
+        },
+      ],
+    }))
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.csv')
+    await userEvent.click(screen.getByText('invoice.csv'))
+    await userEvent.click(await screen.findByRole('button', { name: /Generate Report/ }))
+
+    expect(await screen.findByText('Receiving Discrepancy Report')).toBeInTheDocument()
+    expect(screen.getByText((_, el) => el?.tagName === 'H3' && el.textContent === 'Damaged (1)')).toBeInTheDocument()
+    expect(screen.getByText((_, el) => el?.tagName === 'H3' && el.textContent === 'Quantity mismatch (1)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Export CSV/ })).toBeInTheDocument()
   })
 })
 

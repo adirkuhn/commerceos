@@ -193,7 +193,9 @@ export interface ReceivingRecord {
   updated_at: string
 }
 
-export type DiscrepancyType = 'quantity_mismatch' | 'missing_item' | 'unexpected_item' | 'expiry_mismatch'
+export type DiscrepancyType = 'quantity_mismatch' | 'missing_item' | 'unexpected_item' | 'expiry_mismatch' | 'damaged_item'
+
+export type DiscrepancyStatus = 'open' | 'acknowledged'
 
 export interface ReceivingDiscrepancy {
   id: string
@@ -205,6 +207,8 @@ export interface ReceivingDiscrepancy {
   expected_qty: number
   received_qty: number
   details: string
+  status: DiscrepancyStatus
+  acknowledged_at?: string | null
   created_at: string
 }
 

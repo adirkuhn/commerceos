@@ -4,7 +4,7 @@ import type {
   AddLineItemInput, UpdateLineItemInput,
   CreatePurchaseOrderFromDocumentInput, LinkLineItemInput, CreateProductAndLinkLineItemInput,
   CreateSupplierAndAssignInput,
-  ReceivingParsingJob, ReceivingRecord, ReceivingRecordDetail,
+  ReceivingParsingJob, ReceivingRecord, ReceivingRecordDetail, ReceivingDiscrepancy,
   BookingDiscrepancyReport,
   APIResponse,
 } from './types'
@@ -136,6 +136,26 @@ export function getReceivingRecord(token: string, id: string): Promise<Receiving
 
 export function completeReceiving(token: string, id: string): Promise<ReceivingRecord> {
   return request<ReceivingRecord>(`${base()}/receiving-records/${id}/complete`, { method: 'POST' }, token)
+}
+
+export function acknowledgeReceivingDiscrepancy(token: string, discrepancyId: string): Promise<ReceivingDiscrepancy> {
+  return request<ReceivingDiscrepancy>(`${base()}/receiving-discrepancies/${discrepancyId}/acknowledge`, { method: 'POST' }, token)
+}
+
+export function linkReceivingDiscrepancies(token: string, unexpectedDiscrepancyId: string, missingDiscrepancyId: string): Promise<void> {
+  return request<void>(`${base()}/receiving-discrepancies/link`, {
+    method: 'POST',
+    body: JSON.stringify({ unexpected_discrepancy_id: unexpectedDiscrepancyId, missing_discrepancy_id: missingDiscrepancyId }),
+  }, token)
+}
+
+export function flagDamagedLineItem(
+  token: string, receivingRecordId: string, lineItemId: string, damagedQty: number, note: string,
+): Promise<ReceivingDiscrepancy> {
+  return request<ReceivingDiscrepancy>(`${base()}/receiving-records/${receivingRecordId}/line-items/${lineItemId}/damaged`, {
+    method: 'POST',
+    body: JSON.stringify({ damaged_qty: damagedQty, note }),
+  }, token)
 }
 
 export function listBookingDiscrepancies(token: string): Promise<BookingDiscrepancyReport> {

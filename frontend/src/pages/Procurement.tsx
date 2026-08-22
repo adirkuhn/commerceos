@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, AlertTriangle, Loader2 } from 'lucide-react'
+import { Plus, ShoppingBag, Trash2, Edit3, ArrowLeft, Search, X, Check, Upload, Sparkles, PackageCheck, FileText, AlertTriangle, Loader2, Link2, ClipboardList, Download } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { usePurchaseOrders } from '../procurement/hooks/usePurchaseOrders'
@@ -99,6 +99,7 @@ const DISCREPANCY_LABEL: Record<DiscrepancyType, string> = {
   missing_item: 'Missing from invoice',
   unexpected_item: 'Not on purchase order',
   expiry_mismatch: 'Expiry mismatch',
+  damaged_item: 'Damaged',
 }
 
 export default function Procurement() {
@@ -1547,6 +1548,8 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [completing, setCompleting] = useState(false)
+  const [damagedFormOpen, setDamagedFormOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -1594,18 +1597,38 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
             <DiscrepancyRow
               key={d.id}
               discrepancy={d}
+              allDiscrepancies={detail.discrepancies}
               lineItem={lineItems.find(li => li.id === d.line_item_id)}
               warehouseId={warehouseId}
               warehouses={warehouses}
               onAssignWarehouse={onAssignWarehouse}
               invoiceFileName={invoiceFileName}
               disabled={isApplied}
+              onReload={load}
             />
           ))}
         </div>
       )}
       {error && <p className="text-[10px] text-red-400">{error}</p>}
-      <div className="flex items-center justify-end pt-1">
+      {!isApplied && (
+        damagedFormOpen ? (
+          <FlagDamagedItemForm recordId={recordId} lineItems={lineItems} onDone={() => { setDamagedFormOpen(false); load() }} onCancel={() => setDamagedFormOpen(false)} />
+        ) : (
+          <button
+            type="button" onClick={() => setDamagedFormOpen(true)}
+            className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-500 text-gray-400 hover:underline"
+          >
+            <AlertTriangle size={10} /> Flag damaged item
+          </button>
+        )
+      )}
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button" onClick={() => setReportOpen(true)}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 dark:text-gray-300 text-gray-600 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+        >
+          <ClipboardList size={11} /> Generate Report
+        </button>
         {isApplied ? (
           <span className="flex items-center gap-1 text-[10px] font-medium text-green-400">
             <PackageCheck size={11} /> Receiving completed
@@ -1619,41 +1642,149 @@ function ReceivingRecordCard({ recordId, lineItems, warehouseId, warehouses, onA
           </button>
         )}
       </div>
+      {reportOpen && (
+        <ReceivingReportModal
+          discrepancies={detail.discrepancies} invoiceFileName={invoiceFileName}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
 interface DiscrepancyRowProps {
   discrepancy: ReceivingDiscrepancy
+  allDiscrepancies: ReceivingDiscrepancy[]
   lineItem: PurchaseOrderLineItem | undefined
   warehouseId: string | null
   warehouses: Warehouse[]
   onAssignWarehouse: (warehouseId: string) => Promise<void>
   invoiceFileName: string
   disabled: boolean
+  onReload: () => Promise<void> | void
 }
 
-function DiscrepancyRow({ discrepancy, lineItem, warehouseId, warehouses, onAssignWarehouse, invoiceFileName, disabled }: DiscrepancyRowProps) {
+function DiscrepancyRow({
+  discrepancy, allDiscrepancies, lineItem, warehouseId, warehouses, onAssignWarehouse, invoiceFileName, disabled, onReload,
+}: DiscrepancyRowProps) {
+  const { token } = useAuth()
   const [formOpen, setFormOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkTargetId, setLinkTargetId] = useState('')
+  const [acting, setActing] = useState(false)
+  const [actionError, setActionError] = useState('')
   const canReceive = !disabled && !formOpen && lineItem?.sku_id && discrepancy.received_qty > 0
+  const isAcknowledged = discrepancy.status === 'acknowledged'
+
+  // Candidates for manual linking: sibling discrepancies of the opposite
+  // missing/unexpected type in the same record that are still open -- the
+  // matcher's own fuzzy pass already handled everything it could connect
+  // confidently, this is the human escape hatch for what's left.
+  const linkCandidates = !isAcknowledged && (discrepancy.type === 'unexpected_item' || discrepancy.type === 'missing_item')
+    ? allDiscrepancies.filter(d => d.status !== 'acknowledged' && d.type === (discrepancy.type === 'unexpected_item' ? 'missing_item' : 'unexpected_item'))
+    : []
+
+  async function handleAcknowledge() {
+    setActing(true)
+    setActionError('')
+    try {
+      await procurementApi.acknowledgeReceivingDiscrepancy(token ?? '', discrepancy.id)
+      await onReload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to acknowledge discrepancy')
+    } finally {
+      setActing(false)
+    }
+  }
+
+  async function handleLink() {
+    if (!linkTargetId) return
+    setActing(true)
+    setActionError('')
+    try {
+      const [unexpectedId, missingId] = discrepancy.type === 'unexpected_item'
+        ? [discrepancy.id, linkTargetId]
+        : [linkTargetId, discrepancy.id]
+      await procurementApi.linkReceivingDiscrepancies(token ?? '', unexpectedId, missingId)
+      setLinkOpen(false)
+      await onReload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to link discrepancies')
+    } finally {
+      setActing(false)
+    }
+  }
 
   return (
-    <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-2.5 space-y-1.5">
+    <div className={clsx(
+      'rounded-lg border p-2.5 space-y-1.5',
+      isAcknowledged
+        ? 'dark:border-white/10 border-gray-200 dark:bg-white/[0.02] bg-gray-50'
+        : 'dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40',
+    )}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold text-amber-400">{DISCREPANCY_LABEL[discrepancy.type]}</span>
+        <span className={clsx('text-[10px] font-semibold', isAcknowledged ? 'dark:text-gray-500 text-gray-400' : 'text-amber-400')}>
+          {DISCREPANCY_LABEL[discrepancy.type]}
+        </span>
         <span className="text-[10px] dark:text-gray-500 text-gray-400">
           expected {discrepancy.expected_qty} · invoice {discrepancy.received_qty}
         </span>
       </div>
       <p className="text-[11px] dark:text-gray-300 text-gray-600">{discrepancy.details}</p>
-      {canReceive && (
-        <button
-          type="button" onClick={() => setFormOpen(true)}
-          className="flex items-center gap-1 text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline"
-        >
-          <PackageCheck size={10} /> Receive stock
-        </button>
+      {isAcknowledged ? (
+        <span className="flex items-center gap-1 text-[10px] font-medium text-green-400">
+          <Check size={10} /> Acknowledged
+        </span>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          {canReceive && (
+            <button
+              type="button" onClick={() => setFormOpen(true)}
+              className="flex items-center gap-1 text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline"
+            >
+              <PackageCheck size={10} /> Receive stock
+            </button>
+          )}
+          {!disabled && (
+            <button
+              type="button" onClick={handleAcknowledge} disabled={acting}
+              className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-400 text-gray-500 hover:underline disabled:opacity-50"
+            >
+              <Check size={10} /> Mark as valid
+            </button>
+          )}
+          {!disabled && linkCandidates.length > 0 && !linkOpen && (
+            <button
+              type="button" onClick={() => setLinkOpen(true)}
+              className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-400 text-gray-500 hover:underline"
+            >
+              <Link2 size={10} /> Link to…
+            </button>
+          )}
+        </div>
       )}
+      {linkOpen && (
+        <div className="flex items-center gap-2 pt-1">
+          <select
+            aria-label="Link to discrepancy"
+            value={linkTargetId} onChange={e => setLinkTargetId(e.target.value)}
+            className="flex-1 text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+          >
+            <option value="">Select the matching item…</option>
+            {linkCandidates.map(c => <option key={c.id} value={c.id}>{c.details}</option>)}
+          </select>
+          <button
+            type="button" onClick={handleLink} disabled={acting || !linkTargetId}
+            className="text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline disabled:opacity-50"
+          >
+            Confirm
+          </button>
+          <button type="button" onClick={() => setLinkOpen(false)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline">
+            Cancel
+          </button>
+        </div>
+      )}
+      {actionError && <p className="text-[10px] text-red-400">{actionError}</p>}
       {!disabled && lineItem && !lineItem.sku_id && discrepancy.received_qty > 0 && (
         <p className="text-[10px] dark:text-gray-500 text-gray-400">Link this line item to a product before receiving stock for it.</p>
       )}
@@ -1668,6 +1799,148 @@ function DiscrepancyRow({ discrepancy, lineItem, warehouseId, warehouses, onAssi
           onDone={() => setFormOpen(false)}
         />
       )}
+    </div>
+  )
+}
+
+interface FlagDamagedItemFormProps {
+  recordId: string
+  lineItems: PurchaseOrderLineItem[]
+  onDone: () => void
+  onCancel: () => void
+}
+
+function FlagDamagedItemForm({ recordId, lineItems, onDone, onCancel }: FlagDamagedItemFormProps) {
+  const { token } = useAuth()
+  const [lineItemId, setLineItemId] = useState(lineItems[0]?.id ?? '')
+  const [qty, setQty] = useState('1')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const damagedQty = Number(qty)
+    if (!lineItemId || !Number.isFinite(damagedQty) || damagedQty <= 0) {
+      setError('Pick a line item and a positive quantity')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await procurementApi.flagDamagedLineItem(token ?? '', recordId, lineItemId, damagedQty, note)
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to flag damaged item')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5 space-y-2">
+      <div className="flex items-center gap-2">
+        <select
+          value={lineItemId} onChange={e => setLineItemId(e.target.value)} required
+          className="flex-1 text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+        >
+          {lineItems.map(li => <option key={li.id} value={li.id}>{li.raw_description}</option>)}
+        </select>
+        <input
+          type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} required
+          className="w-16 text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+        />
+      </div>
+      <input
+        type="text" placeholder="Note (optional)" value={note} onChange={e => setNote(e.target.value)}
+        className="w-full text-[10px] rounded-md border dark:border-[#2D3748] border-gray-200 dark:bg-[#0B0F19] bg-white dark:text-gray-200 text-gray-700 px-2 py-1"
+      />
+      {error && <p className="text-[10px] text-red-400">{error}</p>}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit" disabled={saving}
+          className="text-[10px] font-medium dark:text-blue-400 text-blue-600 hover:underline disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Flag as damaged'}
+        </button>
+        <button type="button" onClick={onCancel} className="text-[10px] dark:text-gray-500 text-gray-400 hover:underline">
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
+interface ReceivingReportModalProps {
+  discrepancies: ReceivingDiscrepancy[]
+  invoiceFileName: string
+  onClose: () => void
+}
+
+function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: ReceivingReportModalProps) {
+  const grouped = (Object.keys(DISCREPANCY_LABEL) as DiscrepancyType[]).map(type => ({
+    type, items: discrepancies.filter(d => d.type === type),
+  })).filter(g => g.items.length > 0)
+
+  function handleExportCsv() {
+    const header = ['Type', 'Expected Qty', 'Received Qty', 'Status', 'Details']
+    const rows = discrepancies.map(d => [
+      DISCREPANCY_LABEL[d.type], String(d.expected_qty), String(d.received_qty), d.status, d.details,
+    ])
+    const csv = [header, ...rows]
+      .map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `receiving-report-${invoiceFileName || 'export'}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
+          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Receiving Discrepancy Report</h2>
+          <button type="button" onClick={onClose} title="Close">
+            <X size={16} className="dark:text-gray-500 text-gray-400" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {grouped.length === 0 ? (
+            <p className="text-[11px] dark:text-gray-400 text-gray-500">No discrepancies to report.</p>
+          ) : (
+            grouped.map(g => (
+              <div key={g.type} className="space-y-1.5">
+                <h3 className="text-[11px] font-semibold dark:text-gray-200 text-gray-700">
+                  {DISCREPANCY_LABEL[g.type]} <span className="dark:text-gray-500 text-gray-400 font-normal">({g.items.length})</span>
+                </h3>
+                <ul className="space-y-1">
+                  {g.items.map(d => (
+                    <li key={d.id} className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center justify-between gap-2">
+                      <span>{d.details}</span>
+                      <span className={clsx('shrink-0', d.status === 'acknowledged' ? 'text-green-400' : 'text-amber-400')}>
+                        {d.status === 'acknowledged' ? 'Acknowledged' : 'Open'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t dark:border-[#2D3748] border-gray-200">
+          <button
+            type="button" onClick={handleExportCsv}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-gray-100 dark:text-gray-300 text-gray-600 text-[10px] font-semibold hover:dark:bg-white/10 hover:bg-gray-200"
+          >
+            <Download size={11} /> Export CSV
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
