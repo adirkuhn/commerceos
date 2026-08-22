@@ -508,6 +508,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
       }
 
       await onUpdate(savedProductId, payload)
+      // addSKU/updateSKU below already refresh `detail` themselves, but a
+      // save with no SKU changes wouldn't otherwise touch it -- without
+      // this, `existing` (used for the slug-changed diff above) stays
+      // stale for a second save within the same edit session.
+      detail.refresh()
       if (!variantsMode) {
         if (singleVariant) {
           const currentSku = singleVariant.skus?.[0]
