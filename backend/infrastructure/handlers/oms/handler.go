@@ -152,7 +152,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock),
 		addLineItem,
 		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo),
-		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo),
+		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
 		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo),
 		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
@@ -547,7 +547,7 @@ func toGenSalesOrderLineItem(li omsDomain.SalesOrderLineItem) genoms.SalesOrderL
 		StockStatus:     &stockStatus,
 		PriceMinorUnits: &li.PriceMinorUnits, SubtotalMinorUnits: &li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: &li.SubtotalTaxMinorUnits, TotalMinorUnits: &li.TotalMinorUnits,
-		TotalTaxMinorUnits: &li.TotalTaxMinorUnits,
+		TotalTaxMinorUnits: &li.TotalTaxMinorUnits, ProductId: li.ProductID,
 	}
 }
 

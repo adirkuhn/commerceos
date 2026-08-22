@@ -674,6 +674,22 @@ func TestGetPickingSession_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "session-1")
 }
 
+func TestGetPickingSession_mapsProductIDForThumbnails(t *testing.T) {
+	productID := "product-1"
+	w := doRequest(routerWithPicking(func(s *pickingStubs) {
+		s.getPicking.out = &appoms.PickingSessionDetail{
+			Session: omsDomain.PickingSession{ID: "session-1"},
+			LineItems: []omsDomain.SalesOrderLineItem{
+				{ID: "li-1", ProductID: &productID},
+				{ID: "li-2"}, // unmatched line, no ProductID
+			},
+		}
+	}), "GET", "/api/v1/picking-sessions/session-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"product_id":"product-1"`)
+}
+
 func TestGetPickingSession_notFound(t *testing.T) {
 	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.getPicking.err = omsDomain.ErrPickingSessionNotFound }),
 		"GET", "/api/v1/picking-sessions/missing", nil)

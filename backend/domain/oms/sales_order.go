@@ -230,4 +230,16 @@ type SalesOrderLineItem struct {
 	TaxClassID *string
 
 	CreatedAt time.Time
+
+	// ProductID is display-only -- never persisted on this table, never set
+	// by the repository. GetPickingSessionUseCase fills it in (via pms's
+	// SKURepository/VariantRepository, same composition as procurement's
+	// AttachProductDisplayNames/GetBookingUseCase) after loading a session's
+	// line items -- the picking screens use it to fetch a product thumbnail.
+	// Nil whenever SKUID is nil, the SKU/variant has since been deleted, or
+	// the use case didn't populate it. Deliberately not a snapshot like
+	// Name/SKUCode above -- a product's image can change after the sale, and
+	// picking staff want the *current* one, not what it looked like at
+	// order time.
+	ProductID *string
 }

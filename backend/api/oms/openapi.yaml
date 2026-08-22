@@ -528,6 +528,15 @@ components:
         subtotal_tax_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
         total_tax_minor_units: { type: integer, format: int64 }
+        product_id:
+          type: string
+          nullable: true
+          description: >-
+            Display-only -- the current product this SKU belongs to, only
+            populated on getPickingSession's response (used to fetch a
+            thumbnail; see SalesOrderLineItem.ProductID's doc). Null on
+            every other response that reuses this schema, when sku_id is
+            null, or when the SKU/variant has since been deleted.
 
     SalesOrderDetail:
       type: object
