@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { msUntilRefresh, buildRefreshPayload } from './tokenRefresh'
-import { APP_ID } from './loginConfig'
+import { APP_ID, lm2Origin } from './loginConfig'
 
 const TOKEN_KEY = 'commerceos_jwt'
 const REFRESH_KEY = 'commerceos_refresh'
@@ -49,7 +49,7 @@ function loadStored(): { token: string; refreshToken: string | null; user: JWTCl
 }
 
 function refreshEndpoint(): string {
-  return `${new URL(import.meta.env.VITE_LM2_LOGIN_URL as string).origin}/api/v1/auth/app/refresh`
+  return `${lm2Origin()}/api/v1/auth/app/refresh`
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)

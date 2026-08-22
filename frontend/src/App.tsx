@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { CallbackPage } from './auth/CallbackPage'
+import { AcceptInvite } from './auth/AcceptInvite'
 import ScannerApp from './scanner/ScannerApp'
 import { AppProvider } from './context/AppContext'
 import Sidebar from './components/layout/Sidebar'
@@ -11,6 +12,7 @@ import { PAGE_ROUTES } from './routes'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_PATH = '/scanner'
+const ACCEPT_INVITE_PATH = '/accept-invite'
 
 function NotFoundPage() {
   return (
@@ -48,6 +50,7 @@ export function AppShell() {
   const location = useLocation()
   const isCallback = location.pathname === CALLBACK_PATH
   const isScanner = location.pathname === SCANNER_PATH
+  const isAcceptInvite = location.pathname === ACCEPT_INVITE_PATH
 
   // The scanner device pairs with its own short-lived token (see
   // ./scanner/useScannerAuth) and never goes through lm2 login -- checked
@@ -55,6 +58,9 @@ export function AppShell() {
   // reaches the pairing screen instead of LoginPage.
   if (isScanner) return <ScannerApp />
   if (isCallback) return <CallbackPage />
+  // An invitee following an email link has no session yet -- same reasoning
+  // as isCallback/isScanner, checked before the isAuthenticated gate below.
+  if (isAcceptInvite) return <AcceptInvite />
   if (!isAuthenticated) return <LoginPage />
 
   return (

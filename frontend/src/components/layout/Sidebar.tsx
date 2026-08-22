@@ -37,8 +37,14 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'sync-log', label: 'Sync History', icon: History },
   // { id: 'shipping', label: 'Shipping', icon: Truck },
   // { id: 'reports', label: 'Reports', icon: BarChart3 },
-  // { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
+]
+
+// OWNER_NAV_ITEMS -- team/user management calls lm2's company-owner-only
+// endpoints (see team/api.ts), so the nav entry itself is hidden from
+// anyone who isn't customer_owner, same reasoning as SUPER_ADMIN_NAV_ITEMS.
+const OWNER_NAV_ITEMS: NavEntry[] = [
+  { id: 'users', label: 'Users & Roles', icon: Users },
 ]
 
 // SUPER_ADMIN_NAV_ITEMS are cross-tenant platform-operational pages --
@@ -63,7 +69,11 @@ export default function Sidebar() {
   // not the current page's item count, now that products are paginated.
   const { total } = useProducts(token ?? '', { page: 1, perPage: 1 })
 
-  const navItems = [...NAV_ITEMS, ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : [])].map(item =>
+  const navItems = [
+    ...NAV_ITEMS,
+    ...(user?.role === 'customer_owner' ? OWNER_NAV_ITEMS : []),
+    ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : []),
+  ].map(item =>
     item.id === 'products' && total > 0
       ? { ...item, badge: total }
       : item,
