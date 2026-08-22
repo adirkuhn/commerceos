@@ -97,6 +97,7 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.Equal(t, "501", created.ExternalOrderID)
 	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, created.Status)
 	assert.True(t, created.StockDecremented, "processing reduces stock")
+	assert.False(t, created.Fulfilled, "processing starts unfulfilled")
 	assert.Equal(t, "flat_rate", created.ShippingMethod)
 	assert.Equal(t, "Flat rate", created.ShippingMethodTitle)
 	require.Len(t, h.lineItemRepo.created, 1)
@@ -108,6 +109,26 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	require.Len(t, h.stock.calls, 1)
 	assert.Equal(t, int64(2), h.stock.calls[0].Quantity)
 	require.Len(t, h.linkRepo.created, 1)
+}
+
+// TestImportWooOrders_completedOrderArrivesAlreadyFulfilled proves an order
+// imported well after the fact (already completed on Woo, never seen while
+// processing) starts fulfilled too -- see SalesOrder.Fulfilled's doc.
+func TestImportWooOrders_completedOrderArrivesAlreadyFulfilled(t *testing.T) {
+	wo := simpleWooOrder()
+	wo.Status = "completed"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {wo}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 4)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	require.Len(t, h.salesOrderRepo.created, 1)
+	assert.True(t, h.salesOrderRepo.created[0].Fulfilled)
 }
 
 // TestImportWooOrders_skipStockMovementsCreatesOrderWithoutTouchingInventory

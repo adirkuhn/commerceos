@@ -363,6 +363,11 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			DatePaid: datePaid, DateCompleted: dateCompleted,
 			OccurredAt: occurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,
+			// An order arriving already-completed (e.g. imported well
+			// after the fact) starts fulfilled too -- see
+			// SalesOrder.Fulfilled's doc. "processing" naturally starts
+			// unfulfilled with no special-casing needed.
+			Fulfilled: status == omsDomain.SalesOrderStatusCompleted,
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &order); err != nil {
 			return err

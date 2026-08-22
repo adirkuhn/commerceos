@@ -161,6 +161,10 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			// exposed to the input so an already-refunded/cancelled sale
 			// synced in from elsewhere doesn't get decremented.
 			StockDecremented: status.ReducesStock(),
+			// A POS sale defaults to Completed (see status above), which
+			// means it also defaults to fulfilled -- see
+			// SalesOrder.Fulfilled's doc.
+			Fulfilled: status == omsDomain.SalesOrderStatusCompleted,
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
 			return err

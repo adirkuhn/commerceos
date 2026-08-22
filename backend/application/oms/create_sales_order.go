@@ -110,6 +110,10 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
 			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,
+			// See SalesOrder.Fulfilled's doc -- a manually-created order
+			// defaults to Pending (not fulfilled) unless staff explicitly
+			// enters it as already Completed.
+			Fulfilled: status == omsDomain.SalesOrderStatusCompleted,
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
 			return err

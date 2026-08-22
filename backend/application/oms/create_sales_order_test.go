@@ -36,6 +36,7 @@ func TestCreateSalesOrder_completedOrderDecrementsStockPerLine(t *testing.T) {
 	assert.NotEmpty(t, order.SalesOrder.ExternalOrderID, "manual orders still need a unique external_order_id for the DB constraint")
 	assert.Equal(t, "flat_rate", order.SalesOrder.ShippingMethod)
 	assert.Equal(t, "Flat rate", order.SalesOrder.ShippingMethodTitle)
+	assert.True(t, order.SalesOrder.Fulfilled, "created with an explicit Completed status -- starts fulfilled")
 	require.Len(t, salesOrderRepo.created, 1)
 	require.Len(t, lineItemRepo.created, 1)
 	require.Len(t, recordMovement.calls, 1)
@@ -114,6 +115,7 @@ func TestCreateSalesOrder_defaultsStatusToPending(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, omsDomain.SalesOrderStatusPending, order.SalesOrder.Status, "unlike a POS sale, a manually-entered order has not necessarily happened/been paid for yet")
+	assert.False(t, order.SalesOrder.Fulfilled)
 }
 
 func TestCreateSalesOrder_rejectsEmptyLineItems(t *testing.T) {

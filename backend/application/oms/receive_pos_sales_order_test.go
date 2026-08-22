@@ -34,6 +34,7 @@ func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testin
 	assert.Equal(t, "sales-order-1", order.ID)
 	assert.Equal(t, int64(2000), order.TotalMinorUnits)
 	assert.Equal(t, omsDomain.SalesOrderStatusCompleted, order.Status, "defaults to completed -- a POS sale already happened")
+	assert.True(t, order.Fulfilled, "a completed order starts fulfilled too")
 	require.Len(t, salesOrderRepo.created, 1)
 	require.Len(t, lineItemRepo.created, 2)
 	assert.Equal(t, "Widget A", lineItemRepo.created[0].Name)
@@ -237,4 +238,5 @@ func TestReceivePOSSalesOrder_preservesExplicitStatus(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, omsDomain.SalesOrderStatusRefunded, order.Status)
+	assert.False(t, order.Fulfilled, "a non-completed explicit status must not start fulfilled")
 }
