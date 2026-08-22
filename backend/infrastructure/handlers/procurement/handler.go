@@ -75,6 +75,15 @@ func int64PtrOr(v *int64) int64 {
 	return *v
 }
 
+// stringPtrOr unwraps an optional string request field to "" -- e.g.
+// FlagDamagedLineItemRequest.Note.
+func stringPtrOr(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
 // ── Use-case interfaces (defined at point of use — ISP) ──────────────────────
 
 type listPurchaseOrdersUC interface {
@@ -164,39 +173,51 @@ type listBookingDiscrepanciesUC interface {
 type getLandedUnitCostUC interface {
 	Execute(ctx context.Context, lineItemID string) (int64, error)
 }
+type acknowledgeReceivingDiscrepancyUC interface {
+	Execute(ctx context.Context, discrepancyID string) (*procurementDomain.ReceivingDiscrepancy, error)
+}
+type linkReceivingDiscrepanciesUC interface {
+	Execute(ctx context.Context, unexpectedDiscrepancyID, missingDiscrepancyID string) error
+}
+type flagDamagedLineItemUC interface {
+	Execute(ctx context.Context, receivingRecordID, lineItemID string, damagedQty int64, note string) (*procurementDomain.ReceivingDiscrepancy, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
-	listPurchaseOrders          listPurchaseOrdersUC
-	createPurchaseOrder         createPurchaseOrderUC
-	getPurchaseOrder            getPurchaseOrderUC
-	updatePurchaseOrder         updatePurchaseOrderUC
-	deletePurchaseOrder         deletePurchaseOrderUC
-	addLineItem                 addLineItemUC
-	updateLineItem              updateLineItemUC
-	removeLineItem              removeLineItemUC
-	attachDocument              attachDocumentToPurchaseOrderUC
-	getDocumentParsingJob       getDocumentParsingJobUC
-	getReceivingParsingJob      getReceivingParsingJobUC
-	createPurchaseOrderFromDoc  createPurchaseOrderFromDocumentUC
-	linkLineItemToSKU           linkLineItemToSKUUC
-	createProductAndLink        createProductAndLinkLineItemUC
-	createSupplierAndAssign     createSupplierAndAssignUC
-	uploadInvoice               uploadInvoiceUC
-	listReceivingRecords        listReceivingRecordsUC
-	getReceivingRecord          getReceivingRecordUC
-	completeReceiving           completeReceivingUC
-	startOrResumeBooking        startOrResumeBookingUC
-	getBooking                  getBookingUC
-	scanBookingItem             scanBookingItemUC
-	resolveBookingScanCode      resolveBookingScanCodeUC
-	deleteBookingScan           deleteBookingScanUC
-	pauseBooking                pauseBookingUC
-	completeBooking             completeBookingUC
-	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC
-	listBookingDiscrepancies    listBookingDiscrepanciesUC
-	getLandedUnitCost           getLandedUnitCostUC
+	listPurchaseOrders              listPurchaseOrdersUC
+	createPurchaseOrder             createPurchaseOrderUC
+	getPurchaseOrder                getPurchaseOrderUC
+	updatePurchaseOrder             updatePurchaseOrderUC
+	deletePurchaseOrder             deletePurchaseOrderUC
+	addLineItem                     addLineItemUC
+	updateLineItem                  updateLineItemUC
+	removeLineItem                  removeLineItemUC
+	attachDocument                  attachDocumentToPurchaseOrderUC
+	getDocumentParsingJob           getDocumentParsingJobUC
+	getReceivingParsingJob          getReceivingParsingJobUC
+	createPurchaseOrderFromDoc      createPurchaseOrderFromDocumentUC
+	linkLineItemToSKU               linkLineItemToSKUUC
+	createProductAndLink            createProductAndLinkLineItemUC
+	createSupplierAndAssign         createSupplierAndAssignUC
+	uploadInvoice                   uploadInvoiceUC
+	listReceivingRecords            listReceivingRecordsUC
+	getReceivingRecord              getReceivingRecordUC
+	completeReceiving               completeReceivingUC
+	startOrResumeBooking            startOrResumeBookingUC
+	getBooking                      getBookingUC
+	scanBookingItem                 scanBookingItemUC
+	resolveBookingScanCode          resolveBookingScanCodeUC
+	deleteBookingScan               deleteBookingScanUC
+	pauseBooking                    pauseBookingUC
+	completeBooking                 completeBookingUC
+	deletePurchaseOrderDocument     deletePurchaseOrderDocumentUC
+	listBookingDiscrepancies        listBookingDiscrepanciesUC
+	getLandedUnitCost               getLandedUnitCostUC
+	acknowledgeReceivingDiscrepancy acknowledgeReceivingDiscrepancyUC
+	linkReceivingDiscrepancies      linkReceivingDiscrepanciesUC
+	flagDamagedLineItem             flagDamagedLineItemUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -230,10 +251,16 @@ func NewHandler(
 	deletePurchaseOrderDocument deletePurchaseOrderDocumentUC,
 	listBookingDiscrepancies listBookingDiscrepanciesUC,
 	getLandedUnitCost getLandedUnitCostUC,
+	acknowledgeReceivingDiscrepancy acknowledgeReceivingDiscrepancyUC,
+	linkReceivingDiscrepancies linkReceivingDiscrepanciesUC,
+	flagDamagedLineItem flagDamagedLineItemUC,
 ) *Handler {
 	return &Handler{
-		getLandedUnitCost:  getLandedUnitCost,
-		listPurchaseOrders: listPurchaseOrders, createPurchaseOrder: createPurchaseOrder,
+		getLandedUnitCost:               getLandedUnitCost,
+		acknowledgeReceivingDiscrepancy: acknowledgeReceivingDiscrepancy,
+		linkReceivingDiscrepancies:      linkReceivingDiscrepancies,
+		flagDamagedLineItem:             flagDamagedLineItem,
+		listPurchaseOrders:              listPurchaseOrders, createPurchaseOrder: createPurchaseOrder,
 		getPurchaseOrder: getPurchaseOrder, updatePurchaseOrder: updatePurchaseOrder, deletePurchaseOrder: deletePurchaseOrder,
 		addLineItem: addLineItem, updateLineItem: updateLineItem, removeLineItem: removeLineItem,
 		attachDocument: attachDocument, getDocumentParsingJob: getDocumentParsingJob, getReceivingParsingJob: getReceivingParsingJob,
@@ -330,6 +357,9 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewDeletePurchaseOrderDocumentUseCase(db, documentRepo, fileStorage),
 		appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
 		appprocurement.NewGetLandedUnitCostUseCase(db, lineItemRepo),
+		appprocurement.NewAcknowledgeReceivingDiscrepancyUseCase(db, discrepancyRepo),
+		appprocurement.NewLinkReceivingDiscrepanciesUseCase(db, discrepancyRepo),
+		appprocurement.NewFlagDamagedLineItemUseCase(db, receivingRecordRepo, lineItemRepo, discrepancyRepo),
 	)
 	genprocurement.RegisterHandlers(rg, h)
 }
@@ -673,6 +703,42 @@ func (h *Handler) CompleteReceiving(c *gin.Context, id genprocurement.Id) {
 	c.JSON(http.StatusOK, genprocurement.ReceivingRecordResponse{Data: &resp})
 }
 
+func (h *Handler) AcknowledgeReceivingDiscrepancy(c *gin.Context, id genprocurement.Id) {
+	d, err := h.acknowledgeReceivingDiscrepancy.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenReceivingDiscrepancy(*d)
+	c.JSON(http.StatusOK, genprocurement.ReceivingDiscrepancyResponse{Data: &resp})
+}
+
+func (h *Handler) LinkReceivingDiscrepancies(c *gin.Context) {
+	var req genprocurement.LinkReceivingDiscrepanciesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	err := h.linkReceivingDiscrepancies.Execute(c.Request.Context(), req.UnexpectedDiscrepancyId, req.MissingDiscrepancyId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genprocurement.EmptyResponse{})
+}
+
+func (h *Handler) FlagDamagedLineItem(c *gin.Context, id genprocurement.Id, lineItemId genprocurement.LineItemId) {
+	var req genprocurement.FlagDamagedLineItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	d, err := h.flagDamagedLineItem.Execute(c.Request.Context(), id, lineItemId, req.DamagedQty, stringPtrOr(req.Note))
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenReceivingDiscrepancy(*d)
+	c.JSON(http.StatusCreated, genprocurement.ReceivingDiscrepancyResponse{Data: &resp})
+}
+
 // ── Booking (scanner app) route handlers ─────────────────────────────────────
 
 func (h *Handler) StartOrResumeBooking(c *gin.Context, id genprocurement.Id) {
@@ -876,7 +942,8 @@ func toGenReceivingDiscrepancy(d procurementDomain.ReceivingDiscrepancy) genproc
 	return genprocurement.ReceivingDiscrepancy{
 		Id: d.ID, TenantId: d.TenantID, ReceivingRecordId: d.ReceivingRecordID, LineItemId: d.LineItemID,
 		Type: genprocurement.DiscrepancyType(d.Type), ExpectedQty: d.ExpectedQty, ReceivedQty: d.ReceivedQty,
-		Details: d.Details, CreatedAt: d.CreatedAt,
+		Details: d.Details, Status: genprocurement.DiscrepancyStatus(d.Status), AcknowledgedAt: d.AcknowledgedAt,
+		CreatedAt: d.CreatedAt,
 	}
 }
 
@@ -913,7 +980,7 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, procurementDomain.ErrPurchaseOrderNotFound), errors.Is(err, procurementDomain.ErrLineItemNotFound),
 		errors.Is(err, procurementDomain.ErrDocumentNotFound), errors.Is(err, procurementDomain.ErrReceivingRecordNotFound),
 		errors.Is(err, procurementDomain.ErrBookingNotFound), errors.Is(err, procurementDomain.ErrParsingJobNotFound),
-		errors.Is(err, procurementDomain.ErrBookingScanNotFound):
+		errors.Is(err, procurementDomain.ErrBookingScanNotFound), errors.Is(err, procurementDomain.ErrDiscrepancyNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, procurementDomain.ErrInvalidQuantity), errors.Is(err, procurementDomain.ErrUnsupportedFileType),
 		errors.Is(err, procurementDomain.ErrMissingRequiredColumns), errors.Is(err, procurementDomain.ErrPDFHasNoExtractableText),
@@ -922,6 +989,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, procurementDomain.ErrBookingNotActive), errors.Is(err, procurementDomain.ErrWarehouseRequired),
 		errors.Is(err, procurementDomain.ErrScanCodeOrSKURequired), errors.Is(err, procurementDomain.ErrInvalidBookingScanActionType),
 		errors.Is(err, procurementDomain.ErrPendingBatchNotFound),
+		errors.Is(err, procurementDomain.ErrDiscrepancyMismatch), errors.Is(err, procurementDomain.ErrDiscrepancyAlreadyAcknowledged),
+		errors.Is(err, procurementDomain.ErrInvalidDamagedQuantity),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),
 		errors.Is(err, pmsDomain.ErrDuplicateSlug), errors.Is(err, pmsDomain.ErrDuplicateSKUCode):

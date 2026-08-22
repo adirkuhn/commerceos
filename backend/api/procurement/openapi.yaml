@@ -417,6 +417,71 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /procurement/receiving-discrepancies/{id}/acknowledge:
+    post:
+      operationId: acknowledgeReceivingDiscrepancy
+      summary: Review UI action -- mark a single discrepancy reviewed ("mark as valid"); never affects stock booking
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingDiscrepancyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/receiving-discrepancies/link:
+    post:
+      operationId: linkReceivingDiscrepancies
+      summary: Review UI action -- pair an unexpected_item with a missing_item a human recognizes as the same product, acknowledging both
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkReceivingDiscrepanciesRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/receiving-records/{id}/line-items/{lineItemId}/damaged:
+    post:
+      operationId: flagDamagedLineItem
+      summary: Review UI action -- record a manual physical-inspection finding that some received quantity arrived damaged
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/lineItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlagDamagedLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivingDiscrepancyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /procurement/purchase-orders/{id}/booking:
     post:
       operationId: startOrResumeBooking
@@ -591,6 +656,12 @@ components:
         type: string
     scanId:
       name: scanId
+      in: path
+      required: true
+      schema:
+        type: string
+    lineItemId:
+      name: lineItemId
       in: path
       required: true
       schema:
@@ -925,11 +996,15 @@ components:
 
     DiscrepancyType:
       type: string
-      enum: [quantity_mismatch, missing_item, unexpected_item, expiry_mismatch]
+      enum: [quantity_mismatch, missing_item, unexpected_item, expiry_mismatch, damaged_item]
+
+    DiscrepancyStatus:
+      type: string
+      enum: [open, acknowledged]
 
     ReceivingDiscrepancy:
       type: object
-      required: [id, tenant_id, receiving_record_id, type, expected_qty, received_qty, details, created_at]
+      required: [id, tenant_id, receiving_record_id, type, expected_qty, received_qty, details, status, created_at]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -942,7 +1017,29 @@ components:
         expected_qty: { type: integer, format: int64 }
         received_qty: { type: integer, format: int64 }
         details: { type: string }
+        status: { $ref: '#/components/schemas/DiscrepancyStatus' }
+        acknowledged_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
+
+    ReceivingDiscrepancyResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReceivingDiscrepancy' }
+        error: { nullable: true }
+
+    LinkReceivingDiscrepanciesRequest:
+      type: object
+      required: [unexpected_discrepancy_id, missing_discrepancy_id]
+      properties:
+        unexpected_discrepancy_id: { type: string }
+        missing_discrepancy_id: { type: string }
+
+    FlagDamagedLineItemRequest:
+      type: object
+      required: [damaged_qty]
+      properties:
+        damaged_qty: { type: integer, format: int64, minimum: 1 }
+        note: { type: string }
 
     ReceivingRecordDetail:
       type: object
