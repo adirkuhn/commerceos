@@ -417,6 +417,7 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 
 func (c *wooClient) UpdateVariation(ctx context.Context, parentExternalID, variationExternalID string, v integrationsDomain.WooVariation) (*integrationsDomain.WooVariation, error) {
 	updated, _, err := c.client.ProductVariations.Update(ctx, parentExternalID, variationExternalID, &wc.ProductVariation{
+		Sku:            v.SKU,
 		GlobalUniqueID: v.GTIN,
 		RegularPrice:   wc.FlexibleString(v.RegularPrice),
 		SalePrice:      salePricePtr(v.SalePrice),
@@ -564,6 +565,7 @@ func (c *wooClient) UpdateProduct(ctx context.Context, externalProductID string,
 		Name:           p.Name,
 		Status:         p.Status,
 		Description:    p.Description,
+		Sku:            p.SKU,
 		GlobalUniqueID: p.GTIN,
 		RegularPrice:   wc.FlexibleString(p.RegularPrice),
 		SalePrice:      salePricePtr(p.SalePrice),

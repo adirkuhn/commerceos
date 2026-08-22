@@ -25,10 +25,18 @@ type productMediaLister interface {
 // variations never carry their own images (they inherit the parent
 // product's), so this is only ever used to build a product-level
 // WooProduct, never a WooVariation.
-func wooImagesFromMedia(media []pmsDomain.Media) []integrationsDomain.WooProductImage {
+//
+// A media row with no AltText set falls back to productName -- nothing in
+// the upload flow prompts a merchant to fill in a title, so most images
+// would otherwise ship to Woo with a blank alt attribute.
+func wooImagesFromMedia(media []pmsDomain.Media, productName string) []integrationsDomain.WooProductImage {
 	images := make([]integrationsDomain.WooProductImage, len(media))
 	for i, m := range media {
-		images[i] = integrationsDomain.WooProductImage{URL: m.URL, Alt: m.AltText}
+		alt := m.AltText
+		if alt == "" {
+			alt = productName
+		}
+		images[i] = integrationsDomain.WooProductImage{URL: m.URL, Alt: alt}
 	}
 	return images
 }

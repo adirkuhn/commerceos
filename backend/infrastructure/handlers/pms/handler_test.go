@@ -91,11 +91,13 @@ func (s *stubGetProduct) Execute(_ context.Context, _ string) (*apppms.ProductDe
 }
 
 type stubUpdateProduct struct {
-	out *pmsDomain.Product
-	err error
+	out   *pmsDomain.Product
+	err   error
+	gotIn apppms.UpdateProductInput
 }
 
-func (s *stubUpdateProduct) Execute(_ context.Context, _ apppms.UpdateProductInput) (*pmsDomain.Product, error) {
+func (s *stubUpdateProduct) Execute(_ context.Context, in apppms.UpdateProductInput) (*pmsDomain.Product, error) {
+	s.gotIn = in
 	return s.out, s.err
 }
 
@@ -470,6 +472,32 @@ func TestUpdateProduct_success(t *testing.T) {
 	})
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Widget v2")
+}
+
+// TestUpdateProduct_passesSlugThrough proves a slug in the PATCH body
+// reaches UpdateProductInput.Slug (non-nil) -- the API-layer half of the
+// fix for products (esp. duplicates) being permanently stuck with their
+// slug.
+func TestUpdateProduct_passesSlugThrough(t *testing.T) {
+	s := &stubs{updateProduct: stubUpdateProduct{out: &pmsDomain.Product{ID: "p1", Name: "Widget", Slug: "widget-v2", Status: pmsDomain.ProductStatusActive}}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/products/p1", map[string]any{
+		"name": "Widget", "status": "active", "slug": "widget-v2",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, s.updateProduct.gotIn.Slug)
+	assert.Equal(t, "widget-v2", *s.updateProduct.gotIn.Slug)
+}
+
+// TestUpdateProduct_omittedSlugStaysNil proves omitting slug from the PATCH
+// body leaves UpdateProductInput.Slug nil -- the use case's "leave slug
+// unchanged" branch only fires when nil, not on an empty string.
+func TestUpdateProduct_omittedSlugStaysNil(t *testing.T) {
+	s := &stubs{updateProduct: stubUpdateProduct{out: &pmsDomain.Product{ID: "p1", Name: "Widget", Status: pmsDomain.ProductStatusActive}}}
+	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/products/p1", map[string]any{
+		"name": "Widget", "status": "active",
+	})
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Nil(t, s.updateProduct.gotIn.Slug)
 }
 
 func TestCreateProduct_returnsTags(t *testing.T) {

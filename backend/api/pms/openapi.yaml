@@ -889,6 +889,14 @@ components:
         tags:
           type: array
           items: { type: string }
+        # slug is optional: omit to leave the product's current slug
+        # unchanged (a bare rename never re-slugs the URL). When present,
+        # it must already be in slugified form -- lowercase alphanumeric,
+        # single dashes, no leading/trailing dash -- and unique across the
+        # tenant's products.
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
 
     CreateVariantRequest:
       type: object

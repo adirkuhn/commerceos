@@ -8,6 +8,11 @@ var (
 	ErrVariantNotFound  = errors.New("variant not found")
 	ErrSKUNotFound      = errors.New("sku not found")
 	ErrDuplicateSlug    = errors.New("slug already exists")
+	// ErrInvalidSlug guards an explicit slug edit (UpdateProductUseCase):
+	// it must already be in slugified form (lowercase alphanumeric,
+	// single dashes, no leading/trailing dash) -- same shape Slugify
+	// produces from a name, so the URL stays well-formed.
+	ErrInvalidSlug = errors.New("slug must be lowercase alphanumeric with single dashes")
 	ErrDuplicateSKUCode = errors.New("sku code already exists")
 	// ErrDuplicateBarcode guards SKU.Barcode: a barcode scan must resolve
 	// to exactly one SKU within a tenant (skus_tenant_barcode_idx).

@@ -635,7 +635,7 @@ func TestPushProductToWoo_separateProductsMode_eachVariantGetsTheSameProductImag
 	require.NoError(t, err)
 	require.Len(t, h.wooClient.createCalled, 2)
 	for _, p := range h.wooClient.createCalled {
-		require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg"}}, p.Images)
+		require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg", Alt: "Carne Seca"}}, p.Images)
 	}
 }
 
@@ -663,7 +663,7 @@ func TestPushProductToWoo_variationsMode_onlyTheParentGetsImages(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, h.wooClient.createVariableCalled, 1)
-	require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg"}},
+	require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg", Alt: "Carne Seca"}},
 		h.wooClient.createVariableCalled[0].Product.Images)
 }
 

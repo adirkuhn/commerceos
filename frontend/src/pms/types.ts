@@ -203,7 +203,12 @@ export interface CreateProductPayload {
   tags?: string[]
 }
 
-export type UpdateProductPayload = CreateProductPayload
+// slug is optional here (unlike a create, where it's always derived from
+// name): omit it to leave the product's current slug unchanged. When sent,
+// it must already be in slugified form (lowercase alphanumeric, single
+// dashes) and unique across the tenant's products -- this is the fix that
+// lets a duplicated product's permanent "-copy" slug be corrected.
+export type UpdateProductPayload = CreateProductPayload & { slug?: string }
 
 export interface CreateVariantPayload {
   name: string

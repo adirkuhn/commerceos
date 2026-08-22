@@ -17,6 +17,11 @@ import (
 type stubProductRepo struct {
 	product *pmsDomain.Product
 
+	// slugOwner, when non-nil, is what FindBySlug returns for slugTaken --
+	// simulates another existing product already holding that slug.
+	slugTaken string
+	slugOwner *pmsDomain.Product
+
 	listResult []pmsDomain.Product
 	listTotal  int64
 	listErr    error
@@ -27,7 +32,10 @@ func (s *stubProductRepo) Create(_ context.Context, _ *pmsDomain.Product) error 
 func (s *stubProductRepo) FindByID(_ context.Context, _ string) (*pmsDomain.Product, error) {
 	return s.product, nil
 }
-func (s *stubProductRepo) FindBySlug(_ context.Context, _ string) (*pmsDomain.Product, error) {
+func (s *stubProductRepo) FindBySlug(_ context.Context, slug string) (*pmsDomain.Product, error) {
+	if s.slugTaken != "" && slug == s.slugTaken {
+		return s.slugOwner, nil
+	}
 	return nil, pmsDomain.ErrProductNotFound
 }
 func (s *stubProductRepo) List(_ context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {

@@ -58,6 +58,83 @@ func TestUpdateProduct_updatesTags(t *testing.T) {
 	require.Equal(t, []string{"summer", "sale"}, product.Tags)
 }
 
+// TestUpdateProduct_updatesSlugWhenProvided proves an explicit slug edit
+// persists -- this is the fix for duplicated products being permanently
+// stuck with their "-copy" slug: DuplicateProductUseCase gives the copy a
+// "-copy" slug for uniqueness at creation time, and until now there was no
+// way to ever change a product's slug afterward.
+func TestUpdateProduct_updatesSlugWhenProvided(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "biscoito-de-maizena-renata-360g-copy", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	newSlug := "biscoito-de-maizena-renata-360g"
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+		ID: "p1", Name: "Biscoito de Maizena - Renata - 360g", Status: pmsDomain.ProductStatusActive, Slug: &newSlug,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, newSlug, product.Slug)
+}
+
+func TestUpdateProduct_leavesSlugUnchangedWhenNotProvided(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive})
+
+	require.NoError(t, err)
+	require.Equal(t, "t-shirt", product.Slug)
+}
+
+func TestUpdateProduct_rejectsSlugAlreadyUsedByAnotherProduct(t *testing.T) {
+	productRepo := &stubProductRepo{
+		product:   &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		slugTaken: "other-product",
+		slugOwner: &pmsDomain.Product{ID: "p2", Slug: "other-product"},
+	}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	newSlug := "other-product"
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &newSlug})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrDuplicateSlug))
+}
+
+// TestUpdateProduct_allowsReSubmittingItsOwnCurrentSlug proves the
+// uniqueness check doesn't false-positive against the product's own
+// existing slug (FindBySlug would return the same product back).
+func TestUpdateProduct_allowsReSubmittingItsOwnCurrentSlug(t *testing.T) {
+	productRepo := &stubProductRepo{
+		product:   &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		slugTaken: "t-shirt",
+		slugOwner: &pmsDomain.Product{ID: "p1", Slug: "t-shirt"},
+	}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	sameSlug := "t-shirt"
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &sameSlug})
+
+	require.NoError(t, err)
+	require.Equal(t, "t-shirt", product.Slug)
+}
+
+func TestUpdateProduct_rejectsMalformedSlug(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	badSlug := "Not A Valid Slug!"
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &badSlug})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrInvalidSlug))
+}
+
 func TestUpdateProduct_raisesProductChangedEvent(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{existing: nil}

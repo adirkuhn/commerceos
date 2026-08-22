@@ -94,6 +94,28 @@ func TestSyncProductToChannels_pushesUpdatedImageGalleryToWoo(t *testing.T) {
 		h.wooClient.updateProductCalled[0].Product.Images)
 }
 
+// TestSyncProductToChannels_pushesUpdatedSKUToWoo proves an edit to a
+// product's SKU code reaches Woo on re-sync -- previously buildWooProduct
+// never set WooProduct.SKU on the update path, so a SKU change made after
+// initial push never propagated.
+func TestSyncProductToChannels_pushesUpdatedSKUToWoo(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	sku.SKUCode = "TSHIRT-1-NEW"
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := h.newSyncUseCase(t, 4)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1)
+	require.Equal(t, "TSHIRT-1-NEW", h.wooClient.updateProductCalled[0].Product.SKU)
+}
+
 func TestSyncProductToChannels_pushesUpdatedBarcodeAsGTIN(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	sku.Barcode = "0012345678905"
@@ -414,7 +436,7 @@ func TestSyncProductToChannels_variationsMode_updatesParentImagesNeverVariationI
 
 	require.NoError(t, err)
 	require.Len(t, h.wooClient.updateProductCalled, 1)
-	require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg"}},
+	require.Equal(t, []integrationsDomain.WooProductImage{{URL: "https://cdn.example.com/front.jpg", Alt: "Carne Seca"}},
 		h.wooClient.updateProductCalled[0].Product.Images)
 	require.Len(t, h.wooClient.updateVariationCalled, 2)
 }

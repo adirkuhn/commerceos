@@ -429,6 +429,7 @@ func (h *Handler) UpdateProduct(c *gin.Context, id genpms.Id) {
 		HasVariants:                 req.HasVariants != nil && *req.HasVariants,
 		SyncVariantsAsWooVariations: req.SyncVariantsAsWooVariations != nil && *req.SyncVariantsAsWooVariations,
 		Tags:                        tags,
+		Slug:                        req.Slug,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -935,6 +936,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrDuplicateBarcode):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
+		errors.Is(err, pmsDomain.ErrInvalidSlug),
 		errors.Is(err, pmsDomain.ErrVirtualSKUCannotHaveDimensions),
 		errors.Is(err, pmsDomain.ErrSalePriceExceedsPrice),
 		errors.Is(err, pmsDomain.ErrSaleEndDateRequiresSalePrice),

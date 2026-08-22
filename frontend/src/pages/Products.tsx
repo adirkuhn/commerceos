@@ -286,7 +286,7 @@ interface ProductEditorProps {
   onCreateCategory: (payload: { name: string }) => Promise<{ id: string; name: string }>
   onUpdateCategory: (id: string, payload: { name: string; parent_id?: string | null; target_markup_basis_points?: number | null }) => Promise<Category>
   onCreate: (payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
-  onUpdate: (id: string, payload: { name: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
+  onUpdate: (id: string, payload: { name: string; slug?: string; description?: string; category_id?: string | null; status: ProductStatus; has_variants?: boolean; sync_variants_as_woo_variations?: boolean; tags?: string[] }) => Promise<Product>
   onClose: () => void
 }
 
@@ -300,6 +300,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
 
   const existing = detail.detail?.product
   const [name, setName] = useState(existing?.name ?? '')
+  // Only ever sent to the server on an existing product's save (create
+  // always derives slug from name server-side) -- this is what lets a
+  // duplicated product's stuck "-copy" slug be fixed after the fact.
+  const [slug, setSlug] = useState(existing?.slug ?? '')
   const [description, setDescription] = useState(existing?.description ?? '')
   const [categoryId, setCategoryId] = useState<string>(existing?.category_id ?? '')
   const [status, setStatus] = useState<ProductStatus>(existing?.status ?? 'draft')
@@ -367,6 +371,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
   const [hydrated, setHydrated] = useState(false)
   if (!hydrated && existing) {
     setName(existing.name)
+    setSlug(existing.slug)
     setDescription(existing.description)
     setCategoryId(existing.category_id ?? '')
     setStatus(existing.status)
@@ -462,6 +467,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
       const payload = {
         name, description, category_id: categoryId || null, status, has_variants: variantsMode,
         sync_variants_as_woo_variations: syncVariantsAsWooVariations, tags,
+        // Only meaningful on update -- create always derives slug from
+        // name server-side, and only sending it when it actually changed
+        // from what loaded avoids a spurious uniqueness check against the
+        // product's own current slug.
+        ...(savedProductId && slug !== existing?.slug ? { slug } : {}),
       }
       // A virtual SKU never ships, so it can never carry weight/dimensions
       // (enforced server-side too — see ErrVirtualSKUCannotHaveDimensions).
@@ -709,6 +719,18 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   className={inputClass}
                 />
               </div>
+              {savedProductId && (
+                <div>
+                  <label htmlFor="product-slug" className={labelClass}>Slug</label>
+                  <input
+                    id="product-slug"
+                    type="text" value={slug} onChange={e => setSlug(e.target.value)}
+                    pattern="^[a-z0-9]+(-[a-z0-9]+)*$"
+                    title="Lowercase letters, numbers, and single dashes only"
+                    className={inputClass}
+                  />
+                </div>
+              )}
               <div>
                 <label htmlFor="product-description" className={labelClass}>Description</label>
                 <textarea
@@ -1544,22 +1566,37 @@ function MediaSection({ productId }: { productId: string }) {
   const [titleDraft, setTitleDraft] = useState('')
   const [titleSaving, setTitleSaving] = useState(false)
   const [titleError, setTitleError] = useState('')
+  const [dragging, setDragging] = useState(false)
 
   const featured = media[0] ?? null
   const rest = media.slice(1)
 
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
+  // Uploaded sequentially, not in parallel -- each upload's success handler
+  // appends to `media` via a functional setState update, but running them
+  // one at a time keeps upload order == drop/selection order and avoids
+  // firing a burst of simultaneous multipart requests for a large batch.
+  async function handleFiles(files: FileList | Iterable<File> | null) {
+    if (!files) return
+    const list = Array.from(files)
+    if (list.length === 0) return
     setUploading(true)
     setUploadError(null)
     try {
-      await upload(files[0])
+      for (const file of list) {
+        await upload(file)
+      }
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setDragging(false)
+    handleFiles(e.dataTransfer.files)
   }
 
   function openTitleEditor(m: Media) {
@@ -1588,10 +1625,20 @@ function MediaSection({ productId }: { productId: string }) {
         ref={fileInputRef}
         type="file"
         accept={ACCEPTED_IMAGE_TYPES}
+        multiple
         className="hidden"
         onChange={e => handleFiles(e.target.files)}
       />
-      <div className="grid grid-cols-2 gap-3">
+      <div
+        data-testid="media-dropzone"
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={clsx(
+          'grid grid-cols-2 gap-3 rounded-xl transition-colors',
+          dragging && 'ring-2 ring-blue-500 ring-offset-2 ring-offset-transparent',
+        )}
+      >
         <div className="group relative aspect-square rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden flex items-center justify-center text-[11px] dark:text-gray-600 text-gray-400">
           {featured ? (
             <>

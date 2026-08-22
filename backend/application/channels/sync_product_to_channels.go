@@ -181,7 +181,7 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 		byConnection[l.ConnectionID] = append(byConnection[l.ConnectionID], l)
 	}
 
-	images := wooImagesFromMedia(media)
+	images := wooImagesFromMedia(media, product.Name)
 	for _, connectionID := range order {
 		uc.syncConnection(ctx, product, variants, skuByVariant, connectionID, byConnection[connectionID], images)
 	}
@@ -474,6 +474,7 @@ func (uc *SyncProductToChannelsUseCase) buildWooProduct(ctx context.Context, cli
 	wooProduct := integrationsDomain.WooProduct{
 		Name: name, Description: product.Description,
 		Status:       MapCommerceStatusToWoo(product.Status),
+		SKU:          sku.SKUCode,
 		GTIN:         sku.Barcode,
 		RegularPrice: FormatMinorUnitsAsWooPrice(sku.PriceMinorUnits),
 		SalePrice:    salePrice,

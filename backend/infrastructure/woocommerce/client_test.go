@@ -185,6 +185,43 @@ func TestUpdateProduct_alwaysSendsSalePriceExplicitly(t *testing.T) {
 	require.Equal(t, `""`, string(v))
 }
 
+// TestUpdateProduct_sendsSKU is a regression test for a live bug:
+// UpdateProduct never mapped WooProduct.SKU onto the wc.Product wire struct
+// (CreateProduct always did), so an in-app SKU edit made after a product's
+// initial push to Woo silently never reached Woo on any subsequent sync.
+func TestUpdateProduct_sendsSKU(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Product{ID: 20})
+	})
+
+	_, err := c.UpdateProduct(context.Background(), "20", integrationsDomain.WooProduct{SKU: "TSHIRT-1-NEW"})
+
+	require.NoError(t, err)
+	v, present := raw["sku"]
+	require.True(t, present, "SKU edit must reach Woo on update, not just on initial create")
+	require.Equal(t, `"TSHIRT-1-NEW"`, string(v))
+}
+
+// TestUpdateVariation_sendsSKU is the variation counterpart of
+// TestUpdateProduct_sendsSKU -- same bug, same fix, on the
+// ProductVariations.Update wire call.
+func TestUpdateVariation_sendsSKU(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.ProductVariation{ID: 901})
+	})
+
+	_, err := c.UpdateVariation(context.Background(), "900", "901", integrationsDomain.WooVariation{SKU: "CARNE-378-NEW"})
+
+	require.NoError(t, err)
+	v, present := raw["sku"]
+	require.True(t, present, "SKU edit must reach Woo on variation update, not just on initial create")
+	require.Equal(t, `"CARNE-378-NEW"`, string(v))
+}
+
 func TestCreateVariation_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	var body wc.ProductVariation
 	requestCount := 0

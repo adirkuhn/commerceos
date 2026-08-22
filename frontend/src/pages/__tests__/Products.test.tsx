@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -330,6 +330,71 @@ describe('editing an existing product infers variants mode from variant count', 
     // outer FormCard that already provides one.
     expect(screen.getAllByText('Variants')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: '+ Add Variant' })).toHaveLength(1)
+  })
+})
+
+// Regression coverage for a duplicated product being permanently stuck
+// with its "-copy" slug: there used to be no way, anywhere in the UI, to
+// change a product's slug once created.
+describe('editing a product\'s slug', () => {
+  it('shows no slug field when creating a new product', async () => {
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New Product' }))
+
+    expect(screen.queryByLabelText('Slug')).not.toBeInTheDocument()
+  })
+
+  // has_variants:true + 2 variants (as in the sync-toggle tests above)
+  // skips the flat Pricing & SKU form, which has its own required fields
+  // unrelated to slug and would otherwise block submit in this harness.
+  it('is prefilled from the product and omitted from the save payload when left unchanged', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true, slug: 't-shirt' }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(detail.product)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByLabelText('Slug')).toHaveValue('t-shirt'))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalled())
+    expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1',
+      expect.not.objectContaining({ slug: expect.anything() }))
+  })
+
+  it('sends the edited slug on save, fixing a duplicate stuck with its "-copy" slug', async () => {
+    const detail: ProductDetail = {
+      product: product({
+        has_variants: true, name: 'Biscoito de Maizena - Renata - 360g (Copy)',
+        slug: 'biscoito-de-maizena-renata-360g-copy',
+      }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: 'Small', skus: [] },
+        { ...baseVariant, id: 'var-2', name: 'Large', skus: [] },
+      ],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(detail.product)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByLabelText('Slug')).toHaveValue('biscoito-de-maizena-renata-360g-copy'))
+
+    const slugInput = screen.getByLabelText('Slug')
+    await userEvent.clear(slugInput)
+    await userEvent.type(slugInput, 'biscoito-de-maizena-renata-360g')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateProduct).toHaveBeenCalledWith('test-token', 'prod-1', expect.objectContaining({
+      slug: 'biscoito-de-maizena-renata-360g',
+    })))
   })
 })
 
@@ -1243,6 +1308,63 @@ describe('Media section', () => {
     await userEvent.upload(fileInput, file)
 
     await waitFor(() => expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', file, undefined))
+  })
+
+  it('uploads every selected file when multiple are chosen at once', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+    vi.mocked(pmsApi.uploadProductMedia).mockImplementation(async (_token, _id, file) =>
+      ({ ...mediaItem, id: file.name, url: `https://api.example.com/uploads/t1/${file.name}` }))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalled())
+
+    const fileA = new File(['a'], 'a.jpg', { type: 'image/jpeg' })
+    const fileB = new File(['b'], 'b.jpg', { type: 'image/jpeg' })
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(fileInput, [fileA, fileB])
+
+    await waitFor(() => expect(pmsApi.uploadProductMedia).toHaveBeenCalledTimes(2))
+    expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', fileA, undefined)
+    expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', fileB, undefined)
+  })
+
+  it('uploads a file dropped onto the media drop zone', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+    const uploaded = { ...mediaItem, id: 'media-2' }
+    vi.mocked(pmsApi.uploadProductMedia).mockResolvedValue(uploaded)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalled())
+
+    const file = new File(['bytes'], 'dropped.jpg', { type: 'image/jpeg' })
+    const dropZone = screen.getByTestId('media-dropzone')
+    fireEvent.drop(dropZone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', file, undefined))
+  })
+
+  it('uploads every file dragged in together, in one drop', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+    vi.mocked(pmsApi.uploadProductMedia).mockImplementation(async (_token, _id, file) =>
+      ({ ...mediaItem, id: file.name, url: `https://api.example.com/uploads/t1/${file.name}` }))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByText('T-Shirt'))
+    await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalled())
+
+    const fileA = new File(['a'], 'a.jpg', { type: 'image/jpeg' })
+    const fileB = new File(['b'], 'b.jpg', { type: 'image/jpeg' })
+    const dropZone = screen.getByTestId('media-dropzone')
+    fireEvent.drop(dropZone, { dataTransfer: { files: [fileA, fileB] } })
+
+    await waitFor(() => expect(pmsApi.uploadProductMedia).toHaveBeenCalledTimes(2))
+    expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', fileA, undefined)
+    expect(pmsApi.uploadProductMedia).toHaveBeenCalledWith('test-token', 'prod-1', fileB, undefined)
   })
 
   it('removes a media item when its remove button is clicked', async () => {

@@ -174,7 +174,7 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 	if err != nil {
 		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
-	images := wooImagesFromMedia(media)
+	images := wooImagesFromMedia(media, product.Name)
 
 	if !product.HasVariants {
 		if l, ok := existingByVariant[pushes[0].Variant.ID]; ok {
