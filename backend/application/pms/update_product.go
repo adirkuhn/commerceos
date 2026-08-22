@@ -62,20 +62,33 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 			}
 		}
 		if in.Slug != nil {
+			regenerated := *in.Slug == ""
 			slug := *in.Slug
-			if slug == "" {
+			if regenerated {
 				slug = Slugify(in.Name)
 			}
 			if slug != existing.Slug {
 				if Slugify(slug) != slug {
 					return pmsDomain.ErrInvalidSlug
 				}
-				other, err := uc.productRepo.FindBySlug(ctx, slug)
-				if err == nil && other.ID != existing.ID {
-					return pmsDomain.ErrDuplicateSlug
-				}
-				if err != nil && !errors.Is(err, pmsDomain.ErrProductNotFound) {
-					return err
+				if regenerated {
+					// A regenerated slug carries no user intent about its
+					// exact text -- unlike a slug the user typed themselves,
+					// a collision here is auto-resolved with a numeric
+					// suffix instead of bouncing the save back at them.
+					resolved, err := uc.disambiguateSlug(ctx, slug, existing.ID)
+					if err != nil {
+						return err
+					}
+					slug = resolved
+				} else {
+					other, err := uc.productRepo.FindBySlug(ctx, slug)
+					if err == nil && other.ID != existing.ID {
+						return pmsDomain.ErrDuplicateSlug
+					}
+					if err != nil && !errors.Is(err, pmsDomain.ErrProductNotFound) {
+						return err
+					}
 				}
 				existing.Slug = slug
 			}
@@ -98,4 +111,29 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 		return nil, fmt.Errorf("updateProduct: %w", err)
 	}
 	return &product, nil
+}
+
+// disambiguateSlug finds the first of base, base-2, base-3, ... not already
+// owned by a different product -- mirrors DuplicateProductUseCase's
+// uniqueCopyName loop/bound, but suffixes only the slug, never the name
+// (the name isn't being duplicated here, it just happens to slugify the
+// same as another product's).
+func (uc *UpdateProductUseCase) disambiguateSlug(ctx context.Context, base, ownProductID string) (string, error) {
+	for i := 1; i <= maxDuplicateNameAttempts; i++ {
+		candidate := base
+		if i > 1 {
+			candidate = fmt.Sprintf("%s-%d", base, i)
+		}
+		other, err := uc.productRepo.FindBySlug(ctx, candidate)
+		if errors.Is(err, pmsDomain.ErrProductNotFound) {
+			return candidate, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if other.ID == ownProductID {
+			return candidate, nil
+		}
+	}
+	return "", pmsDomain.ErrDuplicateSlug
 }

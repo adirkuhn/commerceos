@@ -161,10 +161,13 @@ func TestUpdateProduct_clearingSlugWithUnchangedNameIsANoop(t *testing.T) {
 	require.Equal(t, "t-shirt", product.Slug)
 }
 
-// TestUpdateProduct_regeneratedSlugStillRejectsCollision proves a
-// regenerated (not just an explicitly-typed) slug still goes through the
-// same duplicate check as any other slug change.
-func TestUpdateProduct_regeneratedSlugStillRejectsCollision(t *testing.T) {
+// TestUpdateProduct_regeneratedSlugAutoDisambiguatesOnCollision proves a
+// regenerated (empty -> derived-from-Name) slug that collides with another
+// product gets a numeric suffix instead of bouncing the save back with a
+// conflict -- a cleared slug carries no user intent about its exact text,
+// unlike one the user typed themselves (see the malformed/explicit-collision
+// tests below, which still error).
+func TestUpdateProduct_regeneratedSlugAutoDisambiguatesOnCollision(t *testing.T) {
 	productRepo := &stubProductRepo{
 		product:   &pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()},
 		slugTaken: "other-product",
@@ -174,8 +177,30 @@ func TestUpdateProduct_regeneratedSlugStillRejectsCollision(t *testing.T) {
 	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
 
 	emptySlug := ""
-	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
 		ID: "p1", Name: "Other Product", Status: pmsDomain.ProductStatusActive, Slug: &emptySlug,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "other-product-2", product.Slug)
+}
+
+// TestUpdateProduct_explicitSlugStillRejectsCollision proves the
+// auto-disambiguation above is specific to a *regenerated* slug -- a slug
+// the user typed themselves still errors on collision rather than silently
+// saving under different text than what they entered.
+func TestUpdateProduct_explicitSlugStillRejectsCollision(t *testing.T) {
+	productRepo := &stubProductRepo{
+		product:   &pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		slugTaken: "other-product",
+		slugOwner: &pmsDomain.Product{ID: "p2", Slug: "other-product"},
+	}
+	variantRepo := &stubVariantRepo{}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
+
+	typedSlug := "other-product"
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
+		ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &typedSlug,
 	})
 
 	require.Error(t, err)
