@@ -816,4 +816,31 @@ describe('ScannerApp picking screen', () => {
     expect(await screen.findByText('Select an order to pick')).toBeInTheDocument()
     expect(api.pausePicking).toHaveBeenCalledWith(expect.any(String), 'session-1')
   })
+
+  it('shows a product thumbnail for a line item linked to a SKU with media', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({
+      session: pickingSession(), line_items: [{ ...lineItem, product_id: 'product-1' }], scans: [],
+    })
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([
+      { id: 'media-1', tenant_id: 't1', product_id: 'product-1', url: 'https://example.com/thumb.jpg', type: 'image', position: 0, alt_text: 'Widget A photo', created_at: '' },
+    ])
+
+    await enterPickingScreen()
+
+    const img = await screen.findByAltText('Widget A photo')
+    expect(img).toHaveAttribute('src', 'https://example.com/thumb.jpg')
+    expect(pmsApi.listProductMedia).toHaveBeenCalledWith(expect.any(String), 'product-1')
+  })
+
+  it('falls back to a placeholder icon when the line has no product_id', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({
+      session: pickingSession(), line_items: [{ ...lineItem, product_id: null }], scans: [],
+    })
+
+    await enterPickingScreen()
+
+    expect(await screen.findByText('Widget A')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(pmsApi.listProductMedia).not.toHaveBeenCalled()
+  })
 })

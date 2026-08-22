@@ -192,6 +192,10 @@ export interface PickingSessionLineItem {
   quantity: number
   price_minor_units: number
   total_minor_units: number
+  // Display-only -- the current product this SKU belongs to, used to fetch
+  // a thumbnail (see backend SalesOrderLineItem.ProductID's doc). Null when
+  // sku_id is null or the SKU/variant has since been deleted.
+  product_id?: string | null
 }
 
 export interface PickingSessionDetail {

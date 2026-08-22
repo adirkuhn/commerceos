@@ -24,8 +24,13 @@ vi.mock('../../scanner/api', () => ({
   completePicking: vi.fn(),
 }))
 
+vi.mock('../../pms/api', () => ({
+  listProductMedia: vi.fn(),
+}))
+
 import * as omsApi from '../../oms/api'
 import * as pickingApi from '../../scanner/api'
+import * as pmsApi from '../../pms/api'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -57,6 +62,7 @@ function detail(overrides: Partial<PickingSessionDetail> = {}): PickingSessionDe
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+  vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
 })
 
 describe('Picking page', () => {
@@ -174,5 +180,57 @@ describe('Picking page', () => {
     expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     const missing = screen.getByText('Not fully picked').closest('div')!
     expect(within(missing).getByText('Widget: 0/2')).toBeInTheDocument()
+  })
+})
+
+describe('Picking page product thumbnail', () => {
+  it('shows a product thumbnail for a line item linked to a SKU with media', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', name: 'Widget', sku_code: 'WIDGET-1', barcode: '111', quantity: 2, price_minor_units: 1000, total_minor_units: 2000, product_id: 'product-1' }],
+    }))
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([
+      { id: 'media-1', tenant_id: 't1', product_id: 'product-1', url: 'https://example.com/thumb.jpg', type: 'image', position: 0, alt_text: 'Widget photo', created_at: '' },
+    ])
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    const img = await screen.findByAltText('Widget photo')
+    expect(img).toHaveAttribute('src', 'https://example.com/thumb.jpg')
+    expect(pmsApi.listProductMedia).toHaveBeenCalledWith('test-token', 'product-1')
+  })
+
+  it('falls back to a placeholder icon when the line has no product_id', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({
+      line_items: [{ id: 'li-1', sku_id: null, name: 'Unmatched item', sku_code: '', barcode: '', quantity: 1, price_minor_units: 0, total_minor_units: 0, product_id: null }],
+    }))
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+
+    await screen.findByText('Unmatched item')
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(pmsApi.listProductMedia).not.toHaveBeenCalled()
+  })
+
+  it('falls back to a placeholder icon when the product has no media', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({
+      line_items: [{ id: 'li-1', sku_id: 'sku-1', name: 'Widget', sku_code: 'WIDGET-1', barcode: '111', quantity: 2, price_minor_units: 1000, total_minor_units: 2000, product_id: 'product-1' }],
+    }))
+    vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await waitFor(() => expect(pmsApi.listProductMedia).toHaveBeenCalledWith('test-token', 'product-1'))
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 })

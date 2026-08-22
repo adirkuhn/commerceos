@@ -6,6 +6,24 @@ import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
 import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult } from '../scanner/types'
+import { useProductMedia } from '../pms/hooks/useProductMedia'
+
+// Falls back to a placeholder icon when the line isn't linked to a product
+// yet, or the product has no media -- same convention as the scanner app's
+// own PickingScreen/BookingScreen thumbnails.
+function LineItemThumb({ token, productId }: { token: string; productId?: string | null }) {
+  const { media } = useProductMedia(token, productId ?? null)
+  const featured = media[0]
+  return (
+    <div className="w-10 h-10 rounded-lg dark:bg-[#2D3748] bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+      {featured ? (
+        <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
+      ) : (
+        <Package size={18} className="dark:text-gray-500 text-gray-400" />
+      )}
+    </div>
+  )
+}
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
   try {
@@ -473,9 +491,13 @@ export default function Picking() {
                       'dark:bg-[#1F2937] bg-white dark:border-[#2D3748] border-gray-200',
                     )}
                   >
-                    <div className={clsx('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', done ? 'bg-green-500/20' : 'dark:bg-[#2D3748] bg-gray-100')}>
-                      {done ? <CheckCircle size={18} className="text-green-400" /> : <Package size={18} className="dark:text-gray-500 text-gray-400" />}
-                    </div>
+                    {done ? (
+                      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
+                        <CheckCircle size={18} className="text-green-400" />
+                      </div>
+                    ) : (
+                      <LineItemThumb token={token ?? ''} productId={li.product_id} />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className={clsx('text-sm font-medium', done ? 'dark:text-green-300 text-green-700' : 'dark:text-gray-100 text-gray-900')}>{li.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">

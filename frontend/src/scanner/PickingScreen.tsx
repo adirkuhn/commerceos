@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Repeat, Gift, PackagePlus, Search } from 'lucide-react'
 import * as api from './api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
+import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { QuantityStepper } from './QuantityStepper'
 import { CameraScanner } from './CameraScanner'
 import { ProductCandidateRow } from './ProductCandidateRow'
@@ -10,10 +11,19 @@ import type {
   MissingPickItem, PickScanActionType,
 } from './types'
 
-function LineItemThumb({ name }: { name: string }) {
+// Falls back to a placeholder icon when the line isn't linked to a product
+// yet, or the product has no media -- same convention as BookingScreen's
+// own LineItemThumb for procurement bookings.
+function LineItemThumb({ token, name, productId }: { token: string; name: string; productId?: string | null }) {
+  const { media } = useProductMedia(token, productId ?? null)
+  const featured = media[0]
   return (
     <div className="w-9 h-9 rounded-lg bg-[#2D3748] flex items-center justify-center shrink-0 overflow-hidden" title={name}>
-      <Package size={16} className="text-gray-400" />
+      {featured ? (
+        <img src={featured.url} alt={featured.alt_text} className="w-full h-full object-cover" />
+      ) : (
+        <Package size={16} className="text-gray-400" />
+      )}
     </div>
   )
 }
@@ -303,7 +313,7 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
               onClick={() => setPickLine({ lineItem: li, pickedSoFar: pickedQty })}
               className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3 text-left hover:border-blue-500 transition-colors"
             >
-              <LineItemThumb name={li.name} />
+              <LineItemThumb token={token} name={li.name} productId={li.product_id} />
               {done && <Check size={16} className="text-green-400 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm truncate">{li.name}</p>
