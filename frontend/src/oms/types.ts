@@ -52,6 +52,10 @@ export interface SalesOrder {
   // "Unmatched SKUs" page's link action. An order can carry both flags.
   needs_stock_review?: boolean
   needs_sku_review?: boolean
+  // Binary secondary status, independent of status -- true once every item
+  // has physically shipped/been picked. false powers the picking scanner
+  // app's "orders to pick" search.
+  fulfilled?: boolean
 }
 
 export type StockStatus = 'decremented' | 'pending'
@@ -137,6 +141,9 @@ export interface UpdateSalesOrderInput {
   transaction_id?: string
   date_paid?: string
   date_completed?: string
+  // Manual override -- set explicitly to flip fulfillment status by hand.
+  // Normally set by completePicking instead.
+  fulfilled?: boolean
 }
 
 export interface LinkLineItemSKUInput {

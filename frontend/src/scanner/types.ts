@@ -141,6 +141,114 @@ export interface ScannerPairingCode {
   claimed_at?: string | null
 }
 
+export type PickingSessionStatus = 'in_progress' | 'paused' | 'completed'
+
+export interface PickingSession {
+  id: string
+  sales_order_id: string
+  status: PickingSessionStatus
+  started_at: string
+  paused_at?: string | null
+  completed_at?: string | null
+  completed_by: string
+}
+
+export type PickScanActionType = 'pick' | 'substitute' | 'freebie' | 'new_item'
+
+// A STAGED action -- see backend domain/oms/picking.go's doc comment.
+// Nothing here is real (no stock movement, no order line item) until
+// CompletePickingUseCase replays every row for the session.
+export interface PickScan {
+  id: string
+  session_id: string
+  // The line being picked (pick), the ORIGINAL line being replaced
+  // (substitute), or null (freebie/new_item -- nothing on the order yet).
+  line_item_id?: string | null
+  // The line's own SKU (pick), the SUBSTITUTE sku (substitute), or the new
+  // SKU being added (freebie/new_item).
+  sku_id: string
+  action_type: PickScanActionType
+  // Always a positive magnitude -- for substitute, always the original
+  // line item's own quantity (whole-line swap only, never partial).
+  quantity: number
+  // Null for pick/substitute, 0 for freebie, picker-entered for new_item.
+  price_minor_units?: number | null
+  // Optional comment on a pick/substitute row -- doubles as the new line
+  // item's name for freebie/new_item.
+  reason?: string
+  scanned_at: string
+  scanned_by: string
+}
+
+// Loosely typed reuse of oms's SalesOrderLineItem shape, same reasoning as
+// BookingDetail's line_items above -- avoids a hard cross-module import
+// cycle between scanner and oms.
+export interface PickingSessionLineItem {
+  id: string
+  sku_id?: string | null
+  name: string
+  sku_code: string
+  barcode: string
+  quantity: number
+  price_minor_units: number
+  total_minor_units: number
+}
+
+export interface PickingSessionDetail {
+  session: PickingSession
+  line_items: PickingSessionLineItem[]
+  scans: PickScan[]
+}
+
+export interface ScanPickItemInput {
+  // Exactly one of code/sku_id is required.
+  code?: string
+  sku_id?: string
+  // Defaults to 'pick' server-side when omitted.
+  action_type?: PickScanActionType
+  // Required for substitute (the ORIGINAL line being replaced). Ignored
+  // for every other action type.
+  line_item_id?: string
+  // Ignored for substitute, which always uses the original line item's own
+  // quantity.
+  quantity?: number
+  // Required for new_item, ignored (forced to 0) for freebie.
+  price_minor_units?: number
+  // Optional comment (pick/substitute), or the new line item's name
+  // (freebie/new_item).
+  reason?: string
+}
+
+export interface ScanPickItemResult {
+  scan: PickScan
+}
+
+// Result of resolving a scanned code to a SKU WITHOUT staging anything yet
+// -- same "confirm before it's real" split as ResolveBookingScanCodeResult.
+export interface ResolvePickScanCodeResult {
+  sku_id: string
+  product_name: string
+}
+
+export interface MissingPickItem {
+  line_item_id: string
+  name: string
+  expected_qty: number
+  picked_qty: number
+}
+
+export interface CompletePickingResult {
+  session: PickingSession
+  missing_items: MissingPickItem[]
+}
+
+export interface AddSalesOrderLineItemInput {
+  sku_id: string
+  name?: string
+  quantity: number
+  price_minor_units: number
+}
+
 export interface APIError {
   code: string
   message: string

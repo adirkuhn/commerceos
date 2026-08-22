@@ -1,7 +1,10 @@
 import type {
   Booking, BookingDetail, ScanBookingItemInput, ScanBookingItemResult,
   ResolveBookingScanCodeResult, CompleteBookingResult, ScannerPairingCode, APIResponse,
+  PickingSession, PickingSessionDetail, ScanPickItemInput, ScanPickItemResult,
+  ResolvePickScanCodeResult, CompletePickingResult, AddSalesOrderLineItemInput,
 } from './types'
+import type { SalesOrderLineItem } from '../oms/types'
 
 function base(): string {
   return import.meta.env.VITE_API_BASE_URL as string
@@ -80,4 +83,45 @@ export function pauseBooking(token: string, id: string): Promise<Booking> {
 
 export function completeBooking(token: string, id: string): Promise<CompleteBookingResult> {
   return request<CompleteBookingResult>(`${base()}/procurement/bookings/${id}/complete`, { method: 'POST' }, token)
+}
+
+// ── Picking ──────────────────────────────────────────────────────────────────
+// oms's own routes mount with no module-path prefix (see backend/cmd/api/
+// main.go's omsGroup), unlike procurement's Booking endpoints above -- so
+// these paths are /sales-orders/... and /picking-sessions/... directly.
+
+export function startOrResumePicking(token: string, salesOrderId: string): Promise<PickingSession> {
+  return request<PickingSession>(`${base()}/sales-orders/${salesOrderId}/picking`, { method: 'POST' }, token)
+}
+
+export function getPickingSession(token: string, id: string): Promise<PickingSessionDetail> {
+  return request<PickingSessionDetail>(`${base()}/picking-sessions/${id}`, { method: 'GET' }, token)
+}
+
+export function scanPickItem(token: string, sessionId: string, input: ScanPickItemInput): Promise<ScanPickItemResult> {
+  return request<ScanPickItemResult>(`${base()}/picking-sessions/${sessionId}/scan`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function resolvePickScanCode(token: string, sessionId: string, code: string): Promise<ResolvePickScanCodeResult> {
+  return request<ResolvePickScanCodeResult>(`${base()}/picking-sessions/${sessionId}/resolve-scan`, { method: 'POST', body: JSON.stringify({ code }) }, token)
+}
+
+export function deletePickScan(token: string, sessionId: string, scanId: string): Promise<null> {
+  return request<null>(`${base()}/picking-sessions/${sessionId}/scans/${scanId}`, { method: 'DELETE' }, token)
+}
+
+export function pausePicking(token: string, id: string): Promise<PickingSession> {
+  return request<PickingSession>(`${base()}/picking-sessions/${id}/pause`, { method: 'POST' }, token)
+}
+
+export function completePicking(token: string, id: string): Promise<CompletePickingResult> {
+  return request<CompletePickingResult>(`${base()}/picking-sessions/${id}/complete`, { method: 'POST' }, token)
+}
+
+// addSalesOrderLineItem appends a real line item to an already-existing
+// order -- used by the freebie/new-item picking flow. Not itself a picking
+// endpoint (see oms's own openapi.yaml), just co-located here since only
+// the picking flow calls it from the scanner app.
+export function addSalesOrderLineItem(token: string, salesOrderId: string, input: AddSalesOrderLineItemInput): Promise<SalesOrderLineItem> {
+  return request<SalesOrderLineItem>(`${base()}/sales-orders/${salesOrderId}/line-items`, { method: 'POST', body: JSON.stringify(input) }, token)
 }

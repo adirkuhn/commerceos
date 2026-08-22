@@ -27,6 +27,9 @@ export interface ListSalesOrdersParams {
   // unfiltered sales orders list.
   needsStockReview?: boolean
   needsSkuReview?: boolean
+  // fulfilled: false powers the picking scanner app's "orders to pick"
+  // search. Omit for the normal unfiltered sales orders list.
+  fulfilled?: boolean
 }
 
 export interface ListSalesOrdersResult {
@@ -42,6 +45,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.sortDir) qs.set('sort_dir', params.sortDir)
   if (params.needsStockReview !== undefined) qs.set('needs_stock_review', String(params.needsStockReview))
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
+  if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
   const query = qs.toString()
 
   const result = await request<{ sales_orders: SalesOrder[]; total: number }>(
