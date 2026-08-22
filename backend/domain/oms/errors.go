@@ -57,4 +57,10 @@ var (
 	// ErrPickScanNotFound guards DeletePickScanUseCase against a scan ID
 	// that doesn't belong to the named session.
 	ErrPickScanNotFound = errors.New("pick scan not found")
+
+	// ErrInvalidLineItemQuantity guards AddSalesOrderLineItemUseCase.
+	ErrInvalidLineItemQuantity = errors.New("quantity must be positive")
+	// ErrInvalidPrice guards AddSalesOrderLineItemUseCase against a
+	// negative price -- 0 is valid (a freebie).
+	ErrInvalidPrice = errors.New("price must not be negative")
 )

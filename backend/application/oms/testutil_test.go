@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
@@ -282,6 +283,82 @@ func (s *stubRecordMovement) Execute(_ context.Context, in appinventory.Allocate
 		}
 	}
 	return out, nil
+}
+
+type stubPickingSessionRepo struct {
+	createErr     error
+	created       []omsDomain.PickingSession
+	findByIDResult *omsDomain.PickingSession
+	findByIDErr   error
+	activeResult  *omsDomain.PickingSession
+	activeErr     error
+	updateErr     error
+	updated       []omsDomain.PickingSession
+}
+
+func (s *stubPickingSessionRepo) Create(_ context.Context, session *omsDomain.PickingSession) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	session.ID = "picking-session-1"
+	s.created = append(s.created, *session)
+	return nil
+}
+func (s *stubPickingSessionRepo) FindByID(_ context.Context, _ string) (*omsDomain.PickingSession, error) {
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, omsDomain.ErrPickingSessionNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
+}
+func (s *stubPickingSessionRepo) FindActiveBySalesOrder(_ context.Context, _ string) (*omsDomain.PickingSession, error) {
+	return s.activeResult, s.activeErr
+}
+func (s *stubPickingSessionRepo) Update(_ context.Context, session *omsDomain.PickingSession) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *session)
+	return nil
+}
+
+type stubPickScanRepo struct {
+	createErr      error
+	created        []omsDomain.PickScan
+	listBySession  []omsDomain.PickScan
+	listErr        error
+	markReplayed   []string
+	markReplayedErr error
+	deleteErr      error
+	deleted        []string
+}
+
+func (s *stubPickScanRepo) Create(_ context.Context, scan *omsDomain.PickScan) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	scan.ID = fmt.Sprintf("pick-scan-%d", len(s.created)+1)
+	s.created = append(s.created, *scan)
+	return nil
+}
+func (s *stubPickScanRepo) ListBySession(_ context.Context, _ string) ([]omsDomain.PickScan, error) {
+	if s.listErr != nil {
+		return nil, s.listErr
+	}
+	return s.listBySession, nil
+}
+func (s *stubPickScanRepo) MarkReplayed(_ context.Context, id string, _ time.Time) error {
+	if s.markReplayedErr != nil {
+		return s.markReplayedErr
+	}
+	s.markReplayed = append(s.markReplayed, id)
+	return nil
+}
+func (s *stubPickScanRepo) Delete(_ context.Context, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	s.deleted = append(s.deleted, id)
+	return nil
 }
 
 // stubReverseMovement backs the second, narrower interface UpdateSalesOrderUseCase/
