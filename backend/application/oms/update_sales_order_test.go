@@ -194,6 +194,70 @@ func TestUpdateSalesOrder_updatesShippingMethod(t *testing.T) {
 	assert.Equal(t, "Free shipping", updated.ShippingMethodTitle)
 }
 
+func TestUpdateSalesOrder_explicitFulfilledOverride(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
+
+	fulfilled := true
+	updated, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Fulfilled: &fulfilled})
+
+	require.NoError(t, err)
+	assert.Equal(t, true, salesOrderRepo.gotUpdateFields["fulfilled"])
+	assert.True(t, updated.Fulfilled)
+}
+
+func TestUpdateSalesOrder_transitioningToCompletedAutoSetsFulfilled(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
+		o.Status = omsDomain.SalesOrderStatusProcessing
+		o.StockDecremented = true
+		o.Fulfilled = false
+	})}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
+
+	status := omsDomain.SalesOrderStatusCompleted
+	updated, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
+
+	require.NoError(t, err)
+	assert.Equal(t, true, salesOrderRepo.gotUpdateFields["fulfilled"])
+	assert.True(t, updated.Fulfilled)
+}
+
+func TestUpdateSalesOrder_explicitFulfilledWinsOverAutoSetInSameCall(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
+		o.Status = omsDomain.SalesOrderStatusProcessing
+		o.StockDecremented = true
+		o.Fulfilled = false
+	})}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
+
+	status := omsDomain.SalesOrderStatusCompleted
+	notYetFulfilled := false
+	updated, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status, Fulfilled: &notYetFulfilled})
+
+	require.NoError(t, err)
+	assert.Equal(t, false, salesOrderRepo.gotUpdateFields["fulfilled"], "explicit Fulfilled in the same call must win over the auto-set")
+	assert.False(t, updated.Fulfilled)
+}
+
+func TestUpdateSalesOrder_completingAnAlreadyFulfilledOrderDoesNotRewriteTheField(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(func(o *omsDomain.SalesOrder) {
+		o.Status = omsDomain.SalesOrderStatusProcessing
+		o.StockDecremented = true
+		o.Fulfilled = true
+	})}
+	uc := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubRecordMovement{}, &stubReverseMovement{})
+
+	status := omsDomain.SalesOrderStatusCompleted
+	_, err := uc.Execute(context.Background(), "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
+
+	require.NoError(t, err)
+	assert.NotContains(t, salesOrderRepo.gotUpdateFields, "fulfilled")
+}
+
 func TestUpdateSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{}

@@ -33,6 +33,15 @@ type UpdateSalesOrderInput struct {
 	TransactionID       *string
 	DatePaid            *time.Time
 	DateCompleted       *time.Time
+
+	// Fulfilled is a manual override -- set explicitly to flip the order's
+	// secondary fulfillment status by hand (e.g. a manual/POS order that
+	// shipped without ever going through a picking session). When Status
+	// is ALSO transitioning to Completed in this same call, an explicit
+	// Fulfilled here always wins over the automatic completed-implies-
+	// fulfilled behavior below. Normally set by CompletePickingUseCase
+	// instead, which always forces it true regardless of pick gaps.
+	Fulfilled *bool
 }
 
 // UpdateSalesOrderUseCase changes a sales order's header fields, most
@@ -132,9 +141,25 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 			updated.DateCompleted = in.DateCompleted
 		}
 
-		if in.Status != nil && *in.Status != existing.Status {
+		if in.Fulfilled != nil {
+			fields["fulfilled"] = *in.Fulfilled
+			updated.Fulfilled = *in.Fulfilled
+		}
+
+		statusChanging := in.Status != nil && *in.Status != existing.Status
+		if statusChanging {
 			fields["status"] = string(*in.Status)
 			updated.Status = *in.Status
+		}
+		// Completing an order (any path -- a manual edit here, or
+		// ImportWooOrdersUseCase.routeToExisting syncing a Woo status
+		// change through this same use case) also marks it fulfilled,
+		// same as CompletePickingUseCase always does on finish -- unless
+		// the caller already set Fulfilled explicitly in this same call,
+		// which always wins.
+		if statusChanging && *in.Status == omsDomain.SalesOrderStatusCompleted && in.Fulfilled == nil && !existing.Fulfilled {
+			fields["fulfilled"] = true
+			updated.Fulfilled = true
 		}
 
 		fields["updated_at"] = time.Now()
@@ -151,7 +176,7 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		// makes the flip itself atomic: only the caller that actually wins
 		// it proceeds to the movement loop below -- the other treats it as
 		// a no-op, since the winner is already handling it.
-		if in.Status != nil && *in.Status != existing.Status {
+		if statusChanging {
 			switch {
 			case !existing.StockDecremented && in.Status.ReducesStock():
 				swapped, err := uc.salesOrderRepo.TrySetStockDecremented(ctx, id, false, true)

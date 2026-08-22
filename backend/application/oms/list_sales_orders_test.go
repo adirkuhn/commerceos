@@ -55,6 +55,18 @@ func TestListSalesOrders_passesSortByAndSortDirThrough(t *testing.T) {
 	assert.Equal(t, omsDomain.SortAsc, repo.gotListFilter.SortDir)
 }
 
+func TestListSalesOrders_passesFulfilledFilterThrough(t *testing.T) {
+	repo := &stubSalesOrderRepo{}
+	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
+	unfulfilled := false
+
+	_, err := uc.Execute(context.Background(), appoms.ListSalesOrdersInput{Fulfilled: &unfulfilled})
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.gotListFilter.Fulfilled)
+	assert.False(t, *repo.gotListFilter.Fulfilled)
+}
+
 func TestListSalesOrders_propagatesRepoError(t *testing.T) {
 	repo := &stubSalesOrderRepo{listErr: assert.AnError}
 	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
