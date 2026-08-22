@@ -75,6 +75,30 @@ export function deleteSalesOrder(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/${id}`, token, { method: 'DELETE' })
 }
 
+export interface BulkUpdateSalesOrdersInput {
+  orderIds: string[]
+  status?: SalesOrderStatus
+  fulfilled?: boolean
+}
+
+export interface BulkUpdateSalesOrdersResult {
+  updated: string[]
+  failed: { orderId: string; error: string }[]
+}
+
+// bulkUpdateSalesOrders: every order_id is attempted independently -- one
+// failing doesn't stop the rest, see the result's updated/failed split.
+export async function bulkUpdateSalesOrders(token: string, input: BulkUpdateSalesOrdersInput): Promise<BulkUpdateSalesOrdersResult> {
+  const result = await request<{ updated?: string[]; failed?: { order_id?: string; error?: string }[] }>(
+    `${base()}/bulk-status`, token,
+    { method: 'POST', body: JSON.stringify({ order_ids: input.orderIds, status: input.status, fulfilled: input.fulfilled }) },
+  )
+  return {
+    updated: result.updated ?? [],
+    failed: (result.failed ?? []).map(f => ({ orderId: f.order_id ?? '', error: f.error ?? '' })),
+  }
+}
+
 // retryStockDecrement re-attempts the stock decrement for every line item
 // on this order whose decrement is pending (sku_id linked, but an earlier
 // attempt hit insufficient stock) -- the "Stock Issues" page's resolve

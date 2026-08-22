@@ -74,7 +74,63 @@ export default function SalesOrders() {
   const [sortBy, setSortBy] = useState<SalesOrderSortField>('occurred_at')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
   const [selectedId, setSelectedId] = useState<string | null | 'new'>(null)
-  const { salesOrders, total, loading, error, create, refresh } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE, sortBy, sortDir })
+  const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE, sortBy, sortDir })
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkFulfilled, setBulkFulfilled] = useState('')
+  const [bulkApplying, setBulkApplying] = useState(false)
+  const [bulkError, setBulkError] = useState('')
+
+  const allOnPageChecked = salesOrders.length > 0 && salesOrders.every(o => checkedIds.has(o.id))
+
+  function toggleAllOnPage() {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (allOnPageChecked) {
+        salesOrders.forEach(o => next.delete(o.id))
+      } else {
+        salesOrders.forEach(o => next.add(o.id))
+      }
+      return next
+    })
+  }
+
+  function toggleOne(id: string) {
+    setCheckedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function applyBulkChange() {
+    if (!bulkStatus && !bulkFulfilled) return
+    const count = checkedIds.size
+    if (!window.confirm(`Apply this change to ${count} order${count === 1 ? '' : 's'}?`)) return
+    setBulkApplying(true)
+    setBulkError('')
+    try {
+      const result = await bulkUpdate({
+        orderIds: Array.from(checkedIds),
+        status: bulkStatus ? (bulkStatus as SalesOrderStatus) : undefined,
+        fulfilled: bulkFulfilled ? bulkFulfilled === 'true' : undefined,
+      })
+      if (result.failed.length > 0) {
+        // Leave the bar (and the still-checked ids) up so the error stays
+        // visible -- clearing here would hide which orders failed.
+        setBulkError(`${result.updated.length} updated, ${result.failed.length} failed: ${result.failed.map(f => f.error).join('; ')}`)
+      } else {
+        setCheckedIds(new Set())
+        setBulkStatus('')
+        setBulkFulfilled('')
+      }
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Failed to apply bulk change')
+    } finally {
+      setBulkApplying(false)
+    }
+  }
 
   function toggleSort(field: SalesOrderSortField) {
     if (field === sortBy) {
@@ -116,11 +172,55 @@ export default function SalesOrders() {
         {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
       </div>
 
+      {/* Bulk action bar */}
+      {checkedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-blue-50 shrink-0">
+          <span className="text-xs font-medium dark:text-gray-200 text-gray-700">{checkedIds.size} selected</span>
+          <select
+            aria-label="Bulk change status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}
+            className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none disabled:opacity-50"
+          >
+            <option value="">Status…</option>
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select
+            aria-label="Bulk change fulfilled" value={bulkFulfilled} onChange={e => setBulkFulfilled(e.target.value)} disabled={bulkApplying}
+            className="px-2 py-1 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none disabled:opacity-50"
+          >
+            <option value="">Fulfilled…</option>
+            <option value="true">Fulfilled</option>
+            <option value="false">Unfulfilled</option>
+          </select>
+          <button
+            onClick={applyBulkChange}
+            disabled={bulkApplying || (!bulkStatus && !bulkFulfilled)}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {bulkApplying ? 'Applying…' : 'Apply'}
+          </button>
+          <button
+            onClick={() => { setCheckedIds(new Set()); setBulkStatus(''); setBulkFulfilled(''); setBulkError('') }}
+            disabled={bulkApplying}
+            className="text-xs font-medium dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50"
+          >
+            Clear
+          </button>
+          {bulkError && <span className="text-xs text-red-400 ml-auto">{bulkError}</span>}
+        </div>
+      )}
+
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
             <tr>
+              <th className="px-3 py-2.5 w-8">
+                <input
+                  type="checkbox" aria-label="Select all orders on this page"
+                  checked={allOnPageChecked} onChange={toggleAllOnPage}
+                  className="rounded border dark:border-[#2D3748] border-gray-300"
+                />
+              </th>
               <th className="px-2 py-2.5 w-8" />
               <SortableTh field="occurred_at" label="Order" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <SortableTh field="customer" label="Customer" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
@@ -131,10 +231,10 @@ export default function SalesOrders() {
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
             {!loading && salesOrders.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No sales orders yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No sales orders yet</td></tr>
             )}
             {salesOrders.map(o => (
               <tr
@@ -142,6 +242,13 @@ export default function SalesOrders() {
                 onClick={() => setSelectedId(o.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
+                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox" aria-label={`Select order #${o.number || o.external_order_id}`}
+                    checked={checkedIds.has(o.id)} onChange={() => toggleOne(o.id)}
+                    className="rounded border dark:border-[#2D3748] border-gray-300"
+                  />
+                </td>
                 <td className="px-2 py-2.5">
                   <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
                     <ShoppingCart size={12} className="dark:text-gray-500 text-gray-400" />

@@ -15,6 +15,7 @@ vi.mock('../../oms/api', () => ({
   createSalesOrder: vi.fn(),
   updateSalesOrder: vi.fn(),
   deleteSalesOrder: vi.fn(),
+  bulkUpdateSalesOrders: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -90,6 +91,7 @@ beforeEach(() => {
   })
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
+  vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [] })
 })
 
 describe('Sales orders list', () => {
@@ -178,6 +180,80 @@ describe('Sales orders list', () => {
     await userEvent.click(screen.getByRole('columnheader', { name: /Customer/ }))
 
     expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'customer', sortDir: 'desc' })
+  })
+})
+
+describe('Sales orders bulk actions', () => {
+  it('selecting a row reveals the bulk action bar, applying calls the API for the selected ids after confirmation', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '1002' })], total: 2,
+    })
+    vi.stubGlobal('confirm', vi.fn(() => true))
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    expect(screen.queryByText('2 selected')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change status' }), 'processing')
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(omsApi.bulkUpdateSalesOrders).toHaveBeenCalledWith('test-token', {
+      orderIds: ['so-1'], status: 'processing', fulfilled: undefined,
+    }))
+    // selection clears and the bar disappears after a successful apply
+    await waitFor(() => expect(screen.queryByText('1 selected')).not.toBeInTheDocument())
+  })
+
+  it('does not apply when the confirm dialog is dismissed', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
+    vi.stubGlobal('confirm', vi.fn(() => false))
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change fulfilled' }), 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    expect(omsApi.bulkUpdateSalesOrders).not.toHaveBeenCalled()
+  })
+
+  it('selecting a row does not open the order detail page', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
+
+    expect(omsApi.getSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('the select-all checkbox selects every order on the current page', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '1002' })], total: 2,
+    })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select all orders on this page' }))
+
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+  })
+
+  it('reports partial failures without discarding the successful updates', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
+    vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [{ orderId: 'so-1', error: 'sales order not found' }] })
+    vi.stubGlobal('confirm', vi.fn(() => true))
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change status' }), 'cancelled')
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    expect(await screen.findByText(/sales order not found/)).toBeInTheDocument()
   })
 })
 

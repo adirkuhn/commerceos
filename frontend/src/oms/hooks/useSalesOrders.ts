@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, SalesOrderSortField, SortDirection } from '../types'
 import * as api from '../api'
+import type { BulkUpdateSalesOrdersInput, BulkUpdateSalesOrdersResult } from '../api'
 
 interface UseSalesOrdersState {
   salesOrders: SalesOrder[]
@@ -12,6 +13,7 @@ interface UseSalesOrdersState {
 interface UseSalesOrdersActions {
   refresh: () => void
   create: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>
+  bulkUpdate: (input: BulkUpdateSalesOrdersInput) => Promise<BulkUpdateSalesOrdersResult>
 }
 
 export function useSalesOrders(
@@ -59,5 +61,11 @@ export function useSalesOrders(
     return result
   }, [token, load])
 
-  return { salesOrders, total, loading, error, refresh: load, create }
+  const bulkUpdate = useCallback(async (input: BulkUpdateSalesOrdersInput): Promise<BulkUpdateSalesOrdersResult> => {
+    const result = await api.bulkUpdateSalesOrders(token, input)
+    await load()
+    return result
+  }, [token, load])
+
+  return { salesOrders, total, loading, error, refresh: load, create, bulkUpdate }
 }

@@ -39,3 +39,16 @@ describe('listSalesOrders', () => {
     expect(calledUrl).not.toContain('fulfilled=')
   })
 })
+
+describe('bulkUpdateSalesOrders', () => {
+  it('posts order_ids/status/fulfilled and maps the updated/failed result', async () => {
+    const fetchMock = mockFetch({ updated: ['so-1'], failed: [{ order_id: 'so-2', error: 'sales order not found' }] })
+
+    const result = await api.bulkUpdateSalesOrders(TOKEN, { orderIds: ['so-1', 'so-2'], status: 'processing' })
+
+    const [url, options] = fetchMock.mock.calls[0]
+    expect(url).toContain('/sales-orders/bulk-status')
+    expect(JSON.parse((options as RequestInit).body as string)).toEqual({ order_ids: ['so-1', 'so-2'], status: 'processing', fulfilled: undefined })
+    expect(result).toEqual({ updated: ['so-1'], failed: [{ orderId: 'so-2', error: 'sales order not found' }] })
+  })
+})
