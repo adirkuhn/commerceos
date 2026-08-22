@@ -44,6 +44,11 @@ type ListSalesOrdersFilter struct {
 	// picking scanner app's "unfulfilled orders" search; also usable from
 	// the OMS Orders page's own filter.
 	Fulfilled *bool
+	// Status empty means "don't filter on this". Non-empty narrows to those
+	// statuses only -- powers the picking screens' exclusion of
+	// completed/cancelled/refunded/failed orders (a terminal-status order
+	// must never be offered for picking, regardless of its Fulfilled flag).
+	Status []SalesOrderStatus
 }
 
 type SalesOrderRepository interface {

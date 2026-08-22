@@ -255,6 +255,13 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.Fulfilled != nil {
 		q = q.Where("fulfilled = ?", *filter.Fulfilled)
 	}
+	if len(filter.Status) > 0 {
+		statuses := make([]string, len(filter.Status))
+		for i, s := range filter.Status {
+			statuses[i] = string(s)
+		}
+		q = q.Where("status IN ?", statuses)
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

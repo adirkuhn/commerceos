@@ -67,6 +67,17 @@ func TestListSalesOrders_passesFulfilledFilterThrough(t *testing.T) {
 	assert.False(t, *repo.gotListFilter.Fulfilled)
 }
 
+func TestListSalesOrders_passesStatusFilterThrough(t *testing.T) {
+	repo := &stubSalesOrderRepo{}
+	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
+	statuses := []omsDomain.SalesOrderStatus{omsDomain.SalesOrderStatusPending, omsDomain.SalesOrderStatusProcessing}
+
+	_, err := uc.Execute(context.Background(), appoms.ListSalesOrdersInput{Status: statuses})
+
+	require.NoError(t, err)
+	assert.Equal(t, statuses, repo.gotListFilter.Status)
+}
+
 func TestListSalesOrders_propagatesRepoError(t *testing.T) {
 	repo := &stubSalesOrderRepo{listErr: assert.AnError}
 	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)

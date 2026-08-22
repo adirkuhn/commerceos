@@ -446,6 +446,23 @@ func TestListSalesOrders_passesNeedsReviewFiltersThrough(t *testing.T) {
 	assert.False(t, *list.gotInput.NeedsSKUReview)
 }
 
+// TestListSalesOrders_passesFulfilledAndStatusFiltersThrough guards against
+// the query params being accepted by the route but silently dropped before
+// reaching the use case (fulfilled previously was -- the picking screens'
+// "orders to pick" search depends on both actually reaching the repo).
+func TestListSalesOrders_passesFulfilledAndStatusFiltersThrough(t *testing.T) {
+	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{}}
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
+		"GET", "/api/v1/sales-orders?fulfilled=false&status=pending&status=processing&status=on-hold", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, list.gotInput.Fulfilled)
+	assert.False(t, *list.gotInput.Fulfilled)
+	assert.Equal(t, []omsDomain.SalesOrderStatus{
+		omsDomain.SalesOrderStatusPending, omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusOnHold,
+	}, list.gotInput.Status)
+}
+
 func TestLinkLineItemSKU_success(t *testing.T) {
 	link := &stubLinkLineItemSKU{out: &omsDomain.SalesOrder{ID: "so-1", NeedsSKUReview: false}}
 	body := map[string]any{"sku_id": "sku-1"}

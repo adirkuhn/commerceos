@@ -926,6 +926,58 @@ func TestSalesOrderRepo_Integration_FulfilledRoundTripsAndFilters(t *testing.T) 
 	require.True(t, afterUpdate.Fulfilled)
 }
 
+// TestSalesOrderRepo_Integration_ListFiltersByStatus proves Status narrows
+// the query against real Postgres -- the picking screens depend on this to
+// exclude completed/cancelled/refunded/failed orders from the pick list.
+func TestSalesOrderRepo_Integration_ListFiltersByStatus(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var processingID, completedID, cancelledID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		specs := []struct {
+			extID  string
+			status omsDomain.SalesOrderStatus
+			id     *string
+		}{
+			{"status-filter-processing", omsDomain.SalesOrderStatusProcessing, &processingID},
+			{"status-filter-completed", omsDomain.SalesOrderStatusCompleted, &completedID},
+			{"status-filter-cancelled", omsDomain.SalesOrderStatusCancelled, &cancelledID},
+		}
+		for _, s := range specs {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				Status: s.status, OccurredAt: now, CreatedAt: now,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			*s.id = order.ID
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var pickable []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		pickable, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
+			Limit: 50,
+			Status: []omsDomain.SalesOrderStatus{
+				omsDomain.SalesOrderStatusPending, omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusOnHold,
+			},
+		})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, pickable, 1)
+	require.Equal(t, processingID, pickable[0].ID)
+}
+
 // seedDashboardOrder creates one sales order (+ one line item, if qty > 0)
 // with the given source/status/currency/occurred_at -- the shared fixture
 // for the dashboard report queries below, which all care about exactly

@@ -176,9 +176,17 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	if params.SortDir != nil {
 		sortDir = omsDomain.SortDirection(*params.SortDir)
 	}
+	var statuses []omsDomain.SalesOrderStatus
+	if params.Status != nil {
+		statuses = make([]omsDomain.SalesOrderStatus, len(*params.Status))
+		for i, s := range *params.Status {
+			statuses[i] = omsDomain.SalesOrderStatus(s)
+		}
+	}
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
+		Fulfilled: params.Fulfilled, Status: statuses,
 	})
 	if err := mapError(c, err); err != nil {
 		return

@@ -51,6 +51,17 @@ paths:
             Filter by the order's secondary fulfillment status -- false
             powers the picking scanner app's "orders to pick" search.
           schema: { type: boolean }
+        - name: status
+          in: query
+          description: >
+            Filter to orders whose status is one of the given values --
+            combined with fulfilled=false, powers the picking screens'
+            exclusion of completed/cancelled/refunded/failed orders (a
+            terminal-status order must never be offered for picking).
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/SalesOrderStatus' }
       responses:
         '200':
           description: ok
