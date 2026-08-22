@@ -162,4 +162,11 @@ describe('Users page — access control', () => {
     expect(await screen.findByText(/only.*owner/i)).toBeInTheDocument()
     expect(teamApi.listMembers).not.toHaveBeenCalled()
   })
+
+  it('allows super_admin through, same as customer_owner', async () => {
+    mockRole = 'super_admin'
+    render(<Users />)
+    await waitFor(() => expect(teamApi.listMembers).toHaveBeenCalledWith('test-token'))
+    expect(screen.queryByText(/only.*owner/i)).not.toBeInTheDocument()
+  })
 })

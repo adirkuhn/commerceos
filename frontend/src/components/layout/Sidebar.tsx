@@ -40,9 +40,10 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-// OWNER_NAV_ITEMS -- team/user management calls lm2's company-owner-only
+// OWNER_NAV_ITEMS -- team/user management calls lm2's company-owner (or
+// super_admin, e.g. akantio staff managing their own company for support)
 // endpoints (see team/api.ts), so the nav entry itself is hidden from
-// anyone who isn't customer_owner, same reasoning as SUPER_ADMIN_NAV_ITEMS.
+// anyone else, same reasoning as SUPER_ADMIN_NAV_ITEMS.
 const OWNER_NAV_ITEMS: NavEntry[] = [
   { id: 'users', label: 'Users & Roles', icon: Users },
 ]
@@ -71,7 +72,7 @@ export default function Sidebar() {
 
   const navItems = [
     ...NAV_ITEMS,
-    ...(user?.role === 'customer_owner' ? OWNER_NAV_ITEMS : []),
+    ...(user?.role === 'customer_owner' || user?.role === 'super_admin' ? OWNER_NAV_ITEMS : []),
     ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : []),
   ].map(item =>
     item.id === 'products' && total > 0

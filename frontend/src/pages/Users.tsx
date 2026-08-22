@@ -203,7 +203,9 @@ function GroupsPanel({ token, members }: { token: string; members: CompanyMember
 
 export default function Users() {
   const { token, user } = useAuth()
-  const isOwner = user?.role === 'customer_owner'
+  // customer_owner (normal case) or super_admin (akantio staff managing
+  // their own company, e.g. for support) -- matches the lm2 route gate.
+  const isOwner = user?.role === 'customer_owner' || user?.role === 'super_admin'
   const effectiveToken = isOwner ? (token ?? '') : ''
 
   const membersState = useCompanyMembers(effectiveToken)
