@@ -124,6 +124,63 @@ func TestGetSKUStockLevel_rulesEnabled_batchesWithExpiry_syncsOnlyNearestExpiryB
 	require.True(t, soon.Equal(level.SourceBatch.ExpiryDate))
 }
 
+// TestGetSKUStockLevel_rulesEnabled_nearestExpiryBatchDepleted_skipsToNextBatchWithStock
+// covers the reported bug: the nearest-expiring batch is not expired but has
+// been fully depleted (0 qty) -- Syncable must not just report 0, it should
+// keep walking FEFO order to the next-nearest-expiring batch that still has
+// stock.
+func TestGetSKUStockLevel_rulesEnabled_nearestExpiryBatchDepleted_skipsToNextBatchWithStock(t *testing.T) {
+	soon := time.Now().Add(2 * 24 * time.Hour)
+	later := time.Now().Add(30 * 24 * time.Hour)
+	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{
+		{ID: "batch-soon", SKUID: "sku-1", LotNumber: "LOT-SOON", ExpiryDate: &soon},
+		{ID: "batch-later", SKUID: "sku-1", LotNumber: "LOT-LATER", ExpiryDate: &later},
+	}}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		// batch-soon received 4 then fully shipped out -- nets to 0, but it's
+		// not expired, so the old code would still pick it and report 0.
+		{SKUID: "sku-1", BatchID: strPtr("batch-soon"), QuantityDelta: 4, Type: invDomain.MovementTypeReceipt},
+		{SKUID: "sku-1", BatchID: strPtr("batch-soon"), QuantityDelta: -4, Type: invDomain.MovementTypeSale},
+		{SKUID: "sku-1", BatchID: strPtr("batch-later"), QuantityDelta: 100, Type: invDomain.MovementTypeReceipt},
+	}}
+	uc := appinv.NewGetSKUStockLevelUseCase(newMockGormDB(t), movementRepo, batchRepo, rulesEnabledSettings())
+
+	level, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Equal(t, int64(100), level.Total)
+	require.Equal(t, int64(100), level.Syncable, "depleted nearest-expiry lot skipped in favor of the next lot that still has stock")
+	require.NotNil(t, level.SourceBatch)
+	require.Equal(t, "LOT-LATER", level.SourceBatch.LotNumber)
+}
+
+// TestGetSKUStockLevel_rulesEnabled_everyNotYetExpiredBatchDepleted_fallsBackToLedgerTotal
+// covers the other half of the fix: when EVERY not-yet-expired batch is
+// depleted, there's no lot left to enforce FEFO on at all -- unlike the
+// all-expired case (a genuine "nothing safe to sell" signal), this should
+// fall back to the real ledger total rather than a false zero.
+func TestGetSKUStockLevel_rulesEnabled_everyNotYetExpiredBatchDepleted_fallsBackToLedgerTotal(t *testing.T) {
+	soon := time.Now().Add(2 * 24 * time.Hour)
+	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{
+		{ID: "batch-soon", SKUID: "sku-1", LotNumber: "LOT-SOON", ExpiryDate: &soon},
+	}}
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-1", BatchID: strPtr("batch-soon"), QuantityDelta: 4, Type: invDomain.MovementTypeReceipt},
+		{SKUID: "sku-1", BatchID: strPtr("batch-soon"), QuantityDelta: -4, Type: invDomain.MovementTypeSale},
+		// Un-lotted stock -- normally excluded once any expiry batch exists,
+		// but with no usable lot left there's nothing else to report.
+		{SKUID: "sku-1", BatchID: nil, QuantityDelta: 15, Type: invDomain.MovementTypeReceipt},
+	}}
+	uc := appinv.NewGetSKUStockLevelUseCase(newMockGormDB(t), movementRepo, batchRepo, rulesEnabledSettings())
+
+	level, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Equal(t, int64(15), level.Total)
+	require.Equal(t, int64(15), level.Syncable, "no not-yet-expired batch has stock -- falls back to the ledger total instead of a false zero")
+	require.Nil(t, level.SourceBatch, "not attributable to one lot when falling back to the ledger total")
+}
+
 func TestGetSKUStockLevel_rulesEnabled_mixedBatchesWithAndWithoutExpiry_ignoresNoExpiryBatch(t *testing.T) {
 	soon := time.Now().Add(5 * 24 * time.Hour)
 	batchRepo := &stubBatchRepo{batches: []invDomain.Batch{

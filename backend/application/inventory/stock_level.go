@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"sort"
 	"time"
 
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
@@ -38,7 +39,8 @@ type BatchSyncInfo struct {
 //
 // rulesEnabled off (default, tenant_settings.inventory_sync_rules_enabled
 // unset/false) keeps the original flat rule: sum of un-lotted movements
-// plus movements against batches that aren't expired as of now.
+// plus movements against batches that aren't expired as of now -- an
+// already-expired batch never counts toward Syncable, rules on or off.
 //
 // rulesEnabled on switches to a 3-tier, batch-expiry-aware rule (Settings ->
 // Inventory Rules):
@@ -46,12 +48,20 @@ type BatchSyncInfo struct {
 //   - Batches exist but none carry an ExpiryDate: Syncable = Total (same
 //     sum as the flat rule produces, since nothing is ever excluded).
 //   - At least one batch carries an ExpiryDate: Syncable = only the
-//     quantity of the single not-yet-expired batch whose expiry is
-//     soonest — every other batch (expiry or not) and any un-lotted
-//     movement is deliberately excluded. This under-reports true stock on
-//     purpose, to push sell-through of the oldest lot first (FEFO). If
-//     every expiry-bearing batch has already expired, Syncable is 0 —
-//     there is no batch left that's safe to promise on a channel.
+//     quantity of the not-yet-expired batch whose expiry is soonest AMONG
+//     THOSE STILL HOLDING STOCK — a depleted lot is skipped in favor of the
+//     next-nearest-expiring one that still has quantity, same FEFO
+//     reasoning (an empty lot has nothing left to sell through first).
+//     Every other batch (expiry or not) and any un-lotted movement is
+//     still deliberately excluded once a usable lot is found. This
+//     under-reports true stock on purpose, to push sell-through of the
+//     oldest lot first. If every expiry-bearing batch has already
+//     expired, Syncable is 0 — there is no batch left that's safe to
+//     promise on a channel. If every not-yet-expired batch is merely
+//     depleted (not expired, just empty), there's no lot left to enforce
+//     FEFO on at all, so Syncable falls back to Total instead of a false
+//     zero -- unlike the expired case, an empty-but-valid lot isn't an
+//     "unsafe to sell" signal, it's just an accounting dead end.
 func computeStockLevel(skuID string, movements []invDomain.StockMovement, batches []invDomain.Batch, rulesEnabled bool) StockLevel {
 	level := StockLevel{SKUID: skuID}
 	expiryByBatch := make(map[string]*time.Time, len(batches))
@@ -82,7 +92,7 @@ func computeStockLevel(skuID string, movements []invDomain.StockMovement, batche
 		return level
 	}
 
-	var nearestBatch *invDomain.Batch
+	var notExpired []*invDomain.Batch
 	hasExpiryBatch := false
 	for i, b := range batches {
 		if b.ExpiryDate == nil {
@@ -90,21 +100,31 @@ func computeStockLevel(skuID string, movements []invDomain.StockMovement, batche
 		}
 		hasExpiryBatch = true
 		if !b.ExpiryDate.After(now) {
-			continue // already expired -- not eligible to be "nearest"
+			continue // already expired -- not eligible at all
 		}
-		if nearestBatch == nil || b.ExpiryDate.Before(*nearestBatch.ExpiryDate) {
-			nearestBatch = &batches[i]
-		}
+		notExpired = append(notExpired, &batches[i])
 	}
 
 	if !hasExpiryBatch {
 		level.Syncable = level.Total // covers both "no batches" and "batches, no expiry"
 		return level
 	}
-	if nearestBatch == nil {
+	if len(notExpired) == 0 {
 		return level // all expiry batches already expired -- Syncable stays 0
 	}
-	level.Syncable = qtyByBatch[nearestBatch.ID]
-	level.SourceBatch = &BatchSyncInfo{LotNumber: nearestBatch.LotNumber, ExpiryDate: *nearestBatch.ExpiryDate}
+
+	sort.Slice(notExpired, func(i, j int) bool { return notExpired[i].ExpiryDate.Before(*notExpired[j].ExpiryDate) })
+	for _, b := range notExpired {
+		qty := qtyByBatch[b.ID]
+		if qty <= 0 {
+			continue // depleted lot -- move to the next-nearest-expiring one
+		}
+		level.Syncable = qty
+		level.SourceBatch = &BatchSyncInfo{LotNumber: b.LotNumber, ExpiryDate: *b.ExpiryDate}
+		return level
+	}
+	// Every not-yet-expired batch is depleted -- no lot left to enforce FEFO
+	// on, so report the real ledger total instead of a false zero.
+	level.Syncable = level.Total
 	return level
 }
