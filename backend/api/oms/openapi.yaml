@@ -45,6 +45,12 @@ paths:
             Filter to orders with at least one line item never matched to a
             catalog SKU -- the "Unmatched SKUs" admin page.
           schema: { type: boolean }
+        - name: fulfilled
+          in: query
+          description: >
+            Filter by the order's secondary fulfillment status -- false
+            powers the picking scanner app's "orders to pick" search.
+          schema: { type: boolean }
       responses:
         '200':
           description: ok
@@ -201,6 +207,188 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/{id}/line-items:
+    post:
+      operationId: addSalesOrderLineItem
+      summary: >
+        Append a new line item to an already-existing order -- unlike every
+        other line-item write, which happens once at order creation (line
+        items are otherwise immutable). Used by CompletePickingUseCase's
+        freebie/new_item replay when a picker adds a product to the order
+        mid-pick that was never on it. Does not touch stock -- the caller
+        records that separately. Bumps the order's total_minor_units.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSalesOrderLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderLineItemResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /sales-orders/{id}/picking:
+    post:
+      operationId: startOrResumePicking
+      summary: >
+        Scanner app -- start a new picking session for this order, or
+        resume its existing in_progress/paused one. Rejected if the order
+        is already fulfilled.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}:
+    get:
+      operationId: getPickingSession
+      summary: Scanner app -- get a picking session with its order's line items and scan history, for the progress view
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickingSessionDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/scan:
+    post:
+      operationId: scanPickItem
+      summary: >
+        Scanner app -- resolve a scanned code (or an already-known sku_id)
+        and stage a pick/substitute/freebie/new_item action. Never touches
+        real inventory or the order's line items -- see PickScan's doc.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanPickItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanPickItemResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/resolve-scan:
+    post:
+      operationId: resolvePickScanCode
+      summary: >-
+        Scanner app -- resolve a scanned barcode/box-alias/SKU code (or this
+        order's own line items) to a SKU, without staging anything yet.
+        Lets the app show a confirm screen before staging a PickScan via
+        POST .../scan.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolvePickScanCodeRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvePickScanCodeResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/scans/{scanId}:
+    delete:
+      operationId: deletePickScan
+      summary: >-
+        Scanner app -- remove a staged scan before it's been replayed (fix
+        a mis-scan). Only legal while the session is still in_progress.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: scanId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: deleted
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/pause:
+    post:
+      operationId: pausePicking
+      summary: Scanner app -- pause an in-progress picking session
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickingSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/complete:
+    post:
+      operationId: completePicking
+      summary: >-
+        Scanner app -- finish a picking session; returns a missing-items
+        report if any order line wasn't fully picked/substituted. Always
+        marks the order fulfilled, gaps or not. completed_by is taken from
+        the caller's own JWT claims, not the request body.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletePickingResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -273,6 +461,12 @@ components:
         needs_sku_review:
           type: boolean
           description: At least one line item was never matched to a catalog SKU. See GET's needs_sku_review filter.
+        fulfilled:
+          type: boolean
+          description: >-
+            Binary secondary status, independent of status -- true once
+            every item has physically shipped/been picked. See GET's
+            fulfilled filter.
 
     StockStatus:
       type: string
@@ -397,6 +591,15 @@ components:
         transaction_id: { type: string }
         date_paid: { type: string, format: date-time }
         date_completed: { type: string, format: date-time }
+        fulfilled:
+          type: boolean
+          description: >-
+            Manual override -- set explicitly to flip fulfillment status by
+            hand. When status is ALSO transitioning to completed in this
+            same call, an explicit fulfilled here always wins over the
+            automatic completed-implies-fulfilled behavior. Normally set by
+            completePicking instead, which always forces it true regardless
+            of pick gaps.
 
     LinkLineItemSKURequest:
       type: object
@@ -446,3 +649,195 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+
+    AddSalesOrderLineItemRequest:
+      type: object
+      required: [sku_id, quantity, price_minor_units]
+      properties:
+        sku_id: { type: string }
+        name: { type: string }
+        quantity: { type: integer, format: int64 }
+        price_minor_units: { type: integer, format: int64 }
+
+    SalesOrderLineItemResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesOrderLineItem' }
+        error: { nullable: true }
+
+    PickingSessionStatus:
+      type: string
+      enum: [in_progress, paused, completed]
+
+    PickingSession:
+      type: object
+      required: [id, sales_order_id, status, started_at, completed_by]
+      properties:
+        id: { type: string }
+        sales_order_id: { type: string }
+        status: { $ref: '#/components/schemas/PickingSessionStatus' }
+        started_at: { type: string, format: date-time }
+        paused_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+        completed_by: { type: string }
+
+    PickingSessionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PickingSession' }
+        error: { nullable: true }
+
+    PickScanActionType:
+      type: string
+      enum: [pick, substitute, freebie, new_item]
+
+    PickScan:
+      type: object
+      required: [id, session_id, sku_id, action_type, quantity, scanned_at, scanned_by]
+      properties:
+        id: { type: string }
+        session_id: { type: string }
+        line_item_id:
+          type: string
+          nullable: true
+          description: >-
+            The line being picked (pick), the ORIGINAL line being replaced
+            (substitute), or null (freebie/new_item -- nothing on the order
+            yet).
+        sku_id:
+          type: string
+          description: The line's own SKU (pick), the SUBSTITUTE sku (substitute), or the new SKU being added (freebie/new_item).
+        action_type: { $ref: '#/components/schemas/PickScanActionType' }
+        quantity:
+          type: integer
+          format: int64
+          description: >-
+            Always a positive magnitude -- for substitute, always the
+            original line item's own quantity (whole-line swap only, never
+            partial).
+        price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null for pick/substitute, 0 for freebie, picker-entered for new_item.
+        reason:
+          type: string
+          description: >-
+            Optional comment on a pick/substitute row -- doubles as the new
+            line item's name for freebie/new_item.
+        scanned_at: { type: string, format: date-time }
+        scanned_by: { type: string }
+
+    PickingSessionDetail:
+      type: object
+      required: [session, line_items, scans]
+      properties:
+        session: { $ref: '#/components/schemas/PickingSession' }
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SalesOrderLineItem'
+        scans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickScan'
+
+    PickingSessionDetailResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PickingSessionDetail' }
+        error: { nullable: true }
+
+    ScanPickItemRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: >-
+            Raw scanned text -- a unit barcode, case/box alias, SKU code, or
+            this order's own line items. Mutually exclusive with sku_id --
+            exactly one is required.
+        sku_id:
+          type: string
+          description: >-
+            Scan directly against an already-known SKU (e.g. tapping a line
+            item row) without a barcode. Mutually exclusive with code --
+            exactly one is required.
+        line_item_id:
+          type: string
+          description: Required for substitute (the ORIGINAL line being replaced). Ignored for every other action type.
+        action_type:
+          allOf: [{ $ref: '#/components/schemas/PickScanActionType' }]
+          description: Defaults to pick when omitted.
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Ignored for substitute, which always uses the original line item's own quantity.
+        price_minor_units:
+          type: integer
+          format: int64
+          description: Required for new_item, ignored (forced to 0) for freebie.
+        reason:
+          type: string
+          description: Optional comment (pick/substitute), or the new line item's name (freebie/new_item).
+
+    ScanPickItemResult:
+      type: object
+      required: [scan]
+      properties:
+        scan: { $ref: '#/components/schemas/PickScan' }
+
+    ScanPickItemResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ScanPickItemResult' }
+        error: { nullable: true }
+
+    ResolvePickScanCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: >-
+            Raw scanned text -- same resolution chain as
+            ScanPickItemRequest.code.
+
+    ResolvePickScanCodeResult:
+      type: object
+      required: [sku_id, product_name]
+      properties:
+        sku_id: { type: string }
+        product_name: { type: string }
+
+    ResolvePickScanCodeResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ResolvePickScanCodeResult' }
+        error: { nullable: true }
+
+    MissingPickItem:
+      type: object
+      required: [line_item_id, name, expected_qty, picked_qty]
+      properties:
+        line_item_id: { type: string }
+        name: { type: string }
+        expected_qty: { type: integer, format: int64 }
+        picked_qty: { type: integer, format: int64 }
+
+    CompletePickingResult:
+      type: object
+      required: [session, missing_items]
+      properties:
+        session: { $ref: '#/components/schemas/PickingSession' }
+        missing_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissingPickItem'
+
+    CompletePickingResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CompletePickingResult' }
+        error: { nullable: true }

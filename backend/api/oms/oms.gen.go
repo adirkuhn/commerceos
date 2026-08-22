@@ -19,6 +19,51 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for PickScanActionType.
+const (
+	Freebie    PickScanActionType = "freebie"
+	NewItem    PickScanActionType = "new_item"
+	Pick       PickScanActionType = "pick"
+	Substitute PickScanActionType = "substitute"
+)
+
+// Valid indicates whether the value is a known member of the PickScanActionType enum.
+func (e PickScanActionType) Valid() bool {
+	switch e {
+	case Freebie:
+		return true
+	case NewItem:
+		return true
+	case Pick:
+		return true
+	case Substitute:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PickingSessionStatus.
+const (
+	PickingSessionStatusCompleted  PickingSessionStatus = "completed"
+	PickingSessionStatusInProgress PickingSessionStatus = "in_progress"
+	PickingSessionStatusPaused     PickingSessionStatus = "paused"
+)
+
+// Valid indicates whether the value is a known member of the PickingSessionStatus enum.
+func (e PickingSessionStatus) Valid() bool {
+	switch e {
+	case PickingSessionStatusCompleted:
+		return true
+	case PickingSessionStatusInProgress:
+		return true
+	case PickingSessionStatusPaused:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SalesOrderStatus.
 const (
 	SalesOrderStatusCancelled  SalesOrderStatus = "cancelled"
@@ -115,6 +160,14 @@ func (e ListSalesOrdersParamsSortDir) Valid() bool {
 	}
 }
 
+// AddSalesOrderLineItemRequest defines model for AddSalesOrderLineItemRequest.
+type AddSalesOrderLineItemRequest struct {
+	Name            *string `json:"name,omitempty"`
+	PriceMinorUnits int64   `json:"price_minor_units"`
+	Quantity        int64   `json:"quantity"`
+	SkuId           string  `json:"sku_id"`
+}
+
 // Address defines model for Address.
 type Address struct {
 	Address1  *string `json:"address_1,omitempty"`
@@ -128,6 +181,18 @@ type Address struct {
 	Phone     *string `json:"phone,omitempty"`
 	Postcode  *string `json:"postcode,omitempty"`
 	State     *string `json:"state,omitempty"`
+}
+
+// CompletePickingResult defines model for CompletePickingResult.
+type CompletePickingResult struct {
+	MissingItems []MissingPickItem `json:"missing_items"`
+	Session      PickingSession    `json:"session"`
+}
+
+// CompletePickingResultResponse defines model for CompletePickingResultResponse.
+type CompletePickingResultResponse struct {
+	Data  *CompletePickingResult `json:"data,omitempty"`
+	Error interface{}            `json:"error,omitempty"`
 }
 
 // CreateSalesOrderLineItem defines model for CreateSalesOrderLineItem.
@@ -196,6 +261,92 @@ type LinkLineItemSKURequest struct {
 	SkuId string `json:"sku_id"`
 }
 
+// MissingPickItem defines model for MissingPickItem.
+type MissingPickItem struct {
+	ExpectedQty int64  `json:"expected_qty"`
+	LineItemId  string `json:"line_item_id"`
+	Name        string `json:"name"`
+	PickedQty   int64  `json:"picked_qty"`
+}
+
+// PickScan defines model for PickScan.
+type PickScan struct {
+	ActionType PickScanActionType `json:"action_type"`
+	Id         string             `json:"id"`
+
+	// LineItemId The line being picked (pick), the ORIGINAL line being replaced (substitute), or null (freebie/new_item -- nothing on the order yet).
+	LineItemId *string `json:"line_item_id,omitempty"`
+
+	// PriceMinorUnits Null for pick/substitute, 0 for freebie, picker-entered for new_item.
+	PriceMinorUnits *int64 `json:"price_minor_units,omitempty"`
+
+	// Quantity Always a positive magnitude -- for substitute, always the original line item's own quantity (whole-line swap only, never partial).
+	Quantity int64 `json:"quantity"`
+
+	// Reason Optional comment on a pick/substitute row -- doubles as the new line item's name for freebie/new_item.
+	Reason    *string   `json:"reason,omitempty"`
+	ScannedAt time.Time `json:"scanned_at"`
+	ScannedBy string    `json:"scanned_by"`
+	SessionId string    `json:"session_id"`
+
+	// SkuId The line's own SKU (pick), the SUBSTITUTE sku (substitute), or the new SKU being added (freebie/new_item).
+	SkuId string `json:"sku_id"`
+}
+
+// PickScanActionType defines model for PickScanActionType.
+type PickScanActionType string
+
+// PickingSession defines model for PickingSession.
+type PickingSession struct {
+	CompletedAt  *time.Time           `json:"completed_at,omitempty"`
+	CompletedBy  string               `json:"completed_by"`
+	Id           string               `json:"id"`
+	PausedAt     *time.Time           `json:"paused_at,omitempty"`
+	SalesOrderId string               `json:"sales_order_id"`
+	StartedAt    time.Time            `json:"started_at"`
+	Status       PickingSessionStatus `json:"status"`
+}
+
+// PickingSessionDetail defines model for PickingSessionDetail.
+type PickingSessionDetail struct {
+	LineItems []SalesOrderLineItem `json:"line_items"`
+	Scans     []PickScan           `json:"scans"`
+	Session   PickingSession       `json:"session"`
+}
+
+// PickingSessionDetailResponse defines model for PickingSessionDetailResponse.
+type PickingSessionDetailResponse struct {
+	Data  *PickingSessionDetail `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
+// PickingSessionResponse defines model for PickingSessionResponse.
+type PickingSessionResponse struct {
+	Data  *PickingSession `json:"data,omitempty"`
+	Error interface{}     `json:"error,omitempty"`
+}
+
+// PickingSessionStatus defines model for PickingSessionStatus.
+type PickingSessionStatus string
+
+// ResolvePickScanCodeRequest defines model for ResolvePickScanCodeRequest.
+type ResolvePickScanCodeRequest struct {
+	// Code Raw scanned text -- same resolution chain as ScanPickItemRequest.code.
+	Code string `json:"code"`
+}
+
+// ResolvePickScanCodeResult defines model for ResolvePickScanCodeResult.
+type ResolvePickScanCodeResult struct {
+	ProductName string `json:"product_name"`
+	SkuId       string `json:"sku_id"`
+}
+
+// ResolvePickScanCodeResultResponse defines model for ResolvePickScanCodeResultResponse.
+type ResolvePickScanCodeResultResponse struct {
+	Data  *ResolvePickScanCodeResult `json:"data,omitempty"`
+	Error interface{}                `json:"error,omitempty"`
+}
+
 // RetryStockDecrementResponse defines model for RetryStockDecrementResponse.
 type RetryStockDecrementResponse struct {
 	Data  *RetryStockDecrementResult `json:"data,omitempty"`
@@ -223,7 +374,10 @@ type SalesOrder struct {
 	DatePaid                *time.Time `json:"date_paid,omitempty"`
 	DiscountTotalMinorUnits *int64     `json:"discount_total_minor_units,omitempty"`
 	ExternalOrderId         string     `json:"external_order_id"`
-	Id                      string     `json:"id"`
+
+	// Fulfilled Binary secondary status, independent of status -- true once every item has physically shipped/been picked. See GET's fulfilled filter.
+	Fulfilled *bool  `json:"fulfilled,omitempty"`
+	Id        string `json:"id"`
 
 	// NeedsSkuReview At least one line item was never matched to a catalog SKU. See GET's needs_sku_review filter.
 	NeedsSkuReview *bool `json:"needs_sku_review,omitempty"`
@@ -275,6 +429,12 @@ type SalesOrderLineItem struct {
 	TotalTaxMinorUnits    *int64       `json:"total_tax_minor_units,omitempty"`
 }
 
+// SalesOrderLineItemResponse defines model for SalesOrderLineItemResponse.
+type SalesOrderLineItemResponse struct {
+	Data  *SalesOrderLineItem `json:"data,omitempty"`
+	Error interface{}         `json:"error,omitempty"`
+}
+
 // SalesOrderList defines model for SalesOrderList.
 type SalesOrderList struct {
 	SalesOrders []SalesOrder `json:"sales_orders"`
@@ -296,16 +456,54 @@ type SalesOrderResponse struct {
 // SalesOrderStatus defines model for SalesOrderStatus.
 type SalesOrderStatus string
 
+// ScanPickItemRequest defines model for ScanPickItemRequest.
+type ScanPickItemRequest struct {
+	// ActionType Defaults to pick when omitted.
+	ActionType *PickScanActionType `json:"action_type,omitempty"`
+
+	// Code Raw scanned text -- a unit barcode, case/box alias, SKU code, or this order's own line items. Mutually exclusive with sku_id -- exactly one is required.
+	Code *string `json:"code,omitempty"`
+
+	// LineItemId Required for substitute (the ORIGINAL line being replaced). Ignored for every other action type.
+	LineItemId *string `json:"line_item_id,omitempty"`
+
+	// PriceMinorUnits Required for new_item, ignored (forced to 0) for freebie.
+	PriceMinorUnits *int64 `json:"price_minor_units,omitempty"`
+
+	// Quantity Ignored for substitute, which always uses the original line item's own quantity.
+	Quantity *int64 `json:"quantity,omitempty"`
+
+	// Reason Optional comment (pick/substitute), or the new line item's name (freebie/new_item).
+	Reason *string `json:"reason,omitempty"`
+
+	// SkuId Scan directly against an already-known SKU (e.g. tapping a line item row) without a barcode. Mutually exclusive with code -- exactly one is required.
+	SkuId *string `json:"sku_id,omitempty"`
+}
+
+// ScanPickItemResult defines model for ScanPickItemResult.
+type ScanPickItemResult struct {
+	Scan PickScan `json:"scan"`
+}
+
+// ScanPickItemResultResponse defines model for ScanPickItemResultResponse.
+type ScanPickItemResultResponse struct {
+	Data  *ScanPickItemResult `json:"data,omitempty"`
+	Error interface{}         `json:"error,omitempty"`
+}
+
 // StockStatus defines model for StockStatus.
 type StockStatus string
 
 // UpdateSalesOrderRequest defines model for UpdateSalesOrderRequest.
 type UpdateSalesOrderRequest struct {
-	Billing             *Address          `json:"billing,omitempty"`
-	CustomerId          *string           `json:"customer_id,omitempty"`
-	CustomerNote        *string           `json:"customer_note,omitempty"`
-	DateCompleted       *time.Time        `json:"date_completed,omitempty"`
-	DatePaid            *time.Time        `json:"date_paid,omitempty"`
+	Billing       *Address   `json:"billing,omitempty"`
+	CustomerId    *string    `json:"customer_id,omitempty"`
+	CustomerNote  *string    `json:"customer_note,omitempty"`
+	DateCompleted *time.Time `json:"date_completed,omitempty"`
+	DatePaid      *time.Time `json:"date_paid,omitempty"`
+
+	// Fulfilled Manual override -- set explicitly to flip fulfillment status by hand. When status is ALSO transitioning to completed in this same call, an explicit fulfilled here always wins over the automatic completed-implies-fulfilled behavior. Normally set by completePicking instead, which always forces it true regardless of pick gaps.
+	Fulfilled           *bool             `json:"fulfilled,omitempty"`
 	Number              *string           `json:"number,omitempty"`
 	OrderKey            *string           `json:"order_key,omitempty"`
 	PaymentMethod       *string           `json:"payment_method,omitempty"`
@@ -335,6 +533,9 @@ type ListSalesOrdersParams struct {
 
 	// NeedsSkuReview Filter to orders with at least one line item never matched to a catalog SKU -- the "Unmatched SKUs" admin page.
 	NeedsSkuReview *bool `form:"needs_sku_review,omitempty" json:"needs_sku_review,omitempty"`
+
+	// Fulfilled Filter by the order's secondary fulfillment status -- false powers the picking scanner app's "orders to pick" search.
+	Fulfilled *bool `form:"fulfilled,omitempty" json:"fulfilled,omitempty"`
 }
 
 // ListSalesOrdersParamsSortBy defines parameters for ListSalesOrders.
@@ -343,17 +544,44 @@ type ListSalesOrdersParamsSortBy string
 // ListSalesOrdersParamsSortDir defines parameters for ListSalesOrders.
 type ListSalesOrdersParamsSortDir string
 
+// ResolvePickScanCodeJSONRequestBody defines body for ResolvePickScanCode for application/json ContentType.
+type ResolvePickScanCodeJSONRequestBody = ResolvePickScanCodeRequest
+
+// ScanPickItemJSONRequestBody defines body for ScanPickItem for application/json ContentType.
+type ScanPickItemJSONRequestBody = ScanPickItemRequest
+
 // CreateSalesOrderJSONRequestBody defines body for CreateSalesOrder for application/json ContentType.
 type CreateSalesOrderJSONRequestBody = CreateSalesOrderRequest
 
 // UpdateSalesOrderJSONRequestBody defines body for UpdateSalesOrder for application/json ContentType.
 type UpdateSalesOrderJSONRequestBody = UpdateSalesOrderRequest
 
+// AddSalesOrderLineItemJSONRequestBody defines body for AddSalesOrderLineItem for application/json ContentType.
+type AddSalesOrderLineItemJSONRequestBody = AddSalesOrderLineItemRequest
+
 // LinkLineItemSKUJSONRequestBody defines body for LinkLineItemSKU for application/json ContentType.
 type LinkLineItemSKUJSONRequestBody = LinkLineItemSKURequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetPickingSession Scanner app -- get a picking session with its order's line items and scan history, for the progress view
+	// (GET /picking-sessions/{id})
+	GetPickingSession(c *gin.Context, id Id)
+	// CompletePicking Scanner app -- finish a picking session; returns a missing-items report if any order line wasn't fully picked/substituted. Always marks the order fulfilled, gaps or not. completed_by is taken from the caller's own JWT claims, not the request body.
+	// (POST /picking-sessions/{id}/complete)
+	CompletePicking(c *gin.Context, id Id)
+	// PausePicking Scanner app -- pause an in-progress picking session
+	// (POST /picking-sessions/{id}/pause)
+	PausePicking(c *gin.Context, id Id)
+	// ResolvePickScanCode Scanner app -- resolve a scanned barcode/box-alias/SKU code (or this order's own line items) to a SKU, without staging anything yet. Lets the app show a confirm screen before staging a PickScan via POST .../scan.
+	// (POST /picking-sessions/{id}/resolve-scan)
+	ResolvePickScanCode(c *gin.Context, id Id)
+	// ScanPickItem Scanner app -- resolve a scanned code (or an already-known sku_id) and stage a pick/substitute/freebie/new_item action. Never touches real inventory or the order's line items -- see PickScan's doc.
+	// (POST /picking-sessions/{id}/scan)
+	ScanPickItem(c *gin.Context, id Id)
+	// DeletePickScan Scanner app -- remove a staged scan before it's been replayed (fix a mis-scan). Only legal while the session is still in_progress.
+	// (DELETE /picking-sessions/{id}/scans/{scanId})
+	DeletePickScan(c *gin.Context, id Id, scanId string)
 	// ListSalesOrders List sales orders for the current tenant, newest first
 	// (GET /sales-orders)
 	ListSalesOrders(c *gin.Context, params ListSalesOrdersParams)
@@ -372,9 +600,15 @@ type ServerInterface interface {
 	// ForceAcceptStock Bypass the insufficient-stock check for every SKU-linked pending line item on this order -- the "Stock Issues" admin page's override action, for when staff know the item physically exists and the tracked ledger is simply wrong. Writes a reconciliation adjustment for whatever's short, same escape hatch POS sales already use, then completes the sale. Unlike retry-stock, this always resolves every eligible line item -- there is no still_pending outcome. A SKU-less line item is left untouched; link it via link-sku first.
 	// (POST /sales-orders/{id}/force-accept-stock)
 	ForceAcceptStock(c *gin.Context, id Id)
+	// AddSalesOrderLineItem Append a new line item to an already-existing order -- unlike every other line-item write, which happens once at order creation (line items are otherwise immutable). Used by CompletePickingUseCase's freebie/new_item replay when a picker adds a product to the order mid-pick that was never on it. Does not touch stock -- the caller records that separately. Bumps the order's total_minor_units.
+	// (POST /sales-orders/{id}/line-items)
+	AddSalesOrderLineItem(c *gin.Context, id Id)
 	// LinkLineItemSKU Link a line item that was imported without a matching catalog SKU (sku_id nil) to a real SKU -- the "Unmatched SKUs" admin page's resolve action. Does not itself retry the stock decrement -- call retry-stock separately afterward.
 	// (POST /sales-orders/{id}/line-items/{lineItemId}/link-sku)
 	LinkLineItemSKU(c *gin.Context, id Id, lineItemId string)
+	// StartOrResumePicking Scanner app -- start a new picking session for this order, or resume its existing in_progress/paused one. Rejected if the order is already fulfilled.
+	// (POST /sales-orders/{id}/picking)
+	StartOrResumePicking(c *gin.Context, id Id)
 	// RetryStockDecrement Retry the stock decrement for every line item on this order whose decrement is pending (SKU linked, but the earlier attempt hit insufficient stock) -- the "Stock Issues" admin page's resolve action, run after staff fix the underlying stock. A line item still insufficient after retrying is reported in the response, not an error for the call as a whole.
 	// (POST /sales-orders/{id}/retry-stock)
 	RetryStockDecrement(c *gin.Context, id Id)
@@ -388,6 +622,165 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// GetPickingSession operation middleware
+func (siw *ServerInterfaceWrapper) GetPickingSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPickingSession(c, id)
+}
+
+// CompletePicking operation middleware
+func (siw *ServerInterfaceWrapper) CompletePicking(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CompletePicking(c, id)
+}
+
+// PausePicking operation middleware
+func (siw *ServerInterfaceWrapper) PausePicking(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PausePicking(c, id)
+}
+
+// ResolvePickScanCode operation middleware
+func (siw *ServerInterfaceWrapper) ResolvePickScanCode(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResolvePickScanCode(c, id)
+}
+
+// ScanPickItem operation middleware
+func (siw *ServerInterfaceWrapper) ScanPickItem(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ScanPickItem(c, id)
+}
+
+// DeletePickScan operation middleware
+func (siw *ServerInterfaceWrapper) DeletePickScan(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "scanId" -------------
+	var scanId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "scanId", c.Param("scanId"), &scanId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter scanId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeletePickScan(c, id, scanId)
+}
 
 // ListSalesOrders operation middleware
 func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
@@ -443,6 +836,14 @@ func (siw *ServerInterfaceWrapper) ListSalesOrders(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "needs_sku_review", c.Request.URL.Query(), &params.NeedsSkuReview, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter needs_sku_review: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "fulfilled" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "fulfilled", c.Request.URL.Query(), &params.Fulfilled, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter fulfilled: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -569,6 +970,31 @@ func (siw *ServerInterfaceWrapper) ForceAcceptStock(c *gin.Context) {
 	siw.Handler.ForceAcceptStock(c, id)
 }
 
+// AddSalesOrderLineItem operation middleware
+func (siw *ServerInterfaceWrapper) AddSalesOrderLineItem(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddSalesOrderLineItem(c, id)
+}
+
 // LinkLineItemSKU operation middleware
 func (siw *ServerInterfaceWrapper) LinkLineItemSKU(c *gin.Context) {
 
@@ -601,6 +1027,31 @@ func (siw *ServerInterfaceWrapper) LinkLineItemSKU(c *gin.Context) {
 	}
 
 	siw.Handler.LinkLineItemSKU(c, id, lineItemId)
+}
+
+// StartOrResumePicking operation middleware
+func (siw *ServerInterfaceWrapper) StartOrResumePicking(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StartOrResumePicking(c, id)
 }
 
 // RetryStockDecrement operation middleware
@@ -663,6 +1114,14 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/sales-orders/:id/retry-stock", wrapper.RetryStockDecrement)
 	router.POST(options.BaseURL+"/sales-orders/:id/force-accept-stock", wrapper.ForceAcceptStock)
 	router.POST(options.BaseURL+"/sales-orders/:id/line-items/:lineItemId/link-sku", wrapper.LinkLineItemSKU)
+	router.POST(options.BaseURL+"/sales-orders/:id/line-items", wrapper.AddSalesOrderLineItem)
+	router.POST(options.BaseURL+"/sales-orders/:id/picking", wrapper.StartOrResumePicking)
+	router.GET(options.BaseURL+"/picking-sessions/:id", wrapper.GetPickingSession)
+	router.POST(options.BaseURL+"/picking-sessions/:id/scan", wrapper.ScanPickItem)
+	router.POST(options.BaseURL+"/picking-sessions/:id/resolve-scan", wrapper.ResolvePickScanCode)
+	router.DELETE(options.BaseURL+"/picking-sessions/:id/scans/:scanId", wrapper.DeletePickScan)
+	router.POST(options.BaseURL+"/picking-sessions/:id/pause", wrapper.PausePicking)
+	router.POST(options.BaseURL+"/picking-sessions/:id/complete", wrapper.CompletePicking)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -670,49 +1129,82 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"7Fzdb+O2sv9XBroXSALIdnZPcR9yntL2nN7cbptFPtCH04VBS2OLDUVqSSqOscj/fjEkZX1Y8ley3QDt",
+	"S5u1JHI4nM/fDPklSlReKInSmujiS1QwzXK0qN2/eOr+K6OLqGA2i+JIshyjC3oQRxo/l1xjGl1YXWIc",
+	"mSTDnNEXdlXQW8ZqLhfR8/MzvWwKJQ26cf+ltdL0R6KkRWnpT1YUgifMciUnfxgl6bd6xP/WOI8uov+a",
+	"1ORO/FMzcaPdhPH9bCmaRPOCBosuInTT0e/hExrxMk1vmUBzrVPUH7jEK4v5DX4u0Th6Cq0K1JZ7iv26",
+	"N1YWR4XmCU5zLpWelpJ7Ls6VzpklPkn7P99FcfUZlxYXqOm7zyWTltvVnq+bh3Lqd6PL2+Y+/Kd6rzF+",
+	"H4mf1lOo2R+YWJrhMk01GrO5dOYfTN/1rr96+r73aRJWuPlA5QWTQ89KaXX/M8wZF71P5lwbOx3cJ8G2",
+	"PS0yJQeeKGMTlfY/NJZZ7N+UDf7+oPJCoMWPPHngcnGDphQ9gpZzY7hcTLnF3Otg9cc2FfjFf0VjkxhH",
+	"NQFMa7ZytKIx3KvVtpECebfh7Q35Cr/HHUI/7bvitZ5urDxldqeq9zOR5KKyKLIUgs0EeqPUvxMamcVN",
+	"5X+bWj8sfEMmIY5MObPKMnEEhetPLXs64vNjpz1+zlczgF2xGPQFMy4EMXqHrFYGlSxaqTXKZDW8mUlp",
+	"rMpRhx1tS3G85X2pbP+IKbM4TYK+pC1W0qOR5TmSQ981kxunYPwlQ3DjbPr0WOkQXOKBFnFQyZ/JdMkr",
+	"P8a7TTspy3yGupelKnEbmU6ZHWTG5kc0+/QB+/1ZwVY5SjvN0WYq3eOVqeVWDBiEjBfFYYJZfbJt/s47",
+	"exBw9D6TPy13bm29qbf+fbIf7Gn6MttzxHeaScMSCjKHDPGSacxUaXCv4K31dtdqtMWvpRN91qwdFA86",
+	"2467bDjS9vuDhitHY9hivyCozxn/W+kEL5MEC3trVfLwsvigZ7QjAoSBUTYo0miUePTGtZ1x3P58PxJc",
+	"PmAKBcqUywXQfoHbL9CYKJlwgSkwmUKKiUZScUzH/WpBAj91hmR/3dj0jI1R4pr2PuH5wOVDZTBvf74f",
+	"9IQHZiV9U3Uj14058KnAxGI6/bx32LRWjSG1HI7rePJwwFSdZbbmDbPE7QW0pujjBzHiNmGyJw/zlsZ/",
+	"sTuIp0Eu3Sd39MVzHA0wo8uttiTfZehFd4YkxZ56OKX/n8VgM4Trm6ufrn69/NB8TWMhWEIvmnJmLLel",
+	"xbMYlAZSPzida8QZx4nEpZsaRiOQymb0rZJuWCeosEJ7Nt4nxuiNyNtL+ZWmnivtFjGpCYvh3P0ciIr9",
+	"IvWINFJj6p5VhBItG2IxQNxA3N8m6lIs2coAg0IZbvkjQs4WktsyRWIKzd2klPnXPYP4gksmastyYkAt",
+	"JVSTwekyUwJH7rlZsgKUFKsYJD6ihoJpy5k4613R5go0sgDKtOm/dn8wAYnKyYbR9rEuh0GrJa0mVeVM",
+	"oAHmVyBx2SKeFKa5E5Mm1zejjYRJeWAwVn0z64/GQnY7mFatzV2/jgT+3/5831KQ2/vvb++u7u7v/gXm",
+	"odxUiYoV9J1XH5ampDtdNpz18KFjgpzhaSwjrhOipv1opUcNRrY4tM08NSwL2WhZ5jQ7LTpyOWRYIMmW",
+	"XwSpSVhGY+Catx3coScACZnMtv3enTatRxmQAD4Ug5fmhVM33O+gfFmm7aESvVfI3OZuFTb3yk6bzPUE",
+	"Leo6jBwSlHrGH9EG3K69q0ckdv0p3QbalTC5/5hrp/sn4GaNJVdk7su/l8XGvTtyYGTcHuM16XkZJbdr",
+	"LahMEZfTQquFS3Qr/W3Kba8RuvFBcSUOP6gUB2PfKiNqu4IbtoRgQsHikyWvZ8ituXi7pLcgyRiX5ANp",
+	"jirwDfOMadjdZt5N3ic2vSvoz14KrdIy2QKKH1xzaI14EHUvk6ThRR8oVDdo9cqlfD9WOdlLKesb8NUo",
+	"OzAr/VCnoMtMGawzTzBlkiBS1GEzboBZi3lhXzUdJQ/ChZiGhHgree5N4NKU8zlPOFHI5hY1aOIDl4vx",
+	"Hkhwf77bJaNPThtkvwb666DIw9z634jxyxBjfLKoJRPbA655KeZciD5d+Z5LpldgMFEydX85FxMDlymS",
+	"7LhcZx5+JjNPSwElEwTKr1ZOkiFjBopsZXjChFiBQ0gxncwQZcilx3CLCD/96+7EwJoemHNhUTekfKaU",
+	"QB+hDIEaiKmZkjHW+Mhx2ZNrWhDIDOVoWCdesGQm5IQ5s0lGNkABg4RZJtSC0pImjd1ptpIaXia7dSBV",
+	"J2QEVPLQsFHcrMG0U8qVPMAWt82E++ish+AGDdtJ/hv//3b4vyp1Mlxq/wuXBnwq5tnTZ90aedqOKsLm",
+	"krqVhYa/2u4c//ys7isA4TvqKN3Vviwe3ODdgWHgPk0LM6YHg4aD8fA31eewG2NxRn5PU0Hv1lbiL9wy",
+	"0W6X+LSX2L2WGjS1/VhF6K1M1Tp+jBHqMz6O30e1pDRpqcb5tHNRr8diY49n72tRcTwFm9hOlbo5xCFB",
+	"V0AkLyZHmRJtlCeOEiYTdDE+7cq8lKn7c864GECBemCZndU4JsT1PLr4z+F1uU/dbtUfcc5KYQ1F4ZQi",
+	"wDJDCSrn1hWIHYq9L/TEgKwCBJcQQ8IMTmbqCZjgzMSu5OCfuDoEN77sFgoZdcl6DL+UtnQpDD4lojT8",
+	"EWHJbQbeOtNc+MQSK1YujOcGKg3ord1srznehE871S843VVuPBvD1UKq6lOfhymboQa/X0CU9FK0R/2w",
+	"RVZVzIiBhxlP50onPnk6P2uWsfassA3XCJtrahYDlxlPsqokWBrcsy7YS0/OJc9Jvd69qPp32qn8tStc",
+	"G8W+vUpcw4U30iVIuUYneGzBuDQWmAQmNLJ0NXqQ64IcjhdjsMwlKMAa6a9WyzMny6q0wCpdGZZ4enqY",
+	"vPfat5aR6UfyTOgD2K900fU69OOnvWZ+oY3fXMmhtr4RijXMfKMvhkz9Bl5Xy8d9kX691s0WzPb1YLUj",
+	"YLRD8KxfmCyZAPWIWnMvwAYt4FMheMJJjq2CueBFBUJ5WNijW7MVZEymY/iNXFH4kRu4/HB7DS7X5TQN",
+	"aZZVsF4rcOmdiquAJEyImJSzmrMBd2WosTJkSy6No9OZDVZalTPLk3rYEc8LwdGM6u9nmLFHrvQYfiVG",
+	"OagNLdGdtDvGgSwEsrRjPJ3pNsCtR/E0LphOBRoDau6d8IIV5nDA6C+E/RyPz+zCSnoaCSmVlXPV4xFo",
+	"Ah/EGDhNVc64nKjceIdsLJvPyVPCXKvcy1eacwn3V6QQghs7WaCNoRClAY+DTEpnXCYpkhi5YXKnS2K1",
+	"7hByEX5wMQyWTDyMuO9i+nh9C0tm5ImlaZ0LPxvDnX8S/HJRmgwKZjM4vcEE+SN+vL6tOXVv8Adm8IwU",
+	"joHBgmlmEZaaW/SfUUyrgRV8UigTk8pkKC1PGOngbFURcmJA5O9B8ASlQdDMBUY2I38JWZkzCf/3252D",
+	"sjNmK78mlQ2RocQxNGo0TCPwPC8tWXcPfLPACd+7xSsWphfw8fLuh/91/UeAKbcGMmT0zpyjSA2cVuh6",
+	"ZU5jmhdNDGiTs6plqRGP/i5JF700Rj9Q8KETvL4Fv//Xfv8vP15FcfSI2hfwo3fjc6eVBUpW8Ogi+sf4",
+	"fPwPVx62mZPdSeHNxCjU683kC0+f6ckCnTshZ+LOqF2l0UX0E9pOFTtunaAbSAfqVyY8dRlA63Tc+/Pz",
+	"Vzsbt7WNoOeonHogDn13/t3QwGtK/bE7f6quzHOmVyEgk04WC5KjBdrQDEamN/DUR1EkA1Wu0WiNZTJ1",
+	"SQxk3FilV7FTOBLgqpoPropA0/Zv1qSy+M77K9OzbZ1TRG9u07YfnHqVXYuj796/f5U9nnPJTba5zf8E",
+	"jbbUkoxWOCs2qtqfC6Ut8DkwuQq2wolAMJTzkvy3r441Uol0DKFZMmf6wTSaRNdxQOzctGszVXYMzSYl",
+	"skaWPaCsTT8FJOtclyxfIhjPTRxMHrqQHo2FmUpX420i59pLhuXtIz1+q8I20NLzxqTMcZiCRy5Ha0vQ",
+	"kbhtOxTK/6MqperfqJ5GkuP3y8nO9ypdvdpWbWlPem6nf+Ewx1cTmt2NPG9MfsL+U4QSILKQ509m6mnk",
+	"0LBJBYbB6XYw7MzXx29/vo/XuIGxbOGABbnyXewrtGP4gNbbKaLCZGoJDBIl51znYBKNKGGGc6Wx/h4q",
+	"nsIjZxS13cF4PJ4Q1VtN0HbBbubob0mi+6DWvUT53VciYZcMh4D2LQnyWmQ3cC8Pm535oMqyBW525k82",
+	"TmL4TGwMv7qQ26oyyZB8NhPA5SNKisoqTK8ngHO4Aq6l+MRAqhIK13fIrpl8of9d+WjbJ1ubcvwjVnGR",
+	"w7yOkeS490ILP/dBl1psOuXvNvNRv5BvKi+58uJCAhCC62B0uD0x4FqRHIC+ciA2f/IBm3OVZ2O4ppxN",
+	"4IIJWGZcoNv4KpTndaveut02mCmXCY7qClxvAvWBG1tnumZzQ91WfS5Rr+q9KtgCo+bOpL5i4rDrbTj2",
+	"eu+7A6KeDg/6/jyOcvbkR31/fn7cHEZpO52t+qfoNGBUAGinLSOkxs1GkHXTR7eoWGMnW8hJuR6gh4S4",
+	"QQhz/3I/9k/RFvp/u/Yq8pIBiHEZHxvoPnOdqNt6vTb7u2gsEkPLczzzgAXC7x5HhitjSjS/RwHaoY31",
+	"cEEfH3oa1Hp0fo32vXCt27vs6oXcy+qd25/vD1xK3f931EICXFRZ9rr/sQcWpuyPCYNQqCUt3aXpVUxe",
+	"m6ETA79HgTuhpvl7BAaZTrLh5dRY9tZ1fM3UaKAePxDatqwwfdAEw8wax/D9WBYsSiZtDBKXlGO662uq",
+	"C2d6IIvOdQbR14nHhu7A+LNjsqGmqx0R2bE+85cA6Aa8soNj7ovrbvq9NXq4PZ5pbetroAOvF4i02OSp",
+	"7XDHx6RkQI0XYuBzh+55S52x1IcYzWreczyIp746L86/iVS+EEf9Cb3raDJ6DZvW0bYvEdkk22RltyT6",
+	"lrK+oXLtnwxi9DQ5fWvUwnOmrWEnhxVL3FH6TrlkwDJNXNlzxNxNFyOnr8MQQvdSjDennoM3iXzrTf1+",
+	"VTDjo6NmKOsZDkmGyUOjXWnb1SH+bgTeML07At8TU1f8fWLvCyrLUMefz+FBqqWnjSZonFXBJ26sr8i4",
+	"WFszd/WDwHThi3uG54VYwVIruRjDb5pbNMDWt5twt4nA0j9KY13Y6GdmlhZKsWWmtI19cwCahBUIGRkz",
+	"51y9AgQ8g3ysO0sv15i+5ye9NYZ7KfgD+rNhnqtxOMbm6wUBMzGBwyj4gs9EMzD3nNSh4AmtE2KgSpuo",
+	"HMdw6TcHTcMG0xcC5xZK6bGS9J/uYApw6xA8+ntkHkrvG9dAyKYu0oijdZtqvw723ln5liz71ks1v1kQ",
+	"udG0/CaAvcuCBAxYuzPOZYU1kOeU0AlhpfGlF/Zmb+NadHxTQNXbkjGawYTSvA1DuIWSYp6Kdi3fjbXk",
+	"plHVPxvDvfE9BJ2aZGhKODEbd3UELMmbGBbuUgGWpu6SE39CmBZZl+9yno5cj41rO6hPoykJ3I7hR4Wh",
+	"C4H0K4SVwfT5Ep4zOTo1foCqQ0KsxvB9mRemldBudNvvpZKTLyLI0JX/3en0sKJ2LlB6RaCypuNwsPL1",
+	"9X3goqi/AzliTKvLdC3bPC+Utpg2Wk4d2ENK3gSDTkNnteQiFJwcBr8vTnRi6lJBQPTXisStQTH3/tK7",
+	"0Q76Nho5zWp61IZa+aPYS6bTLboTcKAtJSnLtL2mHSvzv4vjL8L43c0swZF0m23mrVqm68bWjuUulVy7",
+	"lwZ+77sZUt/vdYN/uMvLKKmvLTavI7M1TLdFFhpitK32vnHDwZsTh233Q3xrmbgZ1OY6txhKJLq3QQyd",
+	"tJ6VHndHpgUn+fPXREDGbd8p7P0SlLaZikGXMlz24BOUOX9yo7guR7Fywk3DUTxeL2jnjRG+Rz/Y3oDi",
+	"VRz1LT9Mgutar6FasoGM4hZ3kZqXcHclkH6sJLLUIrqIJqzgk8d30fOn5/8PAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
