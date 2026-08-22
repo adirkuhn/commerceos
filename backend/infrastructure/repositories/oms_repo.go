@@ -72,6 +72,7 @@ type salesOrderModel struct {
 	StockDecremented bool `gorm:"not null;default:false"`
 	NeedsStockReview bool `gorm:"column:needs_stock_review;not null;default:false"`
 	NeedsSKUReview   bool `gorm:"column:needs_sku_review;not null;default:false"`
+	Fulfilled        bool `gorm:"not null;default:false"`
 }
 
 func (salesOrderModel) TableName() string { return "sales_orders" }
@@ -139,6 +140,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 		StockDecremented: o.StockDecremented,
 		NeedsStockReview: o.NeedsStockReview, NeedsSKUReview: o.NeedsSKUReview,
+		Fulfilled: o.Fulfilled,
 	}
 }
 
@@ -250,6 +252,9 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.Source != nil {
 		q = q.Where("source = ?", string(*filter.Source))
 	}
+	if filter.Fulfilled != nil {
+		q = q.Where("fulfilled = ?", *filter.Fulfilled)
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -311,6 +316,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 		StockDecremented: m.StockDecremented,
 		NeedsStockReview: m.NeedsStockReview, NeedsSKUReview: m.NeedsSKUReview,
+		Fulfilled: m.Fulfilled,
 	}
 }
 

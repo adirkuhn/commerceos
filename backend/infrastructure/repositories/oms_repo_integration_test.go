@@ -858,6 +858,74 @@ func TestSalesOrderRepo_Integration_ListFiltersByNeedsStockReviewAndNeedsSKURevi
 	require.Equal(t, skuReviewID, skuReviewOrders[0].ID)
 }
 
+func TestSalesOrderRepo_Integration_FulfilledRoundTripsAndFilters(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var fulfilledID, unfulfilledID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		fulfilled := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "fulfilled-int-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			Status: omsDomain.SalesOrderStatusCompleted, Fulfilled: true, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &fulfilled); err != nil {
+			return err
+		}
+		fulfilledID = fulfilled.ID
+
+		unfulfilled := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
+			ExternalOrderID: "unfulfilled-int-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &unfulfilled); err != nil {
+			return err
+		}
+		unfulfilledID = unfulfilled.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var byID *omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		byID, err = salesOrderRepo.FindByID(ctx, fulfilledID)
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, byID.Fulfilled, "fulfilled must round-trip through Create/FindByID")
+
+	falseVal := false
+	var unfulfilledOrders []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		unfulfilledOrders, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, Fulfilled: &falseVal})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, unfulfilledOrders, 1)
+	require.Equal(t, unfulfilledID, unfulfilledOrders[0].ID)
+
+	// Update must also flip it (CompletePickingUseCase/UpdateSalesOrderUseCase
+	// both write it via the map[string]any Update path, not the Create path).
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, unfulfilledID, map[string]any{"fulfilled": true})
+	})
+	require.NoError(t, err)
+	var afterUpdate *omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		afterUpdate, err = salesOrderRepo.FindByID(ctx, unfulfilledID)
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, afterUpdate.Fulfilled)
+}
+
 // seedDashboardOrder creates one sales order (+ one line item, if qty > 0)
 // with the given source/status/currency/occurred_at -- the shared fixture
 // for the dashboard report queries below, which all care about exactly
