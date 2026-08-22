@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -30,6 +30,10 @@ export interface ListSalesOrdersParams {
   // fulfilled: false powers the picking scanner app's "orders to pick"
   // search. Omit for the normal unfiltered sales orders list.
   fulfilled?: boolean
+  // status: narrows to the given statuses -- combined with fulfilled:false,
+  // the picking screens use this to exclude completed/cancelled/refunded/
+  // failed orders. Omit for the normal unfiltered sales orders list.
+  status?: SalesOrderStatus[]
 }
 
 export interface ListSalesOrdersResult {
@@ -46,6 +50,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.needsStockReview !== undefined) qs.set('needs_stock_review', String(params.needsStockReview))
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
+  for (const status of params.status ?? []) qs.append('status', status)
   const query = qs.toString()
 
   const result = await request<{ sales_orders: SalesOrder[]; total: number }>(

@@ -73,7 +73,7 @@ export default function Picking() {
     setOrdersLoading(true)
     setOrdersError('')
     try {
-      const result = await omsApi.listSalesOrders(token, { fulfilled: false, perPage: 100 })
+      const result = await omsApi.listSalesOrders(token, { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
       setOrders(result.salesOrders)
     } catch (err) {
       setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')

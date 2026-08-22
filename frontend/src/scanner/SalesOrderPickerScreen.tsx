@@ -36,7 +36,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
   const [startingId, setStartingId] = useState<string | null>(null)
 
   useEffect(() => {
-    omsApi.listSalesOrders(token, { fulfilled: false, perPage: 100 })
+    omsApi.listSalesOrders(token, { fulfilled: false, status: ['pending', 'processing', 'on-hold'], perPage: 100 })
       .then(result => setSalesOrders(result.salesOrders))
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load sales orders'))
       .finally(() => setLoading(false))
