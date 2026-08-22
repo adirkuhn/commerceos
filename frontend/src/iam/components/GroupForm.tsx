@@ -7,6 +7,8 @@ interface Props {
   onCancel: () => void
 }
 
+const inputClass = 'block w-full mt-1 px-3 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500'
+
 export function GroupForm({ group, onSubmit, onCancel }: Props) {
   const [name, setName] = useState(group?.name ?? '')
   const [description, setDescription] = useState(group?.description ?? '')
@@ -36,12 +38,12 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '400px' }}>
-      <h3>{group ? 'Edit Group' : 'New Group'}</h3>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 max-w-[400px]">
+      <h3 className="text-xs font-semibold dark:text-gray-200 text-gray-800">{group ? 'Edit Group' : 'New Group'}</h3>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="text-xs text-red-400">{error}</p>}
 
-      <label>
+      <label className="block text-xs dark:text-gray-400 text-gray-500">
         Name *
         <input
           type="text"
@@ -49,26 +51,36 @@ export function GroupForm({ group, onSubmit, onCancel }: Props) {
           onChange={e => setName(e.target.value)}
           maxLength={100}
           required
-          style={{ display: 'block', width: '100%', marginTop: '4px' }}
+          className={inputClass}
         />
       </label>
 
-      <label>
+      <label className="block text-xs dark:text-gray-400 text-gray-500">
         Description
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           maxLength={500}
           rows={3}
-          style={{ display: 'block', width: '100%', marginTop: '4px' }}
+          className={inputClass}
         />
       </label>
 
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button type="submit" disabled={submitting}>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 font-medium"
+        >
           {submitting ? 'Saving...' : group ? 'Update' : 'Create'}
         </button>
-        <button type="button" onClick={onCancel}>Cancel</button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 text-xs rounded-lg border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-50"
+        >
+          Cancel
+        </button>
       </div>
     </form>
   )
