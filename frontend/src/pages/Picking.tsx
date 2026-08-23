@@ -7,6 +7,11 @@ import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
 import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult } from '../scanner/types'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
+import { useConnections } from '../integrations/hooks/useConnections'
+import * as shippingApi from '../shipping/api'
+import type { RecipientAddress } from '../shipping/types'
+import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
+import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
 
 // Falls back to a placeholder icon when the line isn't linked to a product
 // yet, or the product has no media -- same convention as the scanner app's
@@ -86,6 +91,12 @@ export default function Picking() {
   const [completing, setCompleting] = useState(false)
   const [completeResult, setCompleteResult] = useState<CompletePickingResult | null>(null)
 
+  const { connections } = useConnections(token ?? '')
+  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
+  const [confirmingAddress, setConfirmingAddress] = useState(false)
+  const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
+  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+
   const loadOrders = useCallback(async () => {
     if (!token) return
     setOrdersLoading(true)
@@ -142,6 +153,8 @@ export default function Picking() {
     setSession(null)
     setCompleteResult(null)
     setError('')
+    setCreatedShipmentId(null)
+    setConfirmingAddress(false)
   }
 
   async function handleScanSubmit() {
@@ -304,6 +317,13 @@ export default function Picking() {
     }
   }
 
+  async function handleCreateShipment(input: { carrier: number; recipient: RecipientAddress }) {
+    if (!token || !activeOrder || !myParcelConnection) return
+    const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: activeOrder.id })
+    setConfirmingAddress(false)
+    setCreatedShipmentId(shipment.id)
+  }
+
   const pickedByLineItem = session ? pickedQtyByLineItem(session.scans) : new Map<string, number>()
   const totalItems = session?.line_items.reduce((s, li) => s + li.quantity, 0) ?? 0
   const pickedItems = session ? session.line_items.reduce((s, li) => s + Math.min(li.quantity, pickedByLineItem.get(li.id) ?? 0), 0) : 0
@@ -396,13 +416,42 @@ export default function Picking() {
                 ))}
               </div>
             )}
+
+            {myParcelConnection && !createdShipmentId && (
+              <button
+                type="button" onClick={() => setConfirmingAddress(true)}
+                className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+              >
+                Create shipping label
+              </button>
+            )}
+            {createdShipmentId && (
+              <button
+                type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+                className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+              >
+                Print shipping label
+              </button>
+            )}
+
             <button
               type="button" onClick={backToOrders}
-              className="mt-5 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+              className="mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
             >
               Back to orders
             </button>
           </div>
+        )}
+
+        {confirmingAddress && activeOrder && (
+          <AddressConfirmModal
+            initialAddress={activeOrder.shipping}
+            onConfirm={handleCreateShipment}
+            onClose={() => setConfirmingAddress(false)}
+          />
+        )}
+        {printingLabelId && token && (
+          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} onClose={() => setPrintingLabelId(null)} />
         )}
 
         {activeOrder && session && !completeResult && (

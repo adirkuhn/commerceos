@@ -28,9 +28,20 @@ vi.mock('../../pms/api', () => ({
   listProductMedia: vi.fn(),
 }))
 
+vi.mock('../../integrations/hooks/useConnections', () => ({
+  useConnections: vi.fn(),
+}))
+
+vi.mock('../../shipping/api', () => ({
+  createShipment: vi.fn(),
+}))
+
 import * as omsApi from '../../oms/api'
 import * as pickingApi from '../../scanner/api'
 import * as pmsApi from '../../pms/api'
+import * as shippingApi from '../../shipping/api'
+import { useConnections } from '../../integrations/hooks/useConnections'
+import type { Connection } from '../../integrations/types'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -63,6 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
+  vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
 })
 
 describe('Picking page', () => {
@@ -180,6 +192,66 @@ describe('Picking page', () => {
     expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     const missing = screen.getByText('Not fully picked').closest('div')!
     expect(within(missing).getByText('Widget: 0/2')).toBeInTheDocument()
+  })
+
+  it('does not show "Create shipping label" when no MyParcel connection exists', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Complete' }))
+
+    await screen.findByText('#1001 marked fulfilled')
+    expect(screen.queryByRole('button', { name: 'Create shipping label' })).not.toBeInTheDocument()
+  })
+
+  describe('with a MyParcel connection', () => {
+    const myParcelConn: Connection = { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' }
+
+    beforeEach(() => {
+      vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    })
+
+    it('creates a shipment from the confirmed address and shows Print shipping label afterward', async () => {
+      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } })],
+        total: 1,
+      })
+      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(shippingApi.createShipment).mockResolvedValue({
+        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
+        status: 1, status_main: 'registered', label_format: 'pdf',
+        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+        created_at: '2026-08-23T00:00:00Z',
+      })
+
+      const user = userEvent.setup()
+      render(<Picking />)
+      await user.click(await screen.findByText('#1001'))
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('#1001 marked fulfilled')
+
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+
+      // Two buttons now share this label: the page's trigger (still
+      // rendered behind the modal) and the modal's own submit button,
+      // which renders after it in the DOM.
+      const allCreateButtons = screen.getAllByRole('button', { name: 'Create shipping label' })
+      await user.click(allCreateButtons[allCreateButtons.length - 1])
+
+      await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        connection_id: 'conn-mp-1', sales_order_id: 'so-1',
+      })))
+      expect(await screen.findByRole('button', { name: 'Print shipping label' })).toBeInTheDocument()
+    })
   })
 })
 
