@@ -1,0 +1,6 @@
+package: webhooks
+output: webhooks.gen.go
+generate:
+  gin-server: true
+  models: true
+  embedded-spec: true

@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -45,8 +47,10 @@ import (
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
+	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
+	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/storage"
 	"github.com/adirkuhn/commerceos/infrastructure/woocommerce"
@@ -85,6 +89,33 @@ func main() {
 	if err != nil {
 		log.Fatalf("db connect: %v", err)
 	}
+
+	// The webhook-ingestion hot path (see infrastructure/handlers/webhooks)
+	// publishes to JetStream synchronously in-request -- unlike every other
+	// domain event in this app, which goes through the transactional
+	// outbox and cmd/relay. RetryOnFailedConnect+MaxReconnects(-1): if
+	// NATS/JetStream is down at startup or drops mid-run, Connect returns
+	// immediately and the client keeps retrying in the background, so the
+	// API stays up (individual webhook publishes fail over to the DB
+	// fallback table -- see application/webhooks.ReceiveWebhookUseCase --
+	// rather than the whole process crash-looping).
+	nc, err := nats.Connect(cfg.NatsURL,
+		nats.RetryOnFailedConnect(true),
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(2*time.Second),
+	)
+	if err != nil {
+		log.Fatalf("nats connect: %v", err)
+	}
+	defer nc.Drain()
+	js, err := nc.JetStream()
+	if err != nil {
+		log.Fatalf("jetstream: %v", err)
+	}
+	if err := publishers.EnsureWebhookStream(js); err != nil {
+		log.Fatalf("jetstream: %v", err)
+	}
+
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(middleware.CORS(cfg.FrontendBaseURL))
@@ -120,6 +151,12 @@ func main() {
 	wooFactory := woocommerce.NewFactory()
 	integrations.Register(integrationsGroup, r, db, outboxRepo, wooFactory, []byte(cfg.JWTSecret),
 		cfg.IntegrationsEncryptionSecret, cfg.PublicAPIBaseURL, cfg.FrontendBaseURL)
+
+	// Own unauthenticated route, mounted on the root router like the
+	// WooCommerce connect callback above -- see infrastructure/handlers/
+	// webhooks's doc comment for why.
+	webhookshandler.Register(r, db, repositories.NewConnectionRepo(db),
+		publishers.NewJetStreamPublisher(js), repositories.NewWebhookFallbackRepo(db), cfg.IntegrationsEncryptionSecret)
 
 	pmsSpec, err := genpms.GetSpec()
 	if err != nil {
