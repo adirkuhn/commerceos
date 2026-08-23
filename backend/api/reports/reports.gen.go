@@ -43,6 +43,31 @@ func (e ProductPerformanceQuadrant) Valid() bool {
 	}
 }
 
+// CustomerPerformanceReport defines model for CustomerPerformanceReport.
+type CustomerPerformanceReport struct {
+	CurrencyCode string                   `json:"currency_code"`
+	Rows         []CustomerPerformanceRow `json:"rows"`
+}
+
+// CustomerPerformanceReportResponse defines model for CustomerPerformanceReportResponse.
+type CustomerPerformanceReportResponse struct {
+	Data  *CustomerPerformanceReport `json:"data,omitempty"`
+	Error interface{}                `json:"error,omitempty"`
+}
+
+// CustomerPerformanceRow defines model for CustomerPerformanceRow.
+type CustomerPerformanceRow struct {
+	AverageOrderValueMinorUnits int64  `json:"average_order_value_minor_units"`
+	CustomerId                  string `json:"customer_id"`
+
+	// CustomerName Empty string if the customer record has no name set.
+	CustomerName      string    `json:"customer_name"`
+	FirstOrderAt      time.Time `json:"first_order_at"`
+	LastOrderAt       time.Time `json:"last_order_at"`
+	OrderCount        int64     `json:"order_count"`
+	RevenueMinorUnits int64     `json:"revenue_minor_units"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -158,6 +183,12 @@ type SalesSummaryReportResponse struct {
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// GetCustomerPerformanceReportParams defines parameters for GetCustomerPerformanceReport.
+type GetCustomerPerformanceReportParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetProductPerformanceReportParams defines parameters for GetProductPerformanceReport.
 type GetProductPerformanceReportParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -178,6 +209,9 @@ type GetSalesSummaryReportParams struct {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetCustomerPerformanceReport Every customer with a qualifying order in [from, to), ranked by revenue
+	// (GET /reports/customer-performance)
+	GetCustomerPerformanceReport(c *gin.Context, params GetCustomerPerformanceReportParams)
 	// GetProductPerformanceReport Every SKU sold in [from, to), ranked by revenue
 	// (GET /reports/product-performance)
 	GetProductPerformanceReport(c *gin.Context, params GetProductPerformanceReportParams)
@@ -197,6 +231,41 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// GetCustomerPerformanceReport operation middleware
+func (siw *ServerInterfaceWrapper) GetCustomerPerformanceReport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCustomerPerformanceReportParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetCustomerPerformanceReport(c, params)
+}
 
 // GetProductPerformanceReport operation middleware
 func (siw *ServerInterfaceWrapper) GetProductPerformanceReport(c *gin.Context) {
@@ -333,6 +402,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/reports/sales-summary", wrapper.GetSalesSummaryReport)
 	router.GET(options.BaseURL+"/reports/product-performance", wrapper.GetProductPerformanceReport)
 	router.GET(options.BaseURL+"/reports/product-performance-matrix", wrapper.GetProductPerformanceMatrix)
+	router.GET(options.BaseURL+"/reports/customer-performance", wrapper.GetCustomerPerformanceReport)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -340,31 +410,34 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

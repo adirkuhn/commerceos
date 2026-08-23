@@ -26,17 +26,26 @@ type getProductPerformanceReportUC interface {
 type getProductPerformanceMatrixUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.ProductPerformanceMatrix, error)
 }
-
-type Handler struct {
-	getSalesSummaryReport       getSalesSummaryReportUC
-	getProductPerformanceReport getProductPerformanceReportUC
-	getProductPerformanceMatrix getProductPerformanceMatrixUC
+type getCustomerPerformanceReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.CustomerPerformanceReport, error)
 }
 
-func NewHandler(getSalesSummaryReport getSalesSummaryReportUC, getProductPerformanceReport getProductPerformanceReportUC, getProductPerformanceMatrix getProductPerformanceMatrixUC) *Handler {
+type Handler struct {
+	getSalesSummaryReport        getSalesSummaryReportUC
+	getProductPerformanceReport  getProductPerformanceReportUC
+	getProductPerformanceMatrix  getProductPerformanceMatrixUC
+	getCustomerPerformanceReport getCustomerPerformanceReportUC
+}
+
+func NewHandler(
+	getSalesSummaryReport getSalesSummaryReportUC,
+	getProductPerformanceReport getProductPerformanceReportUC,
+	getProductPerformanceMatrix getProductPerformanceMatrixUC,
+	getCustomerPerformanceReport getCustomerPerformanceReportUC,
+) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
-		getProductPerformanceMatrix: getProductPerformanceMatrix,
+		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
 	}
 }
 
@@ -51,6 +60,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetSalesSummaryReportUseCase(db, salesRepo, settingsRepo),
 		productPerformanceUC,
 		appreports.NewGetProductPerformanceMatrixUseCase(productPerformanceUC),
+		appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -103,6 +113,22 @@ func (h *Handler) GetProductPerformanceMatrix(c *gin.Context, params genreports.
 		CurrencyCode: matrix.CurrencyCode, MedianRevenueMinorUnits: matrix.MedianRevenueMinorUnits,
 		MedianMarginBasisPoints: matrix.MedianMarginBasisPoints, Rows: rows,
 	})
+}
+
+func (h *Handler) GetCustomerPerformanceReport(c *gin.Context, params genreports.GetCustomerPerformanceReportParams) {
+	report, err := h.getCustomerPerformanceReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.CustomerPerformanceRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.CustomerPerformanceRow{
+			CustomerId: row.CustomerID, CustomerName: row.CustomerName, OrderCount: row.OrderCount,
+			RevenueMinorUnits: row.RevenueMinorUnits, AverageOrderValueMinorUnits: row.AverageOrderValueMinorUnits,
+			FirstOrderAt: row.FirstOrderAt, LastOrderAt: row.LastOrderAt,
+		}
+	}
+	middleware.OK(c, genreports.CustomerPerformanceReport{CurrencyCode: report.CurrencyCode, Rows: rows})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

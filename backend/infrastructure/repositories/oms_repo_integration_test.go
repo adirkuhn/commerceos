@@ -1201,3 +1201,119 @@ func TestSalesOrderRepo_Integration_ProductPerformanceBetween_OrdersByRevenueDes
 	require.Equal(t, "SKU-HIGH", rows[0].SKUCode)
 	require.Equal(t, "SKU-LOW", rows[1].SKUCode)
 }
+
+func TestSalesOrderRepo_Integration_CustomerPerformanceBetween_AggregatesPerCustomerExcludingGuests(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	now := time.Now()
+	before := now.AddDate(0, -1, 0)
+
+	var customerID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		customer := customersDomain.Customer{
+			TenantID: tenant.IDFromContext(ctx), Email: "jane@example.com", FirstName: "Jane", LastName: "Doe",
+			DateCreated: now, DateModified: now,
+		}
+		if err := customerRepo.Create(ctx, &customer); err != nil {
+			return err
+		}
+		customerID = customer.ID
+
+		orders := []struct {
+			extID    string
+			status   omsDomain.SalesOrderStatus
+			currency string
+			occurred time.Time
+			total    int64
+			custID   *string
+		}{
+			{"cust-perf-1", omsDomain.SalesOrderStatusCompleted, "EUR", now, 1000, &customerID},
+			{"cust-perf-2", omsDomain.SalesOrderStatusProcessing, "EUR", now, 500, &customerID},
+			// Excluded: guest order (no customer_id).
+			{"cust-perf-3", omsDomain.SalesOrderStatusCompleted, "EUR", now, 9999, nil},
+			// Excluded: cancelled.
+			{"cust-perf-4", omsDomain.SalesOrderStatusCancelled, "EUR", now, 9999, &customerID},
+			// Excluded: before the window.
+			{"cust-perf-5", omsDomain.SalesOrderStatusCompleted, "EUR", before, 9999, &customerID},
+		}
+		for _, o := range orders {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: o.extID,
+				WarehouseID: warehouseID, CustomerID: o.custID, Status: o.status, CurrencyCode: o.currency,
+				TotalMinorUnits: o.total, OccurredAt: o.occurred, CreatedAt: o.occurred,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var rows []omsDomain.CustomerPerformance
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.CustomerPerformanceBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	row := rows[0]
+	require.Equal(t, customerID, row.CustomerID)
+	require.Equal(t, "Jane Doe", row.CustomerName)
+	require.Equal(t, int64(2), row.OrderCount)
+	require.Equal(t, int64(1500), row.RevenueMinorUnits)
+	require.Equal(t, int64(750), row.AverageOrderValueMinorUnits)
+}
+
+func TestSalesOrderRepo_Integration_CustomerPerformanceBetween_OrdersByRevenueDesc(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	now := time.Now()
+	var lowID, highID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		low := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "low@example.com", FirstName: "Low", LastName: "Spender", DateCreated: now, DateModified: now}
+		if err := customerRepo.Create(ctx, &low); err != nil {
+			return err
+		}
+		lowID = low.ID
+		high := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "high@example.com", FirstName: "High", LastName: "Spender", DateCreated: now, DateModified: now}
+		if err := customerRepo.Create(ctx, &high); err != nil {
+			return err
+		}
+		highID = high.ID
+
+		if err := salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "rank-cust-1",
+			WarehouseID: warehouseID, CustomerID: &lowID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+			TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+		return salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "rank-cust-2",
+			WarehouseID: warehouseID, CustomerID: &highID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+			TotalMinorUnits: 5000, OccurredAt: now, CreatedAt: now,
+		})
+	})
+	require.NoError(t, err)
+
+	var rows []omsDomain.CustomerPerformance
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.CustomerPerformanceBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, highID, rows[0].CustomerID)
+	require.Equal(t, lowID, rows[1].CustomerID)
+}

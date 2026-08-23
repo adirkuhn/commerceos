@@ -507,6 +507,64 @@ func (r *SalesOrderRepo) ProductPerformanceBetween(ctx context.Context, from, to
 	return out, nil
 }
 
+type customerPerformanceRow struct {
+	CustomerID        string
+	CustomerName      string
+	OrderCount        int64
+	RevenueMinorUnits int64
+	FirstOrderAt      time.Time
+	LastOrderAt       time.Time
+}
+
+// CustomerPerformanceBetween aggregates orders per customer -- same status/
+// currency filtering as RevenueSince, plus excluding guest orders
+// (customer_id IS NULL, no stable identity to group them under).
+// CustomerName joins the customers table for the current name rather than
+// snapshotting a per-order billing name, since (unlike a SKU's code/name)
+// there's no risk of "the customer since changed" making history
+// unreadable -- a customer record is the canonical source of their own
+// name.
+func (r *SalesOrderRepo) CustomerPerformanceBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.CustomerPerformance, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []customerPerformanceRow
+	err = tx.Raw(`
+		SELECT
+			so.customer_id AS customer_id,
+			COALESCE(NULLIF(TRIM(CONCAT(c.first_name, ' ', c.last_name)), ''), '') AS customer_name,
+			COUNT(*) AS order_count,
+			COALESCE(SUM(so.total_minor_units), 0) AS revenue_minor_units,
+			MIN(so.occurred_at) AS first_order_at,
+			MAX(so.occurred_at) AS last_order_at
+		FROM sales_orders so
+		LEFT JOIN customers c ON c.id = so.customer_id
+		WHERE so.customer_id IS NOT NULL
+			AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+		GROUP BY so.customer_id, c.first_name, c.last_name
+		ORDER BY revenue_minor_units DESC
+	`, from, to, currencyCode).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.CustomerPerformanceBetween: %w", err)
+	}
+	out := make([]omsDomain.CustomerPerformance, len(rows))
+	for i, row := range rows {
+		var aov int64
+		if row.OrderCount > 0 {
+			aov = row.RevenueMinorUnits / row.OrderCount
+		}
+		out[i] = omsDomain.CustomerPerformance{
+			CustomerID: row.CustomerID, CustomerName: row.CustomerName,
+			OrderCount: row.OrderCount, RevenueMinorUnits: row.RevenueMinorUnits, AverageOrderValueMinorUnits: aov,
+			FirstOrderAt: row.FirstOrderAt, LastOrderAt: row.LastOrderAt,
+		}
+	}
+	return out, nil
+}
+
 type productSalesRow struct {
 	SKUID             *string `gorm:"column:sku_id"`
 	SKUCode           string

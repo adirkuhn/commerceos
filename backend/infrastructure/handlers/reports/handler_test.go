@@ -72,6 +72,21 @@ func (s *stubGetProductPerformanceMatrix) Execute(_ context.Context, _, _ time.T
 	return &appreports.ProductPerformanceMatrix{CurrencyCode: "EUR"}, nil
 }
 
+type stubGetCustomerPerformanceReport struct {
+	out *appreports.CustomerPerformanceReport
+	err error
+}
+
+func (s *stubGetCustomerPerformanceReport) Execute(_ context.Context, _, _ time.Time) (*appreports.CustomerPerformanceReport, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appreports.CustomerPerformanceReport{CurrencyCode: "EUR"}, nil
+}
+
 func newTestRouter(h *reportshandler.Handler) *gin.Engine {
 	r := gin.New()
 	genreports.RegisterHandlers(r.Group("/api/v1"), h)
@@ -90,7 +105,7 @@ func TestGetSalesSummaryReportHandler_success(t *testing.T) {
 	get := &stubGetSalesSummaryReport{out: &appreports.SalesSummaryReport{
 		CurrencyCode: "EUR", RevenueChangePercent: &revenueChange,
 	}}
-	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{})
+	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -102,14 +117,14 @@ func TestGetSalesSummaryReportHandler_success(t *testing.T) {
 
 func TestGetSalesSummaryReportHandler_validationError(t *testing.T) {
 	get := &stubGetSalesSummaryReport{err: appreports.ErrToBeforeFrom}
-	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{})
+	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-31T00:00:00Z&to=2026-08-01T00:00:00Z")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestGetSalesSummaryReportHandler_missingRequiredParam(t *testing.T) {
-	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{})
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-01T00:00:00Z")
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
@@ -123,7 +138,7 @@ func TestGetProductPerformanceReportHandler_success(t *testing.T) {
 			CostPriceMinorUnits: int64Ptr(300), ProfitMinorUnits: int64Ptr(1000), MarginBasisPoints: int64Ptr(4000),
 		}},
 	}}
-	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get, &stubGetProductPerformanceMatrix{})
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -134,7 +149,7 @@ func TestGetProductPerformanceReportHandler_success(t *testing.T) {
 
 func TestGetProductPerformanceReportHandler_validationError(t *testing.T) {
 	get := &stubGetProductPerformanceReport{err: appreports.ErrToBeforeFrom}
-	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get, &stubGetProductPerformanceMatrix{})
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance?from=2026-08-31T00:00:00Z&to=2026-08-01T00:00:00Z")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -151,7 +166,7 @@ func TestGetProductPerformanceMatrixHandler_success(t *testing.T) {
 			Quadrant: appreports.QuadrantWinners,
 		}},
 	}}
-	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, get)
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, get, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance-matrix?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -161,8 +176,31 @@ func TestGetProductPerformanceMatrixHandler_success(t *testing.T) {
 
 func TestGetProductPerformanceMatrixHandler_validationError(t *testing.T) {
 	get := &stubGetProductPerformanceMatrix{err: appreports.ErrToBeforeFrom}
-	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, get)
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, get, &stubGetCustomerPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance-matrix?from=2026-08-31T00:00:00Z&to=2026-08-01T00:00:00Z")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestGetCustomerPerformanceReportHandler_success(t *testing.T) {
+	get := &stubGetCustomerPerformanceReport{out: &appreports.CustomerPerformanceReport{
+		CurrencyCode: "EUR",
+		Rows: []omsDomain.CustomerPerformance{
+			{CustomerID: "cust-1", CustomerName: "Jane Doe", OrderCount: 2, RevenueMinorUnits: 1500, AverageOrderValueMinorUnits: 750},
+		},
+	}}
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, get)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/customer-performance?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"customer_name":"Jane Doe"`)
+	assert.Contains(t, w.Body.String(), `"average_order_value_minor_units":750`)
+}
+
+func TestGetCustomerPerformanceReportHandler_validationError(t *testing.T) {
+	get := &stubGetCustomerPerformanceReport{err: appreports.ErrToBeforeFrom}
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, get)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/customer-performance?from=2026-08-31T00:00:00Z&to=2026-08-01T00:00:00Z")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

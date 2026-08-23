@@ -85,6 +85,30 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/customer-performance:
+    get:
+      operationId: getCustomerPerformanceReport
+      summary: Every customer with a qualifying order in [from, to), ranked by revenue
+      description: Guest orders (no linked customer record) are excluded entirely.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerPerformanceReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -205,6 +229,35 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ProductPerformanceMatrix' }
+        error: { nullable: true }
+
+    CustomerPerformanceRow:
+      type: object
+      required: [customer_id, customer_name, order_count, revenue_minor_units, average_order_value_minor_units, first_order_at, last_order_at]
+      properties:
+        customer_id: { type: string }
+        customer_name:
+          type: string
+          description: Empty string if the customer record has no name set.
+        order_count: { type: integer, format: int64 }
+        revenue_minor_units: { type: integer, format: int64 }
+        average_order_value_minor_units: { type: integer, format: int64 }
+        first_order_at: { type: string, format: date-time }
+        last_order_at: { type: string, format: date-time }
+
+    CustomerPerformanceReport:
+      type: object
+      required: [currency_code, rows]
+      properties:
+        currency_code: { type: string }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/CustomerPerformanceRow' }
+
+    CustomerPerformanceReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CustomerPerformanceReport' }
         error: { nullable: true }
 
     ErrorResponse:
