@@ -22,6 +22,7 @@ type fakeBolClient struct {
 	updateOfferCalls []integrationsDomain.BolOfferInput
 	contentCalls     []integrationsDomain.BolProductContentInput
 	unknownEANErr    error
+	getCommissionFn  func(ctx context.Context, ean string, unitPrice float64) (integrationsDomain.BolCommission, error)
 }
 
 func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
@@ -38,7 +39,10 @@ func (f *fakeBolClient) SubmitProductContent(_ context.Context, in integrationsD
 	f.contentCalls = append(f.contentCalls, in)
 	return nil
 }
-func (f *fakeBolClient) GetCommission(_ context.Context, ean string, unitPrice float64) (integrationsDomain.BolCommission, error) {
+func (f *fakeBolClient) GetCommission(ctx context.Context, ean string, unitPrice float64) (integrationsDomain.BolCommission, error) {
+	if f.getCommissionFn != nil {
+		return f.getCommissionFn(ctx, ean, unitPrice)
+	}
 	return integrationsDomain.BolCommission{EAN: ean}, nil
 }
 
@@ -60,6 +64,20 @@ func (f *fakeBolOverrideRepo) Upsert(_ context.Context, o *channelsDomain.BolPro
 	o.ID = "override-1"
 	f.upserted = append(f.upserted, *o)
 	return nil
+}
+
+// fakeSKUByIDRepo backs GetBolCommissionUseCase's narrow skuFinder
+// dependency (ISP) -- doesn't implement the full pmsDomain.SKURepository.
+type fakeSKUByIDRepo struct {
+	skus map[string]pmsDomain.SKU
+}
+
+func (f *fakeSKUByIDRepo) FindByID(_ context.Context, id string) (*pmsDomain.SKU, error) {
+	sku, ok := f.skus[id]
+	if !ok {
+		return nil, pmsDomain.ErrSKUNotFound
+	}
+	return &sku, nil
 }
 
 func bolConn() integrationsDomain.Connection {
