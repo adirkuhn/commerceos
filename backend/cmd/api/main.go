@@ -30,6 +30,7 @@ import (
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
+	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
@@ -42,6 +43,7 @@ import (
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 	poshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pos"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
+	promotionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/promotions"
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	schedulerhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scheduler"
@@ -223,6 +225,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	taxhandler.Register(taxGroup, db)
+
+	promotionsSpec, err := genpromotions.GetSpec()
+	if err != nil {
+		log.Fatalf("promotions: load openapi spec: %v", err)
+	}
+	// Own sub-group so the promotions-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	promotionsGroup := v1.Group("")
+	promotionsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(promotionsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	promotionshandler.Register(promotionsGroup, db)
 
 	notificationsSpec, err := gennotifications.GetSpec()
 	if err != nil {

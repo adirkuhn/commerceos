@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Promotions API
+  description: >-
+    Named, time-boxed discount campaigns applied to SKUs -- tracked
+    separately from a SKU's own price/sale_price. v1 supports two discount
+    mechanisms (percentage, fixed_amount); this API only defines/manages
+    promotions, it does not yet mutate a SKU's effective price.
+  version: "1.0"
+servers:
+  - url: /api/v1
+
+paths:
+  /promotions:
+    get:
+      operationId: listPromotions
+      summary: List the tenant's promotions
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionListResponse'
+    post:
+      operationId: createPromotion
+      summary: Create a promotion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePromotionRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /promotions/{id}:
+    get:
+      operationId: getPromotion
+      summary: Get a promotion and its SKU lines
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      operationId: updatePromotion
+      summary: Update a promotion, replacing its SKU lines wholesale
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromotionRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deletePromotion
+      summary: Delete a promotion (cascades to its SKU lines)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    PromotionType:
+      type: string
+      enum: [percentage, fixed_amount]
+
+    PromotionStatus:
+      type: string
+      enum: [draft, active, ended]
+
+    Promotion:
+      type: object
+      required: [id, name, type, starts_at, status, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { $ref: '#/components/schemas/PromotionType' }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time, nullable: true }
+        status: { $ref: '#/components/schemas/PromotionStatus' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PromotionLine:
+      type: object
+      required: [id, sku_id, discount_type, discount_value]
+      properties:
+        id: { type: string }
+        sku_id: { type: string }
+        discount_type: { $ref: '#/components/schemas/PromotionType' }
+        discount_value:
+          type: integer
+          format: int64
+          description: Basis points for percentage (1-10000), minor currency units for fixed_amount.
+
+    PromotionLineInput:
+      type: object
+      required: [sku_id, discount_type, discount_value]
+      properties:
+        sku_id: { type: string }
+        discount_type: { $ref: '#/components/schemas/PromotionType' }
+        discount_value: { type: integer, format: int64 }
+
+    PromotionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Promotion'
+        - type: object
+          properties:
+            lines:
+              type: array
+              items: { $ref: '#/components/schemas/PromotionLine' }
+
+    CreatePromotionRequest:
+      type: object
+      required: [name, type, starts_at, lines]
+      properties:
+        name: { type: string }
+        type: { $ref: '#/components/schemas/PromotionType' }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time, nullable: true }
+        status: { $ref: '#/components/schemas/PromotionStatus' }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PromotionLineInput' }
+
+    UpdatePromotionRequest:
+      type: object
+      required: [name, type, starts_at, status, lines]
+      properties:
+        name: { type: string }
+        type: { $ref: '#/components/schemas/PromotionType' }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time, nullable: true }
+        status: { $ref: '#/components/schemas/PromotionStatus' }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PromotionLineInput' }
+
+    PromotionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PromotionDetail' }
+        error: { nullable: true }
+
+    PromotionListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Promotion' }
+        error: { nullable: true }
+
+    EmptyResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
