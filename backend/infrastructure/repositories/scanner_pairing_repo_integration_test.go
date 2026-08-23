@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
@@ -22,7 +23,7 @@ func TestScannerPairingCodeRepo_Integration_CreateFindClaim(t *testing.T) {
 	var created iamDomain.ScannerPairingCode
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		created = iamDomain.ScannerPairingCode{
-			TenantID: tenantID, Code: "123456", UserID: "user-1", Role: "customer_owner",
+			TenantID: tenantID, Code: "123456", UserID: uuid.NewString(), Role: "customer_owner",
 			Status: iamDomain.ScannerPairingCodeStatusPending, ExpiresAt: time.Now().Add(5 * time.Minute), CreatedAt: time.Now(),
 		}
 		return repo.Create(ctx, &created)
@@ -84,7 +85,7 @@ func TestScannerPairingCodeRepo_Integration_FindPendingByToken(t *testing.T) {
 	var created iamDomain.ScannerPairingCode
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		created = iamDomain.ScannerPairingCode{
-			TenantID: tenantID, Code: "123456", Token: "opaque-token-abc", UserID: "user-1", Role: "customer_owner",
+			TenantID: tenantID, Code: "123456", Token: "opaque-token-abc", UserID: uuid.NewString(), Role: "customer_owner",
 			Status: iamDomain.ScannerPairingCodeStatusPending, ExpiresAt: time.Now().Add(5 * time.Minute), CreatedAt: time.Now(),
 		}
 		return repo.Create(ctx, &created)
@@ -125,7 +126,7 @@ func TestScannerPairingCodeRepo_Integration_FindPendingByCodeExpired(t *testing.
 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		code := iamDomain.ScannerPairingCode{
-			TenantID: tenantID, Code: "999999", UserID: "user-1", Role: "customer_owner",
+			TenantID: tenantID, Code: "999999", UserID: uuid.NewString(), Role: "customer_owner",
 			Status: iamDomain.ScannerPairingCodeStatusPending, ExpiresAt: time.Now().Add(-time.Minute), CreatedAt: time.Now(),
 		}
 		return repo.Create(ctx, &code)
