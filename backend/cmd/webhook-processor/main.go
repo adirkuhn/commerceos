@@ -16,8 +16,10 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/config"
@@ -63,7 +65,13 @@ func main() {
 
 	processedRepo := repositories.NewProcessedEventRepo(db)
 	eventRepo := repositories.NewWebhookEventRepo(db)
-	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo)
+
+	shipmentHandler := appshipping.NewHandleShipmentWebhookUseCase(
+		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
+		repositories.NewConnectionRepo(db), repositories.NewSalesOrderRepo(db),
+		myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+	)
+	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, shipmentHandler)
 	webhookConsumer := consumers.NewWebhookConsumer(processedRepo, processWebhookEventUC, js)
 
 	// "webhooks.received.*" -- one subscription covers every provider

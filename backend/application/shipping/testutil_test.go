@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 )
 
@@ -126,3 +127,31 @@ func (f *fakeShippingCarrierOverrideRepo) FindByConnectionAndCarrier(ctx context
 func (f *fakeShippingCarrierOverrideRepo) Upsert(ctx context.Context, o *shippingDomain.ShippingCarrierOverride) error {
 	return f.upsertFn(ctx, o)
 }
+
+// --- oms.SalesOrderRepository fake (only Update is exercised by this
+// package -- the rest are no-ops satisfying the interface) ---
+
+type fakeSalesOrderRepo struct {
+	updateFn func(ctx context.Context, id string, fields map[string]any) error
+}
+
+func (f *fakeSalesOrderRepo) Create(context.Context, *omsDomain.SalesOrder) error { return nil }
+func (f *fakeSalesOrderRepo) FindByID(context.Context, string) (*omsDomain.SalesOrder, error) {
+	return nil, nil
+}
+func (f *fakeSalesOrderRepo) FindByExternalID(context.Context, omsDomain.SalesOrderSource, string) (*omsDomain.SalesOrder, error) {
+	return nil, nil
+}
+func (f *fakeSalesOrderRepo) List(context.Context, omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
+	return nil, 0, nil
+}
+func (f *fakeSalesOrderRepo) ListByConnection(context.Context, string) ([]omsDomain.SalesOrder, error) {
+	return nil, nil
+}
+func (f *fakeSalesOrderRepo) Update(ctx context.Context, id string, fields map[string]any) error {
+	return f.updateFn(ctx, id, fields)
+}
+func (f *fakeSalesOrderRepo) TrySetStockDecremented(context.Context, string, bool, bool) (bool, error) {
+	return false, nil
+}
+func (f *fakeSalesOrderRepo) Delete(context.Context, string) error { return nil }

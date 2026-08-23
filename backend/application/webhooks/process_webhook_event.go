@@ -17,19 +17,32 @@ import (
 // rows can tell what kind of event each one was without opening the payload.
 const topicHeader = "X-Wc-Webhook-Topic"
 
-// ProcessWebhookEventUseCase is the cold-path landing point: durably
-// persist the envelope cmd/webhook-processor consumed off
-// COMMERCEOS_WEBHOOKS. Per-topic business-rule dispatch (e.g. actually
-// updating a sales order from an order.updated webhook) is deliberately
-// out of scope for this pass -- this use case's only job is "prove this
-// event was received and accepted," idempotently.
-type ProcessWebhookEventUseCase struct {
-	db        *gorm.DB
-	eventRepo webhooks.WebhookEventRepository
+// shipmentStatusWebhookHandler is application/shipping.HandleShipmentWebhookUseCase
+// narrowed to point of use (ISP) -- lets this package stay decoupled from
+// shipping's own dependencies (MyParcel client, oms repo, etc) and keeps
+// this use case unit-testable without them.
+type shipmentStatusWebhookHandler interface {
+	Execute(ctx context.Context, envelope webhooks.Envelope) error
 }
 
-func NewProcessWebhookEventUseCase(db *gorm.DB, eventRepo webhooks.WebhookEventRepository) *ProcessWebhookEventUseCase {
-	return &ProcessWebhookEventUseCase{db: db, eventRepo: eventRepo}
+// ProcessWebhookEventUseCase is the cold-path landing point: durably
+// persist the envelope cmd/webhook-processor consumed off
+// COMMERCEOS_WEBHOOKS. Per-topic business-rule dispatch is deliberately out
+// of scope for this pass for every provider EXCEPT "myparcel" -- see
+// shipmentHandler below, the one exception, added when the MyParcel
+// shipping integration needed webhook-driven order updates. Every other
+// provider's event still just gets persisted, exactly as before.
+type ProcessWebhookEventUseCase struct {
+	db              *gorm.DB
+	eventRepo       webhooks.WebhookEventRepository
+	shipmentHandler shipmentStatusWebhookHandler
+}
+
+// NewProcessWebhookEventUseCase's shipmentHandler may be nil -- when it is,
+// "myparcel" events are persisted like any other provider's, with no
+// further dispatch (e.g. a deployment that hasn't wired shipping yet).
+func NewProcessWebhookEventUseCase(db *gorm.DB, eventRepo webhooks.WebhookEventRepository, shipmentHandler shipmentStatusWebhookHandler) *ProcessWebhookEventUseCase {
+	return &ProcessWebhookEventUseCase{db: db, eventRepo: eventRepo, shipmentHandler: shipmentHandler}
 }
 
 func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webhooks.Envelope) error {
@@ -42,6 +55,12 @@ func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webh
 	})
 	if err != nil {
 		return fmt.Errorf("processWebhookEvent: %w", err)
+	}
+
+	if envelope.Provider == "myparcel" && uc.shipmentHandler != nil {
+		if err := uc.shipmentHandler.Execute(ctx, envelope); err != nil {
+			return fmt.Errorf("processWebhookEvent: shipment dispatch: %w", err)
+		}
 	}
 	return nil
 }

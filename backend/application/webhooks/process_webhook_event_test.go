@@ -28,7 +28,7 @@ func (f *fakeWebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEven
 
 func TestProcessWebhookEventUseCase_persistsEnvelope(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{
 		EventID: "evt-1", TenantID: "tenant-1", Provider: "woocommerce",
@@ -45,9 +45,55 @@ func TestProcessWebhookEventUseCase_persistsEnvelope(t *testing.T) {
 
 func TestProcessWebhookEventUseCase_propagatesRepoError(t *testing.T) {
 	repo := &fakeWebhookEventRepo{err: errors.New("save failed")}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "woocommerce"})
 
 	require.Error(t, err)
+}
+
+type fakeShipmentHandler struct {
+	called   bool
+	envelope webhooks.Envelope
+	err      error
+}
+
+func (f *fakeShipmentHandler) Execute(_ context.Context, e webhooks.Envelope) error {
+	f.called, f.envelope = true, e
+	return f.err
+}
+
+func TestProcessWebhookEventUseCase_myParcelProvider_dispatchesToShipmentHandler(t *testing.T) {
+	repo := &fakeWebhookEventRepo{}
+	handler := &fakeShipmentHandler{}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, handler)
+
+	envelope := webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel", RawPayload: []byte(`{}`)}
+	err := uc.Execute(context.Background(), envelope)
+
+	require.NoError(t, err)
+	assert.True(t, handler.called)
+	assert.Equal(t, "evt-1", handler.envelope.EventID)
+}
+
+func TestProcessWebhookEventUseCase_otherProviders_neverDispatchToShipmentHandler(t *testing.T) {
+	repo := &fakeWebhookEventRepo{}
+	handler := &fakeShipmentHandler{}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, handler)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "woocommerce"})
+
+	require.NoError(t, err)
+	assert.False(t, handler.called, "the shipment handler is myparcel-only -- every other provider's event still just gets persisted")
+}
+
+func TestProcessWebhookEventUseCase_shipmentHandlerError_propagates(t *testing.T) {
+	repo := &fakeWebhookEventRepo{}
+	handler := &fakeShipmentHandler{err: errors.New("myparcel lookup failed")}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, handler)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
+
+	require.Error(t, err)
+	require.Len(t, repo.saved, 1, "the event is still durably persisted even if the subsequent dispatch fails")
 }
