@@ -12,6 +12,7 @@ import { useCategories } from '../pms/hooks/useCategories'
 import { sortCategoriesHierarchically } from '../pms/categoryTree'
 import { useProductDetail } from '../pms/hooks/useProductDetail'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
+import { ProductBolTab } from '../pms/ProductBolTab'
 import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
@@ -278,7 +279,7 @@ export default function Products() {
 // (Shopify, Lightspeed, ...), each mapping the same product to that
 // channel's own fields without polluting the generic model.
 
-type EditorTab = 'general' | 'woocommerce'
+type EditorTab = 'general' | 'woocommerce' | 'bol'
 
 interface ProductEditorProps {
   productId: string | null
@@ -320,11 +321,15 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
   // connected — an unconnected/disabled integration gets no tab at all,
   // rather than a tab that just tells you to go connect it.
   const [wooConnection, setWooConnection] = useState<Connection | null>(null)
+  const [bolConnection, setBolConnection] = useState<Connection | null>(null)
   useEffect(() => {
     if (!token) return
     integrationsApi.listConnections(token)
-      .then(conns => setWooConnection(conns.find(c => c.provider === 'woocommerce' && c.status === 'connected') ?? null))
-      .catch(() => setWooConnection(null))
+      .then(conns => {
+        setWooConnection(conns.find(c => c.provider === 'woocommerce' && c.status === 'connected') ?? null)
+        setBolConnection(conns.find(c => c.provider === 'bol' && c.status === 'connected') ?? null)
+      })
+      .catch(() => { setWooConnection(null); setBolConnection(null) })
   }, [token])
 
   // Whether to show the full named-variants manager vs. the flat single-SKU
@@ -706,6 +711,19 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             <Plug size={12} /> WooCommerce
           </button>
         )}
+        {savedProductId && bolConnection && (
+          <button
+            onClick={() => setActiveTab('bol')}
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors',
+              activeTab === 'bol'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600',
+            )}
+          >
+            <Plug size={12} /> Bol.com
+          </button>
+        )}
       </div>
 
       {formError && (
@@ -725,6 +743,11 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         {activeTab === 'woocommerce' && savedProductId && wooConnection && (
           <div className="max-w-5xl mx-auto p-6">
             <ProductWooCommerceTab productId={savedProductId} connection={wooConnection} sku={currentSku} />
+          </div>
+        )}
+        {activeTab === 'bol' && savedProductId && bolConnection && (
+          <div className="max-w-5xl mx-auto p-6">
+            <ProductBolTab productId={savedProductId} connection={bolConnection} sku={currentSku} />
           </div>
         )}
       </div>
