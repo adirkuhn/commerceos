@@ -38,6 +38,26 @@ export interface StartWooConnectResponse {
   authorize_url: string
 }
 
+export interface BolProductOverride {
+  product_id: string
+  connection_id: string
+  ean_override?: string | null
+  gpc_code?: string | null
+  condition_category: 'NEW' | 'SECONDHAND' | 'REFURBISHED'
+  fulfilment_method: 'FBR' | 'FBB' | 'SHIPPING_VIA_BOL' | 'BOL_DELIVERY_PROMISE'
+  commission_override_basis_points?: number | null
+  reference_override?: string | null
+}
+
+export interface BolCommission {
+  ean: string
+  fixed_amount: number
+  percentage: number
+  // True when this came from the merchant's own commission_override_basis_points
+  // instead of a live call to Bol's Commissions API.
+  overridden: boolean
+}
+
 export type ImportJobStatus = 'pending' | 'running' | 'completed' | 'failed'
 
 // The import endpoint enqueues a background job and returns immediately

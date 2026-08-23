@@ -11,6 +11,7 @@ import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
 import { notifyNotificationsChanged } from '../notifications/notificationsBus'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
+import BolSyncSettingsPage from '../integrations/BolSyncSettingsPage'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- this
 // table exposes raw (if opaque) third-party payloads and a manual
@@ -22,6 +23,7 @@ function canManageWebhooks(role: string | undefined): boolean {
 
 const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
+  bol: 'from-blue-500 to-cyan-600',
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -55,6 +57,7 @@ export default function Integrations() {
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
+  const [connectingBol, setConnectingBol] = useState(false)
   const [connectMode, setConnectMode] = useState<'auto' | 'manual'>('auto')
   const [storeUrl, setStoreUrl] = useState('')
   const [consumerKey, setConsumerKey] = useState('')
@@ -190,6 +193,18 @@ export default function Integrations() {
     return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={() => setConfiguringConnection(null)} />
   }
 
+  if (connectingBol) {
+    return (
+      <BolSyncSettingsPage
+        onClose={() => setConnectingBol(false)}
+        onConnected={() => {
+          setConnectingBol(false)
+          refresh()
+        }}
+      />
+    )
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden p-5 gap-5">
@@ -255,25 +270,31 @@ export default function Integrations() {
                           Configure
                         </button>
                       )}
-                      <button
-                        onClick={() => handleTestConnection(conn.id)}
-                        disabled={testingId === conn.id}
-                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
-                      >
-                        {testingId === conn.id ? 'Testing…' : 'Test'}
-                      </button>
-                      <button
-                        onClick={() => { setImportingConnection(conn); setImportCurrency(normalizeCurrency(conn.default_currency) || normalizeCurrency(tenantSettings?.default_currency)) }}
-                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
-                      >
-                        Import
-                      </button>
-                      <button
-                        onClick={() => setDeletingConnection(conn)}
-                        className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
-                      >
-                        Delete imported
-                      </button>
+                      {conn.provider === 'woocommerce' && (
+                        <button
+                          onClick={() => handleTestConnection(conn.id)}
+                          disabled={testingId === conn.id}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
+                        >
+                          {testingId === conn.id ? 'Testing…' : 'Test'}
+                        </button>
+                      )}
+                      {conn.provider === 'woocommerce' && (
+                        <button
+                          onClick={() => { setImportingConnection(conn); setImportCurrency(normalizeCurrency(conn.default_currency) || normalizeCurrency(tenantSettings?.default_currency)) }}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Import
+                        </button>
+                      )}
+                      {conn.provider === 'woocommerce' && (
+                        <button
+                          onClick={() => setDeletingConnection(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
+                        >
+                          Delete imported
+                        </button>
+                      )}
                       <button
                         onClick={() => disconnect(conn.id)}
                         className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-red-400 transition-colors"
@@ -306,15 +327,26 @@ export default function Integrations() {
             </div>
 
             {!connectingWoo ? (
-              <button
-                onClick={() => setConnectingWoo(true)}
-                className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
-              >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                  W
-                </div>
-                <span className="text-sm dark:text-gray-200 text-gray-800">WooCommerce</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setConnectingWoo(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    W
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">WooCommerce</span>
+                </button>
+                <button
+                  onClick={() => { setBrowsing(false); setConnectingBol(true) }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    B
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">Bol.com</span>
+                </button>
+              </div>
             ) : (
               <>
                 <div className="flex gap-1 mb-4 p-0.5 rounded-lg dark:bg-[#111827] bg-gray-100">

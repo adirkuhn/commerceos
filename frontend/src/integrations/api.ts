@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, BolProductOverride, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -386,4 +386,75 @@ export function retryWebhookFallbackEvent(token: string, id: string): Promise<nu
 
 export function abandonWebhookFallbackEvent(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/webhook-fallback-events/${id}`, { method: 'DELETE' }, token)
+}
+
+export interface ConnectBolPayload {
+  clientId: string
+  clientSecret: string
+  economicOperatorId: string
+}
+
+// Bol uses client_credentials (client_id/client_secret pasted from Bol's
+// Retailer API portal) -- unlike WooCommerce there's no OAuth redirect
+// flow, so this is the only connect path.
+export function connectBol(token: string, payload: ConnectBolPayload): Promise<Connection> {
+  return request<Connection>(
+    `${base()}/bol/connect`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        client_id: payload.clientId,
+        client_secret: payload.clientSecret,
+        economic_operator_id: payload.economicOperatorId,
+      }),
+    },
+    token,
+  )
+}
+
+export function pushProductToBol(token: string, connectionId: string, productId: string): Promise<ProductChannelListing[]> {
+  return request<ProductChannelListing[]>(
+    `${base()}/connections/${connectionId}/push-product-bol`,
+    { method: 'POST', body: JSON.stringify({ product_id: productId }) },
+    token,
+  )
+}
+
+// Returns null (not an error) when this product has no Bol-specific
+// overrides saved yet -- the common/default state.
+export function getBolProductOverride(token: string, connectionId: string, productId: string): Promise<BolProductOverride | null> {
+  return request<BolProductOverride | null>(`${base()}/connections/${connectionId}/bol-overrides/${productId}`, { method: 'GET' }, token)
+}
+
+export interface UpsertBolProductOverridePayload {
+  eanOverride?: string | null
+  gpcCode?: string | null
+  conditionCategory?: BolProductOverride['condition_category']
+  fulfilmentMethod?: BolProductOverride['fulfilment_method']
+  commissionOverrideBasisPoints?: number | null
+  referenceOverride?: string | null
+}
+
+export function upsertBolProductOverride(token: string, connectionId: string, productId: string, payload: UpsertBolProductOverridePayload): Promise<BolProductOverride> {
+  return request<BolProductOverride>(
+    `${base()}/connections/${connectionId}/bol-overrides/${productId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        ean_override: payload.eanOverride ?? undefined,
+        gpc_code: payload.gpcCode ?? undefined,
+        condition_category: payload.conditionCategory,
+        fulfilment_method: payload.fulfilmentMethod,
+        commission_override_basis_points: payload.commissionOverrideBasisPoints ?? undefined,
+        reference_override: payload.referenceOverride ?? undefined,
+      }),
+    },
+    token,
+  )
+}
+
+// Live per-EAN/price commission from Bol's Commissions API, or the
+// merchant's own override when one is saved (see BolCommission.overridden).
+export function getBolCommission(token: string, connectionId: string, productId: string, skuId: string): Promise<BolCommission> {
+  return request<BolCommission>(`${base()}/connections/${connectionId}/bol-commission/${productId}/${skuId}`, { method: 'GET' }, token)
 }
