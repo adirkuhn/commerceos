@@ -28,7 +28,7 @@ func (h *harness) newSyncUseCaseWithPusher(t *testing.T, n int, pusher *stubProd
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{},
+		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{}, nil,
 	)
 }
 
@@ -151,7 +151,7 @@ func TestSyncProductToChannels_setsWooCategoryWhenLinkResolves(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 4), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{externalID: "20"},
+		&stubCategoryLinkResolver{externalID: "20"}, nil,
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -526,6 +526,46 @@ func TestSyncProductToChannels_skipsListingsForUnimplementedProviders(t *testing
 	require.NoError(t, err)
 	require.Empty(t, h.wooClient.updateProductCalled)
 	require.Empty(t, h.listingRepo.updated)
+}
+
+type stubBolProductPusher struct {
+	calls []appchannels.PushProductToBolInput
+	err   error
+}
+
+func (s *stubBolProductPusher) Execute(_ context.Context, in appchannels.PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error) {
+	s.calls = append(s.calls, in)
+	if s.err != nil {
+		return nil, s.err
+	}
+	return []channelsDomain.ProductChannelListing{{ID: "listing-bol", ProductID: in.ProductID, ConnectionID: in.ConnectionID}}, nil
+}
+
+// TestSyncProductToChannels_dispatchesBolListingsToBolPusher proves the
+// additive dispatch branch added alongside the existing Woo shape logic --
+// a "bol" listing routes to bolPusher.Execute instead of falling through
+// to (or being silently skipped by) the Woo-only path below.
+func TestSyncProductToChannels_dispatchesBolListingsToBolPusher(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "offer-1",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	bolPusher := &stubBolProductPusher{}
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 1), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{}, bolPusher,
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, bolPusher.calls, 1)
+	require.Equal(t, product.ID, bolPusher.calls[0].ProductID)
+	require.Equal(t, "conn-1", bolPusher.calls[0].ConnectionID)
+	require.Empty(t, h.wooClient.updateProductCalled, "a bol listing must never reach the woo client")
 }
 
 func TestSyncProductToChannels_writesASyncLogEntryOnSuccess(t *testing.T) {

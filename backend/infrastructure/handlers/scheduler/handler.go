@@ -17,6 +17,7 @@ import (
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
+	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -91,8 +92,12 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
 		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,
 	)
+	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
+	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
+		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, stockLevelUC,
+	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,

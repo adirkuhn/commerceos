@@ -75,6 +75,16 @@ func desiredShape(product pmsDomain.Product) listingShape {
 // Stock quantity is deliberately not pushed here — that's the sync
 // schedule's job (ExportWooStockLevelsUseCase); duplicating it here would
 // just mean two code paths racing to set the same field.
+// bolProductPusher is the one method this use case needs from
+// PushProductToBolUseCase (ISP), same reasoning as productPusher above.
+// Optional: nil when the caller hasn't wired Bol support (e.g. an older
+// call site not yet updated) -- syncBolConnection no-ops rather than
+// panicking, since Bol support is additive and every existing call site
+// predates it.
+type bolProductPusher interface {
+	Execute(ctx context.Context, in PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
+}
+
 type SyncProductToChannelsUseCase struct {
 	db           *gorm.DB
 	productRepo  pmsDomain.ProductRepository
@@ -86,6 +96,7 @@ type SyncProductToChannelsUseCase struct {
 	wooFactory   integrationsDomain.WooClientFactory
 	encSecret    string
 	pusher       productPusher
+	bolPusher    bolProductPusher
 	mediaRepo    productMediaLister
 	categoryLink categoryLinkResolver
 }
@@ -103,12 +114,13 @@ func NewSyncProductToChannelsUseCase(
 	pusher productPusher,
 	mediaRepo productMediaLister,
 	categoryLink categoryLinkResolver,
+	bolPusher bolProductPusher,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
 		db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, pusher: pusher,
-		mediaRepo: mediaRepo, categoryLink: categoryLink,
+		mediaRepo: mediaRepo, categoryLink: categoryLink, bolPusher: bolPusher,
 	}
 }
 
@@ -189,7 +201,13 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 }
 
 func (uc *SyncProductToChannelsUseCase) syncConnection(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
-	if listings[0].Provider != string(integrationsDomain.ProviderWooCommerce) {
+	switch integrationsDomain.Provider(listings[0].Provider) {
+	case integrationsDomain.ProviderWooCommerce:
+		// falls through to the existing shape-based logic below
+	case integrationsDomain.ProviderBol:
+		uc.syncBolConnection(ctx, product, connectionID)
+		return
+	default:
 		return // no other provider implemented yet
 	}
 
@@ -400,6 +418,20 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 			log.Printf("syncProductToChannels: deleting variation for removed variant %s: %v", variantID, err)
 		}
 		uc.deleteListing(ctx, l.ID)
+	}
+}
+
+// syncBolConnection just re-runs PushProductToBolUseCase -- unlike Woo's
+// three shapes, Bol offers have no "variation" mode to migrate between, and
+// PushProductToBolUseCase is already idempotent (it looks up each
+// variant's existing listing and PATCHes instead of re-creating), so
+// there's no separate update-in-place logic to duplicate here.
+func (uc *SyncProductToChannelsUseCase) syncBolConnection(ctx context.Context, product pmsDomain.Product, connectionID string) {
+	if uc.bolPusher == nil {
+		return
+	}
+	if _, err := uc.bolPusher.Execute(ctx, PushProductToBolInput{ProductID: product.ID, ConnectionID: connectionID}); err != nil {
+		log.Printf("syncProductToChannels: bol product %s -> connection %s: %v", product.ID, connectionID, err)
 	}
 }
 

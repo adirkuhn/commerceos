@@ -28,6 +28,7 @@ import (
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
+	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
@@ -196,8 +197,12 @@ func main() {
 	)
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)
+	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
+	pushBolUC := channelsapp.NewPushProductToBolUseCase(
+		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, stockLevelUC,
+	)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC, pushBolUC,
 	)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)

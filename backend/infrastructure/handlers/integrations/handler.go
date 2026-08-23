@@ -22,6 +22,7 @@ import (
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
+	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -342,8 +343,12 @@ func Register(
 		mediaRepo,
 		resolveCategoryLinkUC,
 	)
+	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
+	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
+		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, stockLevelUC,
+	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
