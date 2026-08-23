@@ -38,9 +38,10 @@ var _ genreports.ServerInterface = (*Handler)(nil)
 func Register(rg gin.IRouter, db *gorm.DB) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
 	h := NewHandler(
 		appreports.NewGetSalesSummaryReportUseCase(db, salesRepo, settingsRepo),
-		appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo, skuRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -72,6 +73,7 @@ func (h *Handler) GetProductPerformanceReport(c *gin.Context, params genreports.
 			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
 			QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits, OrderCount: row.OrderCount,
 			FirstSaleAt: row.FirstSaleAt, LastSaleAt: row.LastSaleAt,
+			CostPriceMinorUnits: row.CostPriceMinorUnits, ProfitMinorUnits: row.ProfitMinorUnits, MarginBasisPoints: row.MarginBasisPoints,
 		}
 	}
 	middleware.OK(c, genreports.ProductPerformanceReport{CurrencyCode: report.CurrencyCode, Rows: rows})

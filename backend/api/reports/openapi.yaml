@@ -118,6 +118,17 @@ components:
           description: Number of distinct orders this SKU appeared in.
         first_sale_at: { type: string, format: date-time }
         last_sale_at: { type: string, format: date-time }
+        cost_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null when the SKU has no linked catalog SKU, was since deleted, or has no computed cost price.
+        profit_minor_units: { type: integer, format: int64, nullable: true }
+        margin_basis_points:
+          type: integer
+          format: int64
+          nullable: true
+          description: 1 bp = 0.01%, e.g. 4000 = 40.00%.
 
     ProductPerformanceReport:
       type: object

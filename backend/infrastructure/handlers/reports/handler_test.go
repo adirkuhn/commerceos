@@ -17,6 +17,8 @@ import (
 	reportshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reports"
 )
 
+func int64Ptr(v int64) *int64 { return &v }
+
 func init() { gin.SetMode(gin.TestMode) }
 
 type stubGetSalesSummaryReport struct {
@@ -101,7 +103,10 @@ func TestGetSalesSummaryReportHandler_missingRequiredParam(t *testing.T) {
 func TestGetProductPerformanceReportHandler_success(t *testing.T) {
 	get := &stubGetProductPerformanceReport{out: &appreports.ProductPerformanceReport{
 		CurrencyCode: "EUR",
-		Rows:         []omsDomain.ProductPerformance{{SKUCode: "SKU-A", ProductName: "Acai", QuantitySold: 5, RevenueMinorUnits: 2500, OrderCount: 2}},
+		Rows: []appreports.ProductPerformanceRow{{
+			ProductPerformance:  omsDomain.ProductPerformance{SKUCode: "SKU-A", ProductName: "Acai", QuantitySold: 5, RevenueMinorUnits: 2500, OrderCount: 2},
+			CostPriceMinorUnits: int64Ptr(300), ProfitMinorUnits: int64Ptr(1000), MarginBasisPoints: int64Ptr(4000),
+		}},
 	}}
 	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get)
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
@@ -109,6 +114,7 @@ func TestGetProductPerformanceReportHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"sku_code":"SKU-A"`)
 	assert.Contains(t, w.Body.String(), `"quantity_sold":5`)
+	assert.Contains(t, w.Body.String(), `"margin_basis_points":4000`)
 }
 
 func TestGetProductPerformanceReportHandler_validationError(t *testing.T) {
