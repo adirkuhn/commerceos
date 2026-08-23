@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -364,4 +364,26 @@ export function setSalesChannelProductOverride(token: string, channelId: string,
     { method: 'PUT', body: JSON.stringify({ included }) },
     token,
   )
+}
+
+// (Re)generates this connection's webhook-signature secret -- the response
+// carries the PLAINTEXT value exactly once, it can't be retrieved again
+// after this call (only the encrypted form persists server-side).
+export function setWebhookSecret(token: string, connectionId: string): Promise<WebhookSecretResult> {
+  return request<WebhookSecretResult>(`${base()}/connections/${connectionId}/webhook-secret`, { method: 'POST' }, token)
+}
+
+// Defaults to pending_republish server-side when status is omitted --
+// what an operator triages after a NATS outage.
+export function listWebhookFallbackEvents(token: string, status?: WebhookFallbackStatus): Promise<WebhookFallbackEvent[]> {
+  const query = status ? `?status=${status}` : ''
+  return request<WebhookFallbackEvent[]>(`${base()}/webhook-fallback-events${query}`, { method: 'GET' }, token)
+}
+
+export function retryWebhookFallbackEvent(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/webhook-fallback-events/${id}/retry`, { method: 'POST' }, token)
+}
+
+export function abandonWebhookFallbackEvent(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/webhook-fallback-events/${id}`, { method: 'DELETE' }, token)
 }

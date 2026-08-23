@@ -73,10 +73,23 @@ function defaultCell(seedCurrency = ''): CellState {
   return { enabled: false, intervalMinutes: 60, defaultWarehouseId: '', defaultCurrency: seedCurrency, lastRunStatus: '', lastRunError: '' }
 }
 
-type Tab = 'sync' | 'taxes' | 'categories'
+type Tab = 'sync' | 'taxes' | 'categories' | 'webhooks'
+
+// Webhook secret provisioning is a security-sensitive credential, not a
+// day-to-day sync setting -- gated to the same tier as tenant-management-
+// adjacent pages (Users & Roles, see Sidebar.tsx's OWNER_NAV_ITEMS),
+// broadened to include customer_admin per CLAUDE.md's role table ("full
+// access to own tenant, minus tenant management" -- this is integration
+// management, not tenant management). The rest of this page has no
+// client-side role gate at all (relies on the backend's fine-grained RBAC
+// alone), so this is a deliberately stricter addition, not a match of
+// existing behavior.
+function canManageWebhooks(role: string | undefined): boolean {
+  return role === 'customer_owner' || role === 'customer_admin' || role === 'super_admin'
+}
 
 export default function WooCommerceSyncSettingsPage({ connection, onClose }: { connection: Connection; onClose: () => void }) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { schedules, loading, error: loadError, save } = useSyncSchedules(token ?? '', connection.id)
   const { warehouses } = useWarehouses(token ?? '')
   const { settings: tenantSettings, loading: tenantSettingsLoading } = useTenantSettings(token ?? '')
@@ -264,6 +277,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           { id: 'sync', label: 'Sync' },
           { id: 'taxes', label: 'Taxes' },
           { id: 'categories', label: 'Categories' },
+          ...(canManageWebhooks(user?.role) ? [{ id: 'webhooks', label: 'Webhooks' }] as { id: Tab; label: string }[] : []),
         ] as { id: Tab; label: string }[]).map(t => (
           <button
             key={t.id}
@@ -283,6 +297,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       {tab === 'taxes' && <WooTaxesTab token={token ?? ''} connectionId={connection.id} />}
 
       {tab === 'categories' && <WooCategoriesTab token={token ?? ''} connectionId={connection.id} />}
+
+      {tab === 'webhooks' && canManageWebhooks(user?.role) && <WebhooksTab token={token ?? ''} connectionId={connection.id} tenantId={user?.tenant_id ?? ''} provider={connection.provider} />}
 
       {tab === 'sync' && (
       <div className="flex-1 overflow-y-auto p-6">
@@ -878,6 +894,119 @@ function WooCategoriesTab({ token, connectionId }: { token: string; connectionId
               Add link
             </button>
           </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// The webhook receiver itself lives at a URL outside VITE_API_BASE_URL's
+// per-domain convention (see ../api.ts's base()) -- it's the single
+// unauthenticated route, mounted at /webhooks/v1/{tenant_id}/{provider}
+// on the API's root router, not under /integrations. Built here rather
+// than exported from api.ts since it's pure display, no request involved.
+function webhookURL(tenantId: string, provider: string): string {
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
+  return `${apiBase}/webhooks/v1/${tenantId}/${provider}`
+}
+
+function WebhooksTab({ token, connectionId, tenantId, provider }: { token: string; connectionId: string; tenantId: string; provider: string }) {
+  const [secret, setSecret] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+  const [copiedField, setCopiedField] = useState<'url' | 'secret' | null>(null)
+
+  async function handleGenerate() {
+    setError('')
+    setGenerating(true)
+    try {
+      const result = await api.setWebhookSecret(token, connectionId)
+      setSecret(result.webhook_secret)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate webhook secret')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleCopy(field: 'url' | 'secret', value: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(prev => (prev === field ? null : prev)), 1500)
+    } catch {
+      // Clipboard access can be denied (permissions, insecure context) --
+      // the value is already shown selectable on screen, so this is a
+      // convenience failure, not a blocker; no error surfaced for it.
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-3xl space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Webhook signature secret</h2>
+          <p className="text-xs dark:text-gray-500 text-gray-400">
+            Generate a secret, then configure it as this webhook's "Secret" when creating it under WooCommerce → Settings →
+            Advanced → Webhooks. Regenerating replaces the old value immediately -- update WooCommerce's webhook config with
+            the new one, or deliveries will start failing signature verification.
+          </p>
+        </div>
+
+        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+          <div>
+            <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+              Delivery URL
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 text-[11px] rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+                {webhookURL(tenantId, provider)}
+              </code>
+              <button
+                type="button"
+                onClick={() => handleCopy('url', webhookURL(tenantId, provider))}
+                className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+              >
+                {copiedField === 'url' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
+
+          {secret ? (
+            <div>
+              <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                Secret (shown once -- copy it now)
+              </label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+                  {secret}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => handleCopy('secret', secret)}
+                  className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+                >
+                  {copiedField === 'secret' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[10px] text-amber-500">
+                This won't be shown again -- if you lose it, generate a new one and update WooCommerce.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs dark:text-gray-500 text-gray-400">No secret generated yet -- webhooks from this connection can't be verified until you generate one.</p>
+          )}
+
+          {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
+
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {generating ? 'Generating…' : secret ? 'Regenerate secret' : 'Generate secret'}
+          </button>
         </div>
       </div>
     </div>

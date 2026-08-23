@@ -173,6 +173,24 @@ export interface SalesChannelProductEnrollment {
   enrolled: boolean
 }
 
+export type WebhookFallbackStatus = 'pending_republish' | 'republished' | 'abandoned'
+
+// A webhook ReceiveWebhookUseCase (backend) couldn't hand off to JetStream
+// after 3 in-request publish retries -- saved here instead of lost. See
+// backend/domain/webhooks.FallbackEvent.
+export interface WebhookFallbackEvent {
+  id: string
+  provider: string
+  event_id: string
+  status: WebhookFallbackStatus
+  received_at: string
+}
+
+export interface WebhookSecretResult {
+  connection_id: string
+  webhook_secret: string
+}
+
 export interface APIError {
   code: string
   message: string
