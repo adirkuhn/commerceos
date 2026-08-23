@@ -13,7 +13,7 @@ column as slices land — each slice is its own commit.
 | Sales transaction history | Done (pre-existing) | `domain/oms.SalesOrder` / `SalesOrderLineItem` already immutable, snapshot price/tax at sale time. |
 | Product history | Not started | No change-audit trail on product/variant edits yet. |
 | Price history | **Done** — `269bf37` | `domain/pms.SKUPriceHistory`, effective-dated interval table (`sku_price_history`), written on create/update/sale-expiry. |
-| Sale/promotion history | **Done (v1)** — `c2d28ca` | New `domain/promotions` bounded context: `Promotion` + `PromotionSKU`, CRUD API. v1 discount types only `percentage` / `fixed_amount`. BOGO, bundle, quantity, category, customer-segment, coupon types **not built**. No auto-apply to SKU price yet — promotions are defined/managed only. |
+| Sale/promotion history | **Done (v1)** — `c2d28ca`, frontend `a90d30f` | New `domain/promotions` bounded context: `Promotion` + `PromotionSKU`, CRUD API + frontend page (`/promotions` nav entry). v1 discount types only `percentage` / `fixed_amount`. BOGO, bundle, quantity, category, customer-segment, coupon types **not built**. No auto-apply to SKU price yet — promotions are defined/managed only. |
 | Cost history | Already covered | `sku_cost_price_history` (daily cron snapshot) + `SetManualCostPriceUseCase`/`ClearCostPriceOverrideUseCase` (source-attributed override). Minor gap: manual override can take up to 24h to appear in history (next cron run) — acceptable for v1, not hardened. |
 | Inventory history | Already covered | `domain/inventory.StockMovement` is already a full immutable append-only ledger (SKU, warehouse, batch, delta, reason, occurred_at). Nothing built. |
 | Customer activity/events | **Not started** | Scope undefined — needs a decision on what counts as a trackable event (page view, cart add, order, login, etc.) before any design work. |
@@ -52,6 +52,12 @@ Not started. Recommendation analytics (impressions/CTR/conversion), A/B testing.
 Not started. Combines RFM + demand signals + association rules + price elasticity into ranked recommendations; dynamic bundles (margin/inventory/elasticity-aware).
 
 ---
+
+## Frontend status
+
+- **Promotions**: real page at `/promotions`, nav entry added — list/search/delete, create/edit with SKU-line picker (resolves SKU code via `resolveBarcode`, showing product name not a bare ID). Wired to the real backend.
+- **Reports**: `src/pages/Reports.tsx` exists but is 100% hardcoded mock data — nav entry deliberately left commented out in `Sidebar.tsx` until it's wired to the real `/reports/sales-summary`, `/reports/product-performance`, `/reports/product-performance-matrix` endpoints built above. That rewiring is the next frontend slice.
+- Every other Phase 0 backend piece (SKU price history, sales-summary/product-performance/matrix reports) has **no frontend surface at all yet** beyond Reports' eventual rewiring — price history isn't shown anywhere in the product UI either.
 
 ## Architecture notes for continuing this work
 
