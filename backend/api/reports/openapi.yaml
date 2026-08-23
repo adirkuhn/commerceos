@@ -109,6 +109,29 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/category-performance:
+    get:
+      operationId: getCategoryPerformanceReport
+      summary: Every category (plus an Uncategorized bucket) for line items sold in [from, to), ranked by revenue
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryPerformanceReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -258,6 +281,37 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CustomerPerformanceReport' }
+        error: { nullable: true }
+
+    CategoryPerformanceRow:
+      type: object
+      required: [category_name, quantity_sold, revenue_minor_units, order_count]
+      properties:
+        category_id:
+          type: string
+          nullable: true
+          description: Null for the "Uncategorized" bucket (adhoc line item, deleted SKU, or product with no category).
+        category_name: { type: string }
+        quantity_sold: { type: integer, format: int64 }
+        revenue_minor_units: { type: integer, format: int64 }
+        order_count:
+          type: integer
+          format: int64
+          description: Number of distinct orders this category appeared in.
+
+    CategoryPerformanceReport:
+      type: object
+      required: [currency_code, rows]
+      properties:
+        currency_code: { type: string }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/CategoryPerformanceRow' }
+
+    CategoryPerformanceReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CategoryPerformanceReport' }
         error: { nullable: true }
 
     ErrorResponse:

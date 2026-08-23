@@ -17,6 +17,7 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -1316,4 +1317,94 @@ func TestSalesOrderRepo_Integration_CustomerPerformanceBetween_OrdersByRevenueDe
 	require.Len(t, rows, 2)
 	require.Equal(t, highID, rows[0].CustomerID)
 	require.Equal(t, lowID, rows[1].CustomerID)
+}
+
+func TestSalesOrderRepo_Integration_CategoryPerformanceBetween_GroupsByCategoryAndRollsUpUncategorized(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	categoryRepo := repositories.NewCategoryRepo(db)
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	now := time.Now()
+	var beveragesSKUID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		category := pmsDomain.Category{TenantID: tenant.IDFromContext(ctx), Name: "Beverages", Slug: "beverages-cat-perf", CreatedAt: now, UpdatedAt: now}
+		if err := categoryRepo.Create(ctx, &category); err != nil {
+			return err
+		}
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), CategoryID: &category.ID, Name: "Acai", Slug: "acai-cat-perf", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "ACAI-CAT-PERF-1", PriceMinorUnits: 999, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		beveragesSKUID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		order1 := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "cat-perf-1", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order1); err != nil {
+			return err
+		}
+		if err := lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order1.ID, SKUID: &beveragesSKUID, Name: "Acai", SKUCode: "ACAI-CAT-PERF-1",
+			Quantity: 2, TotalMinorUnits: 1000, CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+
+		// Adhoc line item (no linked SKU) -- must roll into "Uncategorized".
+		order2 := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "cat-perf-2", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order2); err != nil {
+			return err
+		}
+		return lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order2.ID, Name: "Mystery Item", SKUCode: "UNKNOWN",
+			Quantity: 1, TotalMinorUnits: 500, CreatedAt: now,
+		})
+	})
+	require.NoError(t, err)
+
+	var rows []omsDomain.CategoryPerformance
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.CategoryPerformanceBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+
+	byName := make(map[string]omsDomain.CategoryPerformance, len(rows))
+	for _, r := range rows {
+		byName[r.CategoryName] = r
+	}
+	beverages := byName["Beverages"]
+	require.NotNil(t, beverages.CategoryID)
+	require.Equal(t, int64(2), beverages.QuantitySold)
+	require.Equal(t, int64(1000), beverages.RevenueMinorUnits)
+	require.Equal(t, int64(1), beverages.OrderCount)
+
+	uncategorized := byName["Uncategorized"]
+	require.Nil(t, uncategorized.CategoryID)
+	require.Equal(t, int64(1), uncategorized.QuantitySold)
+	require.Equal(t, int64(500), uncategorized.RevenueMinorUnits)
 }

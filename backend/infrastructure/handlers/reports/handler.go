@@ -29,12 +29,16 @@ type getProductPerformanceMatrixUC interface {
 type getCustomerPerformanceReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.CustomerPerformanceReport, error)
 }
+type getCategoryPerformanceReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.CategoryPerformanceReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
 	getProductPerformanceReport  getProductPerformanceReportUC
 	getProductPerformanceMatrix  getProductPerformanceMatrixUC
 	getCustomerPerformanceReport getCustomerPerformanceReportUC
+	getCategoryPerformanceReport getCategoryPerformanceReportUC
 }
 
 func NewHandler(
@@ -42,10 +46,12 @@ func NewHandler(
 	getProductPerformanceReport getProductPerformanceReportUC,
 	getProductPerformanceMatrix getProductPerformanceMatrixUC,
 	getCustomerPerformanceReport getCustomerPerformanceReportUC,
+	getCategoryPerformanceReport getCategoryPerformanceReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
 		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
+		getCategoryPerformanceReport: getCategoryPerformanceReport,
 	}
 }
 
@@ -61,6 +67,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		productPerformanceUC,
 		appreports.NewGetProductPerformanceMatrixUseCase(productPerformanceUC),
 		appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetCategoryPerformanceReportUseCase(db, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -129,6 +136,21 @@ func (h *Handler) GetCustomerPerformanceReport(c *gin.Context, params genreports
 		}
 	}
 	middleware.OK(c, genreports.CustomerPerformanceReport{CurrencyCode: report.CurrencyCode, Rows: rows})
+}
+
+func (h *Handler) GetCategoryPerformanceReport(c *gin.Context, params genreports.GetCategoryPerformanceReportParams) {
+	report, err := h.getCategoryPerformanceReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.CategoryPerformanceRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.CategoryPerformanceRow{
+			CategoryId: row.CategoryID, CategoryName: row.CategoryName,
+			QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits, OrderCount: row.OrderCount,
+		}
+	}
+	middleware.OK(c, genreports.CategoryPerformanceReport{CurrencyCode: report.CurrencyCode, Rows: rows})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

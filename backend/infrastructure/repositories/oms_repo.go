@@ -565,6 +565,58 @@ func (r *SalesOrderRepo) CustomerPerformanceBetween(ctx context.Context, from, t
 	return out, nil
 }
 
+type categoryPerformanceRow struct {
+	CategoryID        *string
+	CategoryName      string
+	QuantitySold      int64
+	RevenueMinorUnits int64
+	OrderCount        int64
+}
+
+// CategoryPerformanceBetween joins each line item through its SKU's
+// variant/product to the product's category -- LEFT JOINs throughout so a
+// line item with no linked SKU, a since-deleted SKU, or a product with no
+// category all still count, rolled into one COALESCE'd "Uncategorized"
+// bucket rather than being silently dropped. Same status/currency
+// filtering as RevenueSince.
+func (r *SalesOrderRepo) CategoryPerformanceBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.CategoryPerformance, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []categoryPerformanceRow
+	err = tx.Raw(`
+		SELECT
+			c.id AS category_id,
+			COALESCE(c.name, 'Uncategorized') AS category_name,
+			SUM(li.quantity) AS quantity_sold,
+			SUM(li.total_minor_units) AS revenue_minor_units,
+			COUNT(DISTINCT li.sales_order_id) AS order_count
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		LEFT JOIN skus sk ON sk.id = li.sku_id
+		LEFT JOIN variants v ON v.id = sk.variant_id
+		LEFT JOIN products p ON p.id = v.product_id
+		LEFT JOIN categories c ON c.id = p.category_id
+		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+		GROUP BY c.id, c.name
+		ORDER BY revenue_minor_units DESC
+	`, from, to, currencyCode).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.CategoryPerformanceBetween: %w", err)
+	}
+	out := make([]omsDomain.CategoryPerformance, len(rows))
+	for i, row := range rows {
+		out[i] = omsDomain.CategoryPerformance{
+			CategoryID: row.CategoryID, CategoryName: row.CategoryName,
+			QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits, OrderCount: row.OrderCount,
+		}
+	}
+	return out, nil
+}
+
 type productSalesRow struct {
 	SKUID             *string `gorm:"column:sku_id"`
 	SKUCode           string
