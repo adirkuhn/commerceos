@@ -60,4 +60,9 @@ var (
 	ErrEnrollmentCategoryRequired   = errors.New("a category is required for category-based enrollment")
 	ErrEnrollmentTagRequired        = errors.New("a tag is required for tag-based enrollment")
 	ErrExternalCategoryLinkNotFound = errors.New("external category link not found")
+	// ErrBolMissingEAN guards PushProductToBolUseCase: Bol requires an EAN
+	// on every offer (pms.SKU.Barcode, or BolProductOverride.EANOverride)
+	// -- there's no "unknown EAN" path for an offer that has no EAN at
+	// all, only for one whose EAN isn't yet in Bol's catalog.
+	ErrBolMissingEAN = errors.New("product's SKU has no barcode/EAN set, required to push to Bol")
 )
