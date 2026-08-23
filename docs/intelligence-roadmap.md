@@ -24,7 +24,7 @@ column as slices land — each slice is its own commit.
 |---|---|---|
 | Sales & Revenue Reports | **Partial** — `cc71871` | `GET /reports/sales-summary`: revenue, order count, units sold, AOV for an arbitrary `[from, to)` window, compared against the immediately preceding period of equal length, with % change (nil when previous baseline is 0). Missing from the original wishlist: discounts/refunds/taxes/shipping breakdown, multiple named periods (week/quarter/year presets), YoY. |
 | Product Performance | **Done** — `342d13c`, margin added in `fa5049b` | `GET /reports/product-performance`: per-SKU units sold, revenue, distinct order count, first/last sale date, profit, margin, ranked by revenue, for an arbitrary range. Profit/margin nil together when there's no cost basis (adhoc line item, SKU since deleted, or cost price never computed). |
-| Product Performance Matrix (sales × margin quadrants) | Not started | Underlying data (revenue + margin per SKU) now available from the report above — this is a pure presentation/bucketing layer on top. |
+| Product Performance Matrix (sales × margin quadrants) | **Done** — `cdb3647` | `GET /reports/product-performance-matrix`: pure composition over the Product Performance report, no new query. Classifies each SKU with a known margin into winners/stars/hidden_gems/problems, split around the tenant's own median revenue/margin for the period (not a fixed threshold). |
 | Slow-Moving Products | Not started | |
 | Product Lifecycle | Not started | |
 | Category Analysis | Not started | |
