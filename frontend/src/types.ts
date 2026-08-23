@@ -1,6 +1,7 @@
 export type NavItem =
   | 'dashboard'
   | 'products'
+  | 'promotions'
   | 'inventory'
   | 'warehouses'
   | 'orders'

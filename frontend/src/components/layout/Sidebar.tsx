@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode,
+  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag,
   // BarChart3,
   ChevronRight, Zap,
 } from 'lucide-react'
@@ -25,6 +25,7 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'unmatched-skus', label: 'Unmatched SKUs', icon: PackageSearch },
   { id: 'customers', label: 'Customer', icon: Users },
   { id: 'products', label: 'Products', icon: Package },
+  { id: 'promotions', label: 'Promotions', icon: Tag },
   { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
@@ -35,7 +36,7 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
   { id: 'sync-log', label: 'Sync History', icon: History },
   // { id: 'shipping', label: 'Shipping', icon: Truck },
-  // { id: 'reports', label: 'Reports', icon: BarChart3 },
+  // { id: 'reports', label: 'Reports', icon: BarChart3 } -- page is still mock data, wire to /reports/* before enabling
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
