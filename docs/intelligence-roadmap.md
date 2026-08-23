@@ -59,7 +59,9 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Promotions**: real page at `/promotions` — list/search/delete, create/edit with SKU-line picker (resolves SKU code via `resolveBarcode`, showing product name not a bare ID). Wired to the real backend. Commit `a90d30f`.
 - **Reports**: `src/pages/Reports.tsx` rewired to real data — commit `96c9786`. KPI row (revenue/orders/units/AOV with real period-over-period %) from `/reports/sales-summary`; Top Products panel from `/reports/product-performance`; Revenue by Channel reuses the existing `/dashboard/stats` endpoint (labeled "this month" since that endpoint has no date-range param, unlike the period selector). The old Revenue-vs-Cost and Inventory-Turnover charts were removed outright rather than wired to fake data — no backend time-series or stock-turn endpoint exists to back them.
 - **SKU price history**: read-only "Price history" card on the product edit page's flat-SKU form (one row per effective-dated interval, open interval marked "Current") — commit `9a1f4af`. Not yet shown for variant-mode SKUs (same scope limit as the pre-existing margin-insight card it sits next to).
-- Product Performance Matrix (quadrants) still has no frontend surface — `/reports/product-performance-matrix` is unused by the UI.
+- **Product Performance Matrix**: quadrant panel on the Reports page (winners/stars/hidden_gems/problems, period-aware, median shown as caption) — commit `a011215`.
+
+Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
 ## Architecture notes for continuing this work
 
