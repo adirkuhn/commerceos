@@ -11,6 +11,7 @@ type Provider string
 const (
 	ProviderWooCommerce Provider = "woocommerce"
 	ProviderBol         Provider = "bol"
+	ProviderMyParcel    Provider = "myparcel"
 )
 
 type Status string

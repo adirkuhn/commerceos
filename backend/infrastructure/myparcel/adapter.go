@@ -1,0 +1,63 @@
+package myparcel
+
+import (
+	"context"
+
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+)
+
+// Adapter implements domain/integrations.MyParcelClient on top of Client,
+// mapping domain-owned request/response shapes to this package's own HTTP
+// types at the boundary -- same role as infrastructure/bol.Adapter.
+type Adapter struct{ client *Client }
+
+func NewAdapter(client *Client) *Adapter { return &Adapter{client: client} }
+
+func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
+	r, err := a.client.CreateShipment(ctx, ShipmentInput{
+		Carrier: in.Carrier,
+		Recipient: Recipient{
+			Person: in.Recipient.Person, Company: in.Recipient.Company,
+			Street: in.Recipient.Street, Number: in.Recipient.Number, NumberSuffix: in.Recipient.NumberSuffix,
+			PostalCode: in.Recipient.PostalCode, City: in.Recipient.City, CC: in.Recipient.CC,
+			Email: in.Recipient.Email, Phone: in.Recipient.Phone,
+		},
+		Options: Options{
+			PackageType: in.Options.PackageType, SignatureRequired: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
+		},
+		OrderReference: in.OrderReference,
+	})
+	if err != nil {
+		return integrationsDomain.ShipmentResult{}, err
+	}
+	return integrationsDomain.ShipmentResult{ShipmentID: r.ShipmentID, Barcode: r.Barcode}, nil
+}
+
+func (a *Adapter) GetLabel(ctx context.Context, myParcelShipmentID int64, format string) (integrationsDomain.LabelResult, error) {
+	r, err := a.client.GetLabel(ctx, myParcelShipmentID, format)
+	if err != nil {
+		return integrationsDomain.LabelResult{}, err
+	}
+	return integrationsDomain.LabelResult{Data: r.Data, ContentType: r.ContentType}, nil
+}
+
+func (a *Adapter) GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error) {
+	r, err := a.client.GetTrackTrace(ctx, myParcelShipmentID)
+	if err != nil {
+		return integrationsDomain.TrackTraceResult{}, err
+	}
+	return integrationsDomain.TrackTraceResult{StatusCode: r.StatusCode, StatusMain: r.StatusMain}, nil
+}
+
+func (a *Adapter) RegisterWebhook(ctx context.Context, callbackURL string) error {
+	return a.client.RegisterWebhook(ctx, callbackURL)
+}
+
+// ClientFactory implements domain/integrations.MyParcelClientFactory.
+type ClientFactory struct{}
+
+func NewClientFactory() ClientFactory { return ClientFactory{} }
+
+func (ClientFactory) NewClient(apiKey string) (integrationsDomain.MyParcelClient, error) {
+	return NewAdapter(NewClient(Config{APIKey: apiKey})), nil
+}
