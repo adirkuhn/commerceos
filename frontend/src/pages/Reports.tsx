@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useReportsData, dateRange, type ReportsPeriod } from '../reports/hooks/useReportsData'
+import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant } from '../reports/types'
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#1F2937',
@@ -15,6 +16,13 @@ const TOOLTIP_STYLE = {
 
 const PERIODS: ReportsPeriod[] = ['7D', '30D', '90D', '12M']
 const TOP_PRODUCTS_LIMIT = 5
+
+const QUADRANTS: { id: ProductPerformanceQuadrant; label: string; hint: string }[] = [
+  { id: 'stars', label: 'Stars', hint: 'High revenue, low margin — optimize pricing' },
+  { id: 'winners', label: 'Winners', hint: 'High revenue, high margin — push harder' },
+  { id: 'problems', label: 'Problems', hint: 'Low revenue, low margin — consider discontinuing' },
+  { id: 'hidden_gems', label: 'Hidden Gems', hint: 'Low revenue, high margin — promote' },
+]
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
   try {
@@ -41,7 +49,7 @@ function ChangeBadge({ percent }: { percent: number | null }) {
 export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const { salesSummary, productPerformance, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
+  const { salesSummary, productPerformance, productPerformanceMatrix, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -162,6 +170,50 @@ export default function Reports() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Product Performance Matrix</h3>
+          {productPerformanceMatrix && productPerformanceMatrix.rows.length > 0 ? (
+            <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+              Split around this period's own median revenue ({formatMoney(productPerformanceMatrix.median_revenue_minor_units, currency)}) and
+              median margin ({(productPerformanceMatrix.median_margin_basis_points / 100).toFixed(1)}%)
+            </p>
+          ) : (
+            <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Selected period</p>
+          )}
+        </div>
+        {!productPerformanceMatrix || productPerformanceMatrix.rows.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No SKUs with a known margin in this period</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 p-4">
+            {QUADRANTS.map(q => {
+              const rows = productPerformanceMatrix.rows.filter(r => r.quadrant === q.id)
+              return (
+                <div key={q.id} data-testid={`quadrant-${q.id}`} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-semibold dark:text-gray-100 text-gray-900">{q.label}</p>
+                    <span className="text-[10px] dark:text-gray-500 text-gray-400">{rows.length}</span>
+                  </div>
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-2">{q.hint}</p>
+                  {rows.length === 0 ? (
+                    <p className="text-[10px] dark:text-gray-600 text-gray-300">None</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {rows.slice(0, 5).map((r: ProductPerformanceMatrixRow) => (
+                        <div key={r.sku_id ?? r.sku_code} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="dark:text-gray-300 text-gray-700 truncate">{r.product_name || r.sku_code}</span>
+                          <span className="dark:text-gray-500 text-gray-400 shrink-0">{formatMoney(r.revenue_minor_units, currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

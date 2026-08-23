@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { SalesSummaryReport, ProductPerformanceReport, APIResponse } from '../types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -77,6 +77,32 @@ describe('getProductPerformanceReport', () => {
     const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(url).toBe(
       'https://api.commerceos.dev.localhost/api/v1/reports/product-performance?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z',
+    )
+  })
+})
+
+describe('getProductPerformanceMatrix', () => {
+  const sample: ProductPerformanceMatrix = {
+    currency_code: 'EUR', median_revenue_minor_units: 500, median_margin_basis_points: 2000,
+    rows: [{
+      sku_id: 'sku-1', sku_code: 'ACAI-1L', product_name: 'Acai 1L', quantity_sold: 5, revenue_minor_units: 2500,
+      order_count: 2, first_sale_at: '2026-08-01T00:00:00Z', last_sale_at: '2026-08-15T00:00:00Z',
+      cost_price_minor_units: 300, profit_minor_units: 1000, margin_basis_points: 4000, quadrant: 'winners',
+    }],
+  }
+
+  it('returns the matrix', async () => {
+    mockFetch(sample)
+    const result = await api.getProductPerformanceMatrix(TOKEN, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z')
+    expect(result).toEqual(sample)
+  })
+
+  it('calls the correct endpoint', async () => {
+    mockFetch(sample)
+    await api.getProductPerformanceMatrix(TOKEN, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z')
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe(
+      'https://api.commerceos.dev.localhost/api/v1/reports/product-performance-matrix?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z',
     )
   })
 })

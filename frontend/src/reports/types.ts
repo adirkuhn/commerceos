@@ -38,6 +38,24 @@ export interface ProductPerformanceReport {
   rows: ProductPerformanceRow[]
 }
 
+// winners = high revenue + high margin (push harder); stars = high revenue
+// + low margin (optimize pricing); hidden_gems = low revenue + high margin
+// (promote); problems = low revenue + low margin (consider discontinuing).
+// "High"/"low" are relative to the response's own median_revenue_minor_units
+// /median_margin_basis_points, not a fixed threshold.
+export type ProductPerformanceQuadrant = 'winners' | 'stars' | 'hidden_gems' | 'problems'
+
+export interface ProductPerformanceMatrixRow extends ProductPerformanceRow {
+  quadrant: ProductPerformanceQuadrant
+}
+
+export interface ProductPerformanceMatrix {
+  currency_code: string
+  median_revenue_minor_units: number
+  median_margin_basis_points: number
+  rows: ProductPerformanceMatrixRow[]
+}
+
 export interface APIError {
   code: string
   message: string
