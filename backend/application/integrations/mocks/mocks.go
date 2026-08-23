@@ -6,7 +6,22 @@ import (
 
 	"github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/outbox"
+	"github.com/adirkuhn/commerceos/domain/shipping"
 )
+
+// ShippingConnectionSettingsRepo mock
+
+type ShippingConnectionSettingsRepo struct {
+	FindByConnectionIDFn func(ctx context.Context, connectionID string) (*shipping.ShippingConnectionSettings, error)
+	UpsertFn             func(ctx context.Context, s *shipping.ShippingConnectionSettings) error
+}
+
+func (m *ShippingConnectionSettingsRepo) FindByConnectionID(ctx context.Context, connectionID string) (*shipping.ShippingConnectionSettings, error) {
+	return m.FindByConnectionIDFn(ctx, connectionID)
+}
+func (m *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping.ShippingConnectionSettings) error {
+	return m.UpsertFn(ctx, s)
+}
 
 // ConnectionRepo mock
 
