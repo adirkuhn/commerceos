@@ -16,10 +16,12 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -49,6 +51,18 @@ type listWooTaxesUC interface {
 }
 type updateConnectionSettingsUC interface {
 	Execute(ctx context.Context, in appintegrations.UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error)
+}
+type setWebhookSecretUC interface {
+	Execute(ctx context.Context, connectionID string) (*appintegrations.SetWebhookSecretResult, error)
+}
+type listWebhookFallbackEventsUC interface {
+	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) ([]webhooksDomain.FallbackEvent, error)
+}
+type retryWebhookFallbackEventUC interface {
+	Execute(ctx context.Context, id string) error
+}
+type abandonWebhookFallbackEventUC interface {
+	Execute(ctx context.Context, id string) error
 }
 type createImportJobUC interface {
 	Execute(ctx context.Context, in appchannels.CreateImportJobInput) (*channelsDomain.ImportJob, error)
@@ -166,6 +180,10 @@ type Handler struct {
 	listExternalCategoryLinks    listExternalCategoryLinksUC
 	upsertExternalCategoryLink   upsertExternalCategoryLinkUC
 	deleteExternalCategoryLink   deleteExternalCategoryLinkUC
+	setWebhookSecret             setWebhookSecretUC
+	listWebhookFallbackEvents    listWebhookFallbackEventsUC
+	retryWebhookFallbackEvent    retryWebhookFallbackEventUC
+	abandonWebhookFallbackEvent  abandonWebhookFallbackEventUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -204,6 +222,10 @@ func NewHandler(
 	listExternalCategoryLinks listExternalCategoryLinksUC,
 	upsertExternalCategoryLink upsertExternalCategoryLinkUC,
 	deleteExternalCategoryLink deleteExternalCategoryLinkUC,
+	setWebhookSecret setWebhookSecretUC,
+	listWebhookFallbackEvents listWebhookFallbackEventsUC,
+	retryWebhookFallbackEvent retryWebhookFallbackEventUC,
+	abandonWebhookFallbackEvent abandonWebhookFallbackEventUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -240,6 +262,10 @@ func NewHandler(
 		listExternalCategoryLinks:    listExternalCategoryLinks,
 		upsertExternalCategoryLink:   upsertExternalCategoryLink,
 		deleteExternalCategoryLink:   deleteExternalCategoryLink,
+		setWebhookSecret:             setWebhookSecret,
+		listWebhookFallbackEvents:    listWebhookFallbackEvents,
+		retryWebhookFallbackEvent:    retryWebhookFallbackEvent,
+		abandonWebhookFallbackEvent:  abandonWebhookFallbackEvent,
 	}
 }
 
@@ -272,8 +298,10 @@ func Register(
 	wooFactory integrationsDomain.WooClientFactory,
 	stateSecret []byte,
 	encryptionSecret, publicAPIBaseURL, frontendBaseURL string,
+	webhookPublisher appwebhooks.Publisher,
 ) {
 	connRepo := repositories.NewConnectionRepo(db)
+	webhookFallbackRepo := repositories.NewWebhookFallbackRepo(db)
 	categoryRepo := repositories.NewCategoryRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
@@ -361,6 +389,10 @@ func Register(
 		appchannels.NewListExternalCategoryLinksUseCase(db, categoryLinkRepo),
 		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo),
 		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo),
+		appintegrations.NewSetWebhookSecretUseCase(db, connRepo, encryptionSecret),
+		appwebhooks.NewListWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
+		appwebhooks.NewRetryWebhookFallbackEventUseCase(db, webhookFallbackRepo, webhookPublisher),
+		appwebhooks.NewAbandonWebhookFallbackEventUseCase(db, webhookFallbackRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -563,6 +595,56 @@ func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id
 		return
 	}
 	middleware.OK(c, toGenConnection(*conn))
+}
+
+func (h *Handler) SetWebhookSecret(c *gin.Context, id genintegrations.Id) {
+	result, err := h.setWebhookSecret.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, gin.H{"connection_id": result.ConnectionID, "webhook_secret": result.PlaintextSecret})
+}
+
+func (h *Handler) ListWebhookFallbackEvents(c *gin.Context, params genintegrations.ListWebhookFallbackEventsParams) {
+	status := webhooksDomain.FallbackStatusPendingRepublish
+	if params.Status != nil {
+		status = webhooksDomain.FallbackStatus(*params.Status)
+	}
+	events, err := h.listWebhookFallbackEvents.Execute(c.Request.Context(), status)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genintegrations.WebhookFallbackEvent, len(events))
+	for i, e := range events {
+		id, eventID, provider := e.ID, e.EventID, e.Provider
+		st := genintegrations.WebhookFallbackEventStatus(e.Status)
+		receivedAt := e.ReceivedAt
+		out[i] = genintegrations.WebhookFallbackEvent{
+			Id: &id, EventId: &eventID, Provider: &provider, Status: &st, ReceivedAt: &receivedAt,
+		}
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) RetryWebhookFallbackEvent(c *gin.Context, id genintegrations.Id) {
+	err := h.retryWebhookFallbackEvent.Execute(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, webhooksDomain.ErrFallbackEventNotFound) {
+			middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+			return
+		}
+		middleware.Fail(c, http.StatusBadGateway, "PUBLISH_FAILED", err.Error())
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *Handler) AbandonWebhookFallbackEvent(c *gin.Context, id genintegrations.Id) {
+	err := h.abandonWebhookFallbackEvent.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
 }
 
 func (h *Handler) ImportWooProducts(c *gin.Context, id genintegrations.Id) {
@@ -1070,7 +1152,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrListingNotFound),
 		errors.Is(err, channelsDomain.ErrSalesChannelNotFound),
 		errors.Is(err, channelsDomain.ErrExternalCategoryLinkNotFound),
-		errors.Is(err, channelsDomain.ErrSyncLogNotFound):
+		errors.Is(err, channelsDomain.ErrSyncLogNotFound),
+		errors.Is(err, webhooksDomain.ErrFallbackEventNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, channelsDomain.ErrSyncLogHasNoListing):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())

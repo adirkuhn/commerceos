@@ -228,6 +228,80 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/webhook-secret:
+    post:
+      operationId: setWebhookSecret
+      summary: >
+        (Re)generate this connection's webhook-signature secret. Returns the
+        PLAINTEXT secret exactly once -- paste it into the provider's
+        webhook admin UI right away, it can't be retrieved again after
+        this response. Re-running this rotates the secret; the old value
+        stops verifying immediately.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSecretResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /integrations/webhook-fallback-events:
+    get:
+      operationId: listWebhookFallbackEvents
+      summary: List webhooks that could not be published to JetStream after 3 in-request retries and were saved to the fallback table instead
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Defaults to pending_republish when omitted.
+          schema: { type: string, enum: [pending_republish, republished, abandoned] }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookFallbackEventListResponse'
+
+  /integrations/webhook-fallback-events/{id}/retry:
+    post:
+      operationId: retryWebhookFallbackEvent
+      summary: Attempt to publish this fallback row to JetStream now; marks it republished on success
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
+          description: Publish attempt failed again -- row stays pending_republish.
+          $ref: '#/components/responses/Error'
+
+  /integrations/webhook-fallback-events/{id}:
+    delete:
+      operationId: abandonWebhookFallbackEvent
+      summary: Mark this fallback row abandoned (discarded) -- an audit trail is kept, not a hard delete
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/woo-taxes:
     get:
       operationId: listWooTaxes
@@ -1226,6 +1300,33 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/Connection' }
+        error: { nullable: true }
+
+    WebhookSecretResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            connection_id: { type: string }
+            webhook_secret: { type: string }
+        error: { nullable: true }
+
+    WebhookFallbackEvent:
+      type: object
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        event_id: { type: string }
+        status: { type: string, enum: [pending_republish, republished, abandoned] }
+        received_at: { type: string, format: date-time }
+
+    WebhookFallbackEventListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookFallbackEvent' }
         error: { nullable: true }
 
     EmptyResponse:

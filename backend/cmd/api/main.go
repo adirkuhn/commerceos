@@ -150,7 +150,7 @@ func main() {
 	outboxRepo := repositories.NewOutboxRepository(db)
 	wooFactory := woocommerce.NewFactory()
 	integrations.Register(integrationsGroup, r, db, outboxRepo, wooFactory, []byte(cfg.JWTSecret),
-		cfg.IntegrationsEncryptionSecret, cfg.PublicAPIBaseURL, cfg.FrontendBaseURL)
+		cfg.IntegrationsEncryptionSecret, cfg.PublicAPIBaseURL, cfg.FrontendBaseURL, publishers.NewJetStreamPublisher(js))
 
 	// Own unauthenticated route, mounted on the root router like the
 	// WooCommerce connect callback above -- see infrastructure/handlers/

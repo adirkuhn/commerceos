@@ -48,15 +48,19 @@ type fakeConnRepo struct {
 	conns []integrationsDomain.Connection
 }
 
-func (f *fakeConnRepo) Create(ctx context.Context, c *integrationsDomain.Connection) error { return nil }
+func (f *fakeConnRepo) Create(ctx context.Context, c *integrationsDomain.Connection) error {
+	return nil
+}
 func (f *fakeConnRepo) FindByID(ctx context.Context, id string) (*integrationsDomain.Connection, error) {
 	return nil, nil
 }
 func (f *fakeConnRepo) ListByTenant(ctx context.Context) ([]integrationsDomain.Connection, error) {
 	return f.conns, nil
 }
-func (f *fakeConnRepo) Update(ctx context.Context, c *integrationsDomain.Connection) error { return nil }
-func (f *fakeConnRepo) Delete(ctx context.Context, id string) error                        { return nil }
+func (f *fakeConnRepo) Update(ctx context.Context, c *integrationsDomain.Connection) error {
+	return nil
+}
+func (f *fakeConnRepo) Delete(ctx context.Context, id string) error { return nil }
 
 type fakePublisher struct {
 	failCount int
