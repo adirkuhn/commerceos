@@ -408,6 +408,51 @@ func (r *SalesOrderRepo) RevenueByChannelSince(ctx context.Context, since time.T
 	return out, nil
 }
 
+type salesSummaryRow struct {
+	OrderCount        int64
+	RevenueMinorUnits int64
+}
+
+// SalesSummaryBetween aggregates order count/revenue from sales_orders and
+// units sold from sales_order_line_items in two queries (a line-item join
+// would multiply-count orders with several lines against the order-level
+// total) -- same status/currency filtering as RevenueSince.
+func (r *SalesOrderRepo) SalesSummaryBetween(ctx context.Context, from, to time.Time, currencyCode string) (omsDomain.SalesSummary, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return omsDomain.SalesSummary{}, err
+	}
+	var summary salesSummaryRow
+	err = tx.Model(&salesOrderModel{}).
+		Where("occurred_at >= ? AND occurred_at < ? AND currency_code = ? AND status IN ?", from, to, currencyCode, revenueCountingStatuses).
+		Select("COUNT(*) AS order_count, COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units").
+		Scan(&summary).Error
+	if err != nil {
+		return omsDomain.SalesSummary{}, fmt.Errorf("salesOrderRepo.SalesSummaryBetween: %w", err)
+	}
+
+	var unitsSold int64
+	err = tx.Raw(`
+		SELECT COALESCE(SUM(li.quantity), 0)
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+	`, from, to, currencyCode).Scan(&unitsSold).Error
+	if err != nil {
+		return omsDomain.SalesSummary{}, fmt.Errorf("salesOrderRepo.SalesSummaryBetween: %w", err)
+	}
+
+	result := omsDomain.SalesSummary{
+		RevenueMinorUnits: summary.RevenueMinorUnits, OrderCount: summary.OrderCount, UnitsSold: unitsSold,
+	}
+	if result.OrderCount > 0 {
+		result.AverageOrderValueMinorUnits = result.RevenueMinorUnits / result.OrderCount
+	}
+	return result, nil
+}
+
 type productSalesRow struct {
 	SKUID             *string `gorm:"column:sku_id"`
 	SKUCode           string

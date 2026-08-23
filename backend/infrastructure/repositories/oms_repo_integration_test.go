@@ -1098,3 +1098,49 @@ func TestSalesOrderRepo_Integration_TopProductsSince_RanksByQuantityDescLimited(
 	require.Equal(t, int64(8), rows[1].QuantitySold)
 	require.Equal(t, int64(8000), rows[1].RevenueMinorUnits)
 }
+
+func TestSalesOrderRepo_Integration_SalesSummaryBetween_AggregatesRevenueOrdersUnitsAndAOV(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	before := now.AddDate(0, -1, 0)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "sum-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-A", "A", 2, 1000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "sum-2", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusProcessing, "EUR", now, "SKU-B", "B", 3, 500)
+	// Excluded: cancelled (never reduced stock).
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "sum-3", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCancelled, "EUR", now, "SKU-C", "C", 1, 9999)
+	// Excluded: different currency.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "sum-4", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "USD", now, "SKU-D", "D", 1, 9999)
+	// Excluded: before the window.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "sum-5", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", before, "SKU-E", "E", 1, 9999)
+
+	var summary omsDomain.SalesSummary
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		summary, err = salesOrderRepo.SalesSummaryBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1500), summary.RevenueMinorUnits)
+	require.Equal(t, int64(2), summary.OrderCount)
+	require.Equal(t, int64(5), summary.UnitsSold)
+	require.Equal(t, int64(750), summary.AverageOrderValueMinorUnits)
+}
+
+func TestSalesOrderRepo_Integration_SalesSummaryBetween_ZeroOrdersDoesNotDivideByZero(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var summary omsDomain.SalesSummary
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		summary, err = salesOrderRepo.SalesSummaryBetween(ctx, time.Now().AddDate(0, 0, -1), time.Now(), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, omsDomain.SalesSummary{}, summary)
+}
