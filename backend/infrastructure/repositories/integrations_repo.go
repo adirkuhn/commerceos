@@ -19,6 +19,7 @@ type integrationConnectionModel struct {
 	StoreURL                string  `gorm:"not null"`
 	ConsumerKey             string  `gorm:"not null"`
 	ConsumerSecretEncrypted string  `gorm:"not null"`
+	WebhookSecretEncrypted  string  `gorm:"not null"`
 	Status                  string  `gorm:"not null"`
 	DefaultCurrency         string  `gorm:"not null"`
 	DefaultWarehouseID      *string `gorm:"type:uuid"`
@@ -51,6 +52,7 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		StoreURL:                c.StoreURL.String(),
 		ConsumerKey:             c.ConsumerKey,
 		ConsumerSecretEncrypted: c.ConsumerSecretEncrypted,
+		WebhookSecretEncrypted:  c.WebhookSecretEncrypted,
 		Status:                  string(c.Status),
 		DefaultCurrency:         c.DefaultCurrency,
 		DefaultWarehouseID:      c.DefaultWarehouseID,
@@ -102,10 +104,11 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	}
 	if err := tx.Model(&integrationConnectionModel{}).Where("id = ?", c.ID).
 		Updates(map[string]any{
-			"status":               string(c.Status),
-			"default_currency":     c.DefaultCurrency,
-			"default_warehouse_id": c.DefaultWarehouseID,
-			"updated_at":           c.UpdatedAt,
+			"status":                   string(c.Status),
+			"default_currency":         c.DefaultCurrency,
+			"default_warehouse_id":     c.DefaultWarehouseID,
+			"webhook_secret_encrypted": c.WebhookSecretEncrypted,
+			"updated_at":               c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
 	}
@@ -131,6 +134,7 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		StoreURL:                integrationsDomain.StoreURL(m.StoreURL),
 		ConsumerKey:             m.ConsumerKey,
 		ConsumerSecretEncrypted: m.ConsumerSecretEncrypted,
+		WebhookSecretEncrypted:  m.WebhookSecretEncrypted,
 		Status:                  integrationsDomain.Status(m.Status),
 		DefaultCurrency:         m.DefaultCurrency,
 		DefaultWarehouseID:      m.DefaultWarehouseID,

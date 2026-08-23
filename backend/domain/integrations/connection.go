@@ -44,7 +44,12 @@ type Connection struct {
 	StoreURL                StoreURL
 	ConsumerKey             string
 	ConsumerSecretEncrypted string
-	Status                  Status
+	// WebhookSecretEncrypted verifies INBOUND webhook signatures from this
+	// provider -- distinct from ConsumerSecretEncrypted, which authenticates
+	// our OUTBOUND REST calls to it. Empty until the tenant enables
+	// webhooks for this connection (see application/webhooks package).
+	WebhookSecretEncrypted string
+	Status                 Status
 	// DefaultCurrency is the store-level default used for product import
 	// (WooCommerce's product endpoint doesn't return a currency — it's a
 	// store-level setting the merchant configures here once, reused by
