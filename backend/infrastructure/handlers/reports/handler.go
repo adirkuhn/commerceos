@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	genreports "github.com/adirkuhn/commerceos/api/reports"
+	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -32,6 +33,9 @@ type getCustomerPerformanceReportUC interface {
 type getCategoryPerformanceReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.CategoryPerformanceReport, error)
 }
+type getSlowMovingProductsReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.SlowMovingProductsReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -39,6 +43,7 @@ type Handler struct {
 	getProductPerformanceMatrix  getProductPerformanceMatrixUC
 	getCustomerPerformanceReport getCustomerPerformanceReportUC
 	getCategoryPerformanceReport getCategoryPerformanceReportUC
+	getSlowMovingProductsReport  getSlowMovingProductsReportUC
 }
 
 func NewHandler(
@@ -47,11 +52,12 @@ func NewHandler(
 	getProductPerformanceMatrix getProductPerformanceMatrixUC,
 	getCustomerPerformanceReport getCustomerPerformanceReportUC,
 	getCategoryPerformanceReport getCategoryPerformanceReportUC,
+	getSlowMovingProductsReport getSlowMovingProductsReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
 		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
-		getCategoryPerformanceReport: getCategoryPerformanceReport,
+		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
 	}
 }
 
@@ -61,13 +67,19 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	productRepo := repositories.NewProductRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
 	productPerformanceUC := appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo, skuRepo)
+	stockLevelsUC := invapp.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo)
 	h := NewHandler(
 		appreports.NewGetSalesSummaryReportUseCase(db, salesRepo, settingsRepo),
 		productPerformanceUC,
 		appreports.NewGetProductPerformanceMatrixUseCase(productPerformanceUC),
 		appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetCategoryPerformanceReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetSlowMovingProductsReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -151,6 +163,21 @@ func (h *Handler) GetCategoryPerformanceReport(c *gin.Context, params genreports
 		}
 	}
 	middleware.OK(c, genreports.CategoryPerformanceReport{CurrencyCode: report.CurrencyCode, Rows: rows})
+}
+
+func (h *Handler) GetSlowMovingProductsReport(c *gin.Context, params genreports.GetSlowMovingProductsReportParams) {
+	report, err := h.getSlowMovingProductsReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.SlowMovingProductRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.SlowMovingProductRow{
+			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
+			StockOnHand: row.StockOnHand, QuantitySoldInPeriod: row.QuantitySoldInPeriod,
+		}
+	}
+	middleware.OK(c, genreports.SlowMovingProductsReport{Rows: rows})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

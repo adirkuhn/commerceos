@@ -132,6 +132,29 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/slow-moving-products:
+    get:
+      operationId: getSlowMovingProductsReport
+      summary: Every SKU with stock on hand and zero units sold in [from, to)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlowMovingProductsReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -312,6 +335,33 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CategoryPerformanceReport' }
+        error: { nullable: true }
+
+    SlowMovingProductRow:
+      type: object
+      required: [sku_id, sku_code, product_name, stock_on_hand, quantity_sold_in_period]
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        stock_on_hand: { type: integer, format: int64 }
+        quantity_sold_in_period:
+          type: integer
+          format: int64
+          description: Always 0 -- that's this report's inclusion criterion.
+
+    SlowMovingProductsReport:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/SlowMovingProductRow' }
+
+    SlowMovingProductsReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SlowMovingProductsReport' }
         error: { nullable: true }
 
     ErrorResponse:
