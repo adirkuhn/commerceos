@@ -12,6 +12,7 @@ import { notifyProductsChanged } from '../pms/productsBus'
 import { notifyNotificationsChanged } from '../notifications/notificationsBus'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
 import BolSyncSettingsPage from '../integrations/BolSyncSettingsPage'
+import MyParcelSyncSettingsPage from '../shipping/MyParcelSyncSettingsPage'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- this
 // table exposes raw (if opaque) third-party payloads and a manual
@@ -24,6 +25,7 @@ function canManageWebhooks(role: string | undefined): boolean {
 const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
   bol: 'from-blue-500 to-cyan-600',
+  myparcel: 'from-orange-500 to-red-600',
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -58,6 +60,7 @@ export default function Integrations() {
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
   const [connectingBol, setConnectingBol] = useState(false)
+  const [myParcelConnection, setMyParcelConnection] = useState<Connection | 'new' | null>(null)
   const [connectMode, setConnectMode] = useState<'auto' | 'manual'>('auto')
   const [storeUrl, setStoreUrl] = useState('')
   const [consumerKey, setConsumerKey] = useState('')
@@ -205,6 +208,19 @@ export default function Integrations() {
     )
   }
 
+  if (myParcelConnection) {
+    return (
+      <MyParcelSyncSettingsPage
+        connectionId={myParcelConnection === 'new' ? undefined : myParcelConnection.id}
+        onClose={() => setMyParcelConnection(null)}
+        onConnected={() => {
+          setMyParcelConnection(null)
+          refresh()
+        }}
+      />
+    )
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden p-5 gap-5">
@@ -265,6 +281,14 @@ export default function Integrations() {
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => setConfiguringConnection(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Configure
+                        </button>
+                      )}
+                      {conn.provider === 'myparcel' && (
+                        <button
+                          onClick={() => setMyParcelConnection(conn)}
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Configure
@@ -345,6 +369,15 @@ export default function Integrations() {
                     B
                   </div>
                   <span className="text-sm dark:text-gray-200 text-gray-800">Bol.com</span>
+                </button>
+                <button
+                  onClick={() => { setBrowsing(false); setMyParcelConnection('new') }}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    M
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">MyParcel</span>
                 </button>
               </div>
             ) : (

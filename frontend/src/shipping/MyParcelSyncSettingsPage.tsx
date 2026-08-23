@@ -1,0 +1,233 @@
+import { useEffect, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
+import * as api from './api'
+import { CARRIERS, PACKAGE_TYPES } from './types'
+import type { ShippingCarrierOverride } from './types'
+
+// MyParcel has one credential (the API key) -- no OAuth redirect, no
+// client_id/secret pair like Bol's client_credentials, so the connect step
+// is a single field. Once connected (connectionId is set, either just now
+// or passed in from an already-connected integration), this page also
+// shows the global default carrier/package-type/label-format + per-carrier
+// override rows -- "configure general configuration and settings global
+// and per carrier" from the design.
+export default function MyParcelSyncSettingsPage({
+  connectionId: initialConnectionId, onClose, onConnected,
+}: { connectionId?: string; onClose: () => void; onConnected?: () => void }) {
+  const { token } = useAuth()
+  const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
+  const [apiKey, setApiKey] = useState('')
+  const [connectError, setConnectError] = useState('')
+  const [connecting, setConnecting] = useState(false)
+
+  const [defaultCarrier, setDefaultCarrier] = useState(1)
+  const [defaultPackageType, setDefaultPackageType] = useState(1)
+  const [defaultLabelFormat, setDefaultLabelFormat] = useState<'pdf' | 'zpl'>('pdf')
+  const [defaultSignatureRequired, setDefaultSignatureRequired] = useState(false)
+  const [defaultOnlyRecipient, setDefaultOnlyRecipient] = useState(false)
+  const [overrides, setOverrides] = useState<ShippingCarrierOverride[]>([])
+  const [settingsLoading, setSettingsLoading] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [savedNote, setSavedNote] = useState('')
+
+  useEffect(() => {
+    if (!connectionId || !token) return
+    setSettingsLoading(true)
+    setSettingsError('')
+    api.getShippingSettings(token, connectionId)
+      .then(result => {
+        if (result.settings) {
+          setDefaultCarrier(result.settings.default_carrier)
+          setDefaultPackageType(result.settings.default_package_type)
+          setDefaultLabelFormat(result.settings.default_label_format)
+          setDefaultSignatureRequired(result.settings.default_signature_required)
+          setDefaultOnlyRecipient(result.settings.default_only_recipient)
+        }
+        setOverrides(result.carrier_overrides)
+      })
+      .catch(err => setSettingsError(err instanceof Error ? err.message : 'Failed to load settings'))
+      .finally(() => setSettingsLoading(false))
+  }, [connectionId, token])
+
+  async function handleConnect(e: React.FormEvent) {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setConnecting(true)
+    try {
+      const conn = await api.connectMyParcel(token, apiKey)
+      setConnectionId(conn.connection_id)
+      onConnected?.()
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  async function handleSaveSettings(e: React.FormEvent) {
+    e.preventDefault()
+    if (!token || !connectionId) return
+    setSettingsError('')
+    setSaving(true)
+    setSavedNote('')
+    try {
+      await api.updateShippingSettings(token, connectionId, {
+        default_carrier: defaultCarrier, default_package_type: defaultPackageType, default_label_format: defaultLabelFormat,
+        default_signature_required: defaultSignatureRequired, default_only_recipient: defaultOnlyRecipient,
+      })
+      setSavedNote('Saved')
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function overrideFor(carrier: number): ShippingCarrierOverride | undefined {
+    return overrides.find(o => o.carrier === carrier)
+  }
+
+  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient', value: number | boolean | null) {
+    if (!token || !connectionId) return
+    const current = overrideFor(carrier)
+    const input = {
+      package_type: current?.package_type ?? null,
+      signature_required: current?.signature_required ?? null,
+      only_recipient: current?.only_recipient ?? null,
+      [field]: value,
+    }
+    try {
+      const updated = await api.upsertCarrierOverride(token, connectionId, carrier, input)
+      setOverrides(prev => {
+        const next = prev.filter(o => o.carrier !== carrier)
+        next.push(updated)
+        return next
+      })
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Failed to save carrier override')
+    }
+  }
+
+  const selectClass = 'px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
+        <button onClick={onClose} aria-label="Back" className="p-1.5 rounded-lg dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors">
+          <ArrowLeft size={18} className="dark:text-gray-400 text-gray-500" />
+        </button>
+        <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">MyParcel</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto p-5 max-w-2xl">
+        {!connectionId ? (
+          <form onSubmit={handleConnect} className="space-y-4">
+            <p className="text-xs dark:text-gray-500 text-gray-400">
+              Paste your MyParcel API key. No redirect step -- MyParcel authenticates via a single API key.
+            </p>
+            <div>
+              <label htmlFor="myparcel-api-key" className="block text-xs font-medium dark:text-gray-400 text-gray-500 mb-1">API key</label>
+              <input
+                id="myparcel-api-key"
+                type="password"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-lg text-sm dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+              />
+            </div>
+            {connectError && <p className="text-xs text-red-400">{connectError}</p>}
+            <button
+              type="submit"
+              disabled={connecting}
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {connecting ? 'Connecting…' : 'Connect'}
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-6">
+            {settingsLoading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading settings…</p>}
+            <form onSubmit={handleSaveSettings} className="space-y-4">
+              <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700">Global defaults</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="default-carrier" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Default carrier</label>
+                  <select id="default-carrier" value={defaultCarrier} onChange={e => setDefaultCarrier(Number(e.target.value))} className={selectClass + ' w-full'}>
+                    {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="default-package-type" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Default package type</label>
+                  <select id="default-package-type" value={defaultPackageType} onChange={e => setDefaultPackageType(Number(e.target.value))} className={selectClass + ' w-full'}>
+                    {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="default-label-format" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Label format</label>
+                  <select id="default-label-format" value={defaultLabelFormat} onChange={e => setDefaultLabelFormat(e.target.value as 'pdf' | 'zpl')} className={selectClass + ' w-full'}>
+                    <option value="pdf">PDF</option>
+                    <option value="zpl">ZPL (thermal)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                  <input type="checkbox" checked={defaultSignatureRequired} onChange={e => setDefaultSignatureRequired(e.target.checked)} />
+                  Signature required
+                </label>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                  <input type="checkbox" checked={defaultOnlyRecipient} onChange={e => setDefaultOnlyRecipient(e.target.checked)} />
+                  Only recipient
+                </label>
+              </div>
+              {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
+              {savedNote && <p className="text-xs text-green-400">{savedNote}</p>}
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Saving…' : 'Save defaults'}
+              </button>
+            </form>
+
+            <div>
+              <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 mb-2">Per-carrier overrides</h3>
+              <div className="space-y-2">
+                {CARRIERS.map(c => {
+                  const o = overrideFor(c.id)
+                  return (
+                    <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-lg border dark:border-[#2D3748] border-gray-200">
+                      <span className="text-xs dark:text-gray-200 text-gray-800 w-40 shrink-0">{c.label}</span>
+                      <select
+                        aria-label={`${c.label} package type override`}
+                        value={o?.package_type ?? ''}
+                        onChange={e => handleOverrideChange(c.id, 'package_type', e.target.value === '' ? null : Number(e.target.value))}
+                        className={selectClass}
+                      >
+                        <option value="">(use default)</option>
+                        {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      </select>
+                      <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
+                        <input
+                          type="checkbox"
+                          aria-label={`${c.label} signature required override`}
+                          checked={o?.signature_required ?? false}
+                          onChange={e => handleOverrideChange(c.id, 'signature_required', e.target.checked)}
+                        />
+                        Signature
+                      </label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
