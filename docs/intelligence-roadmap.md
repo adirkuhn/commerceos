@@ -55,9 +55,10 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 
 ## Frontend status
 
-- **Promotions**: real page at `/promotions`, nav entry added — list/search/delete, create/edit with SKU-line picker (resolves SKU code via `resolveBarcode`, showing product name not a bare ID). Wired to the real backend.
-- **Reports**: `src/pages/Reports.tsx` exists but is 100% hardcoded mock data — nav entry deliberately left commented out in `Sidebar.tsx` until it's wired to the real `/reports/sales-summary`, `/reports/product-performance`, `/reports/product-performance-matrix` endpoints built above. That rewiring is the next frontend slice.
-- Every other Phase 0 backend piece (SKU price history, sales-summary/product-performance/matrix reports) has **no frontend surface at all yet** beyond Reports' eventual rewiring — price history isn't shown anywhere in the product UI either.
+- **Promotions**: real page at `/promotions`, nav entry added — list/search/delete, create/edit with SKU-line picker (resolves SKU code via `resolveBarcode`, showing product name not a bare ID). Wired to the real backend. Commit `a90d30f`.
+- **Reports**: `src/pages/Reports.tsx` rewired to real data — commit `96c9786`. KPI row (revenue/orders/units/AOV with real period-over-period %) from `/reports/sales-summary`; Top Products panel from `/reports/product-performance`; Revenue by Channel reuses the existing `/dashboard/stats` endpoint (labeled "this month" since that endpoint has no date-range param, unlike the period selector). The old Revenue-vs-Cost and Inventory-Turnover charts were removed outright rather than wired to fake data — no backend time-series or stock-turn endpoint exists to back them. Nav entry enabled.
+- Product Performance Matrix (quadrants) has no frontend surface yet — `/reports/product-performance-matrix` is unused by the UI.
+- SKU price history has no frontend surface anywhere — not shown on the product/SKU edit page.
 
 ## Architecture notes for continuing this work
 
