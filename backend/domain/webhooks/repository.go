@@ -12,3 +12,13 @@ type FallbackEventRepository interface {
 	List(ctx context.Context, status FallbackStatus) ([]FallbackEvent, error)
 	UpdateStatus(ctx context.Context, id string, status FallbackStatus) error
 }
+
+// WebhookEventRepository persists the cold-path landing record -- see
+// WebhookEvent's doc comment.
+type WebhookEventRepository interface {
+	// Save is idempotent on (tenant_id, provider, event_id): JetStream is
+	// at-least-once delivery, so a redelivered envelope whose event was
+	// already persisted must be a safe no-op, not a duplicate row or an
+	// error.
+	Save(ctx context.Context, e *WebhookEvent) error
+}

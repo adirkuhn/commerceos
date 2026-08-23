@@ -30,6 +30,22 @@ const (
 	FallbackStatusAbandoned        FallbackStatus = "abandoned"
 )
 
+// WebhookEvent is the cold-path landing record: written once
+// cmd/webhook-processor has successfully consumed an Envelope off
+// COMMERCEOS_WEBHOOKS -- the actual "process later" destination. Per-topic
+// business-rule dispatch is deliberately out of scope for this pass; this
+// is the durable, queryable proof the event was received and accepted.
+type WebhookEvent struct {
+	ID          string
+	TenantID    string
+	Provider    string
+	EventID     string
+	Topic       string
+	Payload     []byte
+	ReceivedAt  time.Time
+	ProcessedAt time.Time
+}
+
 // FallbackEvent is the durable record of a webhook ReceiveWebhookUseCase
 // could not hand off to JetStream after exhausting its publish retries --
 // the "don't miss it" safety net for a NATS outage. Requires manual
