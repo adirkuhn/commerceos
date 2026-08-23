@@ -61,4 +61,15 @@ func TestNewRegistry_containsWooCommerceAndAllStubProviders(t *testing.T) {
 			t.Errorf("expected registry to contain provider %q", name)
 		}
 	}
+
+	// woocommerce and myparcel are real verifiers, not stubs -- the rest
+	// still return ErrProviderNotImplemented until built.
+	for _, name := range []string{"bol", "moneybird", "shopify", "lightspeed", "sendcloud"} {
+		if err := reg[name].Verify(nil, nil, "s"); err == nil {
+			t.Errorf("expected provider %q to still be a stub (unimplemented)", name)
+		}
+	}
+	if _, ok := reg["myparcel"].(*webhookproviders.MyParcelVerifier); !ok {
+		t.Errorf("expected myparcel to resolve to the real MyParcelVerifier, not a stub")
+	}
 }

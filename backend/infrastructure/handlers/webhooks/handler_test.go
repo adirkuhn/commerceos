@@ -122,3 +122,19 @@ func TestReceiveWebhook_mountedOutsideAuth(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+// MyParcel signs nothing -- its verifier checks a `?token=` query
+// parameter instead (see webhookproviders.MyParcelVerifier), so the
+// handler must forward it into the headers map under the key the verifier
+// reads.
+func TestReceiveWebhook_forwardsQueryTokenForMyParcel(t *testing.T) {
+	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
+	r := newTestRouter(uc)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/v1/"+testTenantID+"/myparcel?token=secret-abc", bytes.NewReader([]byte(`{}`)))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "secret-abc", uc.headers["__query_token"])
+}

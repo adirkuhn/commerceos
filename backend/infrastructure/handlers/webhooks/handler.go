@@ -47,6 +47,12 @@ func (h *Handler) ReceiveWebhook(c *gin.Context, tenantID openapi_types.UUID, pr
 	for name := range c.Request.Header {
 		headers[name] = c.Request.Header.Get(name)
 	}
+	// MyParcel signs nothing (no HMAC/signature header) -- its verifier
+	// checks a `?token=` query parameter instead, embedded in the callback
+	// URL registered with MyParcel (see webhookproviders.MyParcelVerifier's
+	// doc comment). Injected into the same headers map ProviderVerifier
+	// already takes rather than widening that interface for one provider.
+	headers["__query_token"] = c.Query("token")
 
 	result, err := h.receive.Execute(c.Request.Context(), tenantID.String(), provider, body, headers)
 	if err != nil {

@@ -8,13 +8,14 @@ import "github.com/adirkuhn/commerceos/domain/webhooks"
 // and remove it from this list when it's implemented -- see
 // StubVerifier's doc comment for why these aren't guessed at.
 var stubProviders = []string{
-	"bol", "moneybird", "shopify", "lightspeed", "myparcel", "sendcloud",
+	"bol", "moneybird", "shopify", "lightspeed", "sendcloud",
 }
 
 // NewRegistry wires every known provider name to its ProviderVerifier.
 func NewRegistry() map[string]webhooks.ProviderVerifier {
 	reg := map[string]webhooks.ProviderVerifier{
 		ProviderWooCommerce: NewWooCommerceVerifier(),
+		ProviderMyParcel:    NewMyParcelVerifier(),
 	}
 	for _, name := range stubProviders {
 		reg[name] = NewStubVerifier()
