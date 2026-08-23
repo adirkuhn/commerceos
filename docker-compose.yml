@@ -167,6 +167,31 @@ services:
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
     command: [ "/relay" ]
 
+  webhook-processor:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - commerceos
+      - database
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      nats:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${APP_DB_USER:-commerceos_app} password=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      NATS_URL: nats://nats:4222
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+    command: [ "/webhook-processor" ]
+
   scheduler:
     build:
       context: ./backend
