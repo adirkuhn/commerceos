@@ -28,6 +28,34 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// ProductPerformanceReport defines model for ProductPerformanceReport.
+type ProductPerformanceReport struct {
+	CurrencyCode string                  `json:"currency_code"`
+	Rows         []ProductPerformanceRow `json:"rows"`
+}
+
+// ProductPerformanceReportResponse defines model for ProductPerformanceReportResponse.
+type ProductPerformanceReportResponse struct {
+	Data  *ProductPerformanceReport `json:"data,omitempty"`
+	Error interface{}               `json:"error,omitempty"`
+}
+
+// ProductPerformanceRow defines model for ProductPerformanceRow.
+type ProductPerformanceRow struct {
+	FirstSaleAt time.Time `json:"first_sale_at"`
+	LastSaleAt  time.Time `json:"last_sale_at"`
+
+	// OrderCount Number of distinct orders this SKU appeared in.
+	OrderCount        int64  `json:"order_count"`
+	ProductName       string `json:"product_name"`
+	QuantitySold      int64  `json:"quantity_sold"`
+	RevenueMinorUnits int64  `json:"revenue_minor_units"`
+	SkuCode           string `json:"sku_code"`
+
+	// SkuId Null for an adhoc/unmatched line item with no linked catalog SKU.
+	SkuId *string `json:"sku_id,omitempty"`
+}
+
 // SalesSummary defines model for SalesSummary.
 type SalesSummary struct {
 	AverageOrderValueMinorUnits int64 `json:"average_order_value_minor_units"`
@@ -58,6 +86,12 @@ type SalesSummaryReportResponse struct {
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// GetProductPerformanceReportParams defines parameters for GetProductPerformanceReport.
+type GetProductPerformanceReportParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetSalesSummaryReportParams defines parameters for GetSalesSummaryReport.
 type GetSalesSummaryReportParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -66,6 +100,9 @@ type GetSalesSummaryReportParams struct {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetProductPerformanceReport Every SKU sold in [from, to), ranked by revenue
+	// (GET /reports/product-performance)
+	GetProductPerformanceReport(c *gin.Context, params GetProductPerformanceReportParams)
 	// GetSalesSummaryReport Revenue/orders/units/AOV for [from, to), compared against the immediately preceding period of equal length
 	// (GET /reports/sales-summary)
 	GetSalesSummaryReport(c *gin.Context, params GetSalesSummaryReportParams)
@@ -79,6 +116,41 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// GetProductPerformanceReport operation middleware
+func (siw *ServerInterfaceWrapper) GetProductPerformanceReport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProductPerformanceReportParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetProductPerformanceReport(c, params)
+}
 
 // GetSalesSummaryReport operation middleware
 func (siw *ServerInterfaceWrapper) GetSalesSummaryReport(c *gin.Context) {
@@ -143,6 +215,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.GET(options.BaseURL+"/reports/sales-summary", wrapper.GetSalesSummaryReport)
+	router.GET(options.BaseURL+"/reports/product-performance", wrapper.GetProductPerformanceReport)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -150,20 +223,24 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"rFZNb+M2EP0rg2mBbgDF8mYXe9AtKIoil+7CAXpJA4OWRjK3IkcZkkrdQP+9ICV/JU6TprnJNPne8L3H",
-	"IR+wZNOxJesdFg8o5Dq2jtKPX0RY4kfJ1pP18VN1XatL5TXb/LtjG8dcuSaj4tePQjUW+EO+R83Hf12e",
-	"0BYTPg7DkGFFrhTdRTAskBJdHJ+W7GrYrSoesBPuSLweS6yUT8Q2tK1atYSFl0BDNoE9mV9ylVD8piMs",
-	"0HnRtsEhQ0POqebUf0O2HeHVdyr9qZEMr1VL7joYo2TzlFb1JKqhJUtFsuxVG2hptGVZBqtH5WsWozwW",
-	"qK3/8hl3FNp6akgix7i65DBa8YoVQj3ZN3GluUvHbfWqBYnrLmihCoubk7zH9R8xZC8KdPuC5AvqWPwJ",
-	"4blflmtlG1p2JCU9Uq7iEEOTPcrPjswGsxr1KIMI2XKzfDZB4wz/0jE4Csqxqe9TaSfUaw7uvxay9exp",
-	"EcfH9LfQtnC/Jgt+TbBlg45Ec/WTgwkH7pWDv0kYPlgGQ8pq29ShhQkYRh7gugY1TlwpR622dDbD7C07",
-	"3yfqPZR8FOnjAOztPhD8dSF9uZm91rUp9Ifd7lEfPNG7hgy1rfmpr5fV+ZpLWAWnLTl3Hs922+qGbEkg",
-	"icoB9yRAf2nntW3gZzYmKvz1GmLt8OHbWjmCOXCdwnF1CPFHmM8vvsCCyrjKVukOAWFVGdWdzeDaq8hw",
-	"r/0aFLi4T3DjRiEKoeJBA2VByUp7icNj5kA1SlvnE6U2hiqtPLWbmM2Sqrhqmsg10F1QLbRkG7+OMfPa",
-	"R7XwYCuLaa+X364ww57EjQJ9nM3Tge3Iqk5jgZ9m89mnGADl18nAfJIpT9Wfu/110FAKYXQ77fuqwgJ/",
-	"JX/CzognypAncVjcPKCO5HeBZBNDq0wstxY2eBjQMcL7m3gfd+Xp3GtD+669v9lOg3v+/9C32fFb4mI+",
-	"f7eXxL+cqRPPCv4zuvb54uI52F2d4xNlfIFsrcPF2M7y1KddnnpMfvn1d6hZ4Cb6kIHns2zKKL09jmPx",
-	"jqTfOh+kxQJz1em8/4jD7fBPAAAA//8=",
+	"7FdNb+M2EP0rA7ZAdwEl8mYXe9AtKBZFUKAbJGgvaWCMpZHEjUQqQ9KuG/i/F0PZ8ZcMO9nsrTebImeG",
+	"77354JPKbdtZQ8Y7lT0pJtdZ4yj++cJsWX7k1ngyXn5i1zU6R6+tSb85a2TN5TW1KL9+ZipVpn5K11bT",
+	"/qtLo7WbpX21WCwSVZDLWXdiTGWKojtZXx55juH5VPakOrYdsdd9iAX66NiEpsFJQyrzHGiRLI3t7c9t",
+	"Ea34eUcqU86zNpVaJKol57Aa+rZIVit28o1yP7SSqGu2Rcj9NXFpuUWT0w11lv1ACIGZTD4fH4yF7Szu",
+	"1J5adwzWAcd2ptYhIjPOY8xMj0EzFSq72wli6fL+Bfc6TskLg+7R2mRuh9MTUbez/ZBKzc6PHTY0xshI",
+	"3O1VJsHSmdetYLDHQ4OvOWW5IB7nNvQJs63xP0I7IQZbQqGd1yb3EPc78LV2cPv7n4BdR8hUgDbnKlk7",
+	"1cZ//rR2qI2nilg8dj0KY4PtsKAeAxqv/XzsbFNs3eSwUaYpmUDjVhvL42B0XyBOOOkewmFty0ddDAHT",
+	"NFBaBjSARW3zNJgWfV5TAY02BJIMMNO+BmNl5YEKyNFjYyuBTaDaFkwykMibKfAc5g6Au3ANQ7HNc7Ij",
+	"sR3tDCXWLTbkbkPbIs/3FYtTYqxo3DuZYvMqJnak+ENZj3tPF9gOGadAvOEhOQrQMcgPVWe003Feo6lo",
+	"3BHntINcYYMI7KDWTMxvcXa8zPc7/LFauSWUbVLfJtKOaaptcC8NZMXZfhADqT2ryYCvCVbeoCPWtvjF",
+	"wdIOzNDBv8QW3hkLLaHRpipDA0vD0PsBW5aA/cYJOpLi8H6rUJ5+87Wi3gLJIy12RfcG4KeJ9Pta7YDo",
+	"X9RkZUmb0u7zelmc1TaHSXDakHNnkttNoysyOQFHVw7slBjon9jsKvjVtq0g/PUWJHZ4d12jIxhJQxRx",
+	"XG2a+DuMRhef4YZyOWWKOHQCWyxa7N6fw61H8RB7AoLUWgeuvygIECiJFvsJT7RnWe41B1ihNs5Hl7pt",
+	"qdDoqZmLNnMq5NRyoy2BHgM20JCpfC0y89oLWmrjKjfLu15eX6lETYldD9CH81FM2I4Mdlpl6uP56Pyj",
+	"CAB9HQlMlzClyw501q0nGfleUZSicB5vf1WoTP1G/uD8JLYZW/LETmV3T0pLII+BeC4CjgOCKtm2alOs",
+	"vZzXY/wpg84iGTbu7febvk+2HyIXo9GbPUOODrQDLxP7IDx+urg4ZPw52v6V0z9iVr1dfZkSz+NsJ6UG",
+	"tIE7oSABb98nwBhnmcl8VQjj6WdlRF2fufWgcEgTA4n+vxpeXh1/oA5uen7TfuJPY/dJL7/+FefeTUn0",
+	"1YteX6j64B3xdMV84EZlKsVOp9MPanG/+C8AAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

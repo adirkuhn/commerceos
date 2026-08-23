@@ -13,6 +13,7 @@ import (
 
 	genreports "github.com/adirkuhn/commerceos/api/reports"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	reportshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reports"
 )
 
@@ -36,6 +37,24 @@ func (s *stubGetSalesSummaryReport) Execute(_ context.Context, from, to time.Tim
 	return &appreports.SalesSummaryReport{CurrencyCode: "EUR"}, nil
 }
 
+type stubGetProductPerformanceReport struct {
+	out     *appreports.ProductPerformanceReport
+	err     error
+	gotFrom time.Time
+	gotTo   time.Time
+}
+
+func (s *stubGetProductPerformanceReport) Execute(_ context.Context, from, to time.Time) (*appreports.ProductPerformanceReport, error) {
+	s.gotFrom, s.gotTo = from, to
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appreports.ProductPerformanceReport{CurrencyCode: "EUR"}, nil
+}
+
 func newTestRouter(h *reportshandler.Handler) *gin.Engine {
 	r := gin.New()
 	genreports.RegisterHandlers(r.Group("/api/v1"), h)
@@ -54,7 +73,7 @@ func TestGetSalesSummaryReportHandler_success(t *testing.T) {
 	get := &stubGetSalesSummaryReport{out: &appreports.SalesSummaryReport{
 		CurrencyCode: "EUR", RevenueChangePercent: &revenueChange,
 	}}
-	h := reportshandler.NewHandler(get)
+	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -66,15 +85,36 @@ func TestGetSalesSummaryReportHandler_success(t *testing.T) {
 
 func TestGetSalesSummaryReportHandler_validationError(t *testing.T) {
 	get := &stubGetSalesSummaryReport{err: appreports.ErrToBeforeFrom}
-	h := reportshandler.NewHandler(get)
+	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-31T00:00:00Z&to=2026-08-01T00:00:00Z")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestGetSalesSummaryReportHandler_missingRequiredParam(t *testing.T) {
-	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{})
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-01T00:00:00Z")
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGetProductPerformanceReportHandler_success(t *testing.T) {
+	get := &stubGetProductPerformanceReport{out: &appreports.ProductPerformanceReport{
+		CurrencyCode: "EUR",
+		Rows:         []omsDomain.ProductPerformance{{SKUCode: "SKU-A", ProductName: "Acai", QuantitySold: 5, RevenueMinorUnits: 2500, OrderCount: 2}},
+	}}
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"sku_code":"SKU-A"`)
+	assert.Contains(t, w.Body.String(), `"quantity_sold":5`)
+}
+
+func TestGetProductPerformanceReportHandler_validationError(t *testing.T) {
+	get := &stubGetProductPerformanceReport{err: appreports.ErrToBeforeFrom}
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, get)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/product-performance?from=2026-08-31T00:00:00Z&to=2026-08-01T00:00:00Z")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

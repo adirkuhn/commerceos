@@ -36,6 +36,29 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/product-performance:
+    get:
+      operationId: getProductPerformanceReport
+      summary: Every SKU sold in [from, to), ranked by revenue
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPerformanceReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -75,6 +98,40 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SalesSummaryReport' }
+        error: { nullable: true }
+
+    ProductPerformanceRow:
+      type: object
+      required: [sku_code, product_name, quantity_sold, revenue_minor_units, order_count, first_sale_at, last_sale_at]
+      properties:
+        sku_id:
+          type: string
+          nullable: true
+          description: Null for an adhoc/unmatched line item with no linked catalog SKU.
+        sku_code: { type: string }
+        product_name: { type: string }
+        quantity_sold: { type: integer, format: int64 }
+        revenue_minor_units: { type: integer, format: int64 }
+        order_count:
+          type: integer
+          format: int64
+          description: Number of distinct orders this SKU appeared in.
+        first_sale_at: { type: string, format: date-time }
+        last_sale_at: { type: string, format: date-time }
+
+    ProductPerformanceReport:
+      type: object
+      required: [currency_code, rows]
+      properties:
+        currency_code: { type: string }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/ProductPerformanceRow' }
+
+    ProductPerformanceReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProductPerformanceReport' }
         error: { nullable: true }
 
     ErrorResponse:

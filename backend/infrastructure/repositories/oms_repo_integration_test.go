@@ -1144,3 +1144,60 @@ func TestSalesOrderRepo_Integration_SalesSummaryBetween_ZeroOrdersDoesNotDivideB
 	require.NoError(t, err)
 	require.Equal(t, omsDomain.SalesSummary{}, summary)
 }
+
+func TestSalesOrderRepo_Integration_ProductPerformanceBetween_GroupsBySKUWithOrderCountAndSaleDates(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	earlier := time.Now().AddDate(0, 0, -2)
+	later := time.Now().AddDate(0, 0, -1)
+	before := time.Now().AddDate(0, -1, 0)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "perf-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", earlier, "SKU-A", "Acai", 2, 1000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "perf-2", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusProcessing, "EUR", later, "SKU-A", "Acai", 3, 1500)
+	// Excluded: cancelled.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "perf-3", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCancelled, "EUR", later, "SKU-A", "Acai", 9, 9999)
+	// Excluded: before the window.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "perf-4", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", before, "SKU-A", "Acai", 9, 9999)
+
+	var rows []omsDomain.ProductPerformance
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.ProductPerformanceBetween(ctx, earlier.Add(-time.Hour), later.Add(time.Hour), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	row := rows[0]
+	require.Equal(t, "SKU-A", row.SKUCode)
+	require.Equal(t, int64(5), row.QuantitySold)
+	require.Equal(t, int64(2500), row.RevenueMinorUnits)
+	require.Equal(t, int64(2), row.OrderCount)
+	require.WithinDuration(t, earlier, row.FirstSaleAt, time.Second)
+	require.WithinDuration(t, later, row.LastSaleAt, time.Second)
+}
+
+func TestSalesOrderRepo_Integration_ProductPerformanceBetween_OrdersByRevenueDesc(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rank-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-LOW", "Low", 1, 500)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rank-2", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-HIGH", "High", 1, 5000)
+
+	var rows []omsDomain.ProductPerformance
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.ProductPerformanceBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, "SKU-HIGH", rows[0].SKUCode)
+	require.Equal(t, "SKU-LOW", rows[1].SKUCode)
+}

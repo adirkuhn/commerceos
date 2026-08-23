@@ -453,6 +453,60 @@ func (r *SalesOrderRepo) SalesSummaryBetween(ctx context.Context, from, to time.
 	return result, nil
 }
 
+type productPerformanceRow struct {
+	SKUID             *string `gorm:"column:sku_id"`
+	SKUCode           string
+	ProductName       string `gorm:"column:name"`
+	QuantitySold      int64
+	RevenueMinorUnits int64
+	OrderCount        int64
+	FirstSaleAt       time.Time
+	LastSaleAt        time.Time
+}
+
+// ProductPerformanceBetween is TopProductsSince generalized: no limit, plus
+// distinct order count and first/last sale date -- the Phase 0 "Product
+// Performance" report. Grouped by (sku_id, sku_code, name) same as
+// TopProductsSince, for the same reason (a since-renamed product's older
+// and newer line items would otherwise merge into a misleading row).
+func (r *SalesOrderRepo) ProductPerformanceBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.ProductPerformance, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []productPerformanceRow
+	err = tx.Raw(`
+		SELECT
+			li.sku_id AS sku_id,
+			li.sku_code AS sku_code,
+			li.name AS name,
+			SUM(li.quantity) AS quantity_sold,
+			SUM(li.total_minor_units) AS revenue_minor_units,
+			COUNT(DISTINCT li.sales_order_id) AS order_count,
+			MIN(so.occurred_at) AS first_sale_at,
+			MAX(so.occurred_at) AS last_sale_at
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+		GROUP BY li.sku_id, li.sku_code, li.name
+		ORDER BY revenue_minor_units DESC
+	`, from, to, currencyCode).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.ProductPerformanceBetween: %w", err)
+	}
+	out := make([]omsDomain.ProductPerformance, len(rows))
+	for i, row := range rows {
+		out[i] = omsDomain.ProductPerformance{
+			SKUID: row.SKUID, SKUCode: row.SKUCode, ProductName: row.ProductName,
+			QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits, OrderCount: row.OrderCount,
+			FirstSaleAt: row.FirstSaleAt, LastSaleAt: row.LastSaleAt,
+		}
+	}
+	return out, nil
+}
+
 type productSalesRow struct {
 	SKUID             *string `gorm:"column:sku_id"`
 	SKUCode           string
