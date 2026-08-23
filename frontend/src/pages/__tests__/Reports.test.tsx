@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -15,6 +15,7 @@ vi.mock('../../reports/api', () => ({
   getProductPerformanceReport: vi.fn(),
   getProductPerformanceMatrix: vi.fn(),
   getCustomerPerformanceReport: vi.fn(),
+  getCategoryPerformanceReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -83,6 +84,17 @@ function customerPerformance(overrides: Partial<CustomerPerformanceReport> = {})
   }
 }
 
+function categoryPerformance(overrides: Partial<CategoryPerformanceReport> = {}): CategoryPerformanceReport {
+  return {
+    currency_code: 'EUR',
+    rows: [
+      { category_id: 'cat-1', category_name: 'Beverages', quantity_sold: 50, revenue_minor_units: 40000, order_count: 20 },
+      { category_id: null, category_name: 'Uncategorized', quantity_sold: 3, revenue_minor_units: 1500, order_count: 2 },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -99,6 +111,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getProductPerformanceReport).mockResolvedValue(productPerformance())
   vi.mocked(reportsApi.getProductPerformanceMatrix).mockResolvedValue(productPerformanceMatrix())
   vi.mocked(reportsApi.getCustomerPerformanceReport).mockResolvedValue(customerPerformance())
+  vi.mocked(reportsApi.getCategoryPerformanceReport).mockResolvedValue(categoryPerformance())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -198,5 +211,22 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No customer orders in this period')).toBeInTheDocument()
+  })
+
+  it('shows revenue by category, including the Uncategorized bucket', async () => {
+    render(<Reports />)
+
+    expect(await screen.findByText('Beverages')).toBeInTheDocument()
+    expect(screen.getByText('€400.00')).toBeInTheDocument()
+    expect(screen.getByText('Uncategorized')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when no category has sales in the period', async () => {
+    vi.mocked(reportsApi.getCategoryPerformanceReport).mockResolvedValue(categoryPerformance({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No category sales in this period')).toBeInTheDocument()
   })
 })

@@ -72,6 +72,21 @@ export interface CustomerPerformanceReport {
   rows: CustomerPerformanceRow[]
 }
 
+export interface CategoryPerformanceRow {
+  // Null for the "Uncategorized" bucket (adhoc line item, deleted SKU, or
+  // product with no category).
+  category_id: string | null
+  category_name: string
+  quantity_sold: number
+  revenue_minor_units: number
+  order_count: number
+}
+
+export interface CategoryPerformanceReport {
+  currency_code: string
+  rows: CategoryPerformanceRow[]
+}
+
 export interface APIError {
   code: string
   message: string

@@ -49,7 +49,7 @@ function ChangeBadge({ percent }: { percent: number | null }) {
 export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -59,6 +59,7 @@ export default function Reports() {
   const topCustomers = [...(customerPerformance?.rows ?? [])]
     .sort((a, b) => b.revenue_minor_units - a.revenue_minor_units)
     .slice(0, TOP_PRODUCTS_LIMIT)
+  const categories = [...(categoryPerformance?.rows ?? [])].sort((a, b) => b.revenue_minor_units - a.revenue_minor_units)
 
   const kpis = [
     { label: 'Total Revenue', value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
@@ -240,6 +241,36 @@ export default function Reports() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Revenue by Category</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Selected period</p>
+        </div>
+        {categories.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No category sales in this period</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="dark:bg-[#111827]/50 bg-gray-50">
+                {['Category', 'Units', 'Orders', 'Revenue'].map(h => (
+                  <th key={h} className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+              {categories.map(cat => (
+                <tr key={cat.category_id ?? 'uncategorized'} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
+                  <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium">{cat.category_name}</td>
+                  <td className="px-4 py-2 dark:text-gray-400 text-gray-500">{cat.quantity_sold}</td>
+                  <td className="px-4 py-2 dark:text-gray-400 text-gray-500">{cat.order_count}</td>
+                  <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium">{formatMoney(cat.revenue_minor_units, currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
