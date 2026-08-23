@@ -61,9 +61,10 @@ const (
 const StatusMainShipped = "shipped"
 
 var (
-	ErrShipmentNotFound = errors.New("shipping: shipment not found")
-	ErrSettingsNotFound = errors.New("shipping: connection settings not found")
-	ErrMissingRecipient = errors.New("shipping: recipient address is incomplete")
+	ErrShipmentNotFound    = errors.New("shipping: shipment not found")
+	ErrSettingsNotFound    = errors.New("shipping: connection settings not found")
+	ErrMissingRecipient    = errors.New("shipping: recipient address is incomplete")
+	ErrWebhookSecretNotSet = errors.New("shipping: connection has no webhook secret set yet")
 )
 
 // Shipment is one MyParcel shipment created for a SalesOrder. Recipient_*
