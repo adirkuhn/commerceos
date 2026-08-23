@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as reportsApi from '../api'
 import * as dashboardApi from '../../dashboard/api'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix } from '../types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport } from '../types'
 import type { ChannelRevenue } from '../../dashboard/types'
 
 export type ReportsPeriod = '7D' | '30D' | '90D' | '12M'
@@ -27,6 +27,7 @@ interface UseReportsDataState {
   salesSummary: SalesSummaryReport | null
   productPerformance: ProductPerformanceReport | null
   productPerformanceMatrix: ProductPerformanceMatrix | null
+  customerPerformance: CustomerPerformanceReport | null
   // Real revenue-by-channel data, but always "this month" (the underlying
   // /dashboard/stats endpoint has no date-range parameter) -- not scoped
   // to the selected period. Labeled as such in the UI.
@@ -39,6 +40,7 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
   const [salesSummary, setSalesSummary] = useState<SalesSummaryReport | null>(null)
   const [productPerformance, setProductPerformance] = useState<ProductPerformanceReport | null>(null)
   const [productPerformanceMatrix, setProductPerformanceMatrix] = useState<ProductPerformanceMatrix | null>(null)
+  const [customerPerformance, setCustomerPerformance] = useState<CustomerPerformanceReport | null>(null)
   const [channelRevenueThisMonth, setChannelRevenueThisMonth] = useState<ChannelRevenue[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,15 +51,17 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
     setError(null)
     try {
       const { from, to } = dateRange(period, new Date())
-      const [summary, performance, matrix, dashboardStats] = await Promise.all([
+      const [summary, performance, matrix, customers, dashboardStats] = await Promise.all([
         reportsApi.getSalesSummaryReport(token, from, to),
         reportsApi.getProductPerformanceReport(token, from, to),
         reportsApi.getProductPerformanceMatrix(token, from, to),
+        reportsApi.getCustomerPerformanceReport(token, from, to),
         dashboardApi.getDashboardStats(token),
       ])
       setSalesSummary(summary)
       setProductPerformance(performance)
       setProductPerformanceMatrix(matrix)
+      setCustomerPerformance(customers)
       setChannelRevenueThisMonth(dashboardStats.sales_by_channel_this_month)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
@@ -68,5 +72,5 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
 
   useEffect(() => { load() }, [load])
 
-  return { salesSummary, productPerformance, productPerformanceMatrix, channelRevenueThisMonth, loading, error, refresh: load }
+  return { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, channelRevenueThisMonth, loading, error, refresh: load }
 }

@@ -56,6 +56,22 @@ export interface ProductPerformanceMatrix {
   rows: ProductPerformanceMatrixRow[]
 }
 
+export interface CustomerPerformanceRow {
+  customer_id: string
+  // Empty string if the customer record has no name set.
+  customer_name: string
+  order_count: number
+  revenue_minor_units: number
+  average_order_value_minor_units: number
+  first_order_at: string
+  last_order_at: string
+}
+
+export interface CustomerPerformanceReport {
+  currency_code: string
+  rows: CustomerPerformanceRow[]
+}
+
 export interface APIError {
   code: string
   message: string

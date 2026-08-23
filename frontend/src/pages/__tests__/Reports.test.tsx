@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -14,6 +14,7 @@ vi.mock('../../reports/api', () => ({
   getSalesSummaryReport: vi.fn(),
   getProductPerformanceReport: vi.fn(),
   getProductPerformanceMatrix: vi.fn(),
+  getCustomerPerformanceReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -71,6 +72,17 @@ function productPerformanceMatrix(overrides: Partial<ProductPerformanceMatrix> =
   }
 }
 
+function customerPerformance(overrides: Partial<CustomerPerformanceReport> = {}): CustomerPerformanceReport {
+  return {
+    currency_code: 'EUR',
+    rows: [{
+      customer_id: 'cust-1', customer_name: 'Jane Doe', order_count: 4, revenue_minor_units: 42000,
+      average_order_value_minor_units: 10500, first_order_at: '2026-07-01T00:00:00Z', last_order_at: '2026-08-15T00:00:00Z',
+    }],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -86,6 +98,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getSalesSummaryReport).mockResolvedValue(salesSummary())
   vi.mocked(reportsApi.getProductPerformanceReport).mockResolvedValue(productPerformance())
   vi.mocked(reportsApi.getProductPerformanceMatrix).mockResolvedValue(productPerformanceMatrix())
+  vi.mocked(reportsApi.getCustomerPerformanceReport).mockResolvedValue(customerPerformance())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -168,5 +181,22 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No SKUs with a known margin in this period')).toBeInTheDocument()
+  })
+
+  it('shows real top customers by revenue', async () => {
+    render(<Reports />)
+
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.getByText('€420.00')).toBeInTheDocument()
+    expect(screen.getByText(/4 orders/)).toBeInTheDocument()
+  })
+
+  it('shows an empty state when no customer ordered in the period', async () => {
+    vi.mocked(reportsApi.getCustomerPerformanceReport).mockResolvedValue(customerPerformance({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No customer orders in this period')).toBeInTheDocument()
   })
 })

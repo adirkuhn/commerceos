@@ -49,11 +49,14 @@ function ChangeBadge({ percent }: { percent: number | null }) {
 export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const { salesSummary, productPerformance, productPerformanceMatrix, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
   const topProducts = [...(productPerformance?.rows ?? [])]
+    .sort((a, b) => b.revenue_minor_units - a.revenue_minor_units)
+    .slice(0, TOP_PRODUCTS_LIMIT)
+  const topCustomers = [...(customerPerformance?.rows ?? [])]
     .sort((a, b) => b.revenue_minor_units - a.revenue_minor_units)
     .slice(0, TOP_PRODUCTS_LIMIT)
 
@@ -212,6 +215,30 @@ export default function Reports() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Top Customers by Revenue</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Selected period — guest orders excluded</p>
+        </div>
+        {topCustomers.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No customer orders in this period</p>
+        ) : (
+          <div className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+            {topCustomers.map(c => (
+              <div key={c.customer_id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs dark:text-gray-200 text-gray-800 truncate">{c.customer_name || 'Unnamed customer'}</p>
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400">
+                    {c.order_count} order{c.order_count === 1 ? '' : 's'} · {formatMoney(c.average_order_value_minor_units, currency)} AOV
+                  </p>
+                </div>
+                <p className="text-xs font-medium dark:text-gray-200 text-gray-800 shrink-0">{formatMoney(c.revenue_minor_units, currency)}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>

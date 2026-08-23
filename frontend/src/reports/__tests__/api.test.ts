@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, APIResponse } from '../types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -103,6 +103,31 @@ describe('getProductPerformanceMatrix', () => {
     const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(url).toBe(
       'https://api.commerceos.dev.localhost/api/v1/reports/product-performance-matrix?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z',
+    )
+  })
+})
+
+describe('getCustomerPerformanceReport', () => {
+  const sample: CustomerPerformanceReport = {
+    currency_code: 'EUR',
+    rows: [{
+      customer_id: 'cust-1', customer_name: 'Jane Doe', order_count: 2, revenue_minor_units: 1500,
+      average_order_value_minor_units: 750, first_order_at: '2026-08-01T00:00:00Z', last_order_at: '2026-08-15T00:00:00Z',
+    }],
+  }
+
+  it('returns the report', async () => {
+    mockFetch(sample)
+    const result = await api.getCustomerPerformanceReport(TOKEN, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z')
+    expect(result).toEqual(sample)
+  })
+
+  it('calls the correct endpoint', async () => {
+    mockFetch(sample)
+    await api.getCustomerPerformanceReport(TOKEN, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z')
+    const [url] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe(
+      'https://api.commerceos.dev.localhost/api/v1/reports/customer-performance?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T00%3A00%3A00Z',
     )
   })
 })
