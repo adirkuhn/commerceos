@@ -17,14 +17,25 @@ interface NavEntry {
   badgeColor?: string
 }
 
-const NAV_ITEMS: NavEntry[] = [
+// A section header row -- purely a visual divider/label in the nav list,
+// never itself clickable/active (see isSection).
+interface NavSection {
+  section: string
+}
+
+type NavRow = NavEntry | NavSection
+
+function isSection(row: NavRow): row is NavSection {
+  return 'section' in row
+}
+
+const NAV_ITEMS: NavRow[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'sales-orders', label: 'Sales Order', icon: ShoppingCart },
   { id: 'stock-issues', label: 'Stock Issues', icon: AlertTriangle },
   { id: 'unmatched-skus', label: 'Unmatched SKUs', icon: PackageSearch },
   { id: 'customers', label: 'Customer', icon: Users },
   { id: 'products', label: 'Products', icon: Package },
-  { id: 'promotions', label: 'Promotions', icon: Tag },
   { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   // { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '38', badgeColor: 'blue' },
@@ -35,6 +46,11 @@ const NAV_ITEMS: NavEntry[] = [
   { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
   { id: 'sync-log', label: 'Sync History', icon: History },
   // { id: 'shipping', label: 'Shipping', icon: Truck },
+  // Intelligence & Recommendation roadmap (Phase 0) -- promotions,
+  // reports, and future BI/recommendation screens all group here rather
+  // than scattering as flat top-level items.
+  { section: 'Intelligence' },
+  { id: 'promotions', label: 'Promotions', icon: Tag },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
@@ -43,7 +59,7 @@ const NAV_ITEMS: NavEntry[] = [
 // super_admin, e.g. akantio staff managing their own company for support)
 // endpoints (see team/api.ts), so the nav entry itself is hidden from
 // anyone else, same reasoning as SUPER_ADMIN_NAV_ITEMS.
-const OWNER_NAV_ITEMS: NavEntry[] = [
+const OWNER_NAV_ITEMS: NavRow[] = [
   { id: 'users', label: 'Users & Roles', icon: Users },
 ]
 
@@ -51,7 +67,7 @@ const OWNER_NAV_ITEMS: NavEntry[] = [
 // visible only to the super_admin role (matches the backend's
 // middleware.RequireRole(RoleSuperAdmin) gate on their APIs), never shown
 // to a regular tenant user.
-const SUPER_ADMIN_NAV_ITEMS: NavEntry[] = [
+const SUPER_ADMIN_NAV_ITEMS: NavRow[] = [
   { id: 'scheduled-jobs', label: 'Scheduled Jobs', icon: Clock },
 ]
 
@@ -69,14 +85,14 @@ export default function Sidebar() {
   // not the current page's item count, now that products are paginated.
   const { total } = useProducts(token ?? '', { page: 1, perPage: 1 })
 
-  const navItems = [
+  const navItems: NavRow[] = [
     ...NAV_ITEMS,
     ...(user?.role === 'customer_owner' || user?.role === 'super_admin' ? OWNER_NAV_ITEMS : []),
     ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : []),
-  ].map(item =>
-    item.id === 'products' && total > 0
-      ? { ...item, badge: total }
-      : item,
+  ].map(row =>
+    !isSection(row) && row.id === 'products' && total > 0
+      ? { ...row, badge: total }
+      : row,
   )
 
   return (
@@ -94,6 +110,16 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto scrollbar-none py-3 px-2">
         {navItems.map(item => {
+          if (isSection(item)) {
+            return (
+              <p
+                key={`section-${item.section}`}
+                className="px-2.5 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider dark:text-gray-600 text-gray-400"
+              >
+                {item.section}
+              </p>
+            )
+          }
           const active = activeNav === item.id
           const Icon = item.icon
           return (

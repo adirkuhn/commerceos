@@ -56,3 +56,21 @@ describe('Sidebar product count badge', () => {
     await waitFor(() => expect(screen.queryByText('3')).not.toBeInTheDocument())
   })
 })
+
+describe('Sidebar Intelligence section', () => {
+  beforeEach(() => vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 }))
+
+  it('groups Promotions and Reports under an Intelligence section header', () => {
+    renderSidebar()
+
+    const section = screen.getByText('Intelligence')
+    const promotions = screen.getByRole('button', { name: /Promotions/ })
+    const reports = screen.getByRole('button', { name: /Reports/ })
+    const settings = screen.getByRole('button', { name: /Settings/ })
+
+    const position = (el: Element) => Array.from(el.parentElement?.children ?? []).indexOf(el)
+    expect(position(section)).toBeLessThan(position(promotions))
+    expect(position(promotions)).toBeLessThan(position(reports))
+    expect(position(reports)).toBeLessThan(position(settings))
+  })
+})
