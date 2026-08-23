@@ -59,6 +59,32 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/product-performance-matrix:
+    get:
+      operationId: getProductPerformanceMatrix
+      summary: >-
+        Every SKU sold in [from, to) with a known margin, classified into a
+        sales x margin quadrant relative to the tenant's own medians for
+        the period
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPerformanceMatrixResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -143,6 +169,42 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ProductPerformanceReport' }
+        error: { nullable: true }
+
+    ProductPerformanceQuadrant:
+      type: string
+      enum: [winners, stars, hidden_gems, problems]
+      description: >-
+        winners = high revenue + high margin (push harder); stars = high
+        revenue + low margin (optimize pricing); hidden_gems = low revenue +
+        high margin (promote); problems = low revenue + low margin
+        (consider discontinuing). "High"/"low" are relative to the
+        response's own median_revenue_minor_units/median_margin_basis_points,
+        not a fixed threshold.
+
+    ProductPerformanceMatrixRow:
+      allOf:
+        - $ref: '#/components/schemas/ProductPerformanceRow'
+        - type: object
+          required: [quadrant]
+          properties:
+            quadrant: { $ref: '#/components/schemas/ProductPerformanceQuadrant' }
+
+    ProductPerformanceMatrix:
+      type: object
+      required: [currency_code, median_revenue_minor_units, median_margin_basis_points, rows]
+      properties:
+        currency_code: { type: string }
+        median_revenue_minor_units: { type: integer, format: int64 }
+        median_margin_basis_points: { type: integer, format: int64 }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/ProductPerformanceMatrixRow' }
+
+    ProductPerformanceMatrixResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProductPerformanceMatrix' }
         error: { nullable: true }
 
     ErrorResponse:

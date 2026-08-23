@@ -23,14 +23,21 @@ type getSalesSummaryReportUC interface {
 type getProductPerformanceReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.ProductPerformanceReport, error)
 }
+type getProductPerformanceMatrixUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.ProductPerformanceMatrix, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport       getSalesSummaryReportUC
 	getProductPerformanceReport getProductPerformanceReportUC
+	getProductPerformanceMatrix getProductPerformanceMatrixUC
 }
 
-func NewHandler(getSalesSummaryReport getSalesSummaryReportUC, getProductPerformanceReport getProductPerformanceReportUC) *Handler {
-	return &Handler{getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport}
+func NewHandler(getSalesSummaryReport getSalesSummaryReportUC, getProductPerformanceReport getProductPerformanceReportUC, getProductPerformanceMatrix getProductPerformanceMatrixUC) *Handler {
+	return &Handler{
+		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
+		getProductPerformanceMatrix: getProductPerformanceMatrix,
+	}
 }
 
 var _ genreports.ServerInterface = (*Handler)(nil)
@@ -39,9 +46,11 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
+	productPerformanceUC := appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo, skuRepo)
 	h := NewHandler(
 		appreports.NewGetSalesSummaryReportUseCase(db, salesRepo, settingsRepo),
-		appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo, skuRepo),
+		productPerformanceUC,
+		appreports.NewGetProductPerformanceMatrixUseCase(productPerformanceUC),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -69,14 +78,40 @@ func (h *Handler) GetProductPerformanceReport(c *gin.Context, params genreports.
 	}
 	rows := make([]genreports.ProductPerformanceRow, len(report.Rows))
 	for i, row := range report.Rows {
-		rows[i] = genreports.ProductPerformanceRow{
-			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
-			QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits, OrderCount: row.OrderCount,
-			FirstSaleAt: row.FirstSaleAt, LastSaleAt: row.LastSaleAt,
-			CostPriceMinorUnits: row.CostPriceMinorUnits, ProfitMinorUnits: row.ProfitMinorUnits, MarginBasisPoints: row.MarginBasisPoints,
-		}
+		rows[i] = toGenProductPerformanceRow(row)
 	}
 	middleware.OK(c, genreports.ProductPerformanceReport{CurrencyCode: report.CurrencyCode, Rows: rows})
+}
+
+func (h *Handler) GetProductPerformanceMatrix(c *gin.Context, params genreports.GetProductPerformanceMatrixParams) {
+	matrix, err := h.getProductPerformanceMatrix.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.ProductPerformanceMatrixRow, len(matrix.Rows))
+	for i, row := range matrix.Rows {
+		base := toGenProductPerformanceRow(row.ProductPerformanceRow)
+		rows[i] = genreports.ProductPerformanceMatrixRow{
+			SkuId: base.SkuId, SkuCode: base.SkuCode, ProductName: base.ProductName,
+			QuantitySold: base.QuantitySold, RevenueMinorUnits: base.RevenueMinorUnits, OrderCount: base.OrderCount,
+			FirstSaleAt: base.FirstSaleAt, LastSaleAt: base.LastSaleAt,
+			CostPriceMinorUnits: base.CostPriceMinorUnits, ProfitMinorUnits: base.ProfitMinorUnits, MarginBasisPoints: base.MarginBasisPoints,
+			Quadrant: genreports.ProductPerformanceQuadrant(row.Quadrant),
+		}
+	}
+	middleware.OK(c, genreports.ProductPerformanceMatrix{
+		CurrencyCode: matrix.CurrencyCode, MedianRevenueMinorUnits: matrix.MedianRevenueMinorUnits,
+		MedianMarginBasisPoints: matrix.MedianMarginBasisPoints, Rows: rows,
+	})
+}
+
+func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {
+	return genreports.ProductPerformanceRow{
+		SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
+		QuantitySold: row.QuantitySold, RevenueMinorUnits: row.RevenueMinorUnits, OrderCount: row.OrderCount,
+		FirstSaleAt: row.FirstSaleAt, LastSaleAt: row.LastSaleAt,
+		CostPriceMinorUnits: row.CostPriceMinorUnits, ProfitMinorUnits: row.ProfitMinorUnits, MarginBasisPoints: row.MarginBasisPoints,
+	}
 }
 
 func toGenSalesSummary(s omsDomain.SalesSummary) genreports.SalesSummary {

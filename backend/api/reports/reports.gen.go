@@ -19,6 +19,30 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ProductPerformanceQuadrant.
+const (
+	HiddenGems ProductPerformanceQuadrant = "hidden_gems"
+	Problems   ProductPerformanceQuadrant = "problems"
+	Stars      ProductPerformanceQuadrant = "stars"
+	Winners    ProductPerformanceQuadrant = "winners"
+)
+
+// Valid indicates whether the value is a known member of the ProductPerformanceQuadrant enum.
+func (e ProductPerformanceQuadrant) Valid() bool {
+	switch e {
+	case HiddenGems:
+		return true
+	case Problems:
+		return true
+	case Stars:
+		return true
+	case Winners:
+		return true
+	default:
+		return false
+	}
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -27,6 +51,48 @@ type ErrorResponse struct {
 		Message *string `json:"message,omitempty"`
 	} `json:"error,omitempty"`
 }
+
+// ProductPerformanceMatrix defines model for ProductPerformanceMatrix.
+type ProductPerformanceMatrix struct {
+	CurrencyCode            string                        `json:"currency_code"`
+	MedianMarginBasisPoints int64                         `json:"median_margin_basis_points"`
+	MedianRevenueMinorUnits int64                         `json:"median_revenue_minor_units"`
+	Rows                    []ProductPerformanceMatrixRow `json:"rows"`
+}
+
+// ProductPerformanceMatrixResponse defines model for ProductPerformanceMatrixResponse.
+type ProductPerformanceMatrixResponse struct {
+	Data  *ProductPerformanceMatrix `json:"data,omitempty"`
+	Error interface{}               `json:"error,omitempty"`
+}
+
+// ProductPerformanceMatrixRow defines model for ProductPerformanceMatrixRow.
+type ProductPerformanceMatrixRow struct {
+	// CostPriceMinorUnits Null when the SKU has no linked catalog SKU, was since deleted, or has no computed cost price.
+	CostPriceMinorUnits *int64    `json:"cost_price_minor_units,omitempty"`
+	FirstSaleAt         time.Time `json:"first_sale_at"`
+	LastSaleAt          time.Time `json:"last_sale_at"`
+
+	// MarginBasisPoints 1 bp = 0.01%, e.g. 4000 = 40.00%.
+	MarginBasisPoints *int64 `json:"margin_basis_points,omitempty"`
+
+	// OrderCount Number of distinct orders this SKU appeared in.
+	OrderCount       int64  `json:"order_count"`
+	ProductName      string `json:"product_name"`
+	ProfitMinorUnits *int64 `json:"profit_minor_units,omitempty"`
+
+	// Quadrant winners = high revenue + high margin (push harder); stars = high revenue + low margin (optimize pricing); hidden_gems = low revenue + high margin (promote); problems = low revenue + low margin (consider discontinuing). "High"/"low" are relative to the response's own median_revenue_minor_units/median_margin_basis_points, not a fixed threshold.
+	Quadrant          ProductPerformanceQuadrant `json:"quadrant"`
+	QuantitySold      int64                      `json:"quantity_sold"`
+	RevenueMinorUnits int64                      `json:"revenue_minor_units"`
+	SkuCode           string                     `json:"sku_code"`
+
+	// SkuId Null for an adhoc/unmatched line item with no linked catalog SKU.
+	SkuId *string `json:"sku_id,omitempty"`
+}
+
+// ProductPerformanceQuadrant winners = high revenue + high margin (push harder); stars = high revenue + low margin (optimize pricing); hidden_gems = low revenue + high margin (promote); problems = low revenue + low margin (consider discontinuing). "High"/"low" are relative to the response's own median_revenue_minor_units/median_margin_basis_points, not a fixed threshold.
+type ProductPerformanceQuadrant string
 
 // ProductPerformanceReport defines model for ProductPerformanceReport.
 type ProductPerformanceReport struct {
@@ -98,6 +164,12 @@ type GetProductPerformanceReportParams struct {
 	To   time.Time `form:"to" json:"to"`
 }
 
+// GetProductPerformanceMatrixParams defines parameters for GetProductPerformanceMatrix.
+type GetProductPerformanceMatrixParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetSalesSummaryReportParams defines parameters for GetSalesSummaryReport.
 type GetSalesSummaryReportParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -109,6 +181,9 @@ type ServerInterface interface {
 	// GetProductPerformanceReport Every SKU sold in [from, to), ranked by revenue
 	// (GET /reports/product-performance)
 	GetProductPerformanceReport(c *gin.Context, params GetProductPerformanceReportParams)
+	// GetProductPerformanceMatrix Every SKU sold in [from, to) with a known margin, classified into a sales x margin quadrant relative to the tenant's own medians for the period
+	// (GET /reports/product-performance-matrix)
+	GetProductPerformanceMatrix(c *gin.Context, params GetProductPerformanceMatrixParams)
 	// GetSalesSummaryReport Revenue/orders/units/AOV for [from, to), compared against the immediately preceding period of equal length
 	// (GET /reports/sales-summary)
 	GetSalesSummaryReport(c *gin.Context, params GetSalesSummaryReportParams)
@@ -156,6 +231,41 @@ func (siw *ServerInterfaceWrapper) GetProductPerformanceReport(c *gin.Context) {
 	}
 
 	siw.Handler.GetProductPerformanceReport(c, params)
+}
+
+// GetProductPerformanceMatrix operation middleware
+func (siw *ServerInterfaceWrapper) GetProductPerformanceMatrix(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProductPerformanceMatrixParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetProductPerformanceMatrix(c, params)
 }
 
 // GetSalesSummaryReport operation middleware
@@ -222,6 +332,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/reports/sales-summary", wrapper.GetSalesSummaryReport)
 	router.GET(options.BaseURL+"/reports/product-performance", wrapper.GetProductPerformanceReport)
+	router.GET(options.BaseURL+"/reports/product-performance-matrix", wrapper.GetProductPerformanceMatrix)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -229,26 +340,31 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7Fffb9u2E/9XDvx+i7WAYqlp0AcBfSiGYigGrEGC7aUrhLN4kthKJHOknHmB//eBlO04sjw7afq2N4nk",
-	"/fx8eHe8E6XprNGkvRP5nWBy1mhH8ecDs+HwURrtSfvwida2qkSvjE6/OqPDmisb6jB8/Z+pErn4X3qv",
-	"NR12XRq1Xa31i9VqlQhJrmRlgzKRC4rmwvpaZOvDViq/E5aNJfZqcFGij4Z137Y4b0nknntaJWtle+dL",
-	"I6MWv7QkcuE8K12LVSI6cg7rqb1Vslkx869U+qmVRFyykX3pL4krwx3qkq7IGvYTLvTMpMtlcdAXNrfx",
-	"pPLUuWNpnTBsbsW9i8iMy+gz002vmKTIP4+cWJv88oi4jkPySKeHbO0iN8L0xKyb2ynUnS8sq5KKTmnD",
-	"Ra/VwPeHDPytb1u4bUiDbwiuf/0dGnSgDbRKfyMJJXpsTR12ErhFB07pkkBSS55kAoY3AiHm3gcR4zxE",
-	"0zORiOilF7lQ2r+9EMkoxm2ESnuqiUOIlWLnC4ctFRjZtNUh0dOZV13Ab49DLT5FqkOulS7m6JQrrFF6",
-	"KkuvYW7hHWSz7PWLBGhWz+AiyzJ4BxfZLMtePDFQw5K4KE0/FJoxMt2cGEwFUjmvdOkhnnfgG+UiVGgt",
-	"IZMEpSc92LdoB/YUGrvpi2jZVMqPOfOE2G561F75ZeFMKyd17MswLUj3dNT6vqT71h8uLmFTyQPcrwwD",
-	"akDZmDLtdYe+bEgG+hOEagS3yjfTF2J2OBE7lXS3Bm3dHCExTtd0Kh4SZnxPRhdgqrJdY0vuuu865OV+",
-	"ycAFMdZUDEYW2D4JiRGnfyjq8ezpBBuBcUqKdywkRxN0LOWH2iOaRVE2qGsqLHFJo8xJ0weCHeSajoUi",
-	"GDveZ4cT/lizekCUh6A+j6eWaaFM7x7ryAazfSf+ra1trIElVkb+5GCtJ3a0v4kNvNQGOkKtdF31LawV",
-	"w2AHTFUBDgfn6CgUh1cPKu7pkd8z6jkyeWTG2cC9k/DTSPp9s84E6R815YQlpSuzj+t7edaYEua9U5qc",
-	"Owt3u21VTWEo4WjKgVkQA/0Vu2YNP5uuCxn+dA3Bd3h52aAjyEJnDeT4uKvizz7Lzt/CFZVBSss49QMb",
-	"lB3aVzO49hgsxJ6AEGqtAzcEGgcgDBct9hOeK89heeAcYI1KOx9Nqq4jqdBTuwzcLEkGqfVBUwHd9NhC",
-	"S7r2TaCZVz5kS+yEcrWO9f3lR5GIBbFbTyqzLF5YSxqtErl4M8tmbwIB0DcRwHSdpnTdgc7s/SgZ9muK",
-	"VAyYx+g/SpGLX8gfHGCDbsaOPLET+ec7oYIjNz3xMhA4ThqiYtOJXbIOdL5/R50yra2SaeXefL/qL8nD",
-	"l+B5lj3bO/Doi2LiaWi+BRwvzs8PKd96Ozwzh1fkpreLDwviZRwSQ6kBpeFzgCABb14lwBhnmflyUwij",
-	"9JYZkddn7n5QOMSJiYv+HxseXx1/IA+uBnzT4emQxu6Tvv/0R5x7dykxVC96eqEanHfEiw3yPbciFyla",
-	"lS5ei9WX1T8BAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
