@@ -6,6 +6,9 @@ type ChannelType string
 
 const (
 	ChannelTypeWooCommerce ChannelType = "woocommerce"
+	// ChannelTypeBol is the Bol.com marketplace adapter (Offer API v11 +
+	// Product Content API v10) -- see application/channels.PushProductToBolUseCase.
+	ChannelTypeBol ChannelType = "bol"
 	// ChannelTypeInternal is reserved for a future built-in CommerceOS
 	// storefront -- no push adapter exists for it yet, but the type is
 	// defined now so adding it later doesn't need a SalesChannel redesign.
@@ -14,7 +17,7 @@ const (
 
 func (t ChannelType) Valid() bool {
 	switch t {
-	case ChannelTypeWooCommerce, ChannelTypeInternal:
+	case ChannelTypeWooCommerce, ChannelTypeBol, ChannelTypeInternal:
 		return true
 	default:
 		return false

@@ -8,7 +8,10 @@ import (
 
 type Provider string
 
-const ProviderWooCommerce Provider = "woocommerce"
+const (
+	ProviderWooCommerce Provider = "woocommerce"
+	ProviderBol         Provider = "bol"
+)
 
 type Status string
 
@@ -62,6 +65,10 @@ type Connection struct {
 	// -- same "set once here, reused everywhere" role as DefaultCurrency,
 	// just for warehouse instead of currency.
 	DefaultWarehouseID *string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// BolEconomicOperatorID is Bol's required EU-operator identifier, sent
+	// on every offer this connection pushes -- nil/empty for non-Bol
+	// connections, which never read it.
+	BolEconomicOperatorID *string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
