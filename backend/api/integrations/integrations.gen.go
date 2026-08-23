@@ -43,6 +43,51 @@ func (e AIProvider) Valid() bool {
 	}
 }
 
+// Defines values for BolProductOverrideConditionCategory.
+const (
+	BolProductOverrideConditionCategoryNEW         BolProductOverrideConditionCategory = "NEW"
+	BolProductOverrideConditionCategoryREFURBISHED BolProductOverrideConditionCategory = "REFURBISHED"
+	BolProductOverrideConditionCategorySECONDHAND  BolProductOverrideConditionCategory = "SECONDHAND"
+)
+
+// Valid indicates whether the value is a known member of the BolProductOverrideConditionCategory enum.
+func (e BolProductOverrideConditionCategory) Valid() bool {
+	switch e {
+	case BolProductOverrideConditionCategoryNEW:
+		return true
+	case BolProductOverrideConditionCategoryREFURBISHED:
+		return true
+	case BolProductOverrideConditionCategorySECONDHAND:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BolProductOverrideFulfilmentMethod.
+const (
+	BolProductOverrideFulfilmentMethodBOLDELIVERYPROMISE BolProductOverrideFulfilmentMethod = "BOL_DELIVERY_PROMISE"
+	BolProductOverrideFulfilmentMethodFBB                BolProductOverrideFulfilmentMethod = "FBB"
+	BolProductOverrideFulfilmentMethodFBR                BolProductOverrideFulfilmentMethod = "FBR"
+	BolProductOverrideFulfilmentMethodSHIPPINGVIABOL     BolProductOverrideFulfilmentMethod = "SHIPPING_VIA_BOL"
+)
+
+// Valid indicates whether the value is a known member of the BolProductOverrideFulfilmentMethod enum.
+func (e BolProductOverrideFulfilmentMethod) Valid() bool {
+	switch e {
+	case BolProductOverrideFulfilmentMethodBOLDELIVERYPROMISE:
+		return true
+	case BolProductOverrideFulfilmentMethodFBB:
+		return true
+	case BolProductOverrideFulfilmentMethodFBR:
+		return true
+	case BolProductOverrideFulfilmentMethodSHIPPINGVIABOL:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ChannelType.
 const (
 	Internal    ChannelType = "internal"
@@ -250,6 +295,51 @@ func (e SyncScheduleLastRunStatus) Valid() bool {
 	}
 }
 
+// Defines values for UpsertBolProductOverrideRequestConditionCategory.
+const (
+	UpsertBolProductOverrideRequestConditionCategoryNEW         UpsertBolProductOverrideRequestConditionCategory = "NEW"
+	UpsertBolProductOverrideRequestConditionCategoryREFURBISHED UpsertBolProductOverrideRequestConditionCategory = "REFURBISHED"
+	UpsertBolProductOverrideRequestConditionCategorySECONDHAND  UpsertBolProductOverrideRequestConditionCategory = "SECONDHAND"
+)
+
+// Valid indicates whether the value is a known member of the UpsertBolProductOverrideRequestConditionCategory enum.
+func (e UpsertBolProductOverrideRequestConditionCategory) Valid() bool {
+	switch e {
+	case UpsertBolProductOverrideRequestConditionCategoryNEW:
+		return true
+	case UpsertBolProductOverrideRequestConditionCategoryREFURBISHED:
+		return true
+	case UpsertBolProductOverrideRequestConditionCategorySECONDHAND:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpsertBolProductOverrideRequestFulfilmentMethod.
+const (
+	UpsertBolProductOverrideRequestFulfilmentMethodBOLDELIVERYPROMISE UpsertBolProductOverrideRequestFulfilmentMethod = "BOL_DELIVERY_PROMISE"
+	UpsertBolProductOverrideRequestFulfilmentMethodFBB                UpsertBolProductOverrideRequestFulfilmentMethod = "FBB"
+	UpsertBolProductOverrideRequestFulfilmentMethodFBR                UpsertBolProductOverrideRequestFulfilmentMethod = "FBR"
+	UpsertBolProductOverrideRequestFulfilmentMethodSHIPPINGVIABOL     UpsertBolProductOverrideRequestFulfilmentMethod = "SHIPPING_VIA_BOL"
+)
+
+// Valid indicates whether the value is a known member of the UpsertBolProductOverrideRequestFulfilmentMethod enum.
+func (e UpsertBolProductOverrideRequestFulfilmentMethod) Valid() bool {
+	switch e {
+	case UpsertBolProductOverrideRequestFulfilmentMethodBOLDELIVERYPROMISE:
+		return true
+	case UpsertBolProductOverrideRequestFulfilmentMethodFBB:
+		return true
+	case UpsertBolProductOverrideRequestFulfilmentMethodFBR:
+		return true
+	case UpsertBolProductOverrideRequestFulfilmentMethodSHIPPINGVIABOL:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebhookFallbackEventStatus.
 const (
 	WebhookFallbackEventStatusAbandoned        WebhookFallbackEventStatus = "abandoned"
@@ -311,6 +401,47 @@ type AIConnectionResponse struct {
 // AIProvider defines model for AIProvider.
 type AIProvider string
 
+// BolCommission defines model for BolCommission.
+type BolCommission struct {
+	Ean         string  `json:"ean"`
+	FixedAmount float64 `json:"fixed_amount"`
+
+	// Overridden True when this came from the merchant's own CommissionOverrideBasisPoints instead of a live Bol API call.
+	Overridden bool    `json:"overridden"`
+	Percentage float64 `json:"percentage"`
+}
+
+// BolCommissionResponse defines model for BolCommissionResponse.
+type BolCommissionResponse struct {
+	Data  *BolCommission `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
+// BolProductOverride defines model for BolProductOverride.
+type BolProductOverride struct {
+	// CommissionOverrideBasisPoints Merchant's own commission assumption (basis points, e.g. 1500 = 15.00%) -- overrides the live Bol Commissions API lookup in the profit calculator when set.
+	CommissionOverrideBasisPoints *int                                `json:"commission_override_basis_points,omitempty"`
+	ConditionCategory             BolProductOverrideConditionCategory `json:"condition_category"`
+	ConnectionId                  string                              `json:"connection_id"`
+	EanOverride                   *string                             `json:"ean_override,omitempty"`
+	FulfilmentMethod              BolProductOverrideFulfilmentMethod  `json:"fulfilment_method"`
+	GpcCode                       *string                             `json:"gpc_code,omitempty"`
+	ProductId                     string                              `json:"product_id"`
+	ReferenceOverride             *string                             `json:"reference_override,omitempty"`
+}
+
+// BolProductOverrideConditionCategory defines model for BolProductOverride.ConditionCategory.
+type BolProductOverrideConditionCategory string
+
+// BolProductOverrideFulfilmentMethod defines model for BolProductOverride.FulfilmentMethod.
+type BolProductOverrideFulfilmentMethod string
+
+// BolProductOverrideResponse defines model for BolProductOverrideResponse.
+type BolProductOverrideResponse struct {
+	Data  *BolProductOverride `json:"data,omitempty"`
+	Error interface{}         `json:"error,omitempty"`
+}
+
 // CatalogEntry defines model for CatalogEntry.
 type CatalogEntry struct {
 	Name     string `json:"name"`
@@ -332,6 +463,15 @@ type ConnectAIProviderRequest struct {
 	BaseUrl  *string    `json:"base_url,omitempty"`
 	Model    *string    `json:"model,omitempty"`
 	Provider AIProvider `json:"provider"`
+}
+
+// ConnectBolRequest defines model for ConnectBolRequest.
+type ConnectBolRequest struct {
+	ClientId     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+
+	// EconomicOperatorId Bol's required EU-operator identifier, sent on every offer this connection pushes.
+	EconomicOperatorId string `json:"economic_operator_id"`
 }
 
 // Connection Never includes the stored consumer key/secret — credentials must never round-trip to the frontend.
@@ -692,6 +832,22 @@ type UpdateSalesChannelRequest struct {
 	Name                 string         `json:"name"`
 }
 
+// UpsertBolProductOverrideRequest defines model for UpsertBolProductOverrideRequest.
+type UpsertBolProductOverrideRequest struct {
+	CommissionOverrideBasisPoints *int                                              `json:"commission_override_basis_points,omitempty"`
+	ConditionCategory             *UpsertBolProductOverrideRequestConditionCategory `json:"condition_category,omitempty"`
+	EanOverride                   *string                                           `json:"ean_override,omitempty"`
+	FulfilmentMethod              *UpsertBolProductOverrideRequestFulfilmentMethod  `json:"fulfilment_method,omitempty"`
+	GpcCode                       *string                                           `json:"gpc_code,omitempty"`
+	ReferenceOverride             *string                                           `json:"reference_override,omitempty"`
+}
+
+// UpsertBolProductOverrideRequestConditionCategory defines model for UpsertBolProductOverrideRequest.ConditionCategory.
+type UpsertBolProductOverrideRequestConditionCategory string
+
+// UpsertBolProductOverrideRequestFulfilmentMethod defines model for UpsertBolProductOverrideRequest.FulfilmentMethod.
+type UpsertBolProductOverrideRequestFulfilmentMethod string
+
 // UpsertExternalCategoryLinkRequest defines model for UpsertExternalCategoryLinkRequest.
 type UpsertExternalCategoryLinkRequest struct {
 	CategoryId string `json:"category_id"`
@@ -798,6 +954,12 @@ type ListWebhookFallbackEventsParamsStatus string
 // ConnectAIProviderJSONRequestBody defines body for ConnectAIProvider for application/json ContentType.
 type ConnectAIProviderJSONRequestBody = ConnectAIProviderRequest
 
+// ConnectBolJSONRequestBody defines body for ConnectBol for application/json ContentType.
+type ConnectBolJSONRequestBody = ConnectBolRequest
+
+// UpsertBolProductOverrideJSONRequestBody defines body for UpsertBolProductOverride for application/json ContentType.
+type UpsertBolProductOverrideJSONRequestBody = UpsertBolProductOverrideRequest
+
 // UpsertExternalCategoryLinkJSONRequestBody defines body for UpsertExternalCategoryLink for application/json ContentType.
 type UpsertExternalCategoryLinkJSONRequestBody = UpsertExternalCategoryLinkRequest
 
@@ -809,6 +971,9 @@ type ImportWooProductsJSONRequestBody = ImportWooProductsRequest
 
 // PushProductToWooJSONRequestBody defines body for PushProductToWoo for application/json ContentType.
 type PushProductToWooJSONRequestBody = PushProductToWooRequest
+
+// PushProductToBolJSONRequestBody defines body for PushProductToBol for application/json ContentType.
+type PushProductToBolJSONRequestBody = PushProductToWooRequest
 
 // UpdateConnectionSettingsJSONRequestBody defines body for UpdateConnectionSettings for application/json ContentType.
 type UpdateConnectionSettingsJSONRequestBody = UpdateConnectionSettingsRequest
@@ -842,6 +1007,9 @@ type ServerInterface interface {
 	// ConnectAIProvider Configure (or switch) the tenant's AI provider -- overwrites any existing configuration, only one is active at a time
 	// (POST /integrations/ai)
 	ConnectAIProvider(c *gin.Context)
+	// ConnectBol Connect Bol.com by pasting Retailer API client credentials -- no OAuth redirect (Bol uses client_credentials)
+	// (POST /integrations/bol/connect)
+	ConnectBol(c *gin.Context)
 	// ListCatalog List available integration providers
 	// (GET /integrations/catalog)
 	ListCatalog(c *gin.Context)
@@ -851,6 +1019,15 @@ type ServerInterface interface {
 	// DeleteConnection Disconnect an integration
 	// (DELETE /integrations/connections/{id})
 	DeleteConnection(c *gin.Context, id Id)
+	// GetBolCommission Live Bol commission for this SKU's EAN at its current price (falls back to the product's CommissionOverrideBasisPoints when set, without calling Bol) -- powers the product edit page's Bol profit calculator.
+	// (GET /integrations/connections/{id}/bol-commission/{productId}/{skuId})
+	GetBolCommission(c *gin.Context, id Id, productId ProductId, skuId string)
+	// GetBolProductOverride Get this product's Bol-specific field overrides for this connection, if any exist
+	// (GET /integrations/connections/{id}/bol-overrides/{productId})
+	GetBolProductOverride(c *gin.Context, id Id, productId ProductId)
+	// UpsertBolProductOverride Save this product's Bol-specific field overrides for this connection
+	// (PUT /integrations/connections/{id}/bol-overrides/{productId})
+	UpsertBolProductOverride(c *gin.Context, id Id, productId ProductId)
 	// ListExternalCategoryLinks List this connection's CommerceOS-category -> Woo-category links (auto-matched on push, or set manually here)
 	// (GET /integrations/connections/{id}/category-links)
 	ListExternalCategoryLinks(c *gin.Context, id Id)
@@ -878,6 +1055,9 @@ type ServerInterface interface {
 	// PushProductToWoo Push a single-SKU CommerceOS product to this connection's WooCommerce store as a new product
 	// (POST /integrations/connections/{id}/push-product)
 	PushProductToWoo(c *gin.Context, id Id)
+	// PushProductToBol Push a CommerceOS product to this Bol connection as one offer per non-bulk-pool SKU
+	// (POST /integrations/connections/{id}/push-product-bol)
+	PushProductToBol(c *gin.Context, id Id)
 	// UpdateConnectionSettings Update this connection's stored defaults (currently just default_currency)
 	// (PATCH /integrations/connections/{id}/settings)
 	UpdateConnectionSettings(c *gin.Context, id Id)
@@ -997,6 +1177,19 @@ func (siw *ServerInterfaceWrapper) ConnectAIProvider(c *gin.Context) {
 	siw.Handler.ConnectAIProvider(c)
 }
 
+// ConnectBol operation middleware
+func (siw *ServerInterfaceWrapper) ConnectBol(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ConnectBol(c)
+}
+
 // ListCatalog operation middleware
 func (siw *ServerInterfaceWrapper) ListCatalog(c *gin.Context) {
 
@@ -1046,6 +1239,117 @@ func (siw *ServerInterfaceWrapper) DeleteConnection(c *gin.Context) {
 	}
 
 	siw.Handler.DeleteConnection(c, id)
+}
+
+// GetBolCommission operation middleware
+func (siw *ServerInterfaceWrapper) GetBolCommission(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "productId" -------------
+	var productId ProductId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "productId", c.Param("productId"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter productId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "skuId" -------------
+	var skuId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "skuId", c.Param("skuId"), &skuId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter skuId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetBolCommission(c, id, productId, skuId)
+}
+
+// GetBolProductOverride operation middleware
+func (siw *ServerInterfaceWrapper) GetBolProductOverride(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "productId" -------------
+	var productId ProductId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "productId", c.Param("productId"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter productId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetBolProductOverride(c, id, productId)
+}
+
+// UpsertBolProductOverride operation middleware
+func (siw *ServerInterfaceWrapper) UpsertBolProductOverride(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "productId" -------------
+	var productId ProductId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "productId", c.Param("productId"), &productId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter productId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpsertBolProductOverride(c, id, productId)
 }
 
 // ListExternalCategoryLinks operation middleware
@@ -1298,6 +1602,31 @@ func (siw *ServerInterfaceWrapper) PushProductToWoo(c *gin.Context) {
 	}
 
 	siw.Handler.PushProductToWoo(c, id)
+}
+
+// PushProductToBol operation middleware
+func (siw *ServerInterfaceWrapper) PushProductToBol(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PushProductToBol(c, id)
 }
 
 // UpdateConnectionSettings operation middleware
@@ -1950,6 +2279,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/integrations/connections/:id/sync-schedules", wrapper.UpsertSyncSchedules)
 	router.POST(options.BaseURL+"/integrations/woocommerce/connect/start", wrapper.StartWooConnect)
 	router.POST(options.BaseURL+"/integrations/woocommerce/connect/manual", wrapper.ManualConnectWooCommerce)
+	router.POST(options.BaseURL+"/integrations/bol/connect", wrapper.ConnectBol)
+	router.POST(options.BaseURL+"/integrations/connections/:id/push-product-bol", wrapper.PushProductToBol)
+	router.GET(options.BaseURL+"/integrations/connections/:id/bol-overrides/:productId", wrapper.GetBolProductOverride)
+	router.PUT(options.BaseURL+"/integrations/connections/:id/bol-overrides/:productId", wrapper.UpsertBolProductOverride)
+	router.GET(options.BaseURL+"/integrations/connections/:id/bol-commission/:productId/:skuId", wrapper.GetBolCommission)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -1957,104 +2291,118 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7F3vjty2dn+VA7WAd3FndjZO+uE6n/Y6TurbxDbsDVzg2lhwpTMjZiVSIakZT40F+hB9wj5JwUPq3ww1",
-	"0vzZzbbpF2M9kijy/D8/nkN9jWKZF1KgMDp68TUqmGI5GlT0P57QvyJ6ERXMpNEkEizH6IW9MIkU/l5y",
-	"hUn0wqgSJ5GOU8yZfcKsC3uXNoqLRXR/P4kyLu5e943mL+43YqFkUsamd9Dm+j7j3tubdSGFRqLAK6Wk",
-	"sn/EUhgUxv7JiiLjMTNcitlvWgr7WzPiPyucRy+if5o1hJ25q3pGo73347u3JahjxQs7WPQiQnqd/d0/",
-	"Yke8ev1SCoGxu+frxiNvcIkKuIizMkENJkXQRipM4Orda7jDNUynECtMUBjOMg15qQ0IekrJUiRTo3gB",
-	"RtKjc0XrTC4ionCBynBHiVum8aZUWYBqkyhWyAwmN4wINJcqt39FCTM4NTzHaLL9jBOurZ9zmWD4JYWS",
-	"S56gGqLy1et31Z2WkIaZUg8901D4g7vfSUIlNv9wEl/PoB62s/TP9Srl7W8YG/v6NvNqzltF6xA3YYaE",
-	"h2XZ23n04h9DC2wJxP3nSSTKLGO3GTr5vp94OXrxdfPKfXCG71qERVHmdr2yQMF4NImYMKmSBY+jSbTA",
-	"nAv7o8wylrPWghsuvWSGZXLxShi13l6oU84B5m4re5sTLSbQaCGq+0n8zLUZJjo3mA8LSHtZDRmZUoz+",
-	"vw/FX6ZMCMyu6feG5CspY5nnqGKrL1wYVIJlYSI7/jese4+/l6jN9iJZwW/ucB2k+U6VPq0e9vEwyLyD",
-	"rF0shS5zVNbkzTTGCg3893/+1ylM3yHWLcE5KzNzE5dKoYjDDKhuWjGFqSw13jij2F3zO4VzVHaNL714",
-	"vP0A9SMwlwpMyrWlgKcbLVwjJhqQxSnotYjBsiUpMwQlV880yJWA0PthlaIAkzJjb4SUafHMgEYDUiBw",
-	"ozGbWxJ15Xy8fd+h6Icba/ukVH3CPGjKq0fHm/VmCqe0MS2rfqSF2cPnjJ/RYTP4UPO0MnReUNHywY0Z",
-	"tHHEgQ8sQ+0NZq+RayT/pkfqUCiZZTkKcxMzgwup1iNutTZwMKarb//F3t0dwLBF8B2VG8y5+BnFwqTR",
-	"i28CJDDeQ+xkUcuZbEo6vcYPs72wkFz/gBkavMqy13khlcHknQuj9XvUZRYgfUIPJBVV/a9+XOvDFi4M",
-	"q+7zYfnAXdpy/UaqxCci23eS3OiOavWQr9KgDdoEXxWY5yS0xPr9B9DwOI0cYtCeavoqL8x6eEZHBZgb",
-	"GtIyBCyzNrdSSCupbBFNopyJsifw6WZQB8x303Ak4XA0R63ZAsPOZGOFwTV/cdHbS7+2n7m4C7x+wBQN",
-	"27VDQhP0c+sb8xDHXRbJnvMIOeXuejtOuj3pSYdwHSJ0ZvJ5JGNO6MKDfD/SmYfGPM6I9M1yn1n9iCZO",
-	"P0r5Vu1KP2q2kYENhrfXKQJd9UHpRynd/+H1DzNR5reoJsA06NRe5YKC9Y9SVsEwsCTnAqZTENIAawfJ",
-	"nIL53YK3PcPPw6s9hvibQx1gtUNDbBsXpxUtdb2VMkMmDnOfkzAvt0P4xp8G2d2wx/ObHvAc58kFvCmz",
-	"DKTI1i4TcTMFrkFIMUXrr0alH6WIUyYWfQTwZiJ0cVBAaovTmJuo/cKd0cGPHLPkJd25zbO5knmYF3I4",
-	"r6GH6dbQe1288Hd5G8AIMoUsWd9kXNx1SNKKtx7IFVk63fQ728MEdc4F1+nuqRyavnIfdoWppO94UWBy",
-	"UwXugTsMU+bIqemtjKpAkdiLk0iVQri/rOmhwDWaRHPGM0wCEdUYL1znxPXaJ5sis7Hymm2bHB7Mq2sp",
-	"Pc7GNsK+p2V1D36UsgmrezxbCODpWrqWj3qmwScUgCIpJBcGEokErSg0pRLAoBoJzrh5poE5ZGua4RIz",
-	"0GgMF4vzCWgHV8Usy1CBLosi46iBm4tdONRuiOljyuM0DC9VTLezie/g95IJwy0RgCkEZozit6W9biTB",
-	"Tm3PnDJrtVuDxVLEWJhhrxycdgBVC8nQL5Q+eACiNZ1d8AFBh71AaX2DwxV7oKvRAFQbcOq8e/tNofV5",
-	"0fSJvw1e7UsOAEUeMXng+mbJFGcVqrvtkDOmzY1ei/hI4+j17OYg+HEt4ptd1tXNbydstX8mNImINKKa",
-	"88ASe9DMatF7ZFHt5e6XRQVF8DiTHZbqPc13cBB9otyud4bHJHfvSp36ga/lRyl7jdROud7eXqnuDXGv",
-	"jakGosHY8CWGlXTLpgyq40E2phesHXzdY4C3PZald2tzbxT3VHDKbvh3UnF6P9VvC88JgZOOTB6pU+2x",
-	"vG4NYm+H5gO9XNdZGRYfwxbH4NZtztI7Po+jQCPqAZSGrvWlykVDwrEcrKjeY5hqacRk7PQfSNS2ibOH",
-	"7Nlc27AslOgNieVxvnJTWfZSDjQBArxdolI86Y+R/Zb7GMCkvjXIWpv/UlBOnqT3fQeF06NeOET4DW9Y",
-	"mlQq/h875rL1yr3YsRbxz73lMg5RchNJEm4dL7Msa92yE2psYU2hlw+nCAlXTSlGHQ+XOq3hgGAQnHCd",
-	"c61rD9bNNj9QMUGMoA2bz4HFd0KuMkwW6AoZ5oxnpaKKjJxy3U+RoGIGZgwKO8inCJYcV7DiJpUl5dBq",
-	"zcXCZ8GHZQ4jwKiB5Gdu6b2TW322vuFJz9CZCzd3pDUDWQ9drrxVlx9vRbaGQhZlZh0/3K6J6AYFE2a6",
-	"4gm6ApKUW01bg50Kpfr2rgLV1M+thjae6Qqd8DARWAa7ah0/kyBWMbI0pBJDXcYxar0zG+uYkaNXHZz1",
-	"cM76YAlco50tlG4TcfNCOamNSXvKnwdM0indbtvSHRvhtcZ6xxb4B09x30BgLeIPvhrrEGDxvZceMBJQ",
-	"2HlUaqVnzihfwK+i1JiANCmqFdc4as9kHFhYv/7Mml/YnO95/7S+h0rwgWVSYOtOQhePnH3IV3knZTWn",
-	"11u5KfTtlAnDzbpG9Gsf2NSH0NSjSVTXkHQKRdyvNwpjKWKeeQgsNA2q+Fyy7CbnojR9hTSEk6lSHAWS",
-	"1YPUEt1/y7bhtWsetL2bu2gtMnYNV0X9AAG2Z7E19c8D+nViA1ar7ZEG7FdKsltFcg7e32+74UD9fVu4",
-	"yOQC3ubcgFSgUSRgZ20VMs6QKe/fu1WlJkVRYfpFXZTaoPtMJIBLVOvtglNXeqvRADe07TtCo3u2BHZi",
-	"/46uo4oG98K5/k8UFIarA3txoTB9NSoTrkjp210ZIs/OoLpvM36rDKh/tm297VewSlr1iezBZpJaDx+a",
-	"6Ee8TaW8+5Fl2S2L714twzCN/fmUVVsKY+TLPdHZ3v2RG4VFeZtxSg7rv9128S0TiRR9W9Cj6HFCSx4k",
-	"95EW3Y/5gfbt9kUZhu3Nyg3fvwN5LBDxUcpKnXeUcZ0IBd2p1UPgZmump5SJ1vqPFQUpr9mXlxnTentS",
-	"Gbvt6asZRyu6a+KH+bz77aclT72mo8hzT5HuXIYKAblKpgVTZg0U8CqKlVsRiIazROaMi1nruj6/gOsU",
-	"oRSstBGK4TEl9O1ChNhrOmR8iRq4AAYaC6aYQdAFxnDGCt4ZtXrknEIhbtrNQ7cIuSwFwQaYcpHA3z9e",
-	"EzjAjV16q8gNXrfGpJbMs0JJQ+0P59EkWqLSbvnfXFxaSlLjXcGjF9G3F5cX39r0n5mU+NOZ34zxpv7e",
-	"/mVZS5deJ9GL6Aeu480msWijufX55eXpWls7heSB1lZ55/payzxn1sRE7zGXS2yBLs80XL2GymFZts/5",
-	"onRrspRZOLvXXedPaDrtkA+4xGAr55iV/oSmu8xqaZh0Vnw2l8r+Ly4V2ngMEhmX9EfBlHbVP3wOTJDK",
-	"FVIH6PEyyHSKef4mk/XJiNHbgXjfNVgeH3kSTJlE3z1/3jdgPUPXpb3BwpcVx+DM5ksrbuL0vF92p1OQ",
-	"S1QrxQ1qyzDALx4k7Yj1xBW6UmedBhd3AzPAgKIvO4eu0seuDdUuIqgO1uL7VtWHVIVQf+0YTbAPAFsy",
-	"Tj6iY+Ur2unQqhsPsHvlrfsecvXh5r/RBKC8upabHle3mwyzrzy532n/6feOYWyf7dDTYd7cMuMJtZb/",
-	"sQ5jEn13+d1hGts4QGCiTeQRhJ1VieU04+Jut8yFcmH99Kg91PZyegY0ot6Q95luFZlOKyrD9FN5efkt",
-	"dXU0PxLp4YyVRk5zZmz+DNZOlDqdONDKgOsUy9aQosLzfq/YD1sczqnT+9RhcOWRnevOzqOTSMwxLpmK",
-	"lqwkKHQV1Qw6whPqjN9f+Wdf3fE0I6ztyeRrMniXPzLnaJtx8nbPk5sRnyZs8HYMH+do4nRK+y+01KBl",
-	"6LRSPSVjEOyve2T9D3e9/QGKP4n+5fJAM0FroK0JtxVIAbyrcTwHBjatyrr9hK4V7XZdbVWEOxKlgARz",
-	"O+50SpbmlsV3c55lNsi3Ab0uMOZzHlPxg5jmXGu6RANVhSsrxikrcKYKQeAXU2+cJLSPcgHvS+GKJ/AL",
-	"iw1olldtGZDJBY/dMSj1Q27H0e3BlBr1BHiCeSGtPLhb7QArtoYzBgqnpCcgbWJZFWxMq66PCdRtbVWL",
-	"ngYGQk5lcX4xRgv9BmyvAm513DwlJextBxqliM9PPI92W1RACVkcY2EwIcDqN3kLvqx3Ar4prGqetZK6",
-	"oANwDtDay78+3nFoNnB3cm6lztcSVYsJevcj4olX4vcSS+tpbsvsrnqxnAdi2DqZ72KMlBPbVEO2olyv",
-	"vlukhzONCHGezCrNVefNrqtrCtPA8xwTzgxma7IZvuaK9lssj78nZTTWzrgM0k7Vsb06yAdJFqjvUJMd",
-	"ZAvGhbvKDfhmSW0DqTnjmd5DqzGZts/z2B0dBc6seHJp0tijOx4gXaU3++3zqldwcwM+ZbrpxzsjXop1",
-	"KzDCuQHqkHbVbMycj+GlL9/Ts6/1mYn3vSnvT2jCfTAPE+c2pzg+KN939zOdnts/oWliD7/GZ95la2PT",
-	"mtCpXmeFXFnP3qqjBEy4gYItqMUU1TR2SwDDbs8v4LvL7yBHJrrPUAmH38hAAa6H1x2DtvFCIU0jcFSO",
-	"y82Ezlmwabh7iJtxgUBIzGZ2xdNMLnZjLL4uT//vFrLeusrTy9d1isBKKxpGMZ6RNNmYdEPUqtpWqu3Z",
-	"PkHOG6NSp97ez1wPMDPGWpkJrFJmwIeHE/IoE/IwqxRNamNFA1QohgkmF/AGV6itw1HajJIY++Zpq/sk",
-	"HEBudtA9pfixr7vvkfO4gbbIoPzRHoZAqIq7rQhVJmv64d9+rWSJsDh7I+0FA1rptpaoshBKruCMrA9T",
-	"NgH5C7yBuhVY09Nvmr3YKpw49+/Ly8zwqe+PbYrHn2qyafndpVJrJ7j26jIQUrYjSSpaB0aJFq6q58Zo",
-	"jD8lwB/lbOI0BIWGKw+fFhC6uzrykdVnrx3GQ022W3NAMvz5pr78UcOZK4A02Rp+K7XZrr8eJSjW73ZK",
-	"3nY637p87slF7L21vo+2oaHQUt6ayG7V61b9QlH27kyciMYPtSURrKB8ZCV8WEYfgRv8rczuppotg7q7",
-	"WQet4YziMFTgKuLBrAuEv0BdET9KfU1VwhqMiK6xvRX+5FT2oczpMX5byVvaYwgY3vYB0gSdaIeiKmRZ",
-	"XbUwhmm+hHPalHCG2fcBTaeY9MkxMFzqenqDe/YezxcoUIUdY01PvhDMlArBUfYC3nv0zLLp3c9Xr99c",
-	"v/r3a3/VgehUdBOjDXILpg3aVIWAO58nE1Obd/gzBn99DYovUgNsxdYT+0zMxDMDt0gdqByXWMFrbG5Q",
-	"VVieW6Sd17RCL90VaXN9f4w5ze57+ltmCSxZVlIoWGhYouJz19/a4IEXn0btZq6aPXU+4OmbElj+BD19",
-	"X9nvH207fFiA0FC5XeDHRUB0M77EQMh/ppAlUymytQdZUGmuqVJ0JKcN+zLM5Gu66QnyN1i3/GT4m1Am",
-	"bBM49gViO89H4nTdRdlGzhTa4KLfi7yn6zX44HP//dn+SODYQ5eD/ShVjNPC5ufEpAYJ8+kUuD5pwq8c",
-	"zGWkR8AqTNUdy+e3oWrUdAIKF0wlGWoNcl6DX0ysTWptNouNK1KqNlI1t67HilTGtHFB4nTagWg9ovvJ",
-	"s5H68jwHP0VUKCrFBfwqMn7nfM/6Rzri0UbJcLai4/x8bG6X1OxYuZMgocJdHV5z7mjCshVba1Cl0A7H",
-	"K934FO3I0nBBGxTCTBPFlyjczHlVFa/veKGBEfADtxizUrdWSRBRtYWHHlKud6PJ2+kLuKopQLtdQlb4",
-	"k25tPDuVYf5s2BCUSGfKVlj4QHrb6hV80KrR3oOT9qgbbZUbu2Nz6yX2F4RvfUbhoSrCe7/XMCpT/OZB",
-	"CL2LyNUhvicoQmNddgxK5Mjy3Q2u/ckKeN2O6AZp6ZxvMjcJWtNQW/LGMjdbUxSVueeebdYJ7IRHT0P4",
-	"hwJGD9axy0fXsUdFYjyEGpAYhYKKpox11lNXLcpNWyRoI8I5aLriUVVouqNBlRlewKfoKkmAZdmnaPYp",
-	"Yok7OYYt2v+tduQ/Ra6WhPnuNabQYbYbPdf+xZrKmCfUXo+q2vlysNFKcWNQhJO+gHGZtQszRjm/o4oy",
-	"Jv4bjL+XSB/y8B9h1MhUnEY7v+QYfrJwh9c0z3mGUF97zgXPy7zd4946cKVnQFQ3/YM+vxwY9fMjKVPo",
-	"uLsHg7Jb4URtRasqI64od5naMel855YmuBbwVo3CPm4vnM5IfwAdJTRlGBXbcW7dI1UGnN6ijzuO77Hr",
-	"/h8lGfPnBMIZ2c1P0TmVoNEl/FJfUlT/TVebAoYt0dtMwnaY8JCUjqpCucqy/kKUp2LD2Bc36vPLP9Si",
-	"9Z3PNSbXue47gm1ETQqwWEmtN+robC7bdvWiXYkC75qqKkqf/9W/zlIazpgGWRRSNxFl6Mi7Cbicm2vQ",
-	"sSzczd2KmzYIRNVZuwRxJhATLhbT+sjDUQVSb9xTV/VD/y+nDyenr0jGKklYpVIj5FIbUBiTl7TCVMml",
-	"x12sJPpPalLtXX1QZlco6+MVtwSSQKE3W6dhznlmUF3AlQOD3Pc7fe2VK7Jh1bsmkChZOHmvJi/LptKZ",
-	"jneUou5+OCMIkzjsgJe6WMcoFt/RlyGYwQF5Js/vZ9APWv7gbmiwrD9d1vuBZyhim8RUp6ASKzmJzEoq",
-	"kzaHnZ75L2E1mBmzXo8++jIB5hpPZviloNMmIOea+ijPhw9WndQNKoVC48vNO9V8w8ymae7Cpzug5Z+B",
-	"0Uektu9r7BorU0LIbevDMt47EZy6UcjJYF5mGbgtA1fVy0AwpeQKFBYZW1vtp8yUXsAxS5zcuXc1X51x",
-	"1sUDxRmyJXYNiX2PzX/LRWqgLEJiUm3bzv0BK1OClAc2rQIHNgWCsC6DfqgqpoyErSOqXP+DzG1WTV+J",
-	"C6av1aGDjcic6MyrR9ie7z88azTg7FmlnSzEsswS8gC3CPVKLXX/juaDUchyv+39LXAx9dmS3xl3Gysr",
-	"VFZCl00wVUmBDYnoRAhtkCXjxWYQSb1ybAge+fVncy6/MHVXHbHtyW5NQC2pcJZwHTOVYHIO0yk1BLaq",
-	"yLmGOyx8AwCDlKnEu5s9+TXKN/xZOXbEVvWVDzatwfNmbpvbHX0VcvU95EzdaeveWwbMRoDVIa8B5koZ",
-	"+1ymqkOY+a/29jK177NcD7QdNfQVsCddQ/zXg08pogNP2qnm7ZoqnGgjuunvrcqqEnj/6sM1nUt2h+uZ",
-	"L00bx3BqKdxRxtb98MIDsbnnexKPvR3S85GJ0x9E9TdcBD6B+/aqNOlUm3VGmNlVsxC4ag7Fo/j+vAoO",
-	"YZ7JlZuhRrWsDCqdlR/NWMFny2+i+8/3/xMAAP//",
+	"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",
+	"9zM0qO9KhUqfLkuOWc6P775Jvn76+n8BAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

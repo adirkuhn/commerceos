@@ -143,6 +143,21 @@ type upsertExternalCategoryLinkUC interface {
 type deleteExternalCategoryLinkUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type connectBolUC interface {
+	Execute(ctx context.Context, in appintegrations.ConnectBolInput) (*integrationsDomain.Connection, error)
+}
+type pushProductToBolUC interface {
+	Execute(ctx context.Context, in appchannels.PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
+}
+type getBolProductOverrideUC interface {
+	Execute(ctx context.Context, productID, connectionID string) (*channelsDomain.BolProductOverride, error)
+}
+type upsertBolProductOverrideUC interface {
+	Execute(ctx context.Context, in appchannels.UpsertBolProductOverrideInput) (*channelsDomain.BolProductOverride, error)
+}
+type getBolCommissionUC interface {
+	Execute(ctx context.Context, in appchannels.GetBolCommissionInput) (*appchannels.BolCommissionResult, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -185,6 +200,11 @@ type Handler struct {
 	listWebhookFallbackEvents    listWebhookFallbackEventsUC
 	retryWebhookFallbackEvent    retryWebhookFallbackEventUC
 	abandonWebhookFallbackEvent  abandonWebhookFallbackEventUC
+	connectBol                   connectBolUC
+	pushProductToBol             pushProductToBolUC
+	getBolProductOverride        getBolProductOverrideUC
+	upsertBolProductOverride     upsertBolProductOverrideUC
+	getBolCommission             getBolCommissionUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -227,6 +247,11 @@ func NewHandler(
 	listWebhookFallbackEvents listWebhookFallbackEventsUC,
 	retryWebhookFallbackEvent retryWebhookFallbackEventUC,
 	abandonWebhookFallbackEvent abandonWebhookFallbackEventUC,
+	connectBol connectBolUC,
+	pushProductToBol pushProductToBolUC,
+	getBolProductOverride getBolProductOverrideUC,
+	upsertBolProductOverride upsertBolProductOverrideUC,
+	getBolCommission getBolCommissionUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -267,6 +292,11 @@ func NewHandler(
 		listWebhookFallbackEvents:    listWebhookFallbackEvents,
 		retryWebhookFallbackEvent:    retryWebhookFallbackEvent,
 		abandonWebhookFallbackEvent:  abandonWebhookFallbackEvent,
+		connectBol:                   connectBol,
+		pushProductToBol:             pushProductToBol,
+		getBolProductOverride:        getBolProductOverride,
+		upsertBolProductOverride:     upsertBolProductOverride,
+		getBolCommission:             getBolCommission,
 	}
 }
 
@@ -398,6 +428,11 @@ func Register(
 		appwebhooks.NewListWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appwebhooks.NewRetryWebhookFallbackEventUseCase(db, webhookFallbackRepo, webhookPublisher),
 		appwebhooks.NewAbandonWebhookFallbackEventUseCase(db, webhookFallbackRepo),
+		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
+		pushProductToBolUC,
+		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
+		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo),
+		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -734,6 +769,100 @@ func (h *Handler) PushProductToWoo(c *gin.Context, id genintegrations.Id) {
 	middleware.OK(c, toGenListings(listings))
 }
 
+func (h *Handler) ConnectBol(c *gin.Context) {
+	var req genintegrations.ConnectBolRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.ClientId == "" || req.ClientSecret == "" || req.EconomicOperatorId == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "client_id, client_secret, and economic_operator_id are required")
+		return
+	}
+	conn, err := h.connectBol.Execute(c.Request.Context(), appintegrations.ConnectBolInput{
+		ClientID: req.ClientId, ClientSecret: req.ClientSecret, EconomicOperatorID: req.EconomicOperatorId,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
+}
+
+func (h *Handler) PushProductToBol(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.PushProductToWooRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.ProductId == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "product_id is required")
+		return
+	}
+	listings, err := h.pushProductToBol.Execute(c.Request.Context(), appchannels.PushProductToBolInput{
+		ProductID: req.ProductId, ConnectionID: id,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenListings(listings))
+}
+
+func (h *Handler) GetBolProductOverride(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	override, err := h.getBolProductOverride.Execute(c.Request.Context(), productId, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	if override == nil {
+		middleware.OK(c, nil)
+		return
+	}
+	middleware.OK(c, toGenBolOverride(*override))
+}
+
+func (h *Handler) UpsertBolProductOverride(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	var req genintegrations.UpsertBolProductOverrideRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	condition, fulfilment := "", ""
+	if req.ConditionCategory != nil {
+		condition = string(*req.ConditionCategory)
+	}
+	if req.FulfilmentMethod != nil {
+		fulfilment = string(*req.FulfilmentMethod)
+	}
+	var basisPoints *int32
+	if req.CommissionOverrideBasisPoints != nil {
+		bp := int32(*req.CommissionOverrideBasisPoints)
+		basisPoints = &bp
+	}
+	override, err := h.upsertBolProductOverride.Execute(c.Request.Context(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: productId, ConnectionID: id,
+		EANOverride: req.EanOverride, GPCCode: req.GpcCode,
+		ConditionCategory:             condition,
+		FulfilmentMethod:              fulfilment,
+		CommissionOverrideBasisPoints: basisPoints,
+		ReferenceOverride:             req.ReferenceOverride,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenBolOverride(*override))
+}
+
+func (h *Handler) GetBolCommission(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId, skuId string) {
+	result, err := h.getBolCommission.Execute(c.Request.Context(), appchannels.GetBolCommissionInput{
+		ProductID: productId, ConnectionID: id, SKUID: skuId,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genintegrations.BolCommission{
+		Ean: result.EAN, FixedAmount: result.FixedAmount, Percentage: result.Percentage, Overridden: result.Overridden,
+	})
+}
+
 func (h *Handler) DeleteAllImportedProducts(c *gin.Context, id genintegrations.Id) {
 	result, err := h.deleteAllImportedProds.Execute(c.Request.Context(), appchannels.DeleteAllImportedProductsInput{ConnectionID: id})
 	if err := mapError(c, err); err != nil {
@@ -1039,6 +1168,21 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 		DefaultWarehouseId: c.DefaultWarehouseID,
 		CreatedAt:          c.CreatedAt,
 	}
+}
+
+func toGenBolOverride(o channelsDomain.BolProductOverride) genintegrations.BolProductOverride {
+	resp := genintegrations.BolProductOverride{
+		ProductId: o.ProductID, ConnectionId: o.ConnectionID,
+		EanOverride: o.EANOverride, GpcCode: o.GPCCode,
+		ConditionCategory: genintegrations.BolProductOverrideConditionCategory(o.ConditionCategory),
+		FulfilmentMethod:  genintegrations.BolProductOverrideFulfilmentMethod(o.FulfilmentMethod),
+		ReferenceOverride: o.ReferenceOverride,
+	}
+	if o.CommissionOverrideBasisPoints != nil {
+		bp := int(*o.CommissionOverrideBasisPoints)
+		resp.CommissionOverrideBasisPoints = &bp
+	}
+	return resp
 }
 
 func toGenAIConnection(c integrationsDomain.AIConnection) genintegrations.AIConnection {

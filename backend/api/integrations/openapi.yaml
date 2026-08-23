@@ -755,6 +755,117 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /integrations/bol/connect:
+    post:
+      operationId: connectBol
+      summary: Connect Bol.com by pasting Retailer API client credentials -- no OAuth redirect (Bol uses client_credentials)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectBolRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/push-product-bol:
+    post:
+      operationId: pushProductToBol
+      summary: Push a CommerceOS product to this Bol connection as one offer per non-bulk-pool SKU
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushProductToWooRequest'
+      responses:
+        '200':
+          description: ok -- one listing per pushed SKU.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductChannelListingsResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/bol-overrides/{productId}:
+    get:
+      operationId: getBolProductOverride
+      summary: Get this product's Bol-specific field overrides for this connection, if any exist
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      responses:
+        '200':
+          description: ok -- data is null when no override has been saved yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolProductOverrideResponse'
+    put:
+      operationId: upsertBolProductOverride
+      summary: Save this product's Bol-specific field overrides for this connection
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertBolProductOverrideRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolProductOverrideResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/bol-commission/{productId}/{skuId}:
+    get:
+      operationId: getBolCommission
+      summary: >-
+        Live Bol commission for this SKU's EAN at its current price
+        (falls back to the product's CommissionOverrideBasisPoints when
+        set, without calling Bol) -- powers the product edit page's Bol
+        profit calculator.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+        - name: skuId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolCommissionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -981,6 +1092,67 @@ components:
         store_url: { type: string }
         consumer_key: { type: string }
         consumer_secret: { type: string }
+
+    ConnectBolRequest:
+      type: object
+      required: [client_id, client_secret, economic_operator_id]
+      properties:
+        client_id: { type: string }
+        client_secret: { type: string }
+        economic_operator_id:
+          type: string
+          description: Bol's required EU-operator identifier, sent on every offer this connection pushes.
+
+    BolProductOverride:
+      type: object
+      required: [product_id, connection_id, condition_category, fulfilment_method]
+      properties:
+        product_id: { type: string }
+        connection_id: { type: string }
+        ean_override: { type: string, nullable: true }
+        gpc_code: { type: string, nullable: true }
+        condition_category: { type: string, enum: [NEW, SECONDHAND, REFURBISHED] }
+        fulfilment_method: { type: string, enum: [FBR, FBB, SHIPPING_VIA_BOL, BOL_DELIVERY_PROMISE] }
+        commission_override_basis_points:
+          type: integer
+          nullable: true
+          description: Merchant's own commission assumption (basis points, e.g. 1500 = 15.00%) -- overrides the live Bol Commissions API lookup in the profit calculator when set.
+        reference_override: { type: string, nullable: true }
+
+    BolProductOverrideResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/BolProductOverride'
+          nullable: true
+        error: { nullable: true }
+
+    UpsertBolProductOverrideRequest:
+      type: object
+      properties:
+        ean_override: { type: string, nullable: true }
+        gpc_code: { type: string, nullable: true }
+        condition_category: { type: string, enum: [NEW, SECONDHAND, REFURBISHED] }
+        fulfilment_method: { type: string, enum: [FBR, FBB, SHIPPING_VIA_BOL, BOL_DELIVERY_PROMISE] }
+        commission_override_basis_points: { type: integer, nullable: true }
+        reference_override: { type: string, nullable: true }
+
+    BolCommission:
+      type: object
+      required: [ean, fixed_amount, percentage, overridden]
+      properties:
+        ean: { type: string }
+        fixed_amount: { type: number, format: double }
+        percentage: { type: number, format: double }
+        overridden:
+          type: boolean
+          description: True when this came from the merchant's own CommissionOverrideBasisPoints instead of a live Bol API call.
+
+    BolCommissionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BolCommission' }
+        error: { nullable: true }
 
     ImportWooProductsRequest:
       type: object
