@@ -17,7 +17,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU, SKUMarginInsight } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
@@ -966,6 +966,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             )}
 
             {showFlatSKU && currentSku && (
+              <PriceHistoryCard skuId={currentSku.id} currency={currency} />
+            )}
+
+            {showFlatSKU && currentSku && (
               <FormCard
                 title="Case pack"
                 description="If a supplier sells this as a sealed case/box of another product in your catalog, link it here — lets you split case stock into unit stock later."
@@ -1312,6 +1316,78 @@ function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeT
       )}
       {!loading && !error && insight && (
         <ManualCostPriceEditor skuId={skuId} insight={insight} currency={currency} onChanged={reload} />
+      )}
+    </FormCard>
+  )
+}
+
+const PRICE_HISTORY_REASON_LABEL: Record<SKUPriceHistoryReason, string> = {
+  created: 'Created',
+  manual_update: 'Manual edit',
+  sale_expired: 'Sale expired',
+}
+
+// PriceHistoryCard shows the SKU's immutable effective-dated price/sale
+// price intervals -- see domain/pms.SKUPriceHistory. A row is only written
+// when price/sale price actually changes, so this reconstructs what a SKU
+// actually cost at any past point in time, independent of its current
+// PriceMinorUnits/SalePriceMinorUnits. Fetched fresh whenever skuId
+// changes, same reasoning as MarginInsightCard.
+function PriceHistoryCard({ skuId, currency }: { skuId: string; currency: string }) {
+  const { token } = useAuth()
+  const [history, setHistory] = useState<SKUPriceHistoryEntry[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    pmsApi.listSKUPriceHistory(token, skuId)
+      .then(result => { if (!cancelled) setHistory(result) })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load price history') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, skuId])
+
+  const money = (minorUnits: number) => formatPrice(minorUnits, currency)
+  const formatDate = (value: string) => new Date(value).toLocaleString()
+
+  return (
+    <FormCard title="Price history" description="An immutable record of every effective price change -- not the same as the daily-computed cost price above.">
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {!loading && !error && history && history.length === 0 && (
+        <p className="text-xs dark:text-gray-500 text-gray-400">No price changes recorded yet.</p>
+      )}
+      {!loading && !error && history && history.length > 0 && (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="dark:text-gray-500 text-gray-400">
+              <th className="text-left font-medium pb-1.5 pr-3">Valid from</th>
+              <th className="text-left font-medium pb-1.5 pr-3">Valid until</th>
+              <th className="text-left font-medium pb-1.5 pr-3">Price</th>
+              <th className="text-left font-medium pb-1.5 pr-3">Sale price</th>
+              <th className="text-left font-medium pb-1.5">Reason</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            {history.map(entry => (
+              <tr key={entry.id}>
+                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">{formatDate(entry.valid_from)}</td>
+                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">
+                  {entry.valid_until ? formatDate(entry.valid_until) : <span className="text-green-400 font-medium">Current</span>}
+                </td>
+                <td className="py-1.5 pr-3 dark:text-gray-100 text-gray-900 font-medium">{money(entry.price_minor_units)}</td>
+                <td className="py-1.5 pr-3 dark:text-gray-100 text-gray-900">
+                  {entry.sale_price_minor_units != null ? money(entry.sale_price_minor_units) : '—'}
+                </td>
+                <td className="py-1.5 dark:text-gray-400 text-gray-500">{PRICE_HISTORY_REASON_LABEL[entry.reason]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </FormCard>
   )

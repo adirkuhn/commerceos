@@ -4,7 +4,7 @@ import type {
   CreateProductPayload, UpdateProductPayload,
   CreateVariantPayload, UpdateVariantPayload,
   CreateSKUPayload, UpdateSKUPayload,
-  SKUMarginInsight, SKUCostPriceHistoryEntry, MarginReportRow,
+  SKUMarginInsight, SKUCostPriceHistoryEntry, SKUPriceHistoryEntry, MarginReportRow,
   APIResponse,
 } from './types'
 
@@ -137,6 +137,11 @@ export function getSKUMarginInsight(token: string, id: string): Promise<SKUMargi
 export function listSKUCostPriceHistory(token: string, id: string, limit?: number): Promise<SKUCostPriceHistoryEntry[]> {
   const qs = limit ? `?limit=${limit}` : ''
   return request<SKUCostPriceHistoryEntry[]>(`${base()}/skus/${id}/cost-price-history${qs}`, { method: 'GET' }, token)
+}
+
+export function listSKUPriceHistory(token: string, id: string, limit?: number): Promise<SKUPriceHistoryEntry[]> {
+  const qs = limit ? `?limit=${limit}` : ''
+  return request<SKUPriceHistoryEntry[]>(`${base()}/skus/${id}/price-history${qs}`, { method: 'GET' }, token)
 }
 
 export function setManualCostPrice(token: string, id: string, costPriceMinorUnits: number): Promise<SKU> {

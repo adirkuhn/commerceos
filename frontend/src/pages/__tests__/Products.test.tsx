@@ -36,6 +36,7 @@ vi.mock('../../pms/api', () => ({
   setManualCostPrice: vi.fn(),
   clearCostPriceOverride: vi.fn(),
   listSKUCostPriceHistory: vi.fn(),
+  listSKUPriceHistory: vi.fn(() => Promise.resolve([])),
   listMarginReport: vi.fn(),
   listProductMedia: vi.fn(),
   uploadProductMedia: vi.fn(),
@@ -1581,6 +1582,51 @@ describe('Margin insight shows both markup and profit, with and without BTW', ()
     // markup, matching the backend-supplied top-line figures).
     expect(await screen.findByText(/Excl\. BTW: USD 2\.00 \(20\.0% margin \/ 25\.0% markup\)/)).toBeInTheDocument()
     expect(screen.getByText(/Incl\. BTW: USD 4\.50 \(36\.0% margin \/ 56\.3% markup\)/)).toBeInTheDocument()
+  })
+})
+
+describe('Price history card', () => {
+  it('shows an empty state when the SKU has no recorded price changes', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.listSKUPriceHistory).mockResolvedValue([])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText('No price changes recorded yet.')).toBeInTheDocument()
+  })
+
+  it('shows each interval with its reason, marking the open interval as Current', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.listSKUPriceHistory).mockResolvedValue([
+      {
+        id: 'hist-2', sku_id: 'sku-1', price_minor_units: 1049, sale_price_minor_units: null,
+        currency_code: 'USD', valid_from: '2026-03-01T00:00:00Z', valid_until: null, reason: 'manual_update',
+      },
+      {
+        id: 'hist-1', sku_id: 'sku-1', price_minor_units: 999, sale_price_minor_units: 799,
+        currency_code: 'USD', valid_from: '2026-01-01T00:00:00Z', valid_until: '2026-03-01T00:00:00Z', reason: 'created',
+      },
+    ])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await screen.findByText('Price history')
+    expect(screen.getByText('Current')).toBeInTheDocument()
+    expect(screen.getByText('Manual edit')).toBeInTheDocument()
+    expect(screen.getByText('Created')).toBeInTheDocument()
+    expect(screen.getByText('USD 7.99')).toBeInTheDocument()
+  })
+
+  it('shows an error if loading price history fails', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.listSKUPriceHistory).mockRejectedValue(new Error('internal server error'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText('internal server error')).toBeInTheDocument()
   })
 })
 

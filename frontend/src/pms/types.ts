@@ -140,6 +140,20 @@ export interface SKUCostPriceHistoryEntry {
   occurred_on: string
 }
 
+export type SKUPriceHistoryReason = 'created' | 'manual_update' | 'sale_expired'
+
+export interface SKUPriceHistoryEntry {
+  id: string
+  sku_id: string
+  price_minor_units: number
+  sale_price_minor_units?: number | null
+  currency_code: string
+  valid_from: string
+  // Null means this interval is the one currently in effect.
+  valid_until?: string | null
+  reason: SKUPriceHistoryReason
+}
+
 export interface MarginReportRow {
   sku_id: string
   sku_code: string
