@@ -1,0 +1,322 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Shipping API
+  description: >
+    MyParcel shipping-label module (domain/shipping): connect flow,
+    per-connection global + per-carrier settings, and per-SalesOrder
+    shipment creation/label retrieval -- the "Create shipping label" action
+    on the pick/pack screen. Mounted under the standard JWT-protected v1
+    group, same as api/oms.
+  version: "1.0"
+servers:
+  - url: /api/v1
+
+paths:
+  /shipping/myparcel/connect:
+    post:
+      operationId: connectMyParcel
+      summary: Connect a MyParcel account (single API key, no OAuth redirect)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [api_key]
+              properties:
+                api_key: { type: string }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectionResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /shipping/connections/{connectionId}/register-webhook:
+    post:
+      operationId: registerMyParcelWebhook
+      summary: Register (or re-register) this connection's shipment-status callback URL with MyParcel
+      description: >
+        Requires the connection to already have a webhook secret set (see
+        api/integrations' existing setWebhookSecret endpoint, reused
+        as-is -- MyParcel embeds it as a `?token=` query parameter instead
+        of an HMAC header, see infrastructure/webhookproviders.MyParcelVerifier).
+      parameters:
+        - $ref: '#/components/parameters/connectionId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409':
+          description: connection has no webhook secret set yet
+          $ref: '#/components/responses/Error'
+
+  /shipping/connections/{connectionId}/settings:
+    get:
+      operationId: getShippingSettings
+      summary: Get a connection's global defaults + every per-carrier override
+      parameters:
+        - $ref: '#/components/parameters/connectionId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingSettingsResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateShippingSettings
+      summary: Update a connection's global shipping defaults
+      parameters:
+        - $ref: '#/components/parameters/connectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateShippingSettingsRequest' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingConnectionSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /shipping/connections/{connectionId}/carrier-overrides/{carrier}:
+    put:
+      operationId: upsertCarrierOverride
+      summary: Set (or clear) one carrier's overrides on top of the connection's global defaults
+      parameters:
+        - $ref: '#/components/parameters/connectionId'
+        - name: carrier
+          in: path
+          required: true
+          description: MyParcel carrier id (1=PostNL, 2=bpost, 4=DPD, 9=DHL for you, 10=DHL Parcel Connect, 11=DHL Europlus, 12=UPS Standard, 13=UPS Express Saver)
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpsertCarrierOverrideRequest' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingCarrierOverride' }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /shipping/shipments:
+    post:
+      operationId: createShipment
+      summary: Create a MyParcel shipment for a sales order (the pick/pack "Create shipping label" action)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateShipmentRequest' }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '502':
+          description: MyParcel rejected the shipment (invalid address, etc) -- nothing was persisted locally.
+          $ref: '#/components/responses/Error'
+
+  /shipping/sales-orders/{salesOrderId}/shipments:
+    get:
+      operationId: listShipmentsForOrder
+      summary: List every shipment created for a sales order, newest first
+      parameters:
+        - name: salesOrderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Shipment' }
+                  error: { nullable: true }
+
+  /shipping/shipments/{shipmentId}/label:
+    get:
+      operationId: getShipmentLabel
+      summary: Fetch a shipment's label (PDF or ZPL, whatever it was created with)
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: >
+            The raw label bytes -- Content-Type is whatever MyParcel
+            returned (application/pdf or application/vnd.shipment_label+zpl),
+            passed straight through, not JSON-wrapped.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/vnd.shipment_label+zpl:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+components:
+  parameters:
+    connectionId:
+      name: connectionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+    OkResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            ok: { type: boolean }
+        error: { nullable: true }
+
+    ConnectionResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            connection_id: { type: string }
+            provider: { type: string }
+            status: { type: string }
+        error: { nullable: true }
+
+    ShippingConnectionSettings:
+      type: object
+      properties:
+        connection_id: { type: string }
+        default_carrier: { type: integer }
+        default_package_type: { type: integer }
+        default_label_format: { type: string, enum: [pdf, zpl] }
+        default_signature_required: { type: boolean }
+        default_only_recipient: { type: boolean }
+
+    ShippingCarrierOverride:
+      type: object
+      properties:
+        connection_id: { type: string }
+        carrier: { type: integer }
+        package_type: { type: integer, nullable: true }
+        signature_required: { type: boolean, nullable: true }
+        only_recipient: { type: boolean, nullable: true }
+
+    ShippingSettingsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            settings:
+              allOf: [{ $ref: '#/components/schemas/ShippingConnectionSettings' }]
+              nullable: true
+            carrier_overrides:
+              type: array
+              items: { $ref: '#/components/schemas/ShippingCarrierOverride' }
+        error: { nullable: true }
+
+    UpdateShippingSettingsRequest:
+      type: object
+      required: [default_carrier, default_package_type, default_label_format]
+      properties:
+        default_carrier: { type: integer }
+        default_package_type: { type: integer }
+        default_label_format: { type: string, enum: [pdf, zpl] }
+        default_signature_required: { type: boolean }
+        default_only_recipient: { type: boolean }
+
+    UpsertCarrierOverrideRequest:
+      type: object
+      properties:
+        package_type: { type: integer, nullable: true }
+        signature_required: { type: boolean, nullable: true }
+        only_recipient: { type: boolean, nullable: true }
+
+    RecipientAddress:
+      type: object
+      required: [person, street, city, cc]
+      properties:
+        person: { type: string }
+        company: { type: string }
+        street: { type: string }
+        number: { type: string }
+        number_suffix: { type: string, description: "The address 'complement'/toevoeging" }
+        postal_code: { type: string }
+        city: { type: string }
+        cc: { type: string, description: ISO country code }
+        email: { type: string }
+        phone: { type: string }
+
+    CreateShipmentRequest:
+      type: object
+      required: [sales_order_id, connection_id, carrier, recipient]
+      properties:
+        sales_order_id: { type: string, format: uuid }
+        connection_id: { type: string, format: uuid }
+        carrier: { type: integer }
+        recipient: { $ref: '#/components/schemas/RecipientAddress' }
+        package_type: { type: integer, nullable: true }
+        signature_required: { type: boolean, nullable: true }
+        only_recipient: { type: boolean, nullable: true }
+        label_format: { type: string, enum: [pdf, zpl], nullable: true }
+
+    Shipment:
+      type: object
+      properties:
+        id: { type: string }
+        sales_order_id: { type: string }
+        connection_id: { type: string }
+        carrier: { type: integer }
+        barcode: { type: string }
+        status: { type: integer }
+        status_main: { type: string }
+        label_format: { type: string }
+        recipient: { $ref: '#/components/schemas/RecipientAddress' }
+        created_at: { type: string, format: date-time }
+
+    ShipmentResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Shipment' }
+        error: { nullable: true }

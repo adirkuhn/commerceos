@@ -28,6 +28,7 @@ import (
 	genscanning "github.com/adirkuhn/commerceos/api/scanning"
 	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
+	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -45,6 +46,7 @@ import (
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	schedulerhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scheduler"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
+	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
@@ -157,6 +159,18 @@ func main() {
 	// webhooks's doc comment for why.
 	webhookshandler.Register(r, db, repositories.NewConnectionRepo(db),
 		publishers.NewJetStreamPublisher(js), repositories.NewWebhookFallbackRepo(db), cfg.IntegrationsEncryptionSecret)
+
+	shippingSpec, err := genshipping.GetSpec()
+	if err != nil {
+		log.Fatalf("shipping: load openapi spec: %v", err)
+	}
+	// Own sub-group so the shipping-only spec validator never applies to
+	// iam/integrations/oms routes -- same reasoning as pmsGroup below.
+	shippingGroup := v1.Group("")
+	shippingGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(shippingSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	shippinghandler.Register(shippingGroup, db, cfg.IntegrationsEncryptionSecret, cfg.PublicAPIBaseURL)
 
 	pmsSpec, err := genpms.GetSpec()
 	if err != nil {
