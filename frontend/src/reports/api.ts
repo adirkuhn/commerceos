@@ -1,4 +1,4 @@
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, APIResponse } from './types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/reports`
@@ -46,4 +46,8 @@ export function getCustomerPerformanceReport(token: string, from: string, to: st
 
 export function getCategoryPerformanceReport(token: string, from: string, to: string): Promise<CategoryPerformanceReport> {
   return request<CategoryPerformanceReport>(`${base()}/category-performance?${rangeParams(from, to)}`, { method: 'GET' }, token)
+}
+
+export function getSlowMovingProductsReport(token: string, from: string, to: string): Promise<SlowMovingProductsReport> {
+  return request<SlowMovingProductsReport>(`${base()}/slow-moving-products?${rangeParams(from, to)}`, { method: 'GET' }, token)
 }

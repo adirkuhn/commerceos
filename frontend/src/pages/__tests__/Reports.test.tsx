@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -16,6 +16,7 @@ vi.mock('../../reports/api', () => ({
   getProductPerformanceMatrix: vi.fn(),
   getCustomerPerformanceReport: vi.fn(),
   getCategoryPerformanceReport: vi.fn(),
+  getSlowMovingProductsReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -95,6 +96,13 @@ function categoryPerformance(overrides: Partial<CategoryPerformanceReport> = {})
   }
 }
 
+function slowMovingProducts(overrides: Partial<SlowMovingProductsReport> = {}): SlowMovingProductsReport {
+  return {
+    rows: [{ sku_id: 'sku-slow', sku_code: 'SLOW-1', product_name: 'Slow Widget', stock_on_hand: 42, quantity_sold_in_period: 0 }],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -112,6 +120,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getProductPerformanceMatrix).mockResolvedValue(productPerformanceMatrix())
   vi.mocked(reportsApi.getCustomerPerformanceReport).mockResolvedValue(customerPerformance())
   vi.mocked(reportsApi.getCategoryPerformanceReport).mockResolvedValue(categoryPerformance())
+  vi.mocked(reportsApi.getSlowMovingProductsReport).mockResolvedValue(slowMovingProducts())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -228,5 +237,21 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No category sales in this period')).toBeInTheDocument()
+  })
+
+  it('shows slow-moving products with stock on hand and zero sales', async () => {
+    render(<Reports />)
+
+    expect(await screen.findByText('Slow Widget')).toBeInTheDocument()
+    expect(screen.getByText('42')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when nothing is slow-moving', async () => {
+    vi.mocked(reportsApi.getSlowMovingProductsReport).mockResolvedValue(slowMovingProducts({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No slow-moving products in this period')).toBeInTheDocument()
   })
 })

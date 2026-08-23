@@ -87,6 +87,19 @@ export interface CategoryPerformanceReport {
   rows: CategoryPerformanceRow[]
 }
 
+export interface SlowMovingProductRow {
+  sku_id: string
+  sku_code: string
+  product_name: string
+  stock_on_hand: number
+  // Always 0 -- that's this report's inclusion criterion.
+  quantity_sold_in_period: number
+}
+
+export interface SlowMovingProductsReport {
+  rows: SlowMovingProductRow[]
+}
+
 export interface APIError {
   code: string
   message: string
