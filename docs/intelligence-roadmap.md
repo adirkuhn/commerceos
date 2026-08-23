@@ -28,7 +28,7 @@ column as slices land — each slice is its own commit.
 | Slow-Moving Products | Not started | |
 | Product Lifecycle | Not started | |
 | Category Analysis | Not started | |
-| Customer Reports | Not started | |
+| Customer Reports | **Partial** — `8307b52`, frontend `35b13ef` | `GET /reports/customer-performance`: order count, revenue, AOV, first/last order per customer, ranked by revenue. Guest orders (no linked customer) excluded. Frontend: Top Customers panel on Reports. Missing from the original wishlist: new-vs-returning split, purchase frequency, lifetime revenue (needs an all-time lookback query, not just the selected period). |
 | Customer Cohorts | Not started | |
 | Sales Trends & Seasonality | Not started | |
 | Promotion Analytics / Opportunities | Not started | Needs promotion-performance query (before/during/after comparison) once promotions have real usage data. |
@@ -60,6 +60,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Reports**: `src/pages/Reports.tsx` rewired to real data — commit `96c9786`. KPI row (revenue/orders/units/AOV with real period-over-period %) from `/reports/sales-summary`; Top Products panel from `/reports/product-performance`; Revenue by Channel reuses the existing `/dashboard/stats` endpoint (labeled "this month" since that endpoint has no date-range param, unlike the period selector). The old Revenue-vs-Cost and Inventory-Turnover charts were removed outright rather than wired to fake data — no backend time-series or stock-turn endpoint exists to back them.
 - **SKU price history**: read-only "Price history" card on the product edit page's flat-SKU form (one row per effective-dated interval, open interval marked "Current") — commit `9a1f4af`. Not yet shown for variant-mode SKUs (same scope limit as the pre-existing margin-insight card it sits next to).
 - **Product Performance Matrix**: quadrant panel on the Reports page (winners/stars/hidden_gems/problems, period-aware, median shown as caption) — commit `a011215`.
+- **Customer Performance**: Top Customers panel on the Reports page — commit `35b13ef`.
 
 Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
