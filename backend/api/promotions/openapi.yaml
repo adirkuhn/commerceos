@@ -136,10 +136,13 @@ components:
 
     PromotionLine:
       type: object
-      required: [id, sku_id, discount_type, discount_value]
+      required: [id, sku_id, sku_code, discount_type, discount_value]
       properties:
         id: { type: string }
         sku_id: { type: string }
+        sku_code:
+          type: string
+          description: The SKU's current code, for display -- empty string if the SKU has since been deleted.
         discount_type: { $ref: '#/components/schemas/PromotionType' }
         discount_value:
           type: integer

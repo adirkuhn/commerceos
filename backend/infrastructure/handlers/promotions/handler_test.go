@@ -144,13 +144,17 @@ func TestCreatePromotionHandler_validationError(t *testing.T) {
 func TestGetPromotionHandler_success(t *testing.T) {
 	get := &stubGetPromotion{out: &apppromotions.GetPromotionResult{
 		Promotion: promotionsDomain.Promotion{ID: "promo-1", Name: "Summer"},
-		Lines:     []promotionsDomain.PromotionSKU{{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypePercentage, DiscountValue: 1000}},
+		Lines: []apppromotions.PromotionLineView{{
+			PromotionSKU: promotionsDomain.PromotionSKU{ID: "line-1", SKUID: "sku-1", DiscountType: promotionsDomain.PromotionTypePercentage, DiscountValue: 1000},
+			SKUCode:      "ACAI-1L",
+		}},
 	}}
 	h := newTestHandler(&stubCreatePromotion{}, &stubUpdatePromotion{}, &stubDeletePromotion{}, get, &stubListPromotions{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/promotions/promo-1", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "sku-1")
+	assert.Contains(t, w.Body.String(), "ACAI-1L")
 }
 
 func TestGetPromotionHandler_notFound(t *testing.T) {

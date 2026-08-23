@@ -2,26 +2,38 @@ package promotions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
 
+// PromotionLineView is a PromotionSKU line plus its SKU's current code --
+// a UI showing a bare sku_id UUID is unusable to staff, so Get enriches
+// each line at read time rather than returning the raw domain rows.
+// SKUCode is "" when the SKU has since been deleted.
+type PromotionLineView struct {
+	promotionsDomain.PromotionSKU
+	SKUCode string
+}
+
 type GetPromotionResult struct {
 	Promotion promotionsDomain.Promotion
-	Lines     []promotionsDomain.PromotionSKU
+	Lines     []PromotionLineView
 }
 
 type GetPromotionUseCase struct {
-	db        *gorm.DB
-	promoRepo promotionsDomain.PromotionRepository
-	lineRepo  promotionsDomain.PromotionSKURepository
+	db         *gorm.DB
+	promoRepo  promotionsDomain.PromotionRepository
+	lineRepo   promotionsDomain.PromotionSKURepository
+	skuChecker skuExistenceChecker
 }
 
-func NewGetPromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository) *GetPromotionUseCase {
-	return &GetPromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo}
+func NewGetPromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.PromotionRepository, lineRepo promotionsDomain.PromotionSKURepository, skuChecker skuExistenceChecker) *GetPromotionUseCase {
+	return &GetPromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker}
 }
 
 func (uc *GetPromotionUseCase) Execute(ctx context.Context, id string) (*GetPromotionResult, error) {
@@ -35,7 +47,19 @@ func (uc *GetPromotionUseCase) Execute(ctx context.Context, id string) (*GetProm
 		if err != nil {
 			return err
 		}
-		result = GetPromotionResult{Promotion: *promo, Lines: lines}
+		views := make([]PromotionLineView, len(lines))
+		for i, line := range lines {
+			view := PromotionLineView{PromotionSKU: line}
+			sku, err := uc.skuChecker.FindByID(ctx, line.SKUID)
+			if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+				return err
+			}
+			if sku != nil {
+				view.SKUCode = sku.SKUCode
+			}
+			views[i] = view
+		}
+		result = GetPromotionResult{Promotion: *promo, Lines: views}
 		return nil
 	})
 	if err != nil {

@@ -115,7 +115,10 @@ type PromotionLine struct {
 	// DiscountValue Basis points for percentage (1-10000), minor currency units for fixed_amount.
 	DiscountValue int64  `json:"discount_value"`
 	Id            string `json:"id"`
-	SkuId         string `json:"sku_id"`
+
+	// SkuCode The SKU's current code, for display -- empty string if the SKU has since been deleted.
+	SkuCode string `json:"sku_code"`
+	SkuId   string `json:"sku_id"`
 }
 
 // PromotionLineInput defines model for PromotionLineInput.
@@ -333,25 +336,26 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7Fhtb9s2EP4rBDegDaBEThrsg/dpfUERdFiLZvlUBMFFPNlsxJeSJ6dG4P8+kJL1YsmJkzpAh+1LIEvH",
-	"u+eee3jk5Y5nRlmjUZPn0ztuwYFCQhd/SRH/aj7lFmjOE65BIZ+GDwl3+K2UDgWfkisx4T6bo4KwgpY2",
-	"WHlyUs/4arUKxt4a7TH6feecceEhM5pQU3gEawuZAUmj06/e6PCu9firw5xP+S9pCzetvvo0evtc+6+i",
-	"CfSZkzY441OOMVx4Xy8JHt84BMJPzigTzD7jtxJ9RGKdsehIVlhRC38F8UNunApPXADhIUmFgZGyKOC6",
-	"wDULG7knvJC68iQJlX8omQbQn1LjmbYlBR+1U3AOluF3VYa7YTBP4OhevGNLqNwd13ll3oDacdnfwbgS",
-	"wlo1X6o0akdd7GvSLhu45vorZpGKd8rSsqn2oFwCKAqmX5ZVUotg+GU1FqOnqCfE6NtnRoxXS6H3MBv7",
-	"NkQ1hrNhdyRmlLd4lBJ+WOpVvxi8/reqNeGlFY9kcUPhsVFul3mdTdItVy/q5X1Vf4sEsojNsyg+5nz6",
-	"Zcf0+CrZ1MsPdKlhgxpq9bKLOy4a7irpM1NqunpSpZrVCyjKuLx/BrwGLz2zRmryLDeOWXQZaoIZspfH",
-	"h8eTyWRykDAltXEsK51DnS1ZqWVtnsvvoSIqxDjiSasFqem301YHUhPO0N2zG/xNeTX6aUw6tXGywc4g",
-	"33t10h4lz076DrTsmv+eUvf0cCN/nObHDuTHnC6dO8dDwHbCU7eBp6I4bzoq6lIF5oWDPPQhyEguAuOo",
-	"BYoO0a2Y+5Lo+Gi3V9gsnc0z6uYidrz/L2M/52WsOaW23cqCK6lzM2y7f4FCkbCQ7uG1+Y6CrXcvy0BZ",
-	"kDPtWbz6o2Bk2PmHC88ODxk5yG5QMI9hIiEslix3RjEIFi88M7eaWSczTD0UeBUfj9jimPnSWuPIM7o1",
-	"bSyF2Ry09Mqzl60yk15XP/id0Vx69senM2Z0sWQC85BvqkDDDD2za/p8wiQxYdAzbYgtkZgqCQgbeJjn",
-	"GDdPBTIcGCQp6JK/MUoFBB/PWVOPGJQnfIHOV7wdH01CVY1FDVbyKX91NDl6xZM4h0V9pC2c8HOGUWVh",
-	"s8QZ6kzwKQ/drw3CN6awk8lkbzPYeMMdmcXMTTWIlUqBW9YYGc2REWrQ9KLLc6DAGj+S2cb0Vk+j6Om1",
-	"Ecu9ZbVlRlz1t059+X9+bh/iNeGnk9Nt3hp41bwcrU9Odrbu1azihUFbqmjQkWR6J8WqagcFEg4L+Da+",
-	"7xaw+6+HLRfZ1iSVgq8un5H0/pi5F8J7FFb5dylkLzPwGQj0oRGGe+f5hwsWW+5BCDW6w98j/bwcPpNw",
-	"ezy+R+qRCFr0uYs9BCibD8nbuHU8nb/9d54tF6L/fOepeOlWPGEObQGZ1LN+4dnt3BQYrgcVao9usS5s",
-	"6Qo+5SlYmS6Ow3T6TwAAAP//",
+	"7Fjbbts4EP2VAXeBNoBiOWmwD96n7QVFsItt0bRPRRAw4shmI15Kjpwagf99QUrWxZIT5wZ0sfsSyNJw",
+	"5vDM4XAmNywzyhqNmjyb3TDLHVdI6OIvKeJfzWbMclqwhGmukM3Ch4Q5/F5Kh4LNyJWYMJ8tUPGwglY2",
+	"WHlyUs/Zer0Oxt4a7TH6feecceEhM5pQU3jk1hYy4ySNTr95o8O71uOvDnM2Y7+kLdy0+urT6O1T7b+K",
+	"JtBnTtrgjM0YxnDhfb0keHzjkBN+dEaZYPYJv5foIxLrjEVHssKKWvgLHj/kxqnwxAQnPCSpMDBSFgW/",
+	"LHDDwtbeE1ZIXXmShMrftZkG0F9S46m2JQUftVPuHF+F31UabobBPHFHt+IdW0Ll/rjOKvMG1J7LPgfj",
+	"Sggb1XyttlE76mLfkHbewDWX3zCLVLxTllZNtgfpEpyiYPppWSe1CIZf1mMxeop6QIy+fWbEeLYUes/n",
+	"Y9+GqMZwNuyOxIzyFvdSwqOlXtWLwet/q1oTVlpxTxa3FB4L5W6Z17tJuunqRT2/LetvkbgsYvEsig85",
+	"m33dc3tsnWzr5RFValighlo97+KOi4anSvrMlJouHpSpZvWSF2Vc3r8DXnMvPVgjNXnIjQOLLkNNfI7w",
+	"8ujwaDqdTg8SUFIbB1npHOpsBaWWtXkuf4SMqBBjwpJWC1LTbyetDqQmnKO75TT4q/JiUxH6GD8vEM7+",
+	"/PLC1wAIgl0S4wvpbcFXcHgIGCogVA5B5kDVMlhwD17qDOESUYPAAgnFZPQUXZUXo/DG5Fsbd5AnW8ka",
+	"0H+rbNub7dk1sEeW9qWiYeFxW/d0971yvyM41h/c57LrtEB3AdsLT12VHorirCnwqEsVmBeO56Es8ozk",
+	"MjCOWqDoEN3qui+Jjo/2tIez2znLo26+xAL8f2/4c/aGzaW5q0kMrqTOzbDC/s0VigTCdg8vzQ8UsDm9",
+	"kHFluZxrD3ESQQFkQln1oeSS49kVCvAYBiTCYgW5Mwp4Xa/NtQbrZIap5wVexMcJLI/Al9YaRx7o2rSx",
+	"FGYLrqVXHl62ykx6l8zB70AL6eGPj6dgdLECgXnYb6q45nP0YDf0+QQkgTDoQRuCFRKokjhhAw/zHOPh",
+	"qUDGK0FS0CV7Y5QKCD6cQZOPGJQlbInOV7wdTaYhq8ai5layGXs1mU5esSSOhVEfaQsn/JxjVFk4LHGk",
+	"OxVsxkL1a4OwraHweDp9spFwvOCOjIbmqpoLS6W4W9UY441KqLmmF12eAwXW+JGdbQ2T9XCMnl4bsXqy",
+	"Xe0YWdf9o1PPIs/P7V28JuxkerLLWwOvGt+j9fHx3ta9nFW8AG9TFQ06kkxvpFhX5SA0RcMEvo3vuwns",
+	"/idkR1/dmqRSsPX5M5Len3qfhPAehdX+uxTCy4z7jAv0oRCGNjj0mLHkHoRQoyf8PdLPy+EzCbfH43uk",
+	"Holciz53sYZwyhZD8ra6jofz9/SVZ0dD9J+vPBUv3Ywn4NAWPIuzWTfxcL0wBYb2oELt0S03iS1dwWYs",
+	"5Vamy6MwLP8TAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

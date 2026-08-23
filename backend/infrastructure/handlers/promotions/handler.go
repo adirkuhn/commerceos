@@ -64,7 +64,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		apppromotions.NewCreatePromotionUseCase(db, promoRepo, lineRepo, skuRepo),
 		apppromotions.NewUpdatePromotionUseCase(db, promoRepo, lineRepo, skuRepo),
 		apppromotions.NewDeletePromotionUseCase(db, promoRepo),
-		apppromotions.NewGetPromotionUseCase(db, promoRepo, lineRepo),
+		apppromotions.NewGetPromotionUseCase(db, promoRepo, lineRepo, skuRepo),
 		apppromotions.NewListPromotionsUseCase(db, promoRepo),
 	)
 	genpromotions.RegisterHandlers(rg, h)
@@ -168,11 +168,11 @@ func toGenPromotions(promos []promotionsDomain.Promotion) []genpromotions.Promot
 	return out
 }
 
-func toGenPromotionDetail(p promotionsDomain.Promotion, lines []promotionsDomain.PromotionSKU) genpromotions.PromotionDetail {
+func toGenPromotionDetail(p promotionsDomain.Promotion, lines []apppromotions.PromotionLineView) genpromotions.PromotionDetail {
 	genLines := make([]genpromotions.PromotionLine, len(lines))
 	for i, l := range lines {
 		genLines[i] = genpromotions.PromotionLine{
-			Id: l.ID, SkuId: l.SKUID, DiscountType: genpromotions.PromotionType(l.DiscountType), DiscountValue: l.DiscountValue,
+			Id: l.ID, SkuId: l.SKUID, SkuCode: l.SKUCode, DiscountType: genpromotions.PromotionType(l.DiscountType), DiscountValue: l.DiscountValue,
 		}
 	}
 	return genpromotions.PromotionDetail{
