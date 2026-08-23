@@ -36,6 +36,9 @@ type getCategoryPerformanceReportUC interface {
 type getSlowMovingProductsReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.SlowMovingProductsReport, error)
 }
+type getProfitabilityReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.ProfitabilityReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -44,6 +47,7 @@ type Handler struct {
 	getCustomerPerformanceReport getCustomerPerformanceReportUC
 	getCategoryPerformanceReport getCategoryPerformanceReportUC
 	getSlowMovingProductsReport  getSlowMovingProductsReportUC
+	getProfitabilityReport       getProfitabilityReportUC
 }
 
 func NewHandler(
@@ -53,11 +57,13 @@ func NewHandler(
 	getCustomerPerformanceReport getCustomerPerformanceReportUC,
 	getCategoryPerformanceReport getCategoryPerformanceReportUC,
 	getSlowMovingProductsReport getSlowMovingProductsReportUC,
+	getProfitabilityReport getProfitabilityReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
 		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
 		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
+		getProfitabilityReport: getProfitabilityReport,
 	}
 }
 
@@ -80,6 +86,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetCategoryPerformanceReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetSlowMovingProductsReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
+		appreports.NewGetProfitabilityReportUseCase(db, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -178,6 +185,21 @@ func (h *Handler) GetSlowMovingProductsReport(c *gin.Context, params genreports.
 		}
 	}
 	middleware.OK(c, genreports.SlowMovingProductsReport{Rows: rows})
+}
+
+func (h *Handler) GetProfitabilityReport(c *gin.Context, params genreports.GetProfitabilityReportParams) {
+	report, err := h.getProfitabilityReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	s := report.Summary
+	middleware.OK(c, genreports.ProfitabilityReport{
+		CurrencyCode: report.CurrencyCode,
+		Summary: genreports.ProfitabilitySummary{
+			RevenueMinorUnits: s.RevenueMinorUnits, CostKnownRevenueMinorUnits: s.CostKnownRevenueMinorUnits,
+			CostMinorUnits: s.CostMinorUnits, ProfitMinorUnits: s.ProfitMinorUnits, MarginBasisPoints: s.MarginBasisPoints,
+		},
+	})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

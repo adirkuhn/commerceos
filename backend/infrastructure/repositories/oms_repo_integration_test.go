@@ -1408,3 +1408,101 @@ func TestSalesOrderRepo_Integration_CategoryPerformanceBetween_GroupsByCategoryA
 	require.Equal(t, int64(1), uncategorized.QuantitySold)
 	require.Equal(t, int64(500), uncategorized.RevenueMinorUnits)
 }
+
+func TestSalesOrderRepo_Integration_ProfitabilityBetween_ComputesProfitOnlyOverKnownCostRevenue(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	now := time.Now()
+	costKnown := int64(300)
+	var costedSKUID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Acai", Slug: "acai-profitability", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{
+			TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "ACAI-PROFIT-1", PriceMinorUnits: 999,
+			CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		costedSKUID = sku.ID
+		// SKURepo.Create deliberately never writes cost_price_minor_units
+		// (only the cron/manual-override paths may) -- set it via the same
+		// dedicated method they use.
+		return skuRepo.UpdateCostPrice(ctx, sku.ID, costKnown)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		// Known-cost line: revenue 1000, qty 2, cost 300*2=600 -> profit 400.
+		order1 := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-1", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order1); err != nil {
+			return err
+		}
+		if err := lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order1.ID, SKUID: &costedSKUID, Name: "Acai", SKUCode: "ACAI-PROFIT-1",
+			Quantity: 2, TotalMinorUnits: 1000, CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+
+		// Unknown-cost line (adhoc, no SKU): revenue 500, must count toward
+		// RevenueMinorUnits but NOT toward CostKnownRevenueMinorUnits/profit.
+		order2 := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-2", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order2); err != nil {
+			return err
+		}
+		return lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: order2.ID, Name: "Mystery Item", SKUCode: "UNKNOWN",
+			Quantity: 1, TotalMinorUnits: 500, CreatedAt: now,
+		})
+	})
+	require.NoError(t, err)
+
+	var summary omsDomain.ProfitabilitySummary
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		summary, err = salesOrderRepo.ProfitabilityBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1500), summary.RevenueMinorUnits)
+	require.Equal(t, int64(1000), summary.CostKnownRevenueMinorUnits)
+	require.Equal(t, int64(600), summary.CostMinorUnits)
+	require.Equal(t, int64(400), summary.ProfitMinorUnits)
+	require.Equal(t, int64(4000), summary.MarginBasisPoints) // 400/1000 = 40.00%
+}
+
+func TestSalesOrderRepo_Integration_ProfitabilityBetween_ZeroKnownCostRevenueGivesZeroMargin(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var summary omsDomain.ProfitabilitySummary
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		summary, err = salesOrderRepo.ProfitabilityBetween(ctx, time.Now().AddDate(0, 0, -1), time.Now(), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, omsDomain.ProfitabilitySummary{}, summary)
+}

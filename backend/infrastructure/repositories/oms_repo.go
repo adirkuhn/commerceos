@@ -617,6 +617,49 @@ func (r *SalesOrderRepo) CategoryPerformanceBetween(ctx context.Context, from, t
 	return out, nil
 }
 
+type profitabilityRow struct {
+	RevenueMinorUnits          int64
+	CostKnownRevenueMinorUnits int64
+	CostMinorUnits             int64
+}
+
+// ProfitabilityBetween aggregates revenue/COGS/profit for [from, to) --
+// same status/currency filtering as RevenueSince. Cost is computed only
+// for lines whose SKU has a known cost_price_minor_units (conditional
+// aggregation via CASE, single pass) -- see domain/oms.ProfitabilitySummary's
+// doc for why an unknown cost isn't treated as zero.
+func (r *SalesOrderRepo) ProfitabilityBetween(ctx context.Context, from, to time.Time, currencyCode string) (omsDomain.ProfitabilitySummary, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return omsDomain.ProfitabilitySummary{}, err
+	}
+	var row profitabilityRow
+	err = tx.Raw(`
+		SELECT
+			COALESCE(SUM(li.total_minor_units), 0) AS revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.total_minor_units ELSE 0 END), 0) AS cost_known_revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.quantity * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		LEFT JOIN skus sk ON sk.id = li.sku_id
+		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+	`, from, to, currencyCode).Scan(&row).Error
+	if err != nil {
+		return omsDomain.ProfitabilitySummary{}, fmt.Errorf("salesOrderRepo.ProfitabilityBetween: %w", err)
+	}
+
+	summary := omsDomain.ProfitabilitySummary{
+		RevenueMinorUnits: row.RevenueMinorUnits, CostKnownRevenueMinorUnits: row.CostKnownRevenueMinorUnits,
+		CostMinorUnits: row.CostMinorUnits, ProfitMinorUnits: row.CostKnownRevenueMinorUnits - row.CostMinorUnits,
+	}
+	if summary.CostKnownRevenueMinorUnits > 0 {
+		summary.MarginBasisPoints = summary.ProfitMinorUnits * 10000 / summary.CostKnownRevenueMinorUnits
+	}
+	return summary, nil
+}
+
 type productSalesRow struct {
 	SKUID             *string `gorm:"column:sku_id"`
 	SKUCode           string
