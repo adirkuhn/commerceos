@@ -16,6 +16,16 @@ const (
 	// missed (whatever the cause). See cmd/scheduler/dispatch.go's
 	// reconciliationWindow.
 	SyncEntityOrdersReconciliation SyncEntityType = "orders_reconciliation"
+	// SyncEntityShipmentReconciliation is the shipping module's own
+	// reconciliation schedule (Direction=import, one row per MyParcel
+	// connection) -- same "re-scan regardless of LastRunAt, rely on the
+	// underlying operation's own idempotency" shape as
+	// SyncEntityOrdersReconciliation, just for
+	// application/shipping.ReconcileShipmentsUseCase instead of a Woo
+	// order import. Reuses this generic per-connection schedule shape
+	// rather than a parallel scheduling mechanism, even though shipping
+	// isn't itself a "channel."
+	SyncEntityShipmentReconciliation SyncEntityType = "shipment_reconciliation"
 )
 
 type SyncDirection string

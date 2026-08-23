@@ -7,6 +7,7 @@ import (
 	"time"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
+	shippingapp "github.com/adirkuhn/commerceos/application/shipping"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 )
 
@@ -80,6 +81,9 @@ type stockExporter interface {
 type ordersImporter interface {
 	Execute(ctx context.Context, in channelsapp.ImportWooOrdersInput) (*channelsapp.ImportOrdersResult, error)
 }
+type shipmentReconciler interface {
+	Execute(ctx context.Context, connectionID string) (*shippingapp.ReconcileShipmentsResult, error)
+}
 
 // buildRunners maps each runnable (entity, direction) pair to the use case
 // that actually performs it. categories is a schema-legal SyncSchedule
@@ -94,6 +98,7 @@ func buildRunners(
 	stockImport stockImporter,
 	stockExport stockExporter,
 	ordersImport ordersImporter,
+	shipmentReconcile shipmentReconciler,
 ) runners {
 	return runners{
 		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
@@ -164,6 +169,18 @@ func buildRunners(
 				ConnectionID: s.ConnectionID, DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
 				ModifiedAfter: &modifiedAfter,
 			})
+			if result == nil {
+				return nil, err
+			}
+			return nil, resultErr(err, result.Errors)
+		},
+		// shipmentReconcile has no per-item Errors-tolerant/"partial
+		// success" wrapper of its own the way the Woo runners above do --
+		// ReconcileShipmentsResult already IS that shape (Checked/Updated/
+		// Errors), so resultErr's job here is just turning a non-empty
+		// Errors slice into the single error dispatch.dispatch returns.
+		{channelsDomain.SyncEntityShipmentReconciliation, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
+			result, err := shipmentReconcile.Execute(ctx, s.ConnectionID)
 			if result == nil {
 				return nil, err
 			}

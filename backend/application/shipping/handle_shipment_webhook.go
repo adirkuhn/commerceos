@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -124,21 +123,6 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 		return fmt.Errorf("get tracktrace: %w", err)
 	}
 
-	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if err := uc.shipmentRepo.UpdateStatus(ctx, shipment.ID, tt.StatusCode, tt.StatusMain); err != nil {
-			return err
-		}
-		if err := uc.statusEventRepo.Append(ctx, &shippingDomain.ShipmentStatusEvent{
-			TenantID: tenant.IDFromContext(ctx), ShipmentID: shipment.ID, Status: tt.StatusCode, StatusMain: tt.StatusMain,
-			Source: shippingDomain.StatusEventSourceWebhook, OccurredAt: time.Now(),
-		}); err != nil {
-			return err
-		}
-		if tt.StatusMain == shippingDomain.StatusMainShipped {
-			if err := uc.salesOrderRepo.Update(ctx, shipment.SalesOrderID, map[string]any{"fulfilled": true, "updated_at": time.Now()}); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook)
 }

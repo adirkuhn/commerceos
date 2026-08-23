@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
+	shippingapp "github.com/adirkuhn/commerceos/application/shipping"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 )
 
@@ -69,9 +70,20 @@ func (s *stubOrdersImporter) Execute(_ context.Context, in channelsapp.ImportWoo
 	return &channelsapp.ImportOrdersResult{Errors: s.errs, LastModifiedAt: s.lastModifiedAt}, s.err
 }
 
+type stubShipmentReconciler struct {
+	calls []string
+	err   error
+	errs  []string
+}
+
+func (s *stubShipmentReconciler) Execute(_ context.Context, connectionID string) (*shippingapp.ReconcileShipmentsResult, error) {
+	s.calls = append(s.calls, connectionID)
+	return &shippingapp.ReconcileShipmentsResult{Errors: s.errs}, s.err
+}
+
 func TestDispatch_routesProductsImportWithWarehouseAndCurrency(t *testing.T) {
 	pi := &stubProductsImporter{}
-	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 	warehouseID, currency := "wh-1", "USD"
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -88,7 +100,7 @@ func TestDispatch_routesProductsImportWithWarehouseAndCurrency(t *testing.T) {
 
 func TestDispatch_routesProductsExport(t *testing.T) {
 	pe := &stubProductsExporter{}
-	rs := buildRunners(&stubProductsImporter{}, pe, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, pe, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionExport,
@@ -101,7 +113,7 @@ func TestDispatch_routesProductsExport(t *testing.T) {
 
 func TestDispatch_routesStockImportWithWarehouse(t *testing.T) {
 	si := &stubStockImporter{}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, si, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, si, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 	warehouseID := "wh-1"
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -116,7 +128,7 @@ func TestDispatch_routesStockImportWithWarehouse(t *testing.T) {
 
 func TestDispatch_routesStockExport(t *testing.T) {
 	se := &stubStockExporter{}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, se, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, se, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock, Direction: channelsDomain.SyncDirectionExport,
@@ -128,7 +140,7 @@ func TestDispatch_routesStockExport(t *testing.T) {
 
 func TestDispatch_handlesNilWarehouseAndCurrencyGracefully(t *testing.T) {
 	pi := &stubProductsImporter{}
-	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
@@ -140,7 +152,7 @@ func TestDispatch_handlesNilWarehouseAndCurrencyGracefully(t *testing.T) {
 }
 
 func TestDispatch_returnsErrorForUnrunnableEntity(t *testing.T) {
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityCategories, Direction: channelsDomain.SyncDirectionImport,
@@ -150,7 +162,7 @@ func TestDispatch_returnsErrorForUnrunnableEntity(t *testing.T) {
 }
 
 func TestDispatch_returnsErrorForOrdersExport(t *testing.T) {
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionExport,
@@ -161,7 +173,7 @@ func TestDispatch_returnsErrorForOrdersExport(t *testing.T) {
 
 func TestDispatch_routesOrdersImportAsFullOnFirstRun(t *testing.T) {
 	oi := &stubOrdersImporter{}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi, &stubShipmentReconciler{})
 	warehouseID := "wh-1"
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -177,7 +189,7 @@ func TestDispatch_routesOrdersImportAsFullOnFirstRun(t *testing.T) {
 
 func TestDispatch_routesOrdersImportIncrementallyWithOverlapBufferAfterFirstRun(t *testing.T) {
 	oi := &stubOrdersImporter{}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi, &stubShipmentReconciler{})
 	lastRun := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -200,7 +212,7 @@ func TestDispatch_routesOrdersImportIncrementallyWithOverlapBufferAfterFirstRun(
 func TestDispatch_ordersImportReturnsWooModifiedTimeAsTheCursorNotWallClock(t *testing.T) {
 	wooModifiedAt := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	oi := &stubOrdersImporter{lastModifiedAt: &wooModifiedAt}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi, &stubShipmentReconciler{})
 
 	before := time.Now()
 	cursorAt, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -219,7 +231,7 @@ func TestDispatch_ordersImportReturnsWooModifiedTimeAsTheCursorNotWallClock(t *t
 // every non-orders runner always does.
 func TestDispatch_ordersImportCursorIsNilWhenNoOrdersWereSeen(t *testing.T) {
 	oi := &stubOrdersImporter{}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi, &stubShipmentReconciler{})
 
 	cursorAt, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
@@ -235,7 +247,7 @@ func TestDispatch_ordersImportCursorIsNilWhenNoOrdersWereSeen(t *testing.T) {
 // reconciliationWindow", regardless of whether/when this schedule last ran.
 func TestDispatch_routesOrdersReconciliationWithAFixedRollingWindow(t *testing.T) {
 	oi := &stubOrdersImporter{}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi, &stubShipmentReconciler{})
 	warehouseID := "wh-1"
 	lastRun := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC) // long ago -- must not be used as the cursor
 
@@ -255,7 +267,7 @@ func TestDispatch_routesOrdersReconciliationWithAFixedRollingWindow(t *testing.T
 }
 
 func TestDispatch_returnsErrorForOrdersReconciliationExport(t *testing.T) {
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrdersReconciliation, Direction: channelsDomain.SyncDirectionExport,
@@ -264,9 +276,43 @@ func TestDispatch_returnsErrorForOrdersReconciliationExport(t *testing.T) {
 	require.Error(t, err, "only import is supported for orders reconciliation -- same as orders")
 }
 
+func TestDispatch_routesShipmentReconciliationWithConnectionID(t *testing.T) {
+	sr := &stubShipmentReconciler{}
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, sr)
+
+	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityShipmentReconciliation, Direction: channelsDomain.SyncDirectionImport,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, sr.calls, 1)
+	require.Equal(t, "conn-1", sr.calls[0])
+}
+
+func TestDispatch_returnsErrorForShipmentReconciliationExport(t *testing.T) {
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
+
+	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityShipmentReconciliation, Direction: channelsDomain.SyncDirectionExport,
+	})
+
+	require.Error(t, err, "only import is supported for shipment reconciliation")
+}
+
+func TestDispatch_reportsAnErrorWhenShipmentReconciliationHasPerShipmentFailures(t *testing.T) {
+	sr := &stubShipmentReconciler{errs: []string{"shipment s-1: boom"}}
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, sr)
+
+	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityShipmentReconciliation, Direction: channelsDomain.SyncDirectionImport,
+	})
+
+	require.Error(t, err, "per-shipment failures must surface as a run error, not silently record success")
+}
+
 func TestDispatch_propagatesRunnerError(t *testing.T) {
 	pi := &stubProductsImporter{err: errors.New("woo down")}
-	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
@@ -285,7 +331,7 @@ func TestDispatch_propagatesRunnerError(t *testing.T) {
 // "success" -- this is what made "orders aren't syncing" invisible.
 func TestDispatch_reportsAnErrorWhenOrdersImportHasPerOrderFailuresEvenWithNoTopLevelError(t *testing.T) {
 	oi := &stubOrdersImporter{errs: []string{"order #123: customer lookup failed", "order #456: sku not linked"}}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi)
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, oi, &stubShipmentReconciler{})
 	warehouseID := "wh-1"
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -300,7 +346,7 @@ func TestDispatch_reportsAnErrorWhenOrdersImportHasPerOrderFailuresEvenWithNoTop
 
 func TestDispatch_reportsAnErrorWhenProductsImportHasPerItemFailures(t *testing.T) {
 	pi := &stubProductsImporter{errs: []string{"product X: duplicate slug"}}
-	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(pi, &stubProductsExporter{}, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
@@ -312,7 +358,7 @@ func TestDispatch_reportsAnErrorWhenProductsImportHasPerItemFailures(t *testing.
 
 func TestDispatch_reportsAnErrorWhenProductsExportHasPerItemFailures(t *testing.T) {
 	pe := &stubProductsExporter{errs: []string{"product Y: push failed"}}
-	rs := buildRunners(&stubProductsImporter{}, pe, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, pe, &stubStockImporter{}, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionExport,
@@ -324,7 +370,7 @@ func TestDispatch_reportsAnErrorWhenProductsExportHasPerItemFailures(t *testing.
 
 func TestDispatch_reportsAnErrorWhenStockImportHasPerItemFailures(t *testing.T) {
 	si := &stubStockImporter{errs: []string{"sku Z: batch not found"}}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, si, &stubStockExporter{}, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, si, &stubStockExporter{}, &stubOrdersImporter{}, &stubShipmentReconciler{})
 	warehouseID := "wh-1"
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
@@ -338,7 +384,7 @@ func TestDispatch_reportsAnErrorWhenStockImportHasPerItemFailures(t *testing.T) 
 
 func TestDispatch_reportsAnErrorWhenStockExportHasPerItemFailures(t *testing.T) {
 	se := &stubStockExporter{errs: []string{"sku Z: push failed"}}
-	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, se, &stubOrdersImporter{})
+	rs := buildRunners(&stubProductsImporter{}, &stubProductsExporter{}, &stubStockImporter{}, se, &stubOrdersImporter{}, &stubShipmentReconciler{})
 
 	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
 		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStock, Direction: channelsDomain.SyncDirectionExport,

@@ -21,6 +21,7 @@ import (
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
 	schedulerapp "github.com/adirkuhn/commerceos/application/scheduler"
+	shippingapp "github.com/adirkuhn/commerceos/application/shipping"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
@@ -30,6 +31,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	myparcelinfra "github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -270,6 +272,11 @@ func main() {
 	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo)
 	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, customersImportUC, ordersImportUC)
 
+	shipmentReconcileUC := shippingapp.NewReconcileShipmentsUseCase(
+		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
+		connRepo, salesOrderRepo, myparcelinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+	)
+
 	rs := buildRunners(
 		importUC,
 		channelsapp.NewRunScheduledProductExportUseCase(db, productRepo, listingRepo, pushUC),
@@ -282,6 +289,7 @@ func main() {
 			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC,
 		),
 		ordersImportUC,
+		shipmentReconcileUC,
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
