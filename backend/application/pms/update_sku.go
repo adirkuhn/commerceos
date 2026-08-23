@@ -36,14 +36,15 @@ type UpdateSKUInput struct {
 }
 
 type UpdateSKUUseCase struct {
-	db          *gorm.DB
-	variantRepo pmsDomain.VariantRepository
-	skuRepo     pmsDomain.SKURepository
-	outboxRepo  outbox.Repository
+	db               *gorm.DB
+	variantRepo      pmsDomain.VariantRepository
+	skuRepo          pmsDomain.SKURepository
+	outboxRepo       outbox.Repository
+	priceHistoryRepo pmsDomain.SKUPriceHistoryRepository
 }
 
-func NewUpdateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, outboxRepo outbox.Repository) *UpdateSKUUseCase {
-	return &UpdateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, outboxRepo: outboxRepo}
+func NewUpdateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, outboxRepo outbox.Repository, priceHistoryRepo pmsDomain.SKUPriceHistoryRepository) *UpdateSKUUseCase {
+	return &UpdateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, outboxRepo: outboxRepo, priceHistoryRepo: priceHistoryRepo}
 }
 
 // Execute updates every editable SKU field, including SKUCode -- guarded
@@ -100,6 +101,9 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 				return err
 			}
 		}
+		oldPriceMinorUnits := existing.PriceMinorUnits
+		oldSalePriceMinorUnits := existing.SalePriceMinorUnits
+
 		existing.SKUCode = in.SKUCode
 		existing.Barcode = in.Barcode
 		existing.PriceMinorUnits = in.PriceMinorUnits
@@ -123,6 +127,10 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 			return err
 		}
 		sku = *existing
+
+		if err := recordSKUPriceChangeIfNeeded(ctx, uc.priceHistoryRepo, &sku, oldPriceMinorUnits, oldSalePriceMinorUnits, pmsDomain.PriceChangeReasonManualUpdate); err != nil {
+			return err
+		}
 
 		variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
 		if err != nil {

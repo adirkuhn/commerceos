@@ -118,6 +118,25 @@ type SKUCostPriceHistoryRepository interface {
 	ListBySKU(ctx context.Context, skuID string, limit int) ([]SKUCostPriceHistory, error)
 }
 
+// SKUPriceHistoryRepository backs the immutable, effective-dated
+// selling-price audit trail -- see SKUPriceHistory. Unlike
+// SKUCostPriceHistoryRepository (a periodic snapshot upserted daily), a row
+// here is only ever written when price/sale price actually changes, and
+// ValidUntil is filled in retroactively by CloseOpen when superseded --
+// never edited otherwise.
+type SKUPriceHistoryRepository interface {
+	// Create inserts a new open-ended interval (ValidUntil nil).
+	Create(ctx context.Context, h *SKUPriceHistory) error
+	// CloseOpen closes whatever interval is currently open (ValidUntil IS
+	// NULL) for skuID by setting ValidUntil = until. A no-op (not an
+	// error) if none is open -- e.g. the SKU's very first price change,
+	// or a SKU that existed before this table did.
+	CloseOpen(ctx context.Context, skuID string, until time.Time) error
+	// ListBySKU returns skuID's price history, most recent (by ValidFrom)
+	// first, capped at limit (0 means the repository's own default cap).
+	ListBySKU(ctx context.Context, skuID string, limit int) ([]SKUPriceHistory, error)
+}
+
 type MediaRepository interface {
 	Attach(ctx context.Context, m *Media) error
 	FindByID(ctx context.Context, id string) (*Media, error)

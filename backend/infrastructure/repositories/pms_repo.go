@@ -1163,3 +1163,92 @@ func (r *SKUCostPriceHistoryRepo) ListBySKU(ctx context.Context, skuID string, l
 	}
 	return history, nil
 }
+
+// ── SKU price history repo ──────────────────────────────────────────────────
+
+const defaultPriceHistoryLimit = 90
+
+type skuPriceHistoryModel struct {
+	ID                  string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID            string `gorm:"not null;type:uuid"`
+	SKUID               string `gorm:"column:sku_id;not null;type:uuid"`
+	PriceMinorUnits     int64  `gorm:"not null"`
+	SalePriceMinorUnits *int64
+	CurrencyCode        string `gorm:"not null"`
+	ValidFrom           time.Time
+	ValidUntil          *time.Time
+	Reason              string `gorm:"not null"`
+	CreatedAt           time.Time
+}
+
+func (skuPriceHistoryModel) TableName() string { return "sku_price_history" }
+
+type SKUPriceHistoryRepo struct{ db *gorm.DB }
+
+func NewSKUPriceHistoryRepo(db *gorm.DB) *SKUPriceHistoryRepo {
+	return &SKUPriceHistoryRepo{db: db}
+}
+
+func (r *SKUPriceHistoryRepo) tx(ctx context.Context) (*gorm.DB, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("pms: operation called outside a transaction")
+	}
+	return tx.WithContext(ctx), nil
+}
+
+func (r *SKUPriceHistoryRepo) Create(ctx context.Context, h *pmsDomain.SKUPriceHistory) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	m := skuPriceHistoryModel{
+		TenantID: h.TenantID, SKUID: h.SKUID,
+		PriceMinorUnits: h.PriceMinorUnits, SalePriceMinorUnits: h.SalePriceMinorUnits,
+		CurrencyCode: h.CurrencyCode, ValidFrom: h.ValidFrom, ValidUntil: h.ValidUntil,
+		Reason: string(h.Reason), CreatedAt: h.CreatedAt,
+	}
+	if err := tx.Create(&m).Error; err != nil {
+		return fmt.Errorf("skuPriceHistoryRepo.Create: %w", err)
+	}
+	h.ID = m.ID
+	return nil
+}
+
+func (r *SKUPriceHistoryRepo) CloseOpen(ctx context.Context, skuID string, until time.Time) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Model(&skuPriceHistoryModel{}).
+		Where("sku_id = ? AND valid_until IS NULL", skuID).
+		Update("valid_until", until).Error
+	if err != nil {
+		return fmt.Errorf("skuPriceHistoryRepo.CloseOpen: %w", err)
+	}
+	return nil
+}
+
+func (r *SKUPriceHistoryRepo) ListBySKU(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUPriceHistory, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = defaultPriceHistoryLimit
+	}
+	var rows []skuPriceHistoryModel
+	if err := tx.Where("sku_id = ?", skuID).Order("valid_from desc").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("skuPriceHistoryRepo.ListBySKU: %w", err)
+	}
+	history := make([]pmsDomain.SKUPriceHistory, len(rows))
+	for i, row := range rows {
+		history[i] = pmsDomain.SKUPriceHistory{
+			ID: row.ID, TenantID: row.TenantID, SKUID: row.SKUID,
+			PriceMinorUnits: row.PriceMinorUnits, SalePriceMinorUnits: row.SalePriceMinorUnits,
+			CurrencyCode: row.CurrencyCode, ValidFrom: row.ValidFrom, ValidUntil: row.ValidUntil,
+			Reason: pmsDomain.PriceChangeReason(row.Reason), CreatedAt: row.CreatedAt,
+		}
+	}
+	return history, nil
+}

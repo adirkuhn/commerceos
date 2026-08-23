@@ -17,14 +17,15 @@ import (
 // (see runOne's comment in cmd/scheduler for why cross-tenant polling
 // still dispatches per-item work under the real tenant identity).
 type ExpireSKUSalePriceUseCase struct {
-	db          *gorm.DB
-	variantRepo pmsDomain.VariantRepository
-	skuRepo     pmsDomain.SKURepository
-	outboxRepo  outbox.Repository
+	db               *gorm.DB
+	variantRepo      pmsDomain.VariantRepository
+	skuRepo          pmsDomain.SKURepository
+	outboxRepo       outbox.Repository
+	priceHistoryRepo pmsDomain.SKUPriceHistoryRepository
 }
 
-func NewExpireSKUSalePriceUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, outboxRepo outbox.Repository) *ExpireSKUSalePriceUseCase {
-	return &ExpireSKUSalePriceUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, outboxRepo: outboxRepo}
+func NewExpireSKUSalePriceUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, outboxRepo outbox.Repository, priceHistoryRepo pmsDomain.SKUPriceHistoryRepository) *ExpireSKUSalePriceUseCase {
+	return &ExpireSKUSalePriceUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, outboxRepo: outboxRepo, priceHistoryRepo: priceHistoryRepo}
 }
 
 func (uc *ExpireSKUSalePriceUseCase) Execute(ctx context.Context, skuID string) (*pmsDomain.SKU, error) {
@@ -34,6 +35,9 @@ func (uc *ExpireSKUSalePriceUseCase) Execute(ctx context.Context, skuID string) 
 		if err != nil {
 			return err
 		}
+		oldPriceMinorUnits := existing.PriceMinorUnits
+		oldSalePriceMinorUnits := existing.SalePriceMinorUnits
+
 		existing.SalePriceMinorUnits = nil
 		existing.SaleEndDate = nil
 		existing.UpdatedAt = time.Now()
@@ -41,6 +45,10 @@ func (uc *ExpireSKUSalePriceUseCase) Execute(ctx context.Context, skuID string) 
 			return err
 		}
 		sku = *existing
+
+		if err := recordSKUPriceChangeIfNeeded(ctx, uc.priceHistoryRepo, &sku, oldPriceMinorUnits, oldSalePriceMinorUnits, pmsDomain.PriceChangeReasonSaleExpired); err != nil {
+			return err
+		}
 
 		variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
 		if err != nil {

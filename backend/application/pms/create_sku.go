@@ -35,13 +35,14 @@ type CreateSKUInput struct {
 }
 
 type CreateSKUUseCase struct {
-	db          *gorm.DB
-	variantRepo pmsDomain.VariantRepository
-	skuRepo     pmsDomain.SKURepository
+	db               *gorm.DB
+	variantRepo      pmsDomain.VariantRepository
+	skuRepo          pmsDomain.SKURepository
+	priceHistoryRepo pmsDomain.SKUPriceHistoryRepository
 }
 
-func NewCreateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository) *CreateSKUUseCase {
-	return &CreateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo}
+func NewCreateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, priceHistoryRepo pmsDomain.SKUPriceHistoryRepository) *CreateSKUUseCase {
+	return &CreateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, priceHistoryRepo: priceHistoryRepo}
 }
 
 func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pmsDomain.SKU, error) {
@@ -122,7 +123,10 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}
-		return uc.skuRepo.Create(ctx, &sku)
+		if err := uc.skuRepo.Create(ctx, &sku); err != nil {
+			return err
+		}
+		return writeSKUPriceHistory(ctx, uc.priceHistoryRepo, &sku, pmsDomain.PriceChangeReasonCreated)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)

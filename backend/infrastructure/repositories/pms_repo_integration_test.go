@@ -954,3 +954,133 @@ func TestSKUCostPriceHistoryRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, historyFromOtherTenant, "tenant B must not see tenant A's cost-price history")
 }
+
+// TestSKUPriceHistoryRepo_Integration_CloseOpenEndsThePreviousIntervalOnly
+// proves CloseOpen only closes the currently-open row for that SKU (leaving
+// older, already-closed intervals untouched) and that a subsequent Create
+// opens a fresh interval -- the sequence UpdateSKUUseCase/
+// ExpireSKUSalePriceUseCase rely on.
+func TestSKUPriceHistoryRepo_Integration_CloseOpenEndsThePreviousIntervalOnly(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	historyRepo := repositories.NewSKUPriceHistoryRepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Acai", Slug: "acai-price-history-test", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "ACAI-HIST-1", PriceMinorUnits: 999, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	// First interval: opened at creation.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return historyRepo.Create(ctx, &pmsDomain.SKUPriceHistory{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
+			PriceMinorUnits: 999, CurrencyCode: "EUR",
+			ValidFrom: time.Now(), Reason: pmsDomain.PriceChangeReasonCreated, CreatedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	// Price change: close the open interval, open a new one.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := historyRepo.CloseOpen(ctx, skuID, time.Now()); err != nil {
+			return err
+		}
+		return historyRepo.Create(ctx, &pmsDomain.SKUPriceHistory{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
+			PriceMinorUnits: 1049, CurrencyCode: "EUR",
+			ValidFrom: time.Now(), Reason: pmsDomain.PriceChangeReasonManualUpdate, CreatedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	var history []pmsDomain.SKUPriceHistory
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		history, err = historyRepo.ListBySKU(ctx, skuID, 0)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, history, 2)
+	// Most recent (valid_from desc) first: the new open interval.
+	require.Equal(t, int64(1049), history[0].PriceMinorUnits)
+	require.Nil(t, history[0].ValidUntil)
+	require.Equal(t, int64(999), history[1].PriceMinorUnits)
+	require.NotNil(t, history[1].ValidUntil, "the superseded interval must be closed")
+
+	// A second CloseOpen (nothing open right now) must be a no-op, not an error.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return historyRepo.CloseOpen(ctx, skuID, time.Now())
+	})
+	require.NoError(t, err)
+}
+
+// TestSKUPriceHistoryRepo_Integration_RLSIsolatesTenants proves the new
+// table's tenant_isolation policy actually enforces isolation over the
+// non-superuser app role, same reasoning as
+// TestSKUCostPriceHistoryRepo_Integration_RLSIsolatesTenants.
+func TestSKUPriceHistoryRepo_Integration_RLSIsolatesTenants(t *testing.T) {
+	superDB, superDSN := newIntegrationDBAndDSN(t)
+	db := newAppRoleDB(t, superDSN)
+	_, ctxA := newTestTenant()
+	productRepo := repositories.NewProductRepo(superDB)
+	variantRepo := repositories.NewVariantRepo(superDB)
+	skuRepo := repositories.NewSKURepo(superDB)
+	historyRepo := repositories.NewSKUPriceHistoryRepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctxA, superDB, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Acai", Slug: "acai-price-history-rls-test", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "ACAI-RLS-1", PriceMinorUnits: 999, CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctxA, db, func(ctx context.Context) error {
+		return historyRepo.Create(ctx, &pmsDomain.SKUPriceHistory{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
+			PriceMinorUnits: 999, CurrencyCode: "EUR",
+			ValidFrom: time.Now(), Reason: pmsDomain.PriceChangeReasonCreated, CreatedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	_, ctxB := newTestTenant()
+	var historyFromOtherTenant []pmsDomain.SKUPriceHistory
+	err = tenant.WithTenant(ctxB, db, func(ctx context.Context) error {
+		var err error
+		historyFromOtherTenant, err = historyRepo.ListBySKU(ctx, skuID, 0)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, historyFromOtherTenant, "tenant B must not see tenant A's price history")
+}

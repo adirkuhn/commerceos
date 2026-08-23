@@ -257,6 +257,15 @@ func (s *stubListMarginReport) Execute(_ context.Context, _ apppms.ListMarginRep
 	return s.out, s.err
 }
 
+type stubListSKUPriceHistory struct {
+	out []pmsDomain.SKUPriceHistory
+	err error
+}
+
+func (s *stubListSKUPriceHistory) Execute(_ context.Context, _ string, _ int) ([]pmsDomain.SKUPriceHistory, error) {
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
@@ -286,6 +295,7 @@ type stubs struct {
 	getSKUMarginInsight    stubGetSKUMarginInsight
 	listCostPriceHistory   stubListCostPriceHistory
 	listMarginReport       stubListMarginReport
+	listSKUPriceHistory    stubListSKUPriceHistory
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -298,6 +308,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.uploadMedia, &s.listProductMedia, &s.deleteMedia, &s.updateMedia,
 		&s.resolveBarcode,
 		&s.getSKUMarginInsight, &s.listCostPriceHistory, &s.listMarginReport,
+		&s.listSKUPriceHistory,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -740,6 +751,18 @@ func TestListSKUCostPriceHistory_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"cost_price_minor_units":700`)
+}
+
+func TestListSKUPriceHistory_success(t *testing.T) {
+	salePrice := int64(799)
+	s := &stubs{listSKUPriceHistory: stubListSKUPriceHistory{out: []pmsDomain.SKUPriceHistory{
+		{ID: "h1", SKUID: "sku-1", PriceMinorUnits: 999, SalePriceMinorUnits: &salePrice, CurrencyCode: "EUR", Reason: pmsDomain.PriceChangeReasonManualUpdate},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/sku-1/price-history", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"price_minor_units":999`)
+	assert.Contains(t, w.Body.String(), `"reason":"manual_update"`)
 }
 
 func TestListMarginReport_success(t *testing.T) {

@@ -125,3 +125,30 @@ func (s *stubSKURepo) ClearCostPriceOverride(_ context.Context, skuID string) er
 	s.clearOverrideCalls = append(s.clearOverrideCalls, skuID)
 	return s.clearOverrideErr
 }
+
+type stubSKUPriceHistoryRepo struct {
+	created      []pmsDomain.SKUPriceHistory
+	createErr    error
+	closedSKUIDs []string
+	closeErr     error
+	listResult   []pmsDomain.SKUPriceHistory
+	listErr      error
+}
+
+func (s *stubSKUPriceHistoryRepo) Create(_ context.Context, h *pmsDomain.SKUPriceHistory) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	h.ID = "price-history-1"
+	s.created = append(s.created, *h)
+	return nil
+}
+
+func (s *stubSKUPriceHistoryRepo) CloseOpen(_ context.Context, skuID string, _ time.Time) error {
+	s.closedSKUIDs = append(s.closedSKUIDs, skuID)
+	return s.closeErr
+}
+
+func (s *stubSKUPriceHistoryRepo) ListBySKU(_ context.Context, _ string, _ int) ([]pmsDomain.SKUPriceHistory, error) {
+	return s.listResult, s.listErr
+}

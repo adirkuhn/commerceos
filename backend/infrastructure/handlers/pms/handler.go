@@ -130,6 +130,9 @@ type listCostPriceHistoryUC interface {
 type listMarginReportUC interface {
 	Execute(ctx context.Context, in apppms.ListMarginReportInput) (*apppms.ListMarginReportResult, error)
 }
+type listSKUPriceHistoryUC interface {
+	Execute(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUPriceHistory, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -160,6 +163,7 @@ type Handler struct {
 	getSKUMarginInsight    getSKUMarginInsightUC
 	listCostPriceHistory   listCostPriceHistoryUC
 	listMarginReport       listMarginReportUC
+	listSKUPriceHistory    listSKUPriceHistoryUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -190,11 +194,13 @@ func NewHandler(
 	getSKUMarginInsight getSKUMarginInsightUC,
 	listCostPriceHistory listCostPriceHistoryUC,
 	listMarginReport listMarginReportUC,
+	listSKUPriceHistory listSKUPriceHistoryUC,
 ) *Handler {
 	return &Handler{
 		getSKUMarginInsight:    getSKUMarginInsight,
 		listCostPriceHistory:   listCostPriceHistory,
 		listMarginReport:       listMarginReport,
+		listSKUPriceHistory:    listSKUPriceHistory,
 		listCategories:         listCategories,
 		createCategory:         createCategory,
 		updateCategory:         updateCategory,
@@ -236,6 +242,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
 	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
+	priceHistoryRepo := repositories.NewSKUPriceHistoryRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
@@ -258,8 +265,8 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
 		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo),
 		apppms.NewDeleteVariantUseCase(db, variantRepo),
-		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo),
-		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo),
+		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo, priceHistoryRepo),
+		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo),
 		apppms.NewDeleteSKUUseCase(db, skuRepo),
 		apppms.NewSetManualCostPriceUseCase(db, skuRepo),
 		apppms.NewClearCostPriceOverrideUseCase(db, skuRepo),
@@ -271,6 +278,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewGetSKUMarginInsightUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, batchLister, discardLister),
 		apppms.NewListCostPriceHistoryUseCase(db, costPriceHistoryRepo),
 		apppms.NewListMarginReportUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo),
+		apppms.NewListSKUPriceHistoryUseCase(db, priceHistoryRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -661,6 +669,27 @@ func (h *Handler) ListSKUCostPriceHistory(c *gin.Context, id genpms.Id, params g
 		}
 	}
 	c.JSON(http.StatusOK, genpms.SKUCostPriceHistoryListResponse{Data: &resp})
+}
+
+func (h *Handler) ListSKUPriceHistory(c *gin.Context, id genpms.Id, params genpms.ListSKUPriceHistoryParams) {
+	limit := 0
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	history, err := h.listSKUPriceHistory.Execute(c.Request.Context(), id, limit)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genpms.SKUPriceHistoryEntry, len(history))
+	for i, hist := range history {
+		resp[i] = genpms.SKUPriceHistoryEntry{
+			Id: hist.ID, SkuId: hist.SKUID,
+			PriceMinorUnits: hist.PriceMinorUnits, SalePriceMinorUnits: hist.SalePriceMinorUnits,
+			CurrencyCode: hist.CurrencyCode, ValidFrom: hist.ValidFrom, ValidUntil: hist.ValidUntil,
+			Reason: genpms.SKUPriceHistoryEntryReason(hist.Reason),
+		}
+	}
+	c.JSON(http.StatusOK, genpms.SKUPriceHistoryListResponse{Data: &resp})
 }
 
 func (h *Handler) ListMarginReport(c *gin.Context, params genpms.ListMarginReportParams) {

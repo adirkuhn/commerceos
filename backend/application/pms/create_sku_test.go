@@ -18,7 +18,7 @@ func strPtr(v string) *string { return &v }
 func TestCreateSKU_rejectsDimensionsOnVirtualSKU(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -32,7 +32,7 @@ func TestCreateSKU_rejectsDimensionsOnVirtualSKU(t *testing.T) {
 func TestCreateSKU_persistsTaxClassID(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -47,7 +47,7 @@ func TestCreateSKU_persistsTaxClassID(t *testing.T) {
 func TestCreateSKU_allowsVirtualSKUWithoutDimensions(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -61,7 +61,7 @@ func TestCreateSKU_allowsVirtualSKUWithoutDimensions(t *testing.T) {
 func TestCreateSKU_allowsPhysicalSKUWithDimensions(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -76,7 +76,7 @@ func TestCreateSKU_allowsPhysicalSKUWithDimensions(t *testing.T) {
 func TestCreateSKU_rejectsSalePriceAboveRegularPrice(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, SalePriceMinorUnits: int64Ptr(150),
@@ -90,7 +90,7 @@ func TestCreateSKU_rejectsSalePriceAboveRegularPrice(t *testing.T) {
 func TestCreateSKU_allowsSalePriceEqualToOrBelowRegularPrice(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, SalePriceMinorUnits: int64Ptr(80),
@@ -104,7 +104,7 @@ func TestCreateSKU_allowsSalePriceEqualToOrBelowRegularPrice(t *testing.T) {
 func TestCreateSKU_rejectsSaleEndDateWithoutSalePrice(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	endDate := time.Now().Add(24 * time.Hour)
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
@@ -119,7 +119,7 @@ func TestCreateSKU_rejectsSaleEndDateWithoutSalePrice(t *testing.T) {
 func TestCreateSKU_allowsSaleEndDateWithSalePrice(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	endDate := time.Now().Add(24 * time.Hour)
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
@@ -134,7 +134,7 @@ func TestCreateSKU_allowsSaleEndDateWithSalePrice(t *testing.T) {
 func TestCreateSKU_persistsCasePackRelationship(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-unit-1"}}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-CASE-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -149,7 +149,7 @@ func TestCreateSKU_persistsCasePackRelationship(t *testing.T) {
 func TestCreateSKU_rejectsCaseOfSKUIDWithoutUnitsPerCase(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -163,7 +163,7 @@ func TestCreateSKU_rejectsCaseOfSKUIDWithoutUnitsPerCase(t *testing.T) {
 func TestCreateSKU_rejectsUnitsPerCaseWithoutCaseOfSKUID(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -177,7 +177,7 @@ func TestCreateSKU_rejectsUnitsPerCaseWithoutCaseOfSKUID(t *testing.T) {
 func TestCreateSKU_rejectsNonPositiveUnitsPerCase(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -191,7 +191,7 @@ func TestCreateSKU_rejectsNonPositiveUnitsPerCase(t *testing.T) {
 func TestCreateSKU_rejectsCaseOfSKUIDThatIsItselfACase(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-already-a-case", CaseOfSKUID: strPtr("sku-deeper"), UnitsPerCase: int64Ptr(12)}}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -205,7 +205,7 @@ func TestCreateSKU_rejectsCaseOfSKUIDThatIsItselfACase(t *testing.T) {
 func TestCreateSKU_rejectsCaseOfSKUIDThatDoesNotExist(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -219,7 +219,7 @@ func TestCreateSKU_rejectsCaseOfSKUIDThatDoesNotExist(t *testing.T) {
 func TestCreateSKU_persistsUnitType(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "BULK-1", PriceMinorUnits: 0, CurrencyCode: "USD",
@@ -233,7 +233,7 @@ func TestCreateSKU_persistsUnitType(t *testing.T) {
 func TestCreateSKU_defaultsUnitTypeToUnitWhenNotGiven(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -247,7 +247,7 @@ func TestCreateSKU_defaultsUnitTypeToUnitWhenNotGiven(t *testing.T) {
 func TestCreateSKU_persistsPortionedFromRelationship(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-bulk-1", UnitType: pmsDomain.SKUUnitTypeKilo}}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "PORTION-378G", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -261,7 +261,7 @@ func TestCreateSKU_persistsPortionedFromRelationship(t *testing.T) {
 func TestCreateSKU_rejectsBulkSKUThatIsAlsoPortionedFromAnother(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -275,7 +275,7 @@ func TestCreateSKU_rejectsBulkSKUThatIsAlsoPortionedFromAnother(t *testing.T) {
 func TestCreateSKU_rejectsPortionedFromSKUThatDoesNotTrackWeight(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-not-bulk", UnitType: pmsDomain.SKUUnitTypeUnit}}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -289,7 +289,7 @@ func TestCreateSKU_rejectsPortionedFromSKUThatDoesNotTrackWeight(t *testing.T) {
 func TestCreateSKU_rejectsPortionedFromSKUThatDoesNotExist(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -303,7 +303,7 @@ func TestCreateSKU_rejectsPortionedFromSKUThatDoesNotExist(t *testing.T) {
 func TestCreateSKU_persistsTracksExpiry(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -317,7 +317,7 @@ func TestCreateSKU_persistsTracksExpiry(t *testing.T) {
 func TestCreateSKU_trimsWhitespaceFromBarcode(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", Barcode: "  0123456789012 \n", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -331,7 +331,7 @@ func TestCreateSKU_trimsWhitespaceFromBarcode(t *testing.T) {
 func TestCreateSKU_rejectsInvalidUnitType(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}
-	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo)
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
 		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
@@ -340,4 +340,27 @@ func TestCreateSKU_rejectsInvalidUnitType(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, pmsDomain.ErrInvalidSKUUnitType))
+}
+
+func TestCreateSKU_recordsInitialPriceHistory(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	priceHistoryRepo := &stubSKUPriceHistoryRepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, priceHistoryRepo)
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 999, SalePriceMinorUnits: int64Ptr(799),
+		CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, priceHistoryRepo.created, 1)
+	entry := priceHistoryRepo.created[0]
+	require.Equal(t, sku.ID, entry.SKUID)
+	require.Equal(t, int64(999), entry.PriceMinorUnits)
+	require.Equal(t, int64(799), *entry.SalePriceMinorUnits)
+	require.Equal(t, "EUR", entry.CurrencyCode)
+	require.Equal(t, pmsDomain.PriceChangeReasonCreated, entry.Reason)
+	require.Nil(t, entry.ValidUntil)
+	require.Empty(t, priceHistoryRepo.closedSKUIDs, "nothing to close on a brand new SKU")
 }
