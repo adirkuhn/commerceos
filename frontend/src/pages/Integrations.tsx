@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Plug, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
+import { useWebhookFallbackEvents } from '../integrations/hooks/useWebhookFallbackEvents'
 import * as api from '../integrations/api'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../integrations/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -10,6 +11,14 @@ import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
 import { notifyNotificationsChanged } from '../notifications/notificationsBus'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
+
+// Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- this
+// table exposes raw (if opaque) third-party payloads and a manual
+// republish action, security/ops-adjacent rather than day-to-day
+// integration use, see that file's canManageWebhooks doc comment.
+function canManageWebhooks(role: string | undefined): boolean {
+  return role === 'customer_owner' || role === 'customer_admin' || role === 'super_admin'
+}
 
 const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
@@ -35,10 +44,12 @@ const STATUS_COLOR = {
 }
 
 export default function Integrations() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { connections, loading, error, refresh, disconnect } = useConnections(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
+  const showWebhookAdmin = canManageWebhooks(user?.role)
+  const fallbackEvents = useWebhookFallbackEvents(showWebhookAdmin ? token ?? '' : '')
 
   const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
 
@@ -276,6 +287,8 @@ export default function Integrations() {
             </div>
           </>
         )}
+
+        {showWebhookAdmin && <WebhookFallbackEventsTable {...fallbackEvents} />}
       </div>
 
       {browsing && (
@@ -581,6 +594,105 @@ export default function Integrations() {
               </form>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Tenant-wide (not per-connection -- the backend's list endpoint has no
+// connection filter) admin table for webhooks that failed to publish to
+// JetStream after 3 in-request retries and landed in the fallback table
+// instead. Minimal by design: table + two row actions, no elaborate UI,
+// matching this page's own connection cards above.
+function WebhookFallbackEventsTable({
+  events, loading, error, retry, abandon,
+}: ReturnType<typeof useWebhookFallbackEvents>) {
+  const [rowError, setRowError] = useState('')
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function handleRetry(id: string) {
+    setRowError('')
+    setBusyId(id)
+    try {
+      await retry(id)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Retry failed')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleAbandon(id: string) {
+    setRowError('')
+    setBusyId(id)
+    try {
+      await abandon(id)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : 'Abandon failed')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (!loading && events.length === 0 && !error) return null
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+      <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Undelivered webhooks</h2>
+      <p className="text-xs dark:text-gray-500 text-gray-400 mb-3">
+        Webhooks that couldn't reach the processing queue after 3 attempts -- saved here instead of lost. Retry re-attempts
+        delivery now; Abandon discards it (kept for audit, not deleted).
+      </p>
+
+      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+      {rowError && <p className="text-xs text-red-400 mb-2">{rowError}</p>}
+
+      {loading ? (
+        <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+      ) : events.length === 0 ? (
+        <p className="text-xs dark:text-gray-500 text-gray-400">Nothing pending -- every webhook has been delivered.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <th className="py-2 pr-3 font-medium">Provider</th>
+                <th className="py-2 pr-3 font-medium">Event ID</th>
+                <th className="py-2 pr-3 font-medium">Received</th>
+                <th className="py-2 pr-3 font-medium">Status</th>
+                <th className="py-2 pr-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map(ev => (
+                <tr key={ev.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
+                  <td className="py-2 pr-3 dark:text-gray-300 text-gray-700 capitalize">{ev.provider}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono truncate max-w-[160px]" title={ev.event_id}>{ev.event_id}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{new Date(ev.received_at).toLocaleString()}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{ev.status}</td>
+                  <td className="py-2 pr-3">
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => handleRetry(ev.id)}
+                        disabled={busyId === ev.id}
+                        className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-blue-400 disabled:opacity-50 transition-colors"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        onClick={() => handleAbandon(ev.id)}
+                        disabled={busyId === ev.id}
+                        className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                      >
+                        Abandon
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
