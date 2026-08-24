@@ -95,7 +95,9 @@ export interface FetchWooOrderResult {
   errors: string[]
 }
 
-export type SyncEntityType = 'products' | 'stock' | 'orders' | 'categories' | 'orders_reconciliation'
+export type SyncEntityType =
+  | 'products' | 'stock' | 'orders' | 'categories' | 'orders_reconciliation' | 'shipment_reconciliation'
+  | 'bol_orders' | 'bol_products' | 'bol_stock'
 export type SyncDirection = 'import' | 'export'
 
 export interface SyncSchedule {

@@ -13,15 +13,17 @@ export interface Job {
   next_run_at: string
 }
 
-// SyncScheduleRow is one tenant's WooCommerce sync schedule, enriched with
-// its connection's store URL for display -- cross-tenant list, super_admin
-// only. See backend domain/channels.SyncSchedule.
+// SyncScheduleRow is one tenant's sync schedule (WooCommerce or Bol),
+// enriched with its connection's store URL for display -- cross-tenant
+// list, super_admin only. See backend domain/channels.SyncSchedule.
 export interface SyncScheduleRow {
   id: string
   tenant_id: string
   connection_id: string
   connection_store_url: string
-  entity_type: 'products' | 'stock' | 'orders' | 'categories' | 'orders_reconciliation'
+  entity_type:
+    | 'products' | 'stock' | 'orders' | 'categories' | 'orders_reconciliation' | 'shipment_reconciliation'
+    | 'bol_orders' | 'bol_products' | 'bol_stock'
   direction: 'import' | 'export'
   enabled: boolean
   interval_minutes: number

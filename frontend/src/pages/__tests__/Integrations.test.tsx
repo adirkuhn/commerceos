@@ -60,6 +60,10 @@ function wooConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', ...overrides }
 }
 
+function bolConnection(overrides: Partial<Connection> = {}): Connection {
+  return { id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '', ...overrides }
+}
+
 const sampleWarehouse: Warehouse = {
   id: 'wh-1', tenant_id: 'tenant-1', name: 'Main DC',
   address1: '', address2: '', city: '', province: '', zip: '', country: '', phone: '', active: true,
@@ -104,6 +108,17 @@ describe('Configure connection', () => {
     await userEvent.click(screen.getByRole('button', { name: /Integrations/ }))
 
     expect(await screen.findByText('Connected integrations')).toBeInTheDocument()
+  })
+
+  it('shows a Configure button for Bol connections and opens the Bol sync settings page', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([bolConnection()])
+    render(<Integrations />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+
+    expect(await screen.findByText('Sync schedule')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Bol.com' })).toBeInTheDocument()
+    expect(integrationsApi.listSyncSchedules).toHaveBeenCalledWith('test-token', 'conn-bol-1')
   })
 })
 

@@ -201,7 +201,7 @@ export default function ScheduledJobs() {
 
           <section>
             <h2 className="text-xs font-semibold uppercase tracking-wider dark:text-gray-400 text-gray-500 mb-2">
-              WooCommerce sync schedules ({schedules.length})
+              Sync schedules ({schedules.length})
             </h2>
             <table className="w-full text-xs">
               <thead>

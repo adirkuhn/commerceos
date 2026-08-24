@@ -59,7 +59,7 @@ export default function Integrations() {
 
   const [browsing, setBrowsing] = useState(false)
   const [connectingWoo, setConnectingWoo] = useState(false)
-  const [connectingBol, setConnectingBol] = useState(false)
+  const [bolConnection, setBolConnection] = useState<Connection | 'new' | null>(null)
   const [myParcelConnection, setMyParcelConnection] = useState<Connection | 'new' | null>(null)
   const [connectMode, setConnectMode] = useState<'auto' | 'manual'>('auto')
   const [storeUrl, setStoreUrl] = useState('')
@@ -196,12 +196,13 @@ export default function Integrations() {
     return <WooCommerceSyncSettingsPage connection={configuringConnection} onClose={() => setConfiguringConnection(null)} />
   }
 
-  if (connectingBol) {
+  if (bolConnection) {
     return (
       <BolSyncSettingsPage
-        onClose={() => setConnectingBol(false)}
+        connectionId={bolConnection === 'new' ? undefined : bolConnection.id}
+        onClose={() => setBolConnection(null)}
         onConnected={() => {
-          setConnectingBol(false)
+          setBolConnection(null)
           refresh()
         }}
       />
@@ -294,6 +295,14 @@ export default function Integrations() {
                           Configure
                         </button>
                       )}
+                      {conn.provider === 'bol' && (
+                        <button
+                          onClick={() => setBolConnection(conn)}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Configure
+                        </button>
+                      )}
                       {conn.provider === 'woocommerce' && (
                         <button
                           onClick={() => handleTestConnection(conn.id)}
@@ -362,7 +371,7 @@ export default function Integrations() {
                   <span className="text-sm dark:text-gray-200 text-gray-800">WooCommerce</span>
                 </button>
                 <button
-                  onClick={() => { setBrowsing(false); setConnectingBol(true) }}
+                  onClick={() => { setBrowsing(false); setBolConnection('new') }}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
