@@ -1,7 +1,8 @@
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3,
-  ChevronRight, Zap,
+  ChevronRight, ChevronDown, Zap,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
@@ -23,10 +24,45 @@ interface NavSection {
   section: string
 }
 
-type NavRow = NavEntry | NavSection
+// A submenu row -- a parent label that expands/collapses to reveal its own
+// child NavEntry rows (used for Reports, where every report gets its own
+// page under one collapsible group instead of a single flat item).
+interface NavSubmenu {
+  label: string
+  icon: React.ElementType
+  children: NavEntry[]
+}
+
+type NavRow = NavEntry | NavSection | NavSubmenu
 
 function isSection(row: NavRow): row is NavSection {
   return 'section' in row
+}
+
+function isSubmenu(row: NavRow): row is NavSubmenu {
+  return 'children' in row
+}
+
+const REPORTS_SUBMENU: NavSubmenu = {
+  label: 'Reports',
+  icon: BarChart3,
+  children: [
+    { id: 'reports-overview', label: 'Overview', icon: BarChart3 },
+    { id: 'reports-profitability', label: 'Profitability', icon: BarChart3 },
+    { id: 'reports-revenue-by-channel', label: 'Revenue by Channel', icon: BarChart3 },
+    { id: 'reports-product-performance', label: 'Product Performance', icon: BarChart3 },
+    { id: 'reports-product-performance-matrix', label: 'Performance Matrix', icon: BarChart3 },
+    { id: 'reports-customer-performance', label: 'Customer Performance', icon: BarChart3 },
+    { id: 'reports-category-performance', label: 'Category Performance', icon: BarChart3 },
+    { id: 'reports-slow-moving-products', label: 'Slow-Moving Products', icon: BarChart3 },
+    { id: 'reports-inventory-sales', label: 'Inventory + Sales', icon: BarChart3 },
+    { id: 'reports-sales-trends', label: 'Sales Trends', icon: BarChart3 },
+    { id: 'reports-product-lifecycle', label: 'Product Lifecycle', icon: BarChart3 },
+    { id: 'reports-customer-cohorts', label: 'Customer Cohorts', icon: BarChart3 },
+    { id: 'reports-customer-rfm', label: 'Customer Segments (RFM)', icon: BarChart3 },
+    { id: 'reports-frequently-bought-together', label: 'Frequently Bought Together', icon: BarChart3 },
+    { id: 'reports-stockout-risk', label: 'Stockout Risk', icon: BarChart3 },
+  ],
 }
 
 const NAV_ITEMS: NavRow[] = [
@@ -51,7 +87,7 @@ const NAV_ITEMS: NavRow[] = [
   // than scattering as flat top-level items.
   { section: 'Intelligence' },
   { id: 'promotions', label: 'Promotions', icon: Tag },
-  { id: 'reports', label: 'Reports', icon: BarChart3 },
+  REPORTS_SUBMENU,
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -85,12 +121,16 @@ export default function Sidebar() {
   // not the current page's item count, now that products are paginated.
   const { total } = useProducts(token ?? '', { page: 1, perPage: 1 })
 
+  const reportsChildActive = REPORTS_SUBMENU.children.some(c => c.id === activeNav)
+  const [reportsExpanded, setReportsExpanded] = useState(reportsChildActive)
+  useEffect(() => { if (reportsChildActive) setReportsExpanded(true) }, [reportsChildActive])
+
   const navItems: NavRow[] = [
     ...NAV_ITEMS,
     ...(user?.role === 'customer_owner' || user?.role === 'super_admin' ? OWNER_NAV_ITEMS : []),
     ...(user?.role === 'super_admin' ? SUPER_ADMIN_NAV_ITEMS : []),
   ].map(row =>
-    !isSection(row) && row.id === 'products' && total > 0
+    !isSection(row) && !isSubmenu(row) && row.id === 'products' && total > 0
       ? { ...row, badge: total }
       : row,
   )
@@ -118,6 +158,47 @@ export default function Sidebar() {
               >
                 {item.section}
               </p>
+            )
+          }
+          if (isSubmenu(item)) {
+            const ParentIcon = item.icon
+            return (
+              <div key={`submenu-${item.label}`}>
+                <button
+                  onClick={() => setReportsExpanded(prev => !prev)}
+                  className={clsx(
+                    'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left mb-0.5 transition-all duration-150',
+                    reportsChildActive
+                      ? 'text-blue-400'
+                      : 'dark:text-gray-400 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-100 hover:dark:text-gray-200 hover:text-gray-800',
+                  )}
+                >
+                  <ParentIcon size={16} className={clsx('shrink-0', reportsChildActive ? 'text-blue-400' : '')} />
+                  <span className="text-xs font-medium flex-1 truncate">{item.label}</span>
+                  {reportsExpanded ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
+                </button>
+                {reportsExpanded && (
+                  <div className="ml-3.5 pl-2.5 border-l dark:border-[#2D3748] border-gray-200 space-y-0.5 mb-0.5">
+                    {item.children.map(child => {
+                      const childActive = activeNav === child.id
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => setActiveNav(child.id)}
+                          className={clsx(
+                            'w-full flex items-center px-2.5 py-1.5 rounded-lg text-left group transition-all duration-150',
+                            childActive
+                              ? 'bg-blue-600/15 text-blue-400'
+                              : 'dark:text-gray-400 text-gray-600 hover:dark:bg-[#1F2937] hover:bg-gray-100 hover:dark:text-gray-200 hover:text-gray-800',
+                          )}
+                        >
+                          <span className="text-xs font-medium flex-1 truncate">{child.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )
           }
           const active = activeNav === item.id

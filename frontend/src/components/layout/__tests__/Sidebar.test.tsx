@@ -68,9 +68,13 @@ describe('Sidebar Intelligence section', () => {
     const reports = screen.getByRole('button', { name: /Reports/ })
     const settings = screen.getByRole('button', { name: /Settings/ })
 
-    const position = (el: Element) => Array.from(el.parentElement?.children ?? []).indexOf(el)
-    expect(position(section)).toBeLessThan(position(promotions))
-    expect(position(promotions)).toBeLessThan(position(reports))
-    expect(position(reports)).toBeLessThan(position(settings))
+    // Reports is now a collapsible submenu (its button sits inside its own
+    // wrapper div, not as a direct sibling of the other nav buttons), so
+    // sibling-index comparison no longer reflects nav order -- document
+    // order does, regardless of nesting depth.
+    const isBefore = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(isBefore(section, promotions)).toBe(true)
+    expect(isBefore(promotions, reports)).toBe(true)
+    expect(isBefore(reports, settings)).toBe(true)
   })
 })

@@ -283,6 +283,20 @@ export interface StockoutRiskReport {
   rows: StockoutRiskRow[]
 }
 
+export interface ProductRecommendationRow {
+  sku_id: string
+  // Empty if the SKU has since been deleted.
+  sku_code: string
+  product_name: string
+  support: number
+}
+
+export interface ProductRecommendationsReport {
+  sku_id: string
+  rows: ProductRecommendationRow[]
+  total_orders: number
+}
+
 export interface APIError {
   code: string
   message: string

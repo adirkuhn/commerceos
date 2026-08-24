@@ -16,7 +16,7 @@ const COMMANDS: { label: string; icon: React.ElementType; nav: NavItem; shortcut
   { label: 'Go to Procurement', icon: ShoppingBag, nav: 'procurement' },
   { label: 'Go to Integrations', icon: Plug, nav: 'integrations' },
   { label: 'Go to Shipping', icon: Truck, nav: 'shipping' },
-  { label: 'Go to Reports', icon: BarChart3, nav: 'reports' },
+  { label: 'Go to Reports', icon: BarChart3, nav: 'reports-overview' },
   { label: 'Go to Users & Roles', icon: Users, nav: 'users' },
   { label: 'Go to Settings', icon: Settings, nav: 'settings' },
 ]

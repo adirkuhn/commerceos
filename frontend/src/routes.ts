@@ -19,9 +19,23 @@ import SalesOrders from './pages/SalesOrders'
 import StockIssues from './pages/StockIssues'
 import UnmatchedSkus from './pages/UnmatchedSkus'
 import Shipping from './pages/Shipping'
-import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import ScheduledJobs from './pages/ScheduledJobs'
+import OverviewPage from './pages/reports/OverviewPage'
+import ProfitabilityPage from './pages/reports/ProfitabilityPage'
+import RevenueByChannelPage from './pages/reports/RevenueByChannelPage'
+import ProductPerformancePage from './pages/reports/ProductPerformancePage'
+import ProductPerformanceMatrixPage from './pages/reports/ProductPerformanceMatrixPage'
+import CustomerPerformancePage from './pages/reports/CustomerPerformancePage'
+import CategoryPerformancePage from './pages/reports/CategoryPerformancePage'
+import SlowMovingProductsPage from './pages/reports/SlowMovingProductsPage'
+import InventorySalesPage from './pages/reports/InventorySalesPage'
+import SalesTrendsPage from './pages/reports/SalesTrendsPage'
+import ProductLifecyclePage from './pages/reports/ProductLifecyclePage'
+import CustomerCohortsPage from './pages/reports/CustomerCohortsPage'
+import CustomerRFMPage from './pages/reports/CustomerRFMPage'
+import FrequentlyBoughtTogetherPage from './pages/reports/FrequentlyBoughtTogetherPage'
+import StockoutRiskPage from './pages/reports/StockoutRiskPage'
 
 export interface PageRoute {
   nav: NavItem
@@ -51,7 +65,21 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'sales-channels', path: '/sales-channels', Component: SalesChannels },
   { nav: 'sync-log', path: '/sync-log', Component: SyncLog },
   { nav: 'shipping', path: '/shipping', Component: Shipping },
-  { nav: 'reports', path: '/reports', Component: Reports },
+  { nav: 'reports-overview', path: '/reports', Component: OverviewPage },
+  { nav: 'reports-profitability', path: '/reports/profitability', Component: ProfitabilityPage },
+  { nav: 'reports-revenue-by-channel', path: '/reports/revenue-by-channel', Component: RevenueByChannelPage },
+  { nav: 'reports-product-performance', path: '/reports/product-performance', Component: ProductPerformancePage },
+  { nav: 'reports-product-performance-matrix', path: '/reports/product-performance-matrix', Component: ProductPerformanceMatrixPage },
+  { nav: 'reports-customer-performance', path: '/reports/customer-performance', Component: CustomerPerformancePage },
+  { nav: 'reports-category-performance', path: '/reports/category-performance', Component: CategoryPerformancePage },
+  { nav: 'reports-slow-moving-products', path: '/reports/slow-moving-products', Component: SlowMovingProductsPage },
+  { nav: 'reports-inventory-sales', path: '/reports/inventory-sales', Component: InventorySalesPage },
+  { nav: 'reports-sales-trends', path: '/reports/sales-trends', Component: SalesTrendsPage },
+  { nav: 'reports-product-lifecycle', path: '/reports/product-lifecycle', Component: ProductLifecyclePage },
+  { nav: 'reports-customer-cohorts', path: '/reports/customer-cohorts', Component: CustomerCohortsPage },
+  { nav: 'reports-customer-rfm', path: '/reports/customer-rfm', Component: CustomerRFMPage },
+  { nav: 'reports-frequently-bought-together', path: '/reports/frequently-bought-together', Component: FrequentlyBoughtTogetherPage },
+  { nav: 'reports-stockout-risk', path: '/reports/stockout-risk', Component: StockoutRiskPage },
   { nav: 'users', path: '/users', Component: Users },
   { nav: 'settings', path: '/settings', Component: Settings },
   { nav: 'scheduled-jobs', path: '/scheduled-jobs', Component: ScheduledJobs },
