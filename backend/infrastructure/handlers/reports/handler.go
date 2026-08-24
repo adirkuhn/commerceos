@@ -52,6 +52,9 @@ type getSalesTrendsReportUC interface {
 type getProductLifecycleReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.ProductLifecycleReport, error)
 }
+type getCustomerCohortsReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.CustomerCohortsReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -65,6 +68,7 @@ type Handler struct {
 	getBusinessInsights          getBusinessInsightsUC
 	getSalesTrendsReport         getSalesTrendsReportUC
 	getProductLifecycleReport    getProductLifecycleReportUC
+	getCustomerCohortsReport     getCustomerCohortsReportUC
 }
 
 func NewHandler(
@@ -79,6 +83,7 @@ func NewHandler(
 	getBusinessInsights getBusinessInsightsUC,
 	getSalesTrendsReport getSalesTrendsReportUC,
 	getProductLifecycleReport getProductLifecycleReportUC,
+	getCustomerCohortsReport getCustomerCohortsReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -86,7 +91,7 @@ func NewHandler(
 		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
 		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
 		getBusinessInsights: getBusinessInsights, getSalesTrendsReport: getSalesTrendsReport,
-		getProductLifecycleReport: getProductLifecycleReport,
+		getProductLifecycleReport: getProductLifecycleReport, getCustomerCohortsReport: getCustomerCohortsReport,
 	}
 }
 
@@ -119,6 +124,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appinsights.NewGetBusinessInsightsUseCase(salesSummaryUC, profitabilityUC, productPerformanceMatrixUC, slowMovingProductsUC, inventorySalesUC),
 		appreports.NewGetSalesTrendsReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetProductLifecycleReportUseCase(productPerformanceUC),
+		appreports.NewGetCustomerCohortsReportUseCase(db, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -306,6 +312,25 @@ func (h *Handler) GetProductLifecycleReport(c *gin.Context, params genreports.Ge
 		}
 	}
 	middleware.OK(c, genreports.ProductLifecycleReport{CurrencyCode: report.CurrencyCode, Rows: rows})
+}
+
+func (h *Handler) GetCustomerCohortsReport(c *gin.Context, params genreports.GetCustomerCohortsReportParams) {
+	report, err := h.getCustomerCohortsReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	cohorts := make([]genreports.CustomerCohortRow, len(report.Cohorts))
+	for i, cohort := range report.Cohorts {
+		retention := make([]genreports.CohortRetentionCell, len(cohort.Retention))
+		for j, cell := range cohort.Retention {
+			retention[j] = genreports.CohortRetentionCell{
+				MonthsSinceCohort: cell.MonthsSinceCohort, RetainedCustomers: cell.RetainedCustomers,
+				RevenueMinorUnits: cell.RevenueMinorUnits, RetentionRateBasisPoints: cell.RetentionRateBasisPoints,
+			}
+		}
+		cohorts[i] = genreports.CustomerCohortRow{CohortMonth: cohort.CohortMonth, CohortSize: cohort.CohortSize, Retention: retention}
+	}
+	middleware.OK(c, genreports.CustomerCohortsReport{CurrencyCode: report.CurrencyCode, Cohorts: cohorts})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

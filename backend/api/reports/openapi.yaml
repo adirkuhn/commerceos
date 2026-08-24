@@ -208,6 +208,35 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/customer-cohorts:
+    get:
+      operationId: getCustomerCohortsReport
+      summary: Acquisition cohorts (by month of each customer's all-time first order) and their retention
+      description: >-
+        Only customers whose all-time first order falls inside [from, to)
+        form a cohort here -- an existing customer who already ordered
+        before the window isn't a new cohort. Retention tracks every
+        order those cohort customers place up to `to`, including months
+        after their acquisition month.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerCohortsReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /reports/product-lifecycle:
     get:
       operationId: getProductLifecycleReport
@@ -564,6 +593,46 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/InventorySalesReport' }
+        error: { nullable: true }
+
+    CohortRetentionCell:
+      type: object
+      required: [months_since_cohort, retained_customers, revenue_minor_units, retention_rate_basis_points]
+      properties:
+        months_since_cohort:
+          type: integer
+          format: int64
+          description: 0 = the acquisition month itself.
+        retained_customers: { type: integer, format: int64 }
+        revenue_minor_units: { type: integer, format: int64 }
+        retention_rate_basis_points:
+          type: integer
+          format: int64
+          description: retained_customers / the cohort's size. 1 bp = 0.01%. 0 when the cohort is empty.
+
+    CustomerCohortRow:
+      type: object
+      required: [cohort_month, cohort_size, retention]
+      properties:
+        cohort_month: { type: string, format: date-time }
+        cohort_size: { type: integer, format: int64 }
+        retention:
+          type: array
+          items: { $ref: '#/components/schemas/CohortRetentionCell' }
+
+    CustomerCohortsReport:
+      type: object
+      required: [currency_code, cohorts]
+      properties:
+        currency_code: { type: string }
+        cohorts:
+          type: array
+          items: { $ref: '#/components/schemas/CustomerCohortRow' }
+
+    CustomerCohortsReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CustomerCohortsReport' }
         error: { nullable: true }
 
     ProductLifecycleStage:

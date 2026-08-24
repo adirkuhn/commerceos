@@ -1621,3 +1621,126 @@ func TestSalesOrderRepo_Integration_SalesByWeekdayBetween_SumsAcrossOccurrencesO
 	require.Equal(t, int64(200), other.RevenueMinorUnits)
 	require.Equal(t, int64(1), other.OrderCount)
 }
+
+func firstOfMonth(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+func TestSalesOrderRepo_Integration_CohortSizesBetween_CountsCustomersByFirstOrderMonth(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	cohortMonth := firstOfMonth(time.Now())
+	inWindowA := cohortMonth.AddDate(0, 0, 2)
+	inWindowB := cohortMonth.AddDate(0, 0, 5)
+	priorMonthFirstOrder := cohortMonth.AddDate(0, -1, 10)
+	alsoInWindow := cohortMonth.AddDate(0, 0, 3)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		custA := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "cohort-a@example.com", FirstName: "A", DateCreated: inWindowA, DateModified: inWindowA}
+		if err := customerRepo.Create(ctx, &custA); err != nil {
+			return err
+		}
+		custB := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "cohort-b@example.com", FirstName: "B", DateCreated: inWindowB, DateModified: inWindowB}
+		if err := customerRepo.Create(ctx, &custB); err != nil {
+			return err
+		}
+		custC := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "cohort-c@example.com", FirstName: "C", DateCreated: priorMonthFirstOrder, DateModified: priorMonthFirstOrder}
+		if err := customerRepo.Create(ctx, &custC); err != nil {
+			return err
+		}
+
+		for _, o := range []struct {
+			extID    string
+			custID   string
+			occurred time.Time
+		}{
+			{"cohort-a-1", custA.ID, inWindowA},
+			{"cohort-b-1", custB.ID, inWindowB},
+			// C's first-ever order predates the window -- must NOT count
+			// toward cohortMonth's cohort, even though C also orders
+			// again inside the window.
+			{"cohort-c-1", custC.ID, priorMonthFirstOrder},
+			{"cohort-c-2", custC.ID, alsoInWindow},
+		} {
+			custID := o.custID
+			if err := salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: o.extID,
+				WarehouseID: warehouseID, CustomerID: &custID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+				TotalMinorUnits: 100, OccurredAt: o.occurred, CreatedAt: o.occurred,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var sizes []omsDomain.CohortSize
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		sizes, err = salesOrderRepo.CohortSizesBetween(ctx, cohortMonth, cohortMonth.AddDate(0, 1, 0), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, sizes, 1)
+	require.True(t, sizes[0].CohortMonth.Equal(cohortMonth))
+	require.Equal(t, int64(2), sizes[0].CustomerCount)
+}
+
+func TestSalesOrderRepo_Integration_CohortRetentionBetween_TracksRepeatOrdersAcrossMonths(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	cohortMonth := firstOfMonth(time.Now())
+	firstOrderAt := cohortMonth.AddDate(0, 0, 1)
+	repeatOrderAt := cohortMonth.AddDate(0, 1, 3)
+
+	var custID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		customer := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "retained@example.com", FirstName: "R", DateCreated: firstOrderAt, DateModified: firstOrderAt}
+		if err := customerRepo.Create(ctx, &customer); err != nil {
+			return err
+		}
+		custID = customer.ID
+
+		if err := salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "retain-1",
+			WarehouseID: warehouseID, CustomerID: &custID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+			TotalMinorUnits: 1000, OccurredAt: firstOrderAt, CreatedAt: firstOrderAt,
+		}); err != nil {
+			return err
+		}
+		return salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "retain-2",
+			WarehouseID: warehouseID, CustomerID: &custID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+			TotalMinorUnits: 400, OccurredAt: repeatOrderAt, CreatedAt: repeatOrderAt,
+		})
+	})
+	require.NoError(t, err)
+
+	var points []omsDomain.CohortRetentionPoint
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		points, err = salesOrderRepo.CohortRetentionBetween(ctx, cohortMonth, cohortMonth.AddDate(0, 2, 0), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, points, 2)
+
+	byMonth := make(map[int64]omsDomain.CohortRetentionPoint, len(points))
+	for _, p := range points {
+		require.True(t, p.CohortMonth.Equal(cohortMonth))
+		byMonth[p.MonthsSinceCohort] = p
+	}
+	require.Equal(t, int64(1), byMonth[0].RetainedCustomers)
+	require.Equal(t, int64(1000), byMonth[0].RevenueMinorUnits)
+	require.Equal(t, int64(1), byMonth[1].RetainedCustomers)
+	require.Equal(t, int64(400), byMonth[1].RevenueMinorUnits)
+}
