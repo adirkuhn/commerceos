@@ -116,6 +116,22 @@ export interface ProfitabilityReport {
   summary: ProfitabilitySummary
 }
 
+export interface InventorySalesRow {
+  sku_id: string
+  sku_code: string
+  product_name: string
+  stock_on_hand: number
+  quantity_sold_in_period: number
+  // Units sold as a fraction of current stock on hand. 1 bp = 0.01%, e.g.
+  // 2500 = 25.00%; can exceed 10000 if restocked mid-period. Null when
+  // stock_on_hand is 0.
+  turnover_basis_points: number | null
+}
+
+export interface InventorySalesReport {
+  rows: InventorySalesRow[]
+}
+
 export interface APIError {
   code: string
   message: string

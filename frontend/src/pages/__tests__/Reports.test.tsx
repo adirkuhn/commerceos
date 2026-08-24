@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -18,6 +18,7 @@ vi.mock('../../reports/api', () => ({
   getCategoryPerformanceReport: vi.fn(),
   getSlowMovingProductsReport: vi.fn(),
   getProfitabilityReport: vi.fn(),
+  getInventorySalesReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -115,6 +116,13 @@ function profitability(overrides: Partial<ProfitabilityReport> = {}): Profitabil
   }
 }
 
+function inventorySales(overrides: Partial<InventorySalesReport> = {}): InventorySalesReport {
+  return {
+    rows: [{ sku_id: 'sku-turn', sku_code: 'TURN-1', product_name: 'Turning Widget', stock_on_hand: 40, quantity_sold_in_period: 10, turnover_basis_points: 2500 }],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -134,6 +142,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getCategoryPerformanceReport).mockResolvedValue(categoryPerformance())
   vi.mocked(reportsApi.getSlowMovingProductsReport).mockResolvedValue(slowMovingProducts())
   vi.mocked(reportsApi.getProfitabilityReport).mockResolvedValue(profitability())
+  vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -288,5 +297,32 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No cost-known revenue in this period')).toBeInTheDocument()
+  })
+
+  it('shows stock on hand, units sold, and turnover for each SKU', async () => {
+    render(<Reports />)
+
+    expect(await screen.findByText('Turning Widget')).toBeInTheDocument()
+    expect(screen.getByText('25.0%')).toBeInTheDocument()
+  })
+
+  it('shows n/a turnover for a SKU with no stock on hand', async () => {
+    vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales({
+      rows: [{ sku_id: 'sku-out', sku_code: 'OUT-1', product_name: 'Sold Out Widget', stock_on_hand: 0, quantity_sold_in_period: 6, turnover_basis_points: null }],
+    }))
+
+    render(<Reports />)
+
+    expect(await screen.findByText('Sold Out Widget')).toBeInTheDocument()
+    expect(screen.getByText('n/a')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when nothing is stocked or sold', async () => {
+    vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No stocked or sold SKUs in this period')).toBeInTheDocument()
   })
 })
