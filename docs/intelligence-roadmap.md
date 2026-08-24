@@ -11,7 +11,7 @@ column as slices land — each slice is its own commit.
 | Item | Status | Notes |
 |---|---|---|
 | Sales transaction history | Done (pre-existing) | `domain/oms.SalesOrder` / `SalesOrderLineItem` already immutable, snapshot price/tax at sale time. |
-| Product history | Not started | No change-audit trail on product/variant edits yet. |
+| Product history | **Done (v1)** — `c5a9238`, frontend `47120de` | New `product_history` table (shared by products+variants), `domain/pms.ProductHistoryRepository`. `UpdateProductUseCase`/`UpdateVariantUseCase` record a row when name/status actually change, atomic with the write. `GET /pms/products/{id}/history` + `/pms/variants/{id}/history`. v1 scope only: name+status, not a generic diff of every field. Frontend: read-only card on the product edit page; variant-level history has the API but no UI yet. |
 | Price history | **Done** — `269bf37` | `domain/pms.SKUPriceHistory`, effective-dated interval table (`sku_price_history`), written on create/update/sale-expiry. |
 | Sale/promotion history | **Done (v1)** — `c2d28ca`, frontend `a90d30f` | New `domain/promotions` bounded context: `Promotion` + `PromotionSKU`, CRUD API + frontend page (`/promotions` nav entry). v1 discount types only `percentage` / `fixed_amount`. BOGO, bundle, quantity, category, customer-segment, coupon types **not built**. No auto-apply to SKU price yet — promotions are defined/managed only. |
 | Cost history | Already covered | `sku_cost_price_history` (daily cron snapshot) + `SetManualCostPriceUseCase`/`ClearCostPriceOverrideUseCase` (source-attributed override). Minor gap: manual override can take up to 24h to appear in history (next cron run) — acceptable for v1, not hardened. |
@@ -69,6 +69,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Sales Trends & Seasonality**: line chart of revenue bucketed by day/week/month (switchable) + bar chart of revenue by weekday — commit `6642945`.
 - **Product Lifecycle**: 5-column quadrant-style grid (new/growing/stable/declining/dormant), same visual pattern as the Performance Matrix — commit `fd73b8c`.
 - **Customer Cohorts**: cohort-by-month x months-since-acquisition retention table, color-intensity badge per cell — commit `923726d`.
+- **Product history**: read-only "Change history" card on the product edit page (name/status changes, most recent first) — commit `47120de`.
 
 Every Phase 0 report on the original roadmap list is now built end-to-end except Promotion Analytics / Opportunities, which needs real promotion usage data first (promotions have no auto-apply/usage tracking yet).
 
