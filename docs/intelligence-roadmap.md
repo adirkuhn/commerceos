@@ -37,7 +37,12 @@ column as slices land — each slice is its own commit.
 | Business Insights Dashboard (rule-based) | **Done** — `f99a944`, frontend `e32b931` | `GET /reports/business-insights`: new `application/insights` package, pure composition over sales-summary/profitability/product-performance-matrix/slow-moving/inventory-sales. Fixed rule set (v1): revenue decline, slow-moving stock, incomplete cost-price data, hidden-gem/problem products, restock risk (SKU turned over >=100% of stock on hand). Distinct from `application/dashboard` (fixed "this month" snapshot, not a rules engine). |
 
 ## Phase 1 — Sales Intelligence & Association Rules
-Not started. Sales aggregation, RFM, FP-Growth, frequently-bought-together.
+
+| Item | Status | Notes |
+|---|---|---|
+| RFM customer segmentation | **Done** — `8a9191d`, frontend `b5f8f26` | `GET /reports/customer-rfm`: Recency/Frequency/Monetary quintile scores (1-5, relative to the tenant's own customer base for the period) plus a fixed-rule segment (champions/loyal_customers/potential_loyalists/at_risk/lost/needs_attention) for every customer with a qualifying order in [from, to). Pure composition over the existing Customer Performance report -- no new query. |
+| FP-Growth / frequently-bought-together | Not started | |
+| Sales aggregation (materialized rollups) | Not started | Not needed yet -- every report so far computes on-demand from `sales_orders`/`sales_order_line_items` directly, fast enough at current data volumes. Revisit if/when report latency becomes a problem. |
 
 ## Phase 2 — Demand & Inventory Intelligence
 Not started. Demand forecasting, reorder prediction, stockout prediction, product substitution.
@@ -72,6 +77,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Product history**: read-only "Change history" card on the product edit page (name/status changes, most recent first) — commit `47120de`.
 - **Promotion auto-apply warning**: creating a promotion whose target SKU already has a manual sale price shows an alert after creation (doesn't block) — commit `c67baa6`.
 - **Promotion performance**: "Performance" card on the promotion edit page (revenue/units during vs. before), shown only for an already-saved promotion — commit `c64904e`.
+- **RFM segments**: 6-column grid on the Reports page (champions/loyal/potential loyalists/at risk/lost/needs attention), same visual pattern as the Product Lifecycle stages — commit `b5f8f26`.
 
 **Phase 0 is now fully complete** except customer activity/events history, which the user explicitly deferred (scope undefined -- needs a decision on what counts as a trackable event before any design work).
 
