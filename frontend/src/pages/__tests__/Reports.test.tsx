@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport, CustomerRFMReport, FrequentlyBoughtTogetherReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -25,6 +25,7 @@ vi.mock('../../reports/api', () => ({
   getCustomerCohortsReport: vi.fn(),
   getCustomerRFMReport: vi.fn(),
   getFrequentlyBoughtTogetherReport: vi.fn(),
+  getStockoutRiskReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -210,6 +211,24 @@ function frequentlyBoughtTogether(overrides: Partial<FrequentlyBoughtTogetherRep
   }
 }
 
+function stockoutRisk(overrides: Partial<StockoutRiskReport> = {}): StockoutRiskReport {
+  return {
+    rows: [
+      {
+        sku_id: 'sku-a', sku_code: 'RISKY-1', product_name: 'Risky Widget',
+        stock_on_hand: 5, quantity_sold_in_period: 30, daily_velocity: 1,
+        days_of_stock_remaining: 5, at_risk: true, suggested_reorder_quantity: 9,
+      },
+      {
+        sku_id: 'sku-b', sku_code: 'SAFE-1', product_name: 'Safe Widget',
+        stock_on_hand: 1000, quantity_sold_in_period: 10, daily_velocity: 0.33,
+        days_of_stock_remaining: 3000, at_risk: false, suggested_reorder_quantity: 0,
+      },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -236,6 +255,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getCustomerCohortsReport).mockResolvedValue(customerCohorts())
   vi.mocked(reportsApi.getCustomerRFMReport).mockResolvedValue(customerRFM())
   vi.mocked(reportsApi.getFrequentlyBoughtTogetherReport).mockResolvedValue(frequentlyBoughtTogether())
+  vi.mocked(reportsApi.getStockoutRiskReport).mockResolvedValue(stockoutRisk())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -549,5 +569,30 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No frequently co-occurring SKU sets in this period')).toBeInTheDocument()
+  })
+
+  it('shows only at-risk SKUs in the stockout risk table, ranked soonest-first', async () => {
+    render(<Reports />)
+
+    const row = await screen.findByTestId('stockout-risk-row')
+    expect(within(row).getByText('Risky Widget')).toBeInTheDocument()
+    expect(within(row).getByText('5.0')).toBeInTheDocument()
+    expect(within(row).getByText('9')).toBeInTheDocument()
+    expect(screen.getAllByTestId('stockout-risk-row')).toHaveLength(1)
+  })
+
+  it('shows an empty state when no SKUs are at risk of stocking out', async () => {
+    vi.mocked(reportsApi.getStockoutRiskReport).mockResolvedValue(stockoutRisk({
+      rows: [{
+        sku_id: 'sku-b', sku_code: 'SAFE-1', product_name: 'Safe Widget',
+        stock_on_hand: 1000, quantity_sold_in_period: 10, daily_velocity: 0.33,
+        days_of_stock_remaining: 3000, at_risk: false, suggested_reorder_quantity: 0,
+      }],
+    }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No SKUs at risk of stocking out')).toBeInTheDocument()
   })
 })

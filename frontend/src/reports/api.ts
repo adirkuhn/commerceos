@@ -1,4 +1,4 @@
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, APIResponse } from './types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/reports`
@@ -86,4 +86,8 @@ export function getCustomerRFMReport(token: string, from: string, to: string): P
 
 export function getFrequentlyBoughtTogetherReport(token: string, from: string, to: string): Promise<FrequentlyBoughtTogetherReport> {
   return request<FrequentlyBoughtTogetherReport>(`${base()}/frequently-bought-together?${rangeParams(from, to)}`, { method: 'GET' }, token)
+}
+
+export function getStockoutRiskReport(token: string, from: string, to: string): Promise<StockoutRiskReport> {
+  return request<StockoutRiskReport>(`${base()}/stockout-risk?${rangeParams(from, to)}`, { method: 'GET' }, token)
 }

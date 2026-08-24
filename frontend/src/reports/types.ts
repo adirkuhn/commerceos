@@ -266,6 +266,23 @@ export interface FrequentlyBoughtTogetherReport {
   total_orders: number
 }
 
+export interface StockoutRiskRow {
+  sku_id: string
+  sku_code: string
+  product_name: string
+  stock_on_hand: number
+  quantity_sold_in_period: number
+  daily_velocity: number
+  // Null when daily_velocity is 0 -- no recent demand to project from.
+  days_of_stock_remaining: number | null
+  at_risk: boolean
+  suggested_reorder_quantity: number
+}
+
+export interface StockoutRiskReport {
+  rows: StockoutRiskRow[]
+}
+
 export interface APIError {
   code: string
   message: string

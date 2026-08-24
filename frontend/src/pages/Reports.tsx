@@ -69,7 +69,7 @@ export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
   const [trendGranularity, setTrendGranularity] = useState<SalesTrendGranularity>('day')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, customerRFM, frequentlyBoughtTogether, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, customerRFM, frequentlyBoughtTogether, stockoutRisk, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -648,6 +648,47 @@ export default function Reports() {
             </table>
           </div>
         )}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Stockout Risk</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            SKUs projected to run out before a reorder placed today (14-day lead time) could arrive, ranked soonest-first
+          </p>
+        </div>
+        {(() => {
+          const atRisk = (stockoutRisk?.rows ?? [])
+            .filter(r => r.at_risk)
+            .sort((a, b) => (a.days_of_stock_remaining ?? 0) - (b.days_of_stock_remaining ?? 0))
+          if (atRisk.length === 0) {
+            return <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No SKUs at risk of stocking out</p>
+          }
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="dark:bg-[#111827]/50 bg-gray-50">
+                    <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Product</th>
+                    <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Stock</th>
+                    <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Days Left</th>
+                    <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Suggested Reorder</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+                  {atRisk.map(row => (
+                    <tr key={row.sku_id} data-testid="stockout-risk-row" className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
+                      <td className="px-4 py-2 dark:text-gray-200 text-gray-800">{row.product_name || row.sku_code}</td>
+                      <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.stock_on_hand}</td>
+                      <td className="px-4 py-2 text-right text-red-500 font-medium">{row.days_of_stock_remaining?.toFixed(1) ?? '—'}</td>
+                      <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.suggested_reorder_quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
