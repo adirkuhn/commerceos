@@ -208,6 +208,30 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/promotions/{promotionId}/performance:
+    get:
+      operationId: getPromotionPerformanceReport
+      summary: A promotion's revenue/units during its active window vs. the immediately preceding period of equal length
+      description: >-
+        During is the promotion's active period (capped at "now" if still
+        ongoing, or its actual end date once ended). Before is the
+        immediately preceding period of equal length, same convention as
+        the Sales Summary / Product Lifecycle reports.
+      parameters:
+        - name: promotionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionPerformanceReportResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /reports/customer-cohorts:
     get:
       operationId: getCustomerCohortsReport
@@ -593,6 +617,38 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/InventorySalesReport' }
+        error: { nullable: true }
+
+    PromotionPerformancePeriod:
+      type: object
+      required: [from, to, revenue_minor_units, units_sold, order_count]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        revenue_minor_units: { type: integer, format: int64 }
+        units_sold: { type: integer, format: int64 }
+        order_count: { type: integer, format: int64 }
+
+    PromotionPerformanceReport:
+      type: object
+      required: [promotion_id, promotion_name, currency_code, before, during]
+      properties:
+        promotion_id: { type: string }
+        promotion_name: { type: string }
+        currency_code: { type: string }
+        before: { $ref: '#/components/schemas/PromotionPerformancePeriod' }
+        during: { $ref: '#/components/schemas/PromotionPerformancePeriod' }
+        revenue_change_percent:
+          type: number
+          format: double
+          nullable: true
+          description: Null when the before period's revenue was zero (no meaningful percent change off a zero baseline).
+        units_sold_change_percent: { type: number, format: double, nullable: true }
+
+    PromotionPerformanceReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PromotionPerformanceReport' }
         error: { nullable: true }
 
     CohortRetentionCell:

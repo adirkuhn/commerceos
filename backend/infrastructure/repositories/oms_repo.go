@@ -906,6 +906,45 @@ func (r *SalesOrderRepo) CohortRetentionBetween(ctx context.Context, from, to ti
 	return out, nil
 }
 
+type skuSetSalesRow struct {
+	RevenueMinorUnits int64
+	UnitsSold         int64
+	OrderCount        int64
+}
+
+// SKUSetSalesBetween aggregates revenue/units/distinct-order-count for an
+// arbitrary set of SKUs within [from, to) -- the Phase 0 "Promotion
+// Analytics" report's before/during building block. An empty skuIDs
+// returns a zero-value summary without querying (an empty SQL IN () is
+// invalid).
+func (r *SalesOrderRepo) SKUSetSalesBetween(ctx context.Context, skuIDs []string, from, to time.Time, currencyCode string) (omsDomain.SKUSetSalesSummary, error) {
+	if len(skuIDs) == 0 {
+		return omsDomain.SKUSetSalesSummary{}, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return omsDomain.SKUSetSalesSummary{}, err
+	}
+	var row skuSetSalesRow
+	err = tx.Raw(`
+		SELECT
+			COALESCE(SUM(li.total_minor_units), 0) AS revenue_minor_units,
+			COALESCE(SUM(li.quantity), 0) AS units_sold,
+			COUNT(DISTINCT li.sales_order_id) AS order_count
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		WHERE li.sku_id IN ? AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+	`, skuIDs, from, to, currencyCode).Scan(&row).Error
+	if err != nil {
+		return omsDomain.SKUSetSalesSummary{}, fmt.Errorf("salesOrderRepo.SKUSetSalesBetween: %w", err)
+	}
+	return omsDomain.SKUSetSalesSummary{
+		RevenueMinorUnits: row.RevenueMinorUnits, UnitsSold: row.UnitsSold, OrderCount: row.OrderCount,
+	}, nil
+}
+
 // ── SalesOrderLineItemRepo ───────────────────────────────────────────────────
 
 type SalesOrderLineItemRepo struct{ db *gorm.DB }

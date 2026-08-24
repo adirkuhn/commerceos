@@ -1744,3 +1744,92 @@ func TestSalesOrderRepo_Integration_CohortRetentionBetween_TracksRepeatOrdersAcr
 	require.Equal(t, int64(1), byMonth[1].RetainedCustomers)
 	require.Equal(t, int64(400), byMonth[1].RevenueMinorUnits)
 }
+
+func TestSalesOrderRepo_Integration_SKUSetSalesBetween_SumsOnlyGivenSKUsWithinWindow(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	outsideWindow := now.AddDate(0, 0, -3)
+
+	var skuA, skuB, skuC string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		skuA, err = seedPromotionSKU(ctx, productRepo, variantRepo, skuRepo, "SET-A")
+		if err != nil {
+			return err
+		}
+		skuB, err = seedPromotionSKU(ctx, productRepo, variantRepo, skuRepo, "SET-B")
+		if err != nil {
+			return err
+		}
+		skuC, err = seedPromotionSKU(ctx, productRepo, variantRepo, skuRepo, "SET-C")
+		return err
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for i, o := range []struct {
+			extID    string
+			skuID    string
+			qty      int64
+			total    int64
+			occurred time.Time
+		}{
+			{"set-1", skuA, 2, 1000, now},
+			{"set-2", skuB, 1, 500, now},
+			{"set-3", skuC, 5, 2000, now},          // excluded: not in the given SKU set
+			{"set-4", skuA, 9, 999, outsideWindow}, // excluded: outside the window
+		} {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: o.extID,
+				WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+				TotalMinorUnits: o.total, OccurredAt: o.occurred, CreatedAt: o.occurred,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return fmt.Errorf("order %d: %w", i, err)
+			}
+			skuID := o.skuID
+			if err := lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+				TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: &skuID, Name: "Item", SKUCode: "ITEM",
+				Quantity: o.qty, TotalMinorUnits: o.total, CreatedAt: o.occurred,
+			}); err != nil {
+				return fmt.Errorf("line %d: %w", i, err)
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var summary omsDomain.SKUSetSalesSummary
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		summary, err = salesOrderRepo.SKUSetSalesBetween(ctx, []string{skuA, skuB}, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1500), summary.RevenueMinorUnits)
+	require.Equal(t, int64(3), summary.UnitsSold)
+	require.Equal(t, int64(2), summary.OrderCount)
+}
+
+func TestSalesOrderRepo_Integration_SKUSetSalesBetween_EmptySKUSetGivesZero(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var summary omsDomain.SKUSetSalesSummary
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		summary, err = salesOrderRepo.SKUSetSalesBetween(ctx, []string{}, time.Now().AddDate(0, 0, -1), time.Now(), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, omsDomain.SKUSetSalesSummary{}, summary)
+}

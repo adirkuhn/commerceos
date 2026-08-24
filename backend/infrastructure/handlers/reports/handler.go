@@ -15,6 +15,7 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -55,20 +56,24 @@ type getProductLifecycleReportUC interface {
 type getCustomerCohortsReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.CustomerCohortsReport, error)
 }
+type getPromotionPerformanceReportUC interface {
+	Execute(ctx context.Context, promotionID string) (*appreports.PromotionPerformanceReport, error)
+}
 
 type Handler struct {
-	getSalesSummaryReport        getSalesSummaryReportUC
-	getProductPerformanceReport  getProductPerformanceReportUC
-	getProductPerformanceMatrix  getProductPerformanceMatrixUC
-	getCustomerPerformanceReport getCustomerPerformanceReportUC
-	getCategoryPerformanceReport getCategoryPerformanceReportUC
-	getSlowMovingProductsReport  getSlowMovingProductsReportUC
-	getProfitabilityReport       getProfitabilityReportUC
-	getInventorySalesReport      getInventorySalesReportUC
-	getBusinessInsights          getBusinessInsightsUC
-	getSalesTrendsReport         getSalesTrendsReportUC
-	getProductLifecycleReport    getProductLifecycleReportUC
-	getCustomerCohortsReport     getCustomerCohortsReportUC
+	getSalesSummaryReport         getSalesSummaryReportUC
+	getProductPerformanceReport   getProductPerformanceReportUC
+	getProductPerformanceMatrix   getProductPerformanceMatrixUC
+	getCustomerPerformanceReport  getCustomerPerformanceReportUC
+	getCategoryPerformanceReport  getCategoryPerformanceReportUC
+	getSlowMovingProductsReport   getSlowMovingProductsReportUC
+	getProfitabilityReport        getProfitabilityReportUC
+	getInventorySalesReport       getInventorySalesReportUC
+	getBusinessInsights           getBusinessInsightsUC
+	getSalesTrendsReport          getSalesTrendsReportUC
+	getProductLifecycleReport     getProductLifecycleReportUC
+	getCustomerCohortsReport      getCustomerCohortsReportUC
+	getPromotionPerformanceReport getPromotionPerformanceReportUC
 }
 
 func NewHandler(
@@ -84,6 +89,7 @@ func NewHandler(
 	getSalesTrendsReport getSalesTrendsReportUC,
 	getProductLifecycleReport getProductLifecycleReportUC,
 	getCustomerCohortsReport getCustomerCohortsReportUC,
+	getPromotionPerformanceReport getPromotionPerformanceReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -92,6 +98,7 @@ func NewHandler(
 		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
 		getBusinessInsights: getBusinessInsights, getSalesTrendsReport: getSalesTrendsReport,
 		getProductLifecycleReport: getProductLifecycleReport, getCustomerCohortsReport: getCustomerCohortsReport,
+		getPromotionPerformanceReport: getPromotionPerformanceReport,
 	}
 }
 
@@ -112,6 +119,8 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	slowMovingProductsUC := appreports.NewGetSlowMovingProductsReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo)
 	profitabilityUC := appreports.NewGetProfitabilityReportUseCase(db, salesRepo, settingsRepo)
 	inventorySalesUC := appreports.NewGetInventorySalesReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo)
+	promotionRepo := repositories.NewPromotionRepo(db)
+	promotionSKURepo := repositories.NewPromotionSKURepo(db)
 	h := NewHandler(
 		salesSummaryUC,
 		productPerformanceUC,
@@ -125,6 +134,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetSalesTrendsReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetProductLifecycleReportUseCase(productPerformanceUC),
 		appreports.NewGetCustomerCohortsReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetPromotionPerformanceReportUseCase(db, promotionRepo, promotionSKURepo, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -333,6 +343,24 @@ func (h *Handler) GetCustomerCohortsReport(c *gin.Context, params genreports.Get
 	middleware.OK(c, genreports.CustomerCohortsReport{CurrencyCode: report.CurrencyCode, Cohorts: cohorts})
 }
 
+func (h *Handler) GetPromotionPerformanceReport(c *gin.Context, promotionId string) {
+	report, err := h.getPromotionPerformanceReport.Execute(c.Request.Context(), promotionId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genreports.PromotionPerformanceReport{
+		PromotionId: report.PromotionID, PromotionName: report.PromotionName, CurrencyCode: report.CurrencyCode,
+		Before: toGenPromotionPerformancePeriod(report.Before), During: toGenPromotionPerformancePeriod(report.During),
+		RevenueChangePercent: report.RevenueChangePercent, UnitsSoldChangePercent: report.UnitsSoldChangePercent,
+	})
+}
+
+func toGenPromotionPerformancePeriod(p appreports.PromotionPerformancePeriod) genreports.PromotionPerformancePeriod {
+	return genreports.PromotionPerformancePeriod{
+		From: p.From, To: p.To, RevenueMinorUnits: p.RevenueMinorUnits, UnitsSold: p.UnitsSold, OrderCount: p.OrderCount,
+	}
+}
+
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {
 	return genreports.ProductPerformanceRow{
 		SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
@@ -356,6 +384,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, promotionsDomain.ErrPromotionNotFound):
+		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	default:
 		log.Printf("reports: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
