@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Promotions from '../Promotions'
 import type { Promotion, PromotionDetail } from '../../promotions/types'
+import type { PromotionPerformanceReport } from '../../reports/types'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -21,8 +22,13 @@ vi.mock('../../pms/api', () => ({
   resolveBarcode: vi.fn(),
 }))
 
+vi.mock('../../reports/api', () => ({
+  getPromotionPerformanceReport: vi.fn(),
+}))
+
 import * as promotionsApi from '../../promotions/api'
 import * as pmsApi from '../../pms/api'
+import * as reportsApi from '../../reports/api'
 
 function promotion(overrides: Partial<Promotion> = {}): Promotion {
   return {
@@ -36,9 +42,20 @@ function promotionDetail(overrides: Partial<PromotionDetail> = {}): PromotionDet
   return { ...promotion(), lines: [], ...overrides }
 }
 
+function performanceReport(overrides: Partial<PromotionPerformanceReport> = {}): PromotionPerformanceReport {
+  return {
+    promotion_id: 'promo-1', promotion_name: 'Summer Acai', currency_code: 'EUR',
+    before: { from: '2026-06-01T00:00:00Z', to: '2026-07-01T00:00:00Z', revenue_minor_units: 100000, units_sold: 100, order_count: 50 },
+    during: { from: '2026-07-01T00:00:00Z', to: '2026-07-31T00:00:00Z', revenue_minor_units: 150000, units_sold: 120, order_count: 60 },
+    revenue_change_percent: 50, units_sold_change_percent: 20,
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(promotionsApi.listPromotions).mockResolvedValue([])
+  vi.mocked(reportsApi.getPromotionPerformanceReport).mockResolvedValue(performanceReport())
 })
 
 describe('Promotions list', () => {
@@ -193,6 +210,37 @@ describe('Promotion edit page', () => {
     await waitFor(() => expect(promotionsApi.getPromotion).toHaveBeenCalledWith('test-token', 'promo-1'))
     expect(await screen.findAllByText('ACAI-1L')).toHaveLength(2)
     expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
+  })
+
+  it('shows the performance comparison for an existing promotion', async () => {
+    vi.mocked(promotionsApi.listPromotions).mockResolvedValue([promotion()])
+    vi.mocked(promotionsApi.getPromotion).mockResolvedValue(promotionDetail())
+
+    render(<Promotions />)
+    await userEvent.click(await screen.findByText('Summer Acai'))
+
+    await waitFor(() => expect(reportsApi.getPromotionPerformanceReport).toHaveBeenCalledWith('test-token', 'promo-1'))
+    expect(await screen.findByText('€1,500.00')).toBeInTheDocument()
+    expect(screen.getByText('+50.0% vs before')).toBeInTheDocument()
+  })
+
+  it('shows an error if loading promotion performance fails', async () => {
+    vi.mocked(promotionsApi.listPromotions).mockResolvedValue([promotion()])
+    vi.mocked(promotionsApi.getPromotion).mockResolvedValue(promotionDetail())
+    vi.mocked(reportsApi.getPromotionPerformanceReport).mockRejectedValue(new Error('performance fetch failed'))
+
+    render(<Promotions />)
+    await userEvent.click(await screen.findByText('Summer Acai'))
+
+    expect(await screen.findByText('performance fetch failed')).toBeInTheDocument()
+  })
+
+  it('does not show a performance card for a new (unsaved) promotion', async () => {
+    render(<Promotions />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+
+    expect(screen.queryByText('Performance')).not.toBeInTheDocument()
+    expect(reportsApi.getPromotionPerformanceReport).not.toHaveBeenCalled()
   })
 
   it('Discard returns to the list without saving', async () => {

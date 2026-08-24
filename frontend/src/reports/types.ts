@@ -206,6 +206,25 @@ export interface CustomerCohortsReport {
   cohorts: CustomerCohortRow[]
 }
 
+export interface PromotionPerformancePeriod {
+  from: string
+  to: string
+  revenue_minor_units: number
+  units_sold: number
+  order_count: number
+}
+
+export interface PromotionPerformanceReport {
+  promotion_id: string
+  promotion_name: string
+  currency_code: string
+  before: PromotionPerformancePeriod
+  during: PromotionPerformancePeriod
+  // Null when the before period's revenue was zero (no meaningful percent change off a zero baseline).
+  revenue_change_percent: number | null
+  units_sold_change_percent: number | null
+}
+
 export interface APIError {
   code: string
   message: string

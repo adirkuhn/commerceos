@@ -6,7 +6,9 @@ import Pagination from '../components/common/Pagination'
 import { usePromotions } from '../promotions/hooks/usePromotions'
 import { getPromotion } from '../promotions/api'
 import { resolveBarcode } from '../pms/api'
+import { getPromotionPerformanceReport } from '../reports/api'
 import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, PromotionType, CreatePromotionResult } from '../promotions/types'
+import type { PromotionPerformanceReport } from '../reports/types'
 
 const PAGE_SIZE = 20
 
@@ -399,8 +401,84 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
               </div>
             </div>
           </form>
+
+          {promotionId && <PromotionPerformanceCard token={token} promotionId={promotionId} />}
         </div>
       </div>
+    </div>
+  )
+}
+
+function formatMoney(minorUnits: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
+  } catch {
+    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
+  }
+}
+
+// PromotionPerformanceCard compares the promotion's covered SKUs' revenue/
+// units during its active window (capped at "now" if still ongoing)
+// against the immediately preceding period of equal length -- the Phase 0
+// "Promotion Analytics" report.
+function PromotionPerformanceCard({ token, promotionId }: { token: string; promotionId: string }) {
+  const [report, setReport] = useState<PromotionPerformanceReport | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    getPromotionPerformanceReport(token, promotionId)
+      .then(result => { if (!cancelled) setReport(result) })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load performance') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, promotionId])
+
+  const changeLabel = (percent: number | null) => {
+    if (percent === null) return '— vs before'
+    const up = percent >= 0
+    return `${up ? '+' : ''}${percent.toFixed(1)}% vs before`
+  }
+
+  return (
+    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <div>
+        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Performance</h3>
+        <p className="text-[11px] dark:text-gray-500 text-gray-400 mt-0.5">
+          Covered SKUs during the active window vs. the immediately preceding period of equal length
+        </p>
+      </div>
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {!loading && !error && report && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-1">Revenue (during)</p>
+            <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(report.during.revenue_minor_units, report.currency_code)}</p>
+            <p className={clsx('text-[10px] font-medium', report.revenue_change_percent === null ? 'dark:text-gray-500 text-gray-400' : report.revenue_change_percent >= 0 ? 'text-green-400' : 'text-red-400')}>
+              {changeLabel(report.revenue_change_percent)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-1">Units sold (during)</p>
+            <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{report.during.units_sold}</p>
+            <p className={clsx('text-[10px] font-medium', report.units_sold_change_percent === null ? 'dark:text-gray-500 text-gray-400' : report.units_sold_change_percent >= 0 ? 'text-green-400' : 'text-red-400')}>
+              {changeLabel(report.units_sold_change_percent)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-1">Revenue (before)</p>
+            <p className="text-xs dark:text-gray-300 text-gray-700">{formatMoney(report.before.revenue_minor_units, report.currency_code)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-1">Units sold (before)</p>
+            <p className="text-xs dark:text-gray-300 text-gray-700">{report.before.units_sold}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
