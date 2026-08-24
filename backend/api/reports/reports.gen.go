@@ -61,6 +61,27 @@ func (e ProductPerformanceQuadrant) Valid() bool {
 	}
 }
 
+// Defines values for SalesTrendGranularity.
+const (
+	Day   SalesTrendGranularity = "day"
+	Month SalesTrendGranularity = "month"
+	Week  SalesTrendGranularity = "week"
+)
+
+// Valid indicates whether the value is a known member of the SalesTrendGranularity enum.
+func (e SalesTrendGranularity) Valid() bool {
+	switch e {
+	case Day:
+		return true
+	case Month:
+		return true
+	case Week:
+		return true
+	default:
+		return false
+	}
+}
+
 // BusinessInsightsReport defines model for BusinessInsightsReport.
 type BusinessInsightsReport struct {
 	Insights []Insight `json:"insights"`
@@ -291,6 +312,31 @@ type SalesSummaryReportResponse struct {
 	Error interface{}         `json:"error,omitempty"`
 }
 
+// SalesTrendGranularity defines model for SalesTrendGranularity.
+type SalesTrendGranularity string
+
+// SalesTrendPoint defines model for SalesTrendPoint.
+type SalesTrendPoint struct {
+	OrderCount        int64     `json:"order_count"`
+	PeriodStart       time.Time `json:"period_start"`
+	RevenueMinorUnits int64     `json:"revenue_minor_units"`
+	UnitsSold         int64     `json:"units_sold"`
+}
+
+// SalesTrendsReport defines model for SalesTrendsReport.
+type SalesTrendsReport struct {
+	ByWeekday    []WeekdaySales        `json:"by_weekday"`
+	CurrencyCode string                `json:"currency_code"`
+	Granularity  SalesTrendGranularity `json:"granularity"`
+	Points       []SalesTrendPoint     `json:"points"`
+}
+
+// SalesTrendsReportResponse defines model for SalesTrendsReportResponse.
+type SalesTrendsReportResponse struct {
+	Data  *SalesTrendsReport `json:"data,omitempty"`
+	Error interface{}        `json:"error,omitempty"`
+}
+
 // SlowMovingProductRow defines model for SlowMovingProductRow.
 type SlowMovingProductRow struct {
 	ProductName string `json:"product_name"`
@@ -311,6 +357,15 @@ type SlowMovingProductsReport struct {
 type SlowMovingProductsReportResponse struct {
 	Data  *SlowMovingProductsReport `json:"data,omitempty"`
 	Error interface{}               `json:"error,omitempty"`
+}
+
+// WeekdaySales defines model for WeekdaySales.
+type WeekdaySales struct {
+	OrderCount        int64 `json:"order_count"`
+	RevenueMinorUnits int64 `json:"revenue_minor_units"`
+
+	// Weekday 0 = Sunday .. 6 = Saturday.
+	Weekday int32 `json:"weekday"`
 }
 
 // Error defines model for Error.
@@ -364,6 +419,15 @@ type GetSalesSummaryReportParams struct {
 	To   time.Time `form:"to" json:"to"`
 }
 
+// GetSalesTrendsReportParams defines parameters for GetSalesTrendsReport.
+type GetSalesTrendsReportParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+
+	// Granularity Defaults to "day" when omitted.
+	Granularity *SalesTrendGranularity `form:"granularity,omitempty" json:"granularity,omitempty"`
+}
+
 // GetSlowMovingProductsReportParams defines parameters for GetSlowMovingProductsReport.
 type GetSlowMovingProductsReportParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -396,6 +460,9 @@ type ServerInterface interface {
 	// GetSalesSummaryReport Revenue/orders/units/AOV for [from, to), compared against the immediately preceding period of equal length
 	// (GET /reports/sales-summary)
 	GetSalesSummaryReport(c *gin.Context, params GetSalesSummaryReportParams)
+	// GetSalesTrendsReport Bucketed revenue/orders/units time series plus a by-weekday breakdown for [from, to)
+	// (GET /reports/sales-trends)
+	GetSalesTrendsReport(c *gin.Context, params GetSalesTrendsReportParams)
 	// GetSlowMovingProductsReport Every SKU with stock on hand and zero units sold in [from, to)
 	// (GET /reports/slow-moving-products)
 	GetSlowMovingProductsReport(c *gin.Context, params GetSlowMovingProductsReportParams)
@@ -690,6 +757,49 @@ func (siw *ServerInterfaceWrapper) GetSalesSummaryReport(c *gin.Context) {
 	siw.Handler.GetSalesSummaryReport(c, params)
 }
 
+// GetSalesTrendsReport operation middleware
+func (siw *ServerInterfaceWrapper) GetSalesTrendsReport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSalesTrendsReportParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "granularity" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "granularity", c.Request.URL.Query(), &params.Granularity, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter granularity: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSalesTrendsReport(c, params)
+}
+
 // GetSlowMovingProductsReport operation middleware
 func (siw *ServerInterfaceWrapper) GetSlowMovingProductsReport(c *gin.Context) {
 
@@ -760,6 +870,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/reports/slow-moving-products", wrapper.GetSlowMovingProductsReport)
 	router.GET(options.BaseURL+"/reports/profitability", wrapper.GetProfitabilityReport)
 	router.GET(options.BaseURL+"/reports/inventory-sales", wrapper.GetInventorySalesReport)
+	router.GET(options.BaseURL+"/reports/sales-trends", wrapper.GetSalesTrendsReport)
 	router.GET(options.BaseURL+"/reports/business-insights", wrapper.GetBusinessInsights)
 }
 
@@ -768,52 +879,58 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"6gW5ubr5dwAAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

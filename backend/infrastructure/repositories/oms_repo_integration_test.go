@@ -1506,3 +1506,118 @@ func TestSalesOrderRepo_Integration_ProfitabilityBetween_ZeroKnownCostRevenueGiv
 	require.NoError(t, err)
 	require.Equal(t, omsDomain.ProfitabilitySummary{}, summary)
 }
+
+func TestSalesOrderRepo_Integration_SalesTrendBetween_BucketsByDay(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	newer := time.Now()
+	older := newer.AddDate(0, 0, -3) // far enough apart to land in different UTC day buckets regardless of local timezone
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		orderNew := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "trend-new", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: newer, CreatedAt: newer,
+		}
+		if err := salesOrderRepo.Create(ctx, &orderNew); err != nil {
+			return err
+		}
+		if err := lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderNew.ID, Name: "Item", SKUCode: "ITEM-1", Quantity: 2, TotalMinorUnits: 1000, CreatedAt: newer,
+		}); err != nil {
+			return err
+		}
+
+		orderOld := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "trend-old", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: older, CreatedAt: older,
+		}
+		if err := salesOrderRepo.Create(ctx, &orderOld); err != nil {
+			return err
+		}
+		return lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderOld.ID, Name: "Item", SKUCode: "ITEM-1", Quantity: 3, TotalMinorUnits: 500, CreatedAt: older,
+		})
+	})
+	require.NoError(t, err)
+
+	var points []omsDomain.SalesTrendPoint
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		points, err = salesOrderRepo.SalesTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, points, 2)
+
+	require.True(t, points[0].PeriodStart.Before(points[1].PeriodStart), "points must be ordered oldest first")
+	require.Equal(t, int64(500), points[0].RevenueMinorUnits)
+	require.Equal(t, int64(1), points[0].OrderCount)
+	require.Equal(t, int64(3), points[0].UnitsSold)
+	require.Equal(t, int64(1000), points[1].RevenueMinorUnits)
+	require.Equal(t, int64(1), points[1].OrderCount)
+	require.Equal(t, int64(2), points[1].UnitsSold)
+}
+
+func TestSalesOrderRepo_Integration_SalesTrendBetween_RejectsEmptyPeriod(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var points []omsDomain.SalesTrendPoint
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		points, err = salesOrderRepo.SalesTrendBetween(ctx, time.Now().AddDate(0, 0, -1), time.Now(), "EUR", omsDomain.SalesTrendGranularityDay)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, points)
+}
+
+func TestSalesOrderRepo_Integration_SalesByWeekdayBetween_SumsAcrossOccurrencesOfSameWeekday(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	week1 := time.Now()
+	week2 := week1.AddDate(0, 0, 7) // same weekday, one week later
+	otherWeekday := week1.AddDate(0, 0, 1)
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		for i, order := range []omsDomain.SalesOrder{
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "wd-1", WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 700, OccurredAt: week1, CreatedAt: week1},
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "wd-2", WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 300, OccurredAt: week2, CreatedAt: week2},
+			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "wd-3", WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 200, OccurredAt: otherWeekday, CreatedAt: otherWeekday},
+		} {
+			order := order
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return fmt.Errorf("order %d: %w", i, err)
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var weekdays []omsDomain.WeekdaySales
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		weekdays, err = salesOrderRepo.SalesByWeekdayBetween(ctx, week1.AddDate(0, 0, -1), week2.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, weekdays, 2)
+
+	byWeekday := make(map[time.Weekday]omsDomain.WeekdaySales, len(weekdays))
+	for _, w := range weekdays {
+		byWeekday[w.Weekday] = w
+	}
+	sharedWeekday := byWeekday[week1.Weekday()]
+	require.Equal(t, int64(1000), sharedWeekday.RevenueMinorUnits)
+	require.Equal(t, int64(2), sharedWeekday.OrderCount)
+
+	other := byWeekday[otherWeekday.Weekday()]
+	require.Equal(t, int64(200), other.RevenueMinorUnits)
+	require.Equal(t, int64(1), other.OrderCount)
+}

@@ -46,6 +46,9 @@ type getInventorySalesReportUC interface {
 type getBusinessInsightsUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appinsights.BusinessInsightsReport, error)
 }
+type getSalesTrendsReportUC interface {
+	Execute(ctx context.Context, from, to time.Time, granularity omsDomain.SalesTrendGranularity) (*appreports.SalesTrendsReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -57,6 +60,7 @@ type Handler struct {
 	getProfitabilityReport       getProfitabilityReportUC
 	getInventorySalesReport      getInventorySalesReportUC
 	getBusinessInsights          getBusinessInsightsUC
+	getSalesTrendsReport         getSalesTrendsReportUC
 }
 
 func NewHandler(
@@ -69,13 +73,14 @@ func NewHandler(
 	getProfitabilityReport getProfitabilityReportUC,
 	getInventorySalesReport getInventorySalesReportUC,
 	getBusinessInsights getBusinessInsightsUC,
+	getSalesTrendsReport getSalesTrendsReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
 		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
 		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
 		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
-		getBusinessInsights: getBusinessInsights,
+		getBusinessInsights: getBusinessInsights, getSalesTrendsReport: getSalesTrendsReport,
 	}
 }
 
@@ -106,6 +111,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		profitabilityUC,
 		inventorySalesUC,
 		appinsights.NewGetBusinessInsightsUseCase(salesSummaryUC, profitabilityUC, productPerformanceMatrixUC, slowMovingProductsUC, inventorySalesUC),
+		appreports.NewGetSalesTrendsReportUseCase(db, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -251,6 +257,33 @@ func (h *Handler) GetBusinessInsights(c *gin.Context, params genreports.GetBusin
 	middleware.OK(c, genreports.BusinessInsightsReport{Insights: insights})
 }
 
+func (h *Handler) GetSalesTrendsReport(c *gin.Context, params genreports.GetSalesTrendsReportParams) {
+	granularity := omsDomain.SalesTrendGranularityDay
+	if params.Granularity != nil {
+		granularity = omsDomain.SalesTrendGranularity(*params.Granularity)
+	}
+	report, err := h.getSalesTrendsReport.Execute(c.Request.Context(), params.From, params.To, granularity)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	points := make([]genreports.SalesTrendPoint, len(report.Points))
+	for i, p := range report.Points {
+		points[i] = genreports.SalesTrendPoint{
+			PeriodStart: p.PeriodStart, RevenueMinorUnits: p.RevenueMinorUnits, OrderCount: p.OrderCount, UnitsSold: p.UnitsSold,
+		}
+	}
+	byWeekday := make([]genreports.WeekdaySales, len(report.ByWeekday))
+	for i, w := range report.ByWeekday {
+		byWeekday[i] = genreports.WeekdaySales{
+			Weekday: int32(w.Weekday), RevenueMinorUnits: w.RevenueMinorUnits, OrderCount: w.OrderCount,
+		}
+	}
+	middleware.OK(c, genreports.SalesTrendsReport{
+		CurrencyCode: report.CurrencyCode, Granularity: genreports.SalesTrendGranularity(report.Granularity),
+		Points: points, ByWeekday: byWeekday,
+	})
+}
+
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {
 	return genreports.ProductPerformanceRow{
 		SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
@@ -272,7 +305,7 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, appreports.ErrToBeforeFrom):
+	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("reports: unhandled error: %v", err)

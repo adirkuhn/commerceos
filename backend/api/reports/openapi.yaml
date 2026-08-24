@@ -208,6 +208,38 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/sales-trends:
+    get:
+      operationId: getSalesTrendsReport
+      summary: Bucketed revenue/orders/units time series plus a by-weekday breakdown for [from, to)
+      description: >-
+        Points is the time series bucketed at the given granularity.
+        ByWeekday sums revenue/orders across every occurrence of each
+        weekday within the period -- the "seasonality" half of the report.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: granularity
+          in: query
+          required: false
+          description: Defaults to "day" when omitted.
+          schema: { $ref: '#/components/schemas/SalesTrendGranularity' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesTrendsReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /reports/business-insights:
     get:
       operationId: getBusinessInsights
@@ -504,6 +536,49 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/InventorySalesReport' }
+        error: { nullable: true }
+
+    SalesTrendGranularity:
+      type: string
+      enum: [day, week, month]
+
+    SalesTrendPoint:
+      type: object
+      required: [period_start, revenue_minor_units, order_count, units_sold]
+      properties:
+        period_start: { type: string, format: date-time }
+        revenue_minor_units: { type: integer, format: int64 }
+        order_count: { type: integer, format: int64 }
+        units_sold: { type: integer, format: int64 }
+
+    WeekdaySales:
+      type: object
+      required: [weekday, revenue_minor_units, order_count]
+      properties:
+        weekday:
+          type: integer
+          format: int32
+          description: 0 = Sunday .. 6 = Saturday.
+        revenue_minor_units: { type: integer, format: int64 }
+        order_count: { type: integer, format: int64 }
+
+    SalesTrendsReport:
+      type: object
+      required: [currency_code, granularity, points, by_weekday]
+      properties:
+        currency_code: { type: string }
+        granularity: { $ref: '#/components/schemas/SalesTrendGranularity' }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/SalesTrendPoint' }
+        by_weekday:
+          type: array
+          items: { $ref: '#/components/schemas/WeekdaySales' }
+
+    SalesTrendsReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesTrendsReport' }
         error: { nullable: true }
 
     InsightSeverity:
