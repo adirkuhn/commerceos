@@ -208,6 +208,34 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/product-lifecycle:
+    get:
+      operationId: getProductLifecycleReport
+      summary: Classifies every SKU sold in [from, to) or the immediately preceding period by sales trend
+      description: >-
+        Compares [from, to) against the immediately preceding period of
+        equal length. new = sold now but not before; growing = sold more
+        now; stable = sold the same; declining = sold less now; dormant =
+        sold before but not now.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductLifecycleReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /reports/sales-trends:
     get:
       operationId: getSalesTrendsReport
@@ -536,6 +564,45 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/InventorySalesReport' }
+        error: { nullable: true }
+
+    ProductLifecycleStage:
+      type: string
+      enum: [new, growing, stable, declining, dormant]
+      description: >-
+        new = sold now but not in the previous period; growing = sold more
+        now; stable = sold the same; declining = sold less now; dormant =
+        sold in the previous period but not now.
+
+    ProductLifecycleRow:
+      type: object
+      required: [sku_code, product_name, current_quantity_sold, previous_quantity_sold, current_revenue_minor_units, previous_revenue_minor_units, stage]
+      properties:
+        sku_id:
+          type: string
+          nullable: true
+          description: Null for an adhoc/unmatched line item with no linked catalog SKU.
+        sku_code: { type: string }
+        product_name: { type: string }
+        current_quantity_sold: { type: integer, format: int64 }
+        previous_quantity_sold: { type: integer, format: int64 }
+        current_revenue_minor_units: { type: integer, format: int64 }
+        previous_revenue_minor_units: { type: integer, format: int64 }
+        stage: { $ref: '#/components/schemas/ProductLifecycleStage' }
+
+    ProductLifecycleReport:
+      type: object
+      required: [currency_code, rows]
+      properties:
+        currency_code: { type: string }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/ProductLifecycleRow' }
+
+    ProductLifecycleReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProductLifecycleReport' }
         error: { nullable: true }
 
     SalesTrendGranularity:

@@ -49,6 +49,9 @@ type getBusinessInsightsUC interface {
 type getSalesTrendsReportUC interface {
 	Execute(ctx context.Context, from, to time.Time, granularity omsDomain.SalesTrendGranularity) (*appreports.SalesTrendsReport, error)
 }
+type getProductLifecycleReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.ProductLifecycleReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -61,6 +64,7 @@ type Handler struct {
 	getInventorySalesReport      getInventorySalesReportUC
 	getBusinessInsights          getBusinessInsightsUC
 	getSalesTrendsReport         getSalesTrendsReportUC
+	getProductLifecycleReport    getProductLifecycleReportUC
 }
 
 func NewHandler(
@@ -74,6 +78,7 @@ func NewHandler(
 	getInventorySalesReport getInventorySalesReportUC,
 	getBusinessInsights getBusinessInsightsUC,
 	getSalesTrendsReport getSalesTrendsReportUC,
+	getProductLifecycleReport getProductLifecycleReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -81,6 +86,7 @@ func NewHandler(
 		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
 		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
 		getBusinessInsights: getBusinessInsights, getSalesTrendsReport: getSalesTrendsReport,
+		getProductLifecycleReport: getProductLifecycleReport,
 	}
 }
 
@@ -112,6 +118,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		inventorySalesUC,
 		appinsights.NewGetBusinessInsightsUseCase(salesSummaryUC, profitabilityUC, productPerformanceMatrixUC, slowMovingProductsUC, inventorySalesUC),
 		appreports.NewGetSalesTrendsReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetProductLifecycleReportUseCase(productPerformanceUC),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -282,6 +289,23 @@ func (h *Handler) GetSalesTrendsReport(c *gin.Context, params genreports.GetSale
 		CurrencyCode: report.CurrencyCode, Granularity: genreports.SalesTrendGranularity(report.Granularity),
 		Points: points, ByWeekday: byWeekday,
 	})
+}
+
+func (h *Handler) GetProductLifecycleReport(c *gin.Context, params genreports.GetProductLifecycleReportParams) {
+	report, err := h.getProductLifecycleReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.ProductLifecycleRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.ProductLifecycleRow{
+			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
+			CurrentQuantitySold: row.CurrentQuantitySold, PreviousQuantitySold: row.PreviousQuantitySold,
+			CurrentRevenueMinorUnits: row.CurrentRevenueMinorUnits, PreviousRevenueMinorUnits: row.PreviousRevenueMinorUnits,
+			Stage: genreports.ProductLifecycleStage(row.Stage),
+		}
+	}
+	middleware.OK(c, genreports.ProductLifecycleReport{CurrencyCode: report.CurrencyCode, Rows: rows})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {
