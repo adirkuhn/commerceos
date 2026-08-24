@@ -84,6 +84,12 @@ type ordersImporter interface {
 type shipmentReconciler interface {
 	Execute(ctx context.Context, connectionID string) (*shippingapp.ReconcileShipmentsResult, error)
 }
+type bolOrdersImporter interface {
+	Execute(ctx context.Context, in channelsapp.ImportBolOrdersInput) (*channelsapp.ImportOrdersResult, error)
+}
+type bolExporter interface {
+	Execute(ctx context.Context, in channelsapp.RunScheduledBolExportInput) (*channelsapp.BolExportResult, error)
+}
 
 // buildRunners maps each runnable (entity, direction) pair to the use case
 // that actually performs it. categories is a schema-legal SyncSchedule
@@ -99,6 +105,8 @@ func buildRunners(
 	stockExport stockExporter,
 	ordersImport ordersImporter,
 	shipmentReconcile shipmentReconciler,
+	bolOrdersImport bolOrdersImporter,
+	bolExport bolExporter,
 ) runners {
 	return runners{
 		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
@@ -181,6 +189,38 @@ func buildRunners(
 		// Errors slice into the single error dispatch.dispatch returns.
 		{channelsDomain.SyncEntityShipmentReconciliation, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
 			result, err := shipmentReconcile.Execute(ctx, s.ConnectionID)
+			if result == nil {
+				return nil, err
+			}
+			return nil, resultErr(err, result.Errors)
+		},
+		// bol_orders has no cursor of its own (nil cursorAt, wall-clock) --
+		// unlike Woo's incremental orders schedule, Bol's Orders API has no
+		// modified-since filter, so ImportBolOrdersUseCase pages status=OPEN
+		// fresh every run (see its own doc comment).
+		{channelsDomain.SyncEntityBolOrders, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
+			result, err := bolOrdersImport.Execute(ctx, channelsapp.ImportBolOrdersInput{
+				ConnectionID: s.ConnectionID, DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
+			})
+			if result == nil {
+				return nil, err
+			}
+			return nil, resultErr(err, result.Errors)
+		},
+		// bol_products and bol_stock both dispatch to the same runner --
+		// see domain/channels.SyncEntityBolProducts' doc comment for why
+		// (Bol has no stock-only endpoint, every push sends price+stock
+		// together; two schedule rows exist only to give the merchant two
+		// separate intervals over the identical operation).
+		{channelsDomain.SyncEntityBolProducts, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
+			result, err := bolExport.Execute(ctx, channelsapp.RunScheduledBolExportInput{ConnectionID: s.ConnectionID})
+			if result == nil {
+				return nil, err
+			}
+			return nil, resultErr(err, result.Errors)
+		},
+		{channelsDomain.SyncEntityBolStock, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
+			result, err := bolExport.Execute(ctx, channelsapp.RunScheduledBolExportInput{ConnectionID: s.ConnectionID})
 			if result == nil {
 				return nil, err
 			}

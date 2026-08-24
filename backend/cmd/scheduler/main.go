@@ -297,6 +297,12 @@ func main() {
 		),
 		ordersImportUC,
 		shipmentReconcileUC,
+		channelsapp.NewImportBolOrdersUseCase(
+			db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+			salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo,
+			allocateStockUC, updateSalesOrderUC,
+		),
+		channelsapp.NewRunScheduledBolExportUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushBolUC),
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
