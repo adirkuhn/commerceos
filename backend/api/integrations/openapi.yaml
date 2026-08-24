@@ -990,7 +990,7 @@ components:
 
     ChannelType:
       type: string
-      enum: [woocommerce, internal]
+      enum: [woocommerce, bol, internal]
 
     EnrollmentMode:
       type: string
