@@ -59,6 +59,9 @@ type getCustomerCohortsReportUC interface {
 type getPromotionPerformanceReportUC interface {
 	Execute(ctx context.Context, promotionID string) (*appreports.PromotionPerformanceReport, error)
 }
+type getCustomerRFMReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.CustomerRFMReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport         getSalesSummaryReportUC
@@ -74,6 +77,7 @@ type Handler struct {
 	getProductLifecycleReport     getProductLifecycleReportUC
 	getCustomerCohortsReport      getCustomerCohortsReportUC
 	getPromotionPerformanceReport getPromotionPerformanceReportUC
+	getCustomerRFMReport          getCustomerRFMReportUC
 }
 
 func NewHandler(
@@ -90,6 +94,7 @@ func NewHandler(
 	getProductLifecycleReport getProductLifecycleReportUC,
 	getCustomerCohortsReport getCustomerCohortsReportUC,
 	getPromotionPerformanceReport getPromotionPerformanceReportUC,
+	getCustomerRFMReport getCustomerRFMReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -98,7 +103,7 @@ func NewHandler(
 		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
 		getBusinessInsights: getBusinessInsights, getSalesTrendsReport: getSalesTrendsReport,
 		getProductLifecycleReport: getProductLifecycleReport, getCustomerCohortsReport: getCustomerCohortsReport,
-		getPromotionPerformanceReport: getPromotionPerformanceReport,
+		getPromotionPerformanceReport: getPromotionPerformanceReport, getCustomerRFMReport: getCustomerRFMReport,
 	}
 }
 
@@ -121,11 +126,12 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	inventorySalesUC := appreports.NewGetInventorySalesReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo)
 	promotionRepo := repositories.NewPromotionRepo(db)
 	promotionSKURepo := repositories.NewPromotionSKURepo(db)
+	customerPerformanceUC := appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo)
 	h := NewHandler(
 		salesSummaryUC,
 		productPerformanceUC,
 		productPerformanceMatrixUC,
-		appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo),
+		customerPerformanceUC,
 		appreports.NewGetCategoryPerformanceReportUseCase(db, salesRepo, settingsRepo),
 		slowMovingProductsUC,
 		profitabilityUC,
@@ -135,6 +141,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetProductLifecycleReportUseCase(productPerformanceUC),
 		appreports.NewGetCustomerCohortsReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetPromotionPerformanceReportUseCase(db, promotionRepo, promotionSKURepo, salesRepo, settingsRepo),
+		appreports.NewGetCustomerRFMReportUseCase(customerPerformanceUC),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -359,6 +366,24 @@ func toGenPromotionPerformancePeriod(p appreports.PromotionPerformancePeriod) ge
 	return genreports.PromotionPerformancePeriod{
 		From: p.From, To: p.To, RevenueMinorUnits: p.RevenueMinorUnits, UnitsSold: p.UnitsSold, OrderCount: p.OrderCount,
 	}
+}
+
+func (h *Handler) GetCustomerRFMReport(c *gin.Context, params genreports.GetCustomerRFMReportParams) {
+	report, err := h.getCustomerRFMReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.CustomerRFMRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.CustomerRFMRow{
+			CustomerId: row.CustomerID, CustomerName: row.CustomerName,
+			OrderCount: row.OrderCount, RevenueMinorUnits: row.RevenueMinorUnits, AverageOrderValueMinorUnits: row.AverageOrderValueMinorUnits,
+			FirstOrderAt: row.FirstOrderAt, LastOrderAt: row.LastOrderAt,
+			RecencyScore: row.RecencyScore, FrequencyScore: row.FrequencyScore, MonetaryScore: row.MonetaryScore,
+			Segment: genreports.RFMSegment(row.Segment),
+		}
+	}
+	middleware.OK(c, genreports.CustomerRFMReport{CurrencyCode: report.CurrencyCode, Rows: rows})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

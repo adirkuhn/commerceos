@@ -208,6 +208,34 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/customer-rfm:
+    get:
+      operationId: getCustomerRFMReport
+      summary: Recency/Frequency/Monetary quintile scores and segment for every customer with a qualifying order in [from, to)
+      description: >-
+        Same customer set as Customer Reports (guest orders excluded).
+        Each of R/F/M is a 1-5 quintile score relative to the other
+        customers in this same result set, not a fixed threshold. Segment
+        is a fixed rule-based label derived from the three scores.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerRFMReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /reports/promotions/{promotionId}/performance:
     get:
       operationId: getPromotionPerformanceReport
@@ -617,6 +645,58 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/InventorySalesReport' }
+        error: { nullable: true }
+
+    RFMSegment:
+      type: string
+      enum: [champions, loyal_customers, potential_loyalists, at_risk, lost, needs_attention]
+      description: >-
+        champions = recent, frequent, highest spend; loyal_customers =
+        frequent and recent, not necessarily highest spend;
+        potential_loyalists = recent but not yet frequent; at_risk = used
+        to order often, hasn't recently; lost = neither recent nor
+        frequent; needs_attention = mid-range on every axis.
+
+    CustomerRFMRow:
+      type: object
+      required: [customer_id, customer_name, order_count, revenue_minor_units, average_order_value_minor_units, first_order_at, last_order_at, recency_score, frequency_score, monetary_score, segment]
+      properties:
+        customer_id: { type: string }
+        customer_name:
+          type: string
+          description: Empty string if the customer record has no name set.
+        order_count: { type: integer, format: int64 }
+        revenue_minor_units: { type: integer, format: int64 }
+        average_order_value_minor_units: { type: integer, format: int64 }
+        first_order_at: { type: string, format: date-time }
+        last_order_at: { type: string, format: date-time }
+        recency_score:
+          type: integer
+          format: int64
+          description: 1-5 quintile, 5 = most recent order, relative to the other customers in this result set.
+        frequency_score:
+          type: integer
+          format: int64
+          description: 1-5 quintile, 5 = most orders, relative to the other customers in this result set.
+        monetary_score:
+          type: integer
+          format: int64
+          description: 1-5 quintile, 5 = highest revenue, relative to the other customers in this result set.
+        segment: { $ref: '#/components/schemas/RFMSegment' }
+
+    CustomerRFMReport:
+      type: object
+      required: [currency_code, rows]
+      properties:
+        currency_code: { type: string }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/CustomerRFMRow' }
+
+    CustomerRFMReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CustomerRFMReport' }
         error: { nullable: true }
 
     PromotionPerformancePeriod:
