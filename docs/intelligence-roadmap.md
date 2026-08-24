@@ -41,7 +41,7 @@ column as slices land — each slice is its own commit.
 | Item | Status | Notes |
 |---|---|---|
 | RFM customer segmentation | **Done** — `8a9191d`, frontend `b5f8f26` | `GET /reports/customer-rfm`: Recency/Frequency/Monetary quintile scores (1-5, relative to the tenant's own customer base for the period) plus a fixed-rule segment (champions/loyal_customers/potential_loyalists/at_risk/lost/needs_attention) for every customer with a qualifying order in [from, to). Pure composition over the existing Customer Performance report -- no new query. |
-| FP-Growth / frequently-bought-together | Not started | |
+| FP-Growth / frequently-bought-together | **Done** — `e3215be`, frontend `2c99b6b` | `GET /reports/frequently-bought-together`: SKU itemsets (size 2+, up to size 5) mined from orders in [from, to) via a from-scratch FP-Growth implementation (`application/reports/fpgrowth.go`, no external library). `min_support` defaults to 2 (a set only ever bought once doesn't count as "frequently" together). Capped to the top 50 itemsets by support, tenant-wide table on the Reports page (no per-product-page surface yet -- the use case's design allows that reuse later). |
 | Sales aggregation (materialized rollups) | Not started | Not needed yet -- every report so far computes on-demand from `sales_orders`/`sales_order_line_items` directly, fast enough at current data volumes. Revisit if/when report latency becomes a problem. |
 
 ## Phase 2 — Demand & Inventory Intelligence
