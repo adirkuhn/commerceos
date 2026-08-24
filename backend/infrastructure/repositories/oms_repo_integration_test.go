@@ -1833,3 +1833,97 @@ func TestSalesOrderRepo_Integration_SKUSetSalesBetween_EmptySKUSetGivesZero(t *t
 	require.NoError(t, err)
 	require.Equal(t, omsDomain.SKUSetSalesSummary{}, summary)
 }
+
+func TestSalesOrderRepo_Integration_ListOrderSKUsBetween_ReturnsDistinctSKUsPerQualifyingOrder(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	outsideWindow := now.AddDate(0, 0, -3)
+
+	var skuA, skuB, skuC string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		skuA, err = seedPromotionSKU(ctx, productRepo, variantRepo, skuRepo, "FBT-A")
+		if err != nil {
+			return err
+		}
+		skuB, err = seedPromotionSKU(ctx, productRepo, variantRepo, skuRepo, "FBT-B")
+		if err != nil {
+			return err
+		}
+		skuC, err = seedPromotionSKU(ctx, productRepo, variantRepo, skuRepo, "FBT-C")
+		return err
+	})
+	require.NoError(t, err)
+
+	var order1ID, order2ID, order3ID, order4ID string
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		createOrderWithLines := func(extID string, occurred time.Time, skuIDs ...string) (string, error) {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: extID,
+				WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
+				TotalMinorUnits: 100, OccurredAt: occurred, CreatedAt: occurred,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return "", err
+			}
+			for _, skuID := range skuIDs {
+				skuID := skuID
+				if err := lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+					TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: &skuID, Name: "Item", SKUCode: "ITEM",
+					Quantity: 1, TotalMinorUnits: 100, CreatedAt: occurred,
+				}); err != nil {
+					return "", err
+				}
+			}
+			return order.ID, nil
+		}
+
+		var err error
+		order1ID, err = createOrderWithLines("fbt-1", now, skuA, skuB)
+		if err != nil {
+			return err
+		}
+		order2ID, err = createOrderWithLines("fbt-2", now, skuA, skuB, skuC)
+		if err != nil {
+			return err
+		}
+		order3ID, err = createOrderWithLines("fbt-3", now, skuC)
+		if err != nil {
+			return err
+		}
+		// Same SKU across two line item rows -- must dedupe to one entry.
+		order4ID, err = createOrderWithLines("fbt-4", now, skuA, skuA)
+		if err != nil {
+			return err
+		}
+		_, err = createOrderWithLines("fbt-5", outsideWindow, skuA, skuB) // excluded: outside window
+		return err
+	})
+	require.NoError(t, err)
+
+	var orders []omsDomain.OrderSKUs
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		orders, err = salesOrderRepo.ListOrderSKUsBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, orders, 4)
+
+	byOrderID := map[string]omsDomain.OrderSKUs{}
+	for _, o := range orders {
+		byOrderID[o.OrderID] = o
+	}
+	require.ElementsMatch(t, []string{skuA, skuB}, byOrderID[order1ID].SKUIDs)
+	require.ElementsMatch(t, []string{skuA, skuB, skuC}, byOrderID[order2ID].SKUIDs)
+	require.ElementsMatch(t, []string{skuC}, byOrderID[order3ID].SKUIDs)
+	require.ElementsMatch(t, []string{skuA}, byOrderID[order4ID].SKUIDs, "duplicate SKU across two line items must dedupe")
+}

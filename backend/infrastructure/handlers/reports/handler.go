@@ -62,6 +62,9 @@ type getPromotionPerformanceReportUC interface {
 type getCustomerRFMReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.CustomerRFMReport, error)
 }
+type getFrequentlyBoughtTogetherReportUC interface {
+	Execute(ctx context.Context, from, to time.Time, minSupport int) (*appreports.FrequentlyBoughtTogetherReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport         getSalesSummaryReportUC
@@ -78,6 +81,7 @@ type Handler struct {
 	getCustomerCohortsReport      getCustomerCohortsReportUC
 	getPromotionPerformanceReport getPromotionPerformanceReportUC
 	getCustomerRFMReport          getCustomerRFMReportUC
+	getFrequentlyBoughtTogether   getFrequentlyBoughtTogetherReportUC
 }
 
 func NewHandler(
@@ -95,6 +99,7 @@ func NewHandler(
 	getCustomerCohortsReport getCustomerCohortsReportUC,
 	getPromotionPerformanceReport getPromotionPerformanceReportUC,
 	getCustomerRFMReport getCustomerRFMReportUC,
+	getFrequentlyBoughtTogether getFrequentlyBoughtTogetherReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -104,6 +109,7 @@ func NewHandler(
 		getBusinessInsights: getBusinessInsights, getSalesTrendsReport: getSalesTrendsReport,
 		getProductLifecycleReport: getProductLifecycleReport, getCustomerCohortsReport: getCustomerCohortsReport,
 		getPromotionPerformanceReport: getPromotionPerformanceReport, getCustomerRFMReport: getCustomerRFMReport,
+		getFrequentlyBoughtTogether: getFrequentlyBoughtTogether,
 	}
 }
 
@@ -142,6 +148,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetCustomerCohortsReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetPromotionPerformanceReportUseCase(db, promotionRepo, promotionSKURepo, salesRepo, settingsRepo),
 		appreports.NewGetCustomerRFMReportUseCase(customerPerformanceUC),
+		appreports.NewGetFrequentlyBoughtTogetherReportUseCase(db, salesRepo, settingsRepo, skuRepo, variantRepo, productRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -360,6 +367,28 @@ func (h *Handler) GetPromotionPerformanceReport(c *gin.Context, promotionId stri
 		Before: toGenPromotionPerformancePeriod(report.Before), During: toGenPromotionPerformancePeriod(report.During),
 		RevenueChangePercent: report.RevenueChangePercent, UnitsSoldChangePercent: report.UnitsSoldChangePercent,
 	})
+}
+
+func (h *Handler) GetFrequentlyBoughtTogetherReport(c *gin.Context, params genreports.GetFrequentlyBoughtTogetherReportParams) {
+	minSupport := 0
+	if params.MinSupport != nil {
+		minSupport = int(*params.MinSupport)
+	}
+	report, err := h.getFrequentlyBoughtTogether.Execute(c.Request.Context(), params.From, params.To, minSupport)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.FrequentlyBoughtTogetherRow, len(report.Rows))
+	for i, row := range report.Rows {
+		items := make([]genreports.FrequentlyBoughtTogetherItem, len(row.Items))
+		for j, item := range row.Items {
+			items[j] = genreports.FrequentlyBoughtTogetherItem{
+				SkuId: item.SKUID, SkuCode: item.SKUCode, ProductName: item.ProductName,
+			}
+		}
+		rows[i] = genreports.FrequentlyBoughtTogetherRow{Items: items, Support: row.Support, SupportPercent: row.SupportPercent}
+	}
+	middleware.OK(c, genreports.FrequentlyBoughtTogetherReport{Rows: rows, TotalOrders: report.TotalOrders})
 }
 
 func toGenPromotionPerformancePeriod(p appreports.PromotionPerformancePeriod) genreports.PromotionPerformancePeriod {

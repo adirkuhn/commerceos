@@ -945,6 +945,49 @@ func (r *SalesOrderRepo) SKUSetSalesBetween(ctx context.Context, skuIDs []string
 	}, nil
 }
 
+type orderSKURow struct {
+	OrderID string `gorm:"column:order_id"`
+	SKUID   string `gorm:"column:sku_id"`
+}
+
+// ListOrderSKUsBetween returns one (order_id, sku_id) row per distinct SKU
+// in each qualifying order -- deliberately flat rather than a Postgres
+// array_agg, since scanning a Postgres array column into a Go []string
+// isn't supported by GORM's plain database/sql Scan without an extra
+// array-type dependency; grouping into omsDomain.OrderSKUs happens here in
+// Go instead, order preserved via a parallel slice.
+func (r *SalesOrderRepo) ListOrderSKUsBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.OrderSKUs, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []orderSKURow
+	err = tx.Raw(`
+		SELECT DISTINCT so.id AS order_id, li.sku_id AS sku_id
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		WHERE li.sku_id IS NOT NULL
+			AND so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+		ORDER BY so.id
+	`, from, to, currencyCode).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.ListOrderSKUsBetween: %w", err)
+	}
+
+	var orders []omsDomain.OrderSKUs
+	var current *omsDomain.OrderSKUs
+	for _, row := range rows {
+		if current == nil || current.OrderID != row.OrderID {
+			orders = append(orders, omsDomain.OrderSKUs{OrderID: row.OrderID})
+			current = &orders[len(orders)-1]
+		}
+		current.SKUIDs = append(current.SKUIDs, row.SKUID)
+	}
+	return orders, nil
+}
+
 // ── SalesOrderLineItemRepo ───────────────────────────────────────────────────
 
 type SalesOrderLineItemRepo struct{ db *gorm.DB }

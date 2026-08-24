@@ -377,6 +377,38 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/frequently-bought-together:
+    get:
+      operationId: getFrequentlyBoughtTogetherReport
+      summary: SKU itemsets (size 2+) mined by FP-Growth from orders in [from, to), most-supported first
+      description: >-
+        Support is the number of qualifying orders containing every item in
+        the itemset. min_support defaults to 2 when omitted or <= 0 -- a
+        SKU or set only ever bought alone/once doesn't count as "frequently"
+        bought together. Capped to the top 50 itemsets by support.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: min_support
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrequentlyBoughtTogetherReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -890,3 +922,40 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+
+    FrequentlyBoughtTogetherItem:
+      type: object
+      required: [sku_id, sku_code, product_name]
+      properties:
+        sku_id: { type: string }
+        sku_code:
+          type: string
+          description: Empty if the SKU has since been deleted.
+        product_name:
+          type: string
+          description: Empty if the SKU has since been deleted.
+
+    FrequentlyBoughtTogetherRow:
+      type: object
+      required: [items, support, support_percent]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FrequentlyBoughtTogetherItem' }
+        support: { type: integer, format: int64 }
+        support_percent: { type: number, format: double }
+
+    FrequentlyBoughtTogetherReport:
+      type: object
+      required: [rows, total_orders]
+      properties:
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/FrequentlyBoughtTogetherRow' }
+        total_orders: { type: integer, format: int64 }
+
+    FrequentlyBoughtTogetherReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/FrequentlyBoughtTogetherReport' }
+        error: { nullable: true }
