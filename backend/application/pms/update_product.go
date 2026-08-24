@@ -34,10 +34,11 @@ type UpdateProductUseCase struct {
 	productRepo pmsDomain.ProductRepository
 	variantRepo pmsDomain.VariantRepository
 	outboxRepo  outbox.Repository
+	historyRepo pmsDomain.ProductHistoryRepository
 }
 
-func NewUpdateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository, outboxRepo outbox.Repository) *UpdateProductUseCase {
-	return &UpdateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, outboxRepo: outboxRepo}
+func NewUpdateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository, outboxRepo outbox.Repository, historyRepo pmsDomain.ProductHistoryRepository) *UpdateProductUseCase {
+	return &UpdateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, outboxRepo: outboxRepo, historyRepo: historyRepo}
 }
 
 // Execute updates product fields. Slug is only changed when in.Slug is
@@ -93,6 +94,7 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 				existing.Slug = slug
 			}
 		}
+		oldName, oldStatus := existing.Name, existing.Status
 		existing.Name = in.Name
 		existing.Description = in.Description
 		existing.CategoryID = in.CategoryID
@@ -105,6 +107,12 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 			return err
 		}
 		product = *existing
+		if err := recordProductHistoryFieldIfChanged(ctx, uc.historyRepo, pmsDomain.ProductHistoryEntityProduct, product.ID, pmsDomain.ProductHistoryFieldName, oldName, product.Name); err != nil {
+			return err
+		}
+		if err := recordProductHistoryFieldIfChanged(ctx, uc.historyRepo, pmsDomain.ProductHistoryEntityProduct, product.ID, pmsDomain.ProductHistoryFieldStatus, string(oldStatus), string(product.Status)); err != nil {
+			return err
+		}
 		return enqueueProductChanged(ctx, uc.outboxRepo, product.ID)
 	})
 	if err != nil {

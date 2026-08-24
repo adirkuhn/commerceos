@@ -498,6 +498,38 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/products/{id}/history:
+    get:
+      operationId: listProductHistory
+      summary: Name/status change audit trail for a product, most recent first
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductHistoryListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /pms/variants/{id}/history:
+    get:
+      operationId: listVariantHistory
+      summary: Name change audit trail for a variant, most recent first
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductHistoryListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /pms/margin-report:
     get:
       operationId: listMarginReport
@@ -836,6 +868,30 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/SKUPriceHistoryEntry' }
+        error: { nullable: true }
+
+    ProductHistoryEntry:
+      type: object
+      required: [id, entity_type, entity_id, field, old_value, new_value, changed_at]
+      properties:
+        id: { type: string }
+        entity_type:
+          type: string
+          enum: [product, variant]
+        entity_id: { type: string }
+        field:
+          type: string
+          enum: [name, status]
+        old_value: { type: string }
+        new_value: { type: string }
+        changed_at: { type: string, format: date-time }
+
+    ProductHistoryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ProductHistoryEntry' }
         error: { nullable: true }
 
     MarginReportRow:

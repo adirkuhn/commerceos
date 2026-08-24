@@ -266,6 +266,15 @@ func (s *stubListSKUPriceHistory) Execute(_ context.Context, _ string, _ int) ([
 	return s.out, s.err
 }
 
+type stubListProductHistory struct {
+	out []pmsDomain.ProductHistory
+	err error
+}
+
+func (s *stubListProductHistory) Execute(_ context.Context, _ pmsDomain.ProductHistoryEntityType, _ string) ([]pmsDomain.ProductHistory, error) {
+	return s.out, s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
@@ -296,6 +305,7 @@ type stubs struct {
 	listCostPriceHistory   stubListCostPriceHistory
 	listMarginReport       stubListMarginReport
 	listSKUPriceHistory    stubListSKUPriceHistory
+	listProductHistory     stubListProductHistory
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -309,6 +319,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.resolveBarcode,
 		&s.getSKUMarginInsight, &s.listCostPriceHistory, &s.listMarginReport,
 		&s.listSKUPriceHistory,
+		&s.listProductHistory,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -763,6 +774,27 @@ func TestListSKUPriceHistory_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"price_minor_units":999`)
 	assert.Contains(t, w.Body.String(), `"reason":"manual_update"`)
+}
+
+func TestListProductHistory_success(t *testing.T) {
+	s := &stubs{listProductHistory: stubListProductHistory{out: []pmsDomain.ProductHistory{
+		{ID: "h1", EntityType: pmsDomain.ProductHistoryEntityProduct, EntityID: "p1", Field: pmsDomain.ProductHistoryFieldName, OldValue: "Old", NewValue: "New"},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/products/p1/history", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"old_value":"Old"`)
+	assert.Contains(t, w.Body.String(), `"field":"name"`)
+}
+
+func TestListVariantHistory_success(t *testing.T) {
+	s := &stubs{listProductHistory: stubListProductHistory{out: []pmsDomain.ProductHistory{
+		{ID: "h1", EntityType: pmsDomain.ProductHistoryEntityVariant, EntityID: "v1", Field: pmsDomain.ProductHistoryFieldName, OldValue: "Old", NewValue: "New"},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/variants/v1/history", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"entity_type":"variant"`)
 }
 
 func TestListMarginReport_success(t *testing.T) {

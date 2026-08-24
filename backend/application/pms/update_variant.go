@@ -23,10 +23,11 @@ type UpdateVariantUseCase struct {
 	db          *gorm.DB
 	variantRepo pmsDomain.VariantRepository
 	mediaRepo   pmsDomain.MediaRepository
+	historyRepo pmsDomain.ProductHistoryRepository
 }
 
-func NewUpdateVariantUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, mediaRepo pmsDomain.MediaRepository) *UpdateVariantUseCase {
-	return &UpdateVariantUseCase{db: db, variantRepo: variantRepo, mediaRepo: mediaRepo}
+func NewUpdateVariantUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, mediaRepo pmsDomain.MediaRepository, historyRepo pmsDomain.ProductHistoryRepository) *UpdateVariantUseCase {
+	return &UpdateVariantUseCase{db: db, variantRepo: variantRepo, mediaRepo: mediaRepo, historyRepo: historyRepo}
 }
 
 func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInput) (*pmsDomain.Variant, error) {
@@ -47,6 +48,7 @@ func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInp
 			}
 		}
 
+		oldName := existing.Name
 		existing.Name = in.Name
 		existing.Position = in.Position
 		existing.FeaturedMediaID = in.FeaturedMediaID
@@ -55,7 +57,7 @@ func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInp
 			return err
 		}
 		variant = *existing
-		return nil
+		return recordProductHistoryFieldIfChanged(ctx, uc.historyRepo, pmsDomain.ProductHistoryEntityVariant, variant.ID, pmsDomain.ProductHistoryFieldName, oldName, variant.Name)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateVariant: %w", err)

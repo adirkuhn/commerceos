@@ -1084,3 +1084,88 @@ func TestSKUPriceHistoryRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, historyFromOtherTenant, "tenant B must not see tenant A's price history")
 }
+
+func TestProductHistoryRepo_Integration_ListByEntityOrdersMostRecentFirst(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	historyRepo := repositories.NewProductHistoryRepo(db)
+
+	var productID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Acai", Slug: "acai-history-test", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		productID = product.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := historyRepo.Create(ctx, &pmsDomain.ProductHistory{
+			TenantID: tenant.IDFromContext(ctx), EntityType: pmsDomain.ProductHistoryEntityProduct, EntityID: productID,
+			Field: pmsDomain.ProductHistoryFieldName, OldValue: "Acai", NewValue: "Acai Berry", ChangedAt: time.Now(),
+		}); err != nil {
+			return err
+		}
+		time.Sleep(2 * time.Millisecond)
+		return historyRepo.Create(ctx, &pmsDomain.ProductHistory{
+			TenantID: tenant.IDFromContext(ctx), EntityType: pmsDomain.ProductHistoryEntityProduct, EntityID: productID,
+			Field: pmsDomain.ProductHistoryFieldStatus, OldValue: "draft", NewValue: "active", ChangedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	var history []pmsDomain.ProductHistory
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		history, err = historyRepo.ListByEntity(ctx, pmsDomain.ProductHistoryEntityProduct, productID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, history, 2)
+	require.Equal(t, pmsDomain.ProductHistoryFieldStatus, history[0].Field, "most recent change first")
+	require.Equal(t, pmsDomain.ProductHistoryFieldName, history[1].Field)
+	require.Equal(t, "Acai", history[1].OldValue)
+	require.Equal(t, "Acai Berry", history[1].NewValue)
+}
+
+func TestProductHistoryRepo_Integration_RLSIsolatesTenants(t *testing.T) {
+	superDB, superDSN := newIntegrationDBAndDSN(t)
+	db := newAppRoleDB(t, superDSN)
+	_, ctxA := newTestTenant()
+	productRepo := repositories.NewProductRepo(superDB)
+	historyRepo := repositories.NewProductHistoryRepo(db)
+
+	var productID string
+	err := tenant.WithTenant(ctxA, superDB, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Acai", Slug: "acai-history-rls-test", Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		productID = product.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctxA, db, func(ctx context.Context) error {
+		return historyRepo.Create(ctx, &pmsDomain.ProductHistory{
+			TenantID: tenant.IDFromContext(ctx), EntityType: pmsDomain.ProductHistoryEntityProduct, EntityID: productID,
+			Field: pmsDomain.ProductHistoryFieldName, OldValue: "Acai", NewValue: "Acai Berry", ChangedAt: time.Now(),
+		})
+	})
+	require.NoError(t, err)
+
+	_, ctxB := newTestTenant()
+	var historyFromOtherTenant []pmsDomain.ProductHistory
+	err = tenant.WithTenant(ctxB, db, func(ctx context.Context) error {
+		var err error
+		historyFromOtherTenant, err = historyRepo.ListByEntity(ctx, pmsDomain.ProductHistoryEntityProduct, productID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, historyFromOtherTenant, "tenant B must not see tenant A's product history")
+}

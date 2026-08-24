@@ -133,6 +133,9 @@ type listMarginReportUC interface {
 type listSKUPriceHistoryUC interface {
 	Execute(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUPriceHistory, error)
 }
+type listProductHistoryUC interface {
+	Execute(ctx context.Context, entityType pmsDomain.ProductHistoryEntityType, entityID string) ([]pmsDomain.ProductHistory, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -164,6 +167,7 @@ type Handler struct {
 	listCostPriceHistory   listCostPriceHistoryUC
 	listMarginReport       listMarginReportUC
 	listSKUPriceHistory    listSKUPriceHistoryUC
+	listProductHistory     listProductHistoryUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -195,12 +199,14 @@ func NewHandler(
 	listCostPriceHistory listCostPriceHistoryUC,
 	listMarginReport listMarginReportUC,
 	listSKUPriceHistory listSKUPriceHistoryUC,
+	listProductHistory listProductHistoryUC,
 ) *Handler {
 	return &Handler{
 		getSKUMarginInsight:    getSKUMarginInsight,
 		listCostPriceHistory:   listCostPriceHistory,
 		listMarginReport:       listMarginReport,
 		listSKUPriceHistory:    listSKUPriceHistory,
+		listProductHistory:     listProductHistory,
 		listCategories:         listCategories,
 		createCategory:         createCategory,
 		updateCategory:         updateCategory,
@@ -243,6 +249,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
 	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
 	priceHistoryRepo := repositories.NewSKUPriceHistoryRepo(db)
+	productHistoryRepo := repositories.NewProductHistoryRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
@@ -259,11 +266,11 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo),
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
-		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo),
+		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo, productHistoryRepo),
 		apppms.NewDuplicateProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewDeleteProductUseCase(db, productRepo, listingRepo, outboxRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
-		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo),
+		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo, productHistoryRepo),
 		apppms.NewDeleteVariantUseCase(db, variantRepo),
 		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo, priceHistoryRepo),
 		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo),
@@ -279,6 +286,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListCostPriceHistoryUseCase(db, costPriceHistoryRepo),
 		apppms.NewListMarginReportUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo),
 		apppms.NewListSKUPriceHistoryUseCase(db, priceHistoryRepo),
+		apppms.NewListProductHistoryUseCase(db, productHistoryRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -690,6 +698,33 @@ func (h *Handler) ListSKUPriceHistory(c *gin.Context, id genpms.Id, params genpm
 		}
 	}
 	c.JSON(http.StatusOK, genpms.SKUPriceHistoryListResponse{Data: &resp})
+}
+
+func (h *Handler) ListProductHistory(c *gin.Context, id genpms.Id) {
+	history, err := h.listProductHistory.Execute(c.Request.Context(), pmsDomain.ProductHistoryEntityProduct, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genpms.ProductHistoryListResponse{Data: toGenProductHistoryEntries(history)})
+}
+
+func (h *Handler) ListVariantHistory(c *gin.Context, id genpms.Id) {
+	history, err := h.listProductHistory.Execute(c.Request.Context(), pmsDomain.ProductHistoryEntityVariant, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genpms.ProductHistoryListResponse{Data: toGenProductHistoryEntries(history)})
+}
+
+func toGenProductHistoryEntries(history []pmsDomain.ProductHistory) *[]genpms.ProductHistoryEntry {
+	resp := make([]genpms.ProductHistoryEntry, len(history))
+	for i, h := range history {
+		resp[i] = genpms.ProductHistoryEntry{
+			Id: h.ID, EntityType: genpms.ProductHistoryEntryEntityType(h.EntityType), EntityId: h.EntityID,
+			Field: genpms.ProductHistoryEntryField(h.Field), OldValue: h.OldValue, NewValue: h.NewValue, ChangedAt: h.ChangedAt,
+		}
+	}
+	return &resp
 }
 
 func (h *Handler) ListMarginReport(c *gin.Context, params genpms.ListMarginReportParams) {
