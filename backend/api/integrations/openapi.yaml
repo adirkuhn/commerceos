@@ -1422,7 +1422,7 @@ components:
       type: object
       required: [entity_type, direction, enabled, interval_minutes, last_run_status, last_run_error]
       properties:
-        entity_type: { type: string, enum: [products, stock, orders, categories, orders_reconciliation] }
+        entity_type: { type: string, enum: [products, stock, orders, categories, orders_reconciliation, shipment_reconciliation, bol_orders, bol_products, bol_stock] }
         direction: { type: string, enum: [import, export] }
         enabled: { type: boolean }
         interval_minutes: { type: integer }
