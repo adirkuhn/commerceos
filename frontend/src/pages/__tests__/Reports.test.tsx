@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -20,6 +20,7 @@ vi.mock('../../reports/api', () => ({
   getProfitabilityReport: vi.fn(),
   getInventorySalesReport: vi.fn(),
   getBusinessInsights: vi.fn(),
+  getSalesTrendsReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -128,6 +129,21 @@ function businessInsights(overrides: Partial<BusinessInsightsReport> = {}): Busi
   return { insights: [], ...overrides }
 }
 
+function salesTrends(overrides: Partial<SalesTrendsReport> = {}): SalesTrendsReport {
+  return {
+    currency_code: 'EUR', granularity: 'day',
+    points: [
+      { period_start: '2026-08-01T00:00:00Z', revenue_minor_units: 40000, order_count: 3, units_sold: 10 },
+      { period_start: '2026-08-02T00:00:00Z', revenue_minor_units: 60000, order_count: 5, units_sold: 14 },
+    ],
+    by_weekday: [
+      { weekday: 1, revenue_minor_units: 70000, order_count: 6 },
+      { weekday: 3, revenue_minor_units: 30000, order_count: 2 },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -149,6 +165,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getProfitabilityReport).mockResolvedValue(profitability())
   vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales())
   vi.mocked(reportsApi.getBusinessInsights).mockResolvedValue(businessInsights())
+  vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -351,5 +368,39 @@ describe('Reports page', () => {
 
     await screen.findByText('€1,180.00')
     expect(screen.queryByTestId('business-insights')).not.toBeInTheDocument()
+  })
+
+  it('fetches sales trends with the default day granularity', async () => {
+    render(<Reports />)
+
+    await screen.findByText('€1,180.00')
+    expect(reportsApi.getSalesTrendsReport).toHaveBeenCalledWith('test-token', expect.any(String), expect.any(String), 'day')
+  })
+
+  it('refetches sales trends with week granularity when switched', async () => {
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    await userEvent.click(screen.getByRole('button', { name: 'week' }))
+
+    await waitFor(() => {
+      expect(reportsApi.getSalesTrendsReport).toHaveBeenLastCalledWith('test-token', expect.any(String), expect.any(String), 'week')
+    })
+  })
+
+  it('shows an empty state when there is no sales trend data', async () => {
+    vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends({ points: [] }))
+
+    render(<Reports />)
+
+    expect(await screen.findByText('No sales in this period')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when there is no weekday breakdown', async () => {
+    vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends({ by_weekday: [] }))
+
+    render(<Reports />)
+
+    expect(await screen.findByText('No sales to break down by weekday in this period')).toBeInTheDocument()
   })
 })

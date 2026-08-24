@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as reportsApi from '../api'
 import * as dashboardApi from '../../dashboard/api'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport } from '../types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity } from '../types'
 import type { ChannelRevenue } from '../../dashboard/types'
 
 export type ReportsPeriod = '7D' | '30D' | '90D' | '12M'
@@ -33,6 +33,7 @@ interface UseReportsDataState {
   profitability: ProfitabilityReport | null
   inventorySales: InventorySalesReport | null
   businessInsights: BusinessInsightsReport | null
+  salesTrends: SalesTrendsReport | null
   // Real revenue-by-channel data, but always "this month" (the underlying
   // /dashboard/stats endpoint has no date-range parameter) -- not scoped
   // to the selected period. Labeled as such in the UI.
@@ -41,7 +42,11 @@ interface UseReportsDataState {
   error: string | null
 }
 
-export function useReportsData(token: string, period: ReportsPeriod): UseReportsDataState & { refresh: () => void } {
+export function useReportsData(
+  token: string,
+  period: ReportsPeriod,
+  trendGranularity: SalesTrendGranularity = 'day',
+): UseReportsDataState & { refresh: () => void } {
   const [salesSummary, setSalesSummary] = useState<SalesSummaryReport | null>(null)
   const [productPerformance, setProductPerformance] = useState<ProductPerformanceReport | null>(null)
   const [productPerformanceMatrix, setProductPerformanceMatrix] = useState<ProductPerformanceMatrix | null>(null)
@@ -51,6 +56,7 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
   const [profitability, setProfitability] = useState<ProfitabilityReport | null>(null)
   const [inventorySales, setInventorySales] = useState<InventorySalesReport | null>(null)
   const [businessInsights, setBusinessInsights] = useState<BusinessInsightsReport | null>(null)
+  const [salesTrends, setSalesTrends] = useState<SalesTrendsReport | null>(null)
   const [channelRevenueThisMonth, setChannelRevenueThisMonth] = useState<ChannelRevenue[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +67,7 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
     setError(null)
     try {
       const { from, to } = dateRange(period, new Date())
-      const [summary, performance, matrix, customers, categories, slowMoving, profitabilityReport, inventorySalesReport, insightsReport, dashboardStats] = await Promise.all([
+      const [summary, performance, matrix, customers, categories, slowMoving, profitabilityReport, inventorySalesReport, insightsReport, trendsReport, dashboardStats] = await Promise.all([
         reportsApi.getSalesSummaryReport(token, from, to),
         reportsApi.getProductPerformanceReport(token, from, to),
         reportsApi.getProductPerformanceMatrix(token, from, to),
@@ -71,6 +77,7 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
         reportsApi.getProfitabilityReport(token, from, to),
         reportsApi.getInventorySalesReport(token, from, to),
         reportsApi.getBusinessInsights(token, from, to),
+        reportsApi.getSalesTrendsReport(token, from, to, trendGranularity),
         dashboardApi.getDashboardStats(token),
       ])
       setSalesSummary(summary)
@@ -82,15 +89,16 @@ export function useReportsData(token: string, period: ReportsPeriod): UseReports
       setProfitability(profitabilityReport)
       setInventorySales(inventorySalesReport)
       setBusinessInsights(insightsReport)
+      setSalesTrends(trendsReport)
       setChannelRevenueThisMonth(dashboardStats.sales_by_channel_this_month)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
-  }, [token, period])
+  }, [token, period, trendGranularity])
 
   useEffect(() => { load() }, [load])
 
-  return { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, channelRevenueThisMonth, loading, error, refresh: load }
+  return { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, channelRevenueThisMonth, loading, error, refresh: load }
 }

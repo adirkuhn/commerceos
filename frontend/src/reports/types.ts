@@ -145,6 +145,29 @@ export interface BusinessInsightsReport {
   insights: Insight[]
 }
 
+export type SalesTrendGranularity = 'day' | 'week' | 'month'
+
+export interface SalesTrendPoint {
+  period_start: string
+  revenue_minor_units: number
+  order_count: number
+  units_sold: number
+}
+
+export interface WeekdaySales {
+  // 0 = Sunday .. 6 = Saturday.
+  weekday: number
+  revenue_minor_units: number
+  order_count: number
+}
+
+export interface SalesTrendsReport {
+  currency_code: string
+  granularity: SalesTrendGranularity
+  points: SalesTrendPoint[]
+  by_weekday: WeekdaySales[]
+}
+
 export interface APIError {
   code: string
   message: string

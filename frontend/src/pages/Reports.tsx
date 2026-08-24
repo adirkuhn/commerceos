@@ -1,10 +1,10 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, AlertTriangle, Info } from 'lucide-react'
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useReportsData, dateRange, type ReportsPeriod } from '../reports/hooks/useReportsData'
-import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant } from '../reports/types'
+import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant, SalesTrendGranularity } from '../reports/types'
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#1F2937',
@@ -16,6 +16,8 @@ const TOOLTIP_STYLE = {
 
 const PERIODS: ReportsPeriod[] = ['7D', '30D', '90D', '12M']
 const TOP_PRODUCTS_LIMIT = 5
+const TREND_GRANULARITIES: SalesTrendGranularity[] = ['day', 'week', 'month']
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const QUADRANTS: { id: ProductPerformanceQuadrant; label: string; hint: string }[] = [
   { id: 'stars', label: 'Stars', hint: 'High revenue, low margin — optimize pricing' },
@@ -49,7 +51,8 @@ function ChangeBadge({ percent }: { percent: number | null }) {
 export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
+  const [trendGranularity, setTrendGranularity] = useState<SalesTrendGranularity>('day')
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -62,6 +65,11 @@ export default function Reports() {
   const categories = [...(categoryPerformance?.rows ?? [])].sort((a, b) => b.revenue_minor_units - a.revenue_minor_units)
   const slowMovers = [...(slowMovingProducts?.rows ?? [])].sort((a, b) => b.stock_on_hand - a.stock_on_hand)
   const inventoryVsSales = [...(inventorySales?.rows ?? [])].sort((a, b) => (b.turnover_basis_points ?? -1) - (a.turnover_basis_points ?? -1))
+  const trendPoints = (salesTrends?.points ?? []).map(p => ({
+    ...p,
+    label: new Date(p.period_start).toLocaleDateString(undefined, trendGranularity === 'month' ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }),
+  }))
+  const weekdaySales = [...(salesTrends?.by_weekday ?? [])].sort((a, b) => a.weekday - b.weekday)
 
   const kpis = [
     { label: 'Total Revenue', value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
@@ -391,6 +399,66 @@ export default function Reports() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sales Trend</h3>
+              <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Revenue over the selected period</p>
+            </div>
+            <div className="flex items-center gap-0.5 dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 rounded-lg p-0.5">
+              {TREND_GRANULARITIES.map(g => (
+                <button
+                  key={g}
+                  onClick={() => setTrendGranularity(g)}
+                  className={clsx(
+                    'px-2 py-1 rounded-md text-[10px] font-medium capitalize transition-colors',
+                    trendGranularity === g
+                      ? 'bg-blue-600 text-white'
+                      : 'dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700',
+                  )}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+          {trendPoints.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No sales in this period</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={trendPoints} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
+                <Line type="monotone" dataKey="revenue_minor_units" stroke="#2563EB" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Seasonality by Weekday</h3>
+            <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Revenue summed across every occurrence of each weekday</p>
+          </div>
+          {weekdaySales.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No sales to break down by weekday in this period</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={weekdaySales.map(w => ({ ...w, label: WEEKDAY_LABELS[w.weekday] }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
+                <Bar dataKey="revenue_minor_units" fill="#2563EB" radius={4} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
     </div>
   )
