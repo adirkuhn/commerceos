@@ -39,6 +39,9 @@ type getSlowMovingProductsReportUC interface {
 type getProfitabilityReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.ProfitabilityReport, error)
 }
+type getInventorySalesReportUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appreports.InventorySalesReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -48,6 +51,7 @@ type Handler struct {
 	getCategoryPerformanceReport getCategoryPerformanceReportUC
 	getSlowMovingProductsReport  getSlowMovingProductsReportUC
 	getProfitabilityReport       getProfitabilityReportUC
+	getInventorySalesReport      getInventorySalesReportUC
 }
 
 func NewHandler(
@@ -58,12 +62,13 @@ func NewHandler(
 	getCategoryPerformanceReport getCategoryPerformanceReportUC,
 	getSlowMovingProductsReport getSlowMovingProductsReportUC,
 	getProfitabilityReport getProfitabilityReportUC,
+	getInventorySalesReport getInventorySalesReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
 		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
 		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
-		getProfitabilityReport: getProfitabilityReport,
+		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
 	}
 }
 
@@ -87,6 +92,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetCategoryPerformanceReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetSlowMovingProductsReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
 		appreports.NewGetProfitabilityReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetInventorySalesReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -200,6 +206,22 @@ func (h *Handler) GetProfitabilityReport(c *gin.Context, params genreports.GetPr
 			CostMinorUnits: s.CostMinorUnits, ProfitMinorUnits: s.ProfitMinorUnits, MarginBasisPoints: s.MarginBasisPoints,
 		},
 	})
+}
+
+func (h *Handler) GetInventorySalesReport(c *gin.Context, params genreports.GetInventorySalesReportParams) {
+	report, err := h.getInventorySalesReport.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.InventorySalesRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.InventorySalesRow{
+			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName,
+			StockOnHand: row.StockOnHand, QuantitySoldInPeriod: row.QuantitySoldInPeriod,
+			TurnoverBasisPoints: row.TurnoverBasisPoints,
+		}
+	}
+	middleware.OK(c, genreports.InventorySalesReport{Rows: rows})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

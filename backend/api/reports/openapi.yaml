@@ -182,6 +182,32 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/inventory-sales:
+    get:
+      operationId: getInventorySalesReport
+      summary: Stock on hand joined with units sold in [from, to) for every SKU with stock history
+      description: >-
+        Unlike the Slow-Moving Products report, every stocked-or-sold SKU
+        appears here, not just the zero-sales ones.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventorySalesReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -418,6 +444,38 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ProfitabilityReport' }
+        error: { nullable: true }
+
+    InventorySalesRow:
+      type: object
+      required: [sku_id, sku_code, product_name, stock_on_hand, quantity_sold_in_period]
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        stock_on_hand: { type: integer, format: int64 }
+        quantity_sold_in_period: { type: integer, format: int64 }
+        turnover_basis_points:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Units sold as a fraction of current stock on hand. 1 bp = 0.01%,
+            e.g. 2500 = 25.00%; can exceed 10000 if restocked mid-period.
+            Null when stock_on_hand is 0.
+
+    InventorySalesReport:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/InventorySalesRow' }
+
+    InventorySalesReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/InventorySalesReport' }
         error: { nullable: true }
 
     ErrorResponse:

@@ -101,6 +101,29 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// InventorySalesReport defines model for InventorySalesReport.
+type InventorySalesReport struct {
+	Rows []InventorySalesRow `json:"rows"`
+}
+
+// InventorySalesReportResponse defines model for InventorySalesReportResponse.
+type InventorySalesReportResponse struct {
+	Data  *InventorySalesReport `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
+// InventorySalesRow defines model for InventorySalesRow.
+type InventorySalesRow struct {
+	ProductName          string `json:"product_name"`
+	QuantitySoldInPeriod int64  `json:"quantity_sold_in_period"`
+	SkuCode              string `json:"sku_code"`
+	SkuId                string `json:"sku_id"`
+	StockOnHand          int64  `json:"stock_on_hand"`
+
+	// TurnoverBasisPoints Units sold as a fraction of current stock on hand. 1 bp = 0.01%, e.g. 2500 = 25.00%; can exceed 10000 if restocked mid-period. Null when stock_on_hand is 0.
+	TurnoverBasisPoints *int64 `json:"turnover_basis_points,omitempty"`
+}
+
 // ProductPerformanceMatrix defines model for ProductPerformanceMatrix.
 type ProductPerformanceMatrix struct {
 	CurrencyCode            string                        `json:"currency_code"`
@@ -265,6 +288,12 @@ type GetCustomerPerformanceReportParams struct {
 	To   time.Time `form:"to" json:"to"`
 }
 
+// GetInventorySalesReportParams defines parameters for GetInventorySalesReport.
+type GetInventorySalesReportParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetProductPerformanceReportParams defines parameters for GetProductPerformanceReport.
 type GetProductPerformanceReportParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -303,6 +332,9 @@ type ServerInterface interface {
 	// GetCustomerPerformanceReport Every customer with a qualifying order in [from, to), ranked by revenue
 	// (GET /reports/customer-performance)
 	GetCustomerPerformanceReport(c *gin.Context, params GetCustomerPerformanceReportParams)
+	// GetInventorySalesReport Stock on hand joined with units sold in [from, to) for every SKU with stock history
+	// (GET /reports/inventory-sales)
+	GetInventorySalesReport(c *gin.Context, params GetInventorySalesReportParams)
 	// GetProductPerformanceReport Every SKU sold in [from, to), ranked by revenue
 	// (GET /reports/product-performance)
 	GetProductPerformanceReport(c *gin.Context, params GetProductPerformanceReportParams)
@@ -397,6 +429,41 @@ func (siw *ServerInterfaceWrapper) GetCustomerPerformanceReport(c *gin.Context) 
 	}
 
 	siw.Handler.GetCustomerPerformanceReport(c, params)
+}
+
+// GetInventorySalesReport operation middleware
+func (siw *ServerInterfaceWrapper) GetInventorySalesReport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetInventorySalesReportParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetInventorySalesReport(c, params)
 }
 
 // GetProductPerformanceReport operation middleware
@@ -608,6 +675,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/reports/category-performance", wrapper.GetCategoryPerformanceReport)
 	router.GET(options.BaseURL+"/reports/slow-moving-products", wrapper.GetSlowMovingProductsReport)
 	router.GET(options.BaseURL+"/reports/profitability", wrapper.GetProfitabilityReport)
+	router.GET(options.BaseURL+"/reports/inventory-sales", wrapper.GetInventorySalesReport)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -615,43 +683,47 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
