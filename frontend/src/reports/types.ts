@@ -132,6 +132,19 @@ export interface InventorySalesReport {
   rows: InventorySalesRow[]
 }
 
+export type InsightSeverity = 'info' | 'warning'
+
+export interface Insight {
+  // Stable machine-readable id for the rule that fired, e.g. "revenue_declining".
+  code: string
+  severity: InsightSeverity
+  message: string
+}
+
+export interface BusinessInsightsReport {
+  insights: Insight[]
+}
+
 export interface APIError {
   code: string
   message: string

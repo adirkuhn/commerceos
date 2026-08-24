@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -19,6 +19,7 @@ vi.mock('../../reports/api', () => ({
   getSlowMovingProductsReport: vi.fn(),
   getProfitabilityReport: vi.fn(),
   getInventorySalesReport: vi.fn(),
+  getBusinessInsights: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -123,6 +124,10 @@ function inventorySales(overrides: Partial<InventorySalesReport> = {}): Inventor
   }
 }
 
+function businessInsights(overrides: Partial<BusinessInsightsReport> = {}): BusinessInsightsReport {
+  return { insights: [], ...overrides }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -143,6 +148,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getSlowMovingProductsReport).mockResolvedValue(slowMovingProducts())
   vi.mocked(reportsApi.getProfitabilityReport).mockResolvedValue(profitability())
   vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales())
+  vi.mocked(reportsApi.getBusinessInsights).mockResolvedValue(businessInsights())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -324,5 +330,26 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No stocked or sold SKUs in this period')).toBeInTheDocument()
+  })
+
+  it('shows business insight banners with severity styling', async () => {
+    vi.mocked(reportsApi.getBusinessInsights).mockResolvedValue(businessInsights({
+      insights: [
+        { code: 'revenue_declining', severity: 'warning', message: 'Revenue is down 12.5% vs the previous period.' },
+        { code: 'incomplete_cost_data', severity: 'info', message: 'Only 40.0% of revenue has a known cost price.' },
+      ],
+    }))
+
+    render(<Reports />)
+
+    expect(await screen.findByText('Revenue is down 12.5% vs the previous period.')).toBeInTheDocument()
+    expect(screen.getByText('Only 40.0% of revenue has a known cost price.')).toBeInTheDocument()
+  })
+
+  it('shows no insights section when nothing fired', async () => {
+    render(<Reports />)
+
+    await screen.findByText('€1,180.00')
+    expect(screen.queryByTestId('business-insights')).not.toBeInTheDocument()
   })
 })

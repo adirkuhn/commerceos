@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, Info } from 'lucide-react'
 import clsx from 'clsx'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
@@ -49,7 +49,7 @@ function ChangeBadge({ percent }: { percent: number | null }) {
 export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -109,6 +109,25 @@ export default function Reports() {
           </div>
         ))}
       </div>
+
+      {businessInsights && businessInsights.insights.length > 0 && (
+        <div data-testid="business-insights" className="space-y-2">
+          {businessInsights.insights.map(insight => (
+            <div
+              key={insight.code}
+              className={clsx(
+                'flex items-start gap-2 rounded-lg px-3 py-2 text-xs',
+                insight.severity === 'warning'
+                  ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                  : 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400',
+              )}
+            >
+              {insight.severity === 'warning' ? <AlertTriangle size={14} className="shrink-0 mt-0.5" /> : <Info size={14} className="shrink-0 mt-0.5" />}
+              <span>{insight.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
         <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
