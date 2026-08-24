@@ -30,7 +30,7 @@ column as slices land — each slice is its own commit.
 | Category Analysis | **Done** — `7394a4c`, frontend `0325581` | `GET /reports/category-performance`: revenue/units/order-count per category for line items sold in [from, to), ranked by revenue. LEFT JOINs sku→variant→product→category so unmatched/uncategorized items roll into one "Uncategorized" bucket instead of being dropped. |
 | Customer Reports | **Partial** — `8307b52`, frontend `35b13ef` | `GET /reports/customer-performance`: order count, revenue, AOV, first/last order per customer, ranked by revenue. Guest orders (no linked customer) excluded. Frontend: Top Customers panel on Reports. Missing from the original wishlist: new-vs-returning split, purchase frequency, lifetime revenue (needs an all-time lookback query, not just the selected period). |
 | Customer Cohorts | Not started | |
-| Sales Trends & Seasonality | Not started | |
+| Sales Trends & Seasonality | **Done** — `f7ea714`, frontend `6642945` | `GET /reports/sales-trends`: revenue/orders/units bucketed by day/week/month (`points`), plus revenue/orders summed by weekday across the whole period (`by_weekday`, the seasonality half). New `domain/oms.SalesTrendRepository` port. |
 | Promotion Analytics / Opportunities | Not started | Needs promotion-performance query (before/during/after comparison) once promotions have real usage data. |
 | Inventory + Sales Report | **Done** — `b6f70a9`, frontend `5e39249` | `GET /reports/inventory-sales`: stock on hand joined with units sold in [from, to) for every SKU with stock history. Unlike Slow-Moving Products, unfiltered -- every stocked-or-sold SKU appears, with a turnover rate (units sold / stock on hand, nil when stock is 0). |
 | Profitability Reports | **Done** — `00ae483`, frontend `53868aa` | `GET /reports/profitability`: revenue, COGS, profit, margin for [from, to). Profit/margin computed only over `cost_known_revenue_minor_units` (the subset of revenue whose SKU has a known cost price) -- unknown-cost line items are excluded rather than treated as zero cost, so margin never overstates. |
@@ -66,6 +66,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Profitability**: revenue/COGS/profit/margin card on the Reports page, with a caption noting when cost-known revenue is smaller than total revenue, and an empty state when nothing in the period has a known cost — commit `53868aa`.
 - **Inventory + Sales**: table on the Reports page (stock on hand, units sold, turnover %), sorted by turnover descending, "n/a" turnover for a SKU with zero stock on hand — commit `5e39249`.
 - **Business Insights**: warning/info banners above the report cards, one per fired rule, section hidden entirely when nothing fires — commit `e32b931`.
+- **Sales Trends & Seasonality**: line chart of revenue bucketed by day/week/month (switchable) + bar chart of revenue by weekday — commit `6642945`.
 
 Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
