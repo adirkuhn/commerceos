@@ -409,6 +409,40 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/stockout-risk:
+    get:
+      operationId: getStockoutRiskReport
+      summary: Every stocked-or-sold SKU's stock-vs-demand picture, flagging which will run out before a reorder could arrive
+      description: >-
+        Rule-based v1, no demand forecasting model -- daily velocity is
+        units sold in [from, to) divided by the period's length in days,
+        projected forward. days_of_stock_remaining is null when velocity
+        is 0 (no recent demand). at_risk is true when stock will run out
+        before lead_time_days elapses. lead_time_days defaults to 14 when
+        omitted or <= 0.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: lead_time_days
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockoutRiskReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -958,4 +992,36 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/FrequentlyBoughtTogetherReport' }
+        error: { nullable: true }
+
+    StockoutRiskRow:
+      type: object
+      required: [sku_id, sku_code, product_name, stock_on_hand, quantity_sold_in_period, daily_velocity, at_risk, suggested_reorder_quantity]
+      properties:
+        sku_id: { type: string }
+        sku_code: { type: string }
+        product_name: { type: string }
+        stock_on_hand: { type: integer, format: int64 }
+        quantity_sold_in_period: { type: integer, format: int64 }
+        daily_velocity: { type: number, format: double }
+        days_of_stock_remaining:
+          type: number
+          format: double
+          nullable: true
+          description: Null when daily_velocity is 0 -- no recent demand to project from.
+        at_risk: { type: boolean }
+        suggested_reorder_quantity: { type: integer, format: int64 }
+
+    StockoutRiskReport:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/StockoutRiskRow' }
+
+    StockoutRiskReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StockoutRiskReport' }
         error: { nullable: true }
