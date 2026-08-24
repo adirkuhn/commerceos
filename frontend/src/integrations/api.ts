@@ -433,6 +433,7 @@ export interface UpsertBolProductOverridePayload {
   fulfilmentMethod?: BolProductOverride['fulfilment_method']
   commissionOverrideBasisPoints?: number | null
   referenceOverride?: string | null
+  customPriceMinorUnits?: number | null
 }
 
 export function upsertBolProductOverride(token: string, connectionId: string, productId: string, payload: UpsertBolProductOverridePayload): Promise<BolProductOverride> {
@@ -447,6 +448,7 @@ export function upsertBolProductOverride(token: string, connectionId: string, pr
         fulfilment_method: payload.fulfilmentMethod,
         commission_override_basis_points: payload.commissionOverrideBasisPoints ?? undefined,
         reference_override: payload.referenceOverride ?? undefined,
+        custom_price_minor_units: payload.customPriceMinorUnits ?? undefined,
       }),
     },
     token,

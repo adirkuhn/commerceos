@@ -242,6 +242,26 @@ func TestPushProductToBol_missingEAN_returnsError(t *testing.T) {
 	assert.ErrorIs(t, err, channelsDomain.ErrBolMissingEAN)
 }
 
+func TestPushProductToBol_usesCustomPriceOverSKUDefaultPrice(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	customPrice := int64(2599)
+	h.overrideRepo.override = &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", CustomPriceMinorUnits: &customPrice,
+	}
+
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
+		assert.InDelta(t, 25.99, in.UnitPrice, 0.001)
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 2)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
+}
+
 func TestPushProductToBol_skipsBulkPoolSKU(t *testing.T) {
 	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}

@@ -37,6 +37,23 @@ func TestUpsertBolProductOverride_savesFields(t *testing.T) {
 	assert.Equal(t, channelsDomain.ConditionCategory("REFURBISHED"), result.ConditionCategory)
 }
 
+func TestUpsertBolProductOverride_savesCustomPrice(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo)
+
+	price := int64(2499)
+	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1", CustomPriceMinorUnits: &price,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.CustomPriceMinorUnits)
+	assert.Equal(t, int64(2499), *result.CustomPriceMinorUnits)
+	require.Len(t, repo.upserted, 1)
+	require.NotNil(t, repo.upserted[0].CustomPriceMinorUnits)
+	assert.Equal(t, int64(2499), *repo.upserted[0].CustomPriceMinorUnits)
+}
+
 func TestUpsertBolProductOverride_defaultsConditionAndFulfilmentWhenEmpty(t *testing.T) {
 	repo := &fakeBolOverrideRepo{}
 	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo)

@@ -252,11 +252,13 @@ func (s *stubGetBolProductOverride) Execute(_ context.Context, _, _ string) (*ch
 }
 
 type stubUpsertBolProductOverride struct {
-	out *channelsDomain.BolProductOverride
-	err error
+	out      *channelsDomain.BolProductOverride
+	err      error
+	gotInput appchannels.UpsertBolProductOverrideInput
 }
 
-func (s *stubUpsertBolProductOverride) Execute(_ context.Context, _ appchannels.UpsertBolProductOverrideInput) (*channelsDomain.BolProductOverride, error) {
+func (s *stubUpsertBolProductOverride) Execute(_ context.Context, in appchannels.UpsertBolProductOverrideInput) (*channelsDomain.BolProductOverride, error) {
+	s.gotInput = in
 	return s.out, s.err
 }
 
@@ -1839,6 +1841,27 @@ func TestUpsertBolProductOverrideHandler_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "NEW")
+}
+
+func TestUpsertBolProductOverrideHandler_passesCustomPriceThrough(t *testing.T) {
+	customPrice := int64(2499)
+	override := &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", ConditionCategory: channelsDomain.BolConditionNew,
+		FulfilmentMethod: channelsDomain.BolFulfilmentFBR, CustomPriceMinorUnits: &customPrice,
+	}
+	upsert := &stubUpsertBolProductOverride{out: override}
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, upsert, &stubGetBolCommission{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPut, "/api/v1/integrations/connections/conn-1/bol-overrides/prod-1", map[string]any{
+		"custom_price_minor_units": 2499,
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, upsert.gotInput.CustomPriceMinorUnits)
+	assert.Equal(t, int64(2499), *upsert.gotInput.CustomPriceMinorUnits)
+	assert.Contains(t, w.Body.String(), `"custom_price_minor_units":2499`)
 }
 
 func TestGetBolCommissionHandler_success(t *testing.T) {

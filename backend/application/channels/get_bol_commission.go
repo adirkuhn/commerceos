@@ -112,7 +112,11 @@ func (uc *GetBolCommissionUseCase) Execute(ctx context.Context, in GetBolCommiss
 		return nil, fmt.Errorf("getBolCommission: build client: %w", err)
 	}
 
-	unitPrice := float64(sku.PriceMinorUnits) / 100
+	priceMinorUnits := sku.PriceMinorUnits
+	if override != nil && override.CustomPriceMinorUnits != nil {
+		priceMinorUnits = *override.CustomPriceMinorUnits
+	}
+	unitPrice := float64(priceMinorUnits) / 100
 	commission, err := client.GetCommission(ctx, ean, unitPrice)
 	if err != nil {
 		return nil, fmt.Errorf("getBolCommission: %w", err)

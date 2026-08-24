@@ -39,6 +39,30 @@ func TestGetBolCommission_fetchesLiveCommissionForSKUEAN(t *testing.T) {
 	assert.False(t, result.Overridden)
 }
 
+func TestGetBolCommission_usesCustomPriceOverSKUPriceForLiveFetch(t *testing.T) {
+	sku := pmsDomain.SKU{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}
+	skuRepo := &fakeSKUByIDRepo{skus: map[string]pmsDomain.SKU{"sku-1": sku}}
+	conn := bolConn()
+	connRepo := &stubConnectionRepo{conn: &conn}
+	customPrice := int64(2999)
+	overrideRepo := &fakeBolOverrideRepo{override: &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", CustomPriceMinorUnits: &customPrice,
+	}}
+
+	var gotPrice float64
+	client := &fakeBolClient{}
+	client.getCommissionFn = func(_ context.Context, ean string, price float64) (integrationsDomain.BolCommission, error) {
+		gotPrice = price
+		return integrationsDomain.BolCommission{EAN: ean, FixedAmount: 0.30, Percentage: 12.5}, nil
+	}
+
+	uc := appchannels.NewGetBolCommissionUseCase(newMockGormDB(t, 1), connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret, skuRepo, overrideRepo)
+	_, err := uc.Execute(context.Background(), appchannels.GetBolCommissionInput{ProductID: "prod-1", ConnectionID: "conn-1", SKUID: "sku-1"})
+
+	require.NoError(t, err)
+	assert.InDelta(t, 29.99, gotPrice, 0.001)
+}
+
 func TestGetBolCommission_appliesOverrideInsteadOfLiveFetch(t *testing.T) {
 	sku := pmsDomain.SKU{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}
 	skuRepo := &fakeSKUByIDRepo{skus: map[string]pmsDomain.SKU{"sku-1": sku}}

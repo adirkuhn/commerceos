@@ -24,6 +24,7 @@ type bolProductOverrideModel struct {
 	FulfilmentMethod              string `gorm:"not null"`
 	CommissionOverrideBasisPoints *int32
 	ReferenceOverride             *string
+	CustomPriceMinorUnits         *int64
 	CreatedAt                     time.Time
 	UpdatedAt                     time.Time
 }
@@ -72,13 +73,14 @@ func (r *BolProductOverrideRepo) Upsert(ctx context.Context, o *channelsDomain.B
 		EANOverride: o.EANOverride, GPCCode: o.GPCCode,
 		ConditionCategory: string(o.ConditionCategory), FulfilmentMethod: string(o.FulfilmentMethod),
 		CommissionOverrideBasisPoints: o.CommissionOverrideBasisPoints, ReferenceOverride: o.ReferenceOverride,
-		CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
+		CustomPriceMinorUnits: o.CustomPriceMinorUnits,
+		CreatedAt:             o.CreatedAt, UpdatedAt: o.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "product_id"}, {Name: "connection_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"ean_override", "gpc_code", "condition_category", "fulfilment_method",
-			"commission_override_basis_points", "reference_override", "updated_at",
+			"commission_override_basis_points", "reference_override", "custom_price_minor_units", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -96,6 +98,7 @@ func toBolProductOverrideDomain(m bolProductOverrideModel) *channelsDomain.BolPr
 		FulfilmentMethod:              channelsDomain.FulfilmentMethod(m.FulfilmentMethod),
 		CommissionOverrideBasisPoints: m.CommissionOverrideBasisPoints,
 		ReferenceOverride:             m.ReferenceOverride,
+		CustomPriceMinorUnits:         m.CustomPriceMinorUnits,
 		CreatedAt:                     m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

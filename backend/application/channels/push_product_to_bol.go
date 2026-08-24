@@ -196,10 +196,15 @@ func (uc *PushProductToBolUseCase) pushOne(
 		}
 	}
 
+	priceMinorUnits := pu.SKU.PriceMinorUnits
+	if override != nil && override.CustomPriceMinorUnits != nil {
+		priceMinorUnits = *override.CustomPriceMinorUnits
+	}
+
 	offerIn := integrationsDomain.BolOfferInput{
 		EAN: ean, EconomicOperatorID: economicOperatorID, Reference: reference,
 		ConditionCategory: condition, FulfilmentMethod: fulfilment,
-		UnitPrice:   float64(pu.SKU.PriceMinorUnits) / 100,
+		UnitPrice:   float64(priceMinorUnits) / 100,
 		StockAmount: stockAmount, StockManagedByRetailer: true,
 	}
 

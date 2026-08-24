@@ -47,6 +47,7 @@ type UpsertBolProductOverrideInput struct {
 	FulfilmentMethod              string
 	CommissionOverrideBasisPoints *int32
 	ReferenceOverride             *string
+	CustomPriceMinorUnits         *int64
 }
 
 type UpsertBolProductOverrideUseCase struct {
@@ -74,6 +75,7 @@ func (uc *UpsertBolProductOverrideUseCase) Execute(ctx context.Context, in Upser
 		ConditionCategory: condition, FulfilmentMethod: fulfilment,
 		CommissionOverrideBasisPoints: in.CommissionOverrideBasisPoints,
 		ReferenceOverride:             in.ReferenceOverride,
+		CustomPriceMinorUnits:         in.CustomPriceMinorUnits,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		override.TenantID = tenant.IDFromContext(ctx)

@@ -56,8 +56,14 @@ type BolProductOverride struct {
 	// free-text identifier, max 100 chars per Bol's docs) -- optional,
 	// nil means omit it from the offer payload.
 	ReferenceOverride *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// CustomPriceMinorUnits is the merchant's own sell price for this Bol
+	// offer, minor currency units. nil means "use pms.SKU.PriceMinorUnits" --
+	// same fallback convention as EANOverride. Feeds both the offer pushed
+	// to Bol (PushProductToBolUseCase) and the price-bracket-dependent
+	// commission lookup (GetBolCommissionUseCase).
+	CustomPriceMinorUnits *int64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type BolProductOverrideRepository interface {

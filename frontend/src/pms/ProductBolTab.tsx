@@ -51,6 +51,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
   const [gpcCode, setGpcCode] = useState('')
   const [condition, setCondition] = useState<BolProductOverride['condition_category']>('NEW')
   const [referenceOverride, setReferenceOverride] = useState('')
+  const [customPrice, setCustomPrice] = useState('')
 
   const [commission, setCommission] = useState<BolCommission | null>(null)
   const [commissionError, setCommissionError] = useState<string | null>(null)
@@ -76,6 +77,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
           setGpcCode(result.gpc_code ?? '')
           setCondition(result.condition_category)
           setReferenceOverride(result.reference_override ?? '')
+          setCustomPrice(result.custom_price_minor_units != null ? fmt(result.custom_price_minor_units / 100) : '')
           if (result.commission_override_basis_points != null) {
             setCommissionOverridden(true)
             setCommissionPercentInput(fmt(result.commission_override_basis_points / 100))
@@ -108,6 +110,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
     setSaving(true)
     try {
       const commissionPercent = parseFloat(commissionPercentInput)
+      const parsedCustomPrice = parseFloat(customPrice)
       const result = await integrationsApi.upsertBolProductOverride(token, connection.id, productId, {
         eanOverride: eanOverride || null,
         gpcCode: gpcCode || null,
@@ -115,6 +118,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
         fulfilmentMethod: 'FBR',
         commissionOverrideBasisPoints: commissionOverridden && !Number.isNaN(commissionPercent) ? Math.round(commissionPercent * 100) : null,
         referenceOverride: referenceOverride || null,
+        customPriceMinorUnits: customPrice.trim() !== '' && !Number.isNaN(parsedCustomPrice) ? Math.round(parsedCustomPrice * 100) : null,
       })
       setOverride(result)
     } catch (err) {
@@ -124,7 +128,9 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
     }
   }
 
-  const sellPrice = sku ? sku.price_minor_units / 100 : 0
+  const defaultPrice = sku ? sku.price_minor_units / 100 : 0
+  const parsedCustomPrice = parseFloat(customPrice)
+  const sellPrice = customPrice.trim() !== '' && !Number.isNaN(parsedCustomPrice) ? parsedCustomPrice : defaultPrice
   const costPrice = sku?.cost_price_minor_units != null ? sku.cost_price_minor_units / 100 : 0
   const parsedCommissionPercent = parseFloat(commissionPercentInput) || 0
   const parsedShipping = parseFloat(shippingCost) || 0
@@ -175,6 +181,12 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
               <label htmlFor="bol-reference" className={labelClass}>Reference (optional)</label>
               <input id="bol-reference" value={referenceOverride} onChange={e => setReferenceOverride(e.target.value)} className={inputClass} />
             </div>
+            <div>
+              <label htmlFor="bol-custom-price" className={labelClass}>Custom price (optional)</label>
+              <input id="bol-custom-price" value={customPrice} onChange={e => setCustomPrice(e.target.value)}
+                placeholder={fmt(defaultPrice)} className={inputClass} />
+              <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">Leave empty to use the product's default price ({fmt(defaultPrice)}).</p>
+            </div>
           </div>
 
           {saveError && <p className="text-[11px] text-red-400">{saveError}</p>}
@@ -191,6 +203,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
               <div>
                 <label className={labelClass}>Sell price</label>
                 <input disabled readOnly value={fmt(sellPrice)} className={`${inputClass} cursor-not-allowed opacity-70`} />
+                {customPrice.trim() !== '' && <p className="text-[10px] text-blue-400 mt-1">Custom price</p>}
               </div>
               <div>
                 <label className={labelClass}>Cost price</label>

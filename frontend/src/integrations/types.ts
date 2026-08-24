@@ -47,6 +47,7 @@ export interface BolProductOverride {
   fulfilment_method: 'FBR' | 'FBB' | 'SHIPPING_VIA_BOL' | 'BOL_DELIVERY_PROMISE'
   commission_override_basis_points?: number | null
   reference_override?: string | null
+  custom_price_minor_units?: number | null
 }
 
 export interface BolCommission {
