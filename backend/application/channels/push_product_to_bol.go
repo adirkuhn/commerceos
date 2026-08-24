@@ -40,6 +40,7 @@ type PushProductToBolUseCase struct {
 	skuRepo      pmsDomain.SKURepository
 	listingRepo  channelsDomain.ProductChannelListingRepository
 	overrideRepo channelsDomain.BolProductOverrideRepository
+	syncLogRepo  channelsDomain.SyncLogRepository
 	stockLevel   stockLevelGetter
 }
 
@@ -53,12 +54,13 @@ func NewPushProductToBolUseCase(
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
 	overrideRepo channelsDomain.BolProductOverrideRepository,
+	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 ) *PushProductToBolUseCase {
 	return &PushProductToBolUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
-		listingRepo: listingRepo, overrideRepo: overrideRepo, stockLevel: stockLevel,
+		listingRepo: listingRepo, overrideRepo: overrideRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
 	}
 }
 
@@ -240,6 +242,8 @@ func (uc *PushProductToBolUseCase) pushOne(
 		if err := uc.saveListing(ctx, &existing, false); err != nil {
 			return channelsDomain.ProductChannelListing{}, err
 		}
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, existing, channelsDomain.SyncFlowPush,
+			channelsDomain.SyncLogStatusSuccess, "", bolOfferToFields(offerIn))
 		return existing, nil
 	}
 
@@ -251,6 +255,8 @@ func (uc *PushProductToBolUseCase) pushOne(
 	if err := uc.saveListing(ctx, &listing, true); err != nil {
 		return channelsDomain.ProductChannelListing{}, err
 	}
+	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
+		channelsDomain.SyncLogStatusSuccess, "", bolOfferToFields(offerIn))
 	return listing, nil
 }
 

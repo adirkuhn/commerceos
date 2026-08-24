@@ -375,7 +375,7 @@ func Register(
 	)
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
-		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, stockLevelUC,
+		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, syncLogRepo, stockLevelUC,
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,

@@ -111,6 +111,19 @@ func importedFieldsFromWoo(wp integrationsDomain.WooProduct, product pmsDomain.P
 	return fields
 }
 
+// bolOfferToFields is wooProductToFields's Bol counterpart -- the offer
+// payload actually sent to Bol, snapshotted for diffing/logging.
+func bolOfferToFields(o integrationsDomain.BolOfferInput) map[string]string {
+	return map[string]string{
+		"ean":                o.EAN,
+		"reference":          o.Reference,
+		"condition_category": o.ConditionCategory,
+		"fulfilment_method":  o.FulfilmentMethod,
+		"price":              strconv.FormatFloat(o.UnitPrice, 'f', 2, 64),
+		"stock_quantity":     strconv.Itoa(o.StockAmount),
+	}
+}
+
 // wooProductToFields flattens the fields this codebase actually manages
 // into a snapshot suitable for diffing/logging — deliberately excludes
 // anything not sent (categories, images, SEO meta).

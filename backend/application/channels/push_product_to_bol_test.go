@@ -99,6 +99,7 @@ type pushHarness struct {
 	skuRepo      *stubChannelsSKURepo
 	listingRepo  *stubListingRepo
 	overrideRepo *fakeBolOverrideRepo
+	syncLogRepo  *stubSyncLogRepo
 	stockLevel   *stubStockLevelGetter
 }
 
@@ -111,6 +112,7 @@ func newBolPushHarness(product pmsDomain.Product, variants []pmsDomain.Variant, 
 		skuRepo:      &stubChannelsSKURepo{byVariant: skusByVariant},
 		listingRepo:  &stubListingRepo{listByProduct: map[string][]channelsDomain.ProductChannelListing{}},
 		overrideRepo: &fakeBolOverrideRepo{},
+		syncLogRepo:  &stubSyncLogRepo{},
 		stockLevel:   &stubStockLevelGetter{},
 	}
 }
@@ -119,7 +121,7 @@ func newBolUseCase(t *testing.T, h *pushHarness, client integrationsDomain.BolCl
 	t.Helper()
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.stockLevel,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.syncLogRepo, h.stockLevel,
 	)
 }
 
@@ -138,7 +140,7 @@ func TestPushProductToBol_createsOfferForSingleSKUProduct(t *testing.T) {
 		return "offer-1", nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 2)
+	uc := newBolUseCase(t, h, client, 3)
 	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 
 	require.NoError(t, err)
@@ -163,7 +165,7 @@ func TestPushProductToBol_createsOfferPerVariantForVariableProduct(t *testing.T)
 		return "offer-" + in.EAN, nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 3)
+	uc := newBolUseCase(t, h, client, 5)
 	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 
 	require.NoError(t, err)
@@ -188,7 +190,7 @@ func TestPushProductToBol_updatesExistingOfferInsteadOfCreating(t *testing.T) {
 		return "", nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 2)
+	uc := newBolUseCase(t, h, client, 3)
 	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 
 	require.NoError(t, err)
@@ -213,7 +215,7 @@ func TestPushProductToBol_onUnknownEAN_submitsProductContentThenRetriesCreate(t 
 		return "offer-1", nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 2)
+	uc := newBolUseCase(t, h, client, 3)
 	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 
 	require.NoError(t, err)
@@ -257,9 +259,31 @@ func TestPushProductToBol_usesCustomPriceOverSKUDefaultPrice(t *testing.T) {
 		return "offer-1", nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 2)
+	uc := newBolUseCase(t, h, client, 3)
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 	require.NoError(t, err)
+}
+
+func TestPushProductToBol_recordsSyncLog(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	entry := h.syncLogRepo.created[0]
+	assert.Equal(t, channelsDomain.SyncFlowPush, entry.Direction)
+	assert.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
+	assert.Equal(t, "bol", entry.Provider)
+	assert.Equal(t, "19.99", entry.Fields["price"])
 }
 
 func TestPushProductToBol_skipsBulkPoolSKU(t *testing.T) {
@@ -292,7 +316,7 @@ func TestPushProductToBol_appliesOverrideEANAndFields(t *testing.T) {
 		return "offer-1", nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 2)
+	uc := newBolUseCase(t, h, client, 3)
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 	require.NoError(t, err)
 }
