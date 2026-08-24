@@ -34,7 +34,7 @@ column as slices land — each slice is its own commit.
 | Promotion Analytics / Opportunities | Not started | Needs promotion-performance query (before/during/after comparison) once promotions have real usage data. |
 | Inventory + Sales Report | **Done** — `b6f70a9`, frontend `5e39249` | `GET /reports/inventory-sales`: stock on hand joined with units sold in [from, to) for every SKU with stock history. Unlike Slow-Moving Products, unfiltered -- every stocked-or-sold SKU appears, with a turnover rate (units sold / stock on hand, nil when stock is 0). |
 | Profitability Reports | **Done** — `00ae483`, frontend `53868aa` | `GET /reports/profitability`: revenue, COGS, profit, margin for [from, to). Profit/margin computed only over `cost_known_revenue_minor_units` (the subset of revenue whose SKU has a known cost price) -- unknown-cost line items are excluded rather than treated as zero cost, so margin never overstates. |
-| Business Insights Dashboard (rule-based) | Not started | Distinct from the existing `application/dashboard` module (which is a fixed "this month" snapshot screen, not a rules/insights engine). |
+| Business Insights Dashboard (rule-based) | **Done** — `f99a944`, frontend `e32b931` | `GET /reports/business-insights`: new `application/insights` package, pure composition over sales-summary/profitability/product-performance-matrix/slow-moving/inventory-sales. Fixed rule set (v1): revenue decline, slow-moving stock, incomplete cost-price data, hidden-gem/problem products, restock risk (SKU turned over >=100% of stock on hand). Distinct from `application/dashboard` (fixed "this month" snapshot, not a rules engine). |
 
 ## Phase 1 — Sales Intelligence & Association Rules
 Not started. Sales aggregation, RFM, FP-Growth, frequently-bought-together.
@@ -65,6 +65,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Slow-Moving Products**: table on the Reports page, sorted by stock on hand descending — commit `f3bb632`.
 - **Profitability**: revenue/COGS/profit/margin card on the Reports page, with a caption noting when cost-known revenue is smaller than total revenue, and an empty state when nothing in the period has a known cost — commit `53868aa`.
 - **Inventory + Sales**: table on the Reports page (stock on hand, units sold, turnover %), sorted by turnover descending, "n/a" turnover for a SKU with zero stock on hand — commit `5e39249`.
+- **Business Insights**: warning/info banners above the report cards, one per fired rule, section hidden entirely when nothing fires — commit `e32b931`.
 
 Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
