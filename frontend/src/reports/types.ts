@@ -225,6 +225,29 @@ export interface PromotionPerformanceReport {
   units_sold_change_percent: number | null
 }
 
+export type RFMSegment = 'champions' | 'loyal_customers' | 'potential_loyalists' | 'at_risk' | 'lost' | 'needs_attention'
+
+export interface CustomerRFMRow {
+  customer_id: string
+  // Empty string if the customer record has no name set.
+  customer_name: string
+  order_count: number
+  revenue_minor_units: number
+  average_order_value_minor_units: number
+  first_order_at: string
+  last_order_at: string
+  // 1-5 quintile, 5 = best, relative to the other customers in this result set.
+  recency_score: number
+  frequency_score: number
+  monetary_score: number
+  segment: RFMSegment
+}
+
+export interface CustomerRFMReport {
+  currency_code: string
+  rows: CustomerRFMRow[]
+}
+
 export interface APIError {
   code: string
   message: string

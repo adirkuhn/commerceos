@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport, CustomerRFMReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -23,6 +23,7 @@ vi.mock('../../reports/api', () => ({
   getSalesTrendsReport: vi.fn(),
   getProductLifecycleReport: vi.fn(),
   getCustomerCohortsReport: vi.fn(),
+  getCustomerRFMReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -173,6 +174,25 @@ function customerCohorts(overrides: Partial<CustomerCohortsReport> = {}): Custom
   }
 }
 
+function customerRFM(overrides: Partial<CustomerRFMReport> = {}): CustomerRFMReport {
+  return {
+    currency_code: 'EUR',
+    rows: [
+      {
+        customer_id: 'cust-champ', customer_name: 'Champion Customer', order_count: 5, revenue_minor_units: 50000,
+        average_order_value_minor_units: 10000, first_order_at: '2026-06-01T00:00:00Z', last_order_at: '2026-08-01T00:00:00Z',
+        recency_score: 5, frequency_score: 5, monetary_score: 5, segment: 'champions',
+      },
+      {
+        customer_id: 'cust-lost', customer_name: 'Lost Customer', order_count: 1, revenue_minor_units: 1000,
+        average_order_value_minor_units: 1000, first_order_at: '2026-01-01T00:00:00Z', last_order_at: '2026-01-05T00:00:00Z',
+        recency_score: 1, frequency_score: 1, monetary_score: 1, segment: 'lost',
+      },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -197,6 +217,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends())
   vi.mocked(reportsApi.getProductLifecycleReport).mockResolvedValue(productLifecycle())
   vi.mocked(reportsApi.getCustomerCohortsReport).mockResolvedValue(customerCohorts())
+  vi.mocked(reportsApi.getCustomerRFMReport).mockResolvedValue(customerRFM())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -471,5 +492,26 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No new customers acquired in this period')).toBeInTheDocument()
+  })
+
+  it('places each customer in its RFM segment', async () => {
+    render(<Reports />)
+
+    const champions = await screen.findByTestId('rfm-champions')
+    expect(within(champions).getByText('Champion Customer')).toBeInTheDocument()
+
+    const lost = screen.getByTestId('rfm-lost')
+    expect(within(lost).getByText('Lost Customer')).toBeInTheDocument()
+
+    expect(within(screen.getByTestId('rfm-at_risk')).getByText('None')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when no customers ordered in this period', async () => {
+    vi.mocked(reportsApi.getCustomerRFMReport).mockResolvedValue(customerRFM({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No customer orders in this period')).toBeInTheDocument()
   })
 })

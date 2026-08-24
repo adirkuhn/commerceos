@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useReportsData, dateRange, type ReportsPeriod } from '../reports/hooks/useReportsData'
-import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant, SalesTrendGranularity, ProductLifecycleStage } from '../reports/types'
+import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant, SalesTrendGranularity, ProductLifecycleStage, RFMSegment } from '../reports/types'
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#1F2937',
@@ -34,6 +34,15 @@ const LIFECYCLE_STAGES: { id: ProductLifecycleStage; label: string; hint: string
   { id: 'dormant', label: 'Dormant', hint: 'Sold last period, nothing now' },
 ]
 
+const RFM_SEGMENTS: { id: RFMSegment; label: string; hint: string }[] = [
+  { id: 'champions', label: 'Champions', hint: 'Recent, frequent, highest spend' },
+  { id: 'loyal_customers', label: 'Loyal Customers', hint: 'Frequent and recent' },
+  { id: 'potential_loyalists', label: 'Potential Loyalists', hint: 'Recent, not yet frequent' },
+  { id: 'at_risk', label: 'At Risk', hint: 'Used to order often, hasn’t recently' },
+  { id: 'lost', label: 'Lost', hint: 'Neither recent nor frequent' },
+  { id: 'needs_attention', label: 'Needs Attention', hint: 'Mid-range on every axis' },
+]
+
 function formatMoney(minorUnits: number, currencyCode: string): string {
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
@@ -60,7 +69,7 @@ export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
   const [trendGranularity, setTrendGranularity] = useState<SalesTrendGranularity>('day')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, customerRFM, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -563,6 +572,45 @@ export default function Reports() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Customer Segments (RFM)</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            Recency/Frequency/Monetary quintiles, relative to this period's own customers — guest orders excluded
+          </p>
+        </div>
+        {!customerRFM || customerRFM.rows.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No customer orders in this period</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 p-4">
+            {RFM_SEGMENTS.map(segment => {
+              const rows = customerRFM.rows.filter(r => r.segment === segment.id)
+              return (
+                <div key={segment.id} data-testid={`rfm-${segment.id}`} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-semibold dark:text-gray-100 text-gray-900">{segment.label}</p>
+                    <span className="text-[10px] dark:text-gray-500 text-gray-400">{rows.length}</span>
+                  </div>
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-2">{segment.hint}</p>
+                  {rows.length === 0 ? (
+                    <p className="text-[10px] dark:text-gray-600 text-gray-300">None</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {rows.slice(0, 5).map(r => (
+                        <div key={r.customer_id} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="dark:text-gray-300 text-gray-700 truncate">{r.customer_name || 'Unnamed customer'}</span>
+                          <span className="dark:text-gray-500 text-gray-400 shrink-0">{formatMoney(r.revenue_minor_units, currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

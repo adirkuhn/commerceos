@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as reportsApi from '../api'
 import * as dashboardApi from '../../dashboard/api'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport } from '../types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, CustomerRFMReport } from '../types'
 import type { ChannelRevenue } from '../../dashboard/types'
 
 export type ReportsPeriod = '7D' | '30D' | '90D' | '12M'
@@ -36,6 +36,7 @@ interface UseReportsDataState {
   salesTrends: SalesTrendsReport | null
   productLifecycle: ProductLifecycleReport | null
   customerCohorts: CustomerCohortsReport | null
+  customerRFM: CustomerRFMReport | null
   // Real revenue-by-channel data, but always "this month" (the underlying
   // /dashboard/stats endpoint has no date-range parameter) -- not scoped
   // to the selected period. Labeled as such in the UI.
@@ -61,6 +62,7 @@ export function useReportsData(
   const [salesTrends, setSalesTrends] = useState<SalesTrendsReport | null>(null)
   const [productLifecycle, setProductLifecycle] = useState<ProductLifecycleReport | null>(null)
   const [customerCohorts, setCustomerCohorts] = useState<CustomerCohortsReport | null>(null)
+  const [customerRFM, setCustomerRFM] = useState<CustomerRFMReport | null>(null)
   const [channelRevenueThisMonth, setChannelRevenueThisMonth] = useState<ChannelRevenue[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,7 +73,7 @@ export function useReportsData(
     setError(null)
     try {
       const { from, to } = dateRange(period, new Date())
-      const [summary, performance, matrix, customers, categories, slowMoving, profitabilityReport, inventorySalesReport, insightsReport, trendsReport, lifecycleReport, cohortsReport, dashboardStats] = await Promise.all([
+      const [summary, performance, matrix, customers, categories, slowMoving, profitabilityReport, inventorySalesReport, insightsReport, trendsReport, lifecycleReport, cohortsReport, rfmReport, dashboardStats] = await Promise.all([
         reportsApi.getSalesSummaryReport(token, from, to),
         reportsApi.getProductPerformanceReport(token, from, to),
         reportsApi.getProductPerformanceMatrix(token, from, to),
@@ -84,6 +86,7 @@ export function useReportsData(
         reportsApi.getSalesTrendsReport(token, from, to, trendGranularity),
         reportsApi.getProductLifecycleReport(token, from, to),
         reportsApi.getCustomerCohortsReport(token, from, to),
+        reportsApi.getCustomerRFMReport(token, from, to),
         dashboardApi.getDashboardStats(token),
       ])
       setSalesSummary(summary)
@@ -98,6 +101,7 @@ export function useReportsData(
       setSalesTrends(trendsReport)
       setProductLifecycle(lifecycleReport)
       setCustomerCohorts(cohortsReport)
+      setCustomerRFM(rfmReport)
       setChannelRevenueThisMonth(dashboardStats.sales_by_channel_this_month)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
@@ -108,5 +112,5 @@ export function useReportsData(
 
   useEffect(() => { load() }, [load])
 
-  return { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, channelRevenueThisMonth, loading, error, refresh: load }
+  return { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, customerRFM, channelRevenueThisMonth, loading, error, refresh: load }
 }
