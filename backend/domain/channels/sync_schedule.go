@@ -26,6 +26,19 @@ const (
 	// rather than a parallel scheduling mechanism, even though shipping
 	// isn't itself a "channel."
 	SyncEntityShipmentReconciliation SyncEntityType = "shipment_reconciliation"
+	// SyncEntityBolOrders/BolProducts/BolStock are Bol's own entity types,
+	// distinct from products/stock/orders above -- cmd/scheduler/dispatch.go's
+	// runner map has exactly one runner per (entity_type, direction) key, so
+	// reusing Woo's keys would silently route a Bol connection's schedule
+	// through the Woo-only runner. Same reasoning as
+	// SyncEntityShipmentReconciliation vs SyncEntityOrdersReconciliation.
+	// BolOrders is import-only (no order push-back, same as Woo's orders);
+	// BolProducts/BolStock are both export-only and both dispatch to the
+	// same runner (Bol has no stock-only endpoint -- every push sends
+	// price+stock together) on two separate schedule rows/intervals.
+	SyncEntityBolOrders   SyncEntityType = "bol_orders"
+	SyncEntityBolProducts SyncEntityType = "bol_products"
+	SyncEntityBolStock    SyncEntityType = "bol_stock"
 )
 
 type SyncDirection string

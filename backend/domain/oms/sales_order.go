@@ -12,6 +12,7 @@ const (
 	SalesOrderSourcePOS         SalesOrderSource = "pos"
 	SalesOrderSourceManual      SalesOrderSource = "manual"
 	SalesOrderSourceWooCommerce SalesOrderSource = "woocommerce"
+	SalesOrderSourceBol         SalesOrderSource = "bol"
 )
 
 // SalesOrderStatus mirrors WooCommerce's order status set exactly (same
