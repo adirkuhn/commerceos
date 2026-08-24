@@ -19,7 +19,7 @@ func TestEnrollProductInChannels_allMode_pushesToTheChannel(t *testing.T) {
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -29,6 +29,38 @@ func TestEnrollProductInChannels_allMode_pushesToTheChannel(t *testing.T) {
 	assert.Equal(t, connID, pusher.calls[0].ConnectionID)
 }
 
+func TestEnrollProductInChannels_bolChannel_pushesViaBolPusher(t *testing.T) {
+	connID := "conn-1"
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
+		{ID: "channel-1", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
+	}}
+	pusher := &stubProductPusher{}
+	bolPusher := &stubBolProductPusher{}
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, bolPusher)
+
+	err := uc.Execute(context.Background(), "product-1")
+
+	require.NoError(t, err)
+	assert.Empty(t, pusher.calls, "a bol channel must not go through the woo pusher")
+	require.Len(t, bolPusher.calls, 1)
+	assert.Equal(t, "product-1", bolPusher.calls[0].ProductID)
+	assert.Equal(t, connID, bolPusher.calls[0].ConnectionID)
+}
+
+func TestEnrollProductInChannels_bolChannel_withNoBolPusherWired_doesNotPanic(t *testing.T) {
+	connID := "conn-1"
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
+		{ID: "channel-1", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
+	}}
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, &stubProductPusher{}, nil)
+
+	err := uc.Execute(context.Background(), "product-1")
+
+	require.NoError(t, err)
+}
+
 func TestEnrollProductInChannels_manualMode_doesNotPush(t *testing.T) {
 	connID := "conn-1"
 	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
@@ -36,7 +68,7 @@ func TestEnrollProductInChannels_manualMode_doesNotPush(t *testing.T) {
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true},
 	}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -51,7 +83,7 @@ func TestEnrollProductInChannels_categoryMode_matchesOnlySameCategory(t *testing
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeCategory, EnrollmentCategoryID: &catID, Active: true},
 	}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -66,7 +98,7 @@ func TestEnrollProductInChannels_tagMode_matchesOnlyTaggedProduct(t *testing.T) 
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeTag, EnrollmentTag: "summer", Active: true},
 	}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -82,7 +114,7 @@ func TestEnrollProductInChannels_excludeOverride_winsOverAllMode(t *testing.T) {
 	}}
 	overrideRepo := &stubSalesChannelProductOverrideRepo{findResult: &channelsDomain.SalesChannelProductOverride{Included: false}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, overrideRepo, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, overrideRepo, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -98,7 +130,7 @@ func TestEnrollProductInChannels_includeOverride_winsOverManualMode(t *testing.T
 	}}
 	overrideRepo := &stubSalesChannelProductOverrideRepo{findResult: &channelsDomain.SalesChannelProductOverride{Included: true}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, overrideRepo, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, overrideRepo, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -113,7 +145,7 @@ func TestEnrollProductInChannels_skipsInactiveChannels(t *testing.T) {
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: false},
 	}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -127,7 +159,7 @@ func TestEnrollProductInChannels_skipsChannelsWithNoConnection(t *testing.T) {
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeInternal, ConnectionID: nil, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
 	pusher := &stubProductPusher{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -146,7 +178,7 @@ func TestEnrollProductInChannels_onePushFailureDoesNotBlockOthers(t *testing.T) 
 	// both calls below fail -- what this proves is that the first failure
 	// doesn't abort the loop before the second channel is even attempted.
 	pusher := &stubProductPusher{errFor: map[string]error{"product-1": assert.AnError}}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher)
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, nil)
 
 	err := uc.Execute(context.Background(), "product-1")
 
@@ -156,7 +188,7 @@ func TestEnrollProductInChannels_onePushFailureDoesNotBlockOthers(t *testing.T) 
 
 func TestEnrollProductInChannels_propagatesProductNotFound(t *testing.T) {
 	productRepo := &stubChannelsProductRepo{}
-	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, &stubSalesChannelRepo{}, &stubSalesChannelProductOverrideRepo{}, &stubProductPusher{})
+	uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, &stubSalesChannelRepo{}, &stubSalesChannelProductOverrideRepo{}, &stubProductPusher{}, nil)
 
 	err := uc.Execute(context.Background(), "missing")
 

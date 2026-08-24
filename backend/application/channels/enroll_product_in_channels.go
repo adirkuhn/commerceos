@@ -27,6 +27,7 @@ type EnrollProductInChannelsUseCase struct {
 	channelRepo  channelsDomain.SalesChannelRepository
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	pusher       productPusher
+	bolPusher    bolProductPusher
 }
 
 func NewEnrollProductInChannelsUseCase(
@@ -35,9 +36,11 @@ func NewEnrollProductInChannelsUseCase(
 	channelRepo channelsDomain.SalesChannelRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	pusher productPusher,
+	bolPusher bolProductPusher,
 ) *EnrollProductInChannelsUseCase {
 	return &EnrollProductInChannelsUseCase{
-		db: db, productRepo: productRepo, channelRepo: channelRepo, overrideRepo: overrideRepo, pusher: pusher,
+		db: db, productRepo: productRepo, channelRepo: channelRepo, overrideRepo: overrideRepo,
+		pusher: pusher, bolPusher: bolPusher,
 	}
 }
 
@@ -81,14 +84,34 @@ func (uc *EnrollProductInChannelsUseCase) Execute(ctx context.Context, productID
 
 	for _, ch := range candidateChannels {
 		if !ch.IsProductEnrolled(product.CategoryID, product.Tags, overrideByChannel[ch.ID]) {
+			log.Printf("enrollProductInChannels: product %s not enrolled in channel %s (%s, mode=%s) -- skipping", productID, ch.ID, ch.Type, ch.EnrollmentMode)
 			continue
 		}
 		// One channel rejecting/failing this product (e.g. it has variants,
 		// or the store is unreachable) must not block enrollment in every
 		// other channel -- logged, not returned, same tolerance
 		// SyncProductToChannelsUseCase applies per-listing.
-		if _, err := uc.pusher.Execute(ctx, PushProductToWooInput{ProductID: productID, ConnectionID: *ch.ConnectionID}); err != nil {
-			log.Printf("enrollProductInChannels: product %s -> channel %s: %v", productID, ch.ID, err)
+		switch ch.Type {
+		case channelsDomain.ChannelTypeBol:
+			if uc.bolPusher == nil {
+				log.Printf("enrollProductInChannels: product %s -> bol channel %s: no bol pusher wired, skipping", productID, ch.ID)
+				continue
+			}
+			log.Printf("enrollProductInChannels: product %s enrolled in bol channel %s -> pushing to connection %s", productID, ch.ID, *ch.ConnectionID)
+			if _, err := uc.bolPusher.Execute(ctx, PushProductToBolInput{ProductID: productID, ConnectionID: *ch.ConnectionID}); err != nil {
+				log.Printf("enrollProductInChannels: product %s -> bol channel %s: %v", productID, ch.ID, err)
+			} else {
+				log.Printf("enrollProductInChannels: product %s -> bol channel %s: pushed successfully", productID, ch.ID)
+			}
+		case channelsDomain.ChannelTypeWooCommerce:
+			log.Printf("enrollProductInChannels: product %s enrolled in woo channel %s -> pushing to connection %s", productID, ch.ID, *ch.ConnectionID)
+			if _, err := uc.pusher.Execute(ctx, PushProductToWooInput{ProductID: productID, ConnectionID: *ch.ConnectionID}); err != nil {
+				log.Printf("enrollProductInChannels: product %s -> woo channel %s: %v", productID, ch.ID, err)
+			} else {
+				log.Printf("enrollProductInChannels: product %s -> woo channel %s: pushed successfully", productID, ch.ID)
+			}
+		default:
+			log.Printf("enrollProductInChannels: product %s enrolled in channel %s but type %q has no push adapter -- skipping", productID, ch.ID, ch.Type)
 		}
 	}
 	return nil
