@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -21,6 +21,7 @@ vi.mock('../../reports/api', () => ({
   getInventorySalesReport: vi.fn(),
   getBusinessInsights: vi.fn(),
   getSalesTrendsReport: vi.fn(),
+  getProductLifecycleReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -144,6 +145,17 @@ function salesTrends(overrides: Partial<SalesTrendsReport> = {}): SalesTrendsRep
   }
 }
 
+function productLifecycle(overrides: Partial<ProductLifecycleReport> = {}): ProductLifecycleReport {
+  return {
+    currency_code: 'EUR',
+    rows: [
+      { sku_id: 'sku-growing', sku_code: 'GROW-1', product_name: 'Growing Widget', current_quantity_sold: 10, previous_quantity_sold: 4, current_revenue_minor_units: 1000, previous_revenue_minor_units: 400, stage: 'growing' },
+      { sku_id: 'sku-dormant', sku_code: 'DORM-1', product_name: 'Dormant Widget', current_quantity_sold: 0, previous_quantity_sold: 6, current_revenue_minor_units: 0, previous_revenue_minor_units: 600, stage: 'dormant' },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -166,6 +178,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getInventorySalesReport).mockResolvedValue(inventorySales())
   vi.mocked(reportsApi.getBusinessInsights).mockResolvedValue(businessInsights())
   vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends())
+  vi.mocked(reportsApi.getProductLifecycleReport).mockResolvedValue(productLifecycle())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -402,5 +415,26 @@ describe('Reports page', () => {
     render(<Reports />)
 
     expect(await screen.findByText('No sales to break down by weekday in this period')).toBeInTheDocument()
+  })
+
+  it('places each SKU in its lifecycle stage', async () => {
+    render(<Reports />)
+
+    const growing = await screen.findByTestId('lifecycle-growing')
+    expect(within(growing).getByText('Growing Widget')).toBeInTheDocument()
+
+    const dormant = screen.getByTestId('lifecycle-dormant')
+    expect(within(dormant).getByText('Dormant Widget')).toBeInTheDocument()
+
+    expect(within(screen.getByTestId('lifecycle-stable')).getByText('None')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when nothing sold in either period', async () => {
+    vi.mocked(reportsApi.getProductLifecycleReport).mockResolvedValue(productLifecycle({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No sales in this or the previous period')).toBeInTheDocument()
   })
 })

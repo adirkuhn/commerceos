@@ -168,6 +168,24 @@ export interface SalesTrendsReport {
   by_weekday: WeekdaySales[]
 }
 
+export type ProductLifecycleStage = 'new' | 'growing' | 'stable' | 'declining' | 'dormant'
+
+export interface ProductLifecycleRow {
+  sku_id: string | null
+  sku_code: string
+  product_name: string
+  current_quantity_sold: number
+  previous_quantity_sold: number
+  current_revenue_minor_units: number
+  previous_revenue_minor_units: number
+  stage: ProductLifecycleStage
+}
+
+export interface ProductLifecycleReport {
+  currency_code: string
+  rows: ProductLifecycleRow[]
+}
+
 export interface APIError {
   code: string
   message: string

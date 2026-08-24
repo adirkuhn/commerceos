@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { useReportsData, dateRange, type ReportsPeriod } from '../reports/hooks/useReportsData'
-import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant, SalesTrendGranularity } from '../reports/types'
+import type { ProductPerformanceMatrixRow, ProductPerformanceQuadrant, SalesTrendGranularity, ProductLifecycleStage } from '../reports/types'
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#1F2937',
@@ -24,6 +24,14 @@ const QUADRANTS: { id: ProductPerformanceQuadrant; label: string; hint: string }
   { id: 'winners', label: 'Winners', hint: 'High revenue, high margin — push harder' },
   { id: 'problems', label: 'Problems', hint: 'Low revenue, low margin — consider discontinuing' },
   { id: 'hidden_gems', label: 'Hidden Gems', hint: 'Low revenue, high margin — promote' },
+]
+
+const LIFECYCLE_STAGES: { id: ProductLifecycleStage; label: string; hint: string }[] = [
+  { id: 'new', label: 'New', hint: 'Sold now, not in the previous period' },
+  { id: 'growing', label: 'Growing', hint: 'Sold more than the previous period' },
+  { id: 'stable', label: 'Stable', hint: 'Sold about the same as the previous period' },
+  { id: 'declining', label: 'Declining', hint: 'Sold less than the previous period' },
+  { id: 'dormant', label: 'Dormant', hint: 'Sold last period, nothing now' },
 ]
 
 function formatMoney(minorUnits: number, currencyCode: string): string {
@@ -52,7 +60,7 @@ export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
   const [trendGranularity, setTrendGranularity] = useState<SalesTrendGranularity>('day')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -459,6 +467,43 @@ export default function Reports() {
             </ResponsiveContainer>
           )}
         </div>
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Product Lifecycle</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">Compared against the immediately preceding period of equal length</p>
+        </div>
+        {!productLifecycle || productLifecycle.rows.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No sales in this or the previous period</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 p-4">
+            {LIFECYCLE_STAGES.map(stage => {
+              const rows = productLifecycle.rows.filter(r => r.stage === stage.id)
+              return (
+                <div key={stage.id} data-testid={`lifecycle-${stage.id}`} className="rounded-lg border dark:border-[#2D3748] border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-semibold dark:text-gray-100 text-gray-900">{stage.label}</p>
+                    <span className="text-[10px] dark:text-gray-500 text-gray-400">{rows.length}</span>
+                  </div>
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-2">{stage.hint}</p>
+                  {rows.length === 0 ? (
+                    <p className="text-[10px] dark:text-gray-600 text-gray-300">None</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {rows.slice(0, 5).map(r => (
+                        <div key={r.sku_id ?? r.sku_code} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="dark:text-gray-300 text-gray-700 truncate">{r.product_name || r.sku_code}</span>
+                          <span className="dark:text-gray-500 text-gray-400 shrink-0">{r.current_quantity_sold} sold</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
