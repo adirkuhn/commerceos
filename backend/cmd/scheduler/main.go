@@ -259,7 +259,7 @@ func main() {
 	// added here instead of at its original declaration. Safe to mutate
 	// after being handed to runJobNowUC: that's the same map by reference,
 	// and nothing reads from it until the poll loop starts further down.
-	resyncProductToChannelsUC := channelsapp.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductUC, syncStockUC)
+	resyncProductToChannelsUC := channelsapp.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductUC, syncStockUC, enrollProductUC)
 	jobRunners[schedulerDomain.JobResyncAllProductsToChannels] = schedulerapp.NewRunResyncProductsToChannelsUseCase(db, listingRepo, resyncProductToChannelsUC)
 
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)

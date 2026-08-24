@@ -383,8 +383,11 @@ func Register(
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
 	)
+	enrollProductInChannelsUC := appchannels.NewEnrollProductInChannelsUseCase(
+		db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushProductToWooUC, pushProductToBolUC,
+	)
 	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(
-		db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC,
+		db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC, enrollProductInChannelsUC,
 	)
 
 	h := NewHandler(

@@ -79,6 +79,8 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	listingRepo := repositories.NewProductChannelListingRepo(db)
 	syncLogRepo := repositories.NewSyncLogRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
+	salesChannelRepo := repositories.NewSalesChannelRepo(db)
+	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
 
 	expireSalePriceUC := apppms.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
 	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo)
@@ -103,7 +105,10 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret,
 	)
-	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC)
+	enrollProductInChannelsUC := appchannels.NewEnrollProductInChannelsUseCase(
+		db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushProductToWooUC, pushProductToBolUC,
+	)
+	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC, enrollProductInChannelsUC)
 
 	runners := map[string]appscheduler.JobRunner{
 		schedulerDomain.JobExpiredSalePrices:           appscheduler.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),

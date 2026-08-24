@@ -84,6 +84,14 @@ func (s *stubTenantRecordingFieldsSyncer) Execute(ctx context.Context, productID
 	return nil
 }
 
+// stubNoopEnroller stands in for EnrollProductInChannelsUseCase -- this
+// test suite is about RunResyncProductsToChannelsUseCase's dedup/dispatch
+// logic, not the enroll step itself (covered separately in
+// resync_product_to_channels_test.go).
+type stubNoopEnroller struct{}
+
+func (stubNoopEnroller) Execute(context.Context, string) error { return nil }
+
 func TestRunResyncProductsToChannels_dedupesByTenantAndProductAcrossMultipleListings(t *testing.T) {
 	listingRepo := &stubResyncListingRepo{all: []channelsDomain.ProductChannelListing{
 		{TenantID: "tenant-a", ProductID: "product-1", ConnectionID: "conn-1"},
@@ -92,7 +100,7 @@ func TestRunResyncProductsToChannels_dedupesByTenantAndProductAcrossMultipleList
 		{TenantID: "tenant-b", ProductID: "product-1", ConnectionID: "conn-3"}, // different tenant, same product id
 	}}
 	fieldsSyncer := &stubTenantRecordingFieldsSyncer{}
-	resyncUC := appchannels.NewResyncProductToChannelsUseCase(newMockGormDBN(t, 4), stubEmptyVariantRepo{}, stubUnreachableSKURepo{}, fieldsSyncer, nil)
+	resyncUC := appchannels.NewResyncProductToChannelsUseCase(newMockGormDBN(t, 4), stubEmptyVariantRepo{}, stubUnreachableSKURepo{}, fieldsSyncer, nil, stubNoopEnroller{})
 	uc := appscheduler.NewRunResyncProductsToChannelsUseCase(newMockGormDBN(t, 1), listingRepo, resyncUC)
 
 	err := uc.Run(context.Background())
@@ -107,7 +115,7 @@ func TestRunResyncProductsToChannels_dedupesByTenantAndProductAcrossMultipleList
 func TestRunResyncProductsToChannels_noListingsIsNoOp(t *testing.T) {
 	listingRepo := &stubResyncListingRepo{}
 	fieldsSyncer := &stubTenantRecordingFieldsSyncer{}
-	resyncUC := appchannels.NewResyncProductToChannelsUseCase(newMockGormDBN(t, 0), stubEmptyVariantRepo{}, stubUnreachableSKURepo{}, fieldsSyncer, nil)
+	resyncUC := appchannels.NewResyncProductToChannelsUseCase(newMockGormDBN(t, 0), stubEmptyVariantRepo{}, stubUnreachableSKURepo{}, fieldsSyncer, nil, stubNoopEnroller{})
 	uc := appscheduler.NewRunResyncProductsToChannelsUseCase(newMockGormDBN(t, 1), listingRepo, resyncUC)
 
 	err := uc.Run(context.Background())
