@@ -60,7 +60,7 @@ export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
   const [trendGranularity, setTrendGranularity] = useState<SalesTrendGranularity>('day')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -78,6 +78,9 @@ export default function Reports() {
     label: new Date(p.period_start).toLocaleDateString(undefined, trendGranularity === 'month' ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }),
   }))
   const weekdaySales = [...(salesTrends?.by_weekday ?? [])].sort((a, b) => a.weekday - b.weekday)
+  const cohorts = [...(customerCohorts?.cohorts ?? [])].sort((a, b) => a.cohort_month.localeCompare(b.cohort_month))
+  const maxMonthsSinceCohort = cohorts.reduce((max, c) => c.retention.reduce((m, r) => Math.max(m, r.months_since_cohort), max), 0)
+  const cohortMonthColumns = Array.from({ length: maxMonthsSinceCohort + 1 }, (_, i) => i)
 
   const kpis = [
     { label: 'Total Revenue', value: salesSummary ? formatMoney(salesSummary.current.revenue_minor_units, currency) : '—', change: salesSummary?.revenue_change_percent ?? null },
@@ -502,6 +505,64 @@ export default function Reports() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Customer Cohorts</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            Cohorts by month of each customer's first-ever order in this period, retention by month since acquisition
+          </p>
+        </div>
+        {cohorts.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No new customers acquired in this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="dark:bg-[#111827]/50 bg-gray-50">
+                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Cohort</th>
+                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Size</th>
+                  {cohortMonthColumns.map(m => (
+                    <th key={m} className="px-3 py-2 text-center text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase whitespace-nowrap">
+                      Month {m}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+                {cohorts.map(cohort => {
+                  const byMonth = new Map(cohort.retention.map(r => [r.months_since_cohort, r]))
+                  return (
+                    <tr key={cohort.cohort_month} className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
+                      <td className="px-4 py-2 dark:text-gray-200 text-gray-800 font-medium whitespace-nowrap">
+                        {new Date(cohort.cohort_month).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-4 py-2 dark:text-gray-400 text-gray-500">{cohort.cohort_size}</td>
+                      {cohortMonthColumns.map(m => {
+                        const cell = byMonth.get(m)
+                        if (!cell) {
+                          return <td key={m} className="px-3 py-2 text-center dark:text-gray-700 text-gray-200">—</td>
+                        }
+                        const ratePercent = cell.retention_rate_basis_points / 100
+                        return (
+                          <td key={m} className="px-3 py-2 text-center" title={`${cell.retained_customers} customer(s), ${formatMoney(cell.revenue_minor_units, currency)}`}>
+                            <span
+                              className="inline-block px-2 py-0.5 rounded text-[10px] font-medium text-white"
+                              style={{ backgroundColor: `rgba(37, 99, 235, ${Math.min(1, Math.max(0.15, ratePercent / 100))})` }}
+                            >
+                              {ratePercent.toFixed(0)}%
+                            </span>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

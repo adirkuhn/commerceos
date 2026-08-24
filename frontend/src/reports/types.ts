@@ -186,6 +186,26 @@ export interface ProductLifecycleReport {
   rows: ProductLifecycleRow[]
 }
 
+export interface CohortRetentionCell {
+  // 0 = the acquisition month itself.
+  months_since_cohort: number
+  retained_customers: number
+  revenue_minor_units: number
+  // retained_customers / the cohort's size. 1 bp = 0.01%. 0 when the cohort is empty.
+  retention_rate_basis_points: number
+}
+
+export interface CustomerCohortRow {
+  cohort_month: string
+  cohort_size: number
+  retention: CohortRetentionCell[]
+}
+
+export interface CustomerCohortsReport {
+  currency_code: string
+  cohorts: CustomerCohortRow[]
+}
+
 export interface APIError {
   code: string
   message: string

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -22,6 +22,7 @@ vi.mock('../../reports/api', () => ({
   getBusinessInsights: vi.fn(),
   getSalesTrendsReport: vi.fn(),
   getProductLifecycleReport: vi.fn(),
+  getCustomerCohortsReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -156,6 +157,22 @@ function productLifecycle(overrides: Partial<ProductLifecycleReport> = {}): Prod
   }
 }
 
+function customerCohorts(overrides: Partial<CustomerCohortsReport> = {}): CustomerCohortsReport {
+  return {
+    currency_code: 'EUR',
+    cohorts: [
+      {
+        cohort_month: '2026-06-01T00:00:00Z', cohort_size: 4,
+        retention: [
+          { months_since_cohort: 0, retained_customers: 4, revenue_minor_units: 4000, retention_rate_basis_points: 10000 },
+          { months_since_cohort: 1, retained_customers: 1, revenue_minor_units: 500, retention_rate_basis_points: 2500 },
+        ],
+      },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -179,6 +196,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getBusinessInsights).mockResolvedValue(businessInsights())
   vi.mocked(reportsApi.getSalesTrendsReport).mockResolvedValue(salesTrends())
   vi.mocked(reportsApi.getProductLifecycleReport).mockResolvedValue(productLifecycle())
+  vi.mocked(reportsApi.getCustomerCohortsReport).mockResolvedValue(customerCohorts())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -436,5 +454,22 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No sales in this or the previous period')).toBeInTheDocument()
+  })
+
+  it('shows cohort retention rates by month since acquisition', async () => {
+    render(<Reports />)
+
+    expect(await screen.findByText('Jun 2026')).toBeInTheDocument()
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(screen.getByText('25%')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when no cohorts were acquired in this period', async () => {
+    vi.mocked(reportsApi.getCustomerCohortsReport).mockResolvedValue(customerCohorts({ cohorts: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No new customers acquired in this period')).toBeInTheDocument()
   })
 })

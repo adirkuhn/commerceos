@@ -1,4 +1,4 @@
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, APIResponse } from './types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/reports`
@@ -70,4 +70,8 @@ export function getSalesTrendsReport(token: string, from: string, to: string, gr
 
 export function getProductLifecycleReport(token: string, from: string, to: string): Promise<ProductLifecycleReport> {
   return request<ProductLifecycleReport>(`${base()}/product-lifecycle?${rangeParams(from, to)}`, { method: 'GET' }, token)
+}
+
+export function getCustomerCohortsReport(token: string, from: string, to: string): Promise<CustomerCohortsReport> {
+  return request<CustomerCohortsReport>(`${base()}/customer-cohorts?${rangeParams(from, to)}`, { method: 'GET' }, token)
 }
