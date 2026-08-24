@@ -489,6 +489,7 @@ type stubChannelsSKURepo struct {
 	findByIDResult *pmsDomain.SKU
 	findByIDErr    error
 	byCode         map[string]pmsDomain.SKU
+	byBarcode      map[string]pmsDomain.SKU
 	updated        []pmsDomain.SKU
 	updateErr      error
 }
@@ -516,7 +517,10 @@ func (s *stubChannelsSKURepo) FindByCode(_ context.Context, code string) (*pmsDo
 	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
-func (s *stubChannelsSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubChannelsSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDomain.SKU, error) {
+	if sku, ok := s.byBarcode[barcode]; ok {
+		return &sku, nil
+	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
 func (s *stubChannelsSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
