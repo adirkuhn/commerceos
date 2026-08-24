@@ -31,11 +31,11 @@ func toOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferRequest {
 }
 
 func (a *Adapter) CreateOffer(ctx context.Context, in integrationsDomain.BolOfferInput) (string, error) {
-	return a.client.CreateOffer(ctx, toOfferRequest(in))
+	return a.client.CreateOffer(ctx, toOfferRequest(in), PollOptions{})
 }
 
 func (a *Adapter) UpdateOffer(ctx context.Context, offerID string, in integrationsDomain.BolOfferInput) error {
-	return a.client.UpdateOffer(ctx, offerID, toOfferRequest(in))
+	return a.client.UpdateOffer(ctx, offerID, toOfferRequest(in), PollOptions{})
 }
 
 func (a *Adapter) IsUnknownEAN(err error) bool { return IsUnknownEAN(err) }

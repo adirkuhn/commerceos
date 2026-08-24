@@ -40,7 +40,6 @@ const (
 	defaultTokenURL = "https://login.bol.com/token"
 	defaultBaseURL  = "https://api.bol.com/retailer"
 
-	offerAccept   = "application/vnd.retailer.v11+json"
 	contentAccept = "application/vnd.retailer.v10+json"
 )
 
@@ -184,7 +183,15 @@ func (c *Client) doJSON(ctx context.Context, method, path, accept string, reqBod
 	return nil
 }
 
-// --- Offer API (v11, synchronous) ---
+// --- Offer API (v10, async -- POST/PUT return 202 + a ProcessStatus,
+// same shape as Product Content below, poll to a terminal status and read
+// entityId for the real offer id). Previously implemented against a wrong
+// guessed path/version/method (/v11/offers, PATCH) that also assumed a
+// synchronous {"offerId":...} response -- confirmed wrong against the real
+// downloaded Retailer API v10 spec: real path is /offers (POST create, PUT
+// update by id), real header is v10 not v11, real response is 202 Accepted.
+// That mismatch meant CreateOffer/UpdateOffer never errored but also never
+// created a real offer -- silent no-op in prod. ---
 
 type BundlePrice struct {
 	Quantity  int     `json:"quantity"`
@@ -221,23 +228,57 @@ type CreateOfferRequest struct {
 	Stock                 *Stock     `json:"stock,omitempty"`
 }
 
-type offerResponse struct {
-	OfferID string `json:"offerId"`
-}
-
-// CreateOffer creates a new Bol offer for req.EAN, returning the offer id.
-// Synchronous per Bol's v11 docs -- no process-status polling needed.
-func (c *Client) CreateOffer(ctx context.Context, req CreateOfferRequest) (string, error) {
-	var resp offerResponse
-	if err := c.doJSON(ctx, http.MethodPost, "/v11/offers", offerAccept, req, &resp); err != nil {
+// CreateOffer creates a new Bol offer for req.EAN. The POST only returns a
+// ProcessStatus (202 Accepted) -- this polls it to a terminal status and
+// returns the resulting entityId as the real offer id.
+func (c *Client) CreateOffer(ctx context.Context, req CreateOfferRequest, opts PollOptions) (string, error) {
+	var accepted processStatusResponse
+	if err := c.doJSON(ctx, http.MethodPost, "/offers", contentAccept, req, &accepted); err != nil {
 		return "", err
 	}
-	return resp.OfferID, nil
+	return c.pollOfferProcessStatus(ctx, accepted.ProcessStatusID, opts)
 }
 
-// UpdateOffer patches an existing offer (price/stock/etc changes).
-func (c *Client) UpdateOffer(ctx context.Context, offerID string, req CreateOfferRequest) error {
-	return c.doJSON(ctx, http.MethodPatch, "/v11/offers/"+url.PathEscape(offerID), offerAccept, req, nil)
+// UpdateOffer replaces an existing offer's price/stock/etc (PUT, not
+// PATCH -- Bol has no partial-update verb for offers). Same async
+// ProcessStatus response as CreateOffer.
+func (c *Client) UpdateOffer(ctx context.Context, offerID string, req CreateOfferRequest, opts PollOptions) error {
+	var accepted processStatusResponse
+	if err := c.doJSON(ctx, http.MethodPut, "/offers/"+url.PathEscape(offerID), contentAccept, req, &accepted); err != nil {
+		return err
+	}
+	_, err := c.pollOfferProcessStatus(ctx, accepted.ProcessStatusID, opts)
+	return err
+}
+
+// pollOfferProcessStatus mirrors SubmitProductContent's polling loop below,
+// but reads entityId on SUCCESS since offer creation/update needs the
+// resulting offer id back, unlike a product content upload.
+func (c *Client) pollOfferProcessStatus(ctx context.Context, processStatusID string, opts PollOptions) (string, error) {
+	opts = opts.withDefaults()
+	if processStatusID == "" {
+		return "", fmt.Errorf("bol: offer request accepted with no process status id")
+	}
+
+	for attempt := 0; attempt < opts.MaxAttempts; attempt++ {
+		var report processStatusResponse
+		path := "/process-status/" + url.PathEscape(processStatusID)
+		if err := c.doJSON(ctx, http.MethodGet, path, contentAccept, nil, &report); err != nil {
+			return "", fmt.Errorf("bol: poll offer process status: %w", err)
+		}
+		switch strings.ToUpper(report.Status) {
+		case "SUCCESS":
+			return report.EntityID, nil
+		case "FAILURE", "TIMEOUT":
+			msg := report.ErrorMessage
+			if msg == "" {
+				msg = report.Status
+			}
+			return "", fmt.Errorf("bol: offer request %s ended with status %s: %s", processStatusID, report.Status, msg)
+		}
+		time.Sleep(opts.Interval)
+	}
+	return "", fmt.Errorf("bol: offer request %s did not reach a terminal status after %d attempts", processStatusID, opts.MaxAttempts)
 }
 
 // --- Product Content API (v10, async -- upload then poll a report) ---
@@ -264,7 +305,9 @@ type ProductContentRequest struct {
 
 type processStatusResponse struct {
 	ProcessStatusID string `json:"processStatusId"`
+	EntityID        string `json:"entityId"`
 	Status          string `json:"status"`
+	ErrorMessage    string `json:"errorMessage"`
 }
 
 type PollOptions struct {
