@@ -32,7 +32,7 @@ column as slices land — each slice is its own commit.
 | Customer Cohorts | Not started | |
 | Sales Trends & Seasonality | Not started | |
 | Promotion Analytics / Opportunities | Not started | Needs promotion-performance query (before/during/after comparison) once promotions have real usage data. |
-| Inventory + Sales Report | Not started | |
+| Inventory + Sales Report | **Done** — `b6f70a9`, frontend `5e39249` | `GET /reports/inventory-sales`: stock on hand joined with units sold in [from, to) for every SKU with stock history. Unlike Slow-Moving Products, unfiltered -- every stocked-or-sold SKU appears, with a turnover rate (units sold / stock on hand, nil when stock is 0). |
 | Profitability Reports | **Done** — `00ae483`, frontend `53868aa` | `GET /reports/profitability`: revenue, COGS, profit, margin for [from, to). Profit/margin computed only over `cost_known_revenue_minor_units` (the subset of revenue whose SKU has a known cost price) -- unknown-cost line items are excluded rather than treated as zero cost, so margin never overstates. |
 | Business Insights Dashboard (rule-based) | Not started | Distinct from the existing `application/dashboard` module (which is a fixed "this month" snapshot screen, not a rules/insights engine). |
 
@@ -64,6 +64,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Category Analysis**: Revenue by Category table on the Reports page (Uncategorized bucket shown, not hidden) — commit `0325581`.
 - **Slow-Moving Products**: table on the Reports page, sorted by stock on hand descending — commit `f3bb632`.
 - **Profitability**: revenue/COGS/profit/margin card on the Reports page, with a caption noting when cost-known revenue is smaller than total revenue, and an empty state when nothing in the period has a known cost — commit `53868aa`.
+- **Inventory + Sales**: table on the Reports page (stock on hand, units sold, turnover %), sorted by turnover descending, "n/a" turnover for a SKU with zero stock on hand — commit `5e39249`.
 
 Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
