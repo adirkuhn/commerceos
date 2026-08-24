@@ -29,7 +29,7 @@ column as slices land — each slice is its own commit.
 | Product Lifecycle | **Done** — `d9942d4`, frontend `fd73b8c` | `GET /reports/product-lifecycle`: classifies every SKU sold in the current or immediately preceding period (new/growing/stable/declining/dormant) by comparing quantity sold across the two. Pure composition over Product Performance, called twice -- no new query. |
 | Category Analysis | **Done** — `7394a4c`, frontend `0325581` | `GET /reports/category-performance`: revenue/units/order-count per category for line items sold in [from, to), ranked by revenue. LEFT JOINs sku→variant→product→category so unmatched/uncategorized items roll into one "Uncategorized" bucket instead of being dropped. |
 | Customer Reports | **Partial** — `8307b52`, frontend `35b13ef` | `GET /reports/customer-performance`: order count, revenue, AOV, first/last order per customer, ranked by revenue. Guest orders (no linked customer) excluded. Frontend: Top Customers panel on Reports. Missing from the original wishlist: new-vs-returning split, purchase frequency, lifetime revenue (needs an all-time lookback query, not just the selected period). |
-| Customer Cohorts | Not started | |
+| Customer Cohorts | **Done** — `611d8a9`, frontend `923726d` | `GET /reports/customer-cohorts`: acquisition cohorts by month of each customer's all-time first order (not just first order in the window), with retention across subsequent months up to `to`. New `domain/oms.CustomerCohortRepository` port. |
 | Sales Trends & Seasonality | **Done** — `f7ea714`, frontend `6642945` | `GET /reports/sales-trends`: revenue/orders/units bucketed by day/week/month (`points`), plus revenue/orders summed by weekday across the whole period (`by_weekday`, the seasonality half). New `domain/oms.SalesTrendRepository` port. |
 | Promotion Analytics / Opportunities | Not started | Needs promotion-performance query (before/during/after comparison) once promotions have real usage data. |
 | Inventory + Sales Report | **Done** — `b6f70a9`, frontend `5e39249` | `GET /reports/inventory-sales`: stock on hand joined with units sold in [from, to) for every SKU with stock history. Unlike Slow-Moving Products, unfiltered -- every stocked-or-sold SKU appears, with a turnover rate (units sold / stock on hand, nil when stock is 0). |
@@ -68,6 +68,9 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Business Insights**: warning/info banners above the report cards, one per fired rule, section hidden entirely when nothing fires — commit `e32b931`.
 - **Sales Trends & Seasonality**: line chart of revenue bucketed by day/week/month (switchable) + bar chart of revenue by weekday — commit `6642945`.
 - **Product Lifecycle**: 5-column quadrant-style grid (new/growing/stable/declining/dormant), same visual pattern as the Performance Matrix — commit `fd73b8c`.
+- **Customer Cohorts**: cohort-by-month x months-since-acquisition retention table, color-intensity badge per cell — commit `923726d`.
+
+Every Phase 0 report on the original roadmap list is now built end-to-end except Promotion Analytics / Opportunities, which needs real promotion usage data first (promotions have no auto-apply/usage tracking yet).
 
 Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
