@@ -923,6 +923,14 @@ components:
           type: string
           nullable: true
           description: Preferred CommerceOS warehouse for this connection — seeds each sync schedule row's own default_warehouse_id when that row hasn't set one itself.
+        bol_economic_operator_id:
+          type: string
+          nullable: true
+          description: Bol's required EU-operator identifier (a UUID from Bol's Partner Platform, not a VAT/KVK number), sent on every offer this connection pushes. Only meaningful for Bol connections.
+        bol_delivery_code:
+          type: string
+          nullable: true
+          description: Bol's Fulfilment.deliveryCode enum value, sent on every FBR offer this connection pushes. Null falls back to the app default ("3-5d"). Only meaningful for Bol connections.
         created_at: { type: string, format: date-time }
 
     UpdateConnectionSettingsRequest:
@@ -934,6 +942,14 @@ components:
           type: string
           nullable: true
           description: Optional. Omit or send null to clear — this connection then has no preferred warehouse and every sync schedule row must set its own.
+        bol_economic_operator_id:
+          type: string
+          nullable: true
+          description: Optional. Omit or send null to clear.
+        bol_delivery_code:
+          type: string
+          nullable: true
+          description: Optional. Omit or send null to clear (falls back to the app default "3-5d"). One of Bol's real deliveryCode enum values, e.g. 3-5d, 1-2d, 2-3d, 4-8d, 1-8d, 24uurs-12..24uurs-23, MijnLeverbelofte, VVB.
 
     StartWooConnectRequest:
       type: object

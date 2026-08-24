@@ -16,6 +16,7 @@ vi.mock('../api', () => ({
   connectBol: vi.fn(),
   listSyncSchedules: vi.fn(),
   upsertSyncSchedules: vi.fn(),
+  updateConnectionSettings: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -108,6 +109,37 @@ describe('BolSyncSettingsPage', () => {
     expect(ordersImport?.enabled).toBe(true)
     const ordersExport = payload.find(s => s.entity_type === 'bol_orders' && s.direction === 'export')
     expect(ordersExport?.enabled).toBe(false)
+  })
+
+  it('prefills the configuration section from initialConnection and saves edits', async () => {
+    vi.mocked(api.updateConnectionSettings).mockResolvedValue({
+      id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '',
+      bol_economic_operator_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', bol_delivery_code: '1-2d',
+    })
+    render(
+      <BolSyncSettingsPage
+        connectionId="conn-bol-1"
+        initialConnection={{
+          id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '',
+          bol_economic_operator_id: 'old-op-id', bol_delivery_code: '2-3d',
+        }}
+        onClose={vi.fn()} onConnected={vi.fn()}
+      />,
+    )
+
+    await screen.findByText('Sync schedule')
+    expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('old-op-id')
+    expect(screen.getByLabelText('Delivery promise')).toHaveValue('2-3d')
+
+    await userEvent.clear(screen.getByLabelText('Economic Operator ID'))
+    await userEvent.type(screen.getByLabelText('Economic Operator ID'), '3fa85f64-5717-4562-b3fc-2c963f66afa6')
+    await userEvent.selectOptions(screen.getByLabelText('Delivery promise'), '1-2d')
+    await userEvent.click(screen.getByRole('button', { name: 'Save configuration' }))
+
+    await waitFor(() => expect(api.updateConnectionSettings).toHaveBeenCalledWith(
+      'test-token', 'conn-bol-1', '', null, '3fa85f64-5717-4562-b3fc-2c963f66afa6', '1-2d',
+    ))
+    expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 
   it('prefills an already-saved schedule', async () => {

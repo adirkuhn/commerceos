@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useSyncSchedules } from './hooks/useSyncSchedules'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import * as api from './api'
-import type { SyncSchedule, SyncEntityType, SyncDirection } from './types'
+import type { Connection, SyncSchedule, SyncEntityType, SyncDirection } from './types'
 
 // The scheduler polls for due schedules every 60s (see cmd/scheduler's
 // pollInterval) -- same options WooCommerceSyncSettingsPage offers.
@@ -34,6 +34,31 @@ const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDir
 
 const DIRECTIONS: SyncDirection[] = ['import', 'export']
 
+// Bol's real Fulfilment.deliveryCode enum (Retailer API v10) -- must match
+// domain/integrations.ValidBolDeliveryCodes exactly, or a save here would
+// pass client-side validation but get rejected by the backend.
+const DELIVERY_CODE_OPTIONS: { value: string; label: string }[] = [
+  { value: '3-5d', label: '3-5 days (default)' },
+  { value: '1-2d', label: '1-2 days' },
+  { value: '2-3d', label: '2-3 days' },
+  { value: '4-8d', label: '4-8 days' },
+  { value: '1-8d', label: '1-8 days' },
+  { value: '24uurs-23', label: 'Next day, order by 23:00' },
+  { value: '24uurs-22', label: 'Next day, order by 22:00' },
+  { value: '24uurs-21', label: 'Next day, order by 21:00' },
+  { value: '24uurs-20', label: 'Next day, order by 20:00' },
+  { value: '24uurs-19', label: 'Next day, order by 19:00' },
+  { value: '24uurs-18', label: 'Next day, order by 18:00' },
+  { value: '24uurs-17', label: 'Next day, order by 17:00' },
+  { value: '24uurs-16', label: 'Next day, order by 16:00' },
+  { value: '24uurs-15', label: 'Next day, order by 15:00' },
+  { value: '24uurs-14', label: 'Next day, order by 14:00' },
+  { value: '24uurs-13', label: 'Next day, order by 13:00' },
+  { value: '24uurs-12', label: 'Next day, order by 12:00' },
+  { value: 'MijnLeverbelofte', label: 'My delivery promise' },
+  { value: 'VVB', label: 'Shipped via Bol (VVB)' },
+]
+
 type CellState = {
   enabled: boolean
   intervalMinutes: number
@@ -57,8 +82,8 @@ function defaultCell(): CellState {
 // mirrors MyParcelSyncSettingsPage's pattern: undefined for a new connect,
 // set to show the sync schedule grid for an already-connected integration.
 export default function BolSyncSettingsPage({
-  connectionId: initialConnectionId, onClose, onConnected,
-}: { connectionId?: string; onClose: () => void; onConnected: () => void }) {
+  connectionId: initialConnectionId, initialConnection, onClose, onConnected,
+}: { connectionId?: string; initialConnection?: Connection; onClose: () => void; onConnected: () => void }) {
   const { token } = useAuth()
   const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
   const [clientId, setClientId] = useState('')
@@ -73,6 +98,38 @@ export default function BolSyncSettingsPage({
   const [hydrated, setHydrated] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  // Configuration section (economic operator id / delivery code) -- a
+  // separate save target from the schedule grid above (a different API
+  // call, PATCH .../settings vs PUT .../sync-schedules), so it gets its
+  // own hydration/saving/error state.
+  const [configEconomicOperatorId, setConfigEconomicOperatorId] = useState('')
+  const [configDeliveryCode, setConfigDeliveryCode] = useState(DELIVERY_CODE_OPTIONS[0].value)
+  const [configHydrated, setConfigHydrated] = useState(false)
+  const [configSaving, setConfigSaving] = useState(false)
+  const [configSaveError, setConfigSaveError] = useState('')
+  const [configSaved, setConfigSaved] = useState(false)
+
+  if (!configHydrated && initialConnection) {
+    setConfigEconomicOperatorId(initialConnection.bol_economic_operator_id ?? '')
+    setConfigDeliveryCode(initialConnection.bol_delivery_code || DELIVERY_CODE_OPTIONS[0].value)
+    setConfigHydrated(true)
+  }
+
+  async function handleSaveConfig() {
+    if (!token || !connectionId) return
+    setConfigSaving(true)
+    setConfigSaveError('')
+    setConfigSaved(false)
+    try {
+      await api.updateConnectionSettings(token, connectionId, '', null, configEconomicOperatorId || null, configDeliveryCode || null)
+      setConfigSaved(true)
+    } catch (err) {
+      setConfigSaveError(err instanceof Error ? err.message : 'Failed to save configuration')
+    } finally {
+      setConfigSaving(false)
+    }
+  }
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -197,7 +254,54 @@ export default function BolSyncSettingsPage({
             </button>
           </form>
         ) : (
-          <div className="max-w-3xl space-y-4">
+          <div className="max-w-3xl space-y-6">
+            <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Configuration</h2>
+                <p className="text-xs dark:text-gray-500 text-gray-400">
+                  Sent on every offer this connection pushes to Bol.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="bol-config-economic-operator-id" className="block text-xs font-medium dark:text-gray-400 text-gray-500 mb-1">
+                    Economic Operator ID
+                  </label>
+                  <input
+                    id="bol-config-economic-operator-id" value={configEconomicOperatorId}
+                    onChange={e => setConfigEconomicOperatorId(e.target.value)}
+                    className={clsx(inputClass, 'w-full')}
+                  />
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                    A UUID from Bol's Partner Platform (GPSR/economic operator settings) -- not your KVK/VAT number.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="bol-config-delivery-code" className="block text-xs font-medium dark:text-gray-400 text-gray-500 mb-1">
+                    Delivery promise
+                  </label>
+                  <select
+                    id="bol-config-delivery-code" value={configDeliveryCode}
+                    onChange={e => setConfigDeliveryCode(e.target.value)}
+                    className={clsx(inputClass, 'w-full')}
+                  >
+                    {DELIVERY_CODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              {configSaveError && <p className="text-xs text-red-400">{configSaveError}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveConfig}
+                  disabled={configSaving}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {configSaving ? 'Saving…' : 'Save configuration'}
+                </button>
+                {configSaved && <span className="text-[10px] text-green-500">Saved</span>}
+              </div>
+            </div>
+
             <div>
               <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Sync schedule</h2>
               <p className="text-xs dark:text-gray-500 text-gray-400">

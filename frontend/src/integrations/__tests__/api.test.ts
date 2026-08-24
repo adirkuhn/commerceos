@@ -248,14 +248,30 @@ describe('updateConnectionSettings', () => {
     const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/connections/conn-1/settings')
     expect(opts.method).toBe('PATCH')
-    expect(JSON.parse(opts.body as string)).toEqual({ default_currency: 'USD', default_warehouse_id: null })
+    expect(JSON.parse(opts.body as string)).toEqual({
+      default_currency: 'USD', default_warehouse_id: null,
+      bol_economic_operator_id: null, bol_delivery_code: null,
+    })
   })
 
   it('sends the given default_warehouse_id', async () => {
     mockFetch({ ...sampleConnection, default_currency: 'USD', default_warehouse_id: 'wh-1' })
     await api.updateConnectionSettings(TOKEN, 'conn-1', 'USD', 'wh-1')
     const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
-    expect(JSON.parse(opts.body as string)).toEqual({ default_currency: 'USD', default_warehouse_id: 'wh-1' })
+    expect(JSON.parse(opts.body as string)).toEqual({
+      default_currency: 'USD', default_warehouse_id: 'wh-1',
+      bol_economic_operator_id: null, bol_delivery_code: null,
+    })
+  })
+
+  it('sends the given bol_economic_operator_id and bol_delivery_code', async () => {
+    mockFetch(sampleConnection)
+    await api.updateConnectionSettings(TOKEN, 'conn-1', '', null, 'op-1', '1-2d')
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({
+      default_currency: '', default_warehouse_id: null,
+      bol_economic_operator_id: 'op-1', bol_delivery_code: '1-2d',
+    })
   })
 
   it('throws on not found', async () => {

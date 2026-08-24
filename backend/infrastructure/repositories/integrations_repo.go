@@ -24,6 +24,7 @@ type integrationConnectionModel struct {
 	DefaultCurrency         string  `gorm:"not null"`
 	DefaultWarehouseID      *string `gorm:"type:uuid"`
 	BolEconomicOperatorID   *string
+	BolDeliveryCode         *string
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 }
@@ -58,6 +59,7 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		DefaultCurrency:         c.DefaultCurrency,
 		DefaultWarehouseID:      c.DefaultWarehouseID,
 		BolEconomicOperatorID:   c.BolEconomicOperatorID,
+		BolDeliveryCode:         c.BolDeliveryCode,
 		CreatedAt:               c.CreatedAt,
 		UpdatedAt:               c.UpdatedAt,
 	}
@@ -111,6 +113,7 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 			"default_warehouse_id":     c.DefaultWarehouseID,
 			"webhook_secret_encrypted": c.WebhookSecretEncrypted,
 			"bol_economic_operator_id": c.BolEconomicOperatorID,
+			"bol_delivery_code":        c.BolDeliveryCode,
 			"updated_at":               c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
@@ -142,6 +145,7 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		DefaultCurrency:         m.DefaultCurrency,
 		DefaultWarehouseID:      m.DefaultWarehouseID,
 		BolEconomicOperatorID:   m.BolEconomicOperatorID,
+		BolDeliveryCode:         m.BolDeliveryCode,
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}

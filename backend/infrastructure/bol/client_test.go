@@ -135,7 +135,7 @@ func TestClient_CreateOffer_sendsExpectedPayloadAndHeaders(t *testing.T) {
 		EAN: "0630509892495", EconomicOperatorID: "op-1",
 		Pricing:    bol.Pricing{BundlePrices: []bol.BundlePrice{{Quantity: 1, UnitPrice: 19.99}}},
 		Fulfilment: bol.Fulfilment{Method: "FBR"},
-		Condition:  bol.Condition{Category: "NEW"},
+		Condition:  bol.Condition{Name: "NEW"},
 		Stock:      &bol.Stock{Amount: 5, ManagedByRetailer: true},
 	}, bol.PollOptions{Interval: time.Millisecond, MaxAttempts: 5})
 	require.NoError(t, err)

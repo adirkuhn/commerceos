@@ -148,6 +148,10 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 	if conn.BolEconomicOperatorID != nil {
 		economicOperatorID = *conn.BolEconomicOperatorID
 	}
+	deliveryCode := integrationsDomain.DefaultBolDeliveryCode
+	if conn.BolDeliveryCode != nil && *conn.BolDeliveryCode != "" {
+		deliveryCode = *conn.BolDeliveryCode
+	}
 	condition := string(channelsDomain.BolConditionNew)
 	fulfilment := string(channelsDomain.BolFulfilmentFBR)
 	gpcCode, reference := "", ""
@@ -169,7 +173,7 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 	var result []channelsDomain.ProductChannelListing
 	for _, pu := range pushes {
 		listing, err := uc.pushOne(ctx, client, product, pu, override, existingByVariant[pu.Variant.ID],
-			in.ConnectionID, economicOperatorID, condition, fulfilment, gpcCode, reference)
+			in.ConnectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference)
 		if err != nil {
 			return nil, err
 		}
@@ -181,14 +185,30 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 func (uc *PushProductToBolUseCase) pushOne(
 	ctx context.Context, client integrationsDomain.BolClient, product pmsDomain.Product, pu variantPush,
 	override *channelsDomain.BolProductOverride, existing channelsDomain.ProductChannelListing,
-	connectionID, economicOperatorID, condition, fulfilment, gpcCode, reference string,
+	connectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference string,
 ) (channelsDomain.ProductChannelListing, error) {
+	// fail records this attempt as a failure in Sync History before
+	// returning the error -- without this, a push failure (e.g. Bol
+	// rejecting the offer payload) was a Go error the caller saw in logs
+	// but the UI had zero record of, since recordSyncLog used to only ever
+	// be called on the success paths below. existing may have no ID yet
+	// (the very first push for this product/channel never got as far as
+	// creating a listing) -- recordSyncLog treats an empty listing.ID as
+	// "no listing to link this entry to" rather than erroring.
+	fail := func(err error, fields map[string]string) (channelsDomain.ProductChannelListing, error) {
+		recordSyncLog(ctx, uc.db, uc.syncLogRepo, channelsDomain.ProductChannelListing{
+			ID: existing.ID, ProductID: product.ID, ConnectionID: connectionID,
+			Provider: string(integrationsDomain.ProviderBol), ExternalID: existing.ExternalID,
+		}, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
+		return channelsDomain.ProductChannelListing{}, err
+	}
+
 	ean := pu.SKU.Barcode
 	if override != nil && override.EANOverride != nil && *override.EANOverride != "" {
 		ean = *override.EANOverride
 	}
 	if ean == "" {
-		return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToBol: %w", channelsDomain.ErrBolMissingEAN)
+		return fail(fmt.Errorf("pushProductToBol: %w", channelsDomain.ErrBolMissingEAN), nil)
 	}
 
 	stockAmount := 0
@@ -205,31 +225,33 @@ func (uc *PushProductToBolUseCase) pushOne(
 
 	offerIn := integrationsDomain.BolOfferInput{
 		EAN: ean, EconomicOperatorID: economicOperatorID, Reference: reference,
-		ConditionCategory: condition, FulfilmentMethod: fulfilment,
+		ConditionCategory: condition, FulfilmentMethod: fulfilment, DeliveryCode: deliveryCode,
 		UnitPrice:   float64(priceMinorUnits) / 100,
 		StockAmount: stockAmount, StockManagedByRetailer: true,
 	}
 
+	offerFields := bolOfferToFields(offerIn)
+
 	var offerID string
 	if existing.ExternalID != "" {
 		if err := client.UpdateOffer(ctx, existing.ExternalID, offerIn); err != nil {
-			return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToBol: update offer: %w", err)
+			return fail(fmt.Errorf("pushProductToBol: update offer: %w", err), offerFields)
 		}
 		offerID = existing.ExternalID
 	} else {
 		id, createErr := client.CreateOffer(ctx, offerIn)
 		if createErr != nil {
 			if !client.IsUnknownEAN(createErr) {
-				return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToBol: create offer: %w", createErr)
+				return fail(fmt.Errorf("pushProductToBol: create offer: %w", createErr), offerFields)
 			}
 			if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
 				EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
 			}); contentErr != nil {
-				return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToBol: submit product content: %w", contentErr)
+				return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
 			}
 			id, createErr = client.CreateOffer(ctx, offerIn)
 			if createErr != nil {
-				return channelsDomain.ProductChannelListing{}, fmt.Errorf("pushProductToBol: create offer after product content: %w", createErr)
+				return fail(fmt.Errorf("pushProductToBol: create offer after product content: %w", createErr), offerFields)
 			}
 		}
 		offerID = id

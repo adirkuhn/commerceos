@@ -27,4 +27,8 @@ var (
 	// ErrBaseURLRequired guards AIProviderOllama, which has no fixed
 	// default endpoint the way hosted providers do.
 	ErrBaseURLRequired = errors.New("a base URL is required for this provider")
+	// ErrInvalidBolDeliveryCode guards UpdateConnectionSettingsUseCase --
+	// checked against ValidBolDeliveryCodes so a typo is caught at save
+	// time instead of surfacing as an opaque Bol 400 on the next push.
+	ErrInvalidBolDeliveryCode = errors.New("invalid bol delivery code")
 )

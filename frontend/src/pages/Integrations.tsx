@@ -200,6 +200,7 @@ export default function Integrations() {
     return (
       <BolSyncSettingsPage
         connectionId={bolConnection === 'new' ? undefined : bolConnection.id}
+        initialConnection={bolConnection === 'new' ? undefined : bolConnection}
         onClose={() => setBolConnection(null)}
         onConnected={() => {
           setBolConnection(null)

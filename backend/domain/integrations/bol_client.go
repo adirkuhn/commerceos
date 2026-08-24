@@ -16,6 +16,7 @@ type BolOfferInput struct {
 	Reference              string
 	ConditionCategory      string
 	FulfilmentMethod       string
+	DeliveryCode           string
 	UnitPrice              float64
 	StockAmount            int
 	StockManagedByRetailer bool

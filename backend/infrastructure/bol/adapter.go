@@ -23,9 +23,9 @@ func toOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferRequest {
 	return CreateOfferRequest{
 		EAN: in.EAN, UnknownProductTitle: in.UnknownProductTitle,
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
-		Condition:  Condition{Category: in.ConditionCategory},
+		Condition:  Condition{Name: in.ConditionCategory},
 		Pricing:    Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
-		Fulfilment: Fulfilment{Method: in.FulfilmentMethod},
+		Fulfilment: Fulfilment{Method: in.FulfilmentMethod, DeliveryCode: in.DeliveryCode},
 		Stock:      stock,
 	}
 }

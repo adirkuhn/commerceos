@@ -150,6 +150,7 @@ func TestPushProductToBol_createsOfferForSingleSKUProduct(t *testing.T) {
 		assert.Equal(t, "op-1", in.EconomicOperatorID)
 		assert.Equal(t, "FBR", in.FulfilmentMethod)
 		assert.Equal(t, "NEW", in.ConditionCategory)
+		assert.Equal(t, "3-5d", in.DeliveryCode, "falls back to DefaultBolDeliveryCode when the connection hasn't set one")
 		assert.InDelta(t, 19.99, in.UnitPrice, 0.001)
 		return "offer-1", nil
 	}}
@@ -162,6 +163,24 @@ func TestPushProductToBol_createsOfferForSingleSKUProduct(t *testing.T) {
 	assert.Equal(t, "offer-1", result[0].ExternalID)
 	assert.Equal(t, "bol", result[0].Provider)
 	assert.Nil(t, result[0].VariantID)
+}
+
+func TestPushProductToBol_usesConnectionDeliveryCodeOverDefault(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	deliveryCode := "1-2d"
+	h.connRepo.conn.BolDeliveryCode = &deliveryCode
+
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
+		assert.Equal(t, "1-2d", in.DeliveryCode)
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
 }
 
 func TestPushProductToBol_createsOfferPerVariantForVariableProduct(t *testing.T) {
@@ -251,11 +270,13 @@ func TestPushProductToBol_missingEAN_returnsError(t *testing.T) {
 		return "", nil
 	}}
 
-	uc := newBolUseCase(t, h, client, 1)
+	uc := newBolUseCase(t, h, client, 2)
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, channelsDomain.ErrBolMissingEAN)
+	require.Len(t, h.syncLogRepo.created, 1, "missing EAN must also show up in Sync History")
+	assert.Equal(t, channelsDomain.SyncLogStatusError, h.syncLogRepo.created[0].Status)
 }
 
 func TestPushProductToBol_usesCustomPriceOverSKUDefaultPrice(t *testing.T) {
@@ -298,6 +319,38 @@ func TestPushProductToBol_recordsSyncLog(t *testing.T) {
 	assert.Equal(t, channelsDomain.SyncLogStatusSuccess, entry.Status)
 	assert.Equal(t, "bol", entry.Provider)
 	assert.Equal(t, "19.99", entry.Fields["price"])
+}
+
+// TestPushProductToBol_createOfferFailure_recordsFailedSyncLog is a
+// regression test for a real prod bug: pushOne only ever called
+// recordSyncLog on its success paths, so a CreateOffer failure (e.g. Bol's
+// real 400 validation error) propagated all the way up as a Go error but
+// never left any trace in Sync History -- from the UI's perspective, the
+// push simply never happened. This is the failure-path counterpart to
+// TestPushProductToBol_recordsSyncLog above.
+func TestPushProductToBol_createOfferFailure_recordsFailedSyncLog(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		return "", errors.New(`bol: request failed (400): {"violations":[{"name":"condition.name","reason":"required"}]}`)
+	}}
+
+	uc := newBolUseCase(t, h, client, 2)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.Error(t, err)
+	require.Len(t, h.syncLogRepo.created, 1, "a failed push must still be recorded so it shows up in Sync History")
+	entry := h.syncLogRepo.created[0]
+	assert.Equal(t, channelsDomain.SyncFlowPush, entry.Direction)
+	assert.Equal(t, channelsDomain.SyncLogStatusError, entry.Status)
+	assert.Equal(t, "bol", entry.Provider)
+	assert.Equal(t, "prod-1", entry.ProductID)
+	assert.Equal(t, "conn-1", entry.ConnectionID)
+	assert.Contains(t, entry.ErrorMessage, "condition.name")
+	assert.Nil(t, entry.ListingID, "no ProductChannelListing was ever created for this failed first push")
 }
 
 func TestPushProductToBol_skipsBulkPoolSKU(t *testing.T) {

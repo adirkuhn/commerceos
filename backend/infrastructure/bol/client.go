@@ -204,10 +204,17 @@ type Pricing struct {
 
 type Fulfilment struct {
 	Method string `json:"method"`
+	// DeliveryCode is required by Bol for method FBR (see this const
+	// block's Retailer API v10 header) -- omitted for FBB, where Bol
+	// controls delivery timing itself.
+	DeliveryCode string `json:"deliveryCode,omitempty"`
 }
 
 type Condition struct {
-	Category string `json:"category"`
+	// Name is required by Bol (enum NEW/AS_NEW/GOOD/REASONABLE/MODERATE).
+	// Category is optional -- Bol derives NEW/SECONDHAND from Name when
+	// omitted, so this client never sets it separately.
+	Name string `json:"name"`
 }
 
 type Stock struct {

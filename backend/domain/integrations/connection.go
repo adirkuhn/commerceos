@@ -70,6 +70,29 @@ type Connection struct {
 	// on every offer this connection pushes -- nil/empty for non-Bol
 	// connections, which never read it.
 	BolEconomicOperatorID *string
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	// BolDeliveryCode is the delivery-promise enum Bol requires on every
+	// FBR offer's fulfilment.deliveryCode -- nil means PushProductToBolUseCase
+	// falls back to DefaultBolDeliveryCode ("3-5d"). Sitewide per connection,
+	// not per-product -- unlike ConditionCategory/FulfilmentMethod there is
+	// no BolProductOverride field for this by design (explicit user choice:
+	// one delivery promise per connection is enough for now).
+	BolDeliveryCode *string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// DefaultBolDeliveryCode is used whenever a Bol connection hasn't set
+// BolDeliveryCode explicitly -- "3-5d" (ships in 3-5 days) is Bol's safe
+// default for an FBR retailer with no same/next-day fulfilment capability.
+const DefaultBolDeliveryCode = "3-5d"
+
+// ValidBolDeliveryCodes is Bol's real Fulfilment.deliveryCode enum
+// (Retailer API v10 spec) -- used to validate BolDeliveryCode at the
+// settings-save boundary instead of only discovering a typo at push time.
+var ValidBolDeliveryCodes = map[string]bool{
+	"24uurs-23": true, "24uurs-22": true, "24uurs-21": true, "24uurs-20": true,
+	"24uurs-19": true, "24uurs-18": true, "24uurs-17": true, "24uurs-16": true,
+	"24uurs-15": true, "24uurs-14": true, "24uurs-13": true, "24uurs-12": true,
+	"1-2d": true, "2-3d": true, "3-5d": true, "4-8d": true, "1-8d": true,
+	"MijnLeverbelofte": true, "VVB": true,
 }

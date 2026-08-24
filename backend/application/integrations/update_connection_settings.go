@@ -17,6 +17,12 @@ type UpdateConnectionSettingsInput struct {
 	// DefaultWarehouseID is optional. nil or pointing to "" clears the
 	// connection's preferred warehouse.
 	DefaultWarehouseID *string
+	// BolEconomicOperatorID and BolDeliveryCode are optional, same
+	// nil-or-empty-clears semantics as DefaultWarehouseID. Ignored for
+	// non-Bol connections (nothing reads them). BolDeliveryCode is
+	// validated against ValidBolDeliveryCodes when non-empty.
+	BolEconomicOperatorID *string
+	BolDeliveryCode       *string
 }
 
 // UpdateConnectionSettingsUseCase persists connection-level defaults —
@@ -32,6 +38,13 @@ func NewUpdateConnectionSettingsUseCase(db *gorm.DB, connRepo integrationsDomain
 }
 
 func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error) {
+	if in.BolDeliveryCode != nil {
+		code := strings.TrimSpace(*in.BolDeliveryCode)
+		if code != "" && !integrationsDomain.ValidBolDeliveryCodes[code] {
+			return nil, fmt.Errorf("updateConnectionSettings: %w: %q", integrationsDomain.ErrInvalidBolDeliveryCode, code)
+		}
+	}
+
 	var conn integrationsDomain.Connection
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.connRepo.FindByID(ctx, in.ID)
@@ -48,6 +61,18 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 			existing.DefaultWarehouseID = &warehouseID
 		} else {
 			existing.DefaultWarehouseID = nil
+		}
+		if in.BolEconomicOperatorID != nil && strings.TrimSpace(*in.BolEconomicOperatorID) != "" {
+			economicOperatorID := strings.TrimSpace(*in.BolEconomicOperatorID)
+			existing.BolEconomicOperatorID = &economicOperatorID
+		} else if in.BolEconomicOperatorID != nil {
+			existing.BolEconomicOperatorID = nil
+		}
+		if in.BolDeliveryCode != nil && strings.TrimSpace(*in.BolDeliveryCode) != "" {
+			deliveryCode := strings.TrimSpace(*in.BolDeliveryCode)
+			existing.BolDeliveryCode = &deliveryCode
+		} else if in.BolDeliveryCode != nil {
+			existing.BolDeliveryCode = nil
 		}
 		existing.UpdatedAt = time.Now()
 		if err := uc.connRepo.Update(ctx, existing); err != nil {

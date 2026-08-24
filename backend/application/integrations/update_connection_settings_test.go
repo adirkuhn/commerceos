@@ -32,6 +32,19 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 	return gormDB
 }
 
+// newMockGormDBNoTx is for validation-failure tests where Execute must
+// reject the input before ever opening a tenant.WithTenant transaction.
+func newMockGormDBNoTx(t *testing.T) *gorm.DB {
+	t.Helper()
+	mockDB, _, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { mockDB.Close() })
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mockDB}), &gorm.Config{})
+	require.NoError(t, err)
+	return gormDB
+}
+
 func TestUpdateConnectionSettings_setsDefaultCurrency(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-1", DefaultCurrency: "EUR"}
 	var updated *integrationsDomain.Connection
@@ -119,6 +132,81 @@ func TestUpdateConnectionSettings_clearsDefaultWarehouseWhenNilOrEmpty(t *testin
 	require.NoError(t, err)
 	require.Nil(t, result.DefaultWarehouseID)
 	require.Nil(t, updated.DefaultWarehouseID)
+}
+
+func TestUpdateConnectionSettings_setsBolEconomicOperatorIDAndDeliveryCode(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1"}
+	var updated *integrationsDomain.Connection
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	economicOperatorID := "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+	deliveryCode := "1-2d"
+
+	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
+		ID: "conn-1", DefaultCurrency: "USD",
+		BolEconomicOperatorID: &economicOperatorID, BolDeliveryCode: &deliveryCode,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.BolEconomicOperatorID)
+	require.Equal(t, economicOperatorID, *result.BolEconomicOperatorID)
+	require.NotNil(t, result.BolDeliveryCode)
+	require.Equal(t, "1-2d", *result.BolDeliveryCode)
+	require.NotNil(t, updated.BolEconomicOperatorID)
+	require.NotNil(t, updated.BolDeliveryCode)
+}
+
+func TestUpdateConnectionSettings_clearsBolFieldsWhenNilOrEmpty(t *testing.T) {
+	existingOperatorID := "old-id"
+	existingDeliveryCode := "1-2d"
+	conn := &integrationsDomain.Connection{ID: "conn-1", BolEconomicOperatorID: &existingOperatorID, BolDeliveryCode: &existingDeliveryCode}
+	var updated *integrationsDomain.Connection
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo)
+	empty := ""
+
+	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
+		ID: "conn-1", DefaultCurrency: "USD",
+		BolEconomicOperatorID: &empty, BolDeliveryCode: &empty,
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, result.BolEconomicOperatorID)
+	require.Nil(t, result.BolDeliveryCode)
+	require.Nil(t, updated.BolEconomicOperatorID)
+	require.Nil(t, updated.BolDeliveryCode)
+}
+
+func TestUpdateConnectionSettings_rejectsInvalidBolDeliveryCode(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1"}
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn: func(_ context.Context, _ *integrationsDomain.Connection) error {
+			t.Fatal("must not persist an invalid deliveryCode")
+			return nil
+		},
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDBNoTx(t), repo)
+	bogus := "next-week"
+
+	_, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
+		ID: "conn-1", DefaultCurrency: "USD", BolDeliveryCode: &bogus,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, integrationsDomain.ErrInvalidBolDeliveryCode))
 }
 
 func TestUpdateConnectionSettings_propagatesNotFound(t *testing.T) {

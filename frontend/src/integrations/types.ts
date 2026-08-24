@@ -26,6 +26,8 @@ export interface Connection {
   status: 'connected' | 'error'
   default_currency?: string | null
   default_warehouse_id?: string | null
+  bol_economic_operator_id?: string | null
+  bol_delivery_code?: string | null
   created_at: string
 }
 

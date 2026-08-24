@@ -40,14 +40,26 @@ func recordSyncLog(
 	direction channelsDomain.SyncDirectionFlow, status channelsDomain.SyncLogStatus, errMsg string, fields map[string]string,
 ) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		prev, err := syncLogRepo.ListByListing(ctx, listing.ID, 1)
-		if err != nil {
-			return err
-		}
+		// listing.ID is "" when this records a failure that happened before
+		// any ProductChannelListing row ever existed (e.g. the very first
+		// CreateOffer call for a product failing validation) -- there is
+		// nothing to dedupe against yet, and querying/storing "" would hit
+		// the listing_id foreign key (it's a UUID column; "" is neither a
+		// valid UUID nor an existing row).
+		var listingID *string
 		var prevFields map[string]string
-		hasPrev := len(prev) > 0
-		if hasPrev {
-			prevFields = prev[0].Fields
+		hasPrev := false
+		if listing.ID != "" {
+			id := listing.ID
+			listingID = &id
+			prev, err := syncLogRepo.ListByListing(ctx, listing.ID, 1)
+			if err != nil {
+				return err
+			}
+			hasPrev = len(prev) > 0
+			if hasPrev {
+				prevFields = prev[0].Fields
+			}
 		}
 		changes := diffFields(prevFields, fields)
 		if status == channelsDomain.SyncLogStatusSuccess && hasPrev && len(changes) == 0 {
@@ -55,7 +67,7 @@ func recordSyncLog(
 		}
 
 		entry := channelsDomain.SyncLogEntry{
-			TenantID: tenant.IDFromContext(ctx), ListingID: &listing.ID, ProductID: listing.ProductID,
+			TenantID: tenant.IDFromContext(ctx), ListingID: listingID, ProductID: listing.ProductID,
 			ConnectionID: listing.ConnectionID, Provider: listing.Provider, ExternalID: listing.ExternalID,
 			Direction: direction, Status: status, ErrorMessage: errMsg,
 			Fields: fields, Changes: changes, SyncedAt: time.Now(),
@@ -119,6 +131,7 @@ func bolOfferToFields(o integrationsDomain.BolOfferInput) map[string]string {
 		"reference":          o.Reference,
 		"condition_category": o.ConditionCategory,
 		"fulfilment_method":  o.FulfilmentMethod,
+		"delivery_code":      o.DeliveryCode,
 		"price":              strconv.FormatFloat(o.UnitPrice, 'f', 2, 64),
 		"stock_quantity":     strconv.Itoa(o.StockAmount),
 	}

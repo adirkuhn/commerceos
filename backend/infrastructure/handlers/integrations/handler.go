@@ -633,6 +633,7 @@ func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id
 	}
 	conn, err := h.updateConnectionSettings.Execute(c.Request.Context(), appintegrations.UpdateConnectionSettingsInput{
 		ID: id, DefaultCurrency: req.DefaultCurrency, DefaultWarehouseID: req.DefaultWarehouseId,
+		BolEconomicOperatorID: req.BolEconomicOperatorId, BolDeliveryCode: req.BolDeliveryCode,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1168,9 +1169,11 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 		Provider:           string(c.Provider),
 		StoreUrl:           c.StoreURL.String(),
 		Status:             genintegrations.ConnectionStatus(c.Status),
-		DefaultCurrency:    &currency,
-		DefaultWarehouseId: c.DefaultWarehouseID,
-		CreatedAt:          c.CreatedAt,
+		DefaultCurrency:       &currency,
+		DefaultWarehouseId:    c.DefaultWarehouseID,
+		BolEconomicOperatorId: c.BolEconomicOperatorID,
+		BolDeliveryCode:       c.BolDeliveryCode,
+		CreatedAt:             c.CreatedAt,
 	}
 }
 
@@ -1316,7 +1319,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported),
 		errors.Is(err, integrationsDomain.ErrAPIKeyRequired),
-		errors.Is(err, integrationsDomain.ErrBaseURLRequired):
+		errors.Is(err, integrationsDomain.ErrBaseURLRequired),
+		errors.Is(err, integrationsDomain.ErrInvalidBolDeliveryCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, channelsDomain.ErrCannotPushVariableProduct),
 		errors.Is(err, channelsDomain.ErrInvalidSyncEntityType),
