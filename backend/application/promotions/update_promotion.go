@@ -57,7 +57,7 @@ func (uc *UpdatePromotionUseCase) Execute(ctx context.Context, in UpdatePromotio
 		if err != nil {
 			return err
 		}
-		if err := validateLines(ctx, uc.skuChecker, in.Lines); err != nil {
+		if _, err := validateLines(ctx, uc.skuChecker, in.Lines); err != nil {
 			return err
 		}
 

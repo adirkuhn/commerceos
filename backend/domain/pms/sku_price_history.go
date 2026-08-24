@@ -15,6 +15,13 @@ const (
 	// PriceChangeReasonSaleExpired is the scheduler clearing a sale whose
 	// SaleEndDate has passed, via ExpireSKUSalePriceUseCase.
 	PriceChangeReasonSaleExpired PriceChangeReason = "sale_expired"
+	// PriceChangeReasonPromotionApplied is a promotions.Promotion entering
+	// its active window, via SetPromotionSalePriceUseCase.Apply.
+	PriceChangeReasonPromotionApplied PriceChangeReason = "promotion_applied"
+	// PriceChangeReasonPromotionEnded is a promotions.Promotion leaving its
+	// active window, restoring whatever sale price existed before it took
+	// over, via SetPromotionSalePriceUseCase.Revert.
+	PriceChangeReasonPromotionEnded PriceChangeReason = "promotion_ended"
 )
 
 // SKUPriceHistory is one effective-dated interval of a SKU's regular and

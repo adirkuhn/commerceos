@@ -37,7 +37,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PromotionResponse'
+                $ref: '#/components/schemas/CreatePromotionResponse'
         '404':
           $ref: '#/components/responses/Error'
         '422':
@@ -196,6 +196,25 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/PromotionDetail' }
+        error: { nullable: true }
+
+    CreatePromotionResult:
+      type: object
+      required: [promotion, warnings]
+      properties:
+        promotion: { $ref: '#/components/schemas/PromotionDetail' }
+        warnings:
+          type: array
+          items: { type: string }
+          description: >-
+            Non-blocking warnings, e.g. a targeted SKU already had a manual
+            sale price -- this promotion overrides it while active, but
+            creation is not blocked.
+
+    CreatePromotionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CreatePromotionResult' }
         error: { nullable: true }
 
     PromotionListResponse:

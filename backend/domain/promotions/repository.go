@@ -1,6 +1,9 @@
 package promotions
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type PromotionRepository interface {
 	Create(ctx context.Context, p *Promotion) error
@@ -21,4 +24,20 @@ type PromotionSKURepository interface {
 	// UpdatePromotionUseCase to replace a promotion's whole line set
 	// wholesale rather than diffing individual lines.
 	DeleteByPromotion(ctx context.Context, promotionID string) error
+	// ListDueForActivation returns every not-yet-applied line whose parent
+	// promotion is active and currently within its time window
+	// (starts_at <= at < ends_at, or ends_at NULL) -- cross-tenant, for
+	// application/scheduler.RunPromotionActivationUseCase's periodic sweep.
+	ListDueForActivation(ctx context.Context, at time.Time) ([]PromotionSKU, error)
+	// ListDueForReversal returns every currently-applied line whose parent
+	// promotion has left its active window (ended, drafted back, or past
+	// ends_at) -- cross-tenant, same sweep as ListDueForActivation.
+	ListDueForReversal(ctx context.Context, at time.Time) ([]PromotionSKU, error)
+	// MarkApplied records that lineID's discount is now live on its SKU,
+	// snapshotting the SKU's pre-promotion sale price fields for later
+	// reversal.
+	MarkApplied(ctx context.Context, lineID string, previousSalePriceMinorUnits *int64, previousSaleEndDate *time.Time) error
+	// MarkReverted clears lineID's Applied flag and snapshot fields once
+	// its SKU has been restored.
+	MarkReverted(ctx context.Context, lineID string) error
 }

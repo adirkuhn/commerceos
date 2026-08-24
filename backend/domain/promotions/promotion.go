@@ -31,9 +31,11 @@ const (
 // Promotion is a named, time-boxed discount campaign -- tracked separately
 // from pms.SKU's own PriceMinorUnits/SalePriceMinorUnits (see the Phase 0
 // roadmap's distinction between "what a SKU costs" and "why/how it's
-// discounted"). This slice only defines and manages promotions; nothing
-// here yet mutates a SKU's effective price -- that's a separate, later
-// decision (scheduler-driven activation vs. computed at checkout).
+// discounted"). A scheduled job (application/scheduler.RunPromotionActivationUseCase)
+// drives each covered SKU's SalePriceMinorUnits while the promotion is in
+// its active window, reusing the same field/mechanism a manually-set sale
+// price uses -- see PromotionSKU's Applied/Previous* fields for how that's
+// tracked and reversed.
 type Promotion struct {
 	ID       string
 	TenantID string
@@ -58,5 +60,19 @@ type PromotionSKU struct {
 	SKUID         string
 	DiscountType  PromotionType
 	DiscountValue int64
-	CreatedAt     time.Time
+	// Applied is true while this line's discount is currently live on the
+	// SKU's SalePriceMinorUnits -- set by ApplyPromotionSKUUseCase, cleared
+	// by RevertPromotionSKUUseCase once the parent promotion leaves its
+	// active window. A promotion always wins over a pre-existing manual
+	// sale price while active (see CreatePromotionUseCase's warning on
+	// create, which is the only place a conflict is surfaced -- there's no
+	// runtime precedence check here).
+	Applied bool
+	// PreviousSalePriceMinorUnits/PreviousSaleEndDate snapshot the SKU's
+	// sale price fields at the moment this line was applied, nil if it had
+	// none -- restored verbatim by RevertPromotionSKUUseCase so ending a
+	// promotion never fabricates or loses an unrelated manual sale.
+	PreviousSalePriceMinorUnits *int64
+	PreviousSaleEndDate         *time.Time
+	CreatedAt                   time.Time
 }

@@ -3,6 +3,7 @@ package promotions_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,14 @@ import (
 // real SQL itself (that's the stub repos' job), so only the transaction
 // envelope needs to be mocked.
 func newMockGormDB(t *testing.T) *gorm.DB {
+	return newMockGormDBN(t, 1)
+}
+
+// newMockGormDBN is newMockGormDB generalized to n separate
+// tenant.WithTenant calls against the same db -- needed by use cases that
+// call it more than once per Execute (e.g. ApplyPromotionSKUUseCase's own
+// SKU lookup plus its later MarkApplied write).
+func newMockGormDBN(t *testing.T, n int) *gorm.DB {
 	t.Helper()
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -28,9 +37,11 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	mock.MatchExpectationsInOrder(false)
-	mock.ExpectBegin()
-	mock.ExpectExec(`SELECT set_config`).WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectCommit()
+	for i := 0; i < n; i++ {
+		mock.ExpectBegin()
+		mock.ExpectExec(`SELECT set_config`).WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectCommit()
+	}
 
 	return gormDB
 }
@@ -95,6 +106,15 @@ type stubPromotionSKURepo struct {
 
 	deletedByPromotion []string
 	deleteErr          error
+
+	dueForActivation    []promotionsDomain.PromotionSKU
+	dueForActivationErr error
+	dueForReversal      []promotionsDomain.PromotionSKU
+	dueForReversalErr   error
+	markedApplied       []markAppliedCall
+	markAppliedErr      error
+	markedReverted      []string
+	markRevertedErr     error
 }
 
 func (s *stubPromotionSKURepo) Create(_ context.Context, line *promotionsDomain.PromotionSKU) error {
@@ -116,6 +136,32 @@ func (s *stubPromotionSKURepo) DeleteByPromotion(_ context.Context, promotionID 
 	}
 	s.deletedByPromotion = append(s.deletedByPromotion, promotionID)
 	return nil
+}
+func (s *stubPromotionSKURepo) ListDueForActivation(_ context.Context, _ time.Time) ([]promotionsDomain.PromotionSKU, error) {
+	return s.dueForActivation, s.dueForActivationErr
+}
+func (s *stubPromotionSKURepo) ListDueForReversal(_ context.Context, _ time.Time) ([]promotionsDomain.PromotionSKU, error) {
+	return s.dueForReversal, s.dueForReversalErr
+}
+func (s *stubPromotionSKURepo) MarkApplied(_ context.Context, lineID string, previousSalePriceMinorUnits *int64, previousSaleEndDate *time.Time) error {
+	if s.markAppliedErr != nil {
+		return s.markAppliedErr
+	}
+	s.markedApplied = append(s.markedApplied, markAppliedCall{lineID, previousSalePriceMinorUnits, previousSaleEndDate})
+	return nil
+}
+func (s *stubPromotionSKURepo) MarkReverted(_ context.Context, lineID string) error {
+	if s.markRevertedErr != nil {
+		return s.markRevertedErr
+	}
+	s.markedReverted = append(s.markedReverted, lineID)
+	return nil
+}
+
+type markAppliedCall struct {
+	lineID                      string
+	previousSalePriceMinorUnits *int64
+	previousSaleEndDate         *time.Time
 }
 
 type stubSKUExistenceChecker struct {

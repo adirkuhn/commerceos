@@ -18,7 +18,7 @@ import (
 )
 
 type createPromotionUC interface {
-	Execute(ctx context.Context, in apppromotions.CreatePromotionInput) (*promotionsDomain.Promotion, error)
+	Execute(ctx context.Context, in apppromotions.CreatePromotionInput) (*apppromotions.CreatePromotionResult, error)
 }
 type updatePromotionUC interface {
 	Execute(ctx context.Context, in apppromotions.UpdatePromotionInput) (*promotionsDomain.Promotion, error)
@@ -84,7 +84,7 @@ func (h *Handler) CreatePromotion(c *gin.Context) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return
 	}
-	promo, err := h.createPromotion.Execute(c.Request.Context(), apppromotions.CreatePromotionInput{
+	result, err := h.createPromotion.Execute(c.Request.Context(), apppromotions.CreatePromotionInput{
 		Name: req.Name, Type: promotionsDomain.PromotionType(req.Type), StartsAt: req.StartsAt,
 		EndsAt: req.EndsAt, Status: promotionsDomain.PromotionStatus(genStatusOr(req.Status)),
 		Lines: toLineInputs(req.Lines),
@@ -92,10 +92,18 @@ func (h *Handler) CreatePromotion(c *gin.Context) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, genpromotions.PromotionDetail{
-		Id: promo.ID, Name: promo.Name, Type: genpromotions.PromotionType(promo.Type),
-		StartsAt: promo.StartsAt, EndsAt: promo.EndsAt, Status: genpromotions.PromotionStatus(promo.Status),
-		CreatedAt: promo.CreatedAt, UpdatedAt: promo.UpdatedAt,
+	promo := result.Promotion
+	warnings := result.Warnings
+	if warnings == nil {
+		warnings = []string{}
+	}
+	middleware.OK(c, genpromotions.CreatePromotionResult{
+		Warnings: warnings,
+		Promotion: genpromotions.PromotionDetail{
+			Id: promo.ID, Name: promo.Name, Type: genpromotions.PromotionType(promo.Type),
+			StartsAt: promo.StartsAt, EndsAt: promo.EndsAt, Status: genpromotions.PromotionStatus(promo.Status),
+			CreatedAt: promo.CreatedAt, UpdatedAt: promo.UpdatedAt,
+		},
 	})
 }
 

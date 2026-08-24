@@ -2,6 +2,7 @@ package promotions
 
 import (
 	"context"
+	"fmt"
 
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	promotionsDomain "github.com/adirkuhn/commerceos/domain/promotions"
@@ -63,26 +64,37 @@ func validateDiscountValue(discountType promotionsDomain.PromotionType, value in
 
 // validateLines is the shared invariant for Create/UpdatePromotion: at
 // least one line, no duplicate SKU, and each line's own type/value/SKU
-// existence checked individually.
-func validateLines(ctx context.Context, skuChecker skuExistenceChecker, lines []PromotionLineInput) error {
+// existence checked individually. Also collects a warning (not a rejection)
+// for any line whose SKU already carries a manual sale price -- a
+// promotion always wins over it once applied (see
+// domain/promotions.PromotionSKU's doc), so this is the one place that
+// conflict is ever surfaced to the person creating the promotion.
+// UpdatePromotionUseCase calls this too but currently discards the
+// warnings -- only creation surfaces them.
+func validateLines(ctx context.Context, skuChecker skuExistenceChecker, lines []PromotionLineInput) ([]string, error) {
 	if len(lines) == 0 {
-		return promotionsDomain.ErrPromotionRequiresAtLeastOneSKU
+		return nil, promotionsDomain.ErrPromotionRequiresAtLeastOneSKU
 	}
+	var warnings []string
 	seen := make(map[string]bool, len(lines))
 	for _, line := range lines {
 		if seen[line.SKUID] {
-			return promotionsDomain.ErrDuplicatePromotionSKU
+			return nil, promotionsDomain.ErrDuplicatePromotionSKU
 		}
 		seen[line.SKUID] = true
 		if err := validatePromotionType(line.DiscountType); err != nil {
-			return err
+			return nil, err
 		}
 		if err := validateDiscountValue(line.DiscountType, line.DiscountValue); err != nil {
-			return err
+			return nil, err
 		}
-		if _, err := skuChecker.FindByID(ctx, line.SKUID); err != nil {
-			return err
+		sku, err := skuChecker.FindByID(ctx, line.SKUID)
+		if err != nil {
+			return nil, err
+		}
+		if sku.SalePriceMinorUnits != nil {
+			warnings = append(warnings, fmt.Sprintf("SKU %s already has a manual sale price -- this promotion will override it while active", sku.SKUCode))
 		}
 	}
-	return nil
+	return warnings, nil
 }

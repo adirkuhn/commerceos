@@ -21,6 +21,13 @@ type CreatePromotionInput struct {
 	Lines  []PromotionLineInput
 }
 
+// CreatePromotionResult is the created Promotion plus any non-blocking
+// warnings surfaced during validation -- see validateLines' doc.
+type CreatePromotionResult struct {
+	Promotion promotionsDomain.Promotion
+	Warnings  []string
+}
+
 type CreatePromotionUseCase struct {
 	db         *gorm.DB
 	promoRepo  promotionsDomain.PromotionRepository
@@ -32,7 +39,7 @@ func NewCreatePromotionUseCase(db *gorm.DB, promoRepo promotionsDomain.Promotion
 	return &CreatePromotionUseCase{db: db, promoRepo: promoRepo, lineRepo: lineRepo, skuChecker: skuChecker}
 }
 
-func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotionInput) (*promotionsDomain.Promotion, error) {
+func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotionInput) (*CreatePromotionResult, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return nil, fmt.Errorf("createPromotion: %w", promotionsDomain.ErrPromotionNameRequired)
@@ -51,8 +58,11 @@ func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotio
 	}
 
 	var promo promotionsDomain.Promotion
+	var warnings []string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if err := validateLines(ctx, uc.skuChecker, in.Lines); err != nil {
+		var err error
+		warnings, err = validateLines(ctx, uc.skuChecker, in.Lines)
+		if err != nil {
 			return err
 		}
 
@@ -80,5 +90,5 @@ func (uc *CreatePromotionUseCase) Execute(ctx context.Context, in CreatePromotio
 	if err != nil {
 		return nil, fmt.Errorf("createPromotion: %w", err)
 	}
-	return &promo, nil
+	return &CreatePromotionResult{Promotion: promo, Warnings: warnings}, nil
 }

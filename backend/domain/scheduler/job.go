@@ -23,6 +23,7 @@ const (
 	JobExpiredBatches              = "expired_batches"
 	JobCostPriceRecalculation      = "cost_price_recalculation"
 	JobResyncAllProductsToChannels = "resync_all_products_to_channels"
+	JobPromotionActivation         = "promotion_activation"
 )
 
 type Job struct {

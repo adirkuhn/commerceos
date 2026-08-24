@@ -22,12 +22,12 @@ import (
 func init() { gin.SetMode(gin.TestMode) }
 
 type stubCreatePromotion struct {
-	out      *promotionsDomain.Promotion
+	out      *apppromotions.CreatePromotionResult
 	err      error
 	gotInput apppromotions.CreatePromotionInput
 }
 
-func (s *stubCreatePromotion) Execute(_ context.Context, in apppromotions.CreatePromotionInput) (*promotionsDomain.Promotion, error) {
+func (s *stubCreatePromotion) Execute(_ context.Context, in apppromotions.CreatePromotionInput) (*apppromotions.CreatePromotionResult, error) {
 	s.gotInput = in
 	if s.err != nil {
 		return nil, s.err
@@ -35,7 +35,9 @@ func (s *stubCreatePromotion) Execute(_ context.Context, in apppromotions.Create
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &promotionsDomain.Promotion{ID: "promo-1", Name: in.Name, Type: in.Type, StartsAt: in.StartsAt, Status: in.Status}, nil
+	return &apppromotions.CreatePromotionResult{
+		Promotion: promotionsDomain.Promotion{ID: "promo-1", Name: in.Name, Type: in.Type, StartsAt: in.StartsAt, Status: in.Status},
+	}, nil
 }
 
 type stubUpdatePromotion struct {
@@ -129,6 +131,21 @@ func TestCreatePromotionHandler_success(t *testing.T) {
 	assert.Equal(t, "Summer Acai", create.gotInput.Name)
 	assert.Len(t, create.gotInput.Lines, 1)
 	assert.Contains(t, w.Body.String(), "Summer Acai")
+}
+
+func TestCreatePromotionHandler_surfacesWarnings(t *testing.T) {
+	create := &stubCreatePromotion{out: &apppromotions.CreatePromotionResult{
+		Promotion: promotionsDomain.Promotion{ID: "promo-1", Name: "Summer Acai"},
+		Warnings:  []string{"SKU ACAI-1L already has a manual sale price -- this promotion will override it while active"},
+	}}
+	h := newTestHandler(create, &stubUpdatePromotion{}, &stubDeletePromotion{}, &stubGetPromotion{}, &stubListPromotions{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/promotions", map[string]any{
+		"name": "Summer Acai", "type": "percentage", "starts_at": time.Now().Format(time.RFC3339),
+		"lines": []map[string]any{{"sku_id": "sku-1", "discount_type": "percentage", "discount_value": 1000}},
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "already has a manual sale price")
 }
 
 func TestCreatePromotionHandler_validationError(t *testing.T) {

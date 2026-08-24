@@ -27,13 +27,16 @@ type promotionModel struct {
 func (promotionModel) TableName() string { return "promotions" }
 
 type promotionSKUModel struct {
-	ID            string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID      string `gorm:"not null;type:uuid"`
-	PromotionID   string `gorm:"column:promotion_id;not null;type:uuid"`
-	SKUID         string `gorm:"column:sku_id;not null;type:uuid"`
-	DiscountType  string `gorm:"not null"`
-	DiscountValue int64  `gorm:"not null"`
-	CreatedAt     time.Time
+	ID                          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                    string `gorm:"not null;type:uuid"`
+	PromotionID                 string `gorm:"column:promotion_id;not null;type:uuid"`
+	SKUID                       string `gorm:"column:sku_id;not null;type:uuid"`
+	DiscountType                string `gorm:"not null"`
+	DiscountValue               int64  `gorm:"not null"`
+	Applied                     bool   `gorm:"not null;default:false"`
+	PreviousSalePriceMinorUnits *int64
+	PreviousSaleEndDate         *time.Time
+	CreatedAt                   time.Time
 }
 
 func (promotionSKUModel) TableName() string { return "promotion_skus" }
@@ -152,6 +155,15 @@ func (r *PromotionSKURepo) tx(ctx context.Context) (*gorm.DB, error) {
 	return tx.WithContext(ctx), nil
 }
 
+func toPromotionSKUDomain(row promotionSKUModel) promotionsDomain.PromotionSKU {
+	return promotionsDomain.PromotionSKU{
+		ID: row.ID, TenantID: row.TenantID, PromotionID: row.PromotionID, SKUID: row.SKUID,
+		DiscountType: promotionsDomain.PromotionType(row.DiscountType), DiscountValue: row.DiscountValue,
+		Applied: row.Applied, PreviousSalePriceMinorUnits: row.PreviousSalePriceMinorUnits, PreviousSaleEndDate: row.PreviousSaleEndDate,
+		CreatedAt: row.CreatedAt,
+	}
+}
+
 func (r *PromotionSKURepo) Create(ctx context.Context, line *promotionsDomain.PromotionSKU) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -179,11 +191,7 @@ func (r *PromotionSKURepo) ListByPromotion(ctx context.Context, promotionID stri
 	}
 	lines := make([]promotionsDomain.PromotionSKU, len(rows))
 	for i, row := range rows {
-		lines[i] = promotionsDomain.PromotionSKU{
-			ID: row.ID, TenantID: row.TenantID, PromotionID: row.PromotionID, SKUID: row.SKUID,
-			DiscountType: promotionsDomain.PromotionType(row.DiscountType), DiscountValue: row.DiscountValue,
-			CreatedAt: row.CreatedAt,
-		}
+		lines[i] = toPromotionSKUDomain(row)
 	}
 	return lines, nil
 }
@@ -195,6 +203,81 @@ func (r *PromotionSKURepo) DeleteByPromotion(ctx context.Context, promotionID st
 	}
 	if err := tx.Where("promotion_id = ?", promotionID).Delete(&promotionSKUModel{}).Error; err != nil {
 		return fmt.Errorf("promotionSKURepo.DeleteByPromotion: %w", err)
+	}
+	return nil
+}
+
+// promotionActiveWindowSQL is shared by ListDueForActivation/ListDueForReversal:
+// a promotion is in its active window at `at` when it's status='active' and
+// at falls within [starts_at, ends_at) (ends_at NULL means open-ended).
+const promotionActiveWindowSQL = `p.status = 'active' AND p.starts_at <= ? AND (p.ends_at IS NULL OR p.ends_at > ?)`
+
+func (r *PromotionSKURepo) ListDueForActivation(ctx context.Context, at time.Time) ([]promotionsDomain.PromotionSKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []promotionSKUModel
+	err = tx.Raw(`
+		SELECT ps.* FROM promotion_skus ps
+		JOIN promotions p ON p.id = ps.promotion_id
+		WHERE ps.applied = false AND `+promotionActiveWindowSQL,
+		at, at).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("promotionSKURepo.ListDueForActivation: %w", err)
+	}
+	lines := make([]promotionsDomain.PromotionSKU, len(rows))
+	for i, row := range rows {
+		lines[i] = toPromotionSKUDomain(row)
+	}
+	return lines, nil
+}
+
+func (r *PromotionSKURepo) ListDueForReversal(ctx context.Context, at time.Time) ([]promotionsDomain.PromotionSKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []promotionSKUModel
+	err = tx.Raw(`
+		SELECT ps.* FROM promotion_skus ps
+		JOIN promotions p ON p.id = ps.promotion_id
+		WHERE ps.applied = true AND NOT (`+promotionActiveWindowSQL+`)`,
+		at, at).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("promotionSKURepo.ListDueForReversal: %w", err)
+	}
+	lines := make([]promotionsDomain.PromotionSKU, len(rows))
+	for i, row := range rows {
+		lines[i] = toPromotionSKUDomain(row)
+	}
+	return lines, nil
+}
+
+func (r *PromotionSKURepo) MarkApplied(ctx context.Context, lineID string, previousSalePriceMinorUnits *int64, previousSaleEndDate *time.Time) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Model(&promotionSKUModel{}).Where("id = ?", lineID).Updates(map[string]any{
+		"applied": true, "previous_sale_price_minor_units": previousSalePriceMinorUnits, "previous_sale_end_date": previousSaleEndDate,
+	}).Error
+	if err != nil {
+		return fmt.Errorf("promotionSKURepo.MarkApplied: %w", err)
+	}
+	return nil
+}
+
+func (r *PromotionSKURepo) MarkReverted(ctx context.Context, lineID string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Model(&promotionSKUModel{}).Where("id = ?", lineID).Updates(map[string]any{
+		"applied": false, "previous_sale_price_minor_units": nil, "previous_sale_end_date": nil,
+	}).Error
+	if err != nil {
+		return fmt.Errorf("promotionSKURepo.MarkReverted: %w", err)
 	}
 	return nil
 }
