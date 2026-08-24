@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	genreports "github.com/adirkuhn/commerceos/api/reports"
+	appinsights "github.com/adirkuhn/commerceos/application/insights"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -42,6 +43,9 @@ type getProfitabilityReportUC interface {
 type getInventorySalesReportUC interface {
 	Execute(ctx context.Context, from, to time.Time) (*appreports.InventorySalesReport, error)
 }
+type getBusinessInsightsUC interface {
+	Execute(ctx context.Context, from, to time.Time) (*appinsights.BusinessInsightsReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport        getSalesSummaryReportUC
@@ -52,6 +56,7 @@ type Handler struct {
 	getSlowMovingProductsReport  getSlowMovingProductsReportUC
 	getProfitabilityReport       getProfitabilityReportUC
 	getInventorySalesReport      getInventorySalesReportUC
+	getBusinessInsights          getBusinessInsightsUC
 }
 
 func NewHandler(
@@ -63,12 +68,14 @@ func NewHandler(
 	getSlowMovingProductsReport getSlowMovingProductsReportUC,
 	getProfitabilityReport getProfitabilityReportUC,
 	getInventorySalesReport getInventorySalesReportUC,
+	getBusinessInsights getBusinessInsightsUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
 		getProductPerformanceMatrix: getProductPerformanceMatrix, getCustomerPerformanceReport: getCustomerPerformanceReport,
 		getCategoryPerformanceReport: getCategoryPerformanceReport, getSlowMovingProductsReport: getSlowMovingProductsReport,
 		getProfitabilityReport: getProfitabilityReport, getInventorySalesReport: getInventorySalesReport,
+		getBusinessInsights: getBusinessInsights,
 	}
 }
 
@@ -84,15 +91,21 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	batchRepo := repositories.NewBatchRepo(db)
 	productPerformanceUC := appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo, skuRepo)
 	stockLevelsUC := invapp.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo)
+	salesSummaryUC := appreports.NewGetSalesSummaryReportUseCase(db, salesRepo, settingsRepo)
+	productPerformanceMatrixUC := appreports.NewGetProductPerformanceMatrixUseCase(productPerformanceUC)
+	slowMovingProductsUC := appreports.NewGetSlowMovingProductsReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo)
+	profitabilityUC := appreports.NewGetProfitabilityReportUseCase(db, salesRepo, settingsRepo)
+	inventorySalesUC := appreports.NewGetInventorySalesReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo)
 	h := NewHandler(
-		appreports.NewGetSalesSummaryReportUseCase(db, salesRepo, settingsRepo),
+		salesSummaryUC,
 		productPerformanceUC,
-		appreports.NewGetProductPerformanceMatrixUseCase(productPerformanceUC),
+		productPerformanceMatrixUC,
 		appreports.NewGetCustomerPerformanceReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetCategoryPerformanceReportUseCase(db, salesRepo, settingsRepo),
-		appreports.NewGetSlowMovingProductsReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
-		appreports.NewGetProfitabilityReportUseCase(db, salesRepo, settingsRepo),
-		appreports.NewGetInventorySalesReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
+		slowMovingProductsUC,
+		profitabilityUC,
+		inventorySalesUC,
+		appinsights.NewGetBusinessInsightsUseCase(salesSummaryUC, profitabilityUC, productPerformanceMatrixUC, slowMovingProductsUC, inventorySalesUC),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -222,6 +235,20 @@ func (h *Handler) GetInventorySalesReport(c *gin.Context, params genreports.GetI
 		}
 	}
 	middleware.OK(c, genreports.InventorySalesReport{Rows: rows})
+}
+
+func (h *Handler) GetBusinessInsights(c *gin.Context, params genreports.GetBusinessInsightsParams) {
+	report, err := h.getBusinessInsights.Execute(c.Request.Context(), params.From, params.To)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	insights := make([]genreports.Insight, len(report.Insights))
+	for i, insight := range report.Insights {
+		insights[i] = genreports.Insight{
+			Code: insight.Code, Message: insight.Message, Severity: genreports.InsightSeverity(insight.Severity),
+		}
+	}
+	middleware.OK(c, genreports.BusinessInsightsReport{Insights: insights})
 }
 
 func toGenProductPerformanceRow(row appreports.ProductPerformanceRow) genreports.ProductPerformanceRow {

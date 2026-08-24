@@ -208,6 +208,34 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/business-insights:
+    get:
+      operationId: getBusinessInsights
+      summary: Rule-based flags derived from the other reports for [from, to)
+      description: >-
+        Distinct from the fixed "this month" dashboard snapshot -- this
+        evaluates a small fixed set of rules (revenue decline, slow-moving
+        stock, incomplete cost data, hidden-gem/problem products, restock
+        risk) over the other Phase 0 reports for the given period.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessInsightsReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -476,6 +504,34 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/InventorySalesReport' }
+        error: { nullable: true }
+
+    InsightSeverity:
+      type: string
+      enum: [info, warning]
+
+    Insight:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable id for the rule that fired, e.g. "revenue_declining".
+        severity: { $ref: '#/components/schemas/InsightSeverity' }
+        message: { type: string }
+
+    BusinessInsightsReport:
+      type: object
+      required: [insights]
+      properties:
+        insights:
+          type: array
+          items: { $ref: '#/components/schemas/Insight' }
+
+    BusinessInsightsReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BusinessInsightsReport' }
         error: { nullable: true }
 
     ErrorResponse:
