@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Promotion, PromotionDetail, PromotionInput } from '../types'
+import type { Promotion, PromotionDetail, PromotionInput, CreatePromotionResult } from '../types'
 import * as api from '../api'
 
 interface UsePromotionsState {
@@ -10,7 +10,7 @@ interface UsePromotionsState {
 
 interface UsePromotionsActions {
   refresh: () => void
-  create: (input: PromotionInput) => Promise<PromotionDetail>
+  create: (input: PromotionInput) => Promise<CreatePromotionResult>
   update: (id: string, input: PromotionInput) => Promise<PromotionDetail>
   remove: (id: string) => Promise<void>
 }
@@ -36,10 +36,10 @@ export function usePromotions(token: string): UsePromotionsState & UsePromotions
 
   useEffect(() => { load() }, [load])
 
-  const create = useCallback(async (input: PromotionInput): Promise<PromotionDetail> => {
-    const promotion = await api.createPromotion(token, input)
-    setPromotions(prev => [...prev, promotion])
-    return promotion
+  const create = useCallback(async (input: PromotionInput): Promise<CreatePromotionResult> => {
+    const result = await api.createPromotion(token, input)
+    setPromotions(prev => [...prev, result.promotion])
+    return result
   }, [token])
 
   const update = useCallback(async (id: string, input: PromotionInput): Promise<PromotionDetail> => {

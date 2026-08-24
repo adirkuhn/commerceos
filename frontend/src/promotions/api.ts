@@ -1,4 +1,4 @@
-import type { Promotion, PromotionDetail, PromotionInput, APIResponse } from './types'
+import type { Promotion, PromotionDetail, PromotionInput, CreatePromotionResult, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/promotions`
@@ -32,8 +32,8 @@ export function getPromotion(token: string, id: string): Promise<PromotionDetail
   return request<PromotionDetail>(`${base()}/${id}`, { method: 'GET' }, token)
 }
 
-export function createPromotion(token: string, input: PromotionInput): Promise<PromotionDetail> {
-  return request<PromotionDetail>(`${base()}`, { method: 'POST', body: JSON.stringify(input) }, token)
+export function createPromotion(token: string, input: PromotionInput): Promise<CreatePromotionResult> {
+  return request<CreatePromotionResult>(`${base()}`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 export function updatePromotion(token: string, id: string, input: PromotionInput): Promise<PromotionDetail> {

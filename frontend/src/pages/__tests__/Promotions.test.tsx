@@ -127,7 +127,7 @@ describe('Promotion edit page', () => {
       units_per_scan: 1,
       product_name: 'Acai 1L',
     })
-    vi.mocked(promotionsApi.createPromotion).mockResolvedValue(promotionDetail({ id: 'promo-2', name: 'Winter Sale' }))
+    vi.mocked(promotionsApi.createPromotion).mockResolvedValue({ promotion: promotionDetail({ id: 'promo-2', name: 'Winter Sale' }), warnings: [] })
 
     render(<Promotions />)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
@@ -145,6 +145,32 @@ describe('Promotion edit page', () => {
       lines: [{ sku_id: 'sku-1', discount_type: 'percentage', discount_value: 1000 }],
     })))
     expect(await screen.findByText('Winter Sale')).toBeInTheDocument()
+  })
+
+  it('alerts with any warnings returned after creating a promotion', async () => {
+    vi.mocked(pmsApi.resolveBarcode).mockResolvedValue({
+      sku: { id: 'sku-1', sku_code: 'ACAI-1L' } as never,
+      units_per_scan: 1,
+      product_name: 'Acai 1L',
+    })
+    vi.mocked(promotionsApi.createPromotion).mockResolvedValue({
+      promotion: promotionDetail({ id: 'promo-2', name: 'Winter Sale' }),
+      warnings: ['SKU ACAI-1L already has a manual sale price -- this promotion will override it while active'],
+    })
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+
+    render(<Promotions />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Promotion' }))
+    await userEvent.type(screen.getByLabelText('Name'), 'Winter Sale')
+    await userEvent.type(screen.getByLabelText('Starts at'), '2026-07-01T00:00')
+    await userEvent.type(screen.getByPlaceholderText('SKU code'), 'ACAI-1L')
+    await userEvent.click(screen.getByRole('button', { name: 'Add SKU' }))
+    await screen.findByText('Acai 1L')
+    await userEvent.type(screen.getByLabelText('Discount value'), '1000')
+    await userEvent.click(screen.getByRole('button', { name: 'Create Promotion' }))
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('already has a manual sale price')))
+    alertSpy.mockRestore()
   })
 
   it('rejects creating a promotion with no SKU lines', async () => {

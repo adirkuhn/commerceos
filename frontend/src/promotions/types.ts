@@ -33,6 +33,14 @@ export interface PromotionDetail extends Promotion {
   lines?: PromotionLine[]
 }
 
+export interface CreatePromotionResult {
+  promotion: PromotionDetail
+  // Non-blocking warnings, e.g. a targeted SKU already had a manual sale
+  // price -- this promotion overrides it while active, but creation is
+  // not blocked.
+  warnings: string[]
+}
+
 export interface PromotionInput {
   name: string
   type: PromotionType

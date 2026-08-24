@@ -6,7 +6,7 @@ import Pagination from '../components/common/Pagination'
 import { usePromotions } from '../promotions/hooks/usePromotions'
 import { getPromotion } from '../promotions/api'
 import { resolveBarcode } from '../pms/api'
-import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, PromotionType } from '../promotions/types'
+import type { Promotion, PromotionInput, PromotionLine, PromotionStatus, PromotionType, CreatePromotionResult } from '../promotions/types'
 
 const PAGE_SIZE = 20
 
@@ -161,7 +161,7 @@ interface DraftLine extends PromotionLine {
 interface PromotionEditPageProps {
   token: string
   promotionId: string | null
-  onCreate: (input: PromotionInput) => Promise<Promotion>
+  onCreate: (input: PromotionInput) => Promise<CreatePromotionResult>
   onUpdate: (id: string, input: PromotionInput) => Promise<Promotion>
   onClose: () => void
 }
@@ -244,7 +244,10 @@ function PromotionEditPage({ token, promotionId, onCreate, onUpdate, onClose }: 
       if (promotionId) {
         await onUpdate(promotionId, input)
       } else {
-        await onCreate(input)
+        const result = await onCreate(input)
+        if (result.warnings.length > 0) {
+          window.alert(result.warnings.join('\n'))
+        }
       }
       onClose()
     } catch (err) {
