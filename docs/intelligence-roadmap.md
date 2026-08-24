@@ -26,7 +26,7 @@ column as slices land — each slice is its own commit.
 | Product Performance | **Done** — `342d13c`, margin added in `fa5049b` | `GET /reports/product-performance`: per-SKU units sold, revenue, distinct order count, first/last sale date, profit, margin, ranked by revenue, for an arbitrary range. Profit/margin nil together when there's no cost basis (adhoc line item, SKU since deleted, or cost price never computed). |
 | Product Performance Matrix (sales × margin quadrants) | **Done** — `cdb3647`, frontend `a011215` | `GET /reports/product-performance-matrix`: pure composition over the Product Performance report, no new query. Classifies each SKU with a known margin into winners/stars/hidden_gems/problems, split around the tenant's own median revenue/margin for the period (not a fixed threshold). |
 | Slow-Moving Products | **Done** — `8d5ef77`, frontend `f3bb632` | `GET /reports/slow-moving-products`: every SKU with stock on hand and zero units sold in [from, to). Pure composition (no new query) over `ListStockLevelsUseCase` (inventory) + the Product Performance report, capped to the first 500 stocked SKUs (`ListStockLevelsUseCase`'s own page-size ceiling) -- v1 limitation for very large catalogs. |
-| Product Lifecycle | Not started | |
+| Product Lifecycle | **Done** — `d9942d4`, frontend `fd73b8c` | `GET /reports/product-lifecycle`: classifies every SKU sold in the current or immediately preceding period (new/growing/stable/declining/dormant) by comparing quantity sold across the two. Pure composition over Product Performance, called twice -- no new query. |
 | Category Analysis | **Done** — `7394a4c`, frontend `0325581` | `GET /reports/category-performance`: revenue/units/order-count per category for line items sold in [from, to), ranked by revenue. LEFT JOINs sku→variant→product→category so unmatched/uncategorized items roll into one "Uncategorized" bucket instead of being dropped. |
 | Customer Reports | **Partial** — `8307b52`, frontend `35b13ef` | `GET /reports/customer-performance`: order count, revenue, AOV, first/last order per customer, ranked by revenue. Guest orders (no linked customer) excluded. Frontend: Top Customers panel on Reports. Missing from the original wishlist: new-vs-returning split, purchase frequency, lifetime revenue (needs an all-time lookback query, not just the selected period). |
 | Customer Cohorts | Not started | |
@@ -67,6 +67,7 @@ Not started. Combines RFM + demand signals + association rules + price elasticit
 - **Inventory + Sales**: table on the Reports page (stock on hand, units sold, turnover %), sorted by turnover descending, "n/a" turnover for a SKU with zero stock on hand — commit `5e39249`.
 - **Business Insights**: warning/info banners above the report cards, one per fired rule, section hidden entirely when nothing fires — commit `e32b931`.
 - **Sales Trends & Seasonality**: line chart of revenue bucketed by day/week/month (switchable) + bar chart of revenue by weekday — commit `6642945`.
+- **Product Lifecycle**: 5-column quadrant-style grid (new/growing/stable/declining/dormant), same visual pattern as the Performance Matrix — commit `fd73b8c`.
 
 Every Phase 0 backend endpoint built this session now has a real frontend surface. No more backend/frontend gaps to close for what's shipped so far.
 
