@@ -23,6 +23,8 @@ type fakeBolClient struct {
 	contentCalls     []integrationsDomain.BolProductContentInput
 	unknownEANErr    error
 	getCommissionFn  func(ctx context.Context, ean string, unitPrice float64) (integrationsDomain.BolCommission, error)
+	listOrdersFn     func(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error)
+	getOrderFn       func(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error)
 }
 
 func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
@@ -44,6 +46,18 @@ func (f *fakeBolClient) GetCommission(ctx context.Context, ean string, unitPrice
 		return f.getCommissionFn(ctx, ean, unitPrice)
 	}
 	return integrationsDomain.BolCommission{EAN: ean}, nil
+}
+func (f *fakeBolClient) ListOrders(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error) {
+	if f.listOrdersFn != nil {
+		return f.listOrdersFn(ctx, page, status)
+	}
+	return nil, nil
+}
+func (f *fakeBolClient) GetOrder(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error) {
+	if f.getOrderFn != nil {
+		return f.getOrderFn(ctx, orderID)
+	}
+	return &integrationsDomain.BolOrder{OrderID: orderID}, nil
 }
 
 type fakeBolClientFactory struct{ client integrationsDomain.BolClient }

@@ -2,6 +2,7 @@ package bol
 
 import (
 	"context"
+	"math"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 )
@@ -67,6 +68,52 @@ func (a *Adapter) GetCommission(ctx context.Context, ean string, unitPrice float
 		return integrationsDomain.BolCommission{}, err
 	}
 	return integrationsDomain.BolCommission{EAN: c.EAN, FixedAmount: c.FixedAmount, Percentage: c.Percentage}, nil
+}
+
+func (a *Adapter) ListOrders(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error) {
+	reduced, err := a.client.ListOrders(ctx, page, status)
+	if err != nil {
+		return nil, err
+	}
+	orders := make([]integrationsDomain.BolOrder, len(reduced))
+	for i, o := range reduced {
+		items := make([]integrationsDomain.BolOrderItem, len(o.OrderItems))
+		for j, it := range o.OrderItems {
+			items[j] = integrationsDomain.BolOrderItem{
+				OrderItemID: it.OrderItemID, EAN: it.EAN,
+				Quantity: it.Quantity, QuantityShipped: it.QuantityShipped,
+				QuantityCancelled: it.QuantityCancelled, CancellationRequest: it.CancellationRequest,
+			}
+		}
+		orders[i] = integrationsDomain.BolOrder{OrderID: o.OrderID, OrderPlacedAt: o.OrderPlacedDateTime, OrderItems: items}
+	}
+	return orders, nil
+}
+
+func (a *Adapter) GetOrder(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error) {
+	o, err := a.client.GetOrder(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]integrationsDomain.BolOrderItem, len(o.OrderItems))
+	for i, it := range o.OrderItems {
+		items[i] = integrationsDomain.BolOrderItem{
+			OrderItemID: it.OrderItemID, EAN: it.Product.EAN, Title: it.Product.Title,
+			Reference: it.Offer.Reference, Quantity: it.Quantity, QuantityShipped: it.QuantityShipped,
+			QuantityCancelled: it.QuantityCancelled, CancellationRequest: it.CancellationRequest,
+			UnitPriceMinorUnits: int64(math.Round(it.UnitPrice * 100)),
+		}
+	}
+	return &integrationsDomain.BolOrder{
+		OrderID: o.OrderID, OrderPlacedAt: o.OrderPlacedDateTime,
+		ShipmentDetails: integrationsDomain.BolShipmentDetails{
+			FirstName: o.ShipmentDetails.FirstName, Surname: o.ShipmentDetails.Surname,
+			StreetName: o.ShipmentDetails.StreetName, HouseNumber: o.ShipmentDetails.HouseNumber,
+			ZipCode: o.ShipmentDetails.ZipCode, City: o.ShipmentDetails.City,
+			CountryCode: o.ShipmentDetails.CountryCode, Email: o.ShipmentDetails.Email,
+		},
+		OrderItems: items,
+	}, nil
 }
 
 // ClientFactory implements domain/integrations.BolClientFactory.
