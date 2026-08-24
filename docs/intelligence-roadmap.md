@@ -45,7 +45,12 @@ column as slices land — each slice is its own commit.
 | Sales aggregation (materialized rollups) | Not started | Not needed yet -- every report so far computes on-demand from `sales_orders`/`sales_order_line_items` directly, fast enough at current data volumes. Revisit if/when report latency becomes a problem. |
 
 ## Phase 2 — Demand & Inventory Intelligence
-Not started. Demand forecasting, reorder prediction, stockout prediction, product substitution.
+
+| Item | Status | Notes |
+|---|---|---|
+| Stockout Risk / Reorder Point report | **Done** — `d7f5377`, frontend `6333561` | `GET /reports/stockout-risk`: rule-based v1, no forecasting model. Daily velocity = units sold in [from, to) / period length in days, projected against current stock on hand. `days_of_stock_remaining` null when velocity is 0. `at_risk` when stock will run out before `lead_time_days` (default 14) elapses; `suggested_reorder_quantity` = velocity x lead time − stock on hand, floored at 0. Pure composition over existing stock-level + product-performance data, no new domain/migration. Frontend shows only at-risk SKUs, soonest-first. |
+| Demand forecasting | Not started | |
+| Product substitution | Not started | |
 
 ## Phase 3 — Customer & Pricing Intelligence
 Not started. Customer segmentation, churn prediction, sequential pattern mining, price elasticity.
