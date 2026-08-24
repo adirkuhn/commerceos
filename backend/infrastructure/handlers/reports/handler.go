@@ -68,6 +68,9 @@ type getFrequentlyBoughtTogetherReportUC interface {
 type getStockoutRiskReportUC interface {
 	Execute(ctx context.Context, from, to time.Time, leadTimeDays int) (*appreports.StockoutRiskReport, error)
 }
+type getProductRecommendationsUC interface {
+	Execute(ctx context.Context, skuID string, from, to time.Time, minSupport, limit int) (*appreports.ProductRecommendationsReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport         getSalesSummaryReportUC
@@ -86,6 +89,7 @@ type Handler struct {
 	getCustomerRFMReport          getCustomerRFMReportUC
 	getFrequentlyBoughtTogether   getFrequentlyBoughtTogetherReportUC
 	getStockoutRiskReport         getStockoutRiskReportUC
+	getProductRecommendations     getProductRecommendationsUC
 }
 
 func NewHandler(
@@ -105,6 +109,7 @@ func NewHandler(
 	getCustomerRFMReport getCustomerRFMReportUC,
 	getFrequentlyBoughtTogether getFrequentlyBoughtTogetherReportUC,
 	getStockoutRiskReport getStockoutRiskReportUC,
+	getProductRecommendations getProductRecommendationsUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -115,6 +120,7 @@ func NewHandler(
 		getProductLifecycleReport: getProductLifecycleReport, getCustomerCohortsReport: getCustomerCohortsReport,
 		getPromotionPerformanceReport: getPromotionPerformanceReport, getCustomerRFMReport: getCustomerRFMReport,
 		getFrequentlyBoughtTogether: getFrequentlyBoughtTogether, getStockoutRiskReport: getStockoutRiskReport,
+		getProductRecommendations: getProductRecommendations,
 	}
 }
 
@@ -155,6 +161,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetCustomerRFMReportUseCase(customerPerformanceUC),
 		appreports.NewGetFrequentlyBoughtTogetherReportUseCase(db, salesRepo, settingsRepo, skuRepo, variantRepo, productRepo),
 		appreports.NewGetStockoutRiskReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
+		appreports.NewGetProductRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, variantRepo, productRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -418,6 +425,27 @@ func (h *Handler) GetStockoutRiskReport(c *gin.Context, params genreports.GetSto
 	middleware.OK(c, genreports.StockoutRiskReport{Rows: rows})
 }
 
+func (h *Handler) GetProductRecommendations(c *gin.Context, params genreports.GetProductRecommendationsParams) {
+	minSupport, limit := 0, 0
+	if params.MinSupport != nil {
+		minSupport = int(*params.MinSupport)
+	}
+	if params.Limit != nil {
+		limit = int(*params.Limit)
+	}
+	report, err := h.getProductRecommendations.Execute(c.Request.Context(), params.SkuId, params.From, params.To, minSupport, limit)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	rows := make([]genreports.ProductRecommendationRow, len(report.Rows))
+	for i, row := range report.Rows {
+		rows[i] = genreports.ProductRecommendationRow{
+			SkuId: row.SKUID, SkuCode: row.SKUCode, ProductName: row.ProductName, Support: row.Support,
+		}
+	}
+	middleware.OK(c, genreports.ProductRecommendationsReport{SkuId: report.SKUID, Rows: rows, TotalOrders: report.TotalOrders})
+}
+
 func toGenPromotionPerformancePeriod(p appreports.PromotionPerformancePeriod) genreports.PromotionPerformancePeriod {
 	return genreports.PromotionPerformancePeriod{
 		From: p.From, To: p.To, RevenueMinorUnits: p.RevenueMinorUnits, UnitsSold: p.UnitsSold, OrderCount: p.OrderCount,
@@ -463,7 +491,7 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity):
+	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity), errors.Is(err, appreports.ErrSKUIDRequired):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, promotionsDomain.ErrPromotionNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())

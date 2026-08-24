@@ -443,6 +443,47 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/product-recommendations:
+    get:
+      operationId: getProductRecommendations
+      summary: Given a SKU, other SKUs frequently bought with it in orders in [from, to), ranked by strongest co-occurrence support
+      description: >-
+        Per-SKU counterpart to frequently-bought-together, reusing the
+        same FP-Growth mining. support is the strongest support among
+        every mined itemset containing both sku_id and the candidate --
+        not summed across itemsets. min_support defaults to 2, limit
+        defaults to 10.
+      parameters:
+        - name: sku_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: min_support
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductRecommendationsReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:
@@ -1024,4 +1065,33 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/StockoutRiskReport' }
+        error: { nullable: true }
+
+    ProductRecommendationRow:
+      type: object
+      required: [sku_id, sku_code, product_name, support]
+      properties:
+        sku_id: { type: string }
+        sku_code:
+          type: string
+          description: Empty if the SKU has since been deleted.
+        product_name:
+          type: string
+          description: Empty if the SKU has since been deleted.
+        support: { type: integer, format: int64 }
+
+    ProductRecommendationsReport:
+      type: object
+      required: [sku_id, rows, total_orders]
+      properties:
+        sku_id: { type: string }
+        rows:
+          type: array
+          items: { $ref: '#/components/schemas/ProductRecommendationRow' }
+        total_orders: { type: integer, format: int64 }
+
+    ProductRecommendationsReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProductRecommendationsReport' }
         error: { nullable: true }
