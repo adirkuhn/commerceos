@@ -65,4 +65,10 @@ var (
 	// -- there's no "unknown EAN" path for an offer that has no EAN at
 	// all, only for one whose EAN isn't yet in Bol's catalog.
 	ErrBolMissingEAN = errors.New("product's SKU has no barcode/EAN set, required to push to Bol")
+	// ErrBolCommissionRequestFailed wraps a live call to Bol's Commissions
+	// API that failed (network error, non-2xx, auth failure) -- mapped to
+	// 502 UPSTREAM_ERROR, same treatment as
+	// integrationsDomain.ErrWooRequestFailed, since it's Bol's API that's
+	// unavailable, not a client mistake.
+	ErrBolCommissionRequestFailed = errors.New("failed to fetch commission from Bol")
 )

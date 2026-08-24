@@ -1299,6 +1299,7 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound),
 		errors.Is(err, pmsDomain.ErrProductNotFound),
+		errors.Is(err, pmsDomain.ErrSKUNotFound),
 		errors.Is(err, pmsDomain.ErrCategoryNotFound),
 		errors.Is(err, channelsDomain.ErrListingNotFound),
 		errors.Is(err, channelsDomain.ErrSalesChannelNotFound),
@@ -1337,6 +1338,11 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusBadRequest, "NO_TENANT", err.Error())
 	case errors.Is(err, channelsDomain.ErrImportJobAlreadyActive):
 		middleware.Fail(c, http.StatusConflict, "IMPORT_ALREADY_RUNNING", err.Error())
+	case errors.Is(err, channelsDomain.ErrBolMissingEAN),
+		errors.Is(err, channelsDomain.ErrCannotPushBulkPoolSKU):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, channelsDomain.ErrBolCommissionRequestFailed):
+		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
 	default:
 		log.Printf("integrations: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")

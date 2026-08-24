@@ -1816,6 +1816,28 @@ func TestPushProductToBolHandler_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "offer-1")
 }
 
+func TestPushProductToBolHandler_missingEAN_returns422NotInternal(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrBolMissingEAN}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/push-product-bol", map[string]string{"product_id": "prod-1"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+}
+
+func TestPushProductToBolHandler_bulkPoolSKU_returns422NotInternal(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrCannotPushBulkPoolSKU}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/push-product-bol", map[string]string{"product_id": "prod-1"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+}
+
 func TestGetBolProductOverrideHandler_returnsNullWhenNoneExists(t *testing.T) {
 	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{out: nil}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
 	r := gin.New()
@@ -1875,4 +1897,37 @@ func TestGetBolCommissionHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "0630509892495")
 	assert.Contains(t, w.Body.String(), "12.5")
+}
+
+func TestGetBolCommissionHandler_missingEAN_returns422NotInternal(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: channelsDomain.ErrBolMissingEAN})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "VALIDATION_ERROR")
+}
+
+func TestGetBolCommissionHandler_skuNotFound_returns404NotInternal(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: pmsDomain.ErrSKUNotFound})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), "NOT_FOUND")
+}
+
+func TestGetBolCommissionHandler_bolAPIFailure_returns502NotInternal(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: channelsDomain.ErrBolCommissionRequestFailed})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
+
+	require.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Contains(t, w.Body.String(), "UPSTREAM_ERROR")
 }

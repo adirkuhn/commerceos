@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -61,6 +62,25 @@ func TestGetBolCommission_usesCustomPriceOverSKUPriceForLiveFetch(t *testing.T) 
 
 	require.NoError(t, err)
 	assert.InDelta(t, 29.99, gotPrice, 0.001)
+}
+
+func TestGetBolCommission_wrapsLiveFetchFailureAsTypedError(t *testing.T) {
+	sku := pmsDomain.SKU{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}
+	skuRepo := &fakeSKUByIDRepo{skus: map[string]pmsDomain.SKU{"sku-1": sku}}
+	conn := bolConn()
+	connRepo := &stubConnectionRepo{conn: &conn}
+	overrideRepo := &fakeBolOverrideRepo{}
+
+	client := &fakeBolClient{}
+	client.getCommissionFn = func(_ context.Context, _ string, _ float64) (integrationsDomain.BolCommission, error) {
+		return integrationsDomain.BolCommission{}, errors.New("bol api unreachable")
+	}
+
+	uc := appchannels.NewGetBolCommissionUseCase(newMockGormDB(t, 1), connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret, skuRepo, overrideRepo)
+	_, err := uc.Execute(context.Background(), appchannels.GetBolCommissionInput{ProductID: "prod-1", ConnectionID: "conn-1", SKUID: "sku-1"})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, channelsDomain.ErrBolCommissionRequestFailed)
 }
 
 func TestGetBolCommission_appliesOverrideInsteadOfLiveFetch(t *testing.T) {
