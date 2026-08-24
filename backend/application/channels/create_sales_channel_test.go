@@ -16,7 +16,7 @@ import (
 func TestCreateSalesChannel_woocommerce_success(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{}
-	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID}}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
 	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
 
 	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
@@ -28,6 +28,42 @@ func TestCreateSalesChannel_woocommerce_success(t *testing.T) {
 	require.Len(t, repo.created, 1)
 	assert.Equal(t, "My Store", channel.Name)
 	assert.True(t, channel.Active)
+}
+
+func TestCreateSalesChannel_bol_success(t *testing.T) {
+	connID := "conn-bol-1"
+	repo := &stubSalesChannelRepo{}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderBol}}
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+
+	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "BOL", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID,
+		EnrollmentMode: channelsDomain.EnrollmentModeManual,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, repo.created, 1)
+	assert.Equal(t, channelsDomain.ChannelTypeBol, channel.Type)
+}
+
+// TestCreateSalesChannel_rejectsTypeConnectionMismatch is a regression test
+// for a real prod bug: the create form used to hardcode Type=woocommerce
+// regardless of which connection was picked, so a channel named "BOL"
+// pointed at a real Bol connection but saved Type=woocommerce -- silently
+// invisible to every ch.Type==ChannelTypeBol check (enrollment, scheduled
+// export) forever, with no error anywhere to surface it. This guards the
+// mismatch server-side regardless of what any future frontend/caller sends.
+func TestCreateSalesChannel_rejectsTypeConnectionMismatch(t *testing.T) {
+	connID := "conn-bol-1"
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderBol}}
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), &stubSalesChannelRepo{}, connRepo)
+
+	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "BOL", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID,
+		EnrollmentMode: channelsDomain.EnrollmentModeAll,
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrChannelTypeConnectionMismatch)
 }
 
 func TestCreateSalesChannel_rejectsInvalidType(t *testing.T) {

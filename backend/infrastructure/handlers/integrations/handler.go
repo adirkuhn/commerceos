@@ -1326,7 +1326,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrInvalidEnrollmentMode),
 		errors.Is(err, channelsDomain.ErrConnectionRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentCategoryRequired),
-		errors.Is(err, channelsDomain.ErrEnrollmentTagRequired):
+		errors.Is(err, channelsDomain.ErrEnrollmentTagRequired),
+		errors.Is(err, channelsDomain.ErrChannelTypeConnectionMismatch):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStateInvalid):
 		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())

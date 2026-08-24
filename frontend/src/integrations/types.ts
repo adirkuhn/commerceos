@@ -167,7 +167,7 @@ export interface AIConnection {
   created_at: string
 }
 
-export type ChannelType = 'woocommerce' | 'internal'
+export type ChannelType = 'woocommerce' | 'bol' | 'internal'
 export type EnrollmentMode = 'all' | 'category' | 'tag' | 'manual'
 
 export interface SalesChannel {

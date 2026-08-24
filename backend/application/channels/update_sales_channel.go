@@ -49,8 +49,12 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 			return err
 		}
 		if in.ConnectionID != nil {
-			if _, err := uc.connRepo.FindByID(ctx, *in.ConnectionID); err != nil {
+			conn, err := uc.connRepo.FindByID(ctx, *in.ConnectionID)
+			if err != nil {
 				return err
+			}
+			if string(conn.Provider) != string(existing.Type) {
+				return channelsDomain.ErrChannelTypeConnectionMismatch
 			}
 		}
 		existing.Name = in.Name

@@ -59,8 +59,12 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 	var channel channelsDomain.SalesChannel
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if in.ConnectionID != nil {
-			if _, err := uc.connRepo.FindByID(ctx, *in.ConnectionID); err != nil {
+			conn, err := uc.connRepo.FindByID(ctx, *in.ConnectionID)
+			if err != nil {
 				return err
+			}
+			if string(conn.Provider) != string(in.Type) {
+				return channelsDomain.ErrChannelTypeConnectionMismatch
 			}
 		}
 		now := time.Now()

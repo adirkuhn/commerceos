@@ -37,6 +37,10 @@ const wooConnection: Connection = {
   id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', default_currency: 'USD',
 }
 
+const bolConnection: Connection = {
+  id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '',
+}
+
 function warehouse(overrides: Partial<{ id: string; name: string }> = {}) {
   return {
     id: 'wh-1', tenant_id: 'tenant-1', name: 'Main DC',
@@ -104,6 +108,24 @@ describe('Create sales channel', () => {
         name: 'New Channel', type: 'woocommerce', connectionId: 'conn-1', enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null,
       })
+    })
+  })
+
+  it('derives type from the selected connection\'s provider, not always woocommerce', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, bolConnection])
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-bol', name: 'BOL', type: 'bol', connection_id: 'conn-bol-1' }))
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.type(screen.getByLabelText('Name'), 'BOL')
+    await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-bol-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        type: 'bol', connectionId: 'conn-bol-1',
+      }))
     })
   })
 

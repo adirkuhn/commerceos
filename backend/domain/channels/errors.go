@@ -71,4 +71,13 @@ var (
 	// integrationsDomain.ErrWooRequestFailed, since it's Bol's API that's
 	// unavailable, not a client mistake.
 	ErrBolCommissionRequestFailed = errors.New("failed to fetch commission from Bol")
+	// ErrChannelTypeConnectionMismatch guards Create/UpdateSalesChannelUseCase:
+	// a channel's Type must match its Connection's actual Provider -- a
+	// SalesChannel pointed at a Bol connection but typed 'woocommerce' (or
+	// vice versa) silently never matches in EnrollProductInChannelsUseCase/
+	// RunScheduledBolExportUseCase's `ch.Type == ChannelTypeBol` checks,
+	// which is exactly how this went unnoticed: the channel looked
+	// correctly configured in the UI (right name, right connection) but
+	// its Type was wrong.
+	ErrChannelTypeConnectionMismatch = errors.New("channel type does not match the connection's provider")
 )

@@ -23,7 +23,7 @@ func existingWooChannel() *channelsDomain.SalesChannel {
 func TestUpdateSalesChannel_changesToAllMode_isTheAddAllBulkAction(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
-	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID}}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
 	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
@@ -38,7 +38,7 @@ func TestUpdateSalesChannel_changesToAllMode_isTheAddAllBulkAction(t *testing.T)
 func TestUpdateSalesChannel_changesToTagMode_isTheAddByTagBulkAction(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
-	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID}}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
 	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
@@ -71,10 +71,28 @@ func TestUpdateSalesChannel_rejectsInvalidEnrollmentModeOnExistingChannel(t *tes
 	assert.ErrorIs(t, err, channelsDomain.ErrInvalidEnrollmentMode)
 }
 
+// TestUpdateSalesChannel_rejectsRetargetingToAMismatchedProviderConnection
+// guards the edit path against the same bug the create path had: Type is
+// immutable via update (see UpdateSalesChannelInput's fields -- no Type),
+// so re-targeting ConnectionID to a connection of a different provider
+// would otherwise silently produce the exact same Type/provider mismatch.
+func TestUpdateSalesChannel_rejectsRetargetingToAMismatchedProviderConnection(t *testing.T) {
+	bolConnID := "conn-bol-1"
+	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: bolConnID, Provider: integrationsDomain.ProviderBol}}
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+
+	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
+		ID: "channel-1", Name: "My Store", ConnectionID: &bolConnID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true,
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrChannelTypeConnectionMismatch)
+}
+
 func TestUpdateSalesChannel_canDeactivate(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
-	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID}}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
 	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{

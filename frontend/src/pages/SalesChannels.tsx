@@ -8,7 +8,7 @@ import { useConnections } from '../integrations/hooks/useConnections'
 import { useCategories } from '../pms/hooks/useCategories'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import * as integrationsApi from '../integrations/api'
-import type { Connection, SalesChannel, EnrollmentMode } from '../integrations/types'
+import type { Connection, SalesChannel, EnrollmentMode, ChannelType } from '../integrations/types'
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
 
@@ -37,6 +37,16 @@ function emptyForm(): ChannelFormState {
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
+}
+
+// A channel's type must match its connection's actual provider -- derived,
+// not a separate user choice, since connectionId is already required. Any
+// provider besides 'bol' falls back to 'woocommerce' (the only other
+// channel-eligible provider today, per backend domain/channels.ChannelType
+// -- 'myparcel' connections shouldn't be picked here at all, though this
+// form doesn't yet filter the connection dropdown to exclude them).
+function channelTypeForConnection(provider: string | undefined): ChannelType {
+  return provider === 'bol' ? 'bol' : 'woocommerce'
 }
 
 // defaultWarehouseId lives on the linked Connection, not on the channel
@@ -108,7 +118,8 @@ export default function SalesChannels() {
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
       } else {
-        await create({ ...shared, type: 'woocommerce' } satisfies SalesChannelPayload)
+        const type = channelTypeForConnection(connections.find(c => c.id === form.connectionId)?.provider)
+        await create({ ...shared, type } satisfies SalesChannelPayload)
       }
       if (form.connectionId) {
         const connection = connections.find(c => c.id === form.connectionId)
