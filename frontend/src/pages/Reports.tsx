@@ -49,7 +49,7 @@ function ChangeBadge({ percent }: { percent: number | null }) {
 export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -107,6 +107,42 @@ export default function Reports() {
             <ChangeBadge percent={kpi.change} />
           </div>
         ))}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Profitability</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            Selected period — profit/margin cover only the revenue with a known SKU cost price
+          </p>
+        </div>
+        {!profitability || profitability.summary.cost_known_revenue_minor_units === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No cost-known revenue in this period</p>
+        ) : (
+          <div data-testid="profitability-summary" className="grid grid-cols-4 gap-3 p-4">
+            <div>
+              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">Revenue</p>
+              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(profitability.summary.revenue_minor_units, currency)}</p>
+              {profitability.summary.cost_known_revenue_minor_units < profitability.summary.revenue_minor_units && (
+                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+                  {formatMoney(profitability.summary.cost_known_revenue_minor_units, currency)} with known cost
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">COGS</p>
+              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(profitability.summary.cost_minor_units, currency)}</p>
+            </div>
+            <div>
+              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">Profit</p>
+              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{formatMoney(profitability.summary.profit_minor_units, currency)}</p>
+            </div>
+            <div>
+              <p className="text-xs dark:text-gray-500 text-gray-400 mb-1">Margin</p>
+              <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">{(profitability.summary.margin_basis_points / 100).toFixed(1)}%</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -17,6 +17,7 @@ vi.mock('../../reports/api', () => ({
   getCustomerPerformanceReport: vi.fn(),
   getCategoryPerformanceReport: vi.fn(),
   getSlowMovingProductsReport: vi.fn(),
+  getProfitabilityReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -103,6 +104,17 @@ function slowMovingProducts(overrides: Partial<SlowMovingProductsReport> = {}): 
   }
 }
 
+function profitability(overrides: Partial<ProfitabilityReport> = {}): ProfitabilityReport {
+  return {
+    currency_code: 'EUR',
+    summary: {
+      revenue_minor_units: 220000, cost_known_revenue_minor_units: 180000, cost_minor_units: 100000,
+      profit_minor_units: 80000, margin_basis_points: 4444,
+    },
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -121,6 +133,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getCustomerPerformanceReport).mockResolvedValue(customerPerformance())
   vi.mocked(reportsApi.getCategoryPerformanceReport).mockResolvedValue(categoryPerformance())
   vi.mocked(reportsApi.getSlowMovingProductsReport).mockResolvedValue(slowMovingProducts())
+  vi.mocked(reportsApi.getProfitabilityReport).mockResolvedValue(profitability())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -253,5 +266,27 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No slow-moving products in this period')).toBeInTheDocument()
+  })
+
+  it('shows revenue, COGS, profit, and margin for the cost-known subset', async () => {
+    render(<Reports />)
+
+    const summary = within(await screen.findByTestId('profitability-summary'))
+    expect(summary.getByText('€2,200.00')).toBeInTheDocument()
+    expect(summary.getByText('€1,000.00')).toBeInTheDocument()
+    expect(summary.getByText('€800.00')).toBeInTheDocument()
+    expect(summary.getByText('44.4%')).toBeInTheDocument()
+    expect(summary.getByText('€1,800.00 with known cost')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when nothing has a known cost price for the period', async () => {
+    vi.mocked(reportsApi.getProfitabilityReport).mockResolvedValue(profitability({
+      summary: { revenue_minor_units: 5000, cost_known_revenue_minor_units: 0, cost_minor_units: 0, profit_minor_units: 0, margin_basis_points: 0 },
+    }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No cost-known revenue in this period')).toBeInTheDocument()
   })
 })

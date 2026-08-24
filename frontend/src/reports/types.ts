@@ -100,6 +100,22 @@ export interface SlowMovingProductsReport {
   rows: SlowMovingProductRow[]
 }
 
+export interface ProfitabilitySummary {
+  revenue_minor_units: number
+  // Subset of revenue_minor_units whose SKU has a known cost price --
+  // what profit_minor_units/margin_basis_points actually cover.
+  cost_known_revenue_minor_units: number
+  cost_minor_units: number
+  profit_minor_units: number
+  // 0 when cost_known_revenue_minor_units is 0. 1 bp = 0.01%.
+  margin_basis_points: number
+}
+
+export interface ProfitabilityReport {
+  currency_code: string
+  summary: ProfitabilitySummary
+}
+
 export interface APIError {
   code: string
   message: string
