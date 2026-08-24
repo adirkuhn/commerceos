@@ -63,6 +63,11 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Bumped after a successful save so the commission effect below re-fetches
+  // -- the live commission is price-bracket dependent, and a saved
+  // CustomPriceMinorUnits changes the price the backend feeds Bol's API.
+  const [commissionRefreshKey, setCommissionRefreshKey] = useState(0)
+
   useEffect(() => {
     if (!token) return
     let cancelled = false
@@ -102,7 +107,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
       .catch(err => { if (!cancelled) setCommissionError(err instanceof Error ? err.message : 'Failed to fetch Bol commission') })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, connection.id, productId, sku?.id])
+  }, [token, connection.id, productId, sku?.id, commissionRefreshKey])
 
   const handleSave = async () => {
     if (!token) return
@@ -121,6 +126,7 @@ export function ProductBolTab({ productId, connection, sku }: { productId: strin
         customPriceMinorUnits: customPrice.trim() !== '' && !Number.isNaN(parsedCustomPrice) ? Math.round(parsedCustomPrice * 100) : null,
       })
       setOverride(result)
+      setCommissionRefreshKey(k => k + 1)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save')
     } finally {

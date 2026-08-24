@@ -110,6 +110,21 @@ describe('ProductBolTab', () => {
     ))
   })
 
+  it('re-fetches commission after saving a new custom price', async () => {
+    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
+      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+      custom_price_minor_units: 2499,
+    })
+    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+    expect(integrationsApi.getBolCommission).toHaveBeenCalledTimes(1)
+
+    await userEvent.type(screen.getByLabelText(/Custom price/), '24.99')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.getBolCommission).toHaveBeenCalledTimes(2))
+  })
+
   it('saving calls upsertBolProductOverride with the edited fields', async () => {
     vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
       product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
