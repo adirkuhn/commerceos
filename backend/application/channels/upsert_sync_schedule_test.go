@@ -265,6 +265,96 @@ func TestUpsertSyncSchedule_doesNotRequireWarehouseOrCurrencyForStockExport(t *t
 	require.NoError(t, err)
 }
 
+func TestUpsertSyncSchedule_rejectsEnablingBolOrdersImportWithoutWarehouse(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolOrders,
+		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, channelsDomain.ErrDefaultWarehouseRequired))
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpsertSyncSchedule_allowsEnablingBolOrdersImportWithWarehouseAndNoCurrency(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)
+	warehouseID := "wh-1"
+
+	s, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolOrders,
+		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60,
+		DefaultWarehouseID: &warehouseID,
+	})
+
+	require.NoError(t, err)
+	require.True(t, s.Enabled)
+}
+
+func TestUpsertSyncSchedule_rejectsEnablingBolOrdersExport(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+	warehouseID := "wh-1"
+
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolOrders,
+		Direction: channelsDomain.SyncDirectionExport, Enabled: true, IntervalMinutes: 60,
+		DefaultWarehouseID: &warehouseID,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, channelsDomain.ErrCannotEnableUnrunnableEntity))
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpsertSyncSchedule_rejectsEnablingBolProductsImport(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolProducts,
+		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, channelsDomain.ErrCannotEnableUnrunnableEntity))
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpsertSyncSchedule_rejectsEnablingBolStockImport(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo)
+
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolStock,
+		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, channelsDomain.ErrCannotEnableUnrunnableEntity))
+	require.Empty(t, repo.upserted)
+}
+
+func TestUpsertSyncSchedule_allowsEnablingBolProductsAndBolStockExportWithNoWarehouseOrCurrency(t *testing.T) {
+	repo := &stubSyncScheduleRepo{}
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 2), repo)
+
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolProducts,
+		Direction: channelsDomain.SyncDirectionExport, Enabled: true, IntervalMinutes: 60,
+	})
+	require.NoError(t, err)
+
+	_, err = uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityBolStock,
+		Direction: channelsDomain.SyncDirectionExport, Enabled: true, IntervalMinutes: 15,
+	})
+	require.NoError(t, err)
+}
+
 func TestUpsertSyncSchedule_propagatesRepoError(t *testing.T) {
 	repo := &stubSyncScheduleRepo{upsertErr: errors.New("db down")}
 	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), repo)

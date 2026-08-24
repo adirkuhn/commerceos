@@ -15,6 +15,9 @@ var runnableSyncEntityTypes = map[channelsDomain.SyncEntityType]bool{
 	channelsDomain.SyncEntityStock:                true,
 	channelsDomain.SyncEntityOrders:               true,
 	channelsDomain.SyncEntityOrdersReconciliation: true,
+	channelsDomain.SyncEntityBolOrders:            true,
+	channelsDomain.SyncEntityBolProducts:          true,
+	channelsDomain.SyncEntityBolStock:             true,
 }
 
 type UpsertSyncScheduleInput struct {
@@ -47,7 +50,8 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	switch in.EntityType {
 	case channelsDomain.SyncEntityProducts, channelsDomain.SyncEntityStock,
 		channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories,
-		channelsDomain.SyncEntityOrdersReconciliation:
+		channelsDomain.SyncEntityOrdersReconciliation,
+		channelsDomain.SyncEntityBolOrders, channelsDomain.SyncEntityBolProducts, channelsDomain.SyncEntityBolStock:
 	default:
 		return channelsDomain.ErrInvalidSyncEntityType
 	}
@@ -62,9 +66,16 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	// Orders (both the incremental schedule and its reconciliation
 	// counterpart) only import -- this codebase never pushes a
 	// CommerceOS-created order back to Woo (see cmd/scheduler/dispatch.go's
-	// buildRunners doc).
+	// buildRunners doc). Same for Bol orders.
 	if in.Enabled && in.Direction == channelsDomain.SyncDirectionExport &&
-		(in.EntityType == channelsDomain.SyncEntityOrders || in.EntityType == channelsDomain.SyncEntityOrdersReconciliation) {
+		(in.EntityType == channelsDomain.SyncEntityOrders || in.EntityType == channelsDomain.SyncEntityOrdersReconciliation ||
+			in.EntityType == channelsDomain.SyncEntityBolOrders) {
+		return channelsDomain.ErrCannotEnableUnrunnableEntity
+	}
+	// bol_products/bol_stock are export-only -- Bol never hands work back
+	// to CommerceOS for these (no product/stock import from Bol).
+	if in.Enabled && in.Direction == channelsDomain.SyncDirectionImport &&
+		(in.EntityType == channelsDomain.SyncEntityBolProducts || in.EntityType == channelsDomain.SyncEntityBolStock) {
 		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
 	if in.IntervalMinutes <= 0 {
@@ -81,6 +92,14 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 		case in.Direction == channelsDomain.SyncDirectionImport &&
 			(in.EntityType == channelsDomain.SyncEntityStock || in.EntityType == channelsDomain.SyncEntityOrders ||
 				in.EntityType == channelsDomain.SyncEntityOrdersReconciliation):
+			if !hasWarehouse {
+				return channelsDomain.ErrDefaultWarehouseRequired
+			}
+		case in.EntityType == channelsDomain.SyncEntityBolOrders && in.Direction == channelsDomain.SyncDirectionImport:
+			// No DefaultCurrency requirement -- Bol prices are already
+			// assumed EUR throughout this codebase's Bol code (see
+			// BolOfferInput/BolProductOverride, neither has a currency
+			// field), unlike Woo's products/import.
 			if !hasWarehouse {
 				return channelsDomain.ErrDefaultWarehouseRequired
 			}
