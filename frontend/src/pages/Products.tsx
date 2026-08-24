@@ -17,7 +17,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
@@ -830,6 +830,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               )}
             </FormCard>
 
+            {savedProductId && <ProductHistoryCard productId={savedProductId} />}
+
             <FormCard title="Variants">
               {variantsMode ? (
                 <>
@@ -1384,6 +1386,63 @@ function PriceHistoryCard({ skuId, currency }: { skuId: string; currency: string
                   {entry.sale_price_minor_units != null ? money(entry.sale_price_minor_units) : '—'}
                 </td>
                 <td className="py-1.5 dark:text-gray-400 text-gray-500">{PRICE_HISTORY_REASON_LABEL[entry.reason]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </FormCard>
+  )
+}
+
+// ProductHistoryCard shows the product's name/status change audit trail --
+// see domain/pms.ProductHistory. A row is only written when a field
+// actually changes. v1 scope: name and status only (not a generic diff of
+// every field), and product-level only (not per-variant).
+function ProductHistoryCard({ productId }: { productId: string }) {
+  const { token } = useAuth()
+  const [history, setHistory] = useState<ProductHistoryEntry[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    pmsApi.listProductHistory(token, productId)
+      .then(result => { if (!cancelled) setHistory(result) })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load change history') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, productId])
+
+  const formatDate = (value: string) => new Date(value).toLocaleString()
+
+  return (
+    <FormCard title="Change history" description="Name and status changes -- an immutable audit trail.">
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {!loading && error && <p className="text-xs text-red-400">{error}</p>}
+      {!loading && !error && history && history.length === 0 && (
+        <p className="text-xs dark:text-gray-500 text-gray-400">No changes recorded yet.</p>
+      )}
+      {!loading && !error && history && history.length > 0 && (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="dark:text-gray-500 text-gray-400">
+              <th className="text-left font-medium pb-1.5 pr-3">When</th>
+              <th className="text-left font-medium pb-1.5 pr-3">Field</th>
+              <th className="text-left font-medium pb-1.5 pr-3">From</th>
+              <th className="text-left font-medium pb-1.5">To</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+            {history.map(entry => (
+              <tr key={entry.id}>
+                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">{formatDate(entry.changed_at)}</td>
+                <td className="py-1.5 pr-3 dark:text-gray-400 text-gray-500 capitalize">{entry.field}</td>
+                <td className="py-1.5 pr-3 dark:text-gray-300 text-gray-700">{entry.old_value}</td>
+                <td className="py-1.5 dark:text-gray-100 text-gray-900 font-medium">{entry.new_value}</td>
               </tr>
             ))}
           </tbody>

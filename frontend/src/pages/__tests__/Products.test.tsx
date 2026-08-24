@@ -37,6 +37,8 @@ vi.mock('../../pms/api', () => ({
   clearCostPriceOverride: vi.fn(),
   listSKUCostPriceHistory: vi.fn(),
   listSKUPriceHistory: vi.fn(() => Promise.resolve([])),
+  listProductHistory: vi.fn(() => Promise.resolve([])),
+  listVariantHistory: vi.fn(() => Promise.resolve([])),
   listMarginReport: vi.fn(),
   listProductMedia: vi.fn(),
   uploadProductMedia: vi.fn(),
@@ -1627,6 +1629,45 @@ describe('Price history card', () => {
     await userEvent.click(await screen.findByTitle('Edit'))
 
     expect(await screen.findByText('internal server error')).toBeInTheDocument()
+  })
+})
+
+describe('Change history card', () => {
+  it('shows an empty state when nothing has changed yet', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.listProductHistory).mockResolvedValue([])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText('No changes recorded yet.')).toBeInTheDocument()
+  })
+
+  it('shows each recorded name/status change', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.listProductHistory).mockResolvedValue([
+      { id: 'h1', entity_type: 'product', entity_id: 'p1', field: 'status', old_value: 'draft', new_value: 'active', changed_at: '2026-03-01T00:00:00Z' },
+      { id: 'h2', entity_type: 'product', entity_id: 'p1', field: 'name', old_value: 'Old Name', new_value: 'New Name', changed_at: '2026-02-01T00:00:00Z' },
+    ])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    await screen.findByText('Change history')
+    expect(screen.getByText('draft')).toBeInTheDocument()
+    expect(screen.getByText('active')).toBeInTheDocument()
+    expect(screen.getByText('Old Name')).toBeInTheDocument()
+    expect(screen.getByText('New Name')).toBeInTheDocument()
+  })
+
+  it('shows an error if loading change history fails', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] })
+    vi.mocked(pmsApi.listProductHistory).mockRejectedValue(new Error('history fetch failed'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+
+    expect(await screen.findByText('history fetch failed')).toBeInTheDocument()
   })
 })
 

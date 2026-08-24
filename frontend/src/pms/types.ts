@@ -154,6 +154,19 @@ export interface SKUPriceHistoryEntry {
   reason: SKUPriceHistoryReason
 }
 
+export type ProductHistoryEntityType = 'product' | 'variant'
+export type ProductHistoryField = 'name' | 'status'
+
+export interface ProductHistoryEntry {
+  id: string
+  entity_type: ProductHistoryEntityType
+  entity_id: string
+  field: ProductHistoryField
+  old_value: string
+  new_value: string
+  changed_at: string
+}
+
 export interface MarginReportRow {
   sku_id: string
   sku_code: string
