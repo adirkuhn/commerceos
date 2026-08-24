@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Reports from '../Reports'
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport, CustomerRFMReport } from '../../reports/types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, ProductLifecycleReport, CustomerCohortsReport, CustomerRFMReport, FrequentlyBoughtTogetherReport } from '../../reports/types'
 import type { DashboardStatsReport } from '../../dashboard/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -24,6 +24,7 @@ vi.mock('../../reports/api', () => ({
   getProductLifecycleReport: vi.fn(),
   getCustomerCohortsReport: vi.fn(),
   getCustomerRFMReport: vi.fn(),
+  getFrequentlyBoughtTogetherReport: vi.fn(),
 }))
 
 vi.mock('../../dashboard/api', () => ({
@@ -193,6 +194,22 @@ function customerRFM(overrides: Partial<CustomerRFMReport> = {}): CustomerRFMRep
   }
 }
 
+function frequentlyBoughtTogether(overrides: Partial<FrequentlyBoughtTogetherReport> = {}): FrequentlyBoughtTogetherReport {
+  return {
+    total_orders: 20,
+    rows: [
+      {
+        items: [
+          { sku_id: 'sku-a', sku_code: 'ACAI-1L', product_name: 'Acai 1L' },
+          { sku_id: 'sku-b', sku_code: 'GRANOLA-500G', product_name: 'Granola 500g' },
+        ],
+        support: 8, support_percent: 40,
+      },
+    ],
+    ...overrides,
+  }
+}
+
 function dashboardStats(overrides: Partial<DashboardStatsReport> = {}): DashboardStatsReport {
   return {
     total_stock_units: 0, currency_code: 'EUR', revenue_this_month_minor_units: 0,
@@ -218,6 +235,7 @@ beforeEach(() => {
   vi.mocked(reportsApi.getProductLifecycleReport).mockResolvedValue(productLifecycle())
   vi.mocked(reportsApi.getCustomerCohortsReport).mockResolvedValue(customerCohorts())
   vi.mocked(reportsApi.getCustomerRFMReport).mockResolvedValue(customerRFM())
+  vi.mocked(reportsApi.getFrequentlyBoughtTogetherReport).mockResolvedValue(frequentlyBoughtTogether())
   vi.mocked(dashboardApi.getDashboardStats).mockResolvedValue(dashboardStats())
 })
 
@@ -513,5 +531,23 @@ describe('Reports page', () => {
     await screen.findByText('€1,180.00')
 
     expect(screen.getByText('No customer orders in this period')).toBeInTheDocument()
+  })
+
+  it('shows frequently bought together itemsets with support and percent', async () => {
+    render(<Reports />)
+
+    expect(await screen.findByText('Acai 1L + Granola 500g')).toBeInTheDocument()
+    const row = screen.getByTestId('fbt-row')
+    expect(within(row).getByText('8')).toBeInTheDocument()
+    expect(within(row).getByText('40.0%')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when no SKU sets co-occurred frequently in this period', async () => {
+    vi.mocked(reportsApi.getFrequentlyBoughtTogetherReport).mockResolvedValue(frequentlyBoughtTogether({ rows: [] }))
+
+    render(<Reports />)
+    await screen.findByText('€1,180.00')
+
+    expect(screen.getByText('No frequently co-occurring SKU sets in this period')).toBeInTheDocument()
   })
 })

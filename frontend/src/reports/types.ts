@@ -248,6 +248,24 @@ export interface CustomerRFMReport {
   rows: CustomerRFMRow[]
 }
 
+export interface FrequentlyBoughtTogetherItem {
+  sku_id: string
+  // Empty if the SKU has since been deleted.
+  sku_code: string
+  product_name: string
+}
+
+export interface FrequentlyBoughtTogetherRow {
+  items: FrequentlyBoughtTogetherItem[]
+  support: number
+  support_percent: number
+}
+
+export interface FrequentlyBoughtTogetherReport {
+  rows: FrequentlyBoughtTogetherRow[]
+  total_orders: number
+}
+
 export interface APIError {
   code: string
   message: string

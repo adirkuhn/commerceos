@@ -69,7 +69,7 @@ export default function Reports() {
   const { token } = useAuth()
   const [period, setPeriod] = useState<ReportsPeriod>('7D')
   const [trendGranularity, setTrendGranularity] = useState<SalesTrendGranularity>('day')
-  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, customerRFM, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
+  const { salesSummary, productPerformance, productPerformanceMatrix, customerPerformance, categoryPerformance, slowMovingProducts, profitability, inventorySales, businessInsights, salesTrends, productLifecycle, customerCohorts, customerRFM, frequentlyBoughtTogether, channelRevenueThisMonth, loading, error } = useReportsData(token ?? '', period, trendGranularity)
 
   const currency = salesSummary?.currency_code ?? 'USD'
   const { from, to } = dateRange(period, new Date())
@@ -611,6 +611,41 @@ export default function Reports() {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Frequently Bought Together</h3>
+          <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+            SKU sets that co-occurred most often in orders this period — support is the number of qualifying orders containing every item in the set
+          </p>
+        </div>
+        {!frequentlyBoughtTogether || frequentlyBoughtTogether.rows.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs dark:text-gray-500 text-gray-400">No frequently co-occurring SKU sets in this period</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="dark:bg-[#111827]/50 bg-gray-50">
+                  <th className="px-4 py-2 text-left text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Items</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">Support</th>
+                  <th className="px-4 py-2 text-right text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase">% of Orders</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y dark:divide-[#2D3748]/50 divide-gray-100">
+                {frequentlyBoughtTogether.rows.map((row, i) => (
+                  <tr key={i} data-testid="fbt-row" className="hover:dark:bg-[#2D3748]/30 hover:bg-gray-50">
+                    <td className="px-4 py-2 dark:text-gray-200 text-gray-800">
+                      {row.items.map(item => item.product_name || item.sku_code || item.sku_id).join(' + ')}
+                    </td>
+                    <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.support}</td>
+                    <td className="px-4 py-2 text-right dark:text-gray-400 text-gray-500">{row.support_percent.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
