@@ -18,13 +18,14 @@ import (
 // --- Bol-specific fakes (BolClient/BolClientFactory/BolProductOverrideRepository have no other test double in this package yet) ---
 
 type fakeBolClient struct {
-	createOfferFn    func(ctx context.Context, in integrationsDomain.BolOfferInput) (string, error)
-	updateOfferCalls []integrationsDomain.BolOfferInput
-	contentCalls     []integrationsDomain.BolProductContentInput
-	unknownEANErr    error
-	getCommissionFn  func(ctx context.Context, ean string, unitPrice float64) (integrationsDomain.BolCommission, error)
-	listOrdersFn     func(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error)
-	getOrderFn       func(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error)
+	createOfferFn           func(ctx context.Context, in integrationsDomain.BolOfferInput) (string, error)
+	updateOfferCalls        []integrationsDomain.BolOfferInput
+	contentCalls            []integrationsDomain.BolProductContentInput
+	unknownEANErr           error
+	getCommissionFn         func(ctx context.Context, ean string, unitPrice float64) (integrationsDomain.BolCommission, error)
+	listOrdersFn            func(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error)
+	getOrderFn              func(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error)
+	listEconomicOperatorsFn func(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error)
 }
 
 func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
@@ -58,6 +59,12 @@ func (f *fakeBolClient) GetOrder(ctx context.Context, orderID string) (*integrat
 		return f.getOrderFn(ctx, orderID)
 	}
 	return &integrationsDomain.BolOrder{OrderID: orderID}, nil
+}
+func (f *fakeBolClient) ListEconomicOperators(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error) {
+	if f.listEconomicOperatorsFn != nil {
+		return f.listEconomicOperatorsFn(ctx)
+	}
+	return nil, nil
 }
 
 type fakeBolClientFactory struct{ client integrationsDomain.BolClient }

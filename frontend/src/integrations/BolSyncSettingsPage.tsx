@@ -109,11 +109,38 @@ export default function BolSyncSettingsPage({
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaveError, setConfigSaveError] = useState('')
   const [configSaved, setConfigSaved] = useState(false)
+  const [fetchingOperators, setFetchingOperators] = useState(false)
+  const [fetchOperatorsError, setFetchOperatorsError] = useState('')
+  const [operatorChoices, setOperatorChoices] = useState<api.BolEconomicOperator[]>([])
 
   if (!configHydrated && initialConnection) {
     setConfigEconomicOperatorId(initialConnection.bol_economic_operator_id ?? '')
     setConfigDeliveryCode(initialConnection.bol_delivery_code || DELIVERY_CODE_OPTIONS[0].value)
     setConfigHydrated(true)
+  }
+
+  // Bol's API returns every registered economic operator (usually exactly
+  // one) -- a single result auto-fills, more than one shows a picker so
+  // the merchant chooses instead of guessing which applies here.
+  async function handleFetchFromBol() {
+    if (!token || !connectionId) return
+    setFetchingOperators(true)
+    setFetchOperatorsError('')
+    setOperatorChoices([])
+    try {
+      const operators = await api.listBolEconomicOperators(token, connectionId)
+      if (operators.length === 0) {
+        setFetchOperatorsError('Bol returned no economic operators for this account -- enter the id manually.')
+      } else if (operators.length === 1) {
+        setConfigEconomicOperatorId(operators[0].id)
+      } else {
+        setOperatorChoices(operators)
+      }
+    } catch (err) {
+      setFetchOperatorsError(err instanceof Error ? err.message : 'Failed to fetch from Bol')
+    } finally {
+      setFetchingOperators(false)
+    }
   }
 
   async function handleSaveConfig() {
@@ -267,14 +294,37 @@ export default function BolSyncSettingsPage({
                   <label htmlFor="bol-config-economic-operator-id" className="block text-xs font-medium dark:text-gray-400 text-gray-500 mb-1">
                     Economic Operator ID
                   </label>
-                  <input
-                    id="bol-config-economic-operator-id" value={configEconomicOperatorId}
-                    onChange={e => setConfigEconomicOperatorId(e.target.value)}
-                    className={clsx(inputClass, 'w-full')}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      id="bol-config-economic-operator-id" value={configEconomicOperatorId}
+                      onChange={e => setConfigEconomicOperatorId(e.target.value)}
+                      className={clsx(inputClass, 'flex-1')}
+                    />
+                    <button
+                      type="button" onClick={handleFetchFromBol} disabled={fetchingOperators}
+                      className="px-2 py-1 text-[10px] rounded dark:bg-[#2D3748] bg-gray-200 dark:text-gray-300 text-gray-700 hover:opacity-80 disabled:opacity-50 transition-opacity shrink-0"
+                    >
+                      {fetchingOperators ? 'Fetching…' : 'Fetch from Bol'}
+                    </button>
+                  </div>
                   <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
                     A UUID from Bol's Partner Platform (GPSR/economic operator settings) -- not your KVK/VAT number.
                   </p>
+                  {fetchOperatorsError && <p className="text-[10px] text-red-400 mt-1">{fetchOperatorsError}</p>}
+                  {operatorChoices.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[10px] dark:text-gray-400 text-gray-500">Bol returned multiple operators -- pick one:</p>
+                      {operatorChoices.map(op => (
+                        <button
+                          key={op.id} type="button"
+                          onClick={() => { setConfigEconomicOperatorId(op.id); setOperatorChoices([]) }}
+                          className="block w-full text-left px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-gray-50 dark:text-gray-300 text-gray-700 hover:opacity-80 transition-opacity"
+                        >
+                          {op.name} ({op.status}) -- {op.id}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="bol-config-delivery-code" className="block text-xs font-medium dark:text-gray-400 text-gray-500 mb-1">

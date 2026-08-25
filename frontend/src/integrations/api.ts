@@ -469,3 +469,19 @@ export function upsertBolProductOverride(token: string, connectionId: string, pr
 export function getBolCommission(token: string, connectionId: string, productId: string, skuId: string): Promise<BolCommission> {
   return request<BolCommission>(`${base()}/connections/${connectionId}/bol-commission/${productId}/${skuId}`, { method: 'GET' }, token)
 }
+
+export interface BolEconomicOperator {
+  id: string
+  name: string
+  status: 'PENDING' | 'VALID' | 'INVALID'
+}
+
+// Fetches every GPSR economic operator registered against this Bol
+// account, straight from Bol -- powers a "fetch from Bol" button so the id
+// doesn't have to be copied manually out of Bol's Partner Platform. Can
+// reject with a 502 if the connection's app registration lacks the
+// economic-operators.read/.manage scope -- callers should fall back to
+// manual entry, not treat it as fatal.
+export function listBolEconomicOperators(token: string, connectionId: string): Promise<BolEconomicOperator[]> {
+  return request<BolEconomicOperator[]>(`${base()}/connections/${connectionId}/bol-economic-operators`, { method: 'GET' }, token)
+}

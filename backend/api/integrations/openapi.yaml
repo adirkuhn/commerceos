@@ -866,6 +866,31 @@ paths:
         '502':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/bol-economic-operators:
+    get:
+      operationId: listBolEconomicOperators
+      summary: >-
+        Fetch every GPSR economic operator registered against this Bol
+        account, straight from Bol's Economic Operator API -- lets the
+        connection settings form offer a "fetch from Bol" button instead of
+        requiring the id be copied manually out of Bol's Partner Platform.
+        A 502 here commonly means the connection's app registration hasn't
+        been granted the economic-operators.read/.manage scope in Bol's
+        Partner Platform -- not a bug, just falls back to manual entry.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolEconomicOperatorsResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -1174,6 +1199,22 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/BolCommission' }
+        error: { nullable: true }
+
+    BolEconomicOperator:
+      type: object
+      required: [id, name, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [PENDING, VALID, INVALID] }
+
+    BolEconomicOperatorsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/BolEconomicOperator' }
         error: { nullable: true }
 
     ImportWooProductsRequest:

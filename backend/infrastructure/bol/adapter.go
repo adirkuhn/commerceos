@@ -116,6 +116,18 @@ func (a *Adapter) GetOrder(ctx context.Context, orderID string) (*integrationsDo
 	}, nil
 }
 
+func (a *Adapter) ListEconomicOperators(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error) {
+	operators, err := a.client.ListEconomicOperators(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]integrationsDomain.BolEconomicOperator, len(operators))
+	for i, o := range operators {
+		out[i] = integrationsDomain.BolEconomicOperator{ID: o.ID, Name: o.Name, Status: o.Status}
+	}
+	return out, nil
+}
+
 // ClientFactory implements domain/integrations.BolClientFactory.
 type ClientFactory struct{}
 

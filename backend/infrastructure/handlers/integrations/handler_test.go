@@ -271,6 +271,15 @@ func (s *stubGetBolCommission) Execute(_ context.Context, _ appchannels.GetBolCo
 	return s.out, s.err
 }
 
+type stubListBolEconomicOperators struct {
+	out []integrationsDomain.BolEconomicOperator
+	err error
+}
+
+func (s *stubListBolEconomicOperators) Execute(_ context.Context, _ string) ([]integrationsDomain.BolEconomicOperator, error) {
+	return s.out, s.err
+}
+
 type stubDismissFailedSync struct {
 	err   error
 	gotID string
@@ -491,7 +500,7 @@ func newTestHandler(
 		&stubCreateImportJob{}, &stubPushProductToWoo{}, &stubListSyncSchedules{}, &stubUpsertSyncSchedule{},
 		&stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 }
 
 // newSyncScheduleTestHandler builds a Handler for the sync-schedule routes
@@ -503,7 +512,7 @@ func newSyncScheduleTestHandler(list *stubListSyncSchedules, upsert *stubUpsertS
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		list, upsert, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -515,7 +524,7 @@ func newListWooTaxesTestHandler(listWooTaxes *stubListWooTaxes) *integrationshan
 		&stubDisconnectConnection{}, &stubTestConnection{}, listWooTaxes, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -529,7 +538,7 @@ func newCategoryLinksTestHandler(listWooCategories *stubListWooCategories, listL
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{},
-		listWooCategories, listLinks, upsert, del, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		listWooCategories, listLinks, upsert, del, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -541,7 +550,7 @@ func newDeleteImportedTestHandler(deleteAll *stubDeleteAllImportedProducts) *int
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, deleteAll, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -553,7 +562,7 @@ func newUpdateConnectionSettingsTestHandler(settings *stubUpdateConnectionSettin
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, settings, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -566,7 +575,7 @@ func newGetListingTestHandler(getListing *stubGetProductChannelListing) *integra
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		getListing, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -579,7 +588,7 @@ func newListSyncLogsTestHandler(listLogs *stubListSyncLogs) *integrationshandler
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, listLogs, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -593,7 +602,7 @@ func newListAllSyncLogsTestHandler(listAll *stubListAllSyncLogs) *integrationsha
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, listAll, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -608,7 +617,7 @@ func newSyncLogAttentionTestHandler(needingAttn *stubListSyncLogsNeedingAttentio
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{},
 		needingAttn, retry, dismiss, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -622,7 +631,7 @@ func newResyncProductTestHandler(resync *stubResyncProductToChannels) *integrati
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{},
 		resync,
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -659,13 +668,13 @@ func newFetchWooOrderTestHandler(fetch *stubFetchWooOrder) *integrationshandler.
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
-		fetch, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		fetch, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
 // newBolTestHandler builds a Handler for the Bol routes specifically —
 // every other use case is a harmless zero-value stub.
-func newBolTestHandler(connectBol *stubConnectBol, pushBol *stubPushProductToBol, getOverride *stubGetBolProductOverride, upsertOverride *stubUpsertBolProductOverride, getCommission *stubGetBolCommission) *integrationshandler.Handler {
+func newBolTestHandler(connectBol *stubConnectBol, pushBol *stubPushProductToBol, getOverride *stubGetBolProductOverride, upsertOverride *stubUpsertBolProductOverride, getCommission *stubGetBolCommission, listEconomicOperators *stubListBolEconomicOperators) *integrationshandler.Handler {
 	return integrationshandler.NewHandler(
 		&stubListConnections{}, &stubStartWooConnect{}, &stubCompleteWooConnect{}, &stubManualConnectWooCommerce{},
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, &stubCreateImportJob{}, &stubPushProductToWoo{},
@@ -674,7 +683,7 @@ func newBolTestHandler(connectBol *stubConnectBol, pushBol *stubPushProductToBol
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{},
 		&stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{},
-		connectBol, pushBol, getOverride, upsertOverride, getCommission,
+		connectBol, pushBol, getOverride, upsertOverride, getCommission, listEconomicOperators,
 	)
 }
 
@@ -1196,7 +1205,7 @@ func newImportTestHandler(importUC *stubCreateImportJob) *integrationshandler.Ha
 		&stubDisconnectConnection{}, &stubTestConnection{}, &stubListWooTaxes{}, importUC, &stubPushProductToWoo{},
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -1211,7 +1220,7 @@ func newAIConnectionTestHandler(
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		get, connect, disconnect,
-		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -1468,7 +1477,7 @@ func newSalesChannelTestHandler(
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{},
 		&stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
-		list, create, update, del, listProducts, setOverride, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		list, create, update, del, listProducts, setOverride, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{}, &stubSetWebhookSecret{}, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{}, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -1683,7 +1692,7 @@ func newWebhookAdminTestHandler(setSecret *stubSetWebhookSecret, list *stubListW
 		&stubListSyncSchedules{}, &stubUpsertSyncSchedule{}, &stubDeleteAllImportedProducts{}, &stubUpdateConnectionSettings{}, &stubGetProductChannelListing{}, &stubListSyncLogs{}, &stubListAllSyncLogs{}, &stubListSyncLogsNeedingAttention{}, &stubRetryFailedSync{}, &stubDismissFailedSync{}, &stubResyncProductToChannels{},
 		&stubGetAIConnection{}, &stubConnectAIProvider{}, &stubDisconnectAIConnection{},
 		&stubListSalesChannels{}, &stubCreateSalesChannel{}, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{}, &stubFetchWooOrder{}, &stubListWooCategories{}, &stubListExternalCategoryLinks{}, &stubUpsertExternalCategoryLink{}, &stubDeleteExternalCategoryLink{},
-		setSecret, list, retry, abandon, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{},
+		setSecret, list, retry, abandon, &stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{},
 	)
 }
 
@@ -1781,7 +1790,7 @@ func TestAbandonWebhookFallbackEventHandler_notFound(t *testing.T) {
 
 func TestConnectBolHandler_success(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-bol-1", Provider: integrationsDomain.ProviderBol, Status: integrationsDomain.StatusConnected}
-	h := newBolTestHandler(&stubConnectBol{out: conn}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{out: conn}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1795,7 +1804,7 @@ func TestConnectBolHandler_success(t *testing.T) {
 }
 
 func TestConnectBolHandler_rejectsMissingFields(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1806,7 +1815,7 @@ func TestConnectBolHandler_rejectsMissingFields(t *testing.T) {
 
 func TestPushProductToBolHandler_success(t *testing.T) {
 	listings := []channelsDomain.ProductChannelListing{{ID: "listing-1", ProductID: "prod-1", ConnectionID: "conn-1", Provider: "bol", ExternalID: "offer-1"}}
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{out: listings}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{out: listings}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1817,7 +1826,7 @@ func TestPushProductToBolHandler_success(t *testing.T) {
 }
 
 func TestPushProductToBolHandler_missingEAN_returns422NotInternal(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrBolMissingEAN}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrBolMissingEAN}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1828,7 +1837,7 @@ func TestPushProductToBolHandler_missingEAN_returns422NotInternal(t *testing.T) 
 }
 
 func TestPushProductToBolHandler_bulkPoolSKU_returns422NotInternal(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrCannotPushBulkPoolSKU}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrCannotPushBulkPoolSKU}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1839,7 +1848,7 @@ func TestPushProductToBolHandler_bulkPoolSKU_returns422NotInternal(t *testing.T)
 }
 
 func TestGetBolProductOverrideHandler_returnsNullWhenNoneExists(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{out: nil}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{out: nil}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1853,7 +1862,7 @@ func TestUpsertBolProductOverrideHandler_success(t *testing.T) {
 	override := &channelsDomain.BolProductOverride{
 		ProductID: "prod-1", ConnectionID: "conn-1", ConditionCategory: channelsDomain.BolConditionNew, FulfilmentMethod: channelsDomain.BolFulfilmentFBR,
 	}
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{out: override}, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{out: override}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1872,7 +1881,7 @@ func TestUpsertBolProductOverrideHandler_passesCustomPriceThrough(t *testing.T) 
 		FulfilmentMethod: channelsDomain.BolFulfilmentFBR, CustomPriceMinorUnits: &customPrice,
 	}
 	upsert := &stubUpsertBolProductOverride{out: override}
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, upsert, &stubGetBolCommission{})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, upsert, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1888,7 +1897,7 @@ func TestUpsertBolProductOverrideHandler_passesCustomPriceThrough(t *testing.T) 
 
 func TestGetBolCommissionHandler_success(t *testing.T) {
 	result := &appchannels.BolCommissionResult{EAN: "0630509892495", FixedAmount: 0.30, Percentage: 12.5}
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{out: result})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{out: result}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1900,7 +1909,7 @@ func TestGetBolCommissionHandler_success(t *testing.T) {
 }
 
 func TestGetBolCommissionHandler_missingEAN_returns422NotInternal(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: channelsDomain.ErrBolMissingEAN})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: channelsDomain.ErrBolMissingEAN}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1911,7 +1920,7 @@ func TestGetBolCommissionHandler_missingEAN_returns422NotInternal(t *testing.T) 
 }
 
 func TestGetBolCommissionHandler_skuNotFound_returns404NotInternal(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: pmsDomain.ErrSKUNotFound})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: pmsDomain.ErrSKUNotFound}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -1922,11 +1931,37 @@ func TestGetBolCommissionHandler_skuNotFound_returns404NotInternal(t *testing.T)
 }
 
 func TestGetBolCommissionHandler_bolAPIFailure_returns502NotInternal(t *testing.T) {
-	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: channelsDomain.ErrBolCommissionRequestFailed})
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{err: channelsDomain.ErrBolCommissionRequestFailed}, &stubListBolEconomicOperators{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
+
+	require.Equal(t, http.StatusBadGateway, w.Code)
+	assert.Contains(t, w.Body.String(), "UPSTREAM_ERROR")
+}
+
+func TestListBolEconomicOperatorsHandler_success(t *testing.T) {
+	operators := []integrationsDomain.BolEconomicOperator{
+		{ID: "3fa85f64-5717-4562-b3fc-2c963f66afa6", Name: "Cantinho Brasileiro", Status: "VALID"},
+	}
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{out: operators})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-economic-operators", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "3fa85f64-5717-4562-b3fc-2c963f66afa6")
+	assert.Contains(t, w.Body.String(), "Cantinho Brasileiro")
+}
+
+func TestListBolEconomicOperatorsHandler_bolAPIFailure_returns502NotInternal(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{err: integrationsDomain.ErrBolEconomicOperatorsRequestFailed})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-economic-operators", nil)
 
 	require.Equal(t, http.StatusBadGateway, w.Code)
 	assert.Contains(t, w.Body.String(), "UPSTREAM_ERROR")

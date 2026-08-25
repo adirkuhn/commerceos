@@ -481,3 +481,37 @@ func (c *Client) GetOrder(ctx context.Context, orderID string) (*orderResponse, 
 	}
 	return &resp, nil
 }
+
+// --- Economic Operator API (v1) ---
+// Confirmed against Bol's real Economic Operator API v1 spec
+// (api.bol.com/registry/api-definitions/economic-operators/economic-operators-v1.yaml,
+// same /retailer base path this client already uses, different media type
+// -- economicOperatorAccept below, not contentAccept). Only the list
+// endpoint is used here (a "fetch from Bol" convenience for the
+// Economic Operator ID field); create/update/delete/get-by-id are not
+// needed by this codebase.
+
+const economicOperatorAccept = "application/vnd.economic-operator.v1+json"
+
+type economicOperatorResponse struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+type economicOperatorsPageResponse struct {
+	Operators []economicOperatorResponse `json:"operators"`
+}
+
+// ListEconomicOperators returns every GPSR economic operator registered
+// against this Bol account. Requires the economic-operators.read (or
+// .manage) OAuth scope -- a 403 here means the app registration behind
+// this connection's client_id/secret hasn't been granted that scope in
+// Bol's Partner Platform, not a bug in this client.
+func (c *Client) ListEconomicOperators(ctx context.Context) ([]economicOperatorResponse, error) {
+	var resp economicOperatorsPageResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/economic-operators", economicOperatorAccept, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Operators, nil
+}

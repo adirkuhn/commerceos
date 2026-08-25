@@ -31,4 +31,9 @@ var (
 	// checked against ValidBolDeliveryCodes so a typo is caught at save
 	// time instead of surfacing as an opaque Bol 400 on the next push.
 	ErrInvalidBolDeliveryCode = errors.New("invalid bol delivery code")
+	// ErrBolEconomicOperatorsRequestFailed wraps a live call to Bol's
+	// Economic Operator API -- handlers map it to 502, not 500. Commonly a
+	// 403 because the connection's app registration lacks the
+	// economic-operators.read/.manage OAuth scope, not a bug in this codebase.
+	ErrBolEconomicOperatorsRequestFailed = errors.New("failed to fetch economic operators from bol")
 )

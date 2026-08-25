@@ -275,3 +275,36 @@ func TestClient_GetCommission_parsesResponse(t *testing.T) {
 	assert.InDelta(t, 0.30, commission.FixedAmount, 0.001)
 	assert.InDelta(t, 12.5, commission.Percentage, 0.001)
 }
+
+// TestClient_ListEconomicOperators_hitsRealPathAndHeader is a regression
+// test proving this uses Bol's real, separate Economic Operator API v1
+// (confirmed against the real downloaded spec: GET /economic-operators,
+// Accept application/vnd.economic-operator.v1+json -- a different media
+// type from every other endpoint in this client) rather than a guess.
+func TestClient_ListEconomicOperators_hitsRealPathAndHeader(t *testing.T) {
+	var gotPath, gotAccept string
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
+		case r.URL.Path == "/economic-operators":
+			gotPath = r.URL.Path
+			gotAccept = r.Header.Get("Accept")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"operators": []map[string]any{
+					{"id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "name": "Cantinho Brasileiro", "status": "VALID"},
+				},
+			})
+		}
+	})
+
+	operators, err := client.ListEconomicOperators(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "/economic-operators", gotPath)
+	assert.Equal(t, "application/vnd.economic-operator.v1+json", gotAccept)
+	require.Len(t, operators, 1)
+	assert.Equal(t, "3fa85f64-5717-4562-b3fc-2c963f66afa6", operators[0].ID)
+	assert.Equal(t, "Cantinho Brasileiro", operators[0].Name)
+	assert.Equal(t, "VALID", operators[0].Status)
+}

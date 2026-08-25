@@ -84,6 +84,18 @@ type BolOrder struct {
 	OrderItems      []BolOrderItem
 }
 
+// BolEconomicOperator is one GPSR economic operator registered against a
+// Bol account -- confirmed against Bol's separate Economic Operator API v1
+// (api.bol.com/registry, same /retailer base path, different media type
+// application/vnd.economic-operator.v1+json). Powers a "fetch from Bol"
+// button so the merchant doesn't have to manually copy the id out of Bol's
+// Partner Platform UI, which is the only place it was previously visible.
+type BolEconomicOperator struct {
+	ID     string
+	Name   string
+	Status string // PENDING, VALID, or INVALID
+}
+
 // BolClient is one Bol connection's credentials + endpoints, adapted to
 // exactly what this codebase's use cases need (ISP) -- mirrors WooClient's
 // role. Implemented by infrastructure/bol.
@@ -103,6 +115,13 @@ type BolClient interface {
 	// GetOrder returns one order's full detail, including ShipmentDetails
 	// -- called once per newly-discovered order ID from ListOrders.
 	GetOrder(ctx context.Context, orderID string) (*BolOrder, error)
+	// ListEconomicOperators returns every GPSR economic operator registered
+	// against this Bol account -- requires the economic-operators.read (or
+	// .manage) OAuth scope, which is granted per-app in Bol's Partner
+	// Platform and may not be present on an older/narrower app
+	// registration; a scope-denied response surfaces as a normal error
+	// here, same as any other Bol API failure.
+	ListEconomicOperators(ctx context.Context) ([]BolEconomicOperator, error)
 }
 
 // BolClientFactory builds a BolClient scoped to one connection's credentials.

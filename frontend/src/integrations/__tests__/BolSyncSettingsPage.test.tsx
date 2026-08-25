@@ -17,6 +17,7 @@ vi.mock('../api', () => ({
   listSyncSchedules: vi.fn(),
   upsertSyncSchedules: vi.fn(),
   updateConnectionSettings: vi.fn(),
+  listBolEconomicOperators: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -140,6 +141,46 @@ describe('BolSyncSettingsPage', () => {
       'test-token', 'conn-bol-1', '', null, '3fa85f64-5717-4562-b3fc-2c963f66afa6', '1-2d',
     ))
     expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+
+  it('fetching from Bol auto-fills a single economic operator', async () => {
+    vi.mocked(api.listBolEconomicOperators).mockResolvedValue([
+      { id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', name: 'Cantinho Brasileiro', status: 'VALID' },
+    ])
+    render(<BolSyncSettingsPage connectionId="conn-bol-1" onClose={vi.fn()} onConnected={vi.fn()} />)
+
+    await screen.findByText('Sync schedule')
+    await userEvent.click(screen.getByRole('button', { name: 'Fetch from Bol' }))
+
+    await waitFor(() => expect(api.listBolEconomicOperators).toHaveBeenCalledWith('test-token', 'conn-bol-1'))
+    expect(await screen.findByLabelText('Economic Operator ID')).toHaveValue('3fa85f64-5717-4562-b3fc-2c963f66afa6')
+  })
+
+  it('fetching from Bol shows a picker when multiple operators are returned', async () => {
+    vi.mocked(api.listBolEconomicOperators).mockResolvedValue([
+      { id: 'op-1', name: 'Operator One', status: 'VALID' },
+      { id: 'op-2', name: 'Operator Two', status: 'PENDING' },
+    ])
+    render(<BolSyncSettingsPage connectionId="conn-bol-1" onClose={vi.fn()} onConnected={vi.fn()} />)
+
+    await screen.findByText('Sync schedule')
+    await userEvent.click(screen.getByRole('button', { name: 'Fetch from Bol' }))
+
+    expect(await screen.findByText(/Operator One/)).toBeInTheDocument()
+    expect(screen.getByText(/Operator Two/)).toBeInTheDocument()
+    await userEvent.click(screen.getByText(/Operator Two/))
+    expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('op-2')
+  })
+
+  it('fetching from Bol shows an error and leaves manual entry available on failure', async () => {
+    vi.mocked(api.listBolEconomicOperators).mockRejectedValue(new Error('missing scope economic-operators.read'))
+    render(<BolSyncSettingsPage connectionId="conn-bol-1" onClose={vi.fn()} onConnected={vi.fn()} />)
+
+    await screen.findByText('Sync schedule')
+    await userEvent.click(screen.getByRole('button', { name: 'Fetch from Bol' }))
+
+    expect(await screen.findByText('missing scope economic-operators.read')).toBeInTheDocument()
+    expect(screen.getByLabelText('Economic Operator ID')).not.toBeDisabled()
   })
 
   it('prefills an already-saved schedule', async () => {

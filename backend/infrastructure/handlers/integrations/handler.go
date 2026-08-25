@@ -159,6 +159,10 @@ type getBolCommissionUC interface {
 	Execute(ctx context.Context, in appchannels.GetBolCommissionInput) (*appchannels.BolCommissionResult, error)
 }
 
+type listBolEconomicOperatorsUC interface {
+	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.BolEconomicOperator, error)
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 type Handler struct {
@@ -205,6 +209,7 @@ type Handler struct {
 	getBolProductOverride        getBolProductOverrideUC
 	upsertBolProductOverride     upsertBolProductOverrideUC
 	getBolCommission             getBolCommissionUC
+	listBolEconomicOperators     listBolEconomicOperatorsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -252,6 +257,7 @@ func NewHandler(
 	getBolProductOverride getBolProductOverrideUC,
 	upsertBolProductOverride upsertBolProductOverrideUC,
 	getBolCommission getBolCommissionUC,
+	listBolEconomicOperators listBolEconomicOperatorsUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -297,6 +303,7 @@ func NewHandler(
 		getBolProductOverride:        getBolProductOverride,
 		upsertBolProductOverride:     upsertBolProductOverride,
 		getBolCommission:             getBolCommission,
+		listBolEconomicOperators:     listBolEconomicOperators,
 	}
 }
 
@@ -436,6 +443,7 @@ func Register(
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
 		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo),
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
+		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -868,6 +876,20 @@ func (h *Handler) GetBolCommission(c *gin.Context, id genintegrations.Id, produc
 	})
 }
 
+func (h *Handler) ListBolEconomicOperators(c *gin.Context, id genintegrations.Id) {
+	operators, err := h.listBolEconomicOperators.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genintegrations.BolEconomicOperator, len(operators))
+	for i, o := range operators {
+		resp[i] = genintegrations.BolEconomicOperator{
+			Id: o.ID, Name: o.Name, Status: genintegrations.BolEconomicOperatorStatus(o.Status),
+		}
+	}
+	middleware.OK(c, resp)
+}
+
 func (h *Handler) DeleteAllImportedProducts(c *gin.Context, id genintegrations.Id) {
 	result, err := h.deleteAllImportedProds.Execute(c.Request.Context(), appchannels.DeleteAllImportedProductsInput{ConnectionID: id})
 	if err := mapError(c, err); err != nil {
@@ -1165,10 +1187,10 @@ func (h *Handler) WooCallback(c *gin.Context) {
 func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection {
 	currency := c.DefaultCurrency
 	return genintegrations.Connection{
-		Id:                 c.ID,
-		Provider:           string(c.Provider),
-		StoreUrl:           c.StoreURL.String(),
-		Status:             genintegrations.ConnectionStatus(c.Status),
+		Id:                    c.ID,
+		Provider:              string(c.Provider),
+		StoreUrl:              c.StoreURL.String(),
+		Status:                genintegrations.ConnectionStatus(c.Status),
 		DefaultCurrency:       &currency,
 		DefaultWarehouseId:    c.DefaultWarehouseID,
 		BolEconomicOperatorId: c.BolEconomicOperatorID,
@@ -1349,7 +1371,8 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, channelsDomain.ErrBolMissingEAN),
 		errors.Is(err, channelsDomain.ErrCannotPushBulkPoolSKU):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
-	case errors.Is(err, channelsDomain.ErrBolCommissionRequestFailed):
+	case errors.Is(err, channelsDomain.ErrBolCommissionRequestFailed),
+		errors.Is(err, integrationsDomain.ErrBolEconomicOperatorsRequestFailed):
 		middleware.Fail(c, http.StatusBadGateway, "UPSTREAM_ERROR", err.Error())
 	default:
 		log.Printf("integrations: unhandled error: %v", err)
