@@ -125,6 +125,28 @@ func importedFieldsFromWoo(wp integrationsDomain.WooProduct, product pmsDomain.P
 
 // bolOfferToFields is wooProductToFields's Bol counterpart -- the offer
 // payload actually sent to Bol, snapshotted for diffing/logging.
+// mergeFields combines two field snapshots for one recordSyncLog call --
+// e.g. Bol's offer fields (price/stock/etc) plus its product-content
+// attributes, which are a separate Bol resource pushed in the same
+// pushOne call but weren't part of the diffed snapshot at all until this
+// fix. Content-only changes (no price/stock movement) were invisible to
+// the diff in bolOfferToFields alone, so recordSyncLog's "identical to
+// last entry, skip" dedup (see its doc comment) silently swallowed every
+// content-only sync: the push to Bol genuinely succeeded, but no row ever
+// appeared on /sync-log for it (caught 2026-08-25: manufacturer-field
+// fixes deployed and pushed with no error, nothing showed up in the log).
+// No key collisions expected -- offer keys are lowercase snake_case,
+// content keys are Bol's title-case attribute ids.
+func mergeFields(maps ...map[string]string) map[string]string {
+	merged := map[string]string{}
+	for _, m := range maps {
+		for k, v := range m {
+			merged[k] = v
+		}
+	}
+	return merged
+}
+
 func bolOfferToFields(o integrationsDomain.BolOfferInput) map[string]string {
 	return map[string]string{
 		"ean":                o.EAN,

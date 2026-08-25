@@ -551,6 +551,39 @@ func TestPushProductToBol_recordsSyncLog(t *testing.T) {
 	assert.Equal(t, "19.99", entry.Fields["price"])
 }
 
+// TestPushProductToBol_contentOnlyChange_stillWritesASyncLogEntry is a
+// regression test for a real prod bug: recordSyncLog's dedup (see its doc
+// comment -- a successful sync identical to the last logged entry writes
+// no row) diffed only bolOfferToFields (price/stock/ean/etc), never
+// product-content attributes. A content-only save (e.g. filling in
+// Manufacturer Name, no price/stock change) genuinely reached Bol and
+// succeeded, but looked byte-for-byte identical to the previous log entry
+// and got silently skipped -- from Sync History's perspective the sync
+// never happened (caught 2026-08-25: content fixes deployed and pushed
+// with no error, /sync-log showed nothing new).
+func TestPushProductToBol_contentOnlyChange_stillWritesASyncLogEntry(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		return "offer-1", nil
+	}}
+	uc := newBolUseCase(t, h, client, 6) // two Execute calls, 3 tenant.WithTenant cycles each
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 1, "first push always logs, nothing to diff against yet")
+
+	name := "Acme BV"
+	h.contentRepo.content = &channelsDomain.BolProductContent{ProductID: "prod-1", ConnectionID: "conn-1", ManufacturerName: &name}
+
+	_, err = uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
+	require.Len(t, h.syncLogRepo.created, 2, "content-only change (no price/stock movement) must still produce a new Sync History row")
+	assert.Equal(t, "Acme BV", h.syncLogRepo.created[1].Fields["Manufacturer Name"])
+}
+
 // TestPushProductToBol_createOfferFailure_recordsFailedSyncLog is a
 // regression test for a real prod bug: pushOne only ever called
 // recordSyncLog on its success paths, so a CreateOffer failure (e.g. Bol's

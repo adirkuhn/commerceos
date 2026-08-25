@@ -472,7 +472,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 			return channelsDomain.ProductChannelListing{}, err
 		}
 		recordSyncLog(ctx, uc.db, uc.syncLogRepo, existing, channelsDomain.SyncFlowPush,
-			channelsDomain.SyncLogStatusSuccess, "", bolOfferToFields(offerIn))
+			channelsDomain.SyncLogStatusSuccess, "", mergeFields(bolOfferToFields(offerIn), contentAttrs))
 		return existing, nil
 	}
 
@@ -485,7 +485,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 		return channelsDomain.ProductChannelListing{}, err
 	}
 	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
-		channelsDomain.SyncLogStatusSuccess, "", bolOfferToFields(offerIn))
+		channelsDomain.SyncLogStatusSuccess, "", mergeFields(bolOfferToFields(offerIn), contentAttrs))
 	return listing, nil
 }
 
