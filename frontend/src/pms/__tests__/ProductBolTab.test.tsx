@@ -146,7 +146,13 @@ describe('ProductBolTab', () => {
     ))
   })
 
-  it('saving the override also pushes the product to Bol', async () => {
+  // Saving used to also fire a synchronous POST push-product-bol (same call
+  // as the "Push to Bol" button) piggybacked on the save. That call ran
+  // Bol's live API inline in the request and 500'd in prod, making a
+  // successful save look like a failure. Save now only persists + relies on
+  // the pms.product.changed outbox event -> async sync job to push to Bol
+  // (see bol_product_content.go / sync_product_to_channels.go).
+  it('saving the override does not push the product to Bol', async () => {
     vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
       product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
     })
@@ -155,22 +161,8 @@ describe('ProductBolTab', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(integrationsApi.pushProductToBol).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1'))
-    expect(await screen.findByText('Pushed to Bol')).toBeInTheDocument()
-  })
-
-  it('a push failure after saving the override is surfaced without erasing the save', async () => {
-    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-    })
-    vi.mocked(integrationsApi.pushProductToBol).mockRejectedValue(new Error('bol unreachable'))
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
-
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    expect(await screen.findByText('bol unreachable')).toBeInTheDocument()
-    expect(screen.queryByText('Failed to save')).not.toBeInTheDocument()
+    await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalled())
+    expect(integrationsApi.pushProductToBol).not.toHaveBeenCalled()
   })
 
   it('surfaces a commission-fetch error instead of swallowing it', async () => {
@@ -211,8 +203,7 @@ describe('ProductBolTab', () => {
         'test-token', 'conn-1', 'prod-1',
         expect.objectContaining({ brand: 'Hipoglós', hypoallergenic: true }),
       ))
-      expect(integrationsApi.pushProductToBol).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1')
-      await waitFor(() => expect(screen.getAllByText('Pushed to Bol').length).toBeGreaterThan(0))
+      expect(integrationsApi.pushProductToBol).not.toHaveBeenCalled()
     })
   })
 })

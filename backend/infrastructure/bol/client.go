@@ -359,19 +359,28 @@ func (o PollOptions) withDefaults() PollOptions {
 	return o
 }
 
-// SubmitProductContent uploads new/updated product content, then polls the
-// upload report until it reaches a terminal status. Bol requires a GPC Code
+// SubmitProductContent uploads new/updated product content, then polls
+// process-status until it reaches a terminal status. Bol requires a GPC Code
 // + enrichment-level-0/1 mandatory attributes for a genuinely new EAN --
 // this client does not validate or invent those; the caller
 // (PushProductToBolUseCase) is responsible for populating req.Attributes
 // correctly. The exact mandatory-attribute set is category-dependent (Bol's
 // "chunks" taxonomy) and was NOT confirmed against a real sandbox during
 // this build -- verify before relying on this for a genuinely new category.
+//
+// Path is POST /content/product (not /product-content -- that 404s, see
+// prod incident 2026-08-25). Confirmed against the operation names bol's own
+// functional docs link to (post-product-content, get-upload-report under
+// tag Product-Content) and cross-checked against an OpenAPI-generated
+// client's method table (github.com/Woensdag/bol-com-retailer-api,
+// ProductContentApi.md: postProductContent -> POST /retailer/content/product).
+// Process-status is a separate, shared, non-content-specific resource --
+// GET /process-status/{id} -- not nested under /content/product.
 func (c *Client) SubmitProductContent(ctx context.Context, req ProductContentRequest, opts PollOptions) error {
 	opts = opts.withDefaults()
 
 	var upload processStatusResponse
-	if err := c.doJSON(ctx, http.MethodPost, "/product-content", contentAccept, req, &upload); err != nil {
+	if err := c.doJSON(ctx, http.MethodPost, "/content/product", contentAccept, req, &upload); err != nil {
 		return fmt.Errorf("bol: submit product content: %w", err)
 	}
 	if upload.ProcessStatusID == "" {
@@ -380,7 +389,7 @@ func (c *Client) SubmitProductContent(ctx context.Context, req ProductContentReq
 
 	for attempt := 0; attempt < opts.MaxAttempts; attempt++ {
 		var report processStatusResponse
-		path := "/product-content/" + url.PathEscape(upload.ProcessStatusID)
+		path := "/process-status/" + url.PathEscape(upload.ProcessStatusID)
 		if err := c.doJSON(ctx, http.MethodGet, path, contentAccept, nil, &report); err != nil {
 			return fmt.Errorf("bol: poll product content report: %w", err)
 		}

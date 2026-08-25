@@ -178,33 +178,6 @@ export function ProductBolTab({
     setContentSaved(false)
   }
 
-  // Saving the override/content fields only ever persisted them locally --
-  // nothing told Bol about the change, so the live listing kept showing
-  // stale data until some unrelated event (a product edit, a scheduled
-  // export) happened to re-push it. Both save paths below now also push
-  // to Bol immediately, same call the product page's own "Push to Bol"
-  // action makes. A push failure doesn't roll back the save (the fields
-  // are genuinely saved) but is surfaced separately so it's not mistaken
-  // for the listing being up to date.
-  const [pushing, setPushing] = useState(false)
-  const [pushError, setPushError] = useState<string | null>(null)
-  const [pushed, setPushed] = useState(false)
-
-  async function pushToBol() {
-    if (!token) return
-    setPushError(null)
-    setPushed(false)
-    setPushing(true)
-    try {
-      await integrationsApi.pushProductToBol(token, connection.id, productId)
-      setPushed(true)
-    } catch (err) {
-      setPushError(err instanceof Error ? err.message : 'Saved, but failed to push to Bol')
-    } finally {
-      setPushing(false)
-    }
-  }
-
   useEffect(() => {
     if (!token) return
     let cancelled = false
@@ -230,7 +203,6 @@ export function ProductBolTab({
       const { product_id: _productId, connection_id: _connectionId, ...fields } = saved
       setContent(prev => ({ ...prev, ...fields }))
       setContentSaved(true)
-      await pushToBol()
     } catch (err) {
       setContentSaveError(err instanceof Error ? err.message : 'Failed to save product content')
     } finally {
@@ -297,7 +269,6 @@ export function ProductBolTab({
       })
       setOverride(result)
       setCommissionRefreshKey(k => k + 1)
-      await pushToBol()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
@@ -395,10 +366,7 @@ export function ProductBolTab({
               className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
               {saving ? 'Saving…' : 'Save'}
             </button>
-            {pushing && <span className="text-[10px] dark:text-gray-500 text-gray-400">Pushing to Bol…</span>}
-            {!pushing && pushed && <span className="text-[10px] text-green-500">Pushed to Bol</span>}
           </div>
-          {pushError && <p className="text-[11px] text-red-400">{pushError}</p>}
 
           <div className="pt-3 border-t dark:border-[#2D3748] border-gray-200 space-y-3">
             <button
@@ -480,10 +448,7 @@ export function ProductBolTab({
                         {contentSaving ? 'Saving…' : 'Save product content'}
                       </button>
                       {contentSaved && <span className="text-[10px] text-green-500">Saved</span>}
-                      {pushing && <span className="text-[10px] dark:text-gray-500 text-gray-400">Pushing to Bol…</span>}
-                      {!pushing && pushed && <span className="text-[10px] text-green-500">Pushed to Bol</span>}
                     </div>
-                    {pushError && <p className="text-[11px] text-red-400">{pushError}</p>}
                   </div>
                 )}
               </>

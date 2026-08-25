@@ -233,6 +233,12 @@ func TestClient_FindOfferByEAN_noMatchReturnsFalseNotError(t *testing.T) {
 	assert.Empty(t, offerID)
 }
 
+// TestClient_SubmitProductContent_pollsUploadReportUntilTerminal is also a
+// path regression: prod hit a live 404 because this used to mock (and the
+// client used to call) POST /product-content + GET /product-content/{id}.
+// Real paths are POST /content/product + GET /process-status/{id} (the
+// latter a shared, non-content-specific resource) -- see client.go's
+// SubmitProductContent doc comment for the source.
 func TestClient_SubmitProductContent_pollsUploadReportUntilTerminal(t *testing.T) {
 	pollCount := 0
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -240,10 +246,10 @@ func TestClient_SubmitProductContent_pollsUploadReportUntilTerminal(t *testing.T
 		case r.URL.Path == "/token":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
-		case r.URL.Path == "/product-content" && r.Method == http.MethodPost:
+		case r.URL.Path == "/content/product" && r.Method == http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "upload-1"})
-		case strings.HasPrefix(r.URL.Path, "/product-content/upload-1"):
+		case strings.HasPrefix(r.URL.Path, "/process-status/upload-1"):
 			pollCount++
 			status := "PENDING"
 			if pollCount >= 2 {
