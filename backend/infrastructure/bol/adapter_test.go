@@ -42,6 +42,10 @@ func TestAdapter_CreateOffer_mapsConditionCategory(t *testing.T) {
 	condition, _ := gotBody["condition"].(map[string]any)
 	require.NotNil(t, condition, "request body must include a condition object")
 	assert.Equal(t, "NEW", condition["category"])
+
+	fulfilment, _ := gotBody["fulfilment"].(map[string]any)
+	require.NotNil(t, fulfilment, "request body must include a fulfilment object")
+	assert.Equal(t, "BOL_DELIVERY_PROMISE", fulfilment["schedule"], "schedule is required by Bol for method FBR (confirmed via a real 400)")
 }
 
 // TestAdapter_UpdateOffer_omitsCondition proves PATCH never sends a
@@ -70,4 +74,8 @@ func TestAdapter_UpdateOffer_omitsCondition(t *testing.T) {
 	assert.Equal(t, http.MethodPatch, gotMethod)
 	_, hasCondition := gotBody["condition"]
 	assert.False(t, hasCondition, "PATCH must never send condition -- Bol's schema has no such field")
+
+	fulfilment, _ := gotBody["fulfilment"].(map[string]any)
+	require.NotNil(t, fulfilment)
+	assert.Equal(t, "BOL_DELIVERY_PROMISE", fulfilment["schedule"])
 }

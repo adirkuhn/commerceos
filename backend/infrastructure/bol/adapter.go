@@ -15,6 +15,22 @@ type Adapter struct{ client *Client }
 
 func NewAdapter(client *Client) *Adapter { return &Adapter{client: client} }
 
+// toFulfilment sets Schedule to BOL_DELIVERY_PROMISE for FBR -- Bol
+// requires this field for FBR (a real 400 confirmed it: "Field 'schedule'
+// is required when 'method' is FBR") even though the static v11.5.0 spec
+// doesn't mark it schema-required. BOL_DELIVERY_PROMISE (let Bol calculate
+// the promise) is the simplest correct choice: MY_DELIVERY_PROMISE needs a
+// separately-configured Delivery Promise API profile this codebase
+// doesn't integrate, and SHIPPING_VIA_BOL is a different fulfilment
+// concept entirely. Not set for FBB, which Bol fully controls itself.
+func toFulfilment(method string) Fulfilment {
+	f := Fulfilment{Method: method}
+	if method == "FBR" {
+		f.Schedule = "BOL_DELIVERY_PROMISE"
+	}
+	return f
+}
+
 // toCreateOfferRequest builds a full offer payload for POST /offers. Note
 // in.DeliveryCode is deliberately not mapped -- v11's Fulfilment has no
 // such field (that was a v10-deprecated-only requirement); BolOfferInput
@@ -30,7 +46,7 @@ func toCreateOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferReques
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
 		Condition:  Condition{Category: in.ConditionCategory},
 		Pricing:    Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
-		Fulfilment: Fulfilment{Method: in.FulfilmentMethod},
+		Fulfilment: toFulfilment(in.FulfilmentMethod),
 		Stock:      stock,
 	}
 }
@@ -43,7 +59,7 @@ func toPatchOfferRequest(in integrationsDomain.BolOfferInput) PatchOfferRequest 
 	if in.FulfilmentMethod == "FBR" {
 		stock = &Stock{Amount: in.StockAmount, ManagedByRetailer: in.StockManagedByRetailer}
 	}
-	fulfilment := Fulfilment{Method: in.FulfilmentMethod}
+	fulfilment := toFulfilment(in.FulfilmentMethod)
 	return PatchOfferRequest{
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
 		Pricing:    &Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},

@@ -214,6 +214,15 @@ type Pricing struct {
 
 type Fulfilment struct {
 	Method string `json:"method"` // FBR or FBB
+	// Schedule is required by Bol when Method is FBR (confirmed via a real
+	// 400: "Field 'schedule' is required when 'method' is FBR" -- not
+	// visible as schema-required in the static v11.5.0 spec, same kind of
+	// business-required-but-not-schema-required gap as economicOperatorId).
+	// Enum: BOL_DELIVERY_PROMISE (bol calculates it), MY_DELIVERY_PROMISE
+	// (retailer's own profile via the separate Delivery Promise API, not
+	// integrated here), SHIPPING_VIA_BOL. Always BOL_DELIVERY_PROMISE for
+	// now -- the simplest correct choice with no extra setup required.
+	Schedule string `json:"schedule,omitempty"`
 }
 
 type Condition struct {
