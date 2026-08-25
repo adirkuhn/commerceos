@@ -20,6 +20,7 @@ vi.mock('../../integrations/api', () => ({
   upsertBolProductOverride: vi.fn(),
   getBolProductContent: vi.fn(),
   upsertBolProductContent: vi.fn(),
+  pushProductToBol: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -38,6 +39,7 @@ beforeEach(() => {
   vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(null)
   vi.mocked(integrationsApi.getBolCommission).mockResolvedValue(commission)
   vi.mocked(integrationsApi.getBolProductContent).mockResolvedValue(null)
+  vi.mocked(integrationsApi.pushProductToBol).mockResolvedValue([])
 })
 
 describe('ProductBolTab', () => {
@@ -144,6 +146,33 @@ describe('ProductBolTab', () => {
     ))
   })
 
+  it('saving the override also pushes the product to Bol', async () => {
+    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
+      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+    })
+    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.pushProductToBol).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1'))
+    expect(await screen.findByText('Pushed to Bol')).toBeInTheDocument()
+  })
+
+  it('a push failure after saving the override is surfaced without erasing the save', async () => {
+    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
+      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+    })
+    vi.mocked(integrationsApi.pushProductToBol).mockRejectedValue(new Error('bol unreachable'))
+    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('bol unreachable')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to save')).not.toBeInTheDocument()
+  })
+
   it('surfaces a commission-fetch error instead of swallowing it', async () => {
     vi.mocked(integrationsApi.getBolCommission).mockRejectedValue(new Error('bol unreachable'))
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
@@ -182,6 +211,8 @@ describe('ProductBolTab', () => {
         'test-token', 'conn-1', 'prod-1',
         expect.objectContaining({ brand: 'Hipoglós', hypoallergenic: true }),
       ))
+      expect(integrationsApi.pushProductToBol).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1')
+      await waitFor(() => expect(screen.getAllByText('Pushed to Bol').length).toBeGreaterThan(0))
     })
   })
 })
