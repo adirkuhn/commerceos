@@ -143,7 +143,7 @@ describe('BolSyncSettingsPage', () => {
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 
-  it('fetching from Bol auto-fills a single economic operator', async () => {
+  it('fetching from Bol shows a select populated from the result, even for a single operator', async () => {
     vi.mocked(api.listBolEconomicOperators).mockResolvedValue([
       { id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', name: 'Cantinho Brasileiro', status: 'VALID' },
     ])
@@ -153,10 +153,13 @@ describe('BolSyncSettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Fetch from Bol' }))
 
     await waitFor(() => expect(api.listBolEconomicOperators).toHaveBeenCalledWith('test-token', 'conn-bol-1'))
-    expect(await screen.findByLabelText('Economic Operator ID')).toHaveValue('3fa85f64-5717-4562-b3fc-2c963f66afa6')
+    const select = await screen.findByLabelText('Select from Bol')
+    expect(screen.getByText(/Cantinho Brasileiro/)).toBeInTheDocument()
+    await userEvent.selectOptions(select, '3fa85f64-5717-4562-b3fc-2c963f66afa6')
+    expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('3fa85f64-5717-4562-b3fc-2c963f66afa6')
   })
 
-  it('fetching from Bol shows a picker when multiple operators are returned', async () => {
+  it('fetching from Bol lets picking among multiple operators via the select', async () => {
     vi.mocked(api.listBolEconomicOperators).mockResolvedValue([
       { id: 'op-1', name: 'Operator One', status: 'VALID' },
       { id: 'op-2', name: 'Operator Two', status: 'PENDING' },
@@ -166,9 +169,10 @@ describe('BolSyncSettingsPage', () => {
     await screen.findByText('Sync schedule')
     await userEvent.click(screen.getByRole('button', { name: 'Fetch from Bol' }))
 
-    expect(await screen.findByText(/Operator One/)).toBeInTheDocument()
+    const select = await screen.findByLabelText('Select from Bol')
+    expect(screen.getByText(/Operator One/)).toBeInTheDocument()
     expect(screen.getByText(/Operator Two/)).toBeInTheDocument()
-    await userEvent.click(screen.getByText(/Operator Two/))
+    await userEvent.selectOptions(select, 'op-2')
     expect(screen.getByLabelText('Economic Operator ID')).toHaveValue('op-2')
   })
 

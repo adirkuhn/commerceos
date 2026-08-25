@@ -131,8 +131,6 @@ export default function BolSyncSettingsPage({
       const operators = await api.listBolEconomicOperators(token, connectionId)
       if (operators.length === 0) {
         setFetchOperatorsError('Bol returned no economic operators for this account -- enter the id manually.')
-      } else if (operators.length === 1) {
-        setConfigEconomicOperatorId(operators[0].id)
       } else {
         setOperatorChoices(operators)
       }
@@ -312,17 +310,21 @@ export default function BolSyncSettingsPage({
                   </p>
                   {fetchOperatorsError && <p className="text-[10px] text-red-400 mt-1">{fetchOperatorsError}</p>}
                   {operatorChoices.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-[10px] dark:text-gray-400 text-gray-500">Bol returned multiple operators -- pick one:</p>
-                      {operatorChoices.map(op => (
-                        <button
-                          key={op.id} type="button"
-                          onClick={() => { setConfigEconomicOperatorId(op.id); setOperatorChoices([]) }}
-                          className="block w-full text-left px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-gray-50 dark:text-gray-300 text-gray-700 hover:opacity-80 transition-opacity"
-                        >
-                          {op.name} ({op.status}) -- {op.id}
-                        </button>
-                      ))}
+                    <div className="mt-2">
+                      <label htmlFor="bol-config-fetched-operators" className="block text-[10px] dark:text-gray-400 text-gray-500 mb-1">
+                        Select from Bol
+                      </label>
+                      <select
+                        id="bol-config-fetched-operators"
+                        value=""
+                        onChange={e => { setConfigEconomicOperatorId(e.target.value); setOperatorChoices([]) }}
+                        className={clsx(inputClass, 'w-full')}
+                      >
+                        <option value="" disabled>Select an operator…</option>
+                        {operatorChoices.map(op => (
+                          <option key={op.id} value={op.id}>{op.name} ({op.status}) -- {op.id}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>
