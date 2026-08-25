@@ -232,6 +232,21 @@ func (uc *PushProductToBolUseCase) pushOne(
 
 	offerFields := bolOfferToFields(offerIn)
 
+	// No local listing yet doesn't mean no Bol offer exists yet -- it may
+	// predate this integration, or a local listing row was lost while the
+	// real offer survived. Blindly POSTing in that case 409 Conflicts
+	// against the existing offer; checking first lets this link and update
+	// it instead, same as if the local listing row had never gone missing.
+	if existing.ExternalID == "" {
+		foundID, found, err := client.FindOfferByEAN(ctx, ean)
+		if err != nil {
+			return fail(fmt.Errorf("pushProductToBol: find offer by ean: %w", err), offerFields)
+		}
+		if found {
+			existing.ExternalID = foundID
+		}
+	}
+
 	var offerID string
 	if existing.ExternalID != "" {
 		if err := client.UpdateOffer(ctx, existing.ExternalID, offerIn); err != nil {

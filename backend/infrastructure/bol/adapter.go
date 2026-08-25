@@ -15,7 +15,12 @@ type Adapter struct{ client *Client }
 
 func NewAdapter(client *Client) *Adapter { return &Adapter{client: client} }
 
-func toOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferRequest {
+// toCreateOfferRequest builds a full offer payload for POST /offers. Note
+// in.DeliveryCode is deliberately not mapped -- v11's Fulfilment has no
+// such field (that was a v10-deprecated-only requirement); BolOfferInput
+// keeps the field for now (harmless, just unused here) rather than
+// ripping out the connection-level setting/UI mid-incident.
+func toCreateOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferRequest {
 	var stock *Stock
 	if in.FulfilmentMethod == "FBR" {
 		stock = &Stock{Amount: in.StockAmount, ManagedByRetailer: in.StockManagedByRetailer}
@@ -23,19 +28,40 @@ func toOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferRequest {
 	return CreateOfferRequest{
 		EAN: in.EAN, UnknownProductTitle: in.UnknownProductTitle,
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
-		Condition:  Condition{Name: in.ConditionCategory},
+		Condition:  Condition{Category: in.ConditionCategory},
 		Pricing:    Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
-		Fulfilment: Fulfilment{Method: in.FulfilmentMethod, DeliveryCode: in.DeliveryCode},
+		Fulfilment: Fulfilment{Method: in.FulfilmentMethod},
+		Stock:      stock,
+	}
+}
+
+// toPatchOfferRequest mirrors toCreateOfferRequest for PATCH -- no
+// Condition field at all (Bol's real PatchOfferRequest schema has none;
+// an offer's condition can't be changed after creation).
+func toPatchOfferRequest(in integrationsDomain.BolOfferInput) PatchOfferRequest {
+	var stock *Stock
+	if in.FulfilmentMethod == "FBR" {
+		stock = &Stock{Amount: in.StockAmount, ManagedByRetailer: in.StockManagedByRetailer}
+	}
+	fulfilment := Fulfilment{Method: in.FulfilmentMethod}
+	return PatchOfferRequest{
+		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
+		Pricing:    &Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
+		Fulfilment: &fulfilment,
 		Stock:      stock,
 	}
 }
 
 func (a *Adapter) CreateOffer(ctx context.Context, in integrationsDomain.BolOfferInput) (string, error) {
-	return a.client.CreateOffer(ctx, toOfferRequest(in), PollOptions{})
+	return a.client.CreateOffer(ctx, toCreateOfferRequest(in))
 }
 
 func (a *Adapter) UpdateOffer(ctx context.Context, offerID string, in integrationsDomain.BolOfferInput) error {
-	return a.client.UpdateOffer(ctx, offerID, toOfferRequest(in), PollOptions{})
+	return a.client.UpdateOffer(ctx, offerID, toPatchOfferRequest(in))
+}
+
+func (a *Adapter) FindOfferByEAN(ctx context.Context, ean string) (string, bool, error) {
+	return a.client.FindOfferByEAN(ctx, ean)
 }
 
 func (a *Adapter) IsUnknownEAN(err error) bool { return IsUnknownEAN(err) }

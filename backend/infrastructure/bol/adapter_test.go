@@ -13,20 +13,13 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 )
 
-// TestAdapter_CreateOffer_mapsConditionCategoryToConditionName is a
-// regression test for a real prod 400 from Bol: "condition.name: The
-// supplied value is empty, but is required." Bol's Condition object
-// requires name (enum NEW/AS_NEW/GOOD/REASONABLE/MODERATE); category is
-// optional and derived from name if omitted. The adapter was putting
-// BolOfferInput.ConditionCategory (always "NEW" today, from
-// channelsDomain.BolConditionNew) into Condition.category instead of
-// Condition.name, so name was always sent empty and Bol rejected every
-// offer -- this is the third real bug behind "product not sent to Bol"
-// after the async-response fix and the Resync-never-bootstraps-first-
-// listing fix.
-func TestAdapter_CreateOffer_mapsConditionCategoryToConditionName(t *testing.T) {
+// TestAdapter_CreateOffer_mapsConditionCategory proves the adapter sends
+// Condition.category (Bol's real v11 discriminated-union field for a NEW
+// condition offer -- confirmed against the current, non-deprecated Offers
+// API v11.5.0 spec) and that CreateOffer talks to POST /offers
+// synchronously (201, offer id directly in the body -- no polling).
+func TestAdapter_CreateOffer_mapsConditionCategory(t *testing.T) {
 	var gotBody map[string]any
-	pollCount := 0
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/token":
@@ -34,29 +27,47 @@ func TestAdapter_CreateOffer_mapsConditionCategoryToConditionName(t *testing.T) 
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
 		case r.URL.Path == "/offers" && r.Method == http.MethodPost:
 			_ = json.NewDecoder(r.Body).Decode(&gotBody)
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-1", "status": "PENDING"})
-		case r.URL.Path == "/process-status/proc-1":
-			pollCount++
-			status := "PENDING"
-			if pollCount >= 2 {
-				status = "SUCCESS"
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-1", "status": status, "entityId": "offer-1"})
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{"offerId": "offer-1"})
 		}
 	})
 	adapter := bol.NewAdapter(client)
 
-	_, err := adapter.CreateOffer(t.Context(), integrationsDomain.BolOfferInput{
-		EAN: "0630509892495", EconomicOperatorID: "op-1", ConditionCategory: "NEW", FulfilmentMethod: "FBR", DeliveryCode: "3-5d",
+	offerID, err := adapter.CreateOffer(t.Context(), integrationsDomain.BolOfferInput{
+		EAN: "0630509892495", EconomicOperatorID: "op-1", ConditionCategory: "NEW", FulfilmentMethod: "FBR",
 	})
 	require.NoError(t, err)
+	assert.Equal(t, "offer-1", offerID)
 
 	condition, _ := gotBody["condition"].(map[string]any)
 	require.NotNil(t, condition, "request body must include a condition object")
-	assert.Equal(t, "NEW", condition["name"], "Condition.name is required by Bol -- must not be left empty")
+	assert.Equal(t, "NEW", condition["category"])
+}
 
-	fulfilment, _ := gotBody["fulfilment"].(map[string]any)
-	require.NotNil(t, fulfilment, "request body must include a fulfilment object")
-	assert.Equal(t, "3-5d", fulfilment["deliveryCode"], "deliveryCode is required by Bol for method FBR")
+// TestAdapter_UpdateOffer_omitsCondition proves PATCH never sends a
+// condition field -- Bol's real PatchOfferRequest schema has none (an
+// offer's condition can't be changed after creation).
+func TestAdapter_UpdateOffer_omitsCondition(t *testing.T) {
+	var gotBody map[string]any
+	var gotMethod string
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
+		case r.URL.Path == "/offers/offer-1":
+			gotMethod = r.Method
+			_ = json.NewDecoder(r.Body).Decode(&gotBody)
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
+	adapter := bol.NewAdapter(client)
+
+	err := adapter.UpdateOffer(t.Context(), "offer-1", integrationsDomain.BolOfferInput{
+		EAN: "0630509892495", EconomicOperatorID: "op-1", ConditionCategory: "NEW", FulfilmentMethod: "FBR",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodPatch, gotMethod)
+	_, hasCondition := gotBody["condition"]
+	assert.False(t, hasCondition, "PATCH must never send condition -- Bol's schema has no such field")
 }

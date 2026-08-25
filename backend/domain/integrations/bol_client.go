@@ -115,6 +115,11 @@ type BolClient interface {
 	// GetOrder returns one order's full detail, including ShipmentDetails
 	// -- called once per newly-discovered order ID from ListOrders.
 	GetOrder(ctx context.Context, orderID string) (*BolOrder, error)
+	// FindOfferByEAN looks up whether an offer already exists on Bol for
+	// this EAN -- lets a caller link+update a pre-existing offer instead of
+	// blindly creating a duplicate. Empty string + false (not an error)
+	// means no offer exists yet.
+	FindOfferByEAN(ctx context.Context, ean string) (offerID string, found bool, err error)
 	// ListEconomicOperators returns every GPSR economic operator registered
 	// against this Bol account -- requires the economic-operators.read (or
 	// .manage) OAuth scope, which is granted per-app in Bol's Partner

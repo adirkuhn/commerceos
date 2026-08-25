@@ -43,6 +43,9 @@ func (s *stubBolClient) ListOrders(context.Context, int, string) ([]integrations
 func (s *stubBolClient) GetOrder(context.Context, string) (*integrationsDomain.BolOrder, error) {
 	panic("not used by ListBolEconomicOperatorsUseCase")
 }
+func (s *stubBolClient) FindOfferByEAN(context.Context, string) (string, bool, error) {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
 func (s *stubBolClient) ListEconomicOperators(context.Context) ([]integrationsDomain.BolEconomicOperator, error) {
 	return s.operators, s.err
 }

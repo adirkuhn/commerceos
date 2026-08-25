@@ -98,16 +98,18 @@ func TestClient_AccessToken_refetchesAfterExpiry(t *testing.T) {
 }
 
 // TestClient_CreateOffer_sendsExpectedPayloadAndHeaders proves CreateOffer
-// hits Bol's real confirmed path/method/version (POST /offers,
-// application/vnd.retailer.v10+json -- verified against the actual
-// Retailer API v10 OpenAPI spec, not a guess like the old /v11/offers path
-// this replaces) and, since Bol's real response is 202 Accepted + a
-// ProcessStatus (not an immediate offer id), polls until SUCCESS and
-// returns the resulting entityId as the offer id.
+// hits Bol's real, CURRENT Offers API v11 (POST /offers,
+// application/vnd.retailer.v11+json -- confirmed against the actual,
+// currently-published Offers API v11.5.0 spec, found via Bol's public docs
+// nav which lists "Offers API v11 (current)" vs "v10 (deprecated)") and
+// that v11 is synchronous: 201 Created with the offer id directly in the
+// body, no ProcessStatus/polling at all. The deprecated v10 endpoint this
+// used to target accepted requests (202 + a real processStatusId) but its
+// documented process-status polling 404'd in prod -- switching to the
+// current, non-deprecated version sidesteps that entirely.
 func TestClient_CreateOffer_sendsExpectedPayloadAndHeaders(t *testing.T) {
 	var gotPath, gotMethod, gotAccept, gotContentType string
 	var gotBody bol.CreateOfferRequest
-	pollCount := 0
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/token":
@@ -119,15 +121,8 @@ func TestClient_CreateOffer_sendsExpectedPayloadAndHeaders(t *testing.T) {
 			gotAccept = r.Header.Get("Accept")
 			gotContentType = r.Header.Get("Content-Type")
 			_ = json.NewDecoder(r.Body).Decode(&gotBody)
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-1", "status": "PENDING"})
-		case strings.HasPrefix(r.URL.Path, "/process-status/proc-1"):
-			pollCount++
-			status := "PENDING"
-			if pollCount >= 2 {
-				status = "SUCCESS"
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-1", "status": status, "entityId": "offer-1"})
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{"offerId": "offer-1"})
 		}
 	})
 
@@ -135,18 +130,17 @@ func TestClient_CreateOffer_sendsExpectedPayloadAndHeaders(t *testing.T) {
 		EAN: "0630509892495", EconomicOperatorID: "op-1",
 		Pricing:    bol.Pricing{BundlePrices: []bol.BundlePrice{{Quantity: 1, UnitPrice: 19.99}}},
 		Fulfilment: bol.Fulfilment{Method: "FBR"},
-		Condition:  bol.Condition{Name: "NEW"},
+		Condition:  bol.Condition{Category: "NEW"},
 		Stock:      &bol.Stock{Amount: 5, ManagedByRetailer: true},
-	}, bol.PollOptions{Interval: time.Millisecond, MaxAttempts: 5})
+	})
 	require.NoError(t, err)
 	assert.Equal(t, "offer-1", offerID)
 	assert.Equal(t, "/offers", gotPath)
 	assert.Equal(t, http.MethodPost, gotMethod)
-	assert.Equal(t, "application/vnd.retailer.v10+json", gotAccept)
-	assert.Equal(t, "application/vnd.retailer.v10+json", gotContentType)
+	assert.Equal(t, "application/vnd.retailer.v11+json", gotAccept)
+	assert.Equal(t, "application/vnd.retailer.v11+json", gotContentType)
 	assert.Equal(t, "0630509892495", gotBody.EAN)
 	assert.Equal(t, "op-1", gotBody.EconomicOperatorID)
-	assert.GreaterOrEqual(t, pollCount, 2, "must actually poll, not treat the 202 as immediately final")
 }
 
 func TestClient_CreateOffer_returnsAPIErrorOnFailureResponse(t *testing.T) {
@@ -161,42 +155,16 @@ func TestClient_CreateOffer_returnsAPIErrorOnFailureResponse(t *testing.T) {
 		}
 	})
 
-	_, err := client.CreateOffer(t.Context(), bol.CreateOfferRequest{EAN: "unknown"}, bol.PollOptions{})
+	_, err := client.CreateOffer(t.Context(), bol.CreateOfferRequest{EAN: "unknown"})
 	require.Error(t, err)
 	assert.True(t, bol.IsUnknownEAN(err), "a 400 mentioning an unknown EAN must be classified as ErrUnknownEAN so PushProductToBolUseCase knows to submit product content first")
 }
 
-// TestClient_CreateOffer_returnsErrorWhenProcessingFails proves a
-// FAILURE/TIMEOUT terminal status (the offer request was accepted but Bol
-// rejected it during processing -- a different failure mode than a 4xx on
-// the initial POST) surfaces as a real Go error instead of silently
-// returning an empty offer id, which is exactly how this bug hid in prod
-// for as long as it did.
-func TestClient_CreateOffer_returnsErrorWhenProcessingFails(t *testing.T) {
-	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/token":
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
-		case r.URL.Path == "/offers" && r.Method == http.MethodPost:
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-2", "status": "PENDING"})
-		case strings.HasPrefix(r.URL.Path, "/process-status/proc-2"):
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-2", "status": "FAILURE", "errorMessage": "invalid category"})
-		}
-	})
-
-	_, err := client.CreateOffer(t.Context(), bol.CreateOfferRequest{EAN: "0630509892495"}, bol.PollOptions{Interval: time.Millisecond, MaxAttempts: 5})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid category")
-}
-
-// TestClient_UpdateOffer_usesPutNotPatch proves UpdateOffer hits Bol's real
-// confirmed method (PUT, not the old PATCH guess) and path (no /v11
-// prefix), and also polls the resulting ProcessStatus to a terminal state.
-func TestClient_UpdateOffer_usesPutNotPatch(t *testing.T) {
-	var gotPath, gotMethod string
-	pollCount := 0
+// TestClient_UpdateOffer_usesPatchNotPut proves UpdateOffer hits Bol's real
+// confirmed method under v11 -- PATCH, not the earlier PUT guess -- and
+// that it's synchronous (204 No Content, nothing to poll).
+func TestClient_UpdateOffer_usesPatchNotPut(t *testing.T) {
+	var gotPath, gotMethod, gotAccept string
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/token":
@@ -205,23 +173,64 @@ func TestClient_UpdateOffer_usesPutNotPatch(t *testing.T) {
 		case r.URL.Path == "/offers/offer-1":
 			gotPath = r.URL.Path
 			gotMethod = r.Method
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-3", "status": "PENDING"})
-		case strings.HasPrefix(r.URL.Path, "/process-status/proc-3"):
-			pollCount++
-			status := "PENDING"
-			if pollCount >= 2 {
-				status = "SUCCESS"
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "proc-3", "status": status, "entityId": "offer-1"})
+			gotAccept = r.Header.Get("Accept")
+			w.WriteHeader(http.StatusNoContent)
 		}
 	})
 
-	err := client.UpdateOffer(t.Context(), "offer-1", bol.CreateOfferRequest{EAN: "0630509892495"}, bol.PollOptions{Interval: time.Millisecond, MaxAttempts: 5})
+	err := client.UpdateOffer(t.Context(), "offer-1", bol.PatchOfferRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, "/offers/offer-1", gotPath)
-	assert.Equal(t, http.MethodPut, gotMethod)
-	assert.GreaterOrEqual(t, pollCount, 2)
+	assert.Equal(t, http.MethodPatch, gotMethod)
+	assert.Equal(t, "application/vnd.retailer.v11+json", gotAccept)
+}
+
+// TestClient_FindOfferByEAN_matchesAnExistingOffer is a regression test
+// for the "no link between our product and any Bol offer" gap: before
+// this, PushProductToBolUseCase always assumed no offer exists yet
+// whenever it had no local listing row, and would blindly POST a create
+// -- which 409 Conflicts against an offer that already exists on Bol
+// (created before this integration, or orphaned by a lost listing row).
+// FindOfferByEAN lets the caller check first and link+update instead.
+func TestClient_FindOfferByEAN_matchesAnExistingOffer(t *testing.T) {
+	var gotPath, gotAccept string
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
+		case r.URL.Path == "/offers":
+			gotPath = r.URL.Path + "?" + r.URL.RawQuery
+			gotAccept = r.Header.Get("Accept")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"offers": []map[string]any{{"offerId": "offer-existing-1", "ean": "0630509892495"}},
+			})
+		}
+	})
+
+	offerID, found, err := client.FindOfferByEAN(t.Context(), "0630509892495")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, "offer-existing-1", offerID)
+	assert.Equal(t, "/offers?eans=0630509892495", gotPath)
+	assert.Equal(t, "application/vnd.retailer.v11+json", gotAccept)
+}
+
+func TestClient_FindOfferByEAN_noMatchReturnsFalseNotError(t *testing.T) {
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
+		case r.URL.Path == "/offers":
+			_ = json.NewEncoder(w).Encode(map[string]any{"offers": []map[string]any{}})
+		}
+	})
+
+	offerID, found, err := client.FindOfferByEAN(t.Context(), "0630509892495")
+	require.NoError(t, err)
+	assert.False(t, found)
+	assert.Empty(t, offerID)
 }
 
 func TestClient_SubmitProductContent_pollsUploadReportUntilTerminal(t *testing.T) {

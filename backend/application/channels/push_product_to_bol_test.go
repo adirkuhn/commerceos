@@ -26,6 +26,7 @@ type fakeBolClient struct {
 	listOrdersFn            func(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error)
 	getOrderFn              func(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error)
 	listEconomicOperatorsFn func(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error)
+	findOfferByEANFn        func(ctx context.Context, ean string) (string, bool, error)
 }
 
 func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
@@ -59,6 +60,12 @@ func (f *fakeBolClient) GetOrder(ctx context.Context, orderID string) (*integrat
 		return f.getOrderFn(ctx, orderID)
 	}
 	return &integrationsDomain.BolOrder{OrderID: orderID}, nil
+}
+func (f *fakeBolClient) FindOfferByEAN(ctx context.Context, ean string) (string, bool, error) {
+	if f.findOfferByEANFn != nil {
+		return f.findOfferByEANFn(ctx, ean)
+	}
+	return "", false, nil
 }
 func (f *fakeBolClient) ListEconomicOperators(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error) {
 	if f.listEconomicOperatorsFn != nil {
@@ -237,6 +244,59 @@ func TestPushProductToBol_updatesExistingOfferInsteadOfCreating(t *testing.T) {
 	require.Len(t, client.updateOfferCalls, 1)
 	require.Len(t, result, 1)
 	assert.Equal(t, "offer-existing", result[0].ExternalID)
+}
+
+// TestPushProductToBol_matchesExistingBolOfferByEAN_updatesInsteadOfCreating
+// is a regression test for "no link yet between our product and any Bol
+// offer": with no local ProductChannelListing row, the old code always
+// assumed no Bol offer existed either and blindly POSTed a create -- which
+// 409 Conflicts if an offer for this EAN already exists on Bol (created
+// before this integration, or orphaned by a lost listing row). Now it
+// checks FindOfferByEAN first and links+updates the existing offer.
+func TestPushProductToBol_matchesExistingBolOfferByEAN_updatesInsteadOfCreating(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+
+	client := &fakeBolClient{
+		findOfferByEANFn: func(_ context.Context, ean string) (string, bool, error) {
+			assert.Equal(t, "0630509892495", ean)
+			return "offer-preexisting", true, nil
+		},
+		createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+			t.Fatal("must not call CreateOffer when FindOfferByEAN already found a match")
+			return "", nil
+		},
+	}
+
+	uc := newBolUseCase(t, h, client, 3)
+	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, client.updateOfferCalls, 1)
+	require.Len(t, result, 1)
+	assert.Equal(t, "offer-preexisting", result[0].ExternalID, "the local listing must link to the matched Bol offer, not a newly created one")
+}
+
+func TestPushProductToBol_findOfferByEANFailure_recordsFailedSyncLog(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+
+	client := &fakeBolClient{
+		findOfferByEANFn: func(_ context.Context, _ string) (string, bool, error) {
+			return "", false, errors.New("bol: request failed (500): internal error")
+		},
+	}
+
+	uc := newBolUseCase(t, h, client, 2)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.Error(t, err)
+	require.Len(t, h.syncLogRepo.created, 1)
+	assert.Equal(t, channelsDomain.SyncLogStatusError, h.syncLogRepo.created[0].Status)
 }
 
 func TestPushProductToBol_onUnknownEAN_submitsProductContentThenRetriesCreate(t *testing.T) {

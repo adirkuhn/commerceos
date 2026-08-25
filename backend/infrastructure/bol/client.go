@@ -183,15 +183,25 @@ func (c *Client) doJSON(ctx context.Context, method, path, accept string, reqBod
 	return nil
 }
 
-// --- Offer API (v10, async -- POST/PUT return 202 + a ProcessStatus,
-// same shape as Product Content below, poll to a terminal status and read
-// entityId for the real offer id). Previously implemented against a wrong
-// guessed path/version/method (/v11/offers, PATCH) that also assumed a
-// synchronous {"offerId":...} response -- confirmed wrong against the real
-// downloaded Retailer API v10 spec: real path is /offers (POST create, PUT
-// update by id), real header is v10 not v11, real response is 202 Accepted.
-// That mismatch meant CreateOffer/UpdateOffer never errored but also never
-// created a real offer -- silent no-op in prod. ---
+// --- Offer API (v11, current -- fully synchronous). Confirmed against
+// Bol's real, currently-published Offers API v11.5.0 spec
+// (api.bol.com/registry/api-definitions/offers/offers-v11.yaml), found via
+// api.bol.com/retailer/public/Retailer-API's own docs navigation, which
+// lists "Offers API v11 (current)" as a distinct, separately-versioned API
+// from "v10 (deprecated)". This client previously targeted v10 (a wrong
+// downgrade from an earlier, also-wrong /v11/offers guess): it accepted
+// requests (202 + a real processStatusId) but polling /process-status/{id}
+// 404'd in prod -- the deprecated version's documented async completion
+// tracking doesn't actually resolve. v11 has no such problem: POST/PATCH
+// return the result directly, nothing to poll.
+//
+// v11's Condition is a discriminated union (NewCondition/
+// SecondhandCondition/RefurbishedCondition, keyed by category) -- only
+// Category is modeled here since this codebase only ever pushes NEW
+// condition products; State/Comment/Grade/Margin would need adding if
+// SECONDHAND/REFURBISHED support is ever built.
+
+const offerAccept = "application/vnd.retailer.v11+json"
 
 type BundlePrice struct {
 	Quantity  int     `json:"quantity"`
@@ -203,18 +213,11 @@ type Pricing struct {
 }
 
 type Fulfilment struct {
-	Method string `json:"method"`
-	// DeliveryCode is required by Bol for method FBR (see this const
-	// block's Retailer API v10 header) -- omitted for FBB, where Bol
-	// controls delivery timing itself.
-	DeliveryCode string `json:"deliveryCode,omitempty"`
+	Method string `json:"method"` // FBR or FBB
 }
 
 type Condition struct {
-	// Name is required by Bol (enum NEW/AS_NEW/GOOD/REASONABLE/MODERATE).
-	// Category is optional -- Bol derives NEW/SECONDHAND from Name when
-	// omitted, so this client never sets it separately.
-	Name string `json:"name"`
+	Category string `json:"category"`
 }
 
 type Stock struct {
@@ -223,69 +226,75 @@ type Stock struct {
 }
 
 type CreateOfferRequest struct {
-	EAN                   string     `json:"ean"`
-	UnknownProductTitle   string     `json:"unknownProductTitle,omitempty"`
-	EconomicOperatorID    string     `json:"economicOperatorId"`
-	Reference             string     `json:"reference,omitempty"`
-	OnHoldByRetailer      bool       `json:"onHoldByRetailer,omitempty"`
-	Condition             Condition  `json:"condition"`
-	Pricing               Pricing    `json:"pricing"`
-	CountryAvailabilities []string   `json:"countryAvailabilities,omitempty"`
-	Fulfilment            Fulfilment `json:"fulfilment"`
-	Stock                 *Stock     `json:"stock,omitempty"`
+	EAN                 string     `json:"ean"`
+	UnknownProductTitle string     `json:"unknownProductTitle,omitempty"`
+	EconomicOperatorID  string     `json:"economicOperatorId,omitempty"`
+	Reference           string     `json:"reference,omitempty"`
+	OnHoldByRetailer    bool       `json:"onHoldByRetailer,omitempty"`
+	Condition           Condition  `json:"condition"`
+	Pricing             Pricing    `json:"pricing"`
+	Fulfilment          Fulfilment `json:"fulfilment"`
+	Stock               *Stock     `json:"stock,omitempty"`
 }
 
-// CreateOffer creates a new Bol offer for req.EAN. The POST only returns a
-// ProcessStatus (202 Accepted) -- this polls it to a terminal status and
-// returns the resulting entityId as the real offer id.
-func (c *Client) CreateOffer(ctx context.Context, req CreateOfferRequest, opts PollOptions) (string, error) {
-	var accepted processStatusResponse
-	if err := c.doJSON(ctx, http.MethodPost, "/offers", contentAccept, req, &accepted); err != nil {
+type offerIDResponse struct {
+	OfferID string `json:"offerId"`
+}
+
+// CreateOffer creates a new Bol offer for req.EAN, returning the new
+// offer's id -- synchronous (201 Created) under v11, no polling.
+func (c *Client) CreateOffer(ctx context.Context, req CreateOfferRequest) (string, error) {
+	var resp offerIDResponse
+	if err := c.doJSON(ctx, http.MethodPost, "/offers", offerAccept, req, &resp); err != nil {
 		return "", err
 	}
-	return c.pollOfferProcessStatus(ctx, accepted.ProcessStatusID, opts)
+	return resp.OfferID, nil
 }
 
-// UpdateOffer replaces an existing offer's price/stock/etc (PUT, not
-// PATCH -- Bol has no partial-update verb for offers). Same async
-// ProcessStatus response as CreateOffer.
-func (c *Client) UpdateOffer(ctx context.Context, offerID string, req CreateOfferRequest, opts PollOptions) error {
-	var accepted processStatusResponse
-	if err := c.doJSON(ctx, http.MethodPut, "/offers/"+url.PathEscape(offerID), contentAccept, req, &accepted); err != nil {
-		return err
-	}
-	_, err := c.pollOfferProcessStatus(ctx, accepted.ProcessStatusID, opts)
-	return err
+// PatchOfferRequest updates an existing offer. Deliberately narrower than
+// CreateOfferRequest -- Bol's real PatchOfferRequest schema has no
+// condition field at all (an offer's condition can't be changed after
+// creation).
+type PatchOfferRequest struct {
+	EconomicOperatorID string      `json:"economicOperatorId,omitempty"`
+	Reference          string      `json:"reference,omitempty"`
+	Pricing            *Pricing    `json:"pricing,omitempty"`
+	Fulfilment         *Fulfilment `json:"fulfilment,omitempty"`
+	Stock              *Stock      `json:"stock,omitempty"`
 }
 
-// pollOfferProcessStatus mirrors SubmitProductContent's polling loop below,
-// but reads entityId on SUCCESS since offer creation/update needs the
-// resulting offer id back, unlike a product content upload.
-func (c *Client) pollOfferProcessStatus(ctx context.Context, processStatusID string, opts PollOptions) (string, error) {
-	opts = opts.withDefaults()
-	if processStatusID == "" {
-		return "", fmt.Errorf("bol: offer request accepted with no process status id")
-	}
+// UpdateOffer patches an existing offer's price/stock/etc -- PATCH, not
+// PUT (confirmed against the real v11 spec: Bol has no PUT for offers).
+// Synchronous (204 No Content).
+func (c *Client) UpdateOffer(ctx context.Context, offerID string, req PatchOfferRequest) error {
+	return c.doJSON(ctx, http.MethodPatch, "/offers/"+url.PathEscape(offerID), offerAccept, req, nil)
+}
 
-	for attempt := 0; attempt < opts.MaxAttempts; attempt++ {
-		var report processStatusResponse
-		path := "/process-status/" + url.PathEscape(processStatusID)
-		if err := c.doJSON(ctx, http.MethodGet, path, contentAccept, nil, &report); err != nil {
-			return "", fmt.Errorf("bol: poll offer process status: %w", err)
-		}
-		switch strings.ToUpper(report.Status) {
-		case "SUCCESS":
-			return report.EntityID, nil
-		case "FAILURE", "TIMEOUT":
-			msg := report.ErrorMessage
-			if msg == "" {
-				msg = report.Status
-			}
-			return "", fmt.Errorf("bol: offer request %s ended with status %s: %s", processStatusID, report.Status, msg)
-		}
-		time.Sleep(opts.Interval)
+type offerListResponse struct {
+	Offers []offerSummary `json:"offers"`
+}
+
+type offerSummary struct {
+	OfferID string `json:"offerId"`
+	EAN     string `json:"ean"`
+}
+
+// FindOfferByEAN looks up whether an offer already exists on Bol for this
+// EAN -- lets PushProductToBolUseCase link and update an offer that
+// predates this integration (or survived a lost local listing row)
+// instead of blindly POSTing and hitting Bol's 409 Conflict for a
+// duplicate offer. Empty string + false (not an error) means no offer
+// exists yet for this EAN.
+func (c *Client) FindOfferByEAN(ctx context.Context, ean string) (string, bool, error) {
+	var resp offerListResponse
+	path := "/offers?eans=" + url.QueryEscape(ean)
+	if err := c.doJSON(ctx, http.MethodGet, path, offerAccept, nil, &resp); err != nil {
+		return "", false, err
 	}
-	return "", fmt.Errorf("bol: offer request %s did not reach a terminal status after %d attempts", processStatusID, opts.MaxAttempts)
+	if len(resp.Offers) == 0 {
+		return "", false, nil
+	}
+	return resp.Offers[0].OfferID, true, nil
 }
 
 // --- Product Content API (v10, async -- upload then poll a report) ---
@@ -312,9 +321,7 @@ type ProductContentRequest struct {
 
 type processStatusResponse struct {
 	ProcessStatusID string `json:"processStatusId"`
-	EntityID        string `json:"entityId"`
 	Status          string `json:"status"`
-	ErrorMessage    string `json:"errorMessage"`
 }
 
 type PollOptions struct {
