@@ -20,10 +20,11 @@ func newTestServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *b
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 	client := bol.NewClient(bol.Config{
-		ClientID:     "test-client-id",
-		ClientSecret: "test-client-secret",
-		TokenURL:     srv.URL + "/token",
-		BaseURL:      srv.URL,
+		ClientID:      "test-client-id",
+		ClientSecret:  "test-client-secret",
+		TokenURL:      srv.URL + "/token",
+		BaseURL:       srv.URL,
+		SharedBaseURL: srv.URL,
 	})
 	return srv, client
 }
@@ -234,11 +235,15 @@ func TestClient_FindOfferByEAN_noMatchReturnsFalseNotError(t *testing.T) {
 }
 
 // TestClient_SubmitProductContent_pollsUploadReportUntilTerminal is also a
-// path regression: prod hit a live 404 because this used to mock (and the
-// client used to call) POST /product-content + GET /product-content/{id}.
-// Real paths are POST /content/product + GET /process-status/{id} (the
-// latter a shared, non-content-specific resource) -- see client.go's
-// SubmitProductContent doc comment for the source.
+// path regression: prod hit a live 404 twice -- first because this used to
+// call POST /product-content + GET /product-content/{id} (wrong resource
+// name entirely), then after a first fix, POST /content/product (right
+// resource, wrong pluralization -- taken from a stale third-party client's
+// docs). Real paths, confirmed by downloading Bol's actual published specs
+// directly (see client.go's SubmitProductContent doc comment): POST
+// /content/products (plural) on the retailer API, GET
+// /process-status/{id} on the separate shared API (SharedBaseURL, not
+// BaseURL).
 func TestClient_SubmitProductContent_pollsUploadReportUntilTerminal(t *testing.T) {
 	pollCount := 0
 	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -246,7 +251,7 @@ func TestClient_SubmitProductContent_pollsUploadReportUntilTerminal(t *testing.T
 		case r.URL.Path == "/token":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
-		case r.URL.Path == "/content/product" && r.Method == http.MethodPost:
+		case r.URL.Path == "/content/products" && r.Method == http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{"processStatusId": "upload-1"})
 		case strings.HasPrefix(r.URL.Path, "/process-status/upload-1"):

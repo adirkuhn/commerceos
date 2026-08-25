@@ -26,19 +26,27 @@ import (
 )
 
 // Config holds one Bol connection's credentials + endpoints. TokenURL/
-// BaseURL default to Bol's real production endpoints when empty --
-// overridable only so tests can point at an httptest.Server.
+// BaseURL/SharedBaseURL default to Bol's real production endpoints when
+// empty -- overridable only so tests can point at an httptest.Server.
 type Config struct {
 	ClientID     string
 	ClientSecret string
 	TokenURL     string
 	BaseURL      string
-	HTTPClient   *http.Client
+	// SharedBaseURL is Bol's cross-resource "shared" API (currently just
+	// process-status) -- a genuinely different path root from BaseURL
+	// (/shared/... not /retailer/...), confirmed against the real spec at
+	// api.bol.com/registry/api-definitions/process-status/process-status-v10.yaml.
+	// Not a sibling of /retailer under the same prefix, so it can't be
+	// expressed as a path relative to BaseURL.
+	SharedBaseURL string
+	HTTPClient    *http.Client
 }
 
 const (
-	defaultTokenURL = "https://login.bol.com/token"
-	defaultBaseURL  = "https://api.bol.com/retailer"
+	defaultTokenURL      = "https://login.bol.com/token"
+	defaultBaseURL       = "https://api.bol.com/retailer"
+	defaultSharedBaseURL = "https://api.bol.com/shared"
 
 	contentAccept = "application/vnd.retailer.v10+json"
 )
@@ -58,6 +66,9 @@ func NewClient(cfg Config) *Client {
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = defaultBaseURL
+	}
+	if cfg.SharedBaseURL == "" {
+		cfg.SharedBaseURL = defaultSharedBaseURL
 	}
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = &http.Client{Timeout: 15 * time.Second}
@@ -141,6 +152,13 @@ func IsUnknownEAN(err error) bool {
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path, accept string, reqBody, respBody any) error {
+	return c.doJSONWithBase(ctx, c.cfg.BaseURL, method, path, accept, reqBody, respBody)
+}
+
+// doJSONWithBase is doJSON with an explicit base URL, for the one resource
+// (process-status) that lives under a different path root than
+// Config.BaseURL -- see SharedBaseURL's doc comment.
+func (c *Client) doJSONWithBase(ctx context.Context, base, method, path, accept string, reqBody, respBody any) error {
 	token, err := c.AccessToken(ctx)
 	if err != nil {
 		return err
@@ -155,7 +173,7 @@ func (c *Client) doJSON(ctx context.Context, method, path, accept string, reqBod
 		bodyReader = bytes.NewReader(b)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, c.cfg.BaseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, base+path, bodyReader)
 	if err != nil {
 		return fmt.Errorf("bol: build request: %w", err)
 	}
@@ -368,19 +386,27 @@ func (o PollOptions) withDefaults() PollOptions {
 // "chunks" taxonomy) and was NOT confirmed against a real sandbox during
 // this build -- verify before relying on this for a genuinely new category.
 //
-// Path is POST /content/product (not /product-content -- that 404s, see
-// prod incident 2026-08-25). Confirmed against the operation names bol's own
-// functional docs link to (post-product-content, get-upload-report under
-// tag Product-Content) and cross-checked against an OpenAPI-generated
-// client's method table (github.com/Woensdag/bol-com-retailer-api,
-// ProductContentApi.md: postProductContent -> POST /retailer/content/product).
-// Process-status is a separate, shared, non-content-specific resource --
-// GET /process-status/{id} -- not nested under /content/product.
+// Path is POST /content/products (plural). Confirmed 2026-08-25 by
+// downloading and inspecting the real, currently-published spec directly --
+// api.bol.com/registry/api-definitions/product-content/product-content-v10.yaml,
+// operationId post-product-content, path "/retailer/content/products"
+// (server root is bare api.bol.com; this client's BaseURL already includes
+// /retailer, hence the relative "/content/products" here). Two earlier
+// guesses both 404'd in prod: "/product-content" (wrong resource name) and
+// then singular "/content/product" (right resource, wrong pluralization --
+// taken from a third-party generated client's docs, which was stale/wrong).
+// Lesson: don't trust community client docs for this API, download the
+// registry spec directly.
+//
+// Process-status polling hits a genuinely different path root: confirmed
+// against api.bol.com/registry/api-definitions/process-status/process-status-v10.yaml,
+// path "/shared/process-status/{id}" -- under /shared, not /retailer, so it
+// cannot be expressed relative to BaseURL and uses SharedBaseURL instead.
 func (c *Client) SubmitProductContent(ctx context.Context, req ProductContentRequest, opts PollOptions) error {
 	opts = opts.withDefaults()
 
 	var upload processStatusResponse
-	if err := c.doJSON(ctx, http.MethodPost, "/content/product", contentAccept, req, &upload); err != nil {
+	if err := c.doJSON(ctx, http.MethodPost, "/content/products", contentAccept, req, &upload); err != nil {
 		return fmt.Errorf("bol: submit product content: %w", err)
 	}
 	if upload.ProcessStatusID == "" {
@@ -390,7 +416,7 @@ func (c *Client) SubmitProductContent(ctx context.Context, req ProductContentReq
 	for attempt := 0; attempt < opts.MaxAttempts; attempt++ {
 		var report processStatusResponse
 		path := "/process-status/" + url.PathEscape(upload.ProcessStatusID)
-		if err := c.doJSON(ctx, http.MethodGet, path, contentAccept, nil, &report); err != nil {
+		if err := c.doJSONWithBase(ctx, c.cfg.SharedBaseURL, http.MethodGet, path, contentAccept, nil, &report); err != nil {
 			return fmt.Errorf("bol: poll product content report: %w", err)
 		}
 		switch strings.ToUpper(report.Status) {
