@@ -2196,6 +2196,52 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [bulkError, setBulkError] = useState('')
   const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
 
+  // Once a variant's SKU exists, its barcode had no display or edit path
+  // at all in this component -- only settable in the "add SKU" form below,
+  // never again after creation. That's a real gap: a per-SKU integration
+  // (e.g. Bol, which treats SKU.Barcode as the EAN) can only ever be
+  // fixed by deleting and recreating the SKU. Edits here save immediately,
+  // same "no batched Save step" convention as saveBulkPool below.
+  const [barcodeEdit, setBarcodeEdit] = useState('')
+  const [barcodeHydrated, setBarcodeHydrated] = useState(false)
+  const [barcodeSaving, setBarcodeSaving] = useState(false)
+  const [barcodeError, setBarcodeError] = useState('')
+  if (!barcodeHydrated && sku) {
+    setBarcodeEdit(sku.barcode ?? '')
+    setBarcodeHydrated(true)
+  }
+
+  const saveBarcode = async () => {
+    if (!sku) return
+    setBarcodeError('')
+    setBarcodeSaving(true)
+    try {
+      await detail.updateSKU(sku.id, {
+        sku_code: sku.sku_code,
+        barcode: barcodeEdit || undefined,
+        price_minor_units: sku.price_minor_units,
+        sale_price_minor_units: sku.sale_price_minor_units,
+        sale_end_date: sku.sale_end_date,
+        currency_code: sku.currency_code,
+        weight_grams: sku.weight_grams,
+        length_mm: sku.length_mm,
+        width_mm: sku.width_mm,
+        height_mm: sku.height_mm,
+        is_virtual: sku.is_virtual,
+        tracks_expiry: sku.tracks_expiry,
+        case_of_sku_id: sku.case_of_sku_id,
+        units_per_case: sku.units_per_case,
+        unit_type: sku.unit_type,
+        portioned_from_sku_id: sku.portioned_from_sku_id,
+        status: sku.status,
+      })
+    } catch (err) {
+      setBarcodeError(err instanceof Error ? err.message : 'Failed to update barcode')
+    } finally {
+      setBarcodeSaving(false)
+    }
+  }
+
   // Editing an existing SKU's bulk-pool link saves immediately (matches
   // handleSelectImage's pattern in this component) -- there's no batched
   // "Save" step for an already-created variant's SKU here, unlike the flat
@@ -2343,6 +2389,25 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
 
       {sku && (
         <div className="mt-1.5 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor={`variant-sku-barcode-${sku.id}`} className="text-[10px] dark:text-gray-400 text-gray-500 shrink-0">
+              EAN
+            </label>
+            <input
+              id={`variant-sku-barcode-${sku.id}`} type="text" placeholder="Barcode / EAN"
+              value={barcodeEdit} onChange={e => setBarcodeEdit(e.target.value)}
+              className="flex-1 min-w-0 px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+            />
+            {barcodeEdit !== (sku.barcode ?? '') && (
+              <button
+                type="button" disabled={barcodeSaving} onClick={saveBarcode}
+                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 shrink-0"
+              >
+                {barcodeSaving ? 'Saving…' : 'Save'}
+              </button>
+            )}
+          </div>
+          {barcodeError && <p className="text-[10px] text-red-400">{barcodeError}</p>}
           <div className="flex items-center justify-between">
             {sku.unit_type === 'kilo' ? (
               <span className="text-[10px] dark:text-gray-400 text-gray-500 flex items-center gap-1.5">

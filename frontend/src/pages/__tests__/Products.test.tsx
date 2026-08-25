@@ -818,6 +818,48 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
   })
 })
 
+describe('editing an existing variant SKU\'s barcode/EAN (VariantRow)', () => {
+  it('prefills the existing barcode and hides Save until it changes', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [{ ...baseSku, barcode: '0630509892495' }] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    const ean = await screen.findByLabelText('EAN')
+    expect(ean).toHaveValue('0630509892495')
+    expect(within(ean.closest('div')!).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+  })
+
+  it('editing an existing SKU\'s barcode shows Save and persists the new value, keeping every other field unchanged', async () => {
+    const existingSku = { ...baseSku, barcode: '0630509892495' }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [existingSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(existingSku)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    const ean = await screen.findByLabelText('EAN')
+    await userEvent.clear(ean)
+    await userEvent.type(ean, '7891010249939')
+    await userEvent.click(within(ean.closest('div')!).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      barcode: '7891010249939', sku_code: existingSku.sku_code, price_minor_units: existingSku.price_minor_units,
+      status: existingSku.status,
+    })))
+  })
+})
+
 describe('weight pool (unit_type / portioned_from_sku_id)', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
