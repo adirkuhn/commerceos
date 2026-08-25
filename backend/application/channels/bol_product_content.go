@@ -2,12 +2,16 @@ package channels
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
+	"github.com/adirkuhn/commerceos/domain/outbox"
+	"github.com/adirkuhn/commerceos/internal/idgen"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -80,12 +84,13 @@ type UpsertBolProductContentInput struct {
 }
 
 type UpsertBolProductContentUseCase struct {
-	db   *gorm.DB
-	repo channelsDomain.BolProductContentRepository
+	db         *gorm.DB
+	repo       channelsDomain.BolProductContentRepository
+	outboxRepo outbox.Repository
 }
 
-func NewUpsertBolProductContentUseCase(db *gorm.DB, repo channelsDomain.BolProductContentRepository) *UpsertBolProductContentUseCase {
-	return &UpsertBolProductContentUseCase{db: db, repo: repo}
+func NewUpsertBolProductContentUseCase(db *gorm.DB, repo channelsDomain.BolProductContentRepository, outboxRepo outbox.Repository) *UpsertBolProductContentUseCase {
+	return &UpsertBolProductContentUseCase{db: db, repo: repo, outboxRepo: outboxRepo}
 }
 
 func (uc *UpsertBolProductContentUseCase) Execute(ctx context.Context, in UpsertBolProductContentInput) (*channelsDomain.BolProductContent, error) {
@@ -110,7 +115,26 @@ func (uc *UpsertBolProductContentUseCase) Execute(ctx context.Context, in Upsert
 			content.CreatedAt = now
 		}
 		content.UpdatedAt = now
-		return uc.repo.Upsert(ctx, &content)
+		if err := uc.repo.Upsert(ctx, &content); err != nil {
+			return err
+		}
+
+		// Raises the same pms.product.changed event a normal product edit
+		// does, atomically with the write above (mandatory outbox pattern,
+		// see CLAUDE.md) -- consumers re-push the product to every channel
+		// it's already linked to (Woo included, not just Bol), same as any
+		// other product change. This is the real trigger; the frontend's
+		// own direct pushProductToBol call after saving is just for
+		// immediate UI feedback and doesn't replace this.
+		event := events.ProductChanged{
+			Base:     events.Base{EventID: idgen.NewV4(), OccurredAt: now},
+			TenantID: tenant.IDFromContext(ctx), ProductID: content.ProductID,
+		}
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event: %w", err)
+		}
+		return uc.outboxRepo.Enqueue(ctx, event.EventName(), event.EventID, payload, event.OccurredAt)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("upsertBolProductContent: %w", err)
