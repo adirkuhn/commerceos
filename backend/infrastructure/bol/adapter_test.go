@@ -34,7 +34,7 @@ func TestAdapter_CreateOffer_mapsConditionCategory(t *testing.T) {
 	adapter := bol.NewAdapter(client)
 
 	offerID, err := adapter.CreateOffer(t.Context(), integrationsDomain.BolOfferInput{
-		EAN: "0630509892495", EconomicOperatorID: "op-1", ConditionCategory: "NEW", FulfilmentMethod: "FBR",
+		EAN: "0630509892495", EconomicOperatorID: "op-1", ConditionCategory: "NEW", FulfilmentMethod: "FBR", DeliveryCode: "1-2d",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "offer-1", offerID)
@@ -46,6 +46,42 @@ func TestAdapter_CreateOffer_mapsConditionCategory(t *testing.T) {
 	fulfilment, _ := gotBody["fulfilment"].(map[string]any)
 	require.NotNil(t, fulfilment, "request body must include a fulfilment object")
 	assert.Equal(t, "BOL_DELIVERY_PROMISE", fulfilment["schedule"], "schedule is required by Bol for method FBR (confirmed via a real 400)")
+
+	deliveryPromise, _ := fulfilment["deliveryPromise"].(map[string]any)
+	require.NotNil(t, deliveryPromise, "deliveryPromise is required by Bol whenever schedule is BOL_DELIVERY_PROMISE (confirmed via a real 400)")
+	assert.Equal(t, float64(1), deliveryPromise["minimumDaysToCustomer"])
+	assert.Equal(t, float64(2), deliveryPromise["maximumDaysToCustomer"])
+}
+
+// TestAdapter_CreateOffer_deliveryPromiseFallsBackWhenDeliveryCodeUnparseable
+// proves a stored delivery-code value that isn't a plain "N-Md" day range
+// (e.g. leftover from Bol's old v10-based enum, or simply unset) still
+// produces a valid deliveryPromise instead of an empty/invalid one that
+// would 400 -- 3-5 days, matching DefaultBolDeliveryCode.
+func TestAdapter_CreateOffer_deliveryPromiseFallsBackWhenDeliveryCodeUnparseable(t *testing.T) {
+	var gotBody map[string]any
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
+		case r.URL.Path == "/offers" && r.Method == http.MethodPost:
+			_ = json.NewDecoder(r.Body).Decode(&gotBody)
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{"offerId": "offer-1"})
+		}
+	})
+	adapter := bol.NewAdapter(client)
+
+	_, err := adapter.CreateOffer(t.Context(), integrationsDomain.BolOfferInput{
+		EAN: "0630509892495", ConditionCategory: "NEW", FulfilmentMethod: "FBR", DeliveryCode: "VVB",
+	})
+	require.NoError(t, err)
+
+	fulfilment := gotBody["fulfilment"].(map[string]any)
+	deliveryPromise := fulfilment["deliveryPromise"].(map[string]any)
+	assert.Equal(t, float64(3), deliveryPromise["minimumDaysToCustomer"])
+	assert.Equal(t, float64(5), deliveryPromise["maximumDaysToCustomer"])
 }
 
 // TestAdapter_UpdateOffer_omitsCondition proves PATCH never sends a
@@ -78,4 +114,5 @@ func TestAdapter_UpdateOffer_omitsCondition(t *testing.T) {
 	fulfilment, _ := gotBody["fulfilment"].(map[string]any)
 	require.NotNil(t, fulfilment)
 	assert.Equal(t, "BOL_DELIVERY_PROMISE", fulfilment["schedule"])
+	require.NotNil(t, fulfilment["deliveryPromise"])
 }

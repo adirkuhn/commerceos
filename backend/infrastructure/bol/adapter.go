@@ -3,6 +3,8 @@ package bol
 import (
 	"context"
 	"math"
+	"strconv"
+	"strings"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 )
@@ -23,19 +25,50 @@ func NewAdapter(client *Client) *Adapter { return &Adapter{client: client} }
 // separately-configured Delivery Promise API profile this codebase
 // doesn't integrate, and SHIPPING_VIA_BOL is a different fulfilment
 // concept entirely. Not set for FBB, which Bol fully controls itself.
-func toFulfilment(method string) Fulfilment {
+//
+// Bol also requires DeliveryPromise whenever Schedule is
+// BOL_DELIVERY_PROMISE (another real 400: "Field 'deliveryPromise' is
+// required when 'method' = FBR and 'schedule' is BOL_DELIVERY_PROMISE") --
+// parsed from deliveryCode, the connection's stored day-range setting
+// ("3-5d" etc, still the human-friendly input the settings UI collects;
+// see domain/integrations.DefaultBolDeliveryCode). The 24uurs-XX/
+// MijnLeverbelofte/VVB codes from that same setting's original v10-based
+// enum don't parse as an "N-Md" range and fall back to the 3-5 day
+// default -- they'd actually need a different Schedule value entirely,
+// not handled here.
+func toFulfilment(method, deliveryCode string) Fulfilment {
 	f := Fulfilment{Method: method}
 	if method == "FBR" {
 		f.Schedule = "BOL_DELIVERY_PROMISE"
+		promise := parseDeliveryPromise(deliveryCode)
+		f.DeliveryPromise = &promise
 	}
 	return f
 }
 
+func parseDeliveryPromise(code string) DeliveryPromise {
+	fallback := DeliveryPromise{MinimumDaysToCustomer: 3, MaximumDaysToCustomer: 5}
+	trimmed := strings.TrimSuffix(code, "d")
+	if trimmed == code {
+		return fallback
+	}
+	parts := strings.SplitN(trimmed, "-", 2)
+	if len(parts) != 2 {
+		return fallback
+	}
+	min, errMin := strconv.Atoi(parts[0])
+	max, errMax := strconv.Atoi(parts[1])
+	if errMin != nil || errMax != nil {
+		return fallback
+	}
+	return DeliveryPromise{MinimumDaysToCustomer: min, MaximumDaysToCustomer: max}
+}
+
 // toCreateOfferRequest builds a full offer payload for POST /offers. Note
-// in.DeliveryCode is deliberately not mapped -- v11's Fulfilment has no
-// such field (that was a v10-deprecated-only requirement); BolOfferInput
-// keeps the field for now (harmless, just unused here) rather than
-// ripping out the connection-level setting/UI mid-incident.
+// in.DeliveryCode feeds toFulfilment's DeliveryPromise parsing below --
+// it's no longer sent as its own field (v11 has no such field, that was a
+// v10-deprecated-only requirement) but is reused as the day-range input
+// for the real v11 requirement, DeliveryPromise.
 func toCreateOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferRequest {
 	var stock *Stock
 	if in.FulfilmentMethod == "FBR" {
@@ -46,7 +79,7 @@ func toCreateOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferReques
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
 		Condition:  Condition{Category: in.ConditionCategory},
 		Pricing:    Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
-		Fulfilment: toFulfilment(in.FulfilmentMethod),
+		Fulfilment: toFulfilment(in.FulfilmentMethod, in.DeliveryCode),
 		Stock:      stock,
 	}
 }
@@ -59,7 +92,7 @@ func toPatchOfferRequest(in integrationsDomain.BolOfferInput) PatchOfferRequest 
 	if in.FulfilmentMethod == "FBR" {
 		stock = &Stock{Amount: in.StockAmount, ManagedByRetailer: in.StockManagedByRetailer}
 	}
-	fulfilment := toFulfilment(in.FulfilmentMethod)
+	fulfilment := toFulfilment(in.FulfilmentMethod, in.DeliveryCode)
 	return PatchOfferRequest{
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
 		Pricing:    &Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},

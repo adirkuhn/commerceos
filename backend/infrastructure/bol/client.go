@@ -223,6 +223,17 @@ type Fulfilment struct {
 	// integrated here), SHIPPING_VIA_BOL. Always BOL_DELIVERY_PROMISE for
 	// now -- the simplest correct choice with no extra setup required.
 	Schedule string `json:"schedule,omitempty"`
+	// DeliveryPromise is required by Bol whenever Schedule is
+	// BOL_DELIVERY_PROMISE (confirmed via a real 400: "Field
+	// 'deliveryPromise' is required when 'method' = FBR and 'schedule' is
+	// BOL_DELIVERY_PROMISE" -- again not schema-required in the static
+	// spec).
+	DeliveryPromise *DeliveryPromise `json:"deliveryPromise,omitempty"`
+}
+
+type DeliveryPromise struct {
+	MinimumDaysToCustomer int `json:"minimumDaysToCustomer"`
+	MaximumDaysToCustomer int `json:"maximumDaysToCustomer"`
 }
 
 type Condition struct {
