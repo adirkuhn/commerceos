@@ -61,6 +61,7 @@ func NewRunScheduledBolExportUseCase(
 func (uc *RunScheduledBolExportUseCase) Execute(ctx context.Context, in RunScheduledBolExportInput) (*BolExportResult, error) {
 	var channel *channelsDomain.SalesChannel
 	var products []pmsDomain.Product
+	overrideByProduct := map[string]*channelsDomain.SalesChannelProductOverride{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		channels, err := uc.channelRepo.ListByTenant(ctx)
 		if err != nil {
@@ -73,12 +74,30 @@ func (uc *RunScheduledBolExportUseCase) Execute(ctx context.Context, in RunSched
 				break
 			}
 		}
+		if channel == nil {
+			return nil
+		}
 
 		p, _, err := uc.productRepo.List(ctx, pmsDomain.ProductFilter{Limit: runScheduledBolExportLimit})
 		if err != nil {
 			return err
 		}
 		products = p
+
+		// One query for every override on this channel instead of one
+		// query per product -- the old per-product FindByChannelAndProduct
+		// call meant every unenrolled product (the common case under
+		// "manual only" enrollment, where most products have no override
+		// row at all) logged a real-Postgres "record not found" line on
+		// every scheduled run, for every product in the catalog.
+		overrides, err := uc.overrideRepo.ListByChannel(ctx, channel.ID)
+		if err != nil {
+			return err
+		}
+		for i := range overrides {
+			o := overrides[i]
+			overrideByProduct[o.ProductID] = &o
+		}
 		return nil
 	})
 	if err != nil {
@@ -97,26 +116,12 @@ func (uc *RunScheduledBolExportUseCase) Execute(ctx context.Context, in RunSched
 	}
 
 	for _, p := range products {
-		uc.exportOne(ctx, in, *channel, p, result)
+		uc.exportOne(ctx, in, *channel, p, overrideByProduct[p.ID], result)
 	}
 	return result, nil
 }
 
-func (uc *RunScheduledBolExportUseCase) exportOne(ctx context.Context, in RunScheduledBolExportInput, channel channelsDomain.SalesChannel, p pmsDomain.Product, result *BolExportResult) {
-	var override *channelsDomain.SalesChannelProductOverride
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		o, err := uc.overrideRepo.FindByChannelAndProduct(ctx, channel.ID, p.ID)
-		if err != nil {
-			return err
-		}
-		override = o
-		return nil
-	})
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("product %s: %v", p.ID, err))
-		return
-	}
-
+func (uc *RunScheduledBolExportUseCase) exportOne(ctx context.Context, in RunScheduledBolExportInput, channel channelsDomain.SalesChannel, p pmsDomain.Product, override *channelsDomain.SalesChannelProductOverride, result *BolExportResult) {
 	if !channel.IsProductEnrolled(p.CategoryID, p.Tags, override) {
 		result.Skipped++
 		return

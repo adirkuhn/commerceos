@@ -311,6 +311,27 @@ func (uc *PushProductToBolUseCase) pushOne(
 
 	offerFields := bolOfferToFields(offerIn)
 
+	// Product content (manufacturer info, ingredients, etc -- the Bol tab's
+	// "Product content" section) is submitted whenever the merchant has
+	// filled any of it in, unconditionally -- not just on the unknown-EAN
+	// create-retry path below. That path only ever fires for a genuinely
+	// new offer; a product whose offer already exists takes the update
+	// branch and would otherwise never submit content at all, no matter
+	// how many fields were saved on the Bol tab. Content and the offer are
+	// separate Bol resources (Product Content API vs Offers API), so this
+	// keeps them in sync on every push regardless of offer create/update.
+	contentAttrs := bolProductContentAttributes(content)
+	contentSubmitted := false
+	if contentAttrs != nil {
+		if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
+			EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
+			Attributes: contentAttrs,
+		}); contentErr != nil {
+			return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
+		}
+		contentSubmitted = true
+	}
+
 	// No local listing yet doesn't mean no Bol offer exists yet -- it may
 	// predate this integration, or a local listing row was lost while the
 	// real offer survived. Blindly POSTing in that case 409 Conflicts
@@ -338,11 +359,17 @@ func (uc *PushProductToBolUseCase) pushOne(
 			if !client.IsUnknownEAN(createErr) {
 				return fail(fmt.Errorf("pushProductToBol: create offer: %w", createErr), offerFields)
 			}
-			if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
-				EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
-				Attributes: bolProductContentAttributes(content),
-			}); contentErr != nil {
-				return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
+			// Content was already submitted above whenever the merchant had
+			// any configured -- only fall back to this minimal EAN/GPC
+			// Code/Title/Description submission when there was nothing to
+			// submit yet (content == nil), so Bol has at least enough to
+			// recognize the EAN.
+			if !contentSubmitted {
+				if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
+					EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
+				}); contentErr != nil {
+					return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
+				}
 			}
 			id, createErr = client.CreateOffer(ctx, offerIn)
 			if createErr != nil {

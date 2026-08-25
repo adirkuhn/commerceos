@@ -28,7 +28,7 @@ func TestRunScheduledBolExport_pushesEnrolledProducts(t *testing.T) {
 	}}
 	overrideRepo := &stubSalesChannelProductOverrideRepo{}
 	pusher := &stubBolProductPusher{}
-	uc := newRunScheduledBolExportUseCase(t, 2, productRepo, channelRepo, overrideRepo, pusher)
+	uc := newRunScheduledBolExportUseCase(t, 1, productRepo, channelRepo, overrideRepo, pusher)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunScheduledBolExportInput{ConnectionID: connID})
 
@@ -48,7 +48,7 @@ func TestRunScheduledBolExport_skipsProductsNotEnrolled(t *testing.T) {
 	}}
 	overrideRepo := &stubSalesChannelProductOverrideRepo{}
 	pusher := &stubBolProductPusher{}
-	uc := newRunScheduledBolExportUseCase(t, 2, productRepo, channelRepo, overrideRepo, pusher)
+	uc := newRunScheduledBolExportUseCase(t, 1, productRepo, channelRepo, overrideRepo, pusher)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunScheduledBolExportInput{ConnectionID: connID})
 
@@ -64,9 +64,11 @@ func TestRunScheduledBolExport_manualOverrideIncludesAnOtherwiseUnenrolledProduc
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true},
 	}}
-	overrideRepo := &stubSalesChannelProductOverrideRepo{findResult: &channelsDomain.SalesChannelProductOverride{Included: true}}
+	overrideRepo := &stubSalesChannelProductOverrideRepo{byChannel: []channelsDomain.SalesChannelProductOverride{
+		{ChannelID: "channel-1", ProductID: "prod-1", Included: true},
+	}}
 	pusher := &stubBolProductPusher{}
-	uc := newRunScheduledBolExportUseCase(t, 2, productRepo, channelRepo, overrideRepo, pusher)
+	uc := newRunScheduledBolExportUseCase(t, 1, productRepo, channelRepo, overrideRepo, pusher)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunScheduledBolExportInput{ConnectionID: connID})
 
@@ -89,7 +91,7 @@ func TestRunScheduledBolExport_pushesAlreadyEnrolledProductsAgainToRefreshStock(
 	}}
 	overrideRepo := &stubSalesChannelProductOverrideRepo{}
 	pusher := &stubBolProductPusher{}
-	uc := newRunScheduledBolExportUseCase(t, 3, productRepo, channelRepo, overrideRepo, pusher)
+	uc := newRunScheduledBolExportUseCase(t, 1, productRepo, channelRepo, overrideRepo, pusher)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunScheduledBolExportInput{ConnectionID: connID})
 

@@ -262,6 +262,36 @@ func TestPushProductToBol_updatesExistingOfferInsteadOfCreating(t *testing.T) {
 	assert.Equal(t, "offer-existing", result[0].ExternalID)
 }
 
+// TestPushProductToBol_updatingExistingOffer_alsoSubmitsProductContent is a
+// regression test for a real bug: SubmitProductContent only ever fired on
+// the unknown-EAN create-retry path, so a product whose offer already
+// exists (the common case -- every push after the first) took the UPDATE
+// branch and never submitted product content at all, no matter how many
+// fields the merchant saved on the Bol tab's "Product content" section.
+// Filling in those fields and clicking Save/Push looked like it worked
+// (the offer update succeeded) but Bol's catalog data never changed.
+func TestPushProductToBol_updatingExistingOffer_alsoSubmitsProductContent(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	h.listingRepo.listByProduct["prod-1"] = []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: "prod-1", ConnectionID: "conn-1", Provider: "bol", ExternalID: "offer-existing", VariantID: nil},
+	}
+	brand := "Hipoglós"
+	h.contentRepo.content = &channelsDomain.BolProductContent{ProductID: "prod-1", ConnectionID: "conn-1", Brand: &brand}
+
+	client := &fakeBolClient{}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, client.updateOfferCalls, 1)
+	require.Len(t, client.contentCalls, 1, "product content must be submitted even when the offer already exists and only needs an update")
+	assert.Equal(t, "Hipoglós", client.contentCalls[0].Attributes["Merk"])
+}
+
 // TestPushProductToBol_matchesExistingBolOfferByEAN_updatesInsteadOfCreating
 // is a regression test for "no link yet between our product and any Bol
 // offer": with no local ProductChannelListing row, the old code always
