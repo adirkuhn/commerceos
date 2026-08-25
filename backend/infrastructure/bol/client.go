@@ -339,6 +339,15 @@ func (c *Client) FindOfferByEAN(ctx context.Context, ean string) (string, bool, 
 
 type AttributeValue struct {
 	Value string `json:"value"`
+	// UnitID is Bol's unit-of-measure code for this value (e.g.
+	// "unece.unit.MLT" for ml, "unece.unit.MMT" for mm) -- required for
+	// number-typed attributes that have a units list in Bol's data model
+	// (Capacity, Width/Height/Length, Weight, Number Pieces In Package).
+	// Confirmed against the real spec's AttributeValue schema (unitId,
+	// example "mm") and per-attribute unit lists in
+	// productdatamodel.s-bol.com/v10/datamodel_v10_en.json. Empty/omitted
+	// for text, boolean, and LOV-select attributes, which carry no unit.
+	UnitID string `json:"unitId,omitempty"`
 }
 
 type ContentAttribute struct {
@@ -346,9 +355,14 @@ type ContentAttribute struct {
 	Values []AttributeValue `json:"values"`
 }
 
+// Asset.Labels is an array in Bol's real spec (maxItems 2, example
+// ["FRONT"]), not a bare string -- confirmed 2026-08-25 alongside the
+// product-content path fix. A bare string previously silently sent the
+// wrong JSON shape ("labels":"FRONT" instead of "labels":["FRONT"]), the
+// same silent-drop failure mode as a wrong attribute id.
 type Asset struct {
-	URL    string `json:"url"`
-	Labels string `json:"labels"`
+	URL    string   `json:"url"`
+	Labels []string `json:"labels"`
 }
 
 type ProductContentRequest struct {

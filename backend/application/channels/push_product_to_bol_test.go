@@ -289,7 +289,7 @@ func TestPushProductToBol_updatingExistingOffer_alsoSubmitsProductContent(t *tes
 	require.NoError(t, err)
 	require.Len(t, client.updateOfferCalls, 1)
 	require.Len(t, client.contentCalls, 1, "product content must be submitted even when the offer already exists and only needs an update")
-	assert.Equal(t, "Hipoglós", client.contentCalls[0].Attributes["Merk"])
+	assert.Equal(t, "Hipoglós", client.contentCalls[0].Attributes["Brand"])
 }
 
 // TestPushProductToBol_matchesExistingBolOfferByEAN_updatesInsteadOfCreating
@@ -400,7 +400,93 @@ func TestPushProductToBol_onUnknownEAN_includesProductContentAttributes(t *testi
 
 	require.NoError(t, err)
 	require.Len(t, client.contentCalls, 1)
-	assert.Equal(t, "Hipoglós", client.contentCalls[0].Attributes["Merk"])
+	assert.Equal(t, "Hipoglós", client.contentCalls[0].Attributes["Brand"])
+}
+
+// TestPushProductToBol_manufacturerFields_useBolsRealAttributeIds is a
+// regression test: these three fields used to be keyed by their Dutch UI
+// label ("Fabrikant Naam" etc), which Bol's API silently ignores -- no
+// error, the POST 202s, the fields just never appear on bol.com. Confirmed
+// against Bol's real, published data model
+// (productdatamodel.s-bol.com/v10/datamodel_v10_en.json) that the real ids
+// are the English strings asserted below.
+func TestPushProductToBol_manufacturerFields_useBolsRealAttributeIds(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	name, address, contact := "Acme BV", "Main St 1, Amsterdam", "support@acme.example"
+	h.contentRepo.content = &channelsDomain.BolProductContent{
+		ProductID: "prod-1", ConnectionID: "conn-1",
+		ManufacturerName: &name, ManufacturerAddress: &address, ManufacturerContact: &contact,
+	}
+
+	unknownEAN := errors.New("unknown ean")
+	attempts := 0
+	client := &fakeBolClient{unknownEANErr: unknownEAN, createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", unknownEAN
+		}
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, client.contentCalls, 1)
+	attrs := client.contentCalls[0].Attributes
+	assert.Equal(t, "Acme BV", attrs["Manufacturer Name"])
+	assert.Equal(t, "Main St 1, Amsterdam", attrs["Manufacturer Address"])
+	assert.Equal(t, "support@acme.example", attrs["Manufacturer Email"])
+	assert.NotContains(t, attrs, "Fabrikant Naam")
+	assert.NotContains(t, attrs, "Fabrikant Adres")
+	assert.NotContains(t, attrs, "E-mailadres of online contactformulier van de fabrikant")
+}
+
+// TestPushProductToBol_numberAttributes_carryBolsUnitId is a regression
+// test for the second class of bug found alongside the wrong-id one: Bol's
+// AttributeValue needs value and unitId as sibling fields for number-typed
+// attributes, not two separate free-text attributes (which used to be sent
+// as "Inhoud"/"Inhoud eenheid" -- both wrong ids AND wrong shape). Content
+// amount+unit now merge into one "Capacity" attribute with a translated
+// unitId; package width (always millimeters in this domain, no user-typed
+// unit to translate) gets a fixed unitId.
+func TestPushProductToBol_numberAttributes_carryBolsUnitId(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	amount, unit := "250", "ml"
+	width := int32(80)
+	h.contentRepo.content = &channelsDomain.BolProductContent{
+		ProductID: "prod-1", ConnectionID: "conn-1",
+		ContentAmount: &amount, ContentUnit: &unit, PackageWidthMM: &width,
+	}
+
+	unknownEAN := errors.New("unknown ean")
+	attempts := 0
+	client := &fakeBolClient{unknownEANErr: unknownEAN, createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", unknownEAN
+		}
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, client.contentCalls, 1)
+	call := client.contentCalls[0]
+	assert.Equal(t, "250", call.Attributes["Capacity"])
+	assert.Equal(t, "unece.unit.MLT", call.AttributeUnits["Capacity"])
+	assert.Equal(t, "80", call.Attributes["Width"])
+	assert.Equal(t, "unece.unit.MMT", call.AttributeUnits["Width"])
+	assert.NotContains(t, call.Attributes, "Inhoud")
+	assert.NotContains(t, call.Attributes, "Inhoud eenheid")
 }
 
 func TestPushProductToBol_missingEAN_returnsError(t *testing.T) {

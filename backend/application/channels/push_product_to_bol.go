@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -192,25 +193,88 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 	return result, nil
 }
 
-// bolProductContentAttributes flattens BolProductContent into the id/value
-// map SubmitProductContent sends -- see BolProductContentInput.Attributes'
-// doc comment on why these keys are the Dutch labels from Bol's own UI
-// rather than a verified attribute id. nil content (nothing filled in
-// yet) returns nil, not an error -- SubmitProductContent still sends
-// EAN/GPC Code/Title/Description on their own.
-func bolProductContentAttributes(c *channelsDomain.BolProductContent) map[string]string {
-	if c == nil {
-		return nil
+// bolUnitID translates a free-text unit string (whatever the merchant typed
+// into the Bol tab's Content Unit / Content per Dispenser Unit fields) into
+// Bol's unece unit code for AttributeValue.unitId. Confirmed against the
+// "Capacity"/"Capacity per dispenser" attributes' units lists in
+// productdatamodel.s-bol.com/v10/datamodel_v10_en.json. Unrecognized input
+// returns "" (no unitId sent) rather than guessing or erroring -- the value
+// itself still gets submitted, same as before this fix, just without a
+// unit Bol can act on; better than blocking the whole content save over a
+// free-text field Bol never validated to begin with.
+func bolUnitID(unit string) string {
+	switch strings.ToLower(strings.TrimSpace(unit)) {
+	case "ml", "milliliter", "milliliters", "milliliter(s)":
+		return "unece.unit.MLT"
+	case "l", "liter", "liters", "litre", "litres":
+		return "unece.unit.LTR"
+	case "cl", "centiliter", "centiliters":
+		return "unece.unit.CLT"
+	case "g", "gram", "grams":
+		return "unece.unit.GRM"
+	case "kg", "kilogram", "kilograms":
+		return "unece.unit.KGM"
+	case "mg", "milligram", "milligrams":
+		return "unece.unit.MGM"
+	case "stuk", "stuks", "piece", "pieces":
+		return "Pieces"
+	default:
+		return ""
 	}
-	attrs := map[string]string{}
+}
+
+// bolProductContentAttributes flattens BolProductContent into the id/value
+// map (and, for number+unit attributes, the companion unit map)
+// SubmitProductContent sends. nil content (nothing filled in yet) returns
+// nil/nil, not an error -- SubmitProductContent still sends EAN/Name/
+// Description on their own.
+//
+// Keys were originally the Dutch UI label text (see git blame), which is
+// NOT the real attribute id -- Bol's id is a separate, English, data-model
+// key (e.g. "Manufacturer Name", not "Fabrikant Naam"). A wrong id isn't
+// rejected: the POST still 202s and Bol silently drops that attribute, so
+// this shipped for a while with content-save "succeeding" while fields
+// never actually appeared on bol.com (caught 2026-08-25 in prod:
+// Manufacturer Name/Address/Email never updated, no error anywhere). Every
+// key below is now confirmed against Bol's real, published data model
+// (productdatamodel.s-bol.com/v10/datamodel_v10_en.json -- id field --
+// cross-referenced against the _nl.json file's name field to translate
+// each Dutch label; values are submitted in Dutch since language is "nl").
+//
+// Two categories need more than a renamed key:
+//   - Number+unit attributes (Capacity, Capacity per dispenser,
+//     Width/Height/Length, Weight, Number Pieces In Package) -- Bol wants
+//     value and unitId as sibling fields on one AttributeValue, not two
+//     attributes. ContentAmount+ContentUnit merge into one "Capacity"
+//     entry (unit via bolUnitID); same for the dispenser pair. Width/
+//     Height/Length/Weight keep their own value but gain a fixed unitId
+//     (the DB fields are always mm/g, no user-entered unit to translate).
+//     Items-per-package gets a fixed "Pieces" unitId (no unit field exists
+//     for it in the domain type, and "how many items" is inherently a
+//     piece count).
+//   - LOV-constrained attributes (Skin Type, Shelf life sealed/after
+//     opening, Country of Origin, Hazard Statements, Substance,
+//     Precautionary Statement) -- Bol only accepts values from a fixed
+//     list. The id fix alone doesn't guarantee a match: see
+//     ProductBolTab.tsx, which now renders these as selects populated from
+//     the same real LOV data instead of free text, so a saved value is
+//     guaranteed to be one Bol recognizes.
+//
+// Two fields stay free text deliberately: Language Instructions/Packaging
+// only have LOV entries scoped per GPC category (e.g. "Language
+// Instructions@30003886"), not a global list, so there's no single static
+// dropdown that's correct for every category -- picking one product's
+// category-scoped list and presenting it as universal would be its own
+// silent-mismatch bug. Package Insert (a document URL) has no LOV at all.
+func bolProductContentAttributes(c *channelsDomain.BolProductContent) (attrs map[string]string, units map[string]string) {
+	if c == nil {
+		return nil, nil
+	}
+	attrs = map[string]string{}
+	units = map[string]string{}
 	setStr := func(key string, v *string) {
 		if v != nil && *v != "" {
 			attrs[key] = *v
-		}
-	}
-	setInt := func(key string, v *int32) {
-		if v != nil {
-			attrs[key] = strconv.FormatInt(int64(*v), 10)
 		}
 	}
 	setBool := func(key string, v *bool) {
@@ -218,47 +282,68 @@ func bolProductContentAttributes(c *channelsDomain.BolProductContent) map[string
 			attrs[key] = strconv.FormatBool(*v)
 		}
 	}
+	setIntWithUnit := func(key string, v *int32, unitID string) {
+		if v != nil {
+			attrs[key] = strconv.FormatInt(int64(*v), 10)
+			units[key] = unitID
+		}
+	}
+	setAmountWithUnit := func(key string, amount, unit *string) {
+		if amount == nil || *amount == "" {
+			return
+		}
+		attrs[key] = *amount
+		if unit != nil {
+			if id := bolUnitID(*unit); id != "" {
+				units[key] = id
+			}
+		}
+	}
 
-	setStr("E-mailadres of online contactformulier van de fabrikant", c.ManufacturerContact)
-	setStr("Fabrikant Adres", c.ManufacturerAddress)
-	setStr("Fabrikant Naam", c.ManufacturerName)
-	setStr("Houdbaarheid gesloten product", c.ShelfLifeClosed)
-	setStr("Houdbaarheid periode na opening", c.ShelfLifeAfterOpening)
-	setStr("Ingrediënten", c.Ingredients)
-	setStr("Inhoud", c.ContentAmount)
-	setStr("Inhoud eenheid", c.ContentUnit)
-	setStr("Land van oorsprong", c.CountryOfOrigin)
-	setStr("Substantie", c.Substance)
-	setStr("Taal handleiding", c.InstructionLanguage)
-	setStr("Verpakkingstaal", c.PackagingLanguage)
+	setStr("Manufacturer Email", c.ManufacturerContact)
+	setStr("Manufacturer Address", c.ManufacturerAddress)
+	setStr("Manufacturer Name", c.ManufacturerName)
+	setStr("Shelf life sealed product", c.ShelfLifeClosed)
+	setStr("Shelf life period after opening", c.ShelfLifeAfterOpening)
+	setStr("Ingredients", c.Ingredients)
+	setAmountWithUnit("Capacity", c.ContentAmount, c.ContentUnit)
+	setStr("Country of Origin", c.CountryOfOrigin)
+	setStr("Substance", c.Substance)
+	setStr("Language Instructions", c.InstructionLanguage)
+	setStr("Language Packaging", c.PackagingLanguage)
 
-	setInt("Aantal artikelen in verpakking", c.ItemsPerPackage)
-	setStr("Bijsluiter", c.PackageInsertURL)
-	setBool("Cadeau", c.IsGift)
-	setBool("Dermatologisch getest", c.DermatologicallyTested)
-	setStr("Gevarenaanduiding (H-zinnen)", c.HazardStatements)
-	setStr("Huidtype", c.SkinType)
-	setBool("Hypo-allergeen", c.Hypoallergenic)
-	setBool("Inclusief Zinkoxide", c.ContainsZincOxide)
-	setStr("Inhoud per dispenser", c.ContentPerDispenserAmount)
-	setStr("Inhoud per dispenser eenheid", c.ContentPerDispenserUnit)
-	setStr("Merk", c.Brand)
-	setBool("Parfumvrij", c.FragranceFree)
-	setBool("pH-neutraal", c.PHNeutral)
-	setBool("Verkoelende werking", c.CoolingEffect)
-	setInt("Verpakking breedte", c.PackageWidthMM)
-	setInt("Verpakking hoogte", c.PackageHeightMM)
-	setInt("Verpakking lengte", c.PackageLengthMM)
-	setInt("Verpakkingsgewicht", c.PackageWeightG)
-	setStr("Voorzorgsaanduiding (P-zinnen)", c.PrecautionStatements)
-	setStr("Voorzorgsmaatregelen", c.Precautions)
-	setStr("Waarschuwingen", c.Warnings)
-	setStr("Video", c.VideoURL)
+	setIntWithUnit("Number Pieces In Package", c.ItemsPerPackage, "Pieces")
+	setStr("Package Insert", c.PackageInsertURL)
+	setBool("Gift", c.IsGift)
+	setBool("Dermatological Tested", c.DermatologicallyTested)
+	setStr("Hazard Statements", c.HazardStatements)
+	setStr("Skin Type", c.SkinType)
+	setBool("Hypo Allergenic", c.Hypoallergenic)
+	setBool("Including Zincoxide", c.ContainsZincOxide)
+	setAmountWithUnit("Capacity per dispenser", c.ContentPerDispenserAmount, c.ContentPerDispenserUnit)
+	setStr("Brand", c.Brand)
+	setBool("Fragrance Free", c.FragranceFree)
+	setBool("Ph Neutral", c.PHNeutral)
+	setBool("Cooling Effect", c.CoolingEffect)
+	setIntWithUnit("Width", c.PackageWidthMM, "unece.unit.MMT")
+	setIntWithUnit("Height", c.PackageHeightMM, "unece.unit.MMT")
+	setIntWithUnit("Length", c.PackageLengthMM, "unece.unit.MMT")
+	setIntWithUnit("Weight", c.PackageWeightG, "unece.unit.GRM")
+	setStr("Precautionary Statement", c.PrecautionStatements)
+	setStr("Precautionary Measures", c.Precautions)
+	setStr("Warning Label", c.Warnings)
+	// c.VideoURL is deliberately not sent: "Video" is not a real attribute
+	// id (searched the full data model, no match, nor any generic
+	// product-video attribute) -- it was silently dropped same as
+	// everything else in this map before the fix. Bol's Asset (images)
+	// mechanism is the most likely real fit for video, but no label value
+	// for it is confirmed (spec only documents "FRONT" for images), so
+	// this isn't guessed at rather than shipping another unverified guess.
 
 	if len(attrs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return attrs
+	return attrs, units
 }
 
 func (uc *PushProductToBolUseCase) pushOne(
@@ -320,12 +405,12 @@ func (uc *PushProductToBolUseCase) pushOne(
 	// how many fields were saved on the Bol tab. Content and the offer are
 	// separate Bol resources (Product Content API vs Offers API), so this
 	// keeps them in sync on every push regardless of offer create/update.
-	contentAttrs := bolProductContentAttributes(content)
+	contentAttrs, contentUnits := bolProductContentAttributes(content)
 	contentSubmitted := false
 	if contentAttrs != nil {
 		if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
-			EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
-			Attributes: contentAttrs,
+			EAN: ean, Title: product.Name, Description: product.Description,
+			Attributes: contentAttrs, AttributeUnits: contentUnits,
 		}); contentErr != nil {
 			return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
 		}
@@ -360,13 +445,13 @@ func (uc *PushProductToBolUseCase) pushOne(
 				return fail(fmt.Errorf("pushProductToBol: create offer: %w", createErr), offerFields)
 			}
 			// Content was already submitted above whenever the merchant had
-			// any configured -- only fall back to this minimal EAN/GPC
-			// Code/Title/Description submission when there was nothing to
-			// submit yet (content == nil), so Bol has at least enough to
-			// recognize the EAN.
+			// any configured -- only fall back to this minimal EAN/Title/
+			// Description submission when there was nothing to submit yet
+			// (content == nil), so Bol has at least enough to recognize
+			// the EAN.
 			if !contentSubmitted {
 				if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
-					EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
+					EAN: ean, Title: product.Name, Description: product.Description,
 				}); contentErr != nil {
 					return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
 				}

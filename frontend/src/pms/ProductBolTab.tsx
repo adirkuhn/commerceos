@@ -6,6 +6,10 @@ import * as integrationsApi from '../integrations/api'
 import type { Connection, BolProductOverride, BolCommission } from '../integrations/types'
 import type { UpsertBolProductContentPayload } from '../integrations/api'
 import type { SKU } from './types'
+import {
+  skinTypeOptions, shelfLifeClosedOptions, shelfLifeAfterOpeningOptions,
+  countryOfOriginOptions, hazardStatementsOptions, substanceOptions, precautionStatementsOptions,
+} from './bolContentLovs'
 
 // Pure so the arithmetic is unit-testable without rendering the component.
 // All money inputs are major currency units (e.g. 19.99, not minor units) --
@@ -68,6 +72,24 @@ function ContentTextField({ id, label, value, onChange, multiline, hint }: {
       ) : (
         <input id={id} type="text" value={value} onChange={e => onChange(e.target.value)} className={inputClass} />
       )}
+      {hint && <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">{hint}</p>}
+    </div>
+  )
+}
+
+// Bol only accepts a value from a fixed list for these attributes (LOV-
+// constrained, see bolContentLovs.ts) -- free text here would just get
+// silently dropped by Bol the same way a wrong attribute id used to.
+function ContentSelectField({ id, label, value, onChange, options, hint }: {
+  id: string; label: string; value: string; onChange: (v: string) => void; options: string[]; hint?: string
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className={labelClass}>{label}</label>
+      <select id={id} value={value} onChange={e => onChange(e.target.value)} className={inputClass}>
+        <option value="">-- not set --</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
       {hint && <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">{hint}</p>}
     </div>
   )
@@ -391,10 +413,10 @@ export function ProductBolTab({
                         <ContentTextField id="bol-content-manufacturer-name" label="Manufacturer name" value={content.manufacturer_name ?? ''} onChange={v => setContentField('manufacturer_name', v)} />
                         <ContentTextField id="bol-content-manufacturer-address" label="Manufacturer address" value={content.manufacturer_address ?? ''} onChange={v => setContentField('manufacturer_address', v)} />
                         <ContentTextField id="bol-content-manufacturer-contact" label="Manufacturer email / contact form" value={content.manufacturer_contact ?? ''} onChange={v => setContentField('manufacturer_contact', v)} />
-                        <ContentTextField id="bol-content-shelf-life-closed" label="Shelf life (unopened)" value={content.shelf_life_closed ?? ''} onChange={v => setContentField('shelf_life_closed', v)} hint="e.g. 'More than 30 months'" />
-                        <ContentTextField id="bol-content-shelf-life-opened" label="Shelf life after opening" value={content.shelf_life_after_opening ?? ''} onChange={v => setContentField('shelf_life_after_opening', v)} hint="e.g. '1M' (month)" />
-                        <ContentTextField id="bol-content-country-of-origin" label="Country of origin" value={content.country_of_origin ?? ''} onChange={v => setContentField('country_of_origin', v)} />
-                        <ContentTextField id="bol-content-substance" label="Substance" value={content.substance ?? ''} onChange={v => setContentField('substance', v)} hint="e.g. Cream, Gel, Liquid" />
+                        <ContentSelectField id="bol-content-shelf-life-closed" label="Shelf life (unopened)" value={content.shelf_life_closed ?? ''} onChange={v => setContentField('shelf_life_closed', v)} options={shelfLifeClosedOptions} />
+                        <ContentSelectField id="bol-content-shelf-life-opened" label="Shelf life after opening" value={content.shelf_life_after_opening ?? ''} onChange={v => setContentField('shelf_life_after_opening', v)} options={shelfLifeAfterOpeningOptions} />
+                        <ContentSelectField id="bol-content-country-of-origin" label="Country of origin" value={content.country_of_origin ?? ''} onChange={v => setContentField('country_of_origin', v)} options={countryOfOriginOptions} />
+                        <ContentSelectField id="bol-content-substance" label="Substance" value={content.substance ?? ''} onChange={v => setContentField('substance', v)} options={substanceOptions} />
                         <ContentTextField id="bol-content-instruction-language" label="Instruction manual language" value={content.instruction_language ?? ''} onChange={v => setContentField('instruction_language', v)} />
                         <ContentTextField id="bol-content-packaging-language" label="Packaging language" value={content.packaging_language ?? ''} onChange={v => setContentField('packaging_language', v)} />
                         <div className="grid grid-cols-2 gap-2">
@@ -413,9 +435,9 @@ export function ProductBolTab({
                         <ContentTextField id="bol-content-brand" label="Brand" value={content.brand ?? ''} onChange={v => setContentField('brand', v)} />
                         <ContentNumberField id="bol-content-items-per-package" label="Items per package" value={content.items_per_package} onChange={v => setContentField('items_per_package', v)} />
                         <ContentTextField id="bol-content-package-insert-url" label="Package insert (URL)" value={content.package_insert_url ?? ''} onChange={v => setContentField('package_insert_url', v)} />
-                        <ContentTextField id="bol-content-skin-type" label="Skin type" value={content.skin_type ?? ''} onChange={v => setContentField('skin_type', v)} />
-                        <ContentTextField id="bol-content-hazard-statements" label="Hazard statements (H-statements)" value={content.hazard_statements ?? ''} onChange={v => setContentField('hazard_statements', v)} />
-                        <ContentTextField id="bol-content-precaution-statements" label="Precaution statements (P-statements)" value={content.precaution_statements ?? ''} onChange={v => setContentField('precaution_statements', v)} />
+                        <ContentSelectField id="bol-content-skin-type" label="Skin type" value={content.skin_type ?? ''} onChange={v => setContentField('skin_type', v)} options={skinTypeOptions} />
+                        <ContentSelectField id="bol-content-hazard-statements" label="Hazard statements (H-statements)" value={content.hazard_statements ?? ''} onChange={v => setContentField('hazard_statements', v)} options={hazardStatementsOptions} hint="Bol allows multiple H-statements per product; only one can be saved here today." />
+                        <ContentSelectField id="bol-content-precaution-statements" label="Precaution statements (P-statements)" value={content.precaution_statements ?? ''} onChange={v => setContentField('precaution_statements', v)} options={precautionStatementsOptions} hint="Bol allows multiple P-statements per product; only one can be saved here today." />
                         <div className="grid grid-cols-2 gap-2">
                           <ContentTextField id="bol-content-dispenser-amount" label="Content per dispenser" value={content.content_per_dispenser_amount ?? ''} onChange={v => setContentField('content_per_dispenser_amount', v)} />
                           <ContentTextField id="bol-content-dispenser-unit" label="Dispenser unit" value={content.content_per_dispenser_unit ?? ''} onChange={v => setContentField('content_per_dispenser_unit', v)} />

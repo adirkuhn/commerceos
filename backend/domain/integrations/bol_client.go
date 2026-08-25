@@ -25,23 +25,43 @@ type BolOfferInput struct {
 // BolProductContentInput is what's needed to submit/update Bol catalog
 // content for an EAN that isn't yet known to Bol -- only used when
 // CreateOffer reports an unknown EAN.
+//
+// GPCCode was removed 2026-08-25: it was submitted as an attribute id
+// "GPC Code", which does not exist in Bol's real data model (confirmed by
+// downloading and searching it directly -- no attribute with that id, or
+// any "gpc"/"classification" id, exists). Bol's real
+// CreateProductContentSingleRequest schema has no classification field at
+// all (only language/attributes/assets) -- a GPC/chunk id is only ever
+// returned, as a prediction, from the separate POST
+// /content/chunk-recommendations endpoint, which this client doesn't call.
+// So this field never did anything; it was silently dropped on every
+// submission, same failure mode as the other wrong ids fixed this session.
+// If genuinely-new-product classification is ever needed, it requires
+// wiring up chunk-recommendations first -- not done here, out of scope for
+// this bug fix (the reported bug and this whole content-mapping cleanup
+// are about updating content for products that already exist on Bol).
 type BolProductContentInput struct {
 	EAN         string
-	GPCCode     string
-	Title       string
+	Title       string // wire attribute id is "Name", not "Title" -- see adapter.go
 	Description string
 	ImageURLs   []string
 	// Attributes is category-specific product-content fields (manufacturer
-	// info, ingredients, shelf life, etc, keyed by Bol's attribute id --
-	// see application/channels.bolProductContentAttributes). Bol's real
-	// attribute ids for these were not resolvable from any spec fetched
-	// during this build (unlike EAN/GPC Code/Title/Description, which
-	// were already established); this uses the Dutch label text shown in
-	// Bol's own product-content UI as a best-effort id, same
-	// unverified-until-tested convention this type's other fields already
-	// carry -- verify against a real submission and adjust if Bol rejects
-	// or ignores an unrecognized id.
+	// info, ingredients, shelf life, etc), keyed by Bol's real attribute id
+	// -- an English data-model key (e.g. "Manufacturer Name"), not the
+	// Dutch UI label. Confirmed 2026-08-25 against Bol's published data
+	// model (productdatamodel.s-bol.com/v10/datamodel_v10_en.json) for
+	// every key application/channels.bolProductContentAttributes sends --
+	// see that function's doc comment for the full field-by-field
+	// breakdown (units, LOV constraints, what's still free text and why).
 	Attributes map[string]string
+	// AttributeUnits is the Bol unece unit code for any Attributes entry
+	// that's number+unit-typed (Capacity, Width/Height/Length, Weight,
+	// Number Pieces In Package) -- keyed by the same attribute id as
+	// Attributes. Bol's AttributeValue carries value and unitId as sibling
+	// fields, so a flat map[string]string can't express both; this is the
+	// companion map. Absent/empty for every other (text/boolean/LOV)
+	// attribute, which carries no unit.
+	AttributeUnits map[string]string
 }
 
 type BolCommission struct {

@@ -205,5 +205,31 @@ describe('ProductBolTab', () => {
       ))
       expect(integrationsApi.pushProductToBol).not.toHaveBeenCalled()
     })
+
+    // Regression test: these fields used to be free-text inputs, but Bol
+    // only accepts a value from a fixed list for them -- any typed value
+    // that isn't an exact match gets silently dropped, same failure mode
+    // as the wrong-attribute-id bug. They're now selects populated from
+    // Bol's real data model (bolContentLovs.ts) so a saved value is
+    // guaranteed to be one Bol recognizes.
+    it('LOV-constrained fields (skin type, country of origin, etc) are selects, not free text', async () => {
+      vi.mocked(integrationsApi.upsertBolProductContent).mockResolvedValue({
+        product_id: 'prod-1', connection_id: 'conn-1', skin_type: 'Droge huid', country_of_origin: 'Nederland',
+      })
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await userEvent.click(screen.getByRole('button', { name: /Product content/ }))
+
+      const skinType = await screen.findByLabelText('Skin type')
+      expect(skinType.tagName).toBe('SELECT')
+      await userEvent.selectOptions(skinType, 'Droge huid')
+      await userEvent.selectOptions(screen.getByLabelText('Country of origin'), 'Nederland')
+      await userEvent.click(screen.getByRole('button', { name: 'Save product content' }))
+
+      await waitFor(() => expect(integrationsApi.upsertBolProductContent).toHaveBeenCalledWith(
+        'test-token', 'conn-1', 'prod-1',
+        expect.objectContaining({ skin_type: 'Droge huid', country_of_origin: 'Nederland' }),
+      ))
+    })
   })
 })

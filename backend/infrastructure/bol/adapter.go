@@ -119,21 +119,20 @@ func (a *Adapter) SubmitProductContent(ctx context.Context, in integrationsDomai
 	attrs := []ContentAttribute{
 		{ID: "EAN", Values: []AttributeValue{{Value: in.EAN}}},
 	}
-	if in.GPCCode != "" {
-		attrs = append(attrs, ContentAttribute{ID: "GPC Code", Values: []AttributeValue{{Value: in.GPCCode}}})
-	}
 	if in.Title != "" {
-		attrs = append(attrs, ContentAttribute{ID: "Title", Values: []AttributeValue{{Value: in.Title}}})
+		// Real id is "Name", not "Title" -- see BolProductContentInput's
+		// doc comment.
+		attrs = append(attrs, ContentAttribute{ID: "Name", Values: []AttributeValue{{Value: in.Title}}})
 	}
 	if in.Description != "" {
 		attrs = append(attrs, ContentAttribute{ID: "Description", Values: []AttributeValue{{Value: in.Description}}})
 	}
 	for id, value := range in.Attributes {
-		attrs = append(attrs, ContentAttribute{ID: id, Values: []AttributeValue{{Value: value}}})
+		attrs = append(attrs, ContentAttribute{ID: id, Values: []AttributeValue{{Value: value, UnitID: in.AttributeUnits[id]}}})
 	}
 	assets := make([]Asset, len(in.ImageURLs))
 	for i, u := range in.ImageURLs {
-		assets[i] = Asset{URL: u, Labels: "FRONT"}
+		assets[i] = Asset{URL: u, Labels: []string{"FRONT"}}
 	}
 	return a.client.SubmitProductContent(ctx, ProductContentRequest{
 		Language: "nl", Attributes: attrs, Assets: assets,
