@@ -96,8 +96,9 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC,
 	)
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
+	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
-		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, syncLogRepo, stockLevelUC,
+		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,

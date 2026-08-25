@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -40,6 +41,7 @@ type PushProductToBolUseCase struct {
 	skuRepo      pmsDomain.SKURepository
 	listingRepo  channelsDomain.ProductChannelListingRepository
 	overrideRepo channelsDomain.BolProductOverrideRepository
+	contentRepo  channelsDomain.BolProductContentRepository
 	syncLogRepo  channelsDomain.SyncLogRepository
 	stockLevel   stockLevelGetter
 }
@@ -54,13 +56,15 @@ func NewPushProductToBolUseCase(
 	skuRepo pmsDomain.SKURepository,
 	listingRepo channelsDomain.ProductChannelListingRepository,
 	overrideRepo channelsDomain.BolProductOverrideRepository,
+	contentRepo channelsDomain.BolProductContentRepository,
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
 ) *PushProductToBolUseCase {
 	return &PushProductToBolUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
-		listingRepo: listingRepo, overrideRepo: overrideRepo, syncLogRepo: syncLogRepo, stockLevel: stockLevel,
+		listingRepo: listingRepo, overrideRepo: overrideRepo, contentRepo: contentRepo,
+		syncLogRepo: syncLogRepo, stockLevel: stockLevel,
 	}
 }
 
@@ -69,6 +73,7 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 	var product pmsDomain.Product
 	var pushes []variantPush
 	var override *channelsDomain.BolProductOverride
+	var content *channelsDomain.BolProductContent
 	existingByVariant := map[string]channelsDomain.ProductChannelListing{}
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -116,6 +121,11 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 		}
 
 		override, err = uc.overrideRepo.FindByProductAndConnection(ctx, in.ProductID, in.ConnectionID)
+		if err != nil {
+			return err
+		}
+
+		content, err = uc.contentRepo.FindByProductAndConnection(ctx, in.ProductID, in.ConnectionID)
 		if err != nil {
 			return err
 		}
@@ -172,7 +182,7 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 
 	var result []channelsDomain.ProductChannelListing
 	for _, pu := range pushes {
-		listing, err := uc.pushOne(ctx, client, product, pu, override, existingByVariant[pu.Variant.ID],
+		listing, err := uc.pushOne(ctx, client, product, pu, override, content, existingByVariant[pu.Variant.ID],
 			in.ConnectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference)
 		if err != nil {
 			return nil, err
@@ -182,9 +192,78 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 	return result, nil
 }
 
+// bolProductContentAttributes flattens BolProductContent into the id/value
+// map SubmitProductContent sends -- see BolProductContentInput.Attributes'
+// doc comment on why these keys are the Dutch labels from Bol's own UI
+// rather than a verified attribute id. nil content (nothing filled in
+// yet) returns nil, not an error -- SubmitProductContent still sends
+// EAN/GPC Code/Title/Description on their own.
+func bolProductContentAttributes(c *channelsDomain.BolProductContent) map[string]string {
+	if c == nil {
+		return nil
+	}
+	attrs := map[string]string{}
+	setStr := func(key string, v *string) {
+		if v != nil && *v != "" {
+			attrs[key] = *v
+		}
+	}
+	setInt := func(key string, v *int32) {
+		if v != nil {
+			attrs[key] = strconv.FormatInt(int64(*v), 10)
+		}
+	}
+	setBool := func(key string, v *bool) {
+		if v != nil {
+			attrs[key] = strconv.FormatBool(*v)
+		}
+	}
+
+	setStr("E-mailadres of online contactformulier van de fabrikant", c.ManufacturerContact)
+	setStr("Fabrikant Adres", c.ManufacturerAddress)
+	setStr("Fabrikant Naam", c.ManufacturerName)
+	setStr("Houdbaarheid gesloten product", c.ShelfLifeClosed)
+	setStr("Houdbaarheid periode na opening", c.ShelfLifeAfterOpening)
+	setStr("Ingrediënten", c.Ingredients)
+	setStr("Inhoud", c.ContentAmount)
+	setStr("Inhoud eenheid", c.ContentUnit)
+	setStr("Land van oorsprong", c.CountryOfOrigin)
+	setStr("Substantie", c.Substance)
+	setStr("Taal handleiding", c.InstructionLanguage)
+	setStr("Verpakkingstaal", c.PackagingLanguage)
+
+	setInt("Aantal artikelen in verpakking", c.ItemsPerPackage)
+	setStr("Bijsluiter", c.PackageInsertURL)
+	setBool("Cadeau", c.IsGift)
+	setBool("Dermatologisch getest", c.DermatologicallyTested)
+	setStr("Gevarenaanduiding (H-zinnen)", c.HazardStatements)
+	setStr("Huidtype", c.SkinType)
+	setBool("Hypo-allergeen", c.Hypoallergenic)
+	setBool("Inclusief Zinkoxide", c.ContainsZincOxide)
+	setStr("Inhoud per dispenser", c.ContentPerDispenserAmount)
+	setStr("Inhoud per dispenser eenheid", c.ContentPerDispenserUnit)
+	setStr("Merk", c.Brand)
+	setBool("Parfumvrij", c.FragranceFree)
+	setBool("pH-neutraal", c.PHNeutral)
+	setBool("Verkoelende werking", c.CoolingEffect)
+	setInt("Verpakking breedte", c.PackageWidthMM)
+	setInt("Verpakking hoogte", c.PackageHeightMM)
+	setInt("Verpakking lengte", c.PackageLengthMM)
+	setInt("Verpakkingsgewicht", c.PackageWeightG)
+	setStr("Voorzorgsaanduiding (P-zinnen)", c.PrecautionStatements)
+	setStr("Voorzorgsmaatregelen", c.Precautions)
+	setStr("Waarschuwingen", c.Warnings)
+	setStr("Video", c.VideoURL)
+
+	if len(attrs) == 0 {
+		return nil
+	}
+	return attrs
+}
+
 func (uc *PushProductToBolUseCase) pushOne(
 	ctx context.Context, client integrationsDomain.BolClient, product pmsDomain.Product, pu variantPush,
-	override *channelsDomain.BolProductOverride, existing channelsDomain.ProductChannelListing,
+	override *channelsDomain.BolProductOverride, content *channelsDomain.BolProductContent, existing channelsDomain.ProductChannelListing,
 	connectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference string,
 ) (channelsDomain.ProductChannelListing, error) {
 	// fail records this attempt as a failure in Sync History before
@@ -261,6 +340,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 			}
 			if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
 				EAN: ean, GPCCode: gpcCode, Title: product.Name, Description: product.Description,
+				Attributes: bolProductContentAttributes(content),
 			}); contentErr != nil {
 				return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
 			}

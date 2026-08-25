@@ -747,7 +747,32 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         )}
         {activeTab === 'bol' && savedProductId && bolConnection && (
           <div className="max-w-5xl mx-auto p-6">
-            <ProductBolTab productId={savedProductId} connection={bolConnection} sku={currentSku} />
+            <ProductBolTab
+              productId={savedProductId} connection={bolConnection} sku={currentSku}
+              onSaveBarcode={async (skuId, newBarcode) => {
+                if (!currentSku) return
+                await detail.updateSKU(skuId, {
+                  sku_code: currentSku.sku_code,
+                  barcode: newBarcode || undefined,
+                  price_minor_units: currentSku.price_minor_units,
+                  sale_price_minor_units: currentSku.sale_price_minor_units,
+                  sale_end_date: currentSku.sale_end_date,
+                  currency_code: currentSku.currency_code,
+                  weight_grams: currentSku.weight_grams,
+                  length_mm: currentSku.length_mm,
+                  width_mm: currentSku.width_mm,
+                  height_mm: currentSku.height_mm,
+                  is_virtual: currentSku.is_virtual,
+                  tracks_expiry: currentSku.tracks_expiry,
+                  case_of_sku_id: currentSku.case_of_sku_id,
+                  units_per_case: currentSku.units_per_case,
+                  unit_type: currentSku.unit_type,
+                  portioned_from_sku_id: currentSku.portioned_from_sku_id,
+                  tax_class_id: currentSku.tax_class_id,
+                  status: currentSku.status,
+                })
+              }}
+            />
           </div>
         )}
       </div>

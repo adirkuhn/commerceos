@@ -18,6 +18,8 @@ vi.mock('../../integrations/api', () => ({
   getBolProductOverride: vi.fn(),
   getBolCommission: vi.fn(),
   upsertBolProductOverride: vi.fn(),
+  getBolProductContent: vi.fn(),
+  upsertBolProductContent: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -35,6 +37,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(null)
   vi.mocked(integrationsApi.getBolCommission).mockResolvedValue(commission)
+  vi.mocked(integrationsApi.getBolProductContent).mockResolvedValue(null)
 })
 
 describe('ProductBolTab', () => {
@@ -146,5 +149,39 @@ describe('ProductBolTab', () => {
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
 
     expect(await screen.findByText('bol unreachable')).toBeInTheDocument()
+  })
+
+  describe('product content', () => {
+    it('is collapsed by default and prefills saved fields once expanded', async () => {
+      vi.mocked(integrationsApi.getBolProductContent).mockResolvedValue({
+        product_id: 'prod-1', connection_id: 'conn-1', brand: 'Hipoglós', ingredients: 'Petrolatum, Water',
+      })
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+
+      expect(screen.queryByLabelText('Brand')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Product content/ }))
+
+      expect(await screen.findByLabelText('Brand')).toHaveValue('Hipoglós')
+      expect(screen.getByLabelText('Ingredients')).toHaveValue('Petrolatum, Water')
+    })
+
+    it('saving sends the edited fields to upsertBolProductContent', async () => {
+      vi.mocked(integrationsApi.upsertBolProductContent).mockResolvedValue({
+        product_id: 'prod-1', connection_id: 'conn-1', brand: 'Hipoglós',
+      })
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await userEvent.click(screen.getByRole('button', { name: /Product content/ }))
+
+      await userEvent.type(await screen.findByLabelText('Brand'), 'Hipoglós')
+      await userEvent.click(screen.getByLabelText('Hypoallergenic'))
+      await userEvent.click(screen.getByRole('button', { name: 'Save product content' }))
+
+      await waitFor(() => expect(integrationsApi.upsertBolProductContent).toHaveBeenCalledWith(
+        'test-token', 'conn-1', 'prod-1',
+        expect.objectContaining({ brand: 'Hipoglós', hypoallergenic: true }),
+      ))
+    })
   })
 })

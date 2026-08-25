@@ -155,6 +155,12 @@ type getBolProductOverrideUC interface {
 type upsertBolProductOverrideUC interface {
 	Execute(ctx context.Context, in appchannels.UpsertBolProductOverrideInput) (*channelsDomain.BolProductOverride, error)
 }
+type getBolProductContentUC interface {
+	Execute(ctx context.Context, productID, connectionID string) (*channelsDomain.BolProductContent, error)
+}
+type upsertBolProductContentUC interface {
+	Execute(ctx context.Context, in appchannels.UpsertBolProductContentInput) (*channelsDomain.BolProductContent, error)
+}
 type getBolCommissionUC interface {
 	Execute(ctx context.Context, in appchannels.GetBolCommissionInput) (*appchannels.BolCommissionResult, error)
 }
@@ -208,6 +214,8 @@ type Handler struct {
 	pushProductToBol             pushProductToBolUC
 	getBolProductOverride        getBolProductOverrideUC
 	upsertBolProductOverride     upsertBolProductOverrideUC
+	getBolProductContent         getBolProductContentUC
+	upsertBolProductContent      upsertBolProductContentUC
 	getBolCommission             getBolCommissionUC
 	listBolEconomicOperators     listBolEconomicOperatorsUC
 }
@@ -256,6 +264,8 @@ func NewHandler(
 	pushProductToBol pushProductToBolUC,
 	getBolProductOverride getBolProductOverrideUC,
 	upsertBolProductOverride upsertBolProductOverrideUC,
+	getBolProductContent getBolProductContentUC,
+	upsertBolProductContent upsertBolProductContentUC,
 	getBolCommission getBolCommissionUC,
 	listBolEconomicOperators listBolEconomicOperatorsUC,
 ) *Handler {
@@ -302,6 +312,8 @@ func NewHandler(
 		pushProductToBol:             pushProductToBol,
 		getBolProductOverride:        getBolProductOverride,
 		upsertBolProductOverride:     upsertBolProductOverride,
+		getBolProductContent:         getBolProductContent,
+		upsertBolProductContent:      upsertBolProductContent,
 		getBolCommission:             getBolCommission,
 		listBolEconomicOperators:     listBolEconomicOperators,
 	}
@@ -381,8 +393,9 @@ func Register(
 		resolveCategoryLinkUC,
 	)
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
+	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
-		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, syncLogRepo, stockLevelUC,
+		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,
@@ -442,6 +455,8 @@ func Register(
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
 		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo),
+		appchannels.NewGetBolProductContentUseCase(db, bolContentRepo),
+		appchannels.NewUpsertBolProductContentUseCase(db, bolContentRepo),
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 	)
@@ -817,6 +832,45 @@ func (h *Handler) PushProductToBol(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	middleware.OK(c, toGenListings(listings))
+}
+
+func (h *Handler) GetBolProductContent(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	content, err := h.getBolProductContent.Execute(c.Request.Context(), productId, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	if content == nil {
+		middleware.OK(c, nil)
+		return
+	}
+	middleware.OK(c, toGenBolProductContent(*content))
+}
+
+func (h *Handler) UpsertBolProductContent(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	var req genintegrations.UpsertBolProductContentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	content, err := h.upsertBolProductContent.Execute(c.Request.Context(), appchannels.UpsertBolProductContentInput{
+		ProductID: productId, ConnectionID: id,
+		ManufacturerContact: req.ManufacturerContact, ManufacturerAddress: req.ManufacturerAddress, ManufacturerName: req.ManufacturerName,
+		ShelfLifeClosed: req.ShelfLifeClosed, ShelfLifeAfterOpening: req.ShelfLifeAfterOpening, Ingredients: req.Ingredients,
+		ContentAmount: req.ContentAmount, ContentUnit: req.ContentUnit, CountryOfOrigin: req.CountryOfOrigin,
+		Substance: req.Substance, InstructionLanguage: req.InstructionLanguage, PackagingLanguage: req.PackagingLanguage,
+		ItemsPerPackage: intToInt32Ptr(req.ItemsPerPackage), PackageInsertURL: req.PackageInsertUrl, IsGift: req.IsGift,
+		DermatologicallyTested: req.DermatologicallyTested, HazardStatements: req.HazardStatements, SkinType: req.SkinType,
+		Hypoallergenic: req.Hypoallergenic, ContainsZincOxide: req.ContainsZincOxide,
+		ContentPerDispenserAmount: req.ContentPerDispenserAmount, ContentPerDispenserUnit: req.ContentPerDispenserUnit,
+		Brand: req.Brand, FragranceFree: req.FragranceFree, PHNeutral: req.PhNeutral, CoolingEffect: req.CoolingEffect,
+		PackageWidthMM: intToInt32Ptr(req.PackageWidthMm), PackageHeightMM: intToInt32Ptr(req.PackageHeightMm),
+		PackageLengthMM: intToInt32Ptr(req.PackageLengthMm), PackageWeightG: intToInt32Ptr(req.PackageWeightG),
+		PrecautionStatements: req.PrecautionStatements, Precautions: req.Precautions, Warnings: req.Warnings, VideoURL: req.VideoUrl,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenBolProductContent(*content))
 }
 
 func (h *Handler) GetBolProductOverride(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
@@ -1196,6 +1250,40 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 		BolEconomicOperatorId: c.BolEconomicOperatorID,
 		BolDeliveryCode:       c.BolDeliveryCode,
 		CreatedAt:             c.CreatedAt,
+	}
+}
+
+func int32ToIntPtr(v *int32) *int {
+	if v == nil {
+		return nil
+	}
+	i := int(*v)
+	return &i
+}
+
+func intToInt32Ptr(v *int) *int32 {
+	if v == nil {
+		return nil
+	}
+	i := int32(*v)
+	return &i
+}
+
+func toGenBolProductContent(c channelsDomain.BolProductContent) genintegrations.BolProductContent {
+	return genintegrations.BolProductContent{
+		ProductId: c.ProductID, ConnectionId: c.ConnectionID,
+		ManufacturerContact: c.ManufacturerContact, ManufacturerAddress: c.ManufacturerAddress, ManufacturerName: c.ManufacturerName,
+		ShelfLifeClosed: c.ShelfLifeClosed, ShelfLifeAfterOpening: c.ShelfLifeAfterOpening, Ingredients: c.Ingredients,
+		ContentAmount: c.ContentAmount, ContentUnit: c.ContentUnit, CountryOfOrigin: c.CountryOfOrigin,
+		Substance: c.Substance, InstructionLanguage: c.InstructionLanguage, PackagingLanguage: c.PackagingLanguage,
+		ItemsPerPackage: int32ToIntPtr(c.ItemsPerPackage), PackageInsertUrl: c.PackageInsertURL, IsGift: c.IsGift,
+		DermatologicallyTested: c.DermatologicallyTested, HazardStatements: c.HazardStatements, SkinType: c.SkinType,
+		Hypoallergenic: c.Hypoallergenic, ContainsZincOxide: c.ContainsZincOxide,
+		ContentPerDispenserAmount: c.ContentPerDispenserAmount, ContentPerDispenserUnit: c.ContentPerDispenserUnit,
+		Brand: c.Brand, FragranceFree: c.FragranceFree, PhNeutral: c.PHNeutral, CoolingEffect: c.CoolingEffect,
+		PackageWidthMm: int32ToIntPtr(c.PackageWidthMM), PackageHeightMm: int32ToIntPtr(c.PackageHeightMM),
+		PackageLengthMm: int32ToIntPtr(c.PackageLengthMM), PackageWeightG: int32ToIntPtr(c.PackageWeightG),
+		PrecautionStatements: c.PrecautionStatements, Precautions: c.Precautions, Warnings: c.Warnings, VideoUrl: c.VideoURL,
 	}
 }
 

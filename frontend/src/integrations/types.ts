@@ -52,6 +52,49 @@ export interface BolProductOverride {
   custom_price_minor_units?: number | null
 }
 
+// Product-content fields Bol's Product Content API needs to move a
+// listing from "Onvoldoende" (insufficient) to "Compleet" -- field list
+// extracted directly from Bol's own product-content page. Deliberately
+// excludes category/GPC code, tracked separately on BolProductOverride.
+export interface BolProductContent {
+  product_id: string
+  connection_id: string
+  manufacturer_contact?: string | null
+  manufacturer_address?: string | null
+  manufacturer_name?: string | null
+  shelf_life_closed?: string | null
+  shelf_life_after_opening?: string | null
+  ingredients?: string | null
+  content_amount?: string | null
+  content_unit?: string | null
+  country_of_origin?: string | null
+  substance?: string | null
+  instruction_language?: string | null
+  packaging_language?: string | null
+  items_per_package?: number | null
+  package_insert_url?: string | null
+  is_gift?: boolean | null
+  dermatologically_tested?: boolean | null
+  hazard_statements?: string | null
+  skin_type?: string | null
+  hypoallergenic?: boolean | null
+  contains_zinc_oxide?: boolean | null
+  content_per_dispenser_amount?: string | null
+  content_per_dispenser_unit?: string | null
+  brand?: string | null
+  fragrance_free?: boolean | null
+  ph_neutral?: boolean | null
+  cooling_effect?: boolean | null
+  package_width_mm?: number | null
+  package_height_mm?: number | null
+  package_length_mm?: number | null
+  package_weight_g?: number | null
+  precaution_statements?: string | null
+  precautions?: string | null
+  warnings?: string | null
+  video_url?: string | null
+}
+
 export interface BolCommission {
   ean: string
   fixed_amount: number

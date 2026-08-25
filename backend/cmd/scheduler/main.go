@@ -207,8 +207,9 @@ func main() {
 
 	processedEventRepo := repositories.NewProcessedEventRepo(db)
 	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
+	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushBolUC := channelsapp.NewPushProductToBolUseCase(
-		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, syncLogRepo, stockLevelUC,
+		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
 	)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC, pushBolUC,

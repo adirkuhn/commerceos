@@ -128,6 +128,9 @@ func (a *Adapter) SubmitProductContent(ctx context.Context, in integrationsDomai
 	if in.Description != "" {
 		attrs = append(attrs, ContentAttribute{ID: "Description", Values: []AttributeValue{{Value: in.Description}}})
 	}
+	for id, value := range in.Attributes {
+		attrs = append(attrs, ContentAttribute{ID: id, Values: []AttributeValue{{Value: value}}})
+	}
 	assets := make([]Asset, len(in.ImageURLs))
 	for i, u := range in.ImageURLs {
 		assets[i] = Asset{URL: u, Labels: "FRONT"}

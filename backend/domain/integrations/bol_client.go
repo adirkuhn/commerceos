@@ -31,6 +31,17 @@ type BolProductContentInput struct {
 	Title       string
 	Description string
 	ImageURLs   []string
+	// Attributes is category-specific product-content fields (manufacturer
+	// info, ingredients, shelf life, etc, keyed by Bol's attribute id --
+	// see application/channels.bolProductContentAttributes). Bol's real
+	// attribute ids for these were not resolvable from any spec fetched
+	// during this build (unlike EAN/GPC Code/Title/Description, which
+	// were already established); this uses the Dutch label text shown in
+	// Bol's own product-content UI as a best-effort id, same
+	// unverified-until-tested convention this type's other fields already
+	// carry -- verify against a real submission and adjust if Bol rejects
+	// or ignores an unrecognized id.
+	Attributes map[string]string
 }
 
 type BolCommission struct {

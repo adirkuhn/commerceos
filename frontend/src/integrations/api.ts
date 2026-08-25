@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, BolProductOverride, BolCommission } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, BolProductOverride, BolProductContent, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -460,6 +460,22 @@ export function upsertBolProductOverride(token: string, connectionId: string, pr
         custom_price_minor_units: payload.customPriceMinorUnits ?? undefined,
       }),
     },
+    token,
+  )
+}
+
+// Returns null (not an error) when this product has no Bol product-content
+// fields saved yet -- the common/default state.
+export function getBolProductContent(token: string, connectionId: string, productId: string): Promise<BolProductContent | null> {
+  return request<BolProductContent | null>(`${base()}/connections/${connectionId}/bol-product-content/${productId}`, { method: 'GET' }, token)
+}
+
+export type UpsertBolProductContentPayload = Omit<BolProductContent, 'product_id' | 'connection_id'>
+
+export function upsertBolProductContent(token: string, connectionId: string, productId: string, payload: UpsertBolProductContentPayload): Promise<BolProductContent> {
+  return request<BolProductContent>(
+    `${base()}/connections/${connectionId}/bol-product-content/${productId}`,
+    { method: 'PUT', body: JSON.stringify(payload) },
     token,
   )
 }

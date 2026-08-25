@@ -837,6 +837,42 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/bol-product-content/{productId}:
+    get:
+      operationId: getBolProductContent
+      summary: Get this product's Bol product-content fields for this connection, if any exist
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      responses:
+        '200':
+          description: ok -- data is null when nothing has been filled in yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolProductContentResponse'
+    put:
+      operationId: upsertBolProductContent
+      summary: Save this product's Bol product-content fields for this connection
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertBolProductContentRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolProductContentResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/bol-commission/{productId}/{skuId}:
     get:
       operationId: getBolCommission
@@ -1183,6 +1219,99 @@ components:
         commission_override_basis_points: { type: integer, nullable: true }
         reference_override: { type: string, nullable: true }
         custom_price_minor_units: { type: integer, format: int64, nullable: true }
+
+    BolProductContent:
+      type: object
+      required: [product_id, connection_id]
+      description: >-
+        Product-content fields Bol's Product Content API needs to move a
+        listing from "Onvoldoende" (insufficient) to "Compleet" -- field
+        list extracted directly from Bol's own product-content page.
+        Deliberately excludes Productgroep (Bol's category/GPC taxonomy,
+        tracked separately as BolProductOverride.gpc_code).
+      properties:
+        product_id: { type: string }
+        connection_id: { type: string }
+        manufacturer_contact: { type: string, nullable: true, description: "Email or contact form URL" }
+        manufacturer_address: { type: string, nullable: true }
+        manufacturer_name: { type: string, nullable: true }
+        shelf_life_closed: { type: string, nullable: true }
+        shelf_life_after_opening: { type: string, nullable: true }
+        ingredients: { type: string, nullable: true }
+        content_amount: { type: string, nullable: true }
+        content_unit: { type: string, nullable: true }
+        country_of_origin: { type: string, nullable: true }
+        substance: { type: string, nullable: true }
+        instruction_language: { type: string, nullable: true }
+        packaging_language: { type: string, nullable: true }
+        items_per_package: { type: integer, nullable: true }
+        package_insert_url: { type: string, nullable: true }
+        is_gift: { type: boolean, nullable: true }
+        dermatologically_tested: { type: boolean, nullable: true }
+        hazard_statements: { type: string, nullable: true }
+        skin_type: { type: string, nullable: true }
+        hypoallergenic: { type: boolean, nullable: true }
+        contains_zinc_oxide: { type: boolean, nullable: true }
+        content_per_dispenser_amount: { type: string, nullable: true }
+        content_per_dispenser_unit: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        fragrance_free: { type: boolean, nullable: true }
+        ph_neutral: { type: boolean, nullable: true }
+        cooling_effect: { type: boolean, nullable: true }
+        package_width_mm: { type: integer, nullable: true }
+        package_height_mm: { type: integer, nullable: true }
+        package_length_mm: { type: integer, nullable: true }
+        package_weight_g: { type: integer, nullable: true }
+        precaution_statements: { type: string, nullable: true }
+        precautions: { type: string, nullable: true }
+        warnings: { type: string, nullable: true }
+        video_url: { type: string, nullable: true }
+
+    BolProductContentResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/BolProductContent'
+          nullable: true
+        error: { nullable: true }
+
+    UpsertBolProductContentRequest:
+      type: object
+      properties:
+        manufacturer_contact: { type: string, nullable: true }
+        manufacturer_address: { type: string, nullable: true }
+        manufacturer_name: { type: string, nullable: true }
+        shelf_life_closed: { type: string, nullable: true }
+        shelf_life_after_opening: { type: string, nullable: true }
+        ingredients: { type: string, nullable: true }
+        content_amount: { type: string, nullable: true }
+        content_unit: { type: string, nullable: true }
+        country_of_origin: { type: string, nullable: true }
+        substance: { type: string, nullable: true }
+        instruction_language: { type: string, nullable: true }
+        packaging_language: { type: string, nullable: true }
+        items_per_package: { type: integer, nullable: true }
+        package_insert_url: { type: string, nullable: true }
+        is_gift: { type: boolean, nullable: true }
+        dermatologically_tested: { type: boolean, nullable: true }
+        hazard_statements: { type: string, nullable: true }
+        skin_type: { type: string, nullable: true }
+        hypoallergenic: { type: boolean, nullable: true }
+        contains_zinc_oxide: { type: boolean, nullable: true }
+        content_per_dispenser_amount: { type: string, nullable: true }
+        content_per_dispenser_unit: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        fragrance_free: { type: boolean, nullable: true }
+        ph_neutral: { type: boolean, nullable: true }
+        cooling_effect: { type: boolean, nullable: true }
+        package_width_mm: { type: integer, nullable: true }
+        package_height_mm: { type: integer, nullable: true }
+        package_length_mm: { type: integer, nullable: true }
+        package_weight_g: { type: integer, nullable: true }
+        precaution_statements: { type: string, nullable: true }
+        precautions: { type: string, nullable: true }
+        warnings: { type: string, nullable: true }
+        video_url: { type: string, nullable: true }
 
     BolCommission:
       type: object

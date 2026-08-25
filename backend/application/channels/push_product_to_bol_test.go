@@ -94,6 +94,20 @@ func (f *fakeBolOverrideRepo) Upsert(_ context.Context, o *channelsDomain.BolPro
 	return nil
 }
 
+type fakeBolContentRepo struct {
+	content  *channelsDomain.BolProductContent
+	upserted []channelsDomain.BolProductContent
+}
+
+func (f *fakeBolContentRepo) FindByProductAndConnection(_ context.Context, _, _ string) (*channelsDomain.BolProductContent, error) {
+	return f.content, nil
+}
+func (f *fakeBolContentRepo) Upsert(_ context.Context, c *channelsDomain.BolProductContent) error {
+	c.ID = "content-1"
+	f.upserted = append(f.upserted, *c)
+	return nil
+}
+
 // fakeSKUByIDRepo backs GetBolCommissionUseCase's narrow skuFinder
 // dependency (ISP) -- doesn't implement the full pmsDomain.SKURepository.
 type fakeSKUByIDRepo struct {
@@ -127,6 +141,7 @@ type pushHarness struct {
 	skuRepo      *stubChannelsSKURepo
 	listingRepo  *stubListingRepo
 	overrideRepo *fakeBolOverrideRepo
+	contentRepo  *fakeBolContentRepo
 	syncLogRepo  *stubSyncLogRepo
 	stockLevel   *stubStockLevelGetter
 }
@@ -140,6 +155,7 @@ func newBolPushHarness(product pmsDomain.Product, variants []pmsDomain.Variant, 
 		skuRepo:      &stubChannelsSKURepo{byVariant: skusByVariant},
 		listingRepo:  &stubListingRepo{listByProduct: map[string][]channelsDomain.ProductChannelListing{}},
 		overrideRepo: &fakeBolOverrideRepo{},
+		contentRepo:  &fakeBolContentRepo{},
 		syncLogRepo:  &stubSyncLogRepo{},
 		stockLevel:   &stubStockLevelGetter{},
 	}
@@ -149,7 +165,7 @@ func newBolUseCase(t *testing.T, h *pushHarness, client integrationsDomain.BolCl
 	t.Helper()
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
-		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.syncLogRepo, h.stockLevel,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
 	)
 }
 
@@ -324,6 +340,37 @@ func TestPushProductToBol_onUnknownEAN_submitsProductContentThenRetriesCreate(t 
 	assert.Equal(t, "0630509892495", client.contentCalls[0].EAN)
 	require.Len(t, result, 1)
 	assert.Equal(t, "offer-1", result[0].ExternalID)
+}
+
+// TestPushProductToBol_onUnknownEAN_includesProductContentAttributes
+// proves BolProductContent fields the merchant filled in under the
+// product's Bol tab actually reach SubmitProductContent -- without this,
+// the fields exist in the database and the UI but never make it into the
+// payload Bol actually receives.
+func TestPushProductToBol_onUnknownEAN_includesProductContentAttributes(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	brand := "Hipoglós"
+	h.contentRepo.content = &channelsDomain.BolProductContent{ProductID: "prod-1", ConnectionID: "conn-1", Brand: &brand}
+
+	unknownEAN := errors.New("unknown ean")
+	attempts := 0
+	client := &fakeBolClient{unknownEANErr: unknownEAN, createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", unknownEAN
+		}
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, client.contentCalls, 1)
+	assert.Equal(t, "Hipoglós", client.contentCalls[0].Attributes["Merk"])
 }
 
 func TestPushProductToBol_missingEAN_returnsError(t *testing.T) {
