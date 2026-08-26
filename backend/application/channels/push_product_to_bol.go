@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
 
+	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -45,6 +48,7 @@ type PushProductToBolUseCase struct {
 	contentRepo  channelsDomain.BolProductContentRepository
 	syncLogRepo  channelsDomain.SyncLogRepository
 	stockLevel   stockLevelGetter
+	notifier     notifier
 }
 
 func NewPushProductToBolUseCase(
@@ -60,12 +64,13 @@ func NewPushProductToBolUseCase(
 	contentRepo channelsDomain.BolProductContentRepository,
 	syncLogRepo channelsDomain.SyncLogRepository,
 	stockLevel stockLevelGetter,
+	notifier notifier,
 ) *PushProductToBolUseCase {
 	return &PushProductToBolUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, overrideRepo: overrideRepo, contentRepo: contentRepo,
-		syncLogRepo: syncLogRepo, stockLevel: stockLevel,
+		syncLogRepo: syncLogRepo, stockLevel: stockLevel, notifier: notifier,
 	}
 }
 
@@ -406,8 +411,35 @@ func (uc *PushProductToBolUseCase) pushOne(
 	// separate Bol resources (Product Content API vs Offers API), so this
 	// keeps them in sync on every push regardless of offer create/update.
 	contentAttrs, contentUnits := bolProductContentAttributes(content)
+	// Internal Reference and Product Classification are two of Bol's
+	// enrichmentLevel-0 (mandatory-for-sale) content attributes that were
+	// never sent at all -- confirmed 2026-08-25 against Bol's real data
+	// model (chunks[].attributes filtered to enrichmentLevel 0, sampled
+	// across several categories: EAN, Internal Reference, Manufacturer
+	// Name/Address/Email, Name, Product Classification is the stable
+	// core set). Internal Reference is the offer's own reference/SKU code
+	// (already computed above as `reference`); Product Classification is
+	// a free-text category label (e.g. "Blush") -- this is what the
+	// override's GPC Code field actually maps onto (the numeric GPC/chunk
+	// id itself, gpc.chunkId, is a read-only classification Bol assigns,
+	// not something this endpoint accepts). Both merge into contentAttrs
+	// unconditionally (independent of whether the merchant filled in the
+	// optional Bol tab content fields) since they're mandatory whenever
+	// known.
+	if reference != "" {
+		if contentAttrs == nil {
+			contentAttrs = map[string]string{}
+		}
+		contentAttrs["Internal Reference"] = reference
+	}
+	if gpcCode != "" {
+		if contentAttrs == nil {
+			contentAttrs = map[string]string{}
+		}
+		contentAttrs["Product Classification"] = gpcCode
+	}
 	contentSubmitted := false
-	if contentAttrs != nil {
+	if len(contentAttrs) > 0 {
 		if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
 			EAN: ean, Title: product.Name, Description: product.Description,
 			Attributes: contentAttrs, AttributeUnits: contentUnits,
@@ -464,12 +496,25 @@ func (uc *PushProductToBolUseCase) pushOne(
 		offerID = id
 	}
 
+	// Bol can 200/202 every call above with no error at all and still
+	// refuse to actually list the offer for sale (e.g. a still-missing
+	// mandatory content attribute) -- there is no other signal for this
+	// anywhere in the push. Best-effort: a failure here is a diagnostic
+	// call failing, not the push itself, so it's logged and swallowed
+	// rather than turning a genuinely successful push into a failure.
+	note := uc.checkNotForSale(ctx, client, offerID)
+
 	variantID := bolListingVariantID(product, pu.Variant.ID)
 	if existing.ID != "" {
+		noteChanged := note != existing.NotForSaleNote
 		existing.ExternalID = offerID
 		existing.SyncStatus = channelsDomain.SyncStatusSynced
+		existing.NotForSaleNote = note
 		if err := uc.saveListing(ctx, &existing, false); err != nil {
 			return channelsDomain.ProductChannelListing{}, err
+		}
+		if noteChanged && note != "" {
+			uc.notifyNotForSale(ctx, product, note)
 		}
 		recordSyncLog(ctx, uc.db, uc.syncLogRepo, existing, channelsDomain.SyncFlowPush,
 			channelsDomain.SyncLogStatusSuccess, "", mergeFields(bolOfferToFields(offerIn), contentAttrs))
@@ -480,13 +525,59 @@ func (uc *PushProductToBolUseCase) pushOne(
 		ProductID: product.ID, ConnectionID: connectionID,
 		Provider: string(integrationsDomain.ProviderBol), ExternalID: offerID,
 		VariantID: variantID, IsVariation: false, SyncStatus: channelsDomain.SyncStatusSynced,
+		NotForSaleNote: note,
 	}
 	if err := uc.saveListing(ctx, &listing, true); err != nil {
 		return channelsDomain.ProductChannelListing{}, err
 	}
+	if note != "" {
+		uc.notifyNotForSale(ctx, product, note)
+	}
 	recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush,
 		channelsDomain.SyncLogStatusSuccess, "", mergeFields(bolOfferToFields(offerIn), contentAttrs))
 	return listing, nil
+}
+
+// checkNotForSale calls Bol's own not-for-sale-reasons diagnostic and
+// flattens it into one note string, or "" if the offer is for sale
+// everywhere (or the check itself failed -- logged, not propagated, see
+// the call site's comment).
+func (uc *PushProductToBolUseCase) checkNotForSale(ctx context.Context, client integrationsDomain.BolClient, offerID string) string {
+	reasons, err := client.GetNotForSaleReasons(ctx, offerID)
+	if err != nil {
+		log.Printf("pushProductToBol: get not-for-sale reasons for offer %s: %v", offerID, err)
+		return ""
+	}
+	if len(reasons) == 0 {
+		return ""
+	}
+	parts := make([]string, len(reasons))
+	for i, r := range reasons {
+		part := r.CountryCode + ": " + r.Description
+		if len(r.MissingAttributes) > 0 {
+			part += " (missing: " + strings.Join(r.MissingAttributes, ", ") + ")"
+		}
+		parts[i] = part
+	}
+	return strings.Join(parts, "; ")
+}
+
+// notifyNotForSale is best-effort and non-transactional, called after
+// saveListing's own transaction has already committed -- same pattern as
+// CreateImportJobUseCase's notifier (see its doc comment): nesting another
+// tenant.WithTenant call inside an outer transaction's closure would open
+// a second, unrelated transaction rather than participating in the first.
+// A notification failure must never undo or fail a push that already
+// succeeded.
+func (uc *PushProductToBolUseCase) notifyNotForSale(ctx context.Context, product pmsDomain.Product, note string) {
+	if _, err := uc.notifier.Execute(ctx, appnotifications.CreateNotificationInput{
+		Type:    notificationsDomain.TypeBolNotForSale,
+		Title:   "Bol: \"" + product.Name + "\" is not for sale",
+		Message: note,
+		Link:    "/products?id=" + product.ID,
+	}); err != nil {
+		log.Printf("pushProductToBol: notify not-for-sale for product %s: %v", product.ID, err)
+	}
 }
 
 func (uc *PushProductToBolUseCase) saveListing(ctx context.Context, l *channelsDomain.ProductChannelListing, create bool) error {

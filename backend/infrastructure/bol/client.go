@@ -335,6 +335,53 @@ func (c *Client) FindOfferByEAN(ctx context.Context, ean string) (string, bool, 
 	return resp.Offers[0].OfferID, true, nil
 }
 
+// NotForSaleReasons and its nested types mirror the real v11 spec exactly
+// (api.bol.com/registry/api-definitions/offers/offers-v11.yaml,
+// operationId get-not-for-sale-reasons, schema NotForSaleReasons) --
+// confirmed 2026-08-25 while investigating why a real offer stayed
+// "offline" with no error anywhere in this client. Reason is a
+// discriminated union in the spec (oneOf ContentReason/PricingReason/
+// StockReason/... keyed by "category"); this client only cares about
+// Category/Code/Description/MissingAttributes, which every variant has in
+// common (MissingAttributes is empty for non-CONTENT reasons), so it's
+// modeled as one flat struct rather than a Go type switch -- simpler, and
+// nothing here needs the reason-specific fields the other variants might
+// carry.
+type NotForSaleReasons struct {
+	OfferID   string                     `json:"offerId"`
+	Countries []NotForSaleReasonsCountry `json:"countries"`
+}
+
+type NotForSaleReasonsCountry struct {
+	CountryCode string   `json:"countryCode"`
+	Reasons     []Reason `json:"reasons"`
+}
+
+type Reason struct {
+	Category          string             `json:"category"`
+	Code              string             `json:"code"`
+	Description       string             `json:"description"`
+	MissingAttributes []MissingAttribute `json:"missingAttributes,omitempty"`
+}
+
+type MissingAttribute struct {
+	Name string `json:"name"`
+}
+
+// GetNotForSaleReasons reports why an offer is currently not for sale
+// (offline), per country -- empty Countries means the offer is for sale
+// everywhere. Read-only, safe to call after every push to catch content
+// Bol silently rejected (e.g. a still-missing mandatory attribute) that a
+// 202-accepted content submission would never otherwise surface.
+func (c *Client) GetNotForSaleReasons(ctx context.Context, offerID string) (NotForSaleReasons, error) {
+	var resp NotForSaleReasons
+	path := "/offers/" + url.PathEscape(offerID) + "/not-for-sale-reasons"
+	if err := c.doJSON(ctx, http.MethodGet, path, offerAccept, nil, &resp); err != nil {
+		return NotForSaleReasons{}, err
+	}
+	return resp, nil
+}
+
 // --- Product Content API (v10, async -- upload then poll a report) ---
 
 type AttributeValue struct {

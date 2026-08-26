@@ -14,6 +14,7 @@ type CreateNotificationInput struct {
 	Type    notificationsDomain.Type
 	Title   string
 	Message string
+	Link    string
 }
 
 type CreateNotificationUseCase struct {
@@ -33,6 +34,7 @@ func (uc *CreateNotificationUseCase) Execute(ctx context.Context, in CreateNotif
 			Type:      in.Type,
 			Title:     in.Title,
 			Message:   in.Message,
+			Link:      in.Link,
 			CreatedAt: time.Now(),
 		}
 		return uc.repo.Create(ctx, &n)

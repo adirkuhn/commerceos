@@ -3,6 +3,9 @@ export interface Notification {
   type: string
   title: string
   message: string
+  // Frontend-relative deep link (e.g. "/products/<id>") -- empty/absent
+  // means no link, clicking only marks it read.
+  link?: string
   read: boolean
   created_at: string
 }

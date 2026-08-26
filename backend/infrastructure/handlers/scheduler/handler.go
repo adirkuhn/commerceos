@@ -11,6 +11,7 @@ import (
 	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	appscheduler "github.com/adirkuhn/commerceos/application/scheduler"
@@ -81,6 +82,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	mediaRepo := repositories.NewMediaRepo(db)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
+	notificationRepo := repositories.NewNotificationRepo(db)
 
 	expireSalePriceUC := apppms.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
 	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo)
@@ -99,6 +101,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
+		appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,

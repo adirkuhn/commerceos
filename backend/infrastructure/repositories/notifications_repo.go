@@ -18,6 +18,7 @@ type notificationModel struct {
 	Type      string `gorm:"not null"`
 	Title     string `gorm:"not null"`
 	Message   string `gorm:"not null"`
+	Link      string `gorm:"not null"`
 	Read      bool   `gorm:"not null"`
 	CreatedAt time.Time
 }
@@ -42,7 +43,7 @@ func (r *NotificationRepo) Create(ctx context.Context, n *notificationsDomain.No
 		return err
 	}
 	m := notificationModel{
-		TenantID: n.TenantID, Type: string(n.Type), Title: n.Title, Message: n.Message,
+		TenantID: n.TenantID, Type: string(n.Type), Title: n.Title, Message: n.Message, Link: n.Link,
 		Read: n.Read, CreatedAt: n.CreatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -93,6 +94,6 @@ func (r *NotificationRepo) MarkAllRead(ctx context.Context) error {
 func toNotificationDomain(m notificationModel) *notificationsDomain.Notification {
 	return &notificationsDomain.Notification{
 		ID: m.ID, TenantID: m.TenantID, Type: notificationsDomain.Type(m.Type),
-		Title: m.Title, Message: m.Message, Read: m.Read, CreatedAt: m.CreatedAt,
+		Title: m.Title, Message: m.Message, Link: m.Link, Read: m.Read, CreatedAt: m.CreatedAt,
 	}
 }

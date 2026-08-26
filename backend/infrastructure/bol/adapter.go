@@ -147,6 +147,27 @@ func (a *Adapter) GetCommission(ctx context.Context, ean string, unitPrice float
 	return integrationsDomain.BolCommission{EAN: c.EAN, FixedAmount: c.FixedAmount, Percentage: c.Percentage}, nil
 }
 
+func (a *Adapter) GetNotForSaleReasons(ctx context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error) {
+	resp, err := a.client.GetNotForSaleReasons(ctx, offerID)
+	if err != nil {
+		return nil, err
+	}
+	var reasons []integrationsDomain.BolNotForSaleReason
+	for _, country := range resp.Countries {
+		for _, r := range country.Reasons {
+			missing := make([]string, len(r.MissingAttributes))
+			for i, m := range r.MissingAttributes {
+				missing[i] = m.Name
+			}
+			reasons = append(reasons, integrationsDomain.BolNotForSaleReason{
+				CountryCode: country.CountryCode, Category: r.Category, Code: r.Code,
+				Description: r.Description, MissingAttributes: missing,
+			})
+		}
+	}
+	return reasons, nil
+}
+
 func (a *Adapter) ListOrders(ctx context.Context, page int, status string) ([]integrationsDomain.BolOrder, error) {
 	reduced, err := a.client.ListOrders(ctx, page, status)
 	if err != nil {

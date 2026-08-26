@@ -33,14 +33,25 @@ const (
 	// attention variant, fired instead of TypeReceivingParsingCompleted when
 	// the invoice diff produced one or more discrepancies to review.
 	TypeReceivingDiscrepanciesFound Type = "procurement.receiving.discrepancies_found"
+
+	// TypeBolNotForSale is fired by PushProductToBolUseCase when Bol's own
+	// GET .../not-for-sale-reasons check (called after every push) reports
+	// the offer still isn't for sale -- see
+	// application/channels/push_product_to_bol.go.
+	TypeBolNotForSale Type = "bol.offer.not_for_sale"
 )
 
 type Notification struct {
-	ID        string
-	TenantID  string
-	Type      Type
-	Title     string
-	Message   string
+	ID       string
+	TenantID string
+	Type     Type
+	Title    string
+	Message  string
+	// Link is a frontend-relative deep link (e.g. "/products/<id>") the
+	// notification navigates to on click -- empty means no link, click
+	// just marks it read (every notification before this field existed
+	// behaves exactly this way, unchanged).
+	Link      string
 	Read      bool
 	CreatedAt time.Time
 }

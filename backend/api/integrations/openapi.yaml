@@ -1523,6 +1523,12 @@ components:
         is_variation: { type: boolean }
         sync_status: { type: string, enum: [pending, synced, error] }
         last_synced_at: { type: string, format: date-time, nullable: true }
+        # Bol's own reason(s) the offer isn't for sale (GET
+        # /offers/{id}/not-for-sale-reasons, checked after every push) --
+        # empty means for sale (or not a Bol listing / never checked).
+        # Distinct from a push failure: the push itself can succeed while
+        # Bol still won't list the offer.
+        not_for_sale_note: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

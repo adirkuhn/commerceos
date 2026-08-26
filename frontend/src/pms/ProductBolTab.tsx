@@ -179,6 +179,20 @@ export function ProductBolTab({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Bol's own "why isn't this offer for sale" reason, checked server-side
+  // after every push (GET .../not-for-sale-reasons) -- surfaced here since
+  // a push can succeed with no error at all while Bol still refuses to
+  // list the offer (e.g. a still-missing mandatory content attribute).
+  const [notForSaleNote, setNotForSaleNote] = useState<string | null>(null)
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    integrationsApi.getProductChannelListing(token, connection.id, productId)
+      .then(result => { if (!cancelled) setNotForSaleNote(result?.not_for_sale_note || null) })
+      .catch(() => { /* non-critical: the rest of the tab still works without this */ })
+    return () => { cancelled = true }
+  }, [token, connection.id, productId])
+
   // Bumped after a successful save so the commission effect below re-fetches
   // -- the live commission is price-bracket dependent, and a saved
   // CustomPriceMinorUnits changes the price the backend feeds Bol's API.
@@ -318,6 +332,13 @@ export function ProductBolTab({
         <Package size={13} className="dark:text-gray-400 text-gray-500" />
         <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Bol.com</h3>
       </div>
+
+      {notForSaleNote && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Not for sale on Bol</p>
+          <p className="text-[11px] dark:text-amber-300/90 text-amber-700 mt-0.5">{notForSaleNote}</p>
+        </div>
+      )}
 
       {loading && <p className="text-[11px] dark:text-gray-500 text-gray-400">Loading…</p>}
       {!loading && loadError && <p className="text-[11px] dark:text-red-400 text-red-600">{loadError}</p>}

@@ -49,6 +49,9 @@ func (s *stubBolClient) FindOfferByEAN(context.Context, string) (string, bool, e
 func (s *stubBolClient) ListEconomicOperators(context.Context) ([]integrationsDomain.BolEconomicOperator, error) {
 	return s.operators, s.err
 }
+func (s *stubBolClient) GetNotForSaleReasons(context.Context, string) ([]integrationsDomain.BolNotForSaleReason, error) {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
 
 type stubBolClientFactory struct{ client integrationsDomain.BolClient }
 

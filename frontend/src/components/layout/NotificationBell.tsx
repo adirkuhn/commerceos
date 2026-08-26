@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Bell } from 'lucide-react'
 import clsx from 'clsx'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useNotifications } from '../../notifications/hooks/useNotifications'
+import type { Notification } from '../../notifications/types'
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
@@ -14,6 +16,15 @@ export default function NotificationBell() {
   const { token } = useAuth()
   const { notifications, unreadCount, loading, error, refresh, markRead, markAllRead } = useNotifications(token ?? '')
   const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
+
+  function handleClick(n: Notification) {
+    if (!n.read) markRead(n.id)
+    if (n.link) {
+      setOpen(false)
+      navigate(n.link)
+    }
+  }
 
   function toggleOpen() {
     const next = !open
@@ -61,7 +72,7 @@ export default function NotificationBell() {
               {notifications.map(n => (
                 <button
                   key={n.id}
-                  onClick={() => !n.read && markRead(n.id)}
+                  onClick={() => handleClick(n)}
                   className={clsx(
                     'w-full text-left px-3 py-2.5 border-b dark:border-[#2D3748]/60 border-gray-100 hover:dark:bg-[#111827] hover:bg-gray-50 transition-colors',
                     !n.read && 'dark:bg-blue-500/5 bg-blue-50/50',

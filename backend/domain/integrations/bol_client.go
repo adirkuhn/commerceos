@@ -127,6 +127,18 @@ type BolEconomicOperator struct {
 	Status string // PENDING, VALID, or INVALID
 }
 
+// BolNotForSaleReason is one reason Bol currently won't list an offer for
+// sale in one country -- mirrors the real v11 not-for-sale-reasons
+// response (see infrastructure/bol.NotForSaleReasons). MissingAttributes
+// is only ever populated for a CONTENT-category reason.
+type BolNotForSaleReason struct {
+	CountryCode       string
+	Category          string
+	Code              string
+	Description       string
+	MissingAttributes []string
+}
+
 // BolClient is one Bol connection's credentials + endpoints, adapted to
 // exactly what this codebase's use cases need (ISP) -- mirrors WooClient's
 // role. Implemented by infrastructure/bol.
@@ -158,6 +170,11 @@ type BolClient interface {
 	// registration; a scope-denied response surfaces as a normal error
 	// here, same as any other Bol API failure.
 	ListEconomicOperators(ctx context.Context) ([]BolEconomicOperator, error)
+	// GetNotForSaleReasons reports why offerID currently isn't for sale, per
+	// country -- empty slice means it's for sale everywhere. Flattened
+	// across countries (one entry per country x reason) since callers here
+	// only ever display/store these, never need to group by country.
+	GetNotForSaleReasons(ctx context.Context, offerID string) ([]BolNotForSaleReason, error)
 }
 
 // BolClientFactory builds a BolClient scoped to one connection's credentials.

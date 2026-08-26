@@ -573,6 +573,17 @@ type stubListingRepo struct {
 func (s *stubListingRepo) Create(_ context.Context, l *channelsDomain.ProductChannelListing) error {
 	l.ID = "listing-1"
 	s.created = append(s.created, *l)
+	// A real repo's Create makes the row findable by later lookups within
+	// the same test (e.g. a second Execute call on the same harness
+	// exercising the update path against what the first call created) --
+	// without this, FindByProductVariantAndConnection below never finds
+	// it, so a second push silently takes the create path again instead
+	// of update, undermining any test relying on create-then-update
+	// sequencing.
+	if s.listByProduct == nil {
+		s.listByProduct = map[string][]channelsDomain.ProductChannelListing{}
+	}
+	s.listByProduct[l.ProductID] = append(s.listByProduct[l.ProductID], *l)
 	return nil
 }
 func (s *stubListingRepo) FindByExternalID(_ context.Context, _, externalID string) (*channelsDomain.ProductChannelListing, error) {
@@ -632,6 +643,11 @@ func (s *stubListingRepo) FindByProductVariantAndConnection(_ context.Context, p
 }
 func (s *stubListingRepo) Update(_ context.Context, l *channelsDomain.ProductChannelListing) error {
 	s.updated = append(s.updated, *l)
+	for i, existing := range s.listByProduct[l.ProductID] {
+		if existing.ID == l.ID {
+			s.listByProduct[l.ProductID][i] = *l
+		}
+	}
 	return nil
 }
 func (s *stubListingRepo) Delete(_ context.Context, id string) error {

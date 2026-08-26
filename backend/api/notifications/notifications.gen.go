@@ -29,10 +29,13 @@ type EmptyResponse struct {
 type Notification struct {
 	CreatedAt time.Time `json:"created_at"`
 	Id        string    `json:"id"`
-	Message   string    `json:"message"`
-	Read      bool      `json:"read"`
-	Title     string    `json:"title"`
-	Type      string    `json:"type"`
+
+	// Link Frontend-relative deep link (e.g. "/products/<id>") to navigate to on click. Empty string means no link.
+	Link    *string `json:"link,omitempty"`
+	Message string  `json:"message"`
+	Read    bool    `json:"read"`
+	Title   string  `json:"title"`
+	Type    string  `json:"type"`
 }
 
 // NotificationListResponse defines model for NotificationListResponse.
@@ -154,18 +157,19 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

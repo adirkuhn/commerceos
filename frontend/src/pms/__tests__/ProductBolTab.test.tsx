@@ -21,6 +21,7 @@ vi.mock('../../integrations/api', () => ({
   getBolProductContent: vi.fn(),
   upsertBolProductContent: vi.fn(),
   pushProductToBol: vi.fn(),
+  getProductChannelListing: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -40,6 +41,7 @@ beforeEach(() => {
   vi.mocked(integrationsApi.getBolCommission).mockResolvedValue(commission)
   vi.mocked(integrationsApi.getBolProductContent).mockResolvedValue(null)
   vi.mocked(integrationsApi.pushProductToBol).mockResolvedValue([])
+  vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
 })
 
 describe('ProductBolTab', () => {
@@ -231,5 +233,35 @@ describe('ProductBolTab', () => {
         expect.objectContaining({ skin_type: 'Droge huid', country_of_origin: 'Nederland' }),
       ))
     })
+  })
+
+  // Regression test: a push can succeed (sync_status "synced", no error
+  // anywhere) while Bol still won't list the offer for sale -- that only
+  // ever surfaced through Bol's own seller portal until this fix wired up
+  // GET .../not-for-sale-reasons server-side and stored the result on the
+  // listing. Without this banner the merchant had no way to find out from
+  // CommerceOS at all.
+  it('shows a banner when the listing has a not_for_sale_note', async () => {
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue({
+      id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'bol',
+      external_id: 'offer-1', sync_status: 'synced',
+      not_for_sale_note: 'NL: essential product information is missing (missing: Manufacturer Name)',
+      created_at: '', updated_at: '',
+    })
+    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+
+    expect(await screen.findByText('Not for sale on Bol')).toBeInTheDocument()
+    expect(screen.getByText(/Manufacturer Name/)).toBeInTheDocument()
+  })
+
+  it('shows no banner when the listing has no not_for_sale_note', async () => {
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue({
+      id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'bol',
+      external_id: 'offer-1', sync_status: 'synced', created_at: '', updated_at: '',
+    })
+    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+
+    expect(screen.queryByText('Not for sale on Bol')).not.toBeInTheDocument()
   })
 })

@@ -16,19 +16,20 @@ import (
 )
 
 type productChannelListingModel struct {
-	ID            string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID      string  `gorm:"not null;type:uuid"`
-	ProductID     string  `gorm:"not null;type:uuid"`
-	ConnectionID  string  `gorm:"not null;type:uuid"`
-	Provider      string  `gorm:"not null"`
-	ExternalID    string  `gorm:"not null"`
-	VariantID     *string `gorm:"column:variant_id;type:uuid"`
-	IsVariation   bool    `gorm:"column:is_variation;not null;default:false"`
-	SyncStatus    string  `gorm:"not null"`
-	LastSyncedAt  *time.Time
-	LastSyncError string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID             string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID       string  `gorm:"not null;type:uuid"`
+	ProductID      string  `gorm:"not null;type:uuid"`
+	ConnectionID   string  `gorm:"not null;type:uuid"`
+	Provider       string  `gorm:"not null"`
+	ExternalID     string  `gorm:"not null"`
+	VariantID      *string `gorm:"column:variant_id;type:uuid"`
+	IsVariation    bool    `gorm:"column:is_variation;not null;default:false"`
+	SyncStatus     string  `gorm:"not null"`
+	LastSyncedAt   *time.Time
+	LastSyncError  string
+	NotForSaleNote string `gorm:"column:not_for_sale_note"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (productChannelListingModel) TableName() string { return "product_channel_listings" }
@@ -53,18 +54,19 @@ func (r *ProductChannelListingRepo) Create(ctx context.Context, l *channelsDomai
 		return err
 	}
 	m := productChannelListingModel{
-		TenantID:      l.TenantID,
-		ProductID:     l.ProductID,
-		ConnectionID:  l.ConnectionID,
-		Provider:      l.Provider,
-		ExternalID:    l.ExternalID,
-		VariantID:     l.VariantID,
-		IsVariation:   l.IsVariation,
-		SyncStatus:    string(l.SyncStatus),
-		LastSyncedAt:  l.LastSyncedAt,
-		LastSyncError: l.LastSyncError,
-		CreatedAt:     l.CreatedAt,
-		UpdatedAt:     l.UpdatedAt,
+		TenantID:       l.TenantID,
+		ProductID:      l.ProductID,
+		ConnectionID:   l.ConnectionID,
+		Provider:       l.Provider,
+		ExternalID:     l.ExternalID,
+		VariantID:      l.VariantID,
+		IsVariation:    l.IsVariation,
+		SyncStatus:     string(l.SyncStatus),
+		LastSyncedAt:   l.LastSyncedAt,
+		LastSyncError:  l.LastSyncError,
+		NotForSaleNote: l.NotForSaleNote,
+		CreatedAt:      l.CreatedAt,
+		UpdatedAt:      l.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("productChannelListingRepo.Create: %w", err)
@@ -201,10 +203,11 @@ func (r *ProductChannelListingRepo) Update(ctx context.Context, l *channelsDomai
 	}
 	if err := tx.Model(&productChannelListingModel{}).Where("id = ?", l.ID).
 		Updates(map[string]any{
-			"sync_status":     string(l.SyncStatus),
-			"last_synced_at":  l.LastSyncedAt,
-			"last_sync_error": l.LastSyncError,
-			"updated_at":      l.UpdatedAt,
+			"sync_status":       string(l.SyncStatus),
+			"last_synced_at":    l.LastSyncedAt,
+			"last_sync_error":   l.LastSyncError,
+			"not_for_sale_note": l.NotForSaleNote,
+			"updated_at":        l.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("productChannelListingRepo.Update: %w", err)
 	}
@@ -1030,19 +1033,20 @@ func toSalesChannelProductOverrideDomain(m salesChannelProductOverrideModel) *ch
 
 func toListingDomain(m productChannelListingModel) *channelsDomain.ProductChannelListing {
 	return &channelsDomain.ProductChannelListing{
-		ID:            m.ID,
-		TenantID:      m.TenantID,
-		ProductID:     m.ProductID,
-		ConnectionID:  m.ConnectionID,
-		Provider:      m.Provider,
-		ExternalID:    m.ExternalID,
-		VariantID:     m.VariantID,
-		IsVariation:   m.IsVariation,
-		SyncStatus:    channelsDomain.SyncStatus(m.SyncStatus),
-		LastSyncedAt:  m.LastSyncedAt,
-		LastSyncError: m.LastSyncError,
-		CreatedAt:     m.CreatedAt,
-		UpdatedAt:     m.UpdatedAt,
+		ID:             m.ID,
+		TenantID:       m.TenantID,
+		ProductID:      m.ProductID,
+		ConnectionID:   m.ConnectionID,
+		Provider:       m.Provider,
+		ExternalID:     m.ExternalID,
+		VariantID:      m.VariantID,
+		IsVariation:    m.IsVariation,
+		SyncStatus:     channelsDomain.SyncStatus(m.SyncStatus),
+		LastSyncedAt:   m.LastSyncedAt,
+		LastSyncError:  m.LastSyncError,
+		NotForSaleNote: m.NotForSaleNote,
+		CreatedAt:      m.CreatedAt,
+		UpdatedAt:      m.UpdatedAt,
 	}
 }
 

@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
+	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 )
@@ -27,6 +29,7 @@ type fakeBolClient struct {
 	getOrderFn              func(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error)
 	listEconomicOperatorsFn func(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error)
 	findOfferByEANFn        func(ctx context.Context, ean string) (string, bool, error)
+	notForSaleReasonsFn     func(ctx context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error)
 }
 
 func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
@@ -72,6 +75,28 @@ func (f *fakeBolClient) ListEconomicOperators(ctx context.Context) ([]integratio
 		return f.listEconomicOperatorsFn(ctx)
 	}
 	return nil, nil
+}
+func (f *fakeBolClient) GetNotForSaleReasons(ctx context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error) {
+	if f.notForSaleReasonsFn != nil {
+		return f.notForSaleReasonsFn(ctx, offerID)
+	}
+	return nil, nil
+}
+
+// fakeNotifier is the default notifier newBolUseCase wires in -- tests that
+// don't care about notification content get a no-op success; tests that do
+// (see TestPushProductToBol_notForSale_*) construct their own.
+type fakeNotifier struct {
+	calls []appnotifications.CreateNotificationInput
+	err   error
+}
+
+func (f *fakeNotifier) Execute(_ context.Context, in appnotifications.CreateNotificationInput) (*notificationsDomain.Notification, error) {
+	f.calls = append(f.calls, in)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &notificationsDomain.Notification{Type: in.Type, Title: in.Title, Message: in.Message, Link: in.Link}, nil
 }
 
 type fakeBolClientFactory struct{ client integrationsDomain.BolClient }
@@ -166,6 +191,16 @@ func newBolUseCase(t *testing.T, h *pushHarness, client integrationsDomain.BolCl
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
+		&fakeNotifier{},
+	)
+}
+
+func newBolUseCaseWithNotifier(t *testing.T, h *pushHarness, client integrationsDomain.BolClient, mockTxCount int, notifier *fakeNotifier) *appchannels.PushProductToBolUseCase {
+	t.Helper()
+	return appchannels.NewPushProductToBolUseCase(
+		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
+		notifier,
 	)
 }
 
@@ -649,4 +684,77 @@ func TestPushProductToBol_appliesOverrideEANAndFields(t *testing.T) {
 	uc := newBolUseCase(t, h, client, 3)
 	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 	require.NoError(t, err)
+}
+
+// TestPushProductToBol_notForSale_savesNoteAndNotifies is a regression test
+// for a real prod symptom: a product's Bol offer stayed "not for sale"
+// (Bol's own seller portal message: "mandatory product information is
+// missing") with zero error anywhere in this codebase -- every push
+// 200/202'd cleanly. Bol only ever reports this via a separate diagnostic
+// call (GET .../not-for-sale-reasons), which nothing called before this
+// fix. Checked after every successful push; a non-empty result is both
+// persisted on the listing (so the Bol tab can show it) and raises a
+// notification linking back to the product.
+func TestPushProductToBol_notForSale_savesNoteAndNotifies(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	client := &fakeBolClient{
+		createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+			return "offer-1", nil
+		},
+		notForSaleReasonsFn: func(_ context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error) {
+			assert.Equal(t, "offer-1", offerID)
+			return []integrationsDomain.BolNotForSaleReason{{
+				CountryCode: "NL", Category: "CONTENT", Code: "4004-2",
+				Description:       "For this product essential product information is missing",
+				MissingAttributes: []string{"Manufacturer Name"},
+			}}, nil
+		},
+	}
+	notifier := &fakeNotifier{}
+
+	uc := newBolUseCaseWithNotifier(t, h, client, 3, notifier)
+	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	assert.Contains(t, result[0].NotForSaleNote, "essential product information is missing")
+	assert.Contains(t, result[0].NotForSaleNote, "Manufacturer Name")
+
+	require.Len(t, notifier.calls, 1)
+	assert.Equal(t, notificationsDomain.TypeBolNotForSale, notifier.calls[0].Type)
+	assert.Equal(t, "/products?id=prod-1", notifier.calls[0].Link)
+	assert.Contains(t, notifier.calls[0].Message, "Manufacturer Name")
+}
+
+// TestPushProductToBol_notForSale_doesNotRenotifyOnUnchangedReason proves a
+// scheduled resync (which re-pushes on a timer, not just on merchant
+// action) doesn't spam a notification every cycle for a problem the
+// merchant already knows about -- only a change in the reason re-notifies.
+func TestPushProductToBol_notForSale_doesNotRenotifyOnUnchangedReason(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	client := &fakeBolClient{
+		createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+			return "offer-1", nil
+		},
+		notForSaleReasonsFn: func(context.Context, string) ([]integrationsDomain.BolNotForSaleReason, error) {
+			return []integrationsDomain.BolNotForSaleReason{{
+				CountryCode: "NL", Category: "CONTENT", Code: "4004-2", Description: "still missing info",
+			}}, nil
+		},
+	}
+	notifier := &fakeNotifier{}
+	uc := newBolUseCaseWithNotifier(t, h, client, 6, notifier)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
+	_, err = uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
+
+	assert.Len(t, notifier.calls, 1, "same reason on the second push must not fire a second notification")
 }

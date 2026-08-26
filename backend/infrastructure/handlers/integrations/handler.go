@@ -396,6 +396,7 @@ func Register(
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
+		appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 	)
 	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
 		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,
@@ -1319,18 +1320,20 @@ func toGenAIConnection(c integrationsDomain.AIConnection) genintegrations.AIConn
 
 func toGenListing(l channelsDomain.ProductChannelListing) genintegrations.ProductChannelListing {
 	isVariation := l.IsVariation
+	note := l.NotForSaleNote
 	return genintegrations.ProductChannelListing{
-		Id:           l.ID,
-		ProductId:    l.ProductID,
-		ConnectionId: l.ConnectionID,
-		Provider:     l.Provider,
-		ExternalId:   l.ExternalID,
-		VariantId:    l.VariantID,
-		IsVariation:  &isVariation,
-		SyncStatus:   genintegrations.ProductChannelListingSyncStatus(l.SyncStatus),
-		LastSyncedAt: l.LastSyncedAt,
-		CreatedAt:    l.CreatedAt,
-		UpdatedAt:    l.UpdatedAt,
+		Id:             l.ID,
+		ProductId:      l.ProductID,
+		ConnectionId:   l.ConnectionID,
+		Provider:       l.Provider,
+		ExternalId:     l.ExternalID,
+		VariantId:      l.VariantID,
+		IsVariation:    &isVariation,
+		SyncStatus:     genintegrations.ProductChannelListingSyncStatus(l.SyncStatus),
+		LastSyncedAt:   l.LastSyncedAt,
+		NotForSaleNote: &note,
+		CreatedAt:      l.CreatedAt,
+		UpdatedAt:      l.UpdatedAt,
 	}
 }
 

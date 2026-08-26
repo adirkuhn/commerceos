@@ -66,8 +66,8 @@ func TestSKURepo_Integration_ListWithExpiredSale(t *testing.T) {
 	tomorrow := time.Now().UTC().Add(24 * time.Hour)
 
 	expiredA := makeSKU(ctxA, "EXPIRED-A", int64Ptr(800), &yesterday)
-	makeSKU(ctxA, "FUTURE-A", int64Ptr(800), &tomorrow)   // not expired yet -- excluded
-	makeSKU(ctxA, "NO-SALE-A", nil, nil)                  // no sale at all -- excluded
+	makeSKU(ctxA, "FUTURE-A", int64Ptr(800), &tomorrow) // not expired yet -- excluded
+	makeSKU(ctxA, "NO-SALE-A", nil, nil)                // no sale at all -- excluded
 	expiredB := makeSKU(ctxB, "EXPIRED-B", int64Ptr(500), &yesterday)
 
 	var found []pmsDomain.SKU

@@ -83,8 +83,9 @@ func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 }
 
 func toGenNotification(n notificationsDomain.Notification) gennotifications.Notification {
+	link := n.Link
 	return gennotifications.Notification{
-		Id: n.ID, Type: string(n.Type), Title: n.Title, Message: n.Message,
+		Id: n.ID, Type: string(n.Type), Title: n.Title, Message: n.Message, Link: &link,
 		Read: n.Read, CreatedAt: n.CreatedAt,
 	}
 }

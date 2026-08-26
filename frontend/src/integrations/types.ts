@@ -167,6 +167,12 @@ export interface ProductChannelListing {
   external_id: string
   sync_status: ProductChannelListingSyncStatus
   last_synced_at?: string | null
+  // Bol's own reason(s) the offer isn't for sale (checked after every
+  // push) -- empty/absent means for sale (or not a Bol listing / never
+  // checked). Distinct from sync_status: a push can be sync_status
+  // "synced" (it genuinely succeeded) while Bol still won't list the
+  // offer for sale.
+  not_for_sale_note?: string
   created_at: string
   updated_at: string
 }

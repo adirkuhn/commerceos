@@ -48,6 +48,15 @@ type ProductChannelListing struct {
 	SyncStatus    SyncStatus
 	LastSyncedAt  *time.Time
 	LastSyncError string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// NotForSaleNote is Bol's own reason(s) the offer isn't for sale, from
+	// GET /offers/{id}/not-for-sale-reasons -- checked after every push.
+	// Empty means either "for sale" or "not a Bol listing / never
+	// checked." Distinct from LastSyncError: the push itself can succeed
+	// (no LastSyncError) while Bol still won't list the offer for sale
+	// (this set) -- e.g. a still-missing mandatory content attribute Bol
+	// only reports here, not as a push failure. Bol-specific today; empty
+	// for every other provider.
+	NotForSaleNote string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }

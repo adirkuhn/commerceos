@@ -66,6 +66,11 @@ components:
         type: { type: string }
         title: { type: string }
         message: { type: string }
+        link:
+          type: string
+          description: >-
+            Frontend-relative deep link (e.g. "/products/<id>") to navigate
+            to on click. Empty string means no link.
         read: { type: boolean }
         created_at: { type: string, format: date-time }
 
