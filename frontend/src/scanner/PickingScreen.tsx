@@ -317,22 +317,27 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         <button onClick={handlePause} className="p-1 -ml-1" title="Pause and go back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-sm font-semibold truncate">#{order.number || order.external_order_id}</h1>
-            <span className="text-xs text-gray-500">·</span>
-            <span className="text-xs text-gray-400 truncate">{customerName(order)}</span>
-          </div>
-          {shippingAddressLine(order.shipping) && (
-            <p className="text-[11px] text-gray-500 truncate">{shippingAddressLine(order.shipping)}</p>
-          )}
-        </div>
+        <h1 className="flex-1 text-base font-semibold">Picking</h1>
         <button
           onClick={() => setConfirmingFinish(true)}
-          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 shrink-0"
+          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
         >
           Finish
         </button>
+      </div>
+
+      {/* Order info -- its own full-width band, separate from the control
+          row above, so the address has room to wrap instead of getting
+          truncated next to the back/Finish buttons. */}
+      <div className="px-4 py-3 border-b border-[#2D3748] shrink-0 bg-[#111827]">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
+          <span className="text-gray-500">·</span>
+          <span className="text-base text-gray-300">{customerName(order)}</span>
+        </div>
+        {shippingAddressLine(order.shipping) && (
+          <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
+        )}
       </div>
 
       {cameraOpen && (
