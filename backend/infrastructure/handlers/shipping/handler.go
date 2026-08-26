@@ -151,7 +151,7 @@ func (h *Handler) UpdateShippingSettings(c *gin.Context, connectionId genshippin
 		mapErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, settingsToResponse(settings))
+	c.JSON(http.StatusOK, gin.H{"data": settingsToResponse(settings), "error": nil})
 }
 
 func (h *Handler) UpsertCarrierOverride(c *gin.Context, connectionId genshipping.ConnectionId, carrier int) {
@@ -173,7 +173,7 @@ func (h *Handler) UpsertCarrierOverride(c *gin.Context, connectionId genshipping
 		mapErr(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, overrideToResponse(*override))
+	c.JSON(http.StatusOK, gin.H{"data": overrideToResponse(*override), "error": nil})
 }
 
 func (h *Handler) CreateShipment(c *gin.Context) {

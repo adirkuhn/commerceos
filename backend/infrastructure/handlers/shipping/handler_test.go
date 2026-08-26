@@ -119,6 +119,49 @@ func TestConnectMyParcel_201OnSuccess(t *testing.T) {
 	require.Equal(t, http.StatusCreated, w.Code)
 }
 
+func TestUpdateShippingSettings_200WrapsResponseInDataEnvelope(t *testing.T) {
+	settings := &shippingDomain.ShippingConnectionSettings{ConnectionID: "22222222-2222-2222-2222-222222222222", DefaultCarrier: 1, DefaultPackageType: 1, DefaultLabelFormat: "pdf"}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{result: settings}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{"default_carrier": 1, "default_package_type": 1, "default_label_format": "pdf"})
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/shipping/connections/22222222-2222-2222-2222-222222222222/settings", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &parsed))
+	// Regression: this handler used to write the bare settings object with
+	// no top-level "data" key, so the frontend's request<T>() -- which
+	// always reads body.data -- silently resolved to undefined.
+	require.Contains(t, parsed, "data")
+	assert.NotNil(t, parsed["data"])
+}
+
+func TestUpsertCarrierOverride_200WrapsResponseInDataEnvelope(t *testing.T) {
+	override := &shippingDomain.ShippingCarrierOverride{ConnectionID: "22222222-2222-2222-2222-222222222222", Carrier: 1}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{result: override}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{"package_type": nil, "signature_required": nil, "only_recipient": nil})
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/shipping/connections/22222222-2222-2222-2222-222222222222/carrier-overrides/1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &parsed))
+	// Regression: same bare-object bug as UpdateShippingSettings above --
+	// the frontend pushed the resulting `undefined` straight into its
+	// overrides array, crashing the next render's .find() with
+	// "Cannot read properties of undefined (reading 'carrier')".
+	require.Contains(t, parsed, "data")
+	assert.NotNil(t, parsed["data"])
+}
+
 func TestCreateShipment_201OnSuccess(t *testing.T) {
 	shipment := &shippingDomain.Shipment{ID: "s-1", SalesOrderID: "order-1", Barcode: "3SMYPA1", StatusMain: "registered"}
 	create := &stubCreateShipment{result: shipment}
