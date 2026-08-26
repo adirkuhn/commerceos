@@ -12,6 +12,8 @@ import * as shippingApi from '../shipping/api'
 import type { RecipientAddress } from '../shipping/types'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
+import { playErrorSound } from '../scanner/errorSound'
+import type { Address } from '../oms/types'
 
 // Falls back to a placeholder icon when the line isn't linked to a product
 // yet, or the product has no media -- same convention as the scanner app's
@@ -41,6 +43,13 @@ function formatMoney(minorUnits: number, currencyCode: string): string {
 function customerName(order: SalesOrder): string {
   const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
   return name || order.billing?.email || '—'
+}
+
+function shippingAddressLine(address?: Address): string {
+  if (!address) return ''
+  const streetAndLocality = [address.address_1, address.address_2, [address.postcode, address.city].filter(Boolean).join(' ')]
+    .filter(Boolean).join(', ')
+  return [streetAndLocality, address.country].filter(Boolean).join(', ')
 }
 
 // A pick or substitute scan's net effect on a line's picked progress --
@@ -75,6 +84,7 @@ export default function Picking() {
 
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [scanErrorAlert, setScanErrorAlert] = useState<string | null>(null)
   const codeRef = useRef<HTMLInputElement>(null)
 
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
@@ -157,9 +167,18 @@ export default function Picking() {
     setConfirmingAddress(false)
   }
 
+  // A scanned/typed code that matches one of this order's own line items
+  // marks one unit picked immediately -- no confirm sheet, just an
+  // increment (see the picking screens' shared design doc for why: the
+  // sheet is now reserved for a deliberate tap on the line itself, to pick
+  // a specific quantity or substitute). Already-fully-picked (over-scan) or
+  // resolved-but-not-on-this-order both block further scanning behind
+  // scanErrorAlert until the picker explicitly confirms the error --
+  // mis-scans must never silently fall through to the freebie/new-item
+  // flow.
   async function handleScanSubmit() {
     const scannedCode = code.trim()
-    if (!scannedCode || !session || !token) return
+    if (!scannedCode || !session || !token || scanErrorAlert) return
     setError('')
     setBusy(true)
     try {
@@ -168,14 +187,18 @@ export default function Picking() {
       const li = session.line_items.find(l => l.sku_id === resolved.sku_id)
       if (li) {
         const pickedSoFar = pickedQtyByLineItem(session.scans).get(li.id) ?? 0
-        setPickLine({ lineItem: li, pickedSoFar })
-        setPickQty(Math.max(1, li.quantity - pickedSoFar))
-        setSubstituteMode(false)
+        if (pickedSoFar >= li.quantity) {
+          playErrorSound()
+          setScanErrorAlert('Already fully picked')
+          return
+        }
+        await pickingApi.scanPickItem(token, session.session.id, {
+          sku_id: resolved.sku_id, line_item_id: li.id, action_type: 'pick', quantity: 1,
+        })
+        await loadSession(session.session.id)
       } else {
-        setAddItemOpen({ skuId: resolved.sku_id, productName: resolved.product_name })
-        setAddItemQty(1)
-        setAddItemPrice('0')
-        setAddItemFreebie(true)
+        playErrorSound()
+        setScanErrorAlert('Item not on this order')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan not recognized')
@@ -183,6 +206,11 @@ export default function Picking() {
       setBusy(false)
       codeRef.current?.focus()
     }
+  }
+
+  function dismissScanError() {
+    setScanErrorAlert(null)
+    codeRef.current?.focus()
   }
 
   // Separate from handleScanSubmit -- this fires from inside the "Add item"
@@ -467,6 +495,9 @@ export default function Picking() {
                   <span className="text-xs dark:text-gray-400 text-gray-600">{customerName(activeOrder)}</span>
                 </div>
                 <p className="text-xs dark:text-gray-500 text-gray-400">{formatMoney(activeOrder.total_minor_units, activeOrder.currency_code)}</p>
+                {shippingAddressLine(activeOrder.shipping) && (
+                  <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">{shippingAddressLine(activeOrder.shipping)}</p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -501,7 +532,7 @@ export default function Picking() {
                   onChange={e => setCode(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleScanSubmit()}
                   placeholder="Scan barcode or type and press Enter..."
-                  disabled={busy || !!pickLine || !!addItemOpen}
+                  disabled={busy || !!pickLine || !!addItemOpen || !!scanErrorAlert}
                   className="flex-1 bg-transparent text-sm dark:text-gray-100 text-gray-900 outline-none dark:placeholder-gray-500 placeholder-gray-400 font-mono disabled:opacity-50"
                 />
               </div>
@@ -712,6 +743,20 @@ export default function Picking() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {scanErrorAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-xs rounded-xl dark:bg-[#111827] bg-white border dark:border-red-500/40 border-red-300 p-5 text-center shadow-xl">
+            <p className="text-sm font-semibold text-red-400 mb-4">{scanErrorAlert}</p>
+            <button
+              type="button" onClick={dismissScanError}
+              className="w-full py-2 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

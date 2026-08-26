@@ -36,12 +36,17 @@ vi.mock('../../shipping/api', () => ({
   createShipment: vi.fn(),
 }))
 
+vi.mock('../../scanner/errorSound', () => ({
+  playErrorSound: vi.fn(),
+}))
+
 import * as omsApi from '../../oms/api'
 import * as pickingApi from '../../scanner/api'
 import * as pmsApi from '../../pms/api'
 import * as shippingApi from '../../shipping/api'
 import { useConnections } from '../../integrations/hooks/useConnections'
 import type { Connection } from '../../integrations/types'
+import { playErrorSound } from '../../scanner/errorSound'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -108,14 +113,14 @@ describe('Picking page', () => {
     expect(screen.getByText('0 / 2 items')).toBeInTheDocument()
   })
 
-  it('scanning a code that matches a line item opens the pick sheet, and confirming records the pick', async () => {
+  it('scanning a code that matches a line item marks one unit picked immediately, with no sheet', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession)
       .mockResolvedValueOnce(detail())
-      .mockResolvedValueOnce(detail({ scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 2, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }] }))
+      .mockResolvedValueOnce(detail({ scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }] }))
     const resolved: ResolvePickScanCodeResult = { sku_id: 'sku-1', product_name: 'Widget' }
     vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue(resolved)
-    const scanResult: ScanPickItemResult = { scan: { id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 2, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' } }
+    const scanResult: ScanPickItemResult = { scan: { id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' } }
     vi.mocked(pickingApi.scanPickItem).mockResolvedValue(scanResult)
 
     const user = userEvent.setup()
@@ -125,21 +130,79 @@ describe('Picking page', () => {
 
     await user.type(screen.getByPlaceholderText('Scan barcode or type and press Enter...'), '111{Enter}')
 
-    expect(await screen.findByText('Confirm pick')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm pick' }))
-
     await waitFor(() => expect(pickingApi.scanPickItem).toHaveBeenCalledWith('test-token', 'ps-1', {
-      sku_id: 'sku-1', line_item_id: 'li-1', action_type: 'pick', quantity: 2,
+      sku_id: 'sku-1', line_item_id: 'li-1', action_type: 'pick', quantity: 1,
     }))
-    expect(await screen.findByText('2 / 2 items')).toBeInTheDocument()
+    expect(screen.queryByText('Confirm pick')).not.toBeInTheDocument()
+    expect(await screen.findByText('1 / 2 items')).toBeInTheDocument()
+  })
+
+  it('scanning a code already fully picked shows a blocking error and stages nothing', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail({
+      scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 2, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }],
+    }))
+    vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-1', product_name: 'Widget' })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    const input = screen.getByPlaceholderText('Scan barcode or type and press Enter...')
+    await user.type(input, '111{Enter}')
+
+    expect(await screen.findByText('Already fully picked')).toBeInTheDocument()
+    expect(pickingApi.scanPickItem).not.toHaveBeenCalled()
+    expect(playErrorSound).toHaveBeenCalled()
+    expect(input).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText('Already fully picked')).not.toBeInTheDocument()
+    expect(input).toBeEnabled()
+  })
+
+  it('scanning a code not on the order shows a blocking error instead of opening Add item', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-other', product_name: 'Gizmo' })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await user.type(screen.getByPlaceholderText('Scan barcode or type and press Enter...'), '999{Enter}')
+
+    expect(await screen.findByText('Item not on this order')).toBeInTheDocument()
+    expect(pickingApi.scanPickItem).not.toHaveBeenCalled()
+    expect(screen.queryByText('Add item not on order')).not.toBeInTheDocument()
+    expect(playErrorSound).toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText('Item not on this order')).not.toBeInTheDocument()
+  })
+
+  it('shows the shipping address in the header once an order is selected', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({ shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } })],
+      total: 1,
+    })
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    expect(screen.getByText('Damrak 1, 1012AB Amsterdam, NL')).toBeInTheDocument()
   })
 
   it('substitute mode records a substitute scan for the original line item, using the replacement SKU', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-    vi.mocked(pickingApi.resolvePickScanCode)
-      .mockResolvedValueOnce({ sku_id: 'sku-1', product_name: 'Widget' })
-      .mockResolvedValueOnce({ sku_id: 'sku-2', product_name: 'Widget Replacement' })
+    vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-2', product_name: 'Widget Replacement' })
     vi.mocked(pickingApi.scanPickItem).mockResolvedValue({ scan: { id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 2, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' } })
 
     const user = userEvent.setup()
@@ -147,7 +210,9 @@ describe('Picking page', () => {
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
 
-    await user.type(screen.getByPlaceholderText('Scan barcode or type and press Enter...'), '111{Enter}')
+    // Row click (not a scan) is now the only way into the Pick/Substitute
+    // panel -- a scan of the line's own barcode auto-marks it picked instead.
+    await user.click(screen.getByText('Widget'))
     await screen.findByText('Confirm pick')
     await user.click(screen.getByRole('button', { name: 'Substitute' }))
     await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code{Enter}')

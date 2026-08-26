@@ -6,7 +6,7 @@ import type { SalesOrder } from '../oms/types'
 
 interface SalesOrderPickerScreenProps {
   token: string
-  onPickingStarted: (sessionId: string) => void
+  onPickingStarted: (sessionId: string, order: SalesOrder) => void
   onLogout: () => void
   onBack: () => void
 }
@@ -53,7 +53,7 @@ export function SalesOrderPickerScreen({ token, onPickingStarted, onLogout, onBa
     setStartingId(order.id)
     try {
       const session = await api.startOrResumePicking(token, order.id)
-      onPickingStarted(session.id)
+      onPickingStarted(session.id, order)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start picking')
       setStartingId(null)

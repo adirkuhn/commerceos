@@ -9,6 +9,7 @@ import { PurchaseOrderPickerScreen } from './PurchaseOrderPickerScreen'
 import { BookingScreen } from './BookingScreen'
 import { SalesOrderPickerScreen } from './SalesOrderPickerScreen'
 import { PickingScreen } from './PickingScreen'
+import type { SalesOrder } from '../oms/types'
 
 // Full-screen kiosk-style app for the handheld scanner device -- bypasses
 // the normal Sidebar/Topbar chrome and ../auth/AuthContext entirely (see
@@ -20,6 +21,7 @@ export default function ScannerApp() {
   const [app, setApp] = useState<ScannerAppID | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
   const [pickingSessionId, setPickingSessionId] = useState<string | null>(null)
+  const [pickingOrder, setPickingOrder] = useState<SalesOrder | null>(null)
   // Set by Price Lookup's "View in Inventory" -- lets Inventory open
   // straight to this SKU's screen instead of showing its own scan step.
   const [inventoryInitialResolved, setInventoryInitialResolved] = useState<Resolved | null>(null)
@@ -57,11 +59,11 @@ export default function ScannerApp() {
   }
 
   if (app === 'pick-order') {
-    if (!pickingSessionId) {
+    if (!pickingSessionId || !pickingOrder) {
       return (
         <SalesOrderPickerScreen
           token={token}
-          onPickingStarted={setPickingSessionId}
+          onPickingStarted={(sessionId, order) => { setPickingSessionId(sessionId); setPickingOrder(order) }}
           onLogout={clearToken}
           onBack={() => setApp(null)}
         />
@@ -71,7 +73,8 @@ export default function ScannerApp() {
       <PickingScreen
         token={token}
         sessionId={pickingSessionId}
-        onExit={() => setPickingSessionId(null)}
+        order={pickingOrder}
+        onExit={() => { setPickingSessionId(null); setPickingOrder(null) }}
         onAuthError={clearToken}
       />
     )

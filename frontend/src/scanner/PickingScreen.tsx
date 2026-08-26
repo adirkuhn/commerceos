@@ -6,10 +6,24 @@ import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { QuantityStepper } from './QuantityStepper'
 import { CameraScanner } from './CameraScanner'
 import { ProductCandidateRow } from './ProductCandidateRow'
+import { playErrorSound } from './errorSound'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
   MissingPickItem, PickScanActionType,
 } from './types'
+import type { SalesOrder, Address } from '../oms/types'
+
+function customerName(order: SalesOrder): string {
+  const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
+  return name || order.billing?.email || 'Unknown customer'
+}
+
+function shippingAddressLine(address?: Address): string {
+  if (!address) return ''
+  const streetAndLocality = [address.address_1, address.address_2, [address.postcode, address.city].filter(Boolean).join(' ')]
+    .filter(Boolean).join(', ')
+  return [streetAndLocality, address.country].filter(Boolean).join(', ')
+}
 
 // Falls back to a placeholder icon when the line isn't linked to a product
 // yet, or the product has no media -- same convention as BookingScreen's
@@ -31,6 +45,7 @@ function LineItemThumb({ token, name, productId }: { token: string; name: string
 interface PickingScreenProps {
   token: string
   sessionId: string
+  order: SalesOrder
   onExit: () => void
   onAuthError: () => void
 }
@@ -67,12 +82,13 @@ function computeMissingItems(detail: PickingSessionDetail): MissingPickItem[] {
   return missing
 }
 
-export function PickingScreen({ token, sessionId, onExit, onAuthError }: PickingScreenProps) {
+export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: PickingScreenProps) {
   const [detail, setDetail] = useState<PickingSessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [code, setCode] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [scanErrorAlert, setScanErrorAlert] = useState<string | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const [confirmingFinish, setConfirmingFinish] = useState(false)
@@ -111,25 +127,40 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
     }
   }
 
-  // A scanned/typed code that matches one of this order's own line items
-  // opens the Pick/Substitute sheet for that line -- confirming what's
-  // already expected. One that doesn't match anything on the order opens
-  // the freebie/new-item flow instead, since there's no line to pick
-  // against. A resolve miss falls back to a partial name/code/barcode
-  // search, same as Booking.
+  // A scanned/typed code matching one of this order's own line items marks
+  // one unit picked immediately -- no confirm sheet, just an increment (the
+  // sheet is reserved for a deliberate tap on the line itself, to pick a
+  // specific quantity or substitute -- see setPickLine's row-click callers
+  // below). Already-fully-picked (over-scan) or resolved-but-not-on-this-
+  // order both block further scanning behind scanErrorAlert until the
+  // picker explicitly confirms the error -- mis-scans must never silently
+  // fall through to the freebie/new-item flow. A resolve miss still falls
+  // back to a partial name/code/barcode search (same as Booking); only once
+  // that search also comes up empty does it become a blocking error too.
+  function routeResolvedSku(skuId: string) {
+    const li = detail?.line_items.find(l => l.sku_id === skuId)
+    if (li) {
+      const pickedSoFar = pickedQuantityByLineItem(detail?.scans ?? []).get(li.id) ?? 0
+      if (pickedSoFar >= li.quantity) {
+        playErrorSound()
+        setScanErrorAlert('Already fully picked')
+        return
+      }
+      stage({ line_item_id: li.id, sku_id: skuId, action_type: 'pick', quantity: 1 })
+    } else {
+      playErrorSound()
+      setScanErrorAlert('Item not on this order')
+    }
+  }
+
   async function resolveAndRoute(scannedCode: string) {
+    if (scanErrorAlert) return
     setError('')
     setScanning(true)
     try {
       const resolved = await api.resolvePickScanCode(token, sessionId, scannedCode)
       setCode('')
-      const li = detail?.line_items.find(l => l.sku_id === resolved.sku_id)
-      if (li) {
-        const pickedSoFar = pickedQuantityByLineItem(detail?.scans ?? []).get(li.id) ?? 0
-        setPickLine({ lineItem: li, pickedSoFar })
-      } else {
-        setAddItemOpen(true)
-      }
+      routeResolvedSku(resolved.sku_id)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
       try {
@@ -140,9 +171,10 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
           return
         }
       } catch {
-        // fall through to the original resolve error below
+        // fall through to the blocking error below
       }
-      setError(err instanceof Error ? err.message : 'Scan failed')
+      playErrorSound()
+      setScanErrorAlert('Barcode not recognized')
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -152,13 +184,12 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
   function handleCandidateSelect(c: SKUCandidate) {
     setCandidates([])
     setCode('')
-    const li = detail?.line_items.find(l => l.sku_id === c.sku.id)
-    if (li) {
-      const pickedSoFar = pickedQuantityByLineItem(detail?.scans ?? []).get(li.id) ?? 0
-      setPickLine({ lineItem: li, pickedSoFar })
-    } else {
-      setAddItemOpen(true)
-    }
+    routeResolvedSku(c.sku.id)
+  }
+
+  function dismissScanError() {
+    setScanErrorAlert(null)
+    codeInputRef.current?.focus()
   }
 
   function handleScan(e: React.FormEvent) {
@@ -286,10 +317,19 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
         <button onClick={handlePause} className="p-1 -ml-1" title="Pause and go back">
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
-        <h1 className="flex-1 text-base font-semibold">Picking</h1>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-sm font-semibold truncate">#{order.number || order.external_order_id}</h1>
+            <span className="text-xs text-gray-500">·</span>
+            <span className="text-xs text-gray-400 truncate">{customerName(order)}</span>
+          </div>
+          {shippingAddressLine(order.shipping) && (
+            <p className="text-[11px] text-gray-500 truncate">{shippingAddressLine(order.shipping)}</p>
+          )}
+        </div>
         <button
           onClick={() => setConfirmingFinish(true)}
-          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700"
+          className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 shrink-0"
         >
           Finish
         </button>
@@ -368,7 +408,8 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
             value={code}
             onChange={e => setCode(e.target.value)}
             placeholder="Scan or type barcode…"
-            className="flex-1 px-3 py-3 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={scanning || !!scanErrorAlert}
+            className="flex-1 px-3 py-3 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="button"
@@ -380,7 +421,7 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
           </button>
         </div>
         <button
-          type="submit" disabled={scanning || !code.trim()}
+          type="submit" disabled={scanning || !code.trim() || !!scanErrorAlert}
           className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
           {scanning ? 'Looking up…' : 'Scan'}
@@ -415,6 +456,20 @@ export function PickingScreen({ token, sessionId, onExit, onAuthError }: Picking
             stage({ sku_id: skuId, action_type: actionType, quantity, price_minor_units: priceMinorUnits, reason })
           }}
         />
+      )}
+
+      {scanErrorAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+          <div className="w-full max-w-xs rounded-2xl bg-[#111827] border border-red-500/40 p-5 text-center">
+            <p className="text-sm font-semibold text-red-400 mb-4">{scanErrorAlert}</p>
+            <button
+              type="button" onClick={dismissScanError}
+              className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

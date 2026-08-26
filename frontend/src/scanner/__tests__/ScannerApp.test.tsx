@@ -56,6 +56,10 @@ vi.mock('../../pms/api', () => ({
   listProductMedia: vi.fn(),
 }))
 
+vi.mock('../errorSound', () => ({
+  playErrorSound: vi.fn(),
+}))
+
 const mockDecodeFromVideoDevice = vi.fn()
 vi.mock('@zxing/browser', () => ({
   BrowserMultiFormatReader: vi.fn().mockImplementation(() => ({
@@ -69,6 +73,7 @@ import * as suppliersApi from '../../suppliers/api'
 import * as inventoryApi from '../../inventory/api'
 import * as omsApi from '../../oms/api'
 import * as pmsApi from '../../pms/api'
+import { playErrorSound } from '../errorSound'
 
 function makeJWT(exp: number): string {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -121,6 +126,7 @@ function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
     id: 'order-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1',
     number: '1001', order_key: 'key-1', status: 'processing', warehouse_id: 'warehouse-1',
     billing: { first_name: 'Jane', last_name: 'Doe' },
+    shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
     currency_code: 'USD', discount_total_minor_units: 0, shipping_total_minor_units: 0,
     tax_total_minor_units: 0, total_minor_units: 2999,
     occurred_at: '2026-08-05T00:00:00Z', created_at: '2026-08-05T00:00:00Z',
@@ -658,7 +664,8 @@ describe('ScannerApp sales order picker', () => {
     await userEvent.click(await screen.findByText('Pick Order'))
     await userEvent.click(await screen.findByText('Jane Doe'))
 
-    expect(await screen.findByText('Picking')).toBeInTheDocument()
+    expect(await screen.findByText('#1001')).toBeInTheDocument()
+    expect(screen.getByText('Damrak 1, 1012AB Amsterdam, NL')).toBeInTheDocument()
     expect(api.startOrResumePicking).toHaveBeenCalledWith(expect.any(String), 'order-1')
   })
 
@@ -686,7 +693,7 @@ describe('ScannerApp picking screen', () => {
     render(<ScannerApp />)
     await userEvent.click(await screen.findByText('Pick Order'))
     await userEvent.click(await screen.findByText('Jane Doe'))
-    await screen.findByText('Picking')
+    await screen.findByText('#1001')
   }
 
   const lineItem: PickingSessionDetail['line_items'][number] = {
@@ -721,6 +728,65 @@ describe('ScannerApp picking screen', () => {
     await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
       line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 10,
     })))
+  })
+
+  it('scanning a code that matches a line item marks one unit picked immediately, with no sheet', async () => {
+    vi.mocked(api.getPickingSession)
+      .mockResolvedValueOnce({ session: pickingSession(), line_items: [lineItem], scans: [] })
+      .mockResolvedValueOnce({
+        session: pickingSession(), line_items: [lineItem],
+        scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1, scanned_at: '', scanned_by: '' }],
+      })
+    vi.mocked(api.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-1', product_name: 'Widget A' })
+    vi.mocked(api.scanPickItem).mockResolvedValue({
+      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterPickingScreen()
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'WID-A-BARCODE{Enter}')
+
+    await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
+      line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 1,
+    })))
+    expect(screen.queryByLabelText('Quantity to pick')).not.toBeInTheDocument()
+    expect(await screen.findByText('1 / 10')).toBeInTheDocument()
+  })
+
+  it('scanning a code already fully picked shows a blocking error and stages nothing', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({
+      session: pickingSession(), line_items: [lineItem],
+      scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 10, scanned_at: '', scanned_by: '' }],
+    })
+    vi.mocked(api.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-1', product_name: 'Widget A' })
+
+    await enterPickingScreen()
+    const input = screen.getByPlaceholderText('Scan or type barcode…')
+    await userEvent.type(input, 'WID-A-BARCODE{Enter}')
+
+    expect(await screen.findByText('Already fully picked')).toBeInTheDocument()
+    expect(api.scanPickItem).not.toHaveBeenCalled()
+    expect(playErrorSound).toHaveBeenCalled()
+    expect(input).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText('Already fully picked')).not.toBeInTheDocument()
+    expect(input).toBeEnabled()
+  })
+
+  it('scanning a code not on the order shows a blocking error instead of opening the add-item sheet', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    vi.mocked(api.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-other', product_name: 'Gizmo' })
+
+    await enterPickingScreen()
+    await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'GIZMO-BARCODE{Enter}')
+
+    expect(await screen.findByText('Item not on this order')).toBeInTheDocument()
+    expect(api.scanPickItem).not.toHaveBeenCalled()
+    expect(screen.queryByRole('heading', { name: 'Add freebie or new item' })).not.toBeInTheDocument()
+    expect(playErrorSound).toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText('Item not on this order')).not.toBeInTheDocument()
   })
 
   it('Substitute mode swaps the whole line for a searched replacement at the original quantity', async () => {
