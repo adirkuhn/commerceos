@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -620,6 +620,18 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [confirmingAddress, setConfirmingAddress] = useState(false)
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // auto_print_enabled: once a label exists, open the print view right
+  // away instead of requiring a manual click -- still the OS print dialog,
+  // not silent printing (see ShippingConnectionSettings.AutoPrintEnabled's
+  // doc). Fetched once the connection is known so the "Create label"
+  // button's own click handler doesn't need to await it.
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  useEffect(() => {
+    if (!token || !myParcelConnection) return
+    shippingApi.getShippingSettings(token, myParcelConnection.id)
+      .then(result => setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false))
+      .catch(() => setAutoPrintEnabled(false))
+  }, [token, myParcelConnection])
 
   async function handleCreateLabel(input: { carrier: number; recipient: RecipientAddress }) {
     if (!token || !detail || !myParcelConnection) return
@@ -627,6 +639,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
     const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id })
     setConfirmingAddress(false)
     setCreatedShipmentId(shipment.id)
+    if (autoPrintEnabled) setPrintingLabelId(shipment.id)
     refreshActivities()
   }
 
@@ -715,7 +728,10 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                 title="Print shipping label"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
               >
-                <Printer size={13} /> Print label
+                {/* auto_print_enabled already opened the print view once on
+                    creation -- this button is then for re-printing (paper
+                    jam, dismissed dialog, etc), not the first print. */}
+                <Printer size={13} /> {autoPrintEnabled ? 'Retry print' : 'Print label'}
               </button>
             )}
             <select

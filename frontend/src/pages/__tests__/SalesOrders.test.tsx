@@ -40,6 +40,8 @@ vi.mock('../../integrations/api', () => ({
 vi.mock('../../shipping/api', () => ({
   exportMyParcelOrder: vi.fn(),
   createShipment: vi.fn(),
+  getShippingSettings: vi.fn(),
+  getShipmentLabel: vi.fn(),
 }))
 
 vi.mock('../../tax/api', () => ({
@@ -106,6 +108,7 @@ beforeEach(() => {
   vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [] })
   vi.mocked(omsApi.listSalesOrderActivities).mockResolvedValue({ activities: [] })
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+  vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
 })
 
 describe('Sales orders list', () => {
@@ -349,6 +352,57 @@ describe('Sales order detail page', () => {
     await waitFor(() => expect(shippingApi.exportMyParcelOrder).toHaveBeenCalledWith('test-token', 'conn-mp-1', 'so-1', expect.objectContaining({ carrier: 1 })))
     expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({ connection_id: 'conn-mp-1', sales_order_id: 'so-1' }))
     expect(await screen.findByRole('button', { name: 'Print label' })).toBeInTheDocument()
+  })
+
+  it('auto-opens the print view when auto_print_enabled is on, and offers Retry print', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
+    ])
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({
+      settings: {
+        connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1, default_label_format: 'pdf',
+        default_signature_required: false, default_only_recipient: false, default_insurance_amount_minor_units: null,
+        myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: true,
+      },
+      carrier_overrides: [],
+    })
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+      })],
+      total: 1,
+    })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+      }),
+    }))
+    vi.mocked(shippingApi.exportMyParcelOrder).mockResolvedValue({
+      id: 'export-1', connection_id: 'conn-mp-1', sales_order_id: 'so-1', myparcel_uuid: 'order-uuid-1', status: 'open',
+    })
+    vi.mocked(shippingApi.createShipment).mockResolvedValue({
+      id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
+      status: 1, status_main: 'registered', label_format: 'pdf',
+      recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+      created_at: '2026-08-23T00:00:00Z',
+    })
+    // ShippingLabelPrintView fetches the label itself -- give it something
+    // that resolves so it doesn't hang on "Loading label…".
+    vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+    vi.stubGlobal('print', vi.fn())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create label' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Create shipping label' }))
+
+    // The print view opens on its own -- no click needed to get here.
+    expect(await screen.findByTitle('Close')).toBeInTheDocument()
+    await userEvent.click(screen.getByTitle('Close'))
+
+    expect(await screen.findByRole('button', { name: 'Retry print' })).toBeInTheDocument()
   })
 
   it('shows no activity section when the log is empty', async () => {

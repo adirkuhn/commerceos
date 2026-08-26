@@ -106,6 +106,15 @@ export default function Picking() {
   const [confirmingAddress, setConfirmingAddress] = useState(false)
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // auto_print_enabled -- see SalesOrders.tsx's identical logic for the doc;
+  // same setting, same "still the OS print dialog" caveat.
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  useEffect(() => {
+    if (!token || !myParcelConnection) return
+    shippingApi.getShippingSettings(token, myParcelConnection.id)
+      .then(result => setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false))
+      .catch(() => setAutoPrintEnabled(false))
+  }, [token, myParcelConnection])
 
   const loadOrders = useCallback(async () => {
     if (!token) return
@@ -350,6 +359,7 @@ export default function Picking() {
     const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: activeOrder.id })
     setConfirmingAddress(false)
     setCreatedShipmentId(shipment.id)
+    if (autoPrintEnabled) setPrintingLabelId(shipment.id)
   }
 
   const pickedByLineItem = session ? pickedQtyByLineItem(session.scans) : new Map<string, number>()
@@ -458,7 +468,7 @@ export default function Picking() {
                 type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
                 className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
               >
-                Print shipping label
+                {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
               </button>
             )}
 

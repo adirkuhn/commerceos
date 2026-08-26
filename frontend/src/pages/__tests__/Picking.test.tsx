@@ -34,6 +34,8 @@ vi.mock('../../integrations/hooks/useConnections', () => ({
 
 vi.mock('../../shipping/api', () => ({
   createShipment: vi.fn(),
+  getShippingSettings: vi.fn(),
+  getShipmentLabel: vi.fn(),
 }))
 
 vi.mock('../../scanner/errorSound', () => ({
@@ -279,6 +281,7 @@ describe('Picking page', () => {
 
     beforeEach(() => {
       vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+      vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     })
 
     it('creates a shipment from the confirmed address and shows Print shipping label afterward', async () => {
@@ -316,6 +319,47 @@ describe('Picking page', () => {
         connection_id: 'conn-mp-1', sales_order_id: 'so-1',
       })))
       expect(await screen.findByRole('button', { name: 'Print shipping label' })).toBeInTheDocument()
+    })
+
+    it('auto-opens the print view when auto_print_enabled is on, and offers Retry print', async () => {
+      vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({
+        settings: {
+          connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1, default_label_format: 'pdf',
+          default_signature_required: false, default_only_recipient: false, default_insurance_amount_minor_units: null,
+          myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: true,
+        },
+        carrier_overrides: [],
+      })
+      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } })],
+        total: 1,
+      })
+      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(shippingApi.createShipment).mockResolvedValue({
+        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
+        status: 1, status_main: 'registered', label_format: 'pdf',
+        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+        created_at: '2026-08-23T00:00:00Z',
+      })
+      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+      vi.stubGlobal('print', vi.fn())
+
+      const user = userEvent.setup()
+      render(<Picking />)
+      await user.click(await screen.findByText('#1001'))
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('#1001 marked fulfilled')
+
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+      const allCreateButtons = await screen.findAllByRole('button', { name: 'Create shipping label' })
+      await user.click(allCreateButtons[allCreateButtons.length - 1])
+
+      expect(await screen.findByTitle('Close')).toBeInTheDocument()
+      await user.click(screen.getByTitle('Close'))
+      expect(await screen.findByRole('button', { name: 'Retry print' })).toBeInTheDocument()
     })
   })
 })
