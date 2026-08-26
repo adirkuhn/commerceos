@@ -31,6 +31,7 @@ vi.mock('../../iam/api', () => ({
   listGroupPermissions: vi.fn(),
   assignPermission: vi.fn(),
   revokePermission: vi.fn(),
+  getUserActivities: vi.fn(),
 }))
 
 import * as teamApi from '../../team/api'
@@ -67,6 +68,7 @@ beforeEach(() => {
   vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(teamApi.listInvites).mockResolvedValue([])
   vi.mocked(iamApi.listGroups).mockResolvedValue([])
+  vi.mocked(iamApi.getUserActivities).mockResolvedValue({ activities: [] })
 })
 
 describe('Users page — real member data', () => {
@@ -76,6 +78,23 @@ describe('Users page — real member data', () => {
     expect(await screen.findByText('Alex Kuhn')).toBeInTheDocument()
     expect(screen.getByText('alex@example.com')).toBeInTheDocument()
     expect(teamApi.listMembers).toHaveBeenCalledWith('test-token')
+  })
+
+  it('clicking a member opens their activity panel', async () => {
+    vi.mocked(teamApi.listMembers).mockResolvedValue([member()])
+    vi.mocked(iamApi.getUserActivities).mockResolvedValue({
+      activities: [{
+        id: 'a-1', sales_order_id: 'so-1', user_id: 'u-1', activity_type: 'myparcel_shipment_created',
+        summary: 'Shipment created via MyParcel', metadata: {}, created_at: '2026-08-26T00:00:00Z',
+      }],
+    })
+    render(<Users />)
+    await screen.findByText('Alex Kuhn')
+
+    fireEvent.click(screen.getByTitle("View Alex Kuhn's activity"))
+
+    expect(await screen.findByText('Shipment created via MyParcel')).toBeInTheDocument()
+    expect(iamApi.getUserActivities).toHaveBeenCalledWith('test-token', 'u-1')
   })
 
   it('changes a member role', async () => {

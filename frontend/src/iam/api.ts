@@ -7,6 +7,7 @@ import type {
   APIResponse,
   MembersResponse,
   PermissionsResponse,
+  UserActivitiesResponse,
 } from './types'
 
 function base(): string {
@@ -85,4 +86,8 @@ export function listGroupPermissions(token: string, groupId: string): Promise<Pe
 
 export function getUserEffectivePermissions(token: string, userId: string): Promise<PermissionsResponse> {
   return request<PermissionsResponse>(`${base()}/users/${userId}/permissions`, { method: 'GET' }, token)
+}
+
+export function getUserActivities(token: string, userId: string): Promise<UserActivitiesResponse> {
+  return request<UserActivitiesResponse>(`${base()}/users/${userId}/activities`, { method: 'GET' }, token)
 }

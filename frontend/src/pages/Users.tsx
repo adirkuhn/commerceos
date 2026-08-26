@@ -7,6 +7,7 @@ import { useCompanyInvites } from '../team/hooks/useCompanyInvites'
 import { useGroups } from '../iam/hooks/useGroups'
 import { useGroupMembers } from '../iam/hooks/useGroupMembers'
 import { useGroupPermissions } from '../iam/hooks/useGroupPermissions'
+import { useUserActivities } from '../iam/hooks/useUserActivities'
 import { GroupList } from '../iam/components/GroupList'
 import { GroupForm } from '../iam/components/GroupForm'
 import type { MemberRole, CompanyMember } from '../team/types'
@@ -155,6 +156,34 @@ function GroupDetail({ token, group, members }: { token: string; group: Group; m
   )
 }
 
+function UserActivityPanel({ token, member, onClose }: { token: string; member: CompanyMember; onClose: () => void }) {
+  const { activities, loading, error } = useUserActivities(token, member.user_id)
+
+  return (
+    <div className="w-[480px] border-l dark:border-[#2D3748] border-gray-200 flex flex-col overflow-hidden">
+      <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{fullName(member)}</h3>
+          <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">Activity across all their orders</p>
+        </div>
+        <button onClick={onClose}><X size={14} className="dark:text-gray-400 text-gray-500" /></button>
+      </div>
+      <div className="flex-1 overflow-auto p-4 space-y-2">
+        {error && <p className="text-xs text-red-400">{error}</p>}
+        {!loading && activities.length === 0 && !error && (
+          <p className="text-xs dark:text-gray-500 text-gray-400">No activity yet.</p>
+        )}
+        {activities.map(a => (
+          <div key={a.id} className="flex justify-between gap-3 text-xs">
+            <span className="dark:text-gray-200 text-gray-800">{a.summary}</span>
+            <span className="shrink-0 dark:text-gray-500 text-gray-400">{new Date(a.created_at).toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function GroupsPanel({ token, members }: { token: string; members: CompanyMember[] }) {
   const groups = useGroups(token)
   const [selected, setSelected] = useState<Group | null>(null)
@@ -213,6 +242,7 @@ export default function Users() {
   const [search, setSearch] = useState('')
   const [showInvite, setShowInvite] = useState(false)
   const [showGroups, setShowGroups] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<CompanyMember | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
   if (!isOwner) {
@@ -251,7 +281,7 @@ export default function Users() {
           />
         </div>
         <button
-          onClick={() => setShowGroups(!showGroups)}
+          onClick={() => { setSelectedUser(null); setShowGroups(!showGroups) }}
           className={clsx(
             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors',
             showGroups
@@ -283,7 +313,7 @@ export default function Users() {
       )}
 
       <div className="flex-1 overflow-hidden flex gap-0">
-        <div className={clsx('flex flex-col overflow-hidden', showGroups ? 'flex-1' : 'w-full')}>
+        <div className={clsx('flex flex-col overflow-hidden', (showGroups || selectedUser) ? 'flex-1' : 'w-full')}>
           <div className="flex-1 overflow-auto">
             {invitesState.invites.length > 0 && (
               <div className="px-5 py-3 border-b dark:border-[#2D3748] border-gray-200">
@@ -318,7 +348,11 @@ export default function Users() {
                 {filtered.map(m => (
                   <tr key={m.membership_id} className="hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors group">
                     <td className="px-3 py-3">
-                      <div className="flex items-center gap-2.5">
+                      <button
+                        onClick={() => { setShowGroups(false); setSelectedUser(m) }}
+                        className="flex items-center gap-2.5 text-left hover:underline"
+                        title={`View ${fullName(m)}'s activity`}
+                      >
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                           {fullName(m).slice(0, 2).toUpperCase()}
                         </div>
@@ -326,7 +360,7 @@ export default function Users() {
                           <p className="font-medium dark:text-gray-100 text-gray-900">{fullName(m)}</p>
                           <p className="text-[10px] dark:text-gray-500 text-gray-400">{m.email}</p>
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td className="px-3 py-3">
                       <label className="sr-only" htmlFor={`role-${m.membership_id}`}>Role for {fullName(m)}</label>
@@ -377,6 +411,7 @@ export default function Users() {
         </div>
 
         {showGroups && <GroupsPanel token={effectiveToken} members={membersState.members} />}
+        {selectedUser && <UserActivityPanel token={effectiveToken} member={selectedUser} onClose={() => setSelectedUser(null)} />}
       </div>
     </div>
   )

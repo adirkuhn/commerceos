@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
+import { useSalesOrderActivities } from '../oms/hooks/useSalesOrderActivities'
 import type { SalesOrder, SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address, SalesOrderSortField, SortDirection } from '../oms/types'
 import { PickingListPrintView } from './print/PickingListPrintView'
 import { InvoicePrintView } from './print/InvoicePrintView'
@@ -594,6 +595,7 @@ function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { ti
 function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
+  const { activities } = useSalesOrderActivities(token ?? '', salesOrderId)
   const [savingStatus, setSavingStatus] = useState(false)
   const [actionError, setActionError] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -783,6 +785,18 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                   <p className="dark:text-gray-400 text-gray-500">Note: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.customer_note}</span></p>
                 )}
               </div>
+
+              {activities.length > 0 && (
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
+                  <p className="font-medium dark:text-gray-300 text-gray-700">Activity</p>
+                  {activities.map(a => (
+                    <div key={a.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
+                      <span className="dark:text-gray-200 text-gray-800">{a.summary}</span>
+                      <span className="shrink-0">{new Date(a.created_at).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

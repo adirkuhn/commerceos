@@ -12,6 +12,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../oms/api', () => ({
   listSalesOrders: vi.fn(),
   getSalesOrder: vi.fn(),
+  listSalesOrderActivities: vi.fn(),
   createSalesOrder: vi.fn(),
   updateSalesOrder: vi.fn(),
   deleteSalesOrder: vi.fn(),
@@ -92,6 +93,7 @@ beforeEach(() => {
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
   vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [] })
+  vi.mocked(omsApi.listSalesOrderActivities).mockResolvedValue({ activities: [] })
 })
 
 describe('Sales orders list', () => {
@@ -269,6 +271,33 @@ describe('Sales order detail page', () => {
     expect(screen.getByText('WID-BLU')).toBeInTheDocument()
     expect(screen.getByText('5601049213991')).toBeInTheDocument()
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+  })
+
+  it('shows the order activity log when it has entries', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(omsApi.listSalesOrderActivities).mockResolvedValue({
+      activities: [{
+        id: 'a-1', sales_order_id: 'so-1', user_id: 'user-1', activity_type: 'myparcel_shipment_created',
+        summary: 'Shipment created via MyParcel', metadata: {}, created_at: '2026-08-26T00:00:00Z',
+      }],
+    })
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('Shipment created via MyParcel')).toBeInTheDocument()
+  })
+
+  it('shows no activity section when the log is empty', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    expect(screen.queryByText('Activity')).not.toBeInTheDocument()
   })
 
   it('Picking list opens the printable view and triggers the browser print dialog', async () => {

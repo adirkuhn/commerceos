@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -61,6 +61,10 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
 
 export function getSalesOrder(token: string, id: string): Promise<SalesOrderDetail> {
   return request<SalesOrderDetail>(`${base()}/${id}`, token)
+}
+
+export function listSalesOrderActivities(token: string, id: string): Promise<{ activities: SalesOrderActivity[] }> {
+  return request<{ activities: SalesOrderActivity[] }>(`${base()}/${id}/activities`, token)
 }
 
 export function createSalesOrder(token: string, input: CreateSalesOrderInput): Promise<SalesOrderDetail> {

@@ -164,6 +164,20 @@ export interface ForceAcceptStockResult {
   resolved: number
 }
 
+// SalesOrderActivity is one entry in an order's structured activity log --
+// separate from the single freeform customer_note field, used for
+// system-recorded events (MyParcel order export, shipment creation, label
+// print, and their failures), each tied to the acting user.
+export interface SalesOrderActivity {
+  id: string
+  sales_order_id: string
+  user_id: string
+  activity_type: string
+  summary: string
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
 export interface APIError {
   code: string
   message: string
