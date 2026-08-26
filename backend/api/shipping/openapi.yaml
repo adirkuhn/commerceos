@@ -132,6 +132,41 @@ paths:
           description: MyParcel rejected the shipment (invalid address, etc) -- nothing was persisted locally.
           $ref: '#/components/responses/Error'
 
+  /shipping/connections/{connectionId}/sales-orders/{salesOrderId}/export-order:
+    post:
+      operationId: exportMyParcelOrder
+      summary: >
+        Export a sales order via MyParcel's Orders/Fulfilment API -- step
+        one of the Sales Order detail page's "Create label" flow, before
+        the user confirms the address and createShipment actually creates
+        the shipment. Idempotent: re-calling for an already-exported order
+        returns the existing export instead of creating a duplicate
+        MyParcel order.
+      parameters:
+        - name: connectionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: salesOrderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExportMyParcelOrderRequest' }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyParcelFulfilmentOrderResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '502':
+          description: MyParcel rejected the export -- nothing was persisted locally.
+          $ref: '#/components/responses/Error'
+
   /shipping/sales-orders/{salesOrderId}/shipments:
     get:
       operationId: listShipmentsForOrder
@@ -310,6 +345,28 @@ components:
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
         label_format: { type: string, enum: [pdf, zpl], nullable: true }
+
+    ExportMyParcelOrderRequest:
+      type: object
+      required: [carrier, recipient]
+      properties:
+        carrier: { type: integer }
+        recipient: { $ref: '#/components/schemas/RecipientAddress' }
+
+    MyParcelFulfilmentOrder:
+      type: object
+      properties:
+        id: { type: string }
+        connection_id: { type: string }
+        sales_order_id: { type: string }
+        myparcel_uuid: { type: string }
+        status: { type: string }
+
+    MyParcelFulfilmentOrderResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/MyParcelFulfilmentOrder' }
+        error: { nullable: true }
 
     Shipment:
       type: object

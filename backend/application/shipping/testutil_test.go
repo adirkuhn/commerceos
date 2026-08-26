@@ -10,6 +10,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
@@ -40,6 +41,7 @@ func newMockGormDB(t *testing.T, n int) *gorm.DB {
 
 type fakeMyParcelClient struct {
 	createShipmentFn  func(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error)
+	createOrderFn     func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
 	getLabelFn        func(ctx context.Context, myParcelShipmentID int64, format string) (integrationsDomain.LabelResult, error)
 	getTrackTraceFn   func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
 	registerWebhookFn func(ctx context.Context, callbackURL string) error
@@ -47,6 +49,9 @@ type fakeMyParcelClient struct {
 
 func (f *fakeMyParcelClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
 	return f.createShipmentFn(ctx, in)
+}
+func (f *fakeMyParcelClient) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
+	return f.createOrderFn(ctx, in)
 }
 func (f *fakeMyParcelClient) GetLabel(ctx context.Context, id int64, format string) (integrationsDomain.LabelResult, error) {
 	return f.getLabelFn(ctx, id, format)
@@ -126,6 +131,35 @@ func (f *fakeShippingCarrierOverrideRepo) FindByConnectionAndCarrier(ctx context
 }
 func (f *fakeShippingCarrierOverrideRepo) Upsert(ctx context.Context, o *shippingDomain.ShippingCarrierOverride) error {
 	return f.upsertFn(ctx, o)
+}
+
+// --- MyParcelFulfilmentOrderRepository fake ---
+
+type fakeMyParcelFulfilmentOrderRepo struct {
+	createFn                        func(ctx context.Context, o *shippingDomain.MyParcelFulfilmentOrder) error
+	findByConnectionAndSalesOrderFn func(ctx context.Context, connectionID, salesOrderID string) (*shippingDomain.MyParcelFulfilmentOrder, error)
+}
+
+func (f *fakeMyParcelFulfilmentOrderRepo) Create(ctx context.Context, o *shippingDomain.MyParcelFulfilmentOrder) error {
+	return f.createFn(ctx, o)
+}
+func (f *fakeMyParcelFulfilmentOrderRepo) FindByConnectionAndSalesOrder(ctx context.Context, connectionID, salesOrderID string) (*shippingDomain.MyParcelFulfilmentOrder, error) {
+	return f.findByConnectionAndSalesOrderFn(ctx, connectionID, salesOrderID)
+}
+
+// --- recordActivityUC fake ---
+
+type fakeRecordActivity struct {
+	calls []appoms.RecordSalesOrderActivityInput
+	err   error
+}
+
+func (f *fakeRecordActivity) Execute(_ context.Context, in appoms.RecordSalesOrderActivityInput) (*omsDomain.SalesOrderActivity, error) {
+	f.calls = append(f.calls, in)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &omsDomain.SalesOrderActivity{ID: "activity-1"}, nil
 }
 
 // --- oms.SalesOrderRepository fake (only Update is exercised by this

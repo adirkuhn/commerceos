@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,6 +91,62 @@ func TestClient_CreateShipment_noInsuranceOmitsInsuranceOption(t *testing.T) {
 	options := shipments[0].(map[string]any)["options"].(map[string]any)
 	_, hasInsurance := options["insurance"]
 	assert.False(t, hasInsurance)
+}
+
+func TestClient_CreateOrder_sendsExpectedRequestAndParsesResponse(t *testing.T) {
+	var gotPath, gotContentType string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotContentType = r.Header.Get("Content-Type")
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"orders":[{"uuid":"order-uuid-1","status":"open"}]}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
+	orderDate, _ := time.Parse(time.RFC3339, "2026-08-26T10:00:00Z")
+	result, err := c.CreateOrder(context.Background(), myparcel.OrderInput{
+		ExternalIdentifier: "order-abc", OrderDate: orderDate, AccountID: 111, ShopID: 222,
+		Carrier: 1, PackageType: 1,
+		Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "order-uuid-1", result.UUID)
+	assert.Equal(t, "open", result.Status)
+
+	assert.Equal(t, "/fulfilment/orders", gotPath)
+	assert.Contains(t, gotContentType, "application/json")
+	orders := gotBody["data"].(map[string]any)["orders"].([]any)
+	require.Len(t, orders, 1)
+	order := orders[0].(map[string]any)
+	assert.Equal(t, "order-abc", order["external_identifier"])
+	assert.Equal(t, float64(111), order["account_id"])
+	assert.Equal(t, float64(222), order["shop_id"])
+	shipment := order["shipment"].(map[string]any)
+	assert.Equal(t, float64(1), shipment["carrier"])
+	recipient := shipment["recipient"].(map[string]any)
+	assert.Equal(t, "Jane Doe", recipient["person"])
+}
+
+func TestClient_CreateOrder_nonOKStatus_returnsAPIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"error":"invalid account_id"}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
+	_, err := c.CreateOrder(context.Background(), myparcel.OrderInput{
+		ExternalIdentifier: "order-abc", AccountID: 111, ShopID: 222, Carrier: 1,
+		Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+	})
+
+	var apiErr *myparcel.APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnprocessableEntity, apiErr.StatusCode)
 }
 
 func TestClient_CreateShipment_nonOKStatus_returnsAPIError(t *testing.T) {

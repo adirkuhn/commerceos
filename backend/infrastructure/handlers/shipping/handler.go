@@ -14,9 +14,11 @@ import (
 
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
+	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -48,17 +50,21 @@ type getLabelUseCase interface {
 type listShipmentsUseCase interface {
 	Execute(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error)
 }
+type exportMyParcelOrderUseCase interface {
+	Execute(ctx context.Context, in appshipping.ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error)
+}
 
 // Handler implements genshipping.ServerInterface.
 type Handler struct {
-	connect         connectMyParcelUseCase
-	registerWebhook registerWebhookUseCase
-	getSettings     getSettingsUseCase
-	updateSettings  updateSettingsUseCase
-	upsertOverride  upsertOverrideUseCase
-	createShipment  createShipmentUseCase
-	getLabel        getLabelUseCase
-	listShipments   listShipmentsUseCase
+	connect             connectMyParcelUseCase
+	registerWebhook     registerWebhookUseCase
+	getSettings         getSettingsUseCase
+	updateSettings      updateSettingsUseCase
+	upsertOverride      upsertOverrideUseCase
+	createShipment      createShipmentUseCase
+	getLabel            getLabelUseCase
+	listShipments       listShipmentsUseCase
+	exportMyParcelOrder exportMyParcelOrderUseCase
 }
 
 func NewHandler(
@@ -70,10 +76,12 @@ func NewHandler(
 	createShipment createShipmentUseCase,
 	getLabel getLabelUseCase,
 	listShipments listShipmentsUseCase,
+	exportMyParcelOrder exportMyParcelOrderUseCase,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
+		exportMyParcelOrder: exportMyParcelOrder,
 	}
 }
 
@@ -230,6 +238,53 @@ func (h *Handler) CreateShipment(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"data": shipmentToResponse(*shipment), "error": nil})
 }
 
+func (h *Handler) ExportMyParcelOrder(c *gin.Context, connectionId openapi_types.UUID, salesOrderId openapi_types.UUID) {
+	var req genshipping.ExportMyParcelOrderJSONRequestBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	userID := ""
+	if claims := middleware.ClaimsFromGin(c); claims != nil {
+		userID = claims.UserID
+	}
+	in := appshipping.ExportMyParcelOrderInput{
+		SalesOrderID: salesOrderId.String(), ConnectionID: connectionId.String(), Carrier: shippingDomain.Carrier(req.Carrier),
+		Recipient: appshipping.RecipientInput{
+			Person: req.Recipient.Person, Street: req.Recipient.Street, City: req.Recipient.City, CC: req.Recipient.Cc,
+		},
+		UserID: userID,
+	}
+	if req.Recipient.Company != nil {
+		in.Recipient.Company = *req.Recipient.Company
+	}
+	if req.Recipient.Number != nil {
+		in.Recipient.Number = *req.Recipient.Number
+	}
+	if req.Recipient.NumberSuffix != nil {
+		in.Recipient.NumberSuffix = *req.Recipient.NumberSuffix
+	}
+	if req.Recipient.PostalCode != nil {
+		in.Recipient.PostalCode = *req.Recipient.PostalCode
+	}
+	if req.Recipient.Email != nil {
+		in.Recipient.Email = *req.Recipient.Email
+	}
+	if req.Recipient.Phone != nil {
+		in.Recipient.Phone = *req.Recipient.Phone
+	}
+
+	order, err := h.exportMyParcelOrder.Execute(c.Request.Context(), in)
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"data": genshipping.MyParcelFulfilmentOrder{
+		Id: &order.ID, ConnectionId: &order.ConnectionID, SalesOrderId: &order.SalesOrderID,
+		MyparcelUuid: &order.MyParcelUUID, Status: &order.Status,
+	}, "error": nil})
+}
+
 func (h *Handler) GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID) {
 	label, err := h.getLabel.Execute(c.Request.Context(), shipmentId.String())
 	if err != nil {
@@ -307,8 +362,10 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	settingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
 	overrideRepo := repositories.NewShippingCarrierOverrideRepo(db)
 	shipmentRepo := repositories.NewShipmentRepo(db)
+	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	myParcelFactory := myparcel.NewClientFactory()
+	recordActivity := appoms.NewRecordSalesOrderActivityUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderActivityRepo(db))
 
 	h := NewHandler(
 		appintegrations.NewConnectMyParcelUseCase(db, connRepo, settingsRepo, outboxRepo, encryptionSecret),
@@ -319,6 +376,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
+		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, myParcelFactory, encryptionSecret, recordActivity),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

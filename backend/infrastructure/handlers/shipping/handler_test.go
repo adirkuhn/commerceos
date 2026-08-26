@@ -93,6 +93,15 @@ func (s *stubListShipments) Execute(context.Context, string) ([]shippingDomain.S
 	return s.result, s.err
 }
 
+type stubExportMyParcelOrder struct {
+	result *shippingDomain.MyParcelFulfilmentOrder
+	err    error
+}
+
+func (s *stubExportMyParcelOrder) Execute(context.Context, appshipping.ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error) {
+	return s.result, s.err
+}
+
 func init() { gin.SetMode(gin.TestMode) }
 
 // newTestRouter mirrors main.go's real wiring exactly: a root engine, an
@@ -111,7 +120,7 @@ func newTestRouter(h *shippinghandler.Handler) *gin.Engine {
 
 func TestConnectMyParcel_201OnSuccess(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "c-1", Provider: "myparcel", Status: "connected"}
-	h := shippinghandler.NewHandler(&stubConnect{conn: conn}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{conn: conn}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"api_key": "test-key"})
@@ -125,7 +134,7 @@ func TestConnectMyParcel_201OnSuccess(t *testing.T) {
 
 func TestUpdateShippingSettings_200WrapsResponseInDataEnvelope(t *testing.T) {
 	settings := &shippingDomain.ShippingConnectionSettings{ConnectionID: "22222222-2222-2222-2222-222222222222", DefaultCarrier: 1, DefaultPackageType: 1, DefaultLabelFormat: "pdf"}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{result: settings}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{result: settings}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"default_carrier": 1, "default_package_type": 1, "default_label_format": "pdf"})
@@ -146,7 +155,7 @@ func TestUpdateShippingSettings_200WrapsResponseInDataEnvelope(t *testing.T) {
 
 func TestUpsertCarrierOverride_200WrapsResponseInDataEnvelope(t *testing.T) {
 	override := &shippingDomain.ShippingCarrierOverride{ConnectionID: "22222222-2222-2222-2222-222222222222", Carrier: 1}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{result: override}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{result: override}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"package_type": nil, "signature_required": nil, "only_recipient": nil})
@@ -169,7 +178,7 @@ func TestUpsertCarrierOverride_200WrapsResponseInDataEnvelope(t *testing.T) {
 func TestCreateShipment_201OnSuccess(t *testing.T) {
 	shipment := &shippingDomain.Shipment{ID: "s-1", SalesOrderID: "order-1", Barcode: "3SMYPA1", StatusMain: "registered"}
 	create := &stubCreateShipment{result: shipment}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -190,7 +199,7 @@ func TestCreateShipment_201OnSuccess(t *testing.T) {
 
 func TestCreateShipment_400OnMissingRecipient(t *testing.T) {
 	create := &stubCreateShipment{err: shippingDomain.ErrMissingRecipient}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -209,7 +218,7 @@ func TestCreateShipment_400OnMissingRecipient(t *testing.T) {
 
 func TestCreateShipment_502OnMyParcelRejection(t *testing.T) {
 	create := &stubCreateShipment{err: assertAnError}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -228,7 +237,7 @@ func TestCreateShipment_502OnMyParcelRejection(t *testing.T) {
 
 func TestGetShipmentLabel_streamsRawBytesWithContentType(t *testing.T) {
 	label := &integrationsDomain.LabelResult{Data: []byte("%PDF-fake"), ContentType: "application/pdf"}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{result: label}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{result: label}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/label", nil)
@@ -241,7 +250,7 @@ func TestGetShipmentLabel_streamsRawBytesWithContentType(t *testing.T) {
 }
 
 func TestRegisterMyParcelWebhook_409OnNoSecretSet(t *testing.T) {
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{err: shippingDomain.ErrWebhookSecretNotSet}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{err: shippingDomain.ErrWebhookSecretNotSet}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/connections/11111111-1111-1111-1111-111111111111/register-webhook", nil)
@@ -258,7 +267,7 @@ func TestUpdateShippingSettings_passesInsuranceAndFulfilmentConfigThrough(t *tes
 		DefaultInsuranceAmountMinorUnits: &insurance, MyParcelAccountID: &accountID, MyParcelShopID: &shopID, AutoPrintEnabled: true,
 	}
 	update := &stubUpdateSettings{result: settings}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -284,7 +293,7 @@ func TestUpsertCarrierOverride_passesInsuranceAmountThrough(t *testing.T) {
 	insurance := 50000
 	override := &shippingDomain.ShippingCarrierOverride{ConnectionID: "22222222-2222-2222-2222-222222222222", Carrier: 1, InsuranceAmountMinorUnits: &insurance}
 	upsert := &stubUpsertOverride{result: override}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, upsert, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, upsert, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{})
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"insurance_amount_minor_units": 50000})
@@ -297,6 +306,49 @@ func TestUpsertCarrierOverride_passesInsuranceAmountThrough(t *testing.T) {
 	require.NotNil(t, upsert.gotIn.InsuranceAmountMinorUnits)
 	assert.Equal(t, 50000, *upsert.gotIn.InsuranceAmountMinorUnits)
 	assert.Contains(t, w.Body.String(), `"insurance_amount_minor_units":50000`)
+}
+
+func TestExportMyParcelOrder_201OnSuccess(t *testing.T) {
+	order := &shippingDomain.MyParcelFulfilmentOrder{
+		ID: "fulfilment-1", ConnectionID: "22222222-2222-2222-2222-222222222222", SalesOrderID: "11111111-1111-1111-1111-111111111111",
+		MyParcelUUID: "order-uuid-1", Status: "open",
+	}
+	export := &stubExportMyParcelOrder{result: order}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, export)
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{
+		"carrier":   1,
+		"recipient": map[string]any{"person": "Jane", "street": "Damrak", "city": "Amsterdam", "cc": "NL"},
+	})
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/v1/shipping/connections/22222222-2222-2222-2222-222222222222/sales-orders/11111111-1111-1111-1111-111111111111/export-order",
+		bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), "order-uuid-1")
+}
+
+func TestExportMyParcelOrder_502OnMyParcelRejection(t *testing.T) {
+	export := &stubExportMyParcelOrder{err: assertAnError}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, export)
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{
+		"carrier":   1,
+		"recipient": map[string]any{"person": "Jane", "street": "Damrak", "city": "Amsterdam", "cc": "NL"},
+	})
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/v1/shipping/connections/22222222-2222-2222-2222-222222222222/sales-orders/11111111-1111-1111-1111-111111111111/export-order",
+		bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusBadGateway, w.Code)
 }
 
 var assertAnError = &testError{"myparcel rejected the shipment"}

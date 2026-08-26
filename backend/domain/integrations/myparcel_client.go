@@ -1,6 +1,9 @@
 package integrations
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // MyParcelAddress is a shipment's structured recipient address -- the shape
 // MyParcel's API requires (street/number/number_suffix split), distinct
@@ -49,6 +52,33 @@ type ShipmentResult struct {
 	Barcode    string
 }
 
+// CreateOrderInput is what ExportMyParcelOrderUseCase needs to export a
+// sales order via MyParcel's Orders/Fulfilment API (POST
+// /fulfilment/orders) -- a separate, real MyParcel endpoint from
+// CreateShipmentInput's /shipments, used for the "export order, let staff
+// confirm the address, then create the shipment" flow (see
+// ExportMyParcelOrderUseCase's doc). AccountID/ShopID are the tenant's own
+// MyParcel merchant identifiers (domain/shipping.ShippingConnectionSettings),
+// required by this endpoint specifically -- Shipments API doesn't need them.
+type CreateOrderInput struct {
+	ExternalIdentifier string
+	OrderDate          time.Time
+	AccountID          int
+	ShopID             int
+	Carrier            int
+	Recipient          MyParcelAddress
+	PackageType        int
+}
+
+// OrderResult is what MyParcel returns for a created order -- UUID is
+// persisted (MyParcelFulfilmentOrderRepository) so a later shipment-create
+// call and idempotency checks (don't re-export an already-exported order)
+// can look it back up.
+type OrderResult struct {
+	UUID   string
+	Status string
+}
+
 // LabelResult is a fetched shipment label -- Data is the raw response body
 // (a PDF by default; ZPL if requested, see GetLabel's Format parameter),
 // ContentType is the response's Content-Type header, passed straight
@@ -74,6 +104,9 @@ type TrackTraceResult struct {
 // by infrastructure/myparcel.
 type MyParcelClient interface {
 	CreateShipment(ctx context.Context, in CreateShipmentInput) (ShipmentResult, error)
+	// CreateOrder exports an order via MyParcel's Orders/Fulfilment API --
+	// see CreateOrderInput's doc for how this differs from CreateShipment.
+	CreateOrder(ctx context.Context, in CreateOrderInput) (OrderResult, error)
 	// GetLabel fetches a shipment's label. format is "pdf" or "zpl" (see
 	// domain/shipping.LabelFormatPDF/LabelFormatZPL).
 	GetLabel(ctx context.Context, myParcelShipmentID int64, format string) (LabelResult, error)

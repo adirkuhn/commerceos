@@ -49,6 +49,12 @@ const (
 	authHeader = "Authorization"
 
 	shipmentAccept = "application/vnd.shipment+json;charset=utf-8;version=1.1"
+
+	// orderAccept is the Orders/Fulfilment API's content type -- plain
+	// JSON, unlike Shipments' versioned vnd.shipment+json. Per the docs
+	// fetched during design (13.orders.html); not yet confirmed against a
+	// real sandbox response -- see the package doc comment's caveats.
+	orderAccept = "application/json;charset=utf-8"
 )
 
 type Client struct {
@@ -159,6 +165,12 @@ type ShipmentResult struct {
 	Barcode    string
 }
 
+// OrderResult is this package's own response shape for CreateOrder.
+type OrderResult struct {
+	UUID   string
+	Status string
+}
+
 type LabelResult struct {
 	Data        []byte
 	ContentType string
@@ -248,6 +260,86 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 	}
 	s := resp.Data.Shipments[0]
 	return ShipmentResult{ShipmentID: s.ID, Barcode: s.Barcode}, nil
+}
+
+// --- Orders (Fulfilment API) ---
+
+// OrderInput is this package's own request shape for CreateOrder -- kept
+// separate from domain/integrations.CreateOrderInput the same way
+// ShipmentInput is kept separate from CreateShipmentInput (see the comment
+// above ShipmentInput); adapter.go maps between the two.
+type OrderInput struct {
+	ExternalIdentifier string
+	OrderDate          time.Time
+	AccountID          int
+	ShopID             int
+	Carrier            int
+	Recipient          Recipient
+	PackageType        int
+}
+
+type orderShipment struct {
+	Carrier   int             `json:"carrier"`
+	Recipient recipient       `json:"recipient"`
+	Options   shipmentOptions `json:"options"`
+}
+
+type createOrderRequest struct {
+	ExternalIdentifier string        `json:"external_identifier"`
+	OrderDate          string        `json:"order_date"`
+	AccountID          int           `json:"account_id"`
+	ShopID             int           `json:"shop_id"`
+	Shipment           orderShipment `json:"shipment"`
+}
+
+type ordersEnvelope struct {
+	Data struct {
+		Orders []struct {
+			UUID   string `json:"uuid"`
+			Status string `json:"status"`
+		} `json:"orders"`
+	} `json:"data"`
+}
+
+// CreateOrder exports one order via MyParcel's Orders/Fulfilment API
+// (POST /fulfilment/orders) -- see the package doc comment's caveats;
+// this endpoint specifically has not been exercised against a real
+// sandbox response during this build (needs verification with real
+// credentials before relying on it in production, same open item as the
+// rest of this integration -- see project memory on Bol/MyParcel
+// verification).
+func (c *Client) CreateOrder(ctx context.Context, in OrderInput) (OrderResult, error) {
+	req := struct {
+		Data struct {
+			Orders []createOrderRequest `json:"orders"`
+		} `json:"data"`
+	}{}
+	req.Data.Orders = []createOrderRequest{{
+		ExternalIdentifier: in.ExternalIdentifier,
+		OrderDate:          in.OrderDate.Format("2006-01-02 15:04:05"),
+		AccountID:          in.AccountID,
+		ShopID:             in.ShopID,
+		Shipment: orderShipment{
+			Carrier: in.Carrier,
+			Recipient: recipient{
+				Person: in.Recipient.Person, Company: in.Recipient.Company,
+				Street: in.Recipient.Street, Number: in.Recipient.Number, NumberSuffix: in.Recipient.NumberSuffix,
+				PostalCode: in.Recipient.PostalCode, City: in.Recipient.City, CC: in.Recipient.CC,
+				Email: in.Recipient.Email, Phone: in.Recipient.Phone,
+			},
+			Options: shipmentOptions{PackageType: in.PackageType},
+		},
+	}}
+
+	var resp ordersEnvelope
+	if err := c.doJSON(ctx, http.MethodPost, "/fulfilment/orders", orderAccept, req, &resp); err != nil {
+		return OrderResult{}, err
+	}
+	if len(resp.Data.Orders) == 0 {
+		return OrderResult{}, fmt.Errorf("myparcel: create order: empty response")
+	}
+	o := resp.Data.Orders[0]
+	return OrderResult{UUID: o.UUID, Status: o.Status}, nil
 }
 
 // GetLabel fetches a shipment's label. format is "pdf" or "zpl" -- see

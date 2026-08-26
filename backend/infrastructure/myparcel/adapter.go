@@ -34,6 +34,23 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 	return integrationsDomain.ShipmentResult{ShipmentID: r.ShipmentID, Barcode: r.Barcode}, nil
 }
 
+func (a *Adapter) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
+	r, err := a.client.CreateOrder(ctx, OrderInput{
+		ExternalIdentifier: in.ExternalIdentifier, OrderDate: in.OrderDate, AccountID: in.AccountID, ShopID: in.ShopID,
+		Carrier: in.Carrier, PackageType: in.PackageType,
+		Recipient: Recipient{
+			Person: in.Recipient.Person, Company: in.Recipient.Company,
+			Street: in.Recipient.Street, Number: in.Recipient.Number, NumberSuffix: in.Recipient.NumberSuffix,
+			PostalCode: in.Recipient.PostalCode, City: in.Recipient.City, CC: in.Recipient.CC,
+			Email: in.Recipient.Email, Phone: in.Recipient.Phone,
+		},
+	})
+	if err != nil {
+		return integrationsDomain.OrderResult{}, err
+	}
+	return integrationsDomain.OrderResult{UUID: r.UUID, Status: r.Status}, nil
+}
+
 func insuranceAmountOrZero(amount *int) int {
 	if amount == nil {
 		return 0

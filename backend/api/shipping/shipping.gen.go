@@ -108,6 +108,27 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// ExportMyParcelOrderRequest defines model for ExportMyParcelOrderRequest.
+type ExportMyParcelOrderRequest struct {
+	Carrier   int              `json:"carrier"`
+	Recipient RecipientAddress `json:"recipient"`
+}
+
+// MyParcelFulfilmentOrder defines model for MyParcelFulfilmentOrder.
+type MyParcelFulfilmentOrder struct {
+	ConnectionId *string `json:"connection_id,omitempty"`
+	Id           *string `json:"id,omitempty"`
+	MyparcelUuid *string `json:"myparcel_uuid,omitempty"`
+	SalesOrderId *string `json:"sales_order_id,omitempty"`
+	Status       *string `json:"status,omitempty"`
+}
+
+// MyParcelFulfilmentOrderResponse defines model for MyParcelFulfilmentOrderResponse.
+type MyParcelFulfilmentOrderResponse struct {
+	Data  *MyParcelFulfilmentOrder `json:"data,omitempty"`
+	Error interface{}              `json:"error,omitempty"`
+}
+
 // OkResponse defines model for OkResponse.
 type OkResponse struct {
 	Data *struct {
@@ -227,6 +248,9 @@ type ConnectMyParcelJSONBody struct {
 // UpsertCarrierOverrideJSONRequestBody defines body for UpsertCarrierOverride for application/json ContentType.
 type UpsertCarrierOverrideJSONRequestBody = UpsertCarrierOverrideRequest
 
+// ExportMyParcelOrderJSONRequestBody defines body for ExportMyParcelOrder for application/json ContentType.
+type ExportMyParcelOrderJSONRequestBody = ExportMyParcelOrderRequest
+
 // UpdateShippingSettingsJSONRequestBody defines body for UpdateShippingSettings for application/json ContentType.
 type UpdateShippingSettingsJSONRequestBody = UpdateShippingSettingsRequest
 
@@ -244,6 +268,9 @@ type ServerInterface interface {
 	// RegisterMyParcelWebhook Register (or re-register) this connection's shipment-status callback URL with MyParcel
 	// (POST /shipping/connections/{connectionId}/register-webhook)
 	RegisterMyParcelWebhook(c *gin.Context, connectionId ConnectionId)
+	// ExportMyParcelOrder Export a sales order via MyParcel's Orders/Fulfilment API -- step one of the Sales Order detail page's "Create label" flow, before the user confirms the address and createShipment actually creates the shipment. Idempotent: re-calling for an already-exported order returns the existing export instead of creating a duplicate MyParcel order.
+	// (POST /shipping/connections/{connectionId}/sales-orders/{salesOrderId}/export-order)
+	ExportMyParcelOrder(c *gin.Context, connectionId openapi_types.UUID, salesOrderId openapi_types.UUID)
 	// GetShippingSettings Get a connection's global defaults + every per-carrier override
 	// (GET /shipping/connections/{connectionId}/settings)
 	GetShippingSettings(c *gin.Context, connectionId ConnectionId)
@@ -330,6 +357,40 @@ func (siw *ServerInterfaceWrapper) RegisterMyParcelWebhook(c *gin.Context) {
 	}
 
 	siw.Handler.RegisterMyParcelWebhook(c, connectionId)
+}
+
+// ExportMyParcelOrder operation middleware
+func (siw *ServerInterfaceWrapper) ExportMyParcelOrder(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "connectionId" -------------
+	var connectionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "connectionId", c.Param("connectionId"), &connectionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter connectionId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "salesOrderId" -------------
+	var salesOrderId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "salesOrderId", c.Param("salesOrderId"), &salesOrderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter salesOrderId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ExportMyParcelOrder(c, connectionId, salesOrderId)
 }
 
 // GetShippingSettings operation middleware
@@ -491,6 +552,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/shipping/connections/:connectionId/settings", wrapper.UpdateShippingSettings)
 	router.PUT(options.BaseURL+"/shipping/connections/:connectionId/carrier-overrides/:carrier", wrapper.UpsertCarrierOverride)
 	router.POST(options.BaseURL+"/shipping/shipments", wrapper.CreateShipment)
+	router.POST(options.BaseURL+"/shipping/connections/:connectionId/sales-orders/:salesOrderId/export-order", wrapper.ExportMyParcelOrder)
 	router.GET(options.BaseURL+"/shipping/sales-orders/:salesOrderId/shipments", wrapper.ListShipmentsForOrder)
 	router.GET(options.BaseURL+"/shipping/shipments/:shipmentId/label", wrapper.GetShipmentLabel)
 }
@@ -500,41 +562,45 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"AQAA//8=",
+	"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",
+	"nyren5+S5c3y3wEAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
