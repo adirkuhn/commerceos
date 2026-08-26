@@ -91,10 +91,32 @@ func (s *stubListShipments) Execute(context.Context, string) ([]shippingDomain.S
 
 func init() { gin.SetMode(gin.TestMode) }
 
+// newTestRouter mirrors main.go's real wiring exactly: a root engine, an
+// "/api/v1" group, then shipping's own sub-group off that (v1.Group("") in
+// main.go) -- NOT a bare root router. Registering directly on a bare root
+// router hid the double-prefix bug (BaseURL "/api/v1" applied on top of a
+// group already mounted at "/api/v1") since every request in this file
+// still happened to resolve.
 func newTestRouter(h *shippinghandler.Handler) *gin.Engine {
 	r := gin.New()
-	genshipping.RegisterHandlersWithOptions(r, h, genshipping.GinServerOptions{BaseURL: "/api/v1"})
+	v1 := r.Group("/api/v1")
+	shippingGroup := v1.Group("")
+	genshipping.RegisterHandlersWithOptions(shippingGroup, h, genshipping.GinServerOptions{})
 	return r
+}
+
+func TestConnectMyParcel_201OnSuccess(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "c-1", Provider: "myparcel", Status: "connected"}
+	h := shippinghandler.NewHandler(&stubConnect{conn: conn}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{"api_key": "test-key"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/myparcel/connect", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestCreateShipment_201OnSuccess(t *testing.T) {

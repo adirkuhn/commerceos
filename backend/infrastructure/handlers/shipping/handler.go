@@ -308,5 +308,5 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 	)
-	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{BaseURL: "/api/v1"})
+	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }
