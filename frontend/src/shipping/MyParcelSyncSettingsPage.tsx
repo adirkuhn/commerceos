@@ -26,6 +26,10 @@ export default function MyParcelSyncSettingsPage({
   const [defaultLabelFormat, setDefaultLabelFormat] = useState<'pdf' | 'zpl'>('pdf')
   const [defaultSignatureRequired, setDefaultSignatureRequired] = useState(false)
   const [defaultOnlyRecipient, setDefaultOnlyRecipient] = useState(false)
+  const [defaultInsuranceAmount, setDefaultInsuranceAmount] = useState<number | ''>('')
+  const [myparcelAccountId, setMyparcelAccountId] = useState<number | ''>('')
+  const [myparcelShopId, setMyparcelShopId] = useState<number | ''>('')
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
   const [overrides, setOverrides] = useState<ShippingCarrierOverride[]>([])
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [settingsError, setSettingsError] = useState('')
@@ -44,6 +48,10 @@ export default function MyParcelSyncSettingsPage({
           setDefaultLabelFormat(result.settings.default_label_format)
           setDefaultSignatureRequired(result.settings.default_signature_required)
           setDefaultOnlyRecipient(result.settings.default_only_recipient)
+          setDefaultInsuranceAmount(result.settings.default_insurance_amount_minor_units ?? '')
+          setMyparcelAccountId(result.settings.myparcel_account_id ?? '')
+          setMyparcelShopId(result.settings.myparcel_shop_id ?? '')
+          setAutoPrintEnabled(result.settings.auto_print_enabled)
         }
         setOverrides(result.carrier_overrides)
       })
@@ -77,6 +85,10 @@ export default function MyParcelSyncSettingsPage({
       await api.updateShippingSettings(token, connectionId, {
         default_carrier: defaultCarrier, default_package_type: defaultPackageType, default_label_format: defaultLabelFormat,
         default_signature_required: defaultSignatureRequired, default_only_recipient: defaultOnlyRecipient,
+        default_insurance_amount_minor_units: defaultInsuranceAmount === '' ? null : defaultInsuranceAmount,
+        myparcel_account_id: myparcelAccountId === '' ? null : myparcelAccountId,
+        myparcel_shop_id: myparcelShopId === '' ? null : myparcelShopId,
+        auto_print_enabled: autoPrintEnabled,
       })
       setSavedNote('Saved')
     } catch (err) {
@@ -90,13 +102,14 @@ export default function MyParcelSyncSettingsPage({
     return overrides.find(o => o.carrier === carrier)
   }
 
-  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient', value: number | boolean | null) {
+  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient' | 'insurance_amount_minor_units', value: number | boolean | null) {
     if (!token || !connectionId) return
     const current = overrideFor(carrier)
     const input = {
       package_type: current?.package_type ?? null,
       signature_required: current?.signature_required ?? null,
       only_recipient: current?.only_recipient ?? null,
+      insurance_amount_minor_units: current?.insurance_amount_minor_units ?? null,
       [field]: value,
     }
     try {
@@ -183,6 +196,55 @@ export default function MyParcelSyncSettingsPage({
                   Only recipient
                 </label>
               </div>
+              <div>
+                <label htmlFor="default-insurance-amount" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">
+                  Default insurance amount (cents, blank = not insured)
+                </label>
+                <input
+                  id="default-insurance-amount"
+                  type="number"
+                  min={0}
+                  value={defaultInsuranceAmount}
+                  onChange={e => setDefaultInsuranceAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+                />
+                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                  Insuring a shipment forces "Signature required" and "Only recipient" -- required by MyParcel whenever insurance is set.
+                </p>
+              </div>
+              <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 pt-2">MyParcel fulfilment account</h3>
+              <p className="text-[10px] dark:text-gray-500 text-gray-400 -mt-2">
+                Required to export orders via MyParcel's Orders API before creating a label -- find these in your MyParcel account settings.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="myparcel-account-id" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Account ID</label>
+                  <input
+                    id="myparcel-account-id"
+                    type="number"
+                    value={myparcelAccountId}
+                    onChange={e => setMyparcelAccountId(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="myparcel-shop-id" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Shop ID</label>
+                  <input
+                    id="myparcel-shop-id"
+                    type="number"
+                    value={myparcelShopId}
+                    onChange={e => setMyparcelShopId(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                <input type="checkbox" checked={autoPrintEnabled} onChange={e => setAutoPrintEnabled(e.target.checked)} />
+                Auto-print labels
+              </label>
+              <p className="text-[10px] dark:text-gray-500 text-gray-400 -mt-2">
+                Opens the print dialog automatically once a label is created, instead of requiring a manual click. You still pick the printer yourself -- this isn't silent printing.
+              </p>
               {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
               {savedNote && <p className="text-xs text-green-400">{savedNote}</p>}
               <button
@@ -220,6 +282,15 @@ export default function MyParcelSyncSettingsPage({
                         />
                         Signature
                       </label>
+                      <input
+                        type="number"
+                        min={0}
+                        aria-label={`${c.label} insurance amount override (cents)`}
+                        placeholder="Insurance (cents)"
+                        value={o?.insurance_amount_minor_units ?? ''}
+                        onChange={e => handleOverrideChange(c.id, 'insurance_amount_minor_units', e.target.value === '' ? null : Number(e.target.value))}
+                        className="w-32 px-2 py-1 text-[11px] rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+                      />
                     </div>
                   )
                 })}

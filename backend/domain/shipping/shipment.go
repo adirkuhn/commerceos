@@ -144,8 +144,27 @@ type ShippingConnectionSettings struct {
 	DefaultLabelFormat       string
 	DefaultSignatureRequired bool
 	DefaultOnlyRecipient     bool
-	CreatedAt                time.Time
-	UpdatedAt                time.Time
+	// DefaultInsuranceAmountMinorUnits nil means "not insured by default" --
+	// unlike the other Default* fields, insurance has no sensible zero
+	// value (0 could mean either "no insurance" or "MyParcel's own €0
+	// default"), so this stays a pointer even at the connection-default
+	// layer. See ResolveOptions for the mandatory-signature/only_recipient
+	// rule MyParcel imposes whenever this resolves non-nil and > 0.
+	DefaultInsuranceAmountMinorUnits *int
+	// MyParcelAccountID/MyParcelShopID are the tenant's own MyParcel
+	// merchant account/shop identifiers -- required by MyParcel's
+	// Orders/Fulfilment API (ExportMyParcelOrderUseCase), not secrets, so
+	// unlike the API key they're plain columns here rather than encrypted.
+	MyParcelAccountID *int
+	MyParcelShopID    *int
+	// AutoPrintEnabled: once a shipment/label is created, auto-open the
+	// print view (window.print()) instead of requiring a manual "Print"
+	// click. Not silent printing -- the OS print dialog still appears --
+	// see MyParcelSyncSettingsPage's doc for why (cloud-hosted backend,
+	// LAN-local printer, no print-agent infra).
+	AutoPrintEnabled bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // ShippingCarrierOverride overrides ShippingConnectionSettings' defaults for
@@ -162,6 +181,9 @@ type ShippingCarrierOverride struct {
 	PackageType       *PackageType
 	SignatureRequired *bool
 	OnlyRecipient     *bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// InsuranceAmountMinorUnits nil means "fall back to the connection's
+	// default" -- same convention as PackageType/SignatureRequired/OnlyRecipient.
+	InsuranceAmountMinorUnits *int
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }

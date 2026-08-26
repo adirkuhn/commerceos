@@ -142,10 +142,16 @@ func (h *Handler) UpdateShippingSettings(c *gin.Context, connectionId genshippin
 	if req.DefaultSignatureRequired != nil {
 		sig = *req.DefaultSignatureRequired
 	}
+	autoPrint := false
+	if req.AutoPrintEnabled != nil {
+		autoPrint = *req.AutoPrintEnabled
+	}
 	settings, err := h.updateSettings.Execute(c.Request.Context(), appshipping.UpdateShippingSettingsInput{
 		ConnectionID: connectionId.String(), DefaultCarrier: shippingDomain.Carrier(req.DefaultCarrier),
 		DefaultPackageType: shippingDomain.PackageType(req.DefaultPackageType), DefaultLabelFormat: string(req.DefaultLabelFormat),
 		DefaultSignatureRequired: sig, DefaultOnlyRecipient: onlyRecipient,
+		DefaultInsuranceAmountMinorUnits: req.DefaultInsuranceAmountMinorUnits,
+		MyParcelAccountID:                req.MyparcelAccountId, MyParcelShopID: req.MyparcelShopId, AutoPrintEnabled: autoPrint,
 	})
 	if err != nil {
 		mapErr(c, err)
@@ -168,6 +174,7 @@ func (h *Handler) UpsertCarrierOverride(c *gin.Context, connectionId genshipping
 	override, err := h.upsertOverride.Execute(c.Request.Context(), appshipping.UpsertCarrierOverrideInput{
 		ConnectionID: connectionId.String(), Carrier: shippingDomain.Carrier(carrier),
 		PackageType: packageType, SignatureRequired: req.SignatureRequired, OnlyRecipient: req.OnlyRecipient,
+		InsuranceAmountMinorUnits: req.InsuranceAmountMinorUnits,
 	})
 	if err != nil {
 		mapErr(c, err)
@@ -254,12 +261,17 @@ func settingsToResponse(s *shippingDomain.ShippingConnectionSettings) *genshippi
 	return &genshipping.ShippingConnectionSettings{
 		ConnectionId: &s.ConnectionID, DefaultCarrier: &carrier, DefaultPackageType: &pkgType,
 		DefaultLabelFormat: &format, DefaultSignatureRequired: &s.DefaultSignatureRequired, DefaultOnlyRecipient: &s.DefaultOnlyRecipient,
+		DefaultInsuranceAmountMinorUnits: s.DefaultInsuranceAmountMinorUnits,
+		MyparcelAccountId:                s.MyParcelAccountID, MyparcelShopId: s.MyParcelShopID, AutoPrintEnabled: &s.AutoPrintEnabled,
 	}
 }
 
 func overrideToResponse(o shippingDomain.ShippingCarrierOverride) genshipping.ShippingCarrierOverride {
 	carrier := int(o.Carrier)
-	resp := genshipping.ShippingCarrierOverride{ConnectionId: &o.ConnectionID, Carrier: &carrier, SignatureRequired: o.SignatureRequired, OnlyRecipient: o.OnlyRecipient}
+	resp := genshipping.ShippingCarrierOverride{
+		ConnectionId: &o.ConnectionID, Carrier: &carrier, SignatureRequired: o.SignatureRequired, OnlyRecipient: o.OnlyRecipient,
+		InsuranceAmountMinorUnits: o.InsuranceAmountMinorUnits,
+	}
 	if o.PackageType != nil {
 		pt := int(*o.PackageType)
 		resp.PackageType = &pt

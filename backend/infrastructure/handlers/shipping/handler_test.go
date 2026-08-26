@@ -45,18 +45,22 @@ func (s *stubGetSettings) Execute(context.Context, string) (*appshipping.Shippin
 type stubUpdateSettings struct {
 	result *shippingDomain.ShippingConnectionSettings
 	err    error
+	gotIn  appshipping.UpdateShippingSettingsInput
 }
 
-func (s *stubUpdateSettings) Execute(context.Context, appshipping.UpdateShippingSettingsInput) (*shippingDomain.ShippingConnectionSettings, error) {
+func (s *stubUpdateSettings) Execute(_ context.Context, in appshipping.UpdateShippingSettingsInput) (*shippingDomain.ShippingConnectionSettings, error) {
+	s.gotIn = in
 	return s.result, s.err
 }
 
 type stubUpsertOverride struct {
 	result *shippingDomain.ShippingCarrierOverride
 	err    error
+	gotIn  appshipping.UpsertCarrierOverrideInput
 }
 
-func (s *stubUpsertOverride) Execute(context.Context, appshipping.UpsertCarrierOverrideInput) (*shippingDomain.ShippingCarrierOverride, error) {
+func (s *stubUpsertOverride) Execute(_ context.Context, in appshipping.UpsertCarrierOverrideInput) (*shippingDomain.ShippingCarrierOverride, error) {
+	s.gotIn = in
 	return s.result, s.err
 }
 
@@ -245,6 +249,54 @@ func TestRegisterMyParcelWebhook_409OnNoSecretSet(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestUpdateShippingSettings_passesInsuranceAndFulfilmentConfigThrough(t *testing.T) {
+	accountID, shopID, insurance := 111, 222, 50000
+	settings := &shippingDomain.ShippingConnectionSettings{
+		ConnectionID: "22222222-2222-2222-2222-222222222222", DefaultCarrier: 1, DefaultPackageType: 1, DefaultLabelFormat: "pdf",
+		DefaultInsuranceAmountMinorUnits: &insurance, MyParcelAccountID: &accountID, MyParcelShopID: &shopID, AutoPrintEnabled: true,
+	}
+	update := &stubUpdateSettings{result: settings}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{
+		"default_carrier": 1, "default_package_type": 1, "default_label_format": "pdf",
+		"default_insurance_amount_minor_units": 50000, "myparcel_account_id": 111, "myparcel_shop_id": 222, "auto_print_enabled": true,
+	})
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/shipping/connections/22222222-2222-2222-2222-222222222222/settings", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, update.gotIn.DefaultInsuranceAmountMinorUnits)
+	assert.Equal(t, 50000, *update.gotIn.DefaultInsuranceAmountMinorUnits)
+	require.NotNil(t, update.gotIn.MyParcelAccountID)
+	assert.Equal(t, 111, *update.gotIn.MyParcelAccountID)
+	assert.True(t, update.gotIn.AutoPrintEnabled)
+	assert.Contains(t, w.Body.String(), `"auto_print_enabled":true`)
+	assert.Contains(t, w.Body.String(), `"myparcel_account_id":111`)
+}
+
+func TestUpsertCarrierOverride_passesInsuranceAmountThrough(t *testing.T) {
+	insurance := 50000
+	override := &shippingDomain.ShippingCarrierOverride{ConnectionID: "22222222-2222-2222-2222-222222222222", Carrier: 1, InsuranceAmountMinorUnits: &insurance}
+	upsert := &stubUpsertOverride{result: override}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, upsert, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{})
+	r := newTestRouter(h)
+
+	body, _ := json.Marshal(map[string]any{"insurance_amount_minor_units": 50000})
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/shipping/connections/22222222-2222-2222-2222-222222222222/carrier-overrides/1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, upsert.gotIn.InsuranceAmountMinorUnits)
+	assert.Equal(t, 50000, *upsert.gotIn.InsuranceAmountMinorUnits)
+	assert.Contains(t, w.Body.String(), `"insurance_amount_minor_units":50000`)
 }
 
 var assertAnError = &testError{"myparcel rejected the shipment"}

@@ -143,6 +143,8 @@ type Options struct {
 	PackageType       int
 	SignatureRequired bool
 	OnlyRecipient     bool
+	// InsuranceAmountMinorUnits 0 means not insured.
+	InsuranceAmountMinorUnits int
 }
 
 type ShipmentInput struct {
@@ -180,10 +182,16 @@ type recipient struct {
 	Phone        string `json:"phone,omitempty"`
 }
 
+type insuranceOption struct {
+	Amount   int    `json:"amount"`
+	Currency string `json:"currency"`
+}
+
 type shipmentOptions struct {
-	PackageType   int  `json:"package_type"`
-	Signature     bool `json:"signature,omitempty"`
-	OnlyRecipient bool `json:"only_recipient,omitempty"`
+	PackageType   int              `json:"package_type"`
+	Signature     bool             `json:"signature,omitempty"`
+	OnlyRecipient bool             `json:"only_recipient,omitempty"`
+	Insurance     *insuranceOption `json:"insurance,omitempty"`
 }
 
 type createShipmentRequest struct {
@@ -213,6 +221,12 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 			Shipments []createShipmentRequest `json:"shipments"`
 		} `json:"data"`
 	}{}
+	options := shipmentOptions{
+		PackageType: in.Options.PackageType, Signature: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
+	}
+	if in.Options.InsuranceAmountMinorUnits > 0 {
+		options.Insurance = &insuranceOption{Amount: in.Options.InsuranceAmountMinorUnits, Currency: "EUR"}
+	}
 	req.Data.Shipments = []createShipmentRequest{{
 		Carrier: in.Carrier,
 		Recipient: recipient{
@@ -221,9 +235,7 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 			PostalCode: in.Recipient.PostalCode, City: in.Recipient.City, CC: in.Recipient.CC,
 			Email: in.Recipient.Email, Phone: in.Recipient.Phone,
 		},
-		Options: shipmentOptions{
-			PackageType: in.Options.PackageType, Signature: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
-		},
+		Options:             options,
 		ReferenceIdentifier: in.OrderReference,
 	}}
 

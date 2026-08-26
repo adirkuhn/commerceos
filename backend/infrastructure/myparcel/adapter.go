@@ -24,6 +24,7 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 		},
 		Options: Options{
 			PackageType: in.Options.PackageType, SignatureRequired: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
+			InsuranceAmountMinorUnits: insuranceAmountOrZero(in.Options.InsuranceAmountMinorEUR),
 		},
 		OrderReference: in.OrderReference,
 	})
@@ -31,6 +32,13 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 		return integrationsDomain.ShipmentResult{}, err
 	}
 	return integrationsDomain.ShipmentResult{ShipmentID: r.ShipmentID, Barcode: r.Barcode}, nil
+}
+
+func insuranceAmountOrZero(amount *int) int {
+	if amount == nil {
+		return 0
+	}
+	return *amount
 }
 
 func (a *Adapter) GetLabel(ctx context.Context, myParcelShipmentID int64, format string) (integrationsDomain.LabelResult, error) {

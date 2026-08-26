@@ -122,6 +122,44 @@ func TestCreateShipment_perShipmentOverride_winsOverConnectionDefault(t *testing
 	assert.True(t, gotCreateInput.Options.SignatureRequired)
 }
 
+func TestCreateShipment_insuranceOverride_setsInsuranceAndForcesSignatureOnlyRecipient(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) {
+			return &shippingDomain.ShippingConnectionSettings{DefaultPackageType: shippingDomain.PackageTypePackage}, nil
+		},
+	}
+	overrideRepo := &fakeShippingCarrierOverrideRepo{
+		findByConnectionAndCarrierFn: func(_ context.Context, _ string, _ shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+			return nil, nil
+		},
+	}
+	var gotCreateInput integrationsDomain.CreateShipmentInput
+	client := &fakeMyParcelClient{
+		createShipmentFn: func(_ context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
+			gotCreateInput = in
+			return integrationsDomain.ShipmentResult{ShipmentID: 1, Barcode: "b"}, nil
+		},
+	}
+	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
+	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+
+	amount := 50000
+	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
+	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
+		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),
+		InsuranceAmountMinorUnits: &amount,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, gotCreateInput.Options.InsuranceAmountMinorEUR)
+	assert.Equal(t, 50000, *gotCreateInput.Options.InsuranceAmountMinorEUR)
+	assert.True(t, gotCreateInput.Options.SignatureRequired, "MyParcel requires signature whenever a shipment is insured")
+	assert.True(t, gotCreateInput.Options.OnlyRecipient, "MyParcel requires only_recipient whenever a shipment is insured")
+}
+
 func TestCreateShipment_incompleteRecipient_returnsErrMissingRecipient(t *testing.T) {
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 0), &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{},
 		&fakeShippingCarrierOverrideRepo{}, &fakeShipmentRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)

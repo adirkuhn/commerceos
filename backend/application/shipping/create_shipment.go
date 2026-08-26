@@ -37,10 +37,11 @@ type CreateShipmentInput struct {
 	// PackageType/SignatureRequired/OnlyRecipient/LabelFormat are optional
 	// per-shipment overrides on top of ResolveOptions' connection/carrier
 	// defaults -- nil/empty means "use the resolved default."
-	PackageType       *shippingDomain.PackageType
-	SignatureRequired *bool
-	OnlyRecipient     *bool
-	LabelFormat       string
+	PackageType               *shippingDomain.PackageType
+	SignatureRequired         *bool
+	OnlyRecipient             *bool
+	LabelFormat               string
+	InsuranceAmountMinorUnits *int
 }
 
 // CreateShipmentUseCase is the pick/pack "Create shipping label" action:
@@ -113,6 +114,13 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if in.LabelFormat != "" {
 		resolved.LabelFormat = in.LabelFormat
 	}
+	if in.InsuranceAmountMinorUnits != nil {
+		resolved.InsuranceAmountMinorUnits = in.InsuranceAmountMinorUnits
+		if *in.InsuranceAmountMinorUnits > 0 {
+			resolved.SignatureRequired = true
+			resolved.OnlyRecipient = true
+		}
+	}
 
 	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
 	if err != nil {
@@ -131,6 +139,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		Carrier: int(in.Carrier),
 		Options: integrationsDomain.MyParcelShipmentOptions{
 			PackageType: int(resolved.PackageType), SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
+			InsuranceAmountMinorEUR: resolved.InsuranceAmountMinorUnits,
 		},
 		OrderReference: in.SalesOrderID,
 	})
@@ -143,7 +152,8 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		Carrier: in.Carrier, MyParcelShipmentID: result.ShipmentID, Barcode: result.Barcode,
 		Status: 0, StatusMain: "registered", LabelFormat: resolved.LabelFormat,
 		PackageType: resolved.PackageType, SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
-		RecipientPerson: r.Person, RecipientCompany: r.Company, RecipientStreet: r.Street,
+		InsuranceAmountMinorEUR: resolved.InsuranceAmountMinorUnits,
+		RecipientPerson:         r.Person, RecipientCompany: r.Company, RecipientStreet: r.Street,
 		RecipientNumber: r.Number, RecipientNumberSuffix: r.NumberSuffix, RecipientPostalCode: r.PostalCode,
 		RecipientCity: r.City, RecipientCC: r.CC, RecipientEmail: r.Email, RecipientPhone: r.Phone,
 	}

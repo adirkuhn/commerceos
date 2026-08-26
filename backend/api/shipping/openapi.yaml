@@ -232,6 +232,10 @@ components:
         default_label_format: { type: string, enum: [pdf, zpl] }
         default_signature_required: { type: boolean }
         default_only_recipient: { type: boolean }
+        default_insurance_amount_minor_units: { type: integer, nullable: true }
+        myparcel_account_id: { type: integer, nullable: true }
+        myparcel_shop_id: { type: integer, nullable: true }
+        auto_print_enabled: { type: boolean }
 
     ShippingCarrierOverride:
       type: object
@@ -241,6 +245,7 @@ components:
         package_type: { type: integer, nullable: true }
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
+        insurance_amount_minor_units: { type: integer, nullable: true }
 
     ShippingSettingsResponse:
       type: object
@@ -265,6 +270,10 @@ components:
         default_label_format: { type: string, enum: [pdf, zpl] }
         default_signature_required: { type: boolean }
         default_only_recipient: { type: boolean }
+        default_insurance_amount_minor_units: { type: integer, nullable: true }
+        myparcel_account_id: { type: integer, nullable: true }
+        myparcel_shop_id: { type: integer, nullable: true }
+        auto_print_enabled: { type: boolean }
 
     UpsertCarrierOverrideRequest:
       type: object
@@ -272,6 +281,7 @@ components:
         package_type: { type: integer, nullable: true }
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
+        insurance_amount_minor_units: { type: integer, nullable: true }
 
     RecipientAddress:
       type: object

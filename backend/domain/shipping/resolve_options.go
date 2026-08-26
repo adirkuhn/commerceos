@@ -9,6 +9,8 @@ type ResolvedOptions struct {
 	LabelFormat       string
 	SignatureRequired bool
 	OnlyRecipient     bool
+	// InsuranceAmountMinorUnits nil/0 means not insured.
+	InsuranceAmountMinorUnits *int
 }
 
 // ResolveOptions layers, in priority order: a ShippingCarrierOverride field
@@ -29,6 +31,7 @@ func ResolveOptions(settings *ShippingConnectionSettings, override *ShippingCarr
 		out.LabelFormat = settings.DefaultLabelFormat
 		out.SignatureRequired = settings.DefaultSignatureRequired
 		out.OnlyRecipient = settings.DefaultOnlyRecipient
+		out.InsuranceAmountMinorUnits = settings.DefaultInsuranceAmountMinorUnits
 	}
 	if override != nil {
 		if override.PackageType != nil {
@@ -40,6 +43,16 @@ func ResolveOptions(settings *ShippingConnectionSettings, override *ShippingCarr
 		if override.OnlyRecipient != nil {
 			out.OnlyRecipient = *override.OnlyRecipient
 		}
+		if override.InsuranceAmountMinorUnits != nil {
+			out.InsuranceAmountMinorUnits = override.InsuranceAmountMinorUnits
+		}
+	}
+	// MyParcel requires only_recipient and signature whenever a shipment is
+	// insured (see MyParcel's shipment-options docs) -- enforced here, not
+	// left as tribal knowledge callers must remember.
+	if out.InsuranceAmountMinorUnits != nil && *out.InsuranceAmountMinorUnits > 0 {
+		out.SignatureRequired = true
+		out.OnlyRecipient = true
 	}
 	return out
 }

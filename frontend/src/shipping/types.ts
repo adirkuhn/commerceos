@@ -54,6 +54,15 @@ export interface ShippingConnectionSettings {
   default_label_format: 'pdf' | 'zpl'
   default_signature_required: boolean
   default_only_recipient: boolean
+  default_insurance_amount_minor_units: number | null
+  // MyParcel's own merchant account/shop identifiers -- required by their
+  // Orders/Fulfilment API export step, not secrets (unlike the API key).
+  myparcel_account_id: number | null
+  myparcel_shop_id: number | null
+  // Auto-opens the print view once a label exists, instead of requiring a
+  // manual click -- not silent printing, the OS print dialog still shows;
+  // see MyParcelSyncSettingsPage's doc for why.
+  auto_print_enabled: boolean
 }
 
 export interface ShippingCarrierOverride {
@@ -62,6 +71,7 @@ export interface ShippingCarrierOverride {
   package_type: number | null
   signature_required: boolean | null
   only_recipient: boolean | null
+  insurance_amount_minor_units: number | null
 }
 
 export interface ShippingSettingsResult {
