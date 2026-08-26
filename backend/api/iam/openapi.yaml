@@ -202,6 +202,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/PermissionsResponse'
 
+  /iam/users/{user_id}/activities:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      operationId: listUserActivities
+      summary: >
+        This user's sales-order activity log across all their orders,
+        newest first -- see api/oms's SalesOrderActivity for the same log
+        sliced by order instead of by user.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserActivitiesResponse'
+
 components:
   parameters:
     id:
@@ -307,6 +324,33 @@ components:
             permissions:
               type: array
               items: { type: string }
+        error:
+          nullable: true
+
+    UserActivity:
+      type: object
+      required: [id, sales_order_id, user_id, activity_type, summary, metadata, created_at]
+      properties:
+        id: { type: string }
+        sales_order_id: { type: string }
+        user_id: { type: string }
+        activity_type: { type: string }
+        summary: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+
+    UserActivitiesResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [activities]
+          properties:
+            activities:
+              type: array
+              items: { $ref: '#/components/schemas/UserActivity' }
         error:
           nullable: true
 

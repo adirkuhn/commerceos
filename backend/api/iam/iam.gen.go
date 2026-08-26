@@ -94,6 +94,25 @@ type UpdateGroupRequest struct {
 	Name        string  `json:"name"`
 }
 
+// UserActivitiesResponse defines model for UserActivitiesResponse.
+type UserActivitiesResponse struct {
+	Data *struct {
+		Activities []UserActivity `json:"activities"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// UserActivity defines model for UserActivity.
+type UserActivity struct {
+	ActivityType string                 `json:"activity_type"`
+	CreatedAt    time.Time              `json:"created_at"`
+	Id           string                 `json:"id"`
+	Metadata     map[string]interface{} `json:"metadata"`
+	SalesOrderId string                 `json:"sales_order_id"`
+	Summary      string                 `json:"summary"`
+	UserId       string                 `json:"user_id"`
+}
+
 // Id defines model for id.
 type Id = string
 
@@ -153,6 +172,9 @@ type ServerInterface interface {
 
 	// (DELETE /iam/groups/{id}/permissions/{rule})
 	RevokeGroupPermission(c *gin.Context, id Id, rule Rule)
+	// ListUserActivities This user's sales-order activity log across all their orders, newest first -- see api/oms's SalesOrderActivity for the same log sliced by order instead of by user.
+	// (GET /iam/users/{user_id}/activities)
+	ListUserActivities(c *gin.Context, userId UserId)
 
 	// (GET /iam/users/{user_id}/permissions)
 	ListUserPermissions(c *gin.Context, userId UserId)
@@ -436,6 +458,31 @@ func (siw *ServerInterfaceWrapper) RevokeGroupPermission(c *gin.Context) {
 	siw.Handler.RevokeGroupPermission(c, id, rule)
 }
 
+// ListUserActivities operation middleware
+func (siw *ServerInterfaceWrapper) ListUserActivities(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "user_id" -------------
+	var userId UserId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_id", c.Param("user_id"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter user_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListUserActivities(c, userId)
+}
+
 // ListUserPermissions operation middleware
 func (siw *ServerInterfaceWrapper) ListUserPermissions(c *gin.Context) {
 
@@ -500,6 +547,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/iam/groups/:id/permissions", wrapper.AssignGroupPermission)
 	router.DELETE(options.BaseURL+"/iam/groups/:id/permissions/:rule", wrapper.RevokeGroupPermission)
 	router.GET(options.BaseURL+"/iam/users/:user_id/permissions", wrapper.ListUserPermissions)
+	router.GET(options.BaseURL+"/iam/users/:user_id/activities", wrapper.ListUserActivities)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -507,24 +555,27 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"3Fjfb9s2EP5XCG4PG8ZYTto9zG9eVwQZUqxIV+yhCwJGvDhsxR8lKW+Gof99ICVbvyg7SuIs6YthiUfe",
-	"d/cdP564xqkSWkmQzuLZGmtqqAAHJjxxFn4lnmFN3S0mWFIBeOYHCDbwNecGGJ45kwPBNr0FQf0Mt9Le",
-	"yjrD5QIXBcEmz2BgrTA0brXcgjkbwuYHr0YC9AjBaiUthMDfGqOM/5Mq6UA6/5dqnfGUOq5k8tkq6d/V",
-	"K35v4AbP8HdJnc+kHLVJWO2iWr/0xsCmhmu/GJ5hCO78+2qKX3HO2DsQ12Au4GsONmDQRmkwjpcoN5HG",
-	"M74N/tPW8JJsDNX1Z0gdLgieW8sX8j0Ywa3lSg5621C421Wwivl5Y4A6ODUq14MuWllZY0H/PQe5cLd4",
-	"9vN0SrqeN4y3DI+9oeBy+0z2AA5rxAC/Fdqttqz1sVIXiJd5ltFrnxpfZAWpyOyPFDEfrcq4h4+2fapY",
-	"jCKCBVhLFwP0dVDFcAbaIv4Cp+yKBi5vlBH+n4cNR44Lv617UDoc98aj9VxT3RtwIKl0VwPTcs1GIuyU",
-	"RxCS2kcFpB0GaSai5fNyKJfn3Lr9vHMHwu5Tl5KbmjVqDF3hkYVY7ct9gO6EY4zfUuHsfs/tt6Kc1spR",
-	"vzJa+ejwulkhxtCYAGrhHB2Erqc+IJDmKg8N5mOo3Bej0d6MyxvVg1WWM/oJ3XAJRwtDuQSG6kwhQSVd",
-	"gADpJmieZcio3IFF1AD6/a8/j7RRDlIHDP1Qbn1kU6WBoSWn6OL8w4+ISoYoY9z7o1m2QhVclObWKQHm",
-	"Sv0jwZD6mTLBJUHKIJvrzTMyKoPJ315CHHeeG/xGCQEmhT8+oLP5OzR/f4YJXoKxZWTHk6nPqtIgqeZ4",
-	"hl9NppNXmIQmKBCUcCqShU9AeFxAINFTGHoX3zdhLz+npUmn8zmZTh+t7+krXaT3UV/Kt1rZCNBG11A1",
-	"dGDdr4qtHg1kpC8p2vVXnbmdNB0/bpp2pag6XTzvr6e/DC23xVf2m8H65OTO1sFvo3aSNWdFubMycNCn",
-	"5rfwvqbmQEXUbsMGCsgn5vWIUEl8W5yCO3g8e9m+XzzND7dP8Xm1ScIZLi6DZqS3/TQ0joEDbbrIQXOn",
-	"TfesaXjy3Zk02qDdMl+1WYes624n9z9XdvQ0mTPWSMeBarv33f7ElX0AwRxX2TtrNVlXlxE7z5YLEGoJ",
-	"Xa5eVMJGbe77VDnZa1VdkxWXMT46Xx+79aPxlXNIJmIfU89SR8KdWSczh5KTgfu5b0JVHnwCNqo4WZs8",
-	"gz2yslRfIMbby2peDyEW4eK2lgqvHQ2xvrNcfLRgnp9ajE9arZ0FwRbMcjMvNxme4YRqniyP/fh/AQAA",
-	"//8=",
+	"3Fldb9s2F/4rBN8X6IbJltN2F/Od1xVBhhQNkha7aAODEY9ttiKp8lDuDMP/fSAlW9+2lcRdspvAEg/P",
+	"13P46PBkTSMtE61AWaTjNU2YYRIsGP8kuP+r6JgmzC5oQBWTQMduIaAGvqXCAKdja1IIKEYLkMztsKvE",
+	"SaE1Qs3pZhNQk8bQocsv9dOWIpiLLt/c4rSng85DwEQrBB/4W2O0cT8irSwo636yJIlFxKzQKvyCWrl3",
+	"hcb/G5jRMf1fWOQzzFYx9Nquc/2ZNQ4YGZE4ZXRMwZtz7/MtTuOE83cg78Bcw7cU0PuQGJ2AsSLzchtp",
+	"e8Z3wX/aCd4GW0F99wUiSzcBnSCKuboCIwWi0KrT2hbC/aa8VJudNwaYhXOj06TTRCUrayrZ35eg5nZB",
+	"x7+ORkHd8hbxiuCZE5RC7Z6DAw57HW0Ov5WJXe1Qa/rKrAdepXHM7lxqXJFtghzM5sqmzUalMu5hoyof",
+	"ad4GUUAlILJ5B3w1r9r89LC12POY8inzWM60ke6XcxsGVkh3rBuu1DBurLfWcwF1Y8GCYspOO7alCe/p",
+	"Ya08PJEUNnJHqmEE5URUbN525fJSoD2Mu7Ag8RC7ZNgUqDFj2Ir2LMT8XB5y6Cg/+tjNGA4PW66+ldm2",
+	"So6alVHJRw3XrYY2hPoEUBBn7yCSYusDAilreWgwH33lPiOO/ohgJpEVS+Hc6wsA2+08+rCVDK4OQlPS",
+	"/2Bkyna7AllNs30tJXQfpu6gVAmWbfPJOBeuElh8VXIo67YaMSCLAafa8K6uJaCYSsnMqp3Kj+12PE3X",
+	"jAWltrCarcJoKbRKwprYOYtCzXTjPGQ8Sn4hM6FgMDdMKOCkOKJEMsXmIEHZIZnEMTE6tYCEGSB//vVh",
+	"kBhtIbLAyU/ZN4dgpBPgZCkYub68+ZkwxUmR9XhF8shJlKLVEsxUf1dgguKZcSlUQLQhmCbbZ2J0DMPP",
+	"7ttlhXWlR99oKcFE8P6GXEzekcnVBQ3oEgxmkZ0NRw4FnYBiiaBj+mo4Gr6ige++fRWGgslw7hLgH+fg",
+	"a82VhW+aXcNO3XfvPBOptdwvR6NHa7ibn9iWplt/zd4mGlscLbWr+U0C0P6u+erRnGxpiDfVUs6bvVqa",
+	"zh43TftSlB8Ch/vr0W9d6nb+ZRcdL/3y5dHS3m6pdsK14JvsZMVgoQnNH/59Ac2Jiqja/3cUkEvM6x6h",
+	"Bu3H4hzsyeM5iPb94ilPDD617ytEQsHp5tZzRrRopqHUf5zo0LV0OEcduicNww8/nWGp/95P83l/f8q6",
+	"rl8h/uXKbv2aTDgvpeNEtd0YGP3gyj4BYfar7L21Gq7zDnDvt+UapF5CHatnlbBeh/s+VR4clMrns5vb",
+	"Njxq1979/FG6Xp8SibZb/JPkET+srWXmVHTSMRj+T7DKg7+ApSoO1yaN4QCtLPVXaMPteTWvpyAL/x+D",
+	"giocd5TIOqwOaTrZojoJOmVqO2ZOXTfM0lCDflgIJC6yF0j8gGLgBxRkO5EgsZ4TFhmNSFgcE7sAYYiX",
+	"wYAo+A5oyUwYtGQwIAhAWCJCLfEFkhun770T3c6JyEwbp4Igk+BVYywi4ORulekkQqEFxomeuXfOseFn",
+	"RXvj3KD7OobHUr5L7dNj/M0DEuLgB7Pc7ktNTMc0dKgtz9z6PwEAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

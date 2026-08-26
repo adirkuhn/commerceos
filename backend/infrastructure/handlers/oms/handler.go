@@ -2,6 +2,7 @@ package oms
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -72,6 +73,9 @@ type pausePickingUC interface {
 type completePickingUC interface {
 	Execute(ctx context.Context, id, completedBy string) (*appoms.CompletePickingResult, error)
 }
+type listSalesOrderActivitiesUC interface {
+	Execute(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderActivity, error)
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +97,7 @@ type Handler struct {
 	pausePicking               pausePickingUC
 	completePicking            completePickingUC
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC
+	listSalesOrderActivities   listSalesOrderActivitiesUC
 }
 
 func NewHandler(
@@ -103,6 +108,7 @@ func NewHandler(
 	getPickingSession getPickingSessionUC, scanPickItem scanPickItemUC, resolvePickScanCode resolvePickScanCodeUC,
 	deletePickScan deletePickScanUC, pausePicking pausePickingUC, completePicking completePickingUC,
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC,
+	listSalesOrderActivities listSalesOrderActivitiesUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -112,6 +118,7 @@ func NewHandler(
 		getPickingSession: getPickingSession, scanPickItem: scanPickItem, resolvePickScanCode: resolvePickScanCode,
 		deletePickScan: deletePickScan, pausePicking: pausePicking, completePicking: completePicking,
 		bulkUpdateSalesOrderStatus: bulkUpdateSalesOrderStatus,
+		listSalesOrderActivities:   listSalesOrderActivities,
 	}
 }
 
@@ -164,6 +171,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		// wiring above already has -- see CompletePickingUseCase's doc.
 		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
+		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
 	)
 	genoms.RegisterHandlers(rg, h)
 }
@@ -564,6 +572,24 @@ func toGenPickScan(s omsDomain.PickScan) genoms.PickScan {
 		Quantity: s.Quantity, PriceMinorUnits: s.PriceMinorUnits, Reason: &s.Reason,
 		ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 	}
+}
+
+func (h *Handler) ListSalesOrderActivities(c *gin.Context, id genoms.Id) {
+	activities, err := h.listSalesOrderActivities.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genoms.SalesOrderActivity, len(activities))
+	for i, a := range activities {
+		var metadata map[string]interface{}
+		_ = json.Unmarshal(a.Metadata, &metadata)
+		out[i] = genoms.SalesOrderActivity{
+			Id: a.ID, SalesOrderId: a.SalesOrderID, UserId: a.UserID,
+			ActivityType: a.ActivityType, Summary: a.Summary, Metadata: metadata, CreatedAt: a.CreatedAt,
+		}
+	}
+	resp := genoms.SalesOrderActivityList{Activities: out}
+	c.JSON(http.StatusOK, genoms.SalesOrderActivityListResponse{Data: &resp})
 }
 
 func mapError(c *gin.Context, err error) error {

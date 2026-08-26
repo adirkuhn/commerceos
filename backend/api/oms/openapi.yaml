@@ -242,6 +242,26 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/{id}/activities:
+    get:
+      operationId: listSalesOrderActivities
+      summary: >
+        The order's activity log, newest first -- structured, system-recorded
+        entries (MyParcel order export, shipment creation, label print, and
+        their failures), each tied to the acting user. Separate from the
+        single freeform customer_note field on SalesOrder.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderActivityListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /sales-orders/{id}/line-items:
     post:
       operationId: addSalesOrderLineItem
@@ -566,6 +586,35 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SalesOrderDetail' }
+        error: { nullable: true }
+
+    SalesOrderActivity:
+      type: object
+      required: [id, sales_order_id, user_id, activity_type, summary, metadata, created_at]
+      properties:
+        id: { type: string }
+        sales_order_id: { type: string }
+        user_id: { type: string }
+        activity_type: { type: string }
+        summary: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Arbitrary JSON detail, e.g. a MyParcel API response.
+        created_at: { type: string, format: date-time }
+
+    SalesOrderActivityList:
+      type: object
+      required: [activities]
+      properties:
+        activities:
+          type: array
+          items: { $ref: '#/components/schemas/SalesOrderActivity' }
+
+    SalesOrderActivityListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesOrderActivityList' }
         error: { nullable: true }
 
     SalesOrderResponse:

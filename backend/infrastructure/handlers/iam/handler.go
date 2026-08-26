@@ -2,6 +2,7 @@ package iam
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -10,7 +11,9 @@ import (
 
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	appiam "github.com/adirkuhn/commerceos/application/iam"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -53,6 +56,9 @@ type listGroupPermissionsUC interface {
 type userEffectivePermissionsUC interface {
 	Execute(ctx context.Context, userID string) ([]iamDomain.Rule, error)
 }
+type listUserActivitiesUC interface {
+	Execute(ctx context.Context, userID string) ([]omsDomain.SalesOrderActivity, error)
+}
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -90,6 +96,7 @@ type Handler struct {
 	revokePermission revokePermissionUC
 	listPermissions  listGroupPermissionsUC
 	userPermissions  userEffectivePermissionsUC
+	userActivities   listUserActivitiesUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -106,6 +113,7 @@ func NewHandler(
 	revokePermission revokePermissionUC,
 	listPermissions listGroupPermissionsUC,
 	userPermissions userEffectivePermissionsUC,
+	userActivities listUserActivitiesUC,
 ) *Handler {
 	return &Handler{
 		createGroup:      createGroup,
@@ -120,6 +128,7 @@ func NewHandler(
 		revokePermission: revokePermission,
 		listPermissions:  listPermissions,
 		userPermissions:  userPermissions,
+		userActivities:   userActivities,
 	}
 }
 
@@ -162,6 +171,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appiam.NewRevokePermissionFromGroupUseCase(db, groupRepo, gpRepo),
 		appiam.NewListGroupPermissionsUseCase(db, groupRepo, gpRepo),
 		appiam.NewGetUserEffectivePermissionsUseCase(db, gpRepo),
+		appoms.NewListUserActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
 	)
 	RegisterHandler(rg, h)
 }
@@ -330,6 +340,23 @@ func (h *Handler) ListUserPermissions(c *gin.Context, userId genia.UserId) {
 		return
 	}
 	middleware.OK(c, gin.H{"permissions": rulesToStrings(rules)})
+}
+
+func (h *Handler) ListUserActivities(c *gin.Context, userId genia.UserId) {
+	activities, err := h.userActivities.Execute(c.Request.Context(), userId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genia.UserActivity, len(activities))
+	for i, a := range activities {
+		var metadata map[string]interface{}
+		_ = json.Unmarshal(a.Metadata, &metadata)
+		out[i] = genia.UserActivity{
+			Id: a.ID, SalesOrderId: a.SalesOrderID, UserId: a.UserID,
+			ActivityType: a.ActivityType, Summary: a.Summary, Metadata: metadata, CreatedAt: a.CreatedAt,
+		}
+	}
+	middleware.OK(c, gin.H{"activities": out})
 }
 
 // mapError translates domain errors to HTTP responses. Returns non-nil if it wrote a response.

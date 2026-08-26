@@ -16,6 +16,7 @@ import (
 
 	appiam "github.com/adirkuhn/commerceos/application/iam"
 	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	iamhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
@@ -115,6 +116,15 @@ func (s *stubUserEffectivePermissions) Execute(_ context.Context, _ string) ([]i
 	return s.out, s.err
 }
 
+type stubListUserActivities struct {
+	out []omsDomain.SalesOrderActivity
+	err error
+}
+
+func (s *stubListUserActivities) Execute(_ context.Context, _ string) ([]omsDomain.SalesOrderActivity, error) {
+	return s.out, s.err
+}
+
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
 func adminToken(t *testing.T) string {
@@ -178,6 +188,7 @@ func TestCreateGroup_201(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups",
 		map[string]string{"name": "Editors", "description": "Can edit"})
@@ -190,6 +201,7 @@ func TestCreateGroup_422_missing_name(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups",
 		map[string]string{"description": "no name"})
@@ -203,6 +215,7 @@ func TestCreateGroup_409_name_taken(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups",
 		map[string]string{"name": "Editors"})
@@ -216,6 +229,7 @@ func TestGetGroup_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/groups/group-uuid-1", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -228,6 +242,7 @@ func TestGetGroup_404(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/groups/missing", nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -240,6 +255,7 @@ func TestListGroups_200(t *testing.T) {
 		&stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/groups", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -253,6 +269,7 @@ func TestUpdateGroup_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPatch, "/api/v1/iam/groups/group-uuid-1",
 		map[string]string{"name": "Editors v2"})
@@ -265,6 +282,7 @@ func TestDeleteGroup_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodDelete, "/api/v1/iam/groups/group-uuid-1", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -278,6 +296,7 @@ func TestDeleteGroup_404(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodDelete, "/api/v1/iam/groups/missing", nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -291,6 +310,7 @@ func TestAddMember_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups/g1/members",
 		map[string]string{"user_id": "user-42"})
@@ -305,6 +325,7 @@ func TestAddMember_409_already_member(t *testing.T) {
 		&stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups/g1/members",
 		map[string]string{"user_id": "user-42"})
@@ -317,6 +338,7 @@ func TestRemoveMember_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodDelete, "/api/v1/iam/groups/g1/members/user-42", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -329,6 +351,7 @@ func TestRemoveMember_422_not_member(t *testing.T) {
 		&stubRemoveMember{err: iamDomain.ErrNotMember},
 		&stubListMembers{}, &stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodDelete, "/api/v1/iam/groups/g1/members/user-99", nil)
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
@@ -341,6 +364,7 @@ func TestListMembers_200(t *testing.T) {
 		&stubListMembers{out: []string{"user-1", "user-2"}},
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/groups/g1/members", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -354,6 +378,7 @@ func TestAssignPermission_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{}, &stubListMembers{},
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups/g1/permissions",
 		map[string]string{"rule": "pms.product.create"})
@@ -367,6 +392,7 @@ func TestAssignPermission_422_invalid_rule(t *testing.T) {
 		&stubAssignPermission{err: iamDomain.ErrPermissionInvalid},
 		&stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodPost, "/api/v1/iam/groups/g1/permissions",
 		map[string]string{"rule": "bad-rule"})
@@ -379,6 +405,7 @@ func TestRevokePermission_200(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{}, &stubListMembers{},
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodDelete, "/api/v1/iam/groups/g1/permissions/pms.product.create", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -391,6 +418,7 @@ func TestRevokePermission_404_not_assigned(t *testing.T) {
 		&stubAssignPermission{},
 		&stubRevokePermission{err: iamDomain.ErrPermissionNotAssigned},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodDelete, "/api/v1/iam/groups/g1/permissions/pms.product.create", nil)
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -403,6 +431,7 @@ func TestListGroupPermissions_200(t *testing.T) {
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{out: []iamDomain.Rule{"pms.product.create"}},
 		&stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/groups/g1/permissions", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -415,9 +444,25 @@ func TestUserEffectivePermissions_200(t *testing.T) {
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{},
 		&stubUserEffectivePermissions{out: []iamDomain.Rule{"pms.product.create", "oms.order.read"}},
+		&stubListUserActivities{},
 	)
 	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/users/user-1/permissions", nil)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestListUserActivities_200(t *testing.T) {
+	h := iamhandler.NewHandler(
+		&stubCreateGroup{}, &stubUpdateGroup{}, &stubDeleteGroup{}, &stubGetGroup{},
+		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{}, &stubListMembers{},
+		&stubAssignPermission{}, &stubRevokePermission{},
+		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{out: []omsDomain.SalesOrderActivity{
+			{ID: "a-1", SalesOrderID: "so-1", UserID: "user-1", ActivityType: "myparcel_shipment_created", Summary: "Shipment created", Metadata: []byte(`{}`)},
+		}},
+	)
+	w := do(t, newTestRouter(h), http.MethodGet, "/api/v1/iam/users/user-1/activities", nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "myparcel_shipment_created")
 }
 
 // ── Tests: auth ───────────────────────────────────────────────────────────────
@@ -428,6 +473,7 @@ func TestIAM_401_no_token(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{}, &stubListMembers{},
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	r := newTestRouter(h)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/iam/groups", nil)
@@ -454,6 +500,7 @@ func TestIAM_403_insufficient_role(t *testing.T) {
 		&stubListGroups{}, &stubAddMember{}, &stubRemoveMember{}, &stubListMembers{},
 		&stubAssignPermission{}, &stubRevokePermission{},
 		&stubListGroupPermissions{}, &stubUserEffectivePermissions{},
+		&stubListUserActivities{},
 	)
 	r := newTestRouter(h)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/iam/groups", nil)
@@ -462,4 +509,3 @@ func TestIAM_403_insufficient_role(t *testing.T) {
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
-

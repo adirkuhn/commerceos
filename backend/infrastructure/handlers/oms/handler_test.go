@@ -91,6 +91,15 @@ func (s *stubUpdateSalesOrder) Execute(_ context.Context, id string, in appoms.U
 	return &omsDomain.SalesOrder{ID: id}, nil
 }
 
+type stubListSalesOrderActivities struct {
+	out []omsDomain.SalesOrderActivity
+	err error
+}
+
+func (s *stubListSalesOrderActivities) Execute(_ context.Context, _ string) ([]omsDomain.SalesOrderActivity, error) {
+	return s.out, s.err
+}
+
 type stubBulkUpdateSalesOrderStatus struct {
 	out      *appoms.BulkUpdateSalesOrderStatusResult
 	err      error
@@ -313,7 +322,8 @@ func newTestRouterWithPicking(
 	pause *stubPausePicking, complete *stubCompletePicking, bulk *stubBulkUpdateSalesOrderStatus,
 ) *gin.Engine {
 	h := omshandler.NewHandler(list, get, create, update, del, link, retry, force,
-		addLineItem, startPicking, getPicking, scan, resolve, deleteScan, pause, complete, bulk)
+		addLineItem, startPicking, getPicking, scan, resolve, deleteScan, pause, complete, bulk,
+		&stubListSalesOrderActivities{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -387,6 +397,24 @@ func TestGetSalesOrder_notFound(t *testing.T) {
 	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders/missing", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListSalesOrderActivities_success(t *testing.T) {
+	list := &stubListSalesOrderActivities{out: []omsDomain.SalesOrderActivity{
+		{ID: "a-1", SalesOrderID: "so-1", UserID: "user-1", ActivityType: "myparcel_shipment_created", Summary: "Shipment created", Metadata: []byte(`{"barcode":"3SMYPA1"}`)},
+	}}
+	w := doRequest(newTestRouterWithActivities(list), "GET", "/api/v1/sales-orders/so-1/activities", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "myparcel_shipment_created")
+	assert.Contains(t, w.Body.String(), "3SMYPA1")
+}
+
+func TestListSalesOrderActivities_emptyList(t *testing.T) {
+	w := doRequest(newTestRouterWithActivities(&stubListSalesOrderActivities{}), "GET", "/api/v1/sales-orders/so-1/activities", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"activities":[]`)
 }
 
 func TestCreateSalesOrder_success(t *testing.T) {
@@ -600,6 +628,17 @@ func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	return newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
 		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
+}
+
+func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.Engine {
+	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
+		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
+		&stubBulkUpdateSalesOrderStatus{}, activities)
+	r := gin.New()
+	genoms.RegisterHandlers(r.Group("/api/v1"), h)
+	return r
 }
 
 type pickingStubs struct {

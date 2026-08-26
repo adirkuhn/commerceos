@@ -444,3 +444,27 @@ func (s *stubReverseMovement) Execute(_ context.Context, in appinventory.RecordS
 	}
 	return &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, BatchID: in.BatchID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
 }
+
+type stubSalesOrderActivityRepo struct {
+	createErr        error
+	created          []omsDomain.SalesOrderActivity
+	listBySalesOrder []omsDomain.SalesOrderActivity
+	listBySOErr      error
+	listByUser       []omsDomain.SalesOrderActivity
+	listByUserErr    error
+}
+
+func (s *stubSalesOrderActivityRepo) Create(_ context.Context, a *omsDomain.SalesOrderActivity) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	a.ID = "activity-1"
+	s.created = append(s.created, *a)
+	return nil
+}
+func (s *stubSalesOrderActivityRepo) ListBySalesOrder(_ context.Context, _ string) ([]omsDomain.SalesOrderActivity, error) {
+	return s.listBySalesOrder, s.listBySOErr
+}
+func (s *stubSalesOrderActivityRepo) ListByUser(_ context.Context, _ string) ([]omsDomain.SalesOrderActivity, error) {
+	return s.listByUser, s.listByUserErr
+}
