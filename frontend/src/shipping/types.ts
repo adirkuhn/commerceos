@@ -47,6 +47,18 @@ export interface Shipment {
   created_at: string
 }
 
+// MyParcelFulfilmentOrder is one order exported via MyParcel's real
+// Orders/Fulfilment API -- step one of the Sales Order detail page's
+// "Create label" flow, before createShipment (the Shipments API) creates
+// the actual shipment.
+export interface MyParcelFulfilmentOrder {
+  id: string
+  connection_id: string
+  sales_order_id: string
+  myparcel_uuid: string
+  status: string
+}
+
 export interface ShippingConnectionSettings {
   connection_id: string
   default_carrier: number

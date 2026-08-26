@@ -64,7 +64,7 @@ func TestCreateShipment_happyPath_resolvesOptionsCreatesAndPersists(t *testing.T
 		},
 	}
 
-	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo, factory, testEncSecret)
+	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo, factory, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -107,7 +107,7 @@ func TestCreateShipment_perShipmentOverride_winsOverConnectionDefault(t *testing
 	}
 	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	digitalStamp := shippingDomain.PackageTypeDigitalStamp
 	sig := true
@@ -144,7 +144,7 @@ func TestCreateShipment_insuranceOverride_setsInsuranceAndForcesSignatureOnlyRec
 	}
 	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	amount := 50000
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
@@ -162,7 +162,7 @@ func TestCreateShipment_insuranceOverride_setsInsuranceAndForcesSignatureOnlyRec
 
 func TestCreateShipment_incompleteRecipient_returnsErrMissingRecipient(t *testing.T) {
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 0), &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{},
-		&fakeShippingCarrierOverrideRepo{}, &fakeShipmentRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)
+		&fakeShippingCarrierOverrideRepo{}, &fakeShipmentRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -192,7 +192,7 @@ func TestCreateShipment_myParcelAPIError_propagatesAndDoesNotPersist(t *testing.
 	persisted := false
 	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { persisted = true; return nil }}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -201,4 +201,60 @@ func TestCreateShipment_myParcelAPIError_propagatesAndDoesNotPersist(t *testing.
 
 	require.Error(t, err)
 	assert.False(t, persisted, "a shipment must never be persisted locally when MyParcel itself rejected it")
+}
+
+func TestCreateShipment_recordsActivityOnSuccessAndFailure(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) { return nil, nil },
+	}
+	overrideRepo := &fakeShippingCarrierOverrideRepo{
+		findByConnectionAndCarrierFn: func(_ context.Context, _ string, _ shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+			return nil, nil
+		},
+	}
+
+	t.Run("success", func(t *testing.T) {
+		client := &fakeMyParcelClient{
+			createShipmentFn: func(_ context.Context, _ integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
+				return integrationsDomain.ShipmentResult{ShipmentID: 1, Barcode: "3SMYPA1"}, nil
+			},
+		}
+		shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
+		activity := &fakeRecordActivity{}
+		uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
+			&fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+
+		ctx := tenant.WithTenantID(context.Background(), "tenant-1")
+		_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
+			SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(), UserID: "user-1",
+		})
+
+		require.NoError(t, err)
+		require.Len(t, activity.calls, 1)
+		assert.Equal(t, "myparcel_shipment_created", activity.calls[0].ActivityType)
+		assert.Equal(t, "user-1", activity.calls[0].UserID)
+	})
+
+	t.Run("failure", func(t *testing.T) {
+		client := &fakeMyParcelClient{
+			createShipmentFn: func(_ context.Context, _ integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
+				return integrationsDomain.ShipmentResult{}, assert.AnError
+			},
+		}
+		shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { return nil }}
+		activity := &fakeRecordActivity{}
+		uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, overrideRepo, shipmentRepo,
+			&fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+
+		ctx := tenant.WithTenantID(context.Background(), "tenant-1")
+		_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
+			SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(), UserID: "user-1",
+		})
+
+		require.Error(t, err)
+		require.Len(t, activity.calls, 1)
+		assert.Equal(t, "myparcel_error", activity.calls[0].ActivityType)
+	})
 }

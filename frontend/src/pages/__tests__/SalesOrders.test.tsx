@@ -33,6 +33,15 @@ vi.mock('../../settings/api', () => ({
   updateTenantSettings: vi.fn(),
 }))
 
+vi.mock('../../integrations/api', () => ({
+  listConnections: vi.fn(),
+}))
+
+vi.mock('../../shipping/api', () => ({
+  exportMyParcelOrder: vi.fn(),
+  createShipment: vi.fn(),
+}))
+
 vi.mock('../../tax/api', () => ({
   listTaxClasses: vi.fn(),
   createTaxClass: vi.fn(),
@@ -48,6 +57,8 @@ import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
+import * as integrationsApi from '../../integrations/api'
+import * as shippingApi from '../../shipping/api'
 
 function warehouse(overrides: Record<string, unknown> = {}) {
   return {
@@ -94,6 +105,7 @@ beforeEach(() => {
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
   vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [] })
   vi.mocked(omsApi.listSalesOrderActivities).mockResolvedValue({ activities: [] })
+  vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
 })
 
 describe('Sales orders list', () => {
@@ -287,6 +299,56 @@ describe('Sales order detail page', () => {
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Shipment created via MyParcel')).toBeInTheDocument()
+  })
+
+  it('does not show Create label when no MyParcel connection exists', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    expect(screen.queryByRole('button', { name: 'Create label' })).not.toBeInTheDocument()
+  })
+
+  it('exports the order to MyParcel, creates the shipment, and shows Print label afterward', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
+    ])
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+      })],
+      total: 1,
+    })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+      }),
+    }))
+    vi.mocked(shippingApi.exportMyParcelOrder).mockResolvedValue({
+      id: 'export-1', connection_id: 'conn-mp-1', sales_order_id: 'so-1', myparcel_uuid: 'order-uuid-1', status: 'open',
+    })
+    vi.mocked(shippingApi.createShipment).mockResolvedValue({
+      id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
+      status: 1, status_main: 'registered', label_format: 'pdf',
+      recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+      created_at: '2026-08-23T00:00:00Z',
+    })
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create label' }))
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create shipping label' }))
+
+    await waitFor(() => expect(shippingApi.exportMyParcelOrder).toHaveBeenCalledWith('test-token', 'conn-mp-1', 'so-1', expect.objectContaining({ carrier: 1 })))
+    expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({ connection_id: 'conn-mp-1', sales_order_id: 'so-1' }))
+    expect(await screen.findByRole('button', { name: 'Print label' })).toBeInTheDocument()
   })
 
   it('shows no activity section when the log is empty', async () => {

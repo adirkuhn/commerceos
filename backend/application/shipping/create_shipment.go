@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
@@ -42,6 +43,8 @@ type CreateShipmentInput struct {
 	OnlyRecipient             *bool
 	LabelFormat               string
 	InsuranceAmountMinorUnits *int
+	// UserID is the acting staff member, for the activity log entry.
+	UserID string
 }
 
 // CreateShipmentUseCase is the pick/pack "Create shipping label" action:
@@ -57,6 +60,7 @@ type CreateShipmentUseCase struct {
 	shipmentRepo    shippingDomain.ShipmentRepository
 	myParcelFactory integrationsDomain.MyParcelClientFactory
 	encSecret       string
+	recordActivity  recordActivityUC
 }
 
 func NewCreateShipmentUseCase(
@@ -67,10 +71,12 @@ func NewCreateShipmentUseCase(
 	shipmentRepo shippingDomain.ShipmentRepository,
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
+	recordActivity recordActivityUC,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		recordActivity: recordActivity,
 	}
 }
 
@@ -144,6 +150,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		OrderReference: in.SalesOrderID,
 	})
 	if err != nil {
+		uc.recordShipmentActivity(ctx, in, "myparcel_error", "Failed to create MyParcel shipment", map[string]any{"error": err.Error()})
 		return nil, fmt.Errorf("createShipment: %w", err)
 	}
 
@@ -164,5 +171,19 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: persist: %w", err)
 	}
+	uc.recordShipmentActivity(ctx, in, "myparcel_shipment_created", "Shipment created via MyParcel", map[string]any{"barcode": shipment.Barcode})
 	return &shipment, nil
+}
+
+// recordShipmentActivity is best-effort -- a failure recording the
+// activity must not mask the actual create-shipment result, success or
+// error, since the activity log is a record of what happened, not a
+// precondition for it.
+func (uc *CreateShipmentUseCase) recordShipmentActivity(ctx context.Context, in CreateShipmentInput, activityType, summary string, metadata map[string]any) {
+	if uc.recordActivity == nil {
+		return
+	}
+	_, _ = uc.recordActivity.Execute(ctx, appoms.RecordSalesOrderActivityInput{
+		SalesOrderID: in.SalesOrderID, UserID: in.UserID, ActivityType: activityType, Summary: summary, Metadata: metadata,
+	})
 }

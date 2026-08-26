@@ -1,5 +1,6 @@
 import type {
   APIResponse, Shipment, ShippingSettingsResult, ShippingConnectionSettings, ShippingCarrierOverride, CreateShipmentInput,
+  MyParcelFulfilmentOrder, RecipientAddress,
 } from './types'
 
 function base(): string {
@@ -45,6 +46,12 @@ export function upsertCarrierOverride(
   input: { package_type?: number | null; signature_required?: boolean | null; only_recipient?: boolean | null; insurance_amount_minor_units?: number | null },
 ): Promise<ShippingCarrierOverride> {
   return request(`${base()}/connections/${connectionId}/carrier-overrides/${carrier}`, { method: 'PUT', body: JSON.stringify(input) }, token)
+}
+
+export function exportMyParcelOrder(
+  token: string, connectionId: string, salesOrderId: string, input: { carrier: number; recipient: RecipientAddress },
+): Promise<MyParcelFulfilmentOrder> {
+  return request(`${base()}/connections/${connectionId}/sales-orders/${salesOrderId}/export-order`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 export function createShipment(token: string, input: CreateShipmentInput): Promise<Shipment> {

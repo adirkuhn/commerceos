@@ -197,11 +197,16 @@ func (h *Handler) CreateShipment(c *gin.Context) {
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
+	userID := ""
+	if claims := middleware.ClaimsFromGin(c); claims != nil {
+		userID = claims.UserID
+	}
 	in := appshipping.CreateShipmentInput{
 		SalesOrderID: req.SalesOrderId.String(), ConnectionID: req.ConnectionId.String(), Carrier: shippingDomain.Carrier(req.Carrier),
 		Recipient: appshipping.RecipientInput{
 			Person: req.Recipient.Person, Street: req.Recipient.Street, City: req.Recipient.City, CC: req.Recipient.Cc,
 		},
+		UserID:            userID,
 		SignatureRequired: req.SignatureRequired, OnlyRecipient: req.OnlyRecipient,
 	}
 	if req.Recipient.Company != nil {
@@ -373,7 +378,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, myParcelFactory, encryptionSecret, recordActivity),

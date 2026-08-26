@@ -15,6 +15,11 @@ import type { SKU } from '../pms/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
+import { useConnections } from '../integrations/hooks/useConnections'
+import * as shippingApi from '../shipping/api'
+import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
+import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
+import type { RecipientAddress } from '../shipping/types'
 
 const PAGE_SIZE = 20
 const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed']
@@ -595,7 +600,7 @@ function CreateAddressFields({ title, prefix, value, onChange, showPhone }: { ti
 function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string; onClose: () => void }) {
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
-  const { activities } = useSalesOrderActivities(token ?? '', salesOrderId)
+  const { activities, refresh: refreshActivities } = useSalesOrderActivities(token ?? '', salesOrderId)
   const [savingStatus, setSavingStatus] = useState(false)
   const [actionError, setActionError] = useState('')
   const [deleting, setDeleting] = useState(false)
@@ -603,6 +608,27 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   // as this page's own list<->detail<->create switch -- this app has no
   // router, so a one-off view is just a conditional render, not a route.
   const [printMode, setPrintMode] = useState<'picking-list' | 'invoice' | null>(null)
+
+  // "Create label" -- a second, independent entry point for creating a
+  // MyParcel shipment, alongside the existing one on the Picking page
+  // (Picking.tsx's own handleCreateShipment/AddressConfirmModal usage).
+  // Unlike Picking's flow, this one exports the order via MyParcel's real
+  // Orders API first (ExportMyParcelOrderUseCase) -- confirmed address in
+  // hand from the same modal -- before creating the actual shipment.
+  const { connections } = useConnections(token ?? '')
+  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
+  const [confirmingAddress, setConfirmingAddress] = useState(false)
+  const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
+  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+
+  async function handleCreateLabel(input: { carrier: number; recipient: RecipientAddress }) {
+    if (!token || !detail || !myParcelConnection) return
+    await shippingApi.exportMyParcelOrder(token, myParcelConnection.id, detail.sales_order.id, input)
+    const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id })
+    setConfirmingAddress(false)
+    setCreatedShipmentId(shipment.id)
+    refreshActivities()
+  }
 
   if (printMode && detail) {
     return printMode === 'picking-list' ? (
@@ -674,6 +700,24 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             >
               <Printer size={13} /> Invoice
             </button>
+            {myParcelConnection && !createdShipmentId && (
+              <button
+                onClick={() => setConfirmingAddress(true)}
+                title="Create a MyParcel shipping label for this order"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+              >
+                Create label
+              </button>
+            )}
+            {createdShipmentId && (
+              <button
+                onClick={() => setPrintingLabelId(createdShipmentId)}
+                title="Print shipping label"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+              >
+                <Printer size={13} /> Print label
+              </button>
+            )}
             <select
               value={detail.sales_order.status}
               disabled={savingStatus}
@@ -801,6 +845,17 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
           )}
         </div>
       </div>
+
+      {confirmingAddress && detail && (
+        <AddressConfirmModal
+          initialAddress={detail.sales_order.shipping}
+          onConfirm={handleCreateLabel}
+          onClose={() => setConfirmingAddress(false)}
+        />
+      )}
+      {printingLabelId && token && (
+        <ShippingLabelPrintView token={token} shipmentId={printingLabelId} onClose={() => setPrintingLabelId(null)} />
+      )}
     </div>
   )
 }
