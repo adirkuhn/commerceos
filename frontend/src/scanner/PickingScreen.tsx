@@ -7,6 +7,7 @@ import { QuantityStepper } from './QuantityStepper'
 import { CameraScanner } from './CameraScanner'
 import { ProductCandidateRow } from './ProductCandidateRow'
 import { playErrorSound } from './errorSound'
+import { useWakeLock } from './useWakeLock'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
   MissingPickItem, PickScanActionType,
@@ -111,6 +112,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
   useEffect(() => { load() }, [sessionId])
   useEffect(() => { codeInputRef.current?.focus() }, [detail])
+  useWakeLock()
 
   async function stage(input: Parameters<typeof api.scanPickItem>[2]) {
     setError('')
