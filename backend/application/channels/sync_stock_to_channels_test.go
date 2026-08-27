@@ -25,9 +25,22 @@ func newStockSyncTestHarness(listings []channelsDomain.ProductChannelListing) *h
 
 func (h *harness) newSyncStockUseCase(t *testing.T, n int, stockLevel *stubStockLevelGetter) *appchannels.SyncStockToChannelsUseCase {
 	t.Helper()
+	// nil literal, not a typed nil *stubBolProductPusher -- converts to a
+	// genuinely nil bolProductPusher interface so uc.bolPusher == nil holds
+	// inside the use case (a typed-nil pointer boxed into an interface is
+	// famously NOT == nil, and would panic on stub.Execute for any test
+	// that happens to include a Bol listing).
 	return appchannels.NewSyncStockToChannelsUseCase(
 		newMockGormDB(t, n), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil,
+	)
+}
+
+func (h *harness) newSyncStockUseCaseWithBol(t *testing.T, n int, stockLevel *stubStockLevelGetter, bolPusher *stubBolProductPusher) *appchannels.SyncStockToChannelsUseCase {
+	t.Helper()
+	return appchannels.NewSyncStockToChannelsUseCase(
+		newMockGormDB(t, n), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, bolPusher,
 	)
 }
 
@@ -182,6 +195,104 @@ func TestSyncStockToChannels_skipsListingsForUnimplementedProviders(t *testing.T
 	require.NoError(t, err)
 	require.Empty(t, h.wooClient.updateStockCalled)
 	require.Empty(t, h.syncLogRepo.created)
+}
+
+// TestSyncStockToChannels_pushesStockToBolViaFullOfferPush reproduces the
+// reported bug: a stock change must reach every channel a product is
+// enrolled in, not just Woo. Bol has no stock-only endpoint, so this
+// dispatches to bolPusher.Execute (the same full-offer push used elsewhere)
+// rather than a bespoke Bol stock call.
+func TestSyncStockToChannels_pushesStockToBolViaFullOfferPush(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-bol", ProductID: "product-1", ConnectionID: "conn-bol",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "999",
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	bolPusher := &stubBolProductPusher{}
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 13}}
+	uc := h.newSyncStockUseCaseWithBol(t, 1, stockLevel, bolPusher)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, bolPusher.calls, 1)
+	require.Equal(t, "product-1", bolPusher.calls[0].ProductID)
+	require.Equal(t, "conn-bol", bolPusher.calls[0].ConnectionID)
+}
+
+// TestSyncStockToChannels_bolPushHappensEvenWhenLastSyncReportedTheSameFields
+// proves Bol has no "skip if unchanged" guard, unlike Woo -- a Bol listing
+// existing at all already means the product is enrolled on that channel
+// (EnrollProductInChannelsUseCase's job), so once enrolled, stock must
+// always reach Bol, never lag on the bol_stock schedule's interval.
+func TestSyncStockToChannels_bolPushHappensEvenWhenLastSyncReportedTheSameFields(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-bol", ProductID: "product-1", ConnectionID: "conn-bol",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "999",
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	h.syncLogRepo.byListing = map[string][]channelsDomain.SyncLogEntry{
+		"listing-bol": {{ListingID: strPtr("listing-bol"), Status: channelsDomain.SyncLogStatusSuccess, Fields: map[string]string{
+			"stock_quantity": "13",
+		}}},
+	}
+	bolPusher := &stubBolProductPusher{}
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 13}}
+	uc := h.newSyncStockUseCaseWithBol(t, 1, stockLevel, bolPusher)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, bolPusher.calls, 1, "Bol has no unchanged-skip guard -- every event must reach it")
+}
+
+// TestSyncStockToChannels_bolPushedOnceForMultipleListingsOnSameConnection
+// proves a multi-variant product with several Bol listings under the same
+// connection triggers exactly one full-offer push (which already covers
+// every variant), not one redundant push per listing.
+func TestSyncStockToChannels_bolPushedOnceForMultipleListingsOnSameConnection(t *testing.T) {
+	variantID := "variant-2"
+	listingA := channelsDomain.ProductChannelListing{
+		ID: "listing-bol-a", ProductID: "product-1", ConnectionID: "conn-bol",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "999",
+	}
+	listingB := channelsDomain.ProductChannelListing{
+		ID: "listing-bol-b", ProductID: "product-1", ConnectionID: "conn-bol",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "1000", VariantID: &variantID,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listingA, listingB})
+	bolPusher := &stubBolProductPusher{}
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 13}}
+	uc := h.newSyncStockUseCaseWithBol(t, 1, stockLevel, bolPusher)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, bolPusher.calls, 1, "one full-offer push already covers every listing on the connection")
+}
+
+// TestSyncStockToChannels_syncsBothWooAndBolListingsForTheSameProduct is the
+// direct regression test for the reported bug -- a product enrolled in both
+// Woo and Bol must have its stock change reach both, from one event.
+func TestSyncStockToChannels_syncsBothWooAndBolListingsForTheSameProduct(t *testing.T) {
+	wooListing := channelsDomain.ProductChannelListing{
+		ID: "listing-woo", ProductID: "product-1", ConnectionID: "conn-woo",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+	}
+	bolListing := channelsDomain.ProductChannelListing{
+		ID: "listing-bol", ProductID: "product-1", ConnectionID: "conn-bol",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "999",
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{wooListing, bolListing})
+	bolPusher := &stubBolProductPusher{}
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 13}}
+	uc := h.newSyncStockUseCaseWithBol(t, 5, stockLevel, bolPusher)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 1)
+	require.Len(t, bolPusher.calls, 1)
 }
 
 // TestSyncStockToChannels_variationListingUsesParentAsRoutingID proves a

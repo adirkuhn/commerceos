@@ -33,6 +33,7 @@ type SyncStockToChannelsUseCase struct {
 	wooFactory  integrationsDomain.WooClientFactory
 	stockLevel  stockLevelGetter
 	encSecret   string
+	bolPusher   bolProductPusher
 }
 
 func NewSyncStockToChannelsUseCase(
@@ -45,11 +46,12 @@ func NewSyncStockToChannelsUseCase(
 	wooFactory integrationsDomain.WooClientFactory,
 	stockLevel stockLevelGetter,
 	encryptionSecret string,
+	bolPusher bolProductPusher,
 ) *SyncStockToChannelsUseCase {
 	return &SyncStockToChannelsUseCase{
 		db: db, skuRepo: skuRepo, variantRepo: variantRepo, listingRepo: listingRepo,
 		syncLogRepo: syncLogRepo, connRepo: connRepo, wooFactory: wooFactory,
-		stockLevel: stockLevel, encSecret: encryptionSecret,
+		stockLevel: stockLevel, encSecret: encryptionSecret, bolPusher: bolPusher,
 	}
 }
 
@@ -110,8 +112,9 @@ func (uc *SyncStockToChannelsUseCase) run(ctx context.Context, skuID string, for
 		fields[md.Key] = md.Value
 	}
 
+	pushedBolConnections := map[string]bool{}
 	for _, listing := range listings {
-		uc.syncOne(ctx, listing, parentExternalIDFor(listings, listing), qty, fields, metadata, force)
+		uc.syncOne(ctx, productID, listing, parentExternalIDFor(listings, listing), qty, fields, metadata, force, pushedBolConnections)
 	}
 	return nil
 }
@@ -135,11 +138,49 @@ func parentExternalIDFor(listings []channelsDomain.ProductChannelListing, listin
 	return ""
 }
 
-func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData, force bool) {
-	if listing.Provider != string(integrationsDomain.ProviderWooCommerce) {
+// syncOne dispatches a listing to its provider's own stock-sync logic --
+// new provider support is one new case (and, for anything needing more than
+// a fire-and-forget push, one new method), never a change to the providers
+// already handled here.
+func (uc *SyncStockToChannelsUseCase) syncOne(ctx context.Context, productID string, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData, force bool, pushedBolConnections map[string]bool) {
+	switch integrationsDomain.Provider(listing.Provider) {
+	case integrationsDomain.ProviderWooCommerce:
+		uc.syncWoo(ctx, listing, parentExternalID, qty, fields, metadata, force)
+	case integrationsDomain.ProviderBol:
+		uc.syncBol(ctx, productID, listing, pushedBolConnections)
+	default:
 		return // no other provider implemented yet
 	}
+}
 
+// syncBol always re-pushes the product's full Bol offer for a connection
+// the first time that connection is seen in this run (pushedBolConnections
+// dedupes repeat calls for a multi-variant product's several listings under
+// the same connection). Bol has no stock-only endpoint -- every push sends
+// price+stock together, see RunScheduledBolExportUseCase's doc comment --
+// so there is no cheaper single-field call available the way syncWoo has.
+//
+// Unlike syncWoo there is deliberately no "skip if unchanged" guard: the
+// whole point of this use case is that every inventory change reaches every
+// channel the product is enrolled in (a Bol listing existing here already
+// means EnrollProductInChannelsUseCase decided this product belongs on Bol
+// -- that's the "should this channel get it" decision, made once at
+// enrollment time, not re-litigated per stock event). Letting Bol's push
+// lag behind on the bol_stock schedule's interval is exactly the staleness
+// this fixes. bolPusher is optional/nil -- same convention as
+// SyncProductToChannelsUseCase.bolPusher -- for a caller that hasn't wired
+// Bol support.
+func (uc *SyncStockToChannelsUseCase) syncBol(ctx context.Context, productID string, listing channelsDomain.ProductChannelListing, pushedBolConnections map[string]bool) {
+	if uc.bolPusher == nil || pushedBolConnections[listing.ConnectionID] {
+		return
+	}
+	pushedBolConnections[listing.ConnectionID] = true
+	if _, err := uc.bolPusher.Execute(ctx, PushProductToBolInput{ProductID: productID, ConnectionID: listing.ConnectionID}); err != nil {
+		log.Printf("syncStockToChannels: bol product %s -> connection %s: %v", productID, listing.ConnectionID, err)
+	}
+}
+
+func (uc *SyncStockToChannelsUseCase) syncWoo(ctx context.Context, listing channelsDomain.ProductChannelListing, parentExternalID, qty string, fields map[string]string, metadata []integrationsDomain.WooMetaData, force bool) {
 	// Skip the actual Woo call (not just the log row — recordSyncLog
 	// already dedupes those) when the last recorded push for this listing
 	// already reported these exact field values. A stock movement usually
