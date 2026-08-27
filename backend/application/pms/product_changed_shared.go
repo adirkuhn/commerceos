@@ -32,6 +32,25 @@ func enqueueProductChanged(ctx context.Context, outboxRepo outbox.Repository, pr
 	return outboxRepo.Enqueue(ctx, event.EventName(), event.EventID, payload, event.OccurredAt)
 }
 
+// enqueueCategoryChanged writes a pms.category.changed outbox row in the
+// caller's current transaction — same atomicity contract as
+// enqueueProductChanged. No consumer processes this event yet: it exists so
+// the channel-fanout event stream carries category changes at all, leaving
+// each channel's own sync logic to decide later whether/how to act on it
+// (see events.CategoryChanged's doc comment).
+func enqueueCategoryChanged(ctx context.Context, outboxRepo outbox.Repository, categoryID string) error {
+	event := events.CategoryChanged{
+		Base:       events.Base{EventID: idgen.NewV4(), OccurredAt: time.Now()},
+		TenantID:   tenant.IDFromContext(ctx),
+		CategoryID: categoryID,
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+	return outboxRepo.Enqueue(ctx, event.EventName(), event.EventID, payload, event.OccurredAt)
+}
+
 // enqueueProductDeleted writes a pms.product.deleted outbox row in the
 // caller's current transaction, carrying a snapshot of the channel listings
 // that existed immediately before the product row (and its cascaded

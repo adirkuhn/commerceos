@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -26,10 +27,11 @@ type UpdateCategoryInput struct {
 type UpdateCategoryUseCase struct {
 	db           *gorm.DB
 	categoryRepo pmsDomain.CategoryRepository
+	outboxRepo   outbox.Repository
 }
 
-func NewUpdateCategoryUseCase(db *gorm.DB, categoryRepo pmsDomain.CategoryRepository) *UpdateCategoryUseCase {
-	return &UpdateCategoryUseCase{db: db, categoryRepo: categoryRepo}
+func NewUpdateCategoryUseCase(db *gorm.DB, categoryRepo pmsDomain.CategoryRepository, outboxRepo outbox.Repository) *UpdateCategoryUseCase {
+	return &UpdateCategoryUseCase{db: db, categoryRepo: categoryRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *UpdateCategoryUseCase) Execute(ctx context.Context, in UpdateCategoryInput) (*pmsDomain.Category, error) {
@@ -51,7 +53,7 @@ func (uc *UpdateCategoryUseCase) Execute(ctx context.Context, in UpdateCategoryI
 			return err
 		}
 		category = *existing
-		return nil
+		return enqueueCategoryChanged(ctx, uc.outboxRepo, category.ID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateCategory: %w", err)

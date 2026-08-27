@@ -261,7 +261,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	h := NewHandler(
 		apppms.NewListCategoriesUseCase(db, categoryRepo),
 		apppms.NewCreateCategoryUseCase(db, categoryRepo),
-		apppms.NewUpdateCategoryUseCase(db, categoryRepo),
+		apppms.NewUpdateCategoryUseCase(db, categoryRepo, outboxRepo),
 		apppms.NewDeleteCategoryUseCase(db, categoryRepo),
 		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo),
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
