@@ -8,9 +8,16 @@ import { CameraScanner } from './CameraScanner'
 import { ProductCandidateRow } from './ProductCandidateRow'
 import { playErrorSound } from './errorSound'
 import { useWakeLock } from './useWakeLock'
+import { computeMissingItems, pickedQuantityByLineItem } from './pickingMissingItems'
+import { useConnections } from '../integrations/hooks/useConnections'
+import * as shippingApi from '../shipping/api'
+import type { RecipientAddress } from '../shipping/types'
+import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
+import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
+import { ShippingLabelPrintView } from '../pages/print/ShippingLabelPrintView'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
-  MissingPickItem, PickScanActionType,
+  PickScanActionType,
 } from './types'
 import type { SalesOrder, Address } from '../oms/types'
 
@@ -55,34 +62,6 @@ function isAuthError(err: unknown): boolean {
   return err instanceof Error && /401|unauthorized/i.test(err.message)
 }
 
-// A pick or substitute scan's net effect on a line's picked progress --
-// mirrors backend missingPickItems' scoring exactly (freebie/new_item never
-// count against an original line, they have no line_item_id).
-function pickedQuantityByLineItem(scans: PickScan[]): Map<string, number> {
-  const byLineItem = new Map<string, number>()
-  for (const s of scans) {
-    if (!s.line_item_id) continue
-    if (s.action_type !== 'pick' && s.action_type !== 'substitute') continue
-    byLineItem.set(s.line_item_id, (byLineItem.get(s.line_item_id) ?? 0) + s.quantity)
-  }
-  return byLineItem
-}
-
-// Mirrors CompletePickingUseCase's missingPickItems exactly, computed
-// client-side from data already loaded -- lets Finish show a preview before
-// actually completing the session.
-function computeMissingItems(detail: PickingSessionDetail): MissingPickItem[] {
-  const pickedByLineItem = pickedQuantityByLineItem(detail.scans)
-  const missing: MissingPickItem[] = []
-  for (const li of detail.line_items) {
-    const picked = pickedByLineItem.get(li.id) ?? 0
-    if (picked < li.quantity) {
-      missing.push({ line_item_id: li.id, name: li.name, expected_qty: li.quantity, picked_qty: picked })
-    }
-  }
-  return missing
-}
-
 export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: PickingScreenProps) {
   const [detail, setDetail] = useState<PickingSessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -98,6 +77,39 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
   const [addItemOpen, setAddItemOpen] = useState(false)
   const codeInputRef = useRef<HTMLInputElement>(null)
+
+  const { connections } = useConnections(token)
+  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
+  // Same 3-step label flow as the desktop picking screens (see Picking.tsx's
+  // doc comment): 'address' -> 'preview' -> Print label actually creates the
+  // shipment (handlePrintLabel).
+  const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
+  const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
+  const [pendingCarrier, setPendingCarrier] = useState(1)
+  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
+  const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
+  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  useEffect(() => {
+    if (!myParcelConnection) return
+    shippingApi.getShippingSettings(token, myParcelConnection.id)
+      .then(result => {
+        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
+        setLabelSize(result.settings?.default_label_size ?? 'A4')
+      })
+      .catch(() => setAutoPrintEnabled(false))
+  }, [token, myParcelConnection])
+
+  async function handlePrintLabel() {
+    if (!myParcelConnection || !pendingRecipient) return
+    const shipment = await shippingApi.createShipment(token, {
+      carrier: pendingCarrier, recipient: pendingRecipient,
+      connection_id: myParcelConnection.id, sales_order_id: order.id,
+    })
+    setLabelStep(null)
+    setCreatedShipmentId(shipment.id)
+    setPrintingLabelId(shipment.id)
+  }
 
   const load = async () => {
     try {
@@ -239,7 +251,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   }
 
   if (confirmingFinish && detail) {
-    const missing = computeMissingItems(detail)
+    const missing = computeMissingItems(detail.line_items, detail.scans)
     return (
       <div className="fixed inset-0 flex flex-col bg-[#0B1220] text-gray-100">
         <div className="flex items-center gap-3 px-4 py-4 border-b border-[#2D3748] shrink-0">
@@ -301,11 +313,51 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             ))}
           </div>
         )}
-        <div className="p-6 shrink-0">
+        <div className="p-6 shrink-0 space-y-2">
+          {myParcelConnection && !createdShipmentId && (
+            <button
+              type="button" onClick={() => setLabelStep('address')}
+              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+            >
+              Create shipping label
+            </button>
+          )}
+          {createdShipmentId && (
+            <button
+              type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+            >
+              {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+            </button>
+          )}
           <button onClick={onExit} className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
             Done
           </button>
         </div>
+
+        {labelStep === 'address' && (
+          <AddressConfirmModal
+            initialAddress={order.shipping}
+            initialRecipient={pendingRecipient ?? undefined}
+            initialCarrier={pendingCarrier}
+            onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+            onClose={() => setLabelStep(null)}
+          />
+        )}
+        {labelStep === 'preview' && pendingRecipient && (
+          <LabelPreviewModal
+            recipient={pendingRecipient}
+            carrier={pendingCarrier}
+            labelSize={labelSize}
+            onLabelSizeChange={setLabelSize}
+            onBack={() => setLabelStep('address')}
+            onPrint={handlePrintLabel}
+            onClose={() => setLabelStep(null)}
+          />
+        )}
+        {printingLabelId && (
+          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        )}
       </div>
     )
   }
