@@ -455,7 +455,7 @@ func Register(
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
-		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo),
+		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo, outboxRepo),
 		appchannels.NewGetBolProductContentUseCase(db, bolContentRepo),
 		appchannels.NewUpsertBolProductContentUseCase(db, bolContentRepo, outboxRepo),
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),

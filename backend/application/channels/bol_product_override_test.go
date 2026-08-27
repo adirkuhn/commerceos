@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	"github.com/adirkuhn/commerceos/domain/events"
 )
 
 func TestGetBolProductOverride_returnsNilWhenNoneExists(t *testing.T) {
@@ -23,7 +25,7 @@ func TestGetBolProductOverride_returnsNilWhenNoneExists(t *testing.T) {
 
 func TestUpsertBolProductOverride_savesFields(t *testing.T) {
 	repo := &fakeBolOverrideRepo{}
-	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo)
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
 
 	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
 		ProductID: "prod-1", ConnectionID: "conn-1",
@@ -39,7 +41,7 @@ func TestUpsertBolProductOverride_savesFields(t *testing.T) {
 
 func TestUpsertBolProductOverride_savesCustomPrice(t *testing.T) {
 	repo := &fakeBolOverrideRepo{}
-	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo)
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
 
 	price := int64(2499)
 	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
@@ -54,9 +56,47 @@ func TestUpsertBolProductOverride_savesCustomPrice(t *testing.T) {
 	assert.Equal(t, int64(2499), *repo.upserted[0].CustomPriceMinorUnits)
 }
 
+// TestUpsertBolProductOverride_raisesProductChangedEvent proves saving the
+// Bol tab's Custom price (or any other override field) raises the same
+// pms.product.changed event a normal product edit does -- SyncProductToChannelsUseCase
+// is the only thing that actually pushes the new price to Bol's offer
+// (PushProductToBolUseCase reads CustomPriceMinorUnits), so without this
+// enqueue the override saves to the DB but Bol never hears about it. Mirrors
+// UpsertBolProductContentUseCase's equivalent test.
+func TestUpsertBolProductOverride_raisesProductChangedEvent(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	outboxRepo := &fakeOutboxRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, outboxRepo)
+
+	_, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, outboxRepo.enqueued, 1)
+	row := outboxRepo.enqueued[0]
+	assert.Equal(t, "pms.product.changed", row.Subject)
+	assert.NotEmpty(t, row.EventID)
+
+	var event events.ProductChanged
+	require.NoError(t, json.Unmarshal(row.Payload, &event))
+	assert.Equal(t, "prod-1", event.ProductID)
+	assert.Equal(t, row.EventID, event.EventID)
+}
+
+func TestUpsertBolProductOverride_propagatesOutboxEnqueueFailure(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	outboxRepo := &fakeOutboxRepo{err: assert.AnError}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, outboxRepo)
+
+	_, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.Error(t, err, "the override write must not silently succeed while the event fails to enqueue -- both happen in the same transaction")
+}
+
 func TestUpsertBolProductOverride_defaultsConditionAndFulfilmentWhenEmpty(t *testing.T) {
 	repo := &fakeBolOverrideRepo{}
-	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo)
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
 
 	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{ProductID: "prod-1", ConnectionID: "conn-1"})
 
