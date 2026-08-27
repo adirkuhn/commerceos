@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -15,12 +16,13 @@ type UpdateMediaInput struct {
 }
 
 type UpdateMediaUseCase struct {
-	db        *gorm.DB
-	mediaRepo pmsDomain.MediaRepository
+	db         *gorm.DB
+	mediaRepo  pmsDomain.MediaRepository
+	outboxRepo outbox.Repository
 }
 
-func NewUpdateMediaUseCase(db *gorm.DB, mediaRepo pmsDomain.MediaRepository) *UpdateMediaUseCase {
-	return &UpdateMediaUseCase{db: db, mediaRepo: mediaRepo}
+func NewUpdateMediaUseCase(db *gorm.DB, mediaRepo pmsDomain.MediaRepository, outboxRepo outbox.Repository) *UpdateMediaUseCase {
+	return &UpdateMediaUseCase{db: db, mediaRepo: mediaRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *UpdateMediaUseCase) Execute(ctx context.Context, in UpdateMediaInput) (*pmsDomain.Media, error) {
@@ -35,7 +37,16 @@ func (uc *UpdateMediaUseCase) Execute(ctx context.Context, in UpdateMediaInput) 
 			return err
 		}
 		media = *existing
-		return nil
+
+		// Only product-scoped media (ProductID set) ever reaches Woo --
+		// wooImagesFromMedia is built from mediaRepo.ListByProduct, which
+		// filters strictly on product_id, so a variant-only media row
+		// (ProductID nil, used solely as a variant's featured-image pick)
+		// never appears in a push regardless of its alt text.
+		if existing.ProductID == nil {
+			return nil
+		}
+		return enqueueProductChanged(ctx, uc.outboxRepo, *existing.ProductID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateMedia: %w", err)

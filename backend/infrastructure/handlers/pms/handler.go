@@ -280,7 +280,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage),
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage),
-		apppms.NewUpdateMediaUseCase(db, mediaRepo),
+		apppms.NewUpdateMediaUseCase(db, mediaRepo, outboxRepo),
 		apppms.NewResolveBarcodeUseCase(db, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		apppms.NewGetSKUMarginInsightUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, batchLister, discardLister),
 		apppms.NewListCostPriceHistoryUseCase(db, costPriceHistoryRepo),
