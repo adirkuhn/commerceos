@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { Hash, ScanLine, Camera } from 'lucide-react'
 import * as api from './api'
 import { CameraScanner } from './CameraScanner'
+import { hasLoginUrl, APP_ID, lm2Origin } from '../auth/loginConfig'
 
 interface ClaimScreenProps {
   onClaimed: (token: string) => void
 }
+
+const SCANNER_CALLBACK_PATH = '/scanner/auth/callback'
 
 // Scan is the default -- fastest path on a device with either a hardware
 // scan-engine (keyboard-wedge into the input) or a camera (see cameraOpen
@@ -19,6 +22,8 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [error, setError] = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [googleError, setGoogleError] = useState('')
 
   async function handleDigitsSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -54,6 +59,26 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
     setCameraOpen(false)
     setScanValue(text)
     submitScannedToken(text)
+  }
+
+  // Alternative to pairing off a desktop admin session -- signs the device
+  // itself in via lm2's Google OAuth, the same flow ../auth/LoginPage uses.
+  // Full-page redirect, so there's nothing to await here: the browser leaves
+  // this screen and comes back at ScannerCallbackPage once Google (and lm2)
+  // finish, which stores the resulting token+refresh_token and returns here.
+  async function handleGoogleLogin() {
+    setGoogleError('')
+    setGoogleLoading(true)
+    try {
+      const callbackUrl = `${window.location.origin}${SCANNER_CALLBACK_PATH}`
+      const res = await fetch(`${lm2Origin()}/api/v1/auth/app/google/url?app=${APP_ID}&redirect=${encodeURIComponent(callbackUrl)}`)
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error?.message ?? body.message ?? 'Google sign-in is unavailable')
+      window.location.href = body.data.url
+    } catch (err) {
+      setGoogleError(err instanceof Error ? err.message : 'Google sign-in is unavailable')
+      setGoogleLoading(false)
+    }
   }
 
   return (
@@ -144,6 +169,25 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
 
       {cameraOpen && (
         <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} />
+      )}
+
+      {hasLoginUrl(import.meta.env) && (
+        <div className="w-full max-w-xs space-y-3">
+          <div className="flex items-center gap-3 text-[11px] text-gray-500">
+            <div className="h-px flex-1 bg-[#2D3748]" />
+            or
+            <div className="h-px flex-1 bg-[#2D3748]" />
+          </div>
+          {googleError && <p className="text-sm text-red-400">{googleError}</p>}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading}
+            className="w-full py-3 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium disabled:opacity-50 transition-colors"
+          >
+            {googleLoading ? 'Redirecting…' : 'Sign in with Google'}
+          </button>
+        </div>
       )}
     </div>
   )

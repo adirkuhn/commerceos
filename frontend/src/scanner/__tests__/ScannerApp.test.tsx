@@ -228,6 +228,48 @@ describe('ScannerApp pairing', () => {
   })
 })
 
+// ScannerApp's Google-login option -- an alternative to pairing off a
+// desktop admin session that signs the device itself in via lm2, the same
+// flow ../auth/LoginPage's Google button uses (see LoginPage.test.tsx).
+// This only proves the redirect fires correctly; the resulting long-lived
+// session is useScannerAuth's own concern (useScannerAuth.test.ts).
+describe('ScannerApp pairing — Google sign-in', () => {
+  function mockGoogleUrlFetch(data: unknown, ok = true) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok, json: () => Promise.resolve({ data, error: ok ? null : { message: 'Google sign-in is unavailable' } }),
+    }))
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_LM2_LOGIN_URL', 'https://lm2.example.com/login')
+    delete (window as unknown as { location: unknown }).location
+    // @ts-expect-error -- test-only stub so we can assert on the redirect target
+    window.location = { href: '', origin: 'https://scanner.example.com' }
+  })
+
+  it('fetches the google login url from lm2, targeting the scanner callback path, and redirects to it', async () => {
+    mockGoogleUrlFetch({ url: 'https://accounts.google.com/o/oauth2/v2/auth?state=abc' })
+
+    render(<ScannerApp />)
+    await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
+
+    await waitFor(() => expect(window.location.href).toBe('https://accounts.google.com/o/oauth2/v2/auth?state=abc'))
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toContain('https://lm2.example.com/api/v1/auth/app/google/url')
+    expect(url).toContain('app=commerceos')
+    expect(url).toContain(encodeURIComponent('https://scanner.example.com/scanner/auth/callback'))
+  })
+
+  it('shows an error when lm2 has no Google configured', async () => {
+    mockGoogleUrlFetch(null, false)
+
+    render(<ScannerApp />)
+    await userEvent.click(screen.getByRole('button', { name: /sign in with google/i }))
+
+    expect(await screen.findByText('Google sign-in is unavailable')).toBeInTheDocument()
+  })
+})
+
 describe('ScannerApp launcher', () => {
   beforeEach(() => {
     localStorage.setItem('commerceos_scanner_jwt', makeJWT(Math.floor(Date.now() / 1000) + 3600))
