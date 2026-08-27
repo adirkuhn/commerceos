@@ -54,10 +54,14 @@ func (uc *GetShippingSettingsUseCase) Execute(ctx context.Context, connectionID 
 // ConnectionID must already have a settings row (created at connect time,
 // see ConnectMyParcelUseCase).
 type UpdateShippingSettingsInput struct {
-	ConnectionID             string
-	DefaultCarrier           shippingDomain.Carrier
-	DefaultPackageType       shippingDomain.PackageType
-	DefaultLabelFormat       string
+	ConnectionID       string
+	DefaultCarrier     shippingDomain.Carrier
+	DefaultPackageType shippingDomain.PackageType
+	DefaultLabelFormat string
+	// DefaultLabelSize (shippingDomain.LabelSizeA4/LabelSizeA6) is
+	// GetShipmentLabelUseCase's fallback physical page format -- see that
+	// type's doc comment on why this isn't a per-shipment field.
+	DefaultLabelSize         string
 	DefaultSignatureRequired bool
 	DefaultOnlyRecipient     bool
 	InsureByDefault          bool
@@ -78,7 +82,8 @@ func NewUpdateShippingSettingsUseCase(db *gorm.DB, settingsRepo shippingDomain.S
 func (uc *UpdateShippingSettingsUseCase) Execute(ctx context.Context, in UpdateShippingSettingsInput) (*shippingDomain.ShippingConnectionSettings, error) {
 	settings := shippingDomain.ShippingConnectionSettings{
 		ConnectionID: in.ConnectionID, DefaultCarrier: in.DefaultCarrier, DefaultPackageType: in.DefaultPackageType,
-		DefaultLabelFormat: in.DefaultLabelFormat, DefaultSignatureRequired: in.DefaultSignatureRequired, DefaultOnlyRecipient: in.DefaultOnlyRecipient,
+		DefaultLabelFormat: in.DefaultLabelFormat, DefaultLabelSize: in.DefaultLabelSize,
+		DefaultSignatureRequired: in.DefaultSignatureRequired, DefaultOnlyRecipient: in.DefaultOnlyRecipient,
 		InsureByDefault:   in.InsureByDefault,
 		MyParcelAccountID: in.MyParcelAccountID, MyParcelShopID: in.MyParcelShopID, AutoPrintEnabled: in.AutoPrintEnabled,
 	}

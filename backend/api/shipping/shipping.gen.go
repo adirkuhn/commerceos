@@ -56,6 +56,24 @@ func (e ShippingConnectionSettingsDefaultLabelFormat) Valid() bool {
 	}
 }
 
+// Defines values for ShippingConnectionSettingsDefaultLabelSize.
+const (
+	ShippingConnectionSettingsDefaultLabelSizeA4 ShippingConnectionSettingsDefaultLabelSize = "A4"
+	ShippingConnectionSettingsDefaultLabelSizeA6 ShippingConnectionSettingsDefaultLabelSize = "A6"
+)
+
+// Valid indicates whether the value is a known member of the ShippingConnectionSettingsDefaultLabelSize enum.
+func (e ShippingConnectionSettingsDefaultLabelSize) Valid() bool {
+	switch e {
+	case ShippingConnectionSettingsDefaultLabelSizeA4:
+		return true
+	case ShippingConnectionSettingsDefaultLabelSizeA6:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateShippingSettingsRequestDefaultLabelFormat.
 const (
 	UpdateShippingSettingsRequestDefaultLabelFormatPdf UpdateShippingSettingsRequestDefaultLabelFormat = "pdf"
@@ -68,6 +86,42 @@ func (e UpdateShippingSettingsRequestDefaultLabelFormat) Valid() bool {
 	case UpdateShippingSettingsRequestDefaultLabelFormatPdf:
 		return true
 	case UpdateShippingSettingsRequestDefaultLabelFormatZpl:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateShippingSettingsRequestDefaultLabelSize.
+const (
+	UpdateShippingSettingsRequestDefaultLabelSizeA4 UpdateShippingSettingsRequestDefaultLabelSize = "A4"
+	UpdateShippingSettingsRequestDefaultLabelSizeA6 UpdateShippingSettingsRequestDefaultLabelSize = "A6"
+)
+
+// Valid indicates whether the value is a known member of the UpdateShippingSettingsRequestDefaultLabelSize enum.
+func (e UpdateShippingSettingsRequestDefaultLabelSize) Valid() bool {
+	switch e {
+	case UpdateShippingSettingsRequestDefaultLabelSizeA4:
+		return true
+	case UpdateShippingSettingsRequestDefaultLabelSizeA6:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetShipmentLabelParamsSize.
+const (
+	GetShipmentLabelParamsSizeA4 GetShipmentLabelParamsSize = "A4"
+	GetShipmentLabelParamsSizeA6 GetShipmentLabelParamsSize = "A6"
+)
+
+// Valid indicates whether the value is a known member of the GetShipmentLabelParamsSize enum.
+func (e GetShipmentLabelParamsSize) Valid() bool {
+	switch e {
+	case GetShipmentLabelParamsSizeA4:
+		return true
+	case GetShipmentLabelParamsSizeA6:
 		return true
 	default:
 		return false
@@ -190,6 +244,7 @@ type ShippingConnectionSettings struct {
 	ConnectionId             *string                                       `json:"connection_id,omitempty"`
 	DefaultCarrier           *int                                          `json:"default_carrier,omitempty"`
 	DefaultLabelFormat       *ShippingConnectionSettingsDefaultLabelFormat `json:"default_label_format,omitempty"`
+	DefaultLabelSize         *ShippingConnectionSettingsDefaultLabelSize   `json:"default_label_size,omitempty"`
 	DefaultOnlyRecipient     *bool                                         `json:"default_only_recipient,omitempty"`
 	DefaultPackageType       *int                                          `json:"default_package_type,omitempty"`
 	DefaultSignatureRequired *bool                                         `json:"default_signature_required,omitempty"`
@@ -200,6 +255,9 @@ type ShippingConnectionSettings struct {
 
 // ShippingConnectionSettingsDefaultLabelFormat defines model for ShippingConnectionSettings.DefaultLabelFormat.
 type ShippingConnectionSettingsDefaultLabelFormat string
+
+// ShippingConnectionSettingsDefaultLabelSize defines model for ShippingConnectionSettings.DefaultLabelSize.
+type ShippingConnectionSettingsDefaultLabelSize string
 
 // ShippingSettingsResponse defines model for ShippingSettingsResponse.
 type ShippingSettingsResponse struct {
@@ -215,6 +273,7 @@ type UpdateShippingSettingsRequest struct {
 	AutoPrintEnabled         *bool                                           `json:"auto_print_enabled,omitempty"`
 	DefaultCarrier           int                                             `json:"default_carrier"`
 	DefaultLabelFormat       UpdateShippingSettingsRequestDefaultLabelFormat `json:"default_label_format"`
+	DefaultLabelSize         *UpdateShippingSettingsRequestDefaultLabelSize  `json:"default_label_size,omitempty"`
 	DefaultOnlyRecipient     *bool                                           `json:"default_only_recipient,omitempty"`
 	DefaultPackageType       int                                             `json:"default_package_type"`
 	DefaultSignatureRequired *bool                                           `json:"default_signature_required,omitempty"`
@@ -225,6 +284,9 @@ type UpdateShippingSettingsRequest struct {
 
 // UpdateShippingSettingsRequestDefaultLabelFormat defines model for UpdateShippingSettingsRequest.DefaultLabelFormat.
 type UpdateShippingSettingsRequestDefaultLabelFormat string
+
+// UpdateShippingSettingsRequestDefaultLabelSize defines model for UpdateShippingSettingsRequest.DefaultLabelSize.
+type UpdateShippingSettingsRequestDefaultLabelSize string
 
 // UpsertCarrierOverrideRequest defines model for UpsertCarrierOverrideRequest.
 type UpsertCarrierOverrideRequest struct {
@@ -244,6 +306,15 @@ type Error = ErrorResponse
 type ConnectMyParcelJSONBody struct {
 	ApiKey string `json:"api_key"`
 }
+
+// GetShipmentLabelParams defines parameters for GetShipmentLabel.
+type GetShipmentLabelParams struct {
+	// Size Physical page format for this print (A4 or A6) -- a retrieval-time choice, re-askable on every print/reprint of the same label. Omit to use the connection's own DefaultLabelSize (itself defaulting to A4).
+	Size *GetShipmentLabelParamsSize `form:"size,omitempty" json:"size,omitempty"`
+}
+
+// GetShipmentLabelParamsSize defines parameters for GetShipmentLabel.
+type GetShipmentLabelParamsSize string
 
 // UpsertCarrierOverrideJSONRequestBody defines body for UpsertCarrierOverride for application/json ContentType.
 type UpsertCarrierOverrideJSONRequestBody = UpsertCarrierOverrideRequest
@@ -288,7 +359,7 @@ type ServerInterface interface {
 	CreateShipment(c *gin.Context)
 	// GetShipmentLabel Fetch a shipment's label (PDF or ZPL, whatever it was created with)
 	// (GET /shipping/shipments/{shipmentId}/label)
-	GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID)
+	GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID, params GetShipmentLabelParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -509,6 +580,17 @@ func (siw *ServerInterfaceWrapper) GetShipmentLabel(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetShipmentLabelParams
+
+	// ------------- Optional query parameter "size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "size", c.Request.URL.Query(), &params.Size, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter size: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -516,7 +598,7 @@ func (siw *ServerInterfaceWrapper) GetShipmentLabel(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetShipmentLabel(c, shipmentId)
+	siw.Handler.GetShipmentLabel(c, shipmentId, params)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -562,45 +644,47 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7Fptb9s4Ev4rA94BSVA5TtrehzUQHHppu9tFugni9ha4NvDS4tjmRiJZknLqDfzfDyQlWbKkRInT7gJ3",
-	"32JySA5nnnnho9ySWKZKChTWkNEtUVTTFC1q/yuWQmBsuRTvmPvNBRkRRe2CRETQFMmoLhIRjV8yrpGR",
-	"kdUZRsTEC0ypWzuTOqWWjEiWcSdpV8qtN1ZzMSfr9dotNkoKg/7sN1pLnSthUVj3J1Uq4TF1pw1/N1K4",
-	"sc0Jf9c4IyPyt+HmSsMwa4Z+t8t8/3AaQxNrrtxmZETQH+fG8yVux9PycuVSZyMtFWrLg56MWtoc3Zhl",
-	"wr3ptq4bOfklZ6hbJ42lNjMtU+vScHL6O8bWCWNhKZElCZ0mGIzfKnuqkVocL7hKUdhL/JKhsS3qU615",
-	"TTcuLM5Ruz0ad7vHtRFJ6BSTSSF2S1BkKRl9IorNSET+UAm5ira0b9lFimQ10RhzxXM8dCyZSpkgFd7K",
-	"NL6mc5yEmc4VldvVDrgLUpeF4CvGNBrj/UYTNBOpGeq+tjF8LqjNNE42sXP/zdbVUPu0fe62j6LSodX7",
-	"XbXgox4nnWDfQloFg9thwLAV4CkaQ+fYC+FtOH7zVUlt368uqI4xOXcXfxyYd3D3lg/6mrhQ+m2WzHji",
-	"wtCr/5gc0jGcrpQ/YeIx15pfGjjdLQV13Ol+IN1l8S5DPTDlnV8/NHnL68q1qyG3U+ptAKjp8NjrVKtL",
-	"78bnEMtMWL0CH00tKSTmdtXqQ2dUKtrnMKU8aZ0RWTrtqEthamKy2Yx/bSr7YYFAw+1gzx2eoHPb3tBK",
-	"XEqcu11a9Feo82LenFpI0Z5BlDSWJpPODGOsRrTt+K2GbX54uSA3Z+S80Ra+Re1sum9Kdac2DyuozeW+",
-	"bLNJKJ9lTWHU4sDytBUVHVtt1+KGwBMXwPsTS8USYW6SUi56Zp5NK7NLqimd+sCYdusUF/PT4N7zJWrN",
-	"Ge7aUDV9KYzrEKarCcMZzZKe3c/36Zge3cF0m7M0yBit5WLekixpZuVEaS7sBIU7iLUl7T7GzU06udNH",
-	"hVCvVrbziKZDmgoXstuO6Nap3QHNnVtR1BQr2wca+8qT2+1+IJQLzUKqnqvugkHh/Ac/voIjJzIPRz/I",
-	"LaamTx5oi+eNllRruvKoryCTJsn5jIw+9dy8ie514/2zc7vxUbH8pVc3ZUeT3Dec/h8sf26wVFuXbV90",
-	"mKPDH1etoDGo7Rb6OzHzP1GV1h4LM9nsdov3CZg8yAbevpBKliUI+0y6PmZYzB6MIK9FMEvkTQQK9WBT",
-	"nWCeyClN4FkYDy6AIstEQAXzM2PXYfmHkD/XdS3g20MuxTAooNFqjkuawGAAdoHwOed9Sk3BC34mQMPZ",
-	"Ung5xeProTM1mFgjikN47zCNDDLhDnQyxlLBqGbw868fBkpLi7ETWB7DXMtMRWBoikANUMWHMjWHn11z",
-	"bbl1RienMk1Rx3g+hiI1wauLdyQiS9Qm2PX48MjDRKGgipMReXF4dPiCRJ559MArbTrc2M8Mb6tc5HqY",
-	"m3BQVoHhbT609lDOPPQcnmnBcLbj35+8oUU7svxGZFjjRNdRJ24KJ3MG+8cnF9LYX84ieH4ydW+bCF6e",
-	"vL54HcEPJ69/OoOZ1LCSWQTHR/53vkVeSyI4PvbDbzItVZKZCI6fn3y8GMM4d1cExy/8wJuvyr/PxnSJ",
-	"+oBEraRuhcro4nMbuekqSKOx/5Js9WTM7Z0paV1PiTkZVeORnx8dPZkune1Bk0+W1w7DL8PhbXuWSgZu",
-	"OlDPWZpSvSIjMkYL+1JDnCDVByAFFmjZM1Ai2setVCBnPjQ3uNszRTrJM3Ogq3rFjcY5Nxb14AanCxm4",
-	"EAfIZgK8DIY3W4eDlUATjZStYEGXCBTyrcBgrNG6rAb7BtHnCI+gEINmD/ArNy7jOZlfw6pxWISCKcmF",
-	"jUBjZpABNQNuXIorAwrTKTID3Pr8A7/908prFCe/wZcM9QrKEAUujEXKnOGogJ/evzqFBVKGOgKnFhcz",
-	"TY3VWewKyDDXvmDszWFx4L9R8xlHfRCSXD2XXOZ2LITz2+yYTa6+IbwrTNkdiH7ZG9FO+ofH4b8wng8C",
-	"jYMClAdgF9zUkV6UwUFgDyCmSTJ1Rezj5RnccLsoAdI/CDyPMfA8hhnemrLmujn03HOYrAZH3f0tDHXT",
-	"9d/yg1rUun31Kjtt/43S/R3Efq9kf/xkmtzHabeESE7TPTTzR+QfR88fFyfBXEDB+xU8JmHJaQn5PQPn",
-	"AcWbe7iOy+VNY1H50pLXD99aBnFgaClPQNE57plNA1n0jaGDneJMavRrM4PaheWM6zQUhIIIdo1rXPvs",
-	"6LrOjCbJKh8P8kUYH8I7hqmSzoMjF/sunl1FcC0QFUVpGYQwRJZfWqPNtAhblUUkyFTTfWiVxRwosCxA",
-	"AzcFxG/lknn/RFGhAebYkgd+RLv9CP8Ll4BO6uVJCkINuj+iw+1dPQs8A1z6wl15EckKJ9PRw7cRH09h",
-	"82/R3N5F0vxZ3W0LP/UUDe4OWAl26oBL+ajt6HULpqVwaXfNzm9etguPd/oWuab45BpX93+MKgSvWmmI",
-	"71f7Wv7x5SnL3cug6sNxkOsFm/oGOe8G+4aLeYK+tl3jKgIh4fxVZhegkXGNsT3YwsVdPV5RjLrz+hk3",
-	"tiho5q3U/Tu8p23BdkgG7Vx6b6K8+GC2zYz3Z6nbs0rN487MeRWo013IQkNQ7XwiEHiDxsKMa2O33V11",
-	"aUf819oU8m1yfvu/YH3nAG98Nv1LdLN5k1mJ7tLnDV/Dfp2xvI/jPOiCw/C2+NMFvl90XzPnhM+8YK94",
-	"L7f/jtGu2KyOhnL7KRfO2i0PxtoGS8EOC83Dh4Nnf6jkoXs2QPVhgaDpTXAOTFeu+x8M4DTcYvBhpRC4",
-	"gZsFtS7qN0gI/T0y2N+6Jjhk3Kv4QQSKGoMMjNWUzxcW7ELLbL5wlcLCz+PzXwY3miqFzD8AHkp1PBr0",
-	"b9HGC4ftXOc9kxtn/+L1W3e5/1ycRRuDcAs31JQ58IbbxUEwtEG9LGCY6YSMyJAqPlwek/XV+r8BAAD/",
-	"/w==",
+	"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",
+	"tEjXTCWkT3pUst70hMxv5/8OAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

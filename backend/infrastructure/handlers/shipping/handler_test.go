@@ -76,11 +76,13 @@ func (s *stubCreateShipment) Execute(_ context.Context, in appshipping.CreateShi
 }
 
 type stubGetLabel struct {
-	result *integrationsDomain.LabelResult
-	err    error
+	result  *integrationsDomain.LabelResult
+	err     error
+	gotSize string
 }
 
-func (s *stubGetLabel) Execute(context.Context, string) (*integrationsDomain.LabelResult, error) {
+func (s *stubGetLabel) Execute(_ context.Context, _ string, size string) (*integrationsDomain.LabelResult, error) {
+	s.gotSize = size
 	return s.result, s.err
 }
 
@@ -247,6 +249,23 @@ func TestGetShipmentLabel_streamsRawBytesWithContentType(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/pdf", w.Header().Get("Content-Type"))
 	assert.Equal(t, []byte("%PDF-fake"), w.Body.Bytes())
+}
+
+// TestGetShipmentLabel_passesSizeQueryParamThrough is a regression test for
+// the A6-print feature: ?size=A6 on this GET request must reach the use
+// case's Execute call, not get silently dropped.
+func TestGetShipmentLabel_passesSizeQueryParamThrough(t *testing.T) {
+	label := &integrationsDomain.LabelResult{Data: []byte("%PDF-fake"), ContentType: "application/pdf"}
+	getLabel := &stubGetLabel{result: label}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, getLabel, &stubListShipments{}, &stubExportMyParcelOrder{})
+	r := newTestRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/label?size=A6", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "A6", getLabel.gotSize)
 }
 
 func TestRegisterMyParcelWebhook_409OnNoSecretSet(t *testing.T) {

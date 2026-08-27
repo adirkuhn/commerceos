@@ -19,6 +19,7 @@ type shippingConnectionSettingsModel struct {
 	DefaultCarrier           int
 	DefaultPackageType       int
 	DefaultLabelFormat       string
+	DefaultLabelSize         string
 	DefaultSignatureRequired bool
 	DefaultOnlyRecipient     bool
 	InsureByDefault          bool
@@ -68,7 +69,8 @@ func (r *ShippingConnectionSettingsRepo) FindByConnectionID(ctx context.Context,
 	return &shippingDomain.ShippingConnectionSettings{
 		ConnectionID: m.ConnectionID, TenantID: m.TenantID,
 		DefaultCarrier: shippingDomain.Carrier(m.DefaultCarrier), DefaultPackageType: shippingDomain.PackageType(m.DefaultPackageType),
-		DefaultLabelFormat: m.DefaultLabelFormat, DefaultSignatureRequired: m.DefaultSignatureRequired, DefaultOnlyRecipient: m.DefaultOnlyRecipient,
+		DefaultLabelFormat: m.DefaultLabelFormat, DefaultLabelSize: m.DefaultLabelSize,
+		DefaultSignatureRequired: m.DefaultSignatureRequired, DefaultOnlyRecipient: m.DefaultOnlyRecipient,
 		InsureByDefault:   m.InsureByDefault,
 		MyParcelAccountID: m.MyParcelAccountID, MyParcelShopID: m.MyParcelShopID, AutoPrintEnabled: m.AutoPrintEnabled,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
@@ -83,7 +85,8 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 	m := shippingConnectionSettingsModel{
 		ConnectionID: s.ConnectionID, TenantID: s.TenantID,
 		DefaultCarrier: int(s.DefaultCarrier), DefaultPackageType: int(s.DefaultPackageType),
-		DefaultLabelFormat: s.DefaultLabelFormat, DefaultSignatureRequired: s.DefaultSignatureRequired, DefaultOnlyRecipient: s.DefaultOnlyRecipient,
+		DefaultLabelFormat: s.DefaultLabelFormat, DefaultLabelSize: s.DefaultLabelSize,
+		DefaultSignatureRequired: s.DefaultSignatureRequired, DefaultOnlyRecipient: s.DefaultOnlyRecipient,
 		InsureByDefault:   s.InsureByDefault,
 		MyParcelAccountID: s.MyParcelAccountID, MyParcelShopID: s.MyParcelShopID, AutoPrintEnabled: s.AutoPrintEnabled,
 		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
@@ -91,7 +94,7 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "connection_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"default_carrier", "default_package_type", "default_label_format",
+			"default_carrier", "default_package_type", "default_label_format", "default_label_size",
 			"default_signature_required", "default_only_recipient",
 			"insure_by_default", "myparcel_account_id", "myparcel_shop_id", "auto_print_enabled",
 			"updated_at",

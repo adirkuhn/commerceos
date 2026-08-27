@@ -198,6 +198,15 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: size
+          in: query
+          required: false
+          description: >-
+            Physical page format for this print (A4 or A6) -- a
+            retrieval-time choice, re-askable on every print/reprint of the
+            same label. Omit to use the connection's own DefaultLabelSize
+            (itself defaulting to A4).
+          schema: { type: string, enum: [A4, A6] }
       responses:
         '200':
           description: >
@@ -265,6 +274,7 @@ components:
         default_carrier: { type: integer }
         default_package_type: { type: integer }
         default_label_format: { type: string, enum: [pdf, zpl] }
+        default_label_size: { type: string, enum: [A4, A6] }
         default_signature_required: { type: boolean }
         default_only_recipient: { type: boolean }
         insure_by_default: { type: boolean }
@@ -303,6 +313,7 @@ components:
         default_carrier: { type: integer }
         default_package_type: { type: integer }
         default_label_format: { type: string, enum: [pdf, zpl] }
+        default_label_size: { type: string, enum: [A4, A6] }
         default_signature_required: { type: boolean }
         default_only_recipient: { type: boolean }
         insure_by_default: { type: boolean }

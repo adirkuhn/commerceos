@@ -39,6 +39,20 @@ const (
 	LabelFormatZPL = "zpl"
 )
 
+// LabelSizeA4/LabelSizeA6 are the physical page format requested at label
+// *retrieval* time (GetShipmentLabelUseCase), not creation time -- unlike
+// LabelFormat (pdf/zpl content type, fixed when the shipment is created),
+// staff can ask for a different physical size on each print/reprint of the
+// same label. The query param this actually sends to MyParcel's real
+// shipment_labels endpoint ("format") is NOT confirmed against a live
+// sandbox response -- same caveat as the two already flagged in
+// infrastructure/myparcel's package doc comment (auth header,
+// reference_identifier field name).
+const (
+	LabelSizeA4 = "A4"
+	LabelSizeA6 = "A6"
+)
+
 // StatusEventSource distinguishes a status learned from an inbound webhook
 // from one learned by ReconcileShipmentsUseCase's own poll -- both write the
 // same ShipmentStatusEvent shape, this just says how we found out.
@@ -137,11 +151,16 @@ type ShipmentStatusEvent struct {
 // shipping defaults -- "configure general configuration and settings
 // global" from the approved design. One row per connection.
 type ShippingConnectionSettings struct {
-	ConnectionID             string
-	TenantID                 string
-	DefaultCarrier           Carrier
-	DefaultPackageType       PackageType
-	DefaultLabelFormat       string
+	ConnectionID       string
+	TenantID           string
+	DefaultCarrier     Carrier
+	DefaultPackageType PackageType
+	DefaultLabelFormat string
+	// DefaultLabelSize (LabelSizeA4/LabelSizeA6) is GetShipmentLabelUseCase's
+	// fallback physical page format when a print request doesn't ask for a
+	// specific one explicitly -- unlike DefaultLabelFormat, this isn't
+	// stored on the Shipment itself (see LabelSizeA4's doc comment).
+	DefaultLabelSize         string
 	DefaultSignatureRequired bool
 	DefaultOnlyRecipient     bool
 	// InsureByDefault turns on insurance for every shipment on this

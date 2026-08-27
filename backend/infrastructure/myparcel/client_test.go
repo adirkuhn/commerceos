@@ -208,12 +208,50 @@ func TestClient_GetLabel_pdfFormat_requestsPDFAccept(t *testing.T) {
 	defer srv.Close()
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
-	result, err := c.GetLabel(context.Background(), 123, "pdf")
+	result, err := c.GetLabel(context.Background(), 123, "pdf", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, "application/pdf", gotAccept)
 	assert.Equal(t, "application/pdf", result.ContentType)
 	assert.Equal(t, []byte("%PDF-fake"), result.Data)
+}
+
+// TestClient_GetLabel_sizeSendsFormatQueryParam is a regression test for the
+// A6-print feature: size must reach MyParcel as the `format` query param on
+// the shipment_labels GET request -- see the package doc comment's third
+// flagged item (param name/values unconfirmed against a real sandbox).
+func TestClient_GetLabel_sizeSendsFormatQueryParam(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("%PDF-fake"))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.GetLabel(context.Background(), 123, "pdf", "A6")
+
+	require.NoError(t, err)
+	assert.Equal(t, "format=A6", gotQuery)
+}
+
+func TestClient_GetLabel_noSizeOmitsQueryParam(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/pdf")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("%PDF-fake"))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.GetLabel(context.Background(), 123, "pdf", "")
+
+	require.NoError(t, err)
+	assert.Equal(t, "", gotQuery)
 }
 
 func TestClient_GetLabel_zplFormat_requestsZPLAccept(t *testing.T) {
@@ -226,7 +264,7 @@ func TestClient_GetLabel_zplFormat_requestsZPLAccept(t *testing.T) {
 	defer srv.Close()
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
-	_, err := c.GetLabel(context.Background(), 123, "zpl")
+	_, err := c.GetLabel(context.Background(), 123, "zpl", "")
 
 	require.NoError(t, err)
 	assert.Equal(t, "application/vnd.shipment_label+zpl", gotAccept)

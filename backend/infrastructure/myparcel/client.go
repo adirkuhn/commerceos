@@ -18,6 +18,12 @@
 //     client sends it as `reference_identifier` in the request body, the
 //     most likely counterpart name, but this wasn't confirmed against the
 //     request schema itself.
+//   - The physical page-size query param on GetLabel (A4 sheet vs a single
+//     A6 label) -- this client sends `?format=A6` on the shipment_labels
+//     GET request (MyParcel's docs describe a "format" query param for this
+//     exact endpoint, distinct from the Accept header's pdf/zpl content
+//     type), but the param name/values weren't confirmed against a real
+//     sandbox response during this build.
 package myparcel
 
 import (
@@ -358,15 +364,23 @@ func (c *Client) CreateOrder(ctx context.Context, in OrderInput) (OrderResult, e
 }
 
 // GetLabel fetches a shipment's label. format is "pdf" or "zpl" -- see
-// domain/shipping.LabelFormatPDF/LabelFormatZPL.
-func (c *Client) GetLabel(ctx context.Context, myParcelShipmentID int64, format string) (LabelResult, error) {
+// domain/shipping.LabelFormatPDF/LabelFormatZPL -- the response Content-Type
+// (Accept header), fixed at shipment-creation time. size is the physical
+// page format for this fetch (domain/shipping.LabelSizeA4/LabelSizeA6),
+// sent as the `format` query param -- see the package doc comment's third
+// flagged item; unconfirmed against a real sandbox response. Empty size
+// omits the query param, leaving MyParcel's own default.
+func (c *Client) GetLabel(ctx context.Context, myParcelShipmentID int64, format, size string) (LabelResult, error) {
 	accept := "application/pdf"
 	if format == "zpl" {
 		accept = "application/vnd.shipment_label+zpl"
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.cfg.BaseURL+"/shipment_labels/"+strconv.FormatInt(myParcelShipmentID, 10), nil)
+	url := c.cfg.BaseURL + "/shipment_labels/" + strconv.FormatInt(myParcelShipmentID, 10)
+	if size != "" {
+		url += "?format=" + size
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return LabelResult{}, fmt.Errorf("myparcel: build label request: %w", err)
 	}

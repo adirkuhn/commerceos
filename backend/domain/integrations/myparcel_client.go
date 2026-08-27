@@ -120,8 +120,11 @@ type MyParcelClient interface {
 	// see CreateOrderInput's doc for how this differs from CreateShipment.
 	CreateOrder(ctx context.Context, in CreateOrderInput) (OrderResult, error)
 	// GetLabel fetches a shipment's label. format is "pdf" or "zpl" (see
-	// domain/shipping.LabelFormatPDF/LabelFormatZPL).
-	GetLabel(ctx context.Context, myParcelShipmentID int64, format string) (LabelResult, error)
+	// domain/shipping.LabelFormatPDF/LabelFormatZPL) -- the response content
+	// type, fixed at shipment-creation time. size is the physical page
+	// format for THIS fetch (see domain/shipping.LabelSizeA4/LabelSizeA6) --
+	// a retrieval-time choice, re-askable on every print.
+	GetLabel(ctx context.Context, myParcelShipmentID int64, format, size string) (LabelResult, error)
 	GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (TrackTraceResult, error)
 	// RegisterWebhook registers (or, per MyParcel's own "adding the same
 	// webhook overwrites any existing one" behavior, re-registers) this

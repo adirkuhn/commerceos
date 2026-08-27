@@ -43,7 +43,7 @@ func newMockGormDB(t *testing.T, n int) *gorm.DB {
 type fakeMyParcelClient struct {
 	createShipmentFn  func(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error)
 	createOrderFn     func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
-	getLabelFn        func(ctx context.Context, myParcelShipmentID int64, format string) (integrationsDomain.LabelResult, error)
+	getLabelFn        func(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error)
 	getTrackTraceFn   func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
 	registerWebhookFn func(ctx context.Context, callbackURL string) error
 }
@@ -54,8 +54,8 @@ func (f *fakeMyParcelClient) CreateShipment(ctx context.Context, in integrations
 func (f *fakeMyParcelClient) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
 	return f.createOrderFn(ctx, in)
 }
-func (f *fakeMyParcelClient) GetLabel(ctx context.Context, id int64, format string) (integrationsDomain.LabelResult, error) {
-	return f.getLabelFn(ctx, id, format)
+func (f *fakeMyParcelClient) GetLabel(ctx context.Context, id int64, format, size string) (integrationsDomain.LabelResult, error) {
+	return f.getLabelFn(ctx, id, format, size)
 }
 func (f *fakeMyParcelClient) GetTrackTrace(ctx context.Context, id int64) (integrationsDomain.TrackTraceResult, error) {
 	return f.getTrackTraceFn(ctx, id)

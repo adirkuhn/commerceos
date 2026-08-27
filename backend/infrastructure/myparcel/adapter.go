@@ -59,8 +59,8 @@ func insuranceAmountOrZero(amount *int) int {
 	return *amount
 }
 
-func (a *Adapter) GetLabel(ctx context.Context, myParcelShipmentID int64, format string) (integrationsDomain.LabelResult, error) {
-	r, err := a.client.GetLabel(ctx, myParcelShipmentID, format)
+func (a *Adapter) GetLabel(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error) {
+	r, err := a.client.GetLabel(ctx, myParcelShipmentID, format, size)
 	if err != nil {
 		return integrationsDomain.LabelResult{}, err
 	}

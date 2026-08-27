@@ -45,7 +45,7 @@ type createShipmentUseCase interface {
 	Execute(ctx context.Context, in appshipping.CreateShipmentInput) (*shippingDomain.Shipment, error)
 }
 type getLabelUseCase interface {
-	Execute(ctx context.Context, shipmentID string) (*integrationsDomain.LabelResult, error)
+	Execute(ctx context.Context, shipmentID, size string) (*integrationsDomain.LabelResult, error)
 }
 type listShipmentsUseCase interface {
 	Execute(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error)
@@ -158,9 +158,14 @@ func (h *Handler) UpdateShippingSettings(c *gin.Context, connectionId genshippin
 	if req.InsureByDefault != nil {
 		insureByDefault = *req.InsureByDefault
 	}
+	labelSize := ""
+	if req.DefaultLabelSize != nil {
+		labelSize = string(*req.DefaultLabelSize)
+	}
 	settings, err := h.updateSettings.Execute(c.Request.Context(), appshipping.UpdateShippingSettingsInput{
 		ConnectionID: connectionId.String(), DefaultCarrier: shippingDomain.Carrier(req.DefaultCarrier),
 		DefaultPackageType: shippingDomain.PackageType(req.DefaultPackageType), DefaultLabelFormat: string(req.DefaultLabelFormat),
+		DefaultLabelSize:         labelSize,
 		DefaultSignatureRequired: sig, DefaultOnlyRecipient: onlyRecipient,
 		InsureByDefault:   insureByDefault,
 		MyParcelAccountID: req.MyparcelAccountId, MyParcelShopID: req.MyparcelShopId, AutoPrintEnabled: autoPrint,
@@ -294,8 +299,12 @@ func (h *Handler) ExportMyParcelOrder(c *gin.Context, connectionId openapi_types
 	}, "error": nil})
 }
 
-func (h *Handler) GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID) {
-	label, err := h.getLabel.Execute(c.Request.Context(), shipmentId.String())
+func (h *Handler) GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID, params genshipping.GetShipmentLabelParams) {
+	size := ""
+	if params.Size != nil {
+		size = string(*params.Size)
+	}
+	label, err := h.getLabel.Execute(c.Request.Context(), shipmentId.String(), size)
 	if err != nil {
 		mapErr(c, err)
 		return
@@ -322,12 +331,17 @@ func settingsToResponse(s *shippingDomain.ShippingConnectionSettings) *genshippi
 	}
 	carrier, pkgType := int(s.DefaultCarrier), int(s.DefaultPackageType)
 	format := genshipping.ShippingConnectionSettingsDefaultLabelFormat(s.DefaultLabelFormat)
-	return &genshipping.ShippingConnectionSettings{
+	resp := &genshipping.ShippingConnectionSettings{
 		ConnectionId: &s.ConnectionID, DefaultCarrier: &carrier, DefaultPackageType: &pkgType,
 		DefaultLabelFormat: &format, DefaultSignatureRequired: &s.DefaultSignatureRequired, DefaultOnlyRecipient: &s.DefaultOnlyRecipient,
 		InsureByDefault:   &s.InsureByDefault,
 		MyparcelAccountId: s.MyParcelAccountID, MyparcelShopId: s.MyParcelShopID, AutoPrintEnabled: &s.AutoPrintEnabled,
 	}
+	if s.DefaultLabelSize != "" {
+		size := genshipping.ShippingConnectionSettingsDefaultLabelSize(s.DefaultLabelSize)
+		resp.DefaultLabelSize = &size
+	}
+	return resp
 }
 
 func overrideToResponse(o shippingDomain.ShippingCarrierOverride) genshipping.ShippingCarrierOverride {
@@ -385,7 +399,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
 		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo),
-		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, myParcelFactory, encryptionSecret),
+		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, myParcelFactory, encryptionSecret, recordActivity),
 	)
