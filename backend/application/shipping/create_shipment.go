@@ -8,6 +8,7 @@ import (
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -53,14 +54,15 @@ type CreateShipmentInput struct {
 // callback is a separate explicit step (RegisterMyParcelWebhookUseCase,
 // run once after connecting) -- not repeated here on every shipment.
 type CreateShipmentUseCase struct {
-	db              *gorm.DB
-	connRepo        integrationsDomain.ConnectionRepository
-	settingsRepo    shippingDomain.ShippingConnectionSettingsRepository
-	overrideRepo    shippingDomain.ShippingCarrierOverrideRepository
-	shipmentRepo    shippingDomain.ShipmentRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
-	encSecret       string
-	recordActivity  recordActivityUC
+	db                 *gorm.DB
+	connRepo           integrationsDomain.ConnectionRepository
+	settingsRepo       shippingDomain.ShippingConnectionSettingsRepository
+	overrideRepo       shippingDomain.ShippingCarrierOverrideRepository
+	shipmentRepo       shippingDomain.ShipmentRepository
+	myParcelFactory    integrationsDomain.MyParcelClientFactory
+	encSecret          string
+	recordActivity     recordActivityUC
+	tenantSettingsRepo settingsDomain.Repository
 }
 
 func NewCreateShipmentUseCase(
@@ -72,11 +74,12 @@ func NewCreateShipmentUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	recordActivity recordActivityUC,
+	tenantSettingsRepo settingsDomain.Repository,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-		recordActivity: recordActivity,
+		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo,
 	}
 }
 
@@ -89,6 +92,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	var conn integrationsDomain.Connection
 	var settings *shippingDomain.ShippingConnectionSettings
 	var override *shippingDomain.ShippingCarrierOverride
+	var tenantSettings *settingsDomain.TenantSettings
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		c, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
 		if err != nil {
@@ -101,6 +105,10 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 			return err
 		}
 		override, err = uc.overrideRepo.FindByConnectionAndCarrier(ctx, in.ConnectionID, in.Carrier)
+		if err != nil {
+			return err
+		}
+		tenantSettings, err = uc.tenantSettingsRepo.Get(ctx)
 		return err
 	})
 	if err != nil {
@@ -146,6 +154,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		Options: integrationsDomain.MyParcelShipmentOptions{
 			PackageType: int(resolved.PackageType), SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
 			InsuranceAmountMinorEUR: resolved.InsuranceAmountMinorUnits,
+			Currency:                tenantSettings.DefaultCurrency,
 		},
 		OrderReference: in.SalesOrderID,
 	})

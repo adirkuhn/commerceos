@@ -365,6 +365,7 @@ func shipmentToResponse(s shippingDomain.Shipment) genshipping.Shipment {
 func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL string) {
 	connRepo := repositories.NewConnectionRepo(db)
 	settingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
+	tenantSettingsRepo := repositories.NewTenantSettingsRepo(db)
 	overrideRepo := repositories.NewShippingCarrierOverrideRepo(db)
 	shipmentRepo := repositories.NewShipmentRepo(db)
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
@@ -378,7 +379,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, myParcelFactory, encryptionSecret, recordActivity),

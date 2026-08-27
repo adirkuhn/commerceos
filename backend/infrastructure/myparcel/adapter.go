@@ -25,6 +25,7 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 		Options: Options{
 			PackageType: in.Options.PackageType, SignatureRequired: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
 			InsuranceAmountMinorUnits: insuranceAmountOrZero(in.Options.InsuranceAmountMinorEUR),
+			InsuranceCurrency:         in.Options.Currency,
 		},
 		OrderReference: in.OrderReference,
 	})

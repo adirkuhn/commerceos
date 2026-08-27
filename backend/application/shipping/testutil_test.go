@@ -13,6 +13,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 )
 
@@ -160,6 +161,29 @@ func (f *fakeRecordActivity) Execute(_ context.Context, in appoms.RecordSalesOrd
 		return nil, f.err
 	}
 	return &omsDomain.SalesOrderActivity{ID: "activity-1"}, nil
+}
+
+// --- settings.Repository fake (tenant-wide Localization settings) ---
+
+type fakeTenantSettingsRepo struct {
+	getFn func(ctx context.Context) (*settingsDomain.TenantSettings, error)
+}
+
+func (f *fakeTenantSettingsRepo) Get(ctx context.Context) (*settingsDomain.TenantSettings, error) {
+	return f.getFn(ctx)
+}
+func (f *fakeTenantSettingsRepo) Upsert(context.Context, *settingsDomain.TenantSettings) error {
+	return nil
+}
+
+// tenantSettingsRepoWithCurrency is the terse default most CreateShipment
+// tests reach for -- they only care that some currency reaches
+// MyParcelShipmentOptions.Currency, not the exact value; tests asserting
+// the currency threading itself build their own fakeTenantSettingsRepo.
+func tenantSettingsRepoWithCurrency(currency string) *fakeTenantSettingsRepo {
+	return &fakeTenantSettingsRepo{getFn: func(context.Context) (*settingsDomain.TenantSettings, error) {
+		return &settingsDomain.TenantSettings{DefaultCurrency: currency}, nil
+	}}
 }
 
 // --- oms.SalesOrderRepository fake (only Update is exercised by this

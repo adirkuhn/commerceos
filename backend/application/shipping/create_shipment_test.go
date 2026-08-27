@@ -64,7 +64,7 @@ func TestCreateShipment_happyPath_resolvesOptionsCreatesAndPersists(t *testing.T
 		},
 	}
 
-	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo, factory, testEncSecret, &fakeRecordActivity{})
+	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo, factory, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"))
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -107,7 +107,7 @@ func TestCreateShipment_perShipmentOverride_winsOverConnectionDefault(t *testing
 	}
 	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"))
 
 	digitalStamp := shippingDomain.PackageTypeDigitalStamp
 	sig := true
@@ -144,7 +144,7 @@ func TestCreateShipment_insuranceOverride_setsInsuranceAndForcesSignatureOnlyRec
 	}
 	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"))
 
 	amount := 50000
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
@@ -160,9 +160,89 @@ func TestCreateShipment_insuranceOverride_setsInsuranceAndForcesSignatureOnlyRec
 	assert.True(t, gotCreateInput.Options.OnlyRecipient, "MyParcel requires only_recipient whenever a shipment is insured")
 }
 
+// TestCreateShipment_usesTenantDefaultCurrencyForInsurance proves the
+// currency sent to MyParcel's insurance option comes from Settings ->
+// Localization -> Default Currency (settingsDomain.TenantSettings), not a
+// hardcoded value -- MyParcel requires an explicit currency per shipment
+// (docs section 6.A.3), it does not infer one from the account.
+func TestCreateShipment_usesTenantDefaultCurrencyForInsurance(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) {
+			return &shippingDomain.ShippingConnectionSettings{DefaultPackageType: shippingDomain.PackageTypePackage}, nil
+		},
+	}
+	overrideRepo := &fakeShippingCarrierOverrideRepo{
+		findByConnectionAndCarrierFn: func(_ context.Context, _ string, _ shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+			return nil, nil
+		},
+	}
+	var gotCreateInput integrationsDomain.CreateShipmentInput
+	client := &fakeMyParcelClient{
+		createShipmentFn: func(_ context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
+			gotCreateInput = in
+			return integrationsDomain.ShipmentResult{ShipmentID: 1, Barcode: "b"}, nil
+		},
+	}
+	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
+	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("USD"))
+
+	amount := 50000
+	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
+	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
+		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),
+		InsuranceAmountMinorUnits: &amount,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "USD", gotCreateInput.Options.Currency)
+}
+
+// TestCreateShipment_noDefaultCurrencyConfigured_passesEmptyThroughToClient
+// proves a tenant with no Settings -> Localization -> Default Currency
+// saved yet (TenantSettings' zero value, per its doc comment) doesn't error
+// -- the empty string passes through to the MyParcel client, which falls
+// back to "EUR" itself (infrastructure/myparcel.Client.CreateShipment).
+func TestCreateShipment_noDefaultCurrencyConfigured_passesEmptyThroughToClient(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) {
+			return &shippingDomain.ShippingConnectionSettings{DefaultPackageType: shippingDomain.PackageTypePackage}, nil
+		},
+	}
+	overrideRepo := &fakeShippingCarrierOverrideRepo{
+		findByConnectionAndCarrierFn: func(_ context.Context, _ string, _ shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+			return nil, nil
+		},
+	}
+	var gotCreateInput integrationsDomain.CreateShipmentInput
+	client := &fakeMyParcelClient{
+		createShipmentFn: func(_ context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
+			gotCreateInput = in
+			return integrationsDomain.ShipmentResult{ShipmentID: 1, Barcode: "b"}, nil
+		},
+	}
+	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
+	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency(""))
+
+	amount := 50000
+	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
+	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
+		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),
+		InsuranceAmountMinorUnits: &amount,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "", gotCreateInput.Options.Currency)
+}
+
 func TestCreateShipment_incompleteRecipient_returnsErrMissingRecipient(t *testing.T) {
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 0), &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{},
-		&fakeShippingCarrierOverrideRepo{}, &fakeShipmentRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, &fakeRecordActivity{})
+		&fakeShippingCarrierOverrideRepo{}, &fakeShipmentRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"))
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -192,7 +272,7 @@ func TestCreateShipment_myParcelAPIError_propagatesAndDoesNotPersist(t *testing.
 	persisted := false
 	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { persisted = true; return nil }}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"))
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -224,7 +304,7 @@ func TestCreateShipment_recordsActivityOnSuccessAndFailure(t *testing.T) {
 		shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }}
 		activity := &fakeRecordActivity{}
 		uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-			&fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+			&fakeMyParcelClientFactory{client: client}, testEncSecret, activity, tenantSettingsRepoWithCurrency("EUR"))
 
 		ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 		_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
@@ -246,7 +326,7 @@ func TestCreateShipment_recordsActivityOnSuccessAndFailure(t *testing.T) {
 		shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { return nil }}
 		activity := &fakeRecordActivity{}
 		uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-			&fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+			&fakeMyParcelClientFactory{client: client}, testEncSecret, activity, tenantSettingsRepoWithCurrency("EUR"))
 
 		ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 		_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{

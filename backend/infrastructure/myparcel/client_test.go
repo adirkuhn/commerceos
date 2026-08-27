@@ -60,7 +60,10 @@ func TestClient_CreateShipment_insuredShipmentSendsInsuranceOption(t *testing.T)
 	_, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
 		Carrier:   1,
 		Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
-		Options:   myparcel.Options{PackageType: 1, SignatureRequired: true, OnlyRecipient: true, InsuranceAmountMinorUnits: 50000},
+		Options: myparcel.Options{
+			PackageType: 1, SignatureRequired: true, OnlyRecipient: true,
+			InsuranceAmountMinorUnits: 50000, InsuranceCurrency: "USD",
+		},
 	})
 
 	require.NoError(t, err)
@@ -68,6 +71,34 @@ func TestClient_CreateShipment_insuredShipmentSendsInsuranceOption(t *testing.T)
 	options := shipments[0].(map[string]any)["options"].(map[string]any)
 	insurance := options["insurance"].(map[string]any)
 	assert.Equal(t, float64(50000), insurance["amount"])
+	assert.Equal(t, "USD", insurance["currency"], "currency comes from the caller (tenant's Settings -> Localization -> Default Currency), not hardcoded")
+}
+
+// TestClient_CreateShipment_insuredShipmentWithNoCurrencyFallsBackToEUR
+// covers a caller with no tenant currency to hand (e.g. Settings ->
+// Localization -> Default Currency never configured -- TenantSettings' zero
+// value) -- MyParcel requires an explicit currency whenever insured, so
+// this can't just omit the field.
+func TestClient_CreateShipment_insuredShipmentWithNoCurrencyFallsBackToEUR(t *testing.T) {
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"shipments":[{"id":123,"barcode":"3SMYPA1"}]}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
+	_, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
+		Carrier:   1,
+		Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Options:   myparcel.Options{PackageType: 1, SignatureRequired: true, OnlyRecipient: true, InsuranceAmountMinorUnits: 50000},
+	})
+
+	require.NoError(t, err)
+	shipments := gotBody["data"].(map[string]any)["shipments"].([]any)
+	options := shipments[0].(map[string]any)["options"].(map[string]any)
+	insurance := options["insurance"].(map[string]any)
 	assert.Equal(t, "EUR", insurance["currency"])
 }
 

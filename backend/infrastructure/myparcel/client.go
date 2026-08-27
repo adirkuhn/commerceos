@@ -151,7 +151,18 @@ type Options struct {
 	OnlyRecipient     bool
 	// InsuranceAmountMinorUnits 0 means not insured.
 	InsuranceAmountMinorUnits int
+	// InsuranceCurrency is required by MyParcel whenever insured (see
+	// insuranceOption). Empty falls back to "EUR" -- CreateShipment's own
+	// default when a caller doesn't have a tenant currency to hand (e.g.
+	// never configured Settings -> Localization -> Default Currency).
+	InsuranceCurrency string
 }
+
+// defaultInsuranceCurrency is CreateShipment's fallback when the caller
+// passes no InsuranceCurrency -- matches this client's original hardcoded
+// behavior for a tenant with no Settings -> Localization -> Default
+// Currency configured yet (domain/settings.TenantSettings' zero value).
+const defaultInsuranceCurrency = "EUR"
 
 type ShipmentInput struct {
 	Recipient      Recipient
@@ -237,7 +248,11 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 		PackageType: in.Options.PackageType, Signature: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
 	}
 	if in.Options.InsuranceAmountMinorUnits > 0 {
-		options.Insurance = &insuranceOption{Amount: in.Options.InsuranceAmountMinorUnits, Currency: "EUR"}
+		currency := in.Options.InsuranceCurrency
+		if currency == "" {
+			currency = defaultInsuranceCurrency
+		}
+		options.Insurance = &insuranceOption{Amount: in.Options.InsuranceAmountMinorUnits, Currency: currency}
 	}
 	req.Data.Shipments = []createShipmentRequest{{
 		Carrier: in.Carrier,

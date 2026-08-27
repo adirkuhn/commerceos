@@ -29,10 +29,22 @@ type MyParcelAddress struct {
 // only_recipient) -- see infrastructure/myparcel's package doc for the full
 // object and why the rest are left at MyParcel's own defaults.
 type MyParcelShipmentOptions struct {
-	PackageType             int
-	SignatureRequired       bool
-	OnlyRecipient           bool
+	PackageType       int
+	SignatureRequired bool
+	OnlyRecipient     bool
+	// InsuranceAmountMinorEUR's name is historical (predates Currency
+	// existing) -- the amount is in minor units of Currency, not
+	// necessarily EUR. Left unrenamed to avoid touching the
+	// domain/shipping.Shipment column of the same name across every
+	// existing caller/migration for a field-name-only change.
 	InsuranceAmountMinorEUR *int
+	// Currency is the tenant's Settings -> Localization -> Default Currency
+	// (domain/settings.TenantSettings.DefaultCurrency) at shipment-create
+	// time -- MyParcel's insurance option requires an explicit currency
+	// per shipment (see infrastructure/myparcel's package doc, section
+	// 6.A.3), it does not infer one. Empty means "use the client's own
+	// fallback" (see infrastructure/myparcel.Client.CreateShipment).
+	Currency string
 }
 
 // CreateShipmentInput is what CreateShipmentUseCase needs to create one
