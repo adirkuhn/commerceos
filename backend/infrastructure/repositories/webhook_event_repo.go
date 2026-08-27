@@ -35,14 +35,28 @@ func (r *WebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEvent) e
 	if !ok {
 		return errors.New("webhookEventRepo: Save called outside a transaction")
 	}
+	txc := tx.WithContext(ctx)
 	m := webhookEventModel{
 		TenantID: e.TenantID, Provider: e.Provider, EventID: e.EventID, Topic: e.Topic,
 		Payload: e.Payload, ReceivedAt: e.ReceivedAt,
 	}
-	if err := tx.WithContext(ctx).Clauses(clause.OnConflict{
+	res := txc.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}, {Name: "provider"}, {Name: "event_id"}}, DoNothing: true,
-	}).Create(&m).Error; err != nil {
-		return fmt.Errorf("webhookEventRepo.Save: %w", err)
+	}).Create(&m)
+	if res.Error != nil {
+		return fmt.Errorf("webhookEventRepo.Save: %w", res.Error)
+	}
+	// A conflict (redelivery of an event already persisted) means DoNothing
+	// skipped the insert -- m.ID never got the DB-generated default, so it
+	// must be looked up by the same unique key instead. Callers
+	// (ProcessWebhookEventUseCase) depend on e.ID always being the real
+	// row's id, even on this no-op path.
+	if res.RowsAffected == 0 {
+		if err := txc.Select("id").
+			Where("tenant_id = ? AND provider = ? AND event_id = ?", e.TenantID, e.Provider, e.EventID).
+			First(&m).Error; err != nil {
+			return fmt.Errorf("webhookEventRepo.Save: lookup existing: %w", err)
+		}
 	}
 	e.ID = m.ID
 	return nil

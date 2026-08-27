@@ -302,6 +302,69 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/webhook-forward-rules:
+    get:
+      operationId: listWebhookForwardRules
+      summary: List this tenant's webhook fan-out rules (provider/topic -> target URL)
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookForwardRuleListResponse'
+    post:
+      operationId: createWebhookForwardRule
+      summary: Add a fan-out rule -- every future webhook matching provider/topic is also POSTed to target_url
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookForwardRuleRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookForwardRuleResponse'
+        '422':
+          description: target_url is not an absolute http(s) URL, or provider is missing.
+          $ref: '#/components/responses/Error'
+
+  /integrations/webhook-forward-rules/{id}:
+    delete:
+      operationId: deleteWebhookForwardRule
+      summary: Remove a fan-out rule -- future events stop being forwarded to it
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
+  /integrations/webhook-forward-deliveries:
+    get:
+      operationId: listWebhookForwardDeliveries
+      summary: List recent fan-out delivery attempts (status/error) -- "did my rule actually fire"
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Defaults to 50, max 200.
+          schema: { type: integer }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookForwardDeliveryListResponse'
+
   /integrations/connections/{id}/woo-taxes:
     get:
       operationId: listWooTaxes
@@ -1702,6 +1765,63 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WebhookFallbackEvent' }
+        error: { nullable: true }
+
+    WebhookForwardRule:
+      type: object
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        topic:
+          type: string
+          description: Empty string matches every event received for provider.
+        target_url: { type: string }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    CreateWebhookForwardRuleRequest:
+      type: object
+      required: [provider, target_url]
+      properties:
+        provider: { type: string }
+        topic: { type: string, description: Omit or leave empty to match every topic for provider. }
+        target_url: { type: string }
+
+    WebhookForwardRuleResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/WebhookForwardRule' }
+        error: { nullable: true }
+
+    WebhookForwardRuleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookForwardRule' }
+        error: { nullable: true }
+
+    WebhookForwardDelivery:
+      type: object
+      properties:
+        id: { type: string }
+        rule_id: { type: string }
+        provider: { type: string }
+        topic: { type: string }
+        target_url: { type: string }
+        status: { type: string, enum: [pending, delivered, failed] }
+        attempts: { type: integer }
+        last_error: { type: string }
+        next_attempt_at: { type: string, format: date-time }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    WebhookForwardDeliveryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookForwardDelivery' }
         error: { nullable: true }
 
     EmptyResponse:

@@ -65,6 +65,18 @@ type retryWebhookFallbackEventUC interface {
 type abandonWebhookFallbackEventUC interface {
 	Execute(ctx context.Context, id string) error
 }
+type createWebhookForwardRuleUC interface {
+	Execute(ctx context.Context, provider, topic, targetURL string) (*webhooksDomain.ForwardRule, error)
+}
+type listWebhookForwardRulesUC interface {
+	Execute(ctx context.Context) ([]webhooksDomain.ForwardRule, error)
+}
+type deleteWebhookForwardRuleUC interface {
+	Execute(ctx context.Context, id string) error
+}
+type listWebhookForwardDeliveriesUC interface {
+	Execute(ctx context.Context, limit int) ([]webhooksDomain.ForwardDelivery, error)
+}
 type createImportJobUC interface {
 	Execute(ctx context.Context, in appchannels.CreateImportJobInput) (*channelsDomain.ImportJob, error)
 }
@@ -210,6 +222,10 @@ type Handler struct {
 	listWebhookFallbackEvents    listWebhookFallbackEventsUC
 	retryWebhookFallbackEvent    retryWebhookFallbackEventUC
 	abandonWebhookFallbackEvent  abandonWebhookFallbackEventUC
+	createWebhookForwardRule     createWebhookForwardRuleUC
+	listWebhookForwardRules      listWebhookForwardRulesUC
+	deleteWebhookForwardRule     deleteWebhookForwardRuleUC
+	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC
 	connectBol                   connectBolUC
 	pushProductToBol             pushProductToBolUC
 	getBolProductOverride        getBolProductOverrideUC
@@ -260,6 +276,10 @@ func NewHandler(
 	listWebhookFallbackEvents listWebhookFallbackEventsUC,
 	retryWebhookFallbackEvent retryWebhookFallbackEventUC,
 	abandonWebhookFallbackEvent abandonWebhookFallbackEventUC,
+	createWebhookForwardRule createWebhookForwardRuleUC,
+	listWebhookForwardRules listWebhookForwardRulesUC,
+	deleteWebhookForwardRule deleteWebhookForwardRuleUC,
+	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC,
 	connectBol connectBolUC,
 	pushProductToBol pushProductToBolUC,
 	getBolProductOverride getBolProductOverrideUC,
@@ -308,6 +328,10 @@ func NewHandler(
 		listWebhookFallbackEvents:    listWebhookFallbackEvents,
 		retryWebhookFallbackEvent:    retryWebhookFallbackEvent,
 		abandonWebhookFallbackEvent:  abandonWebhookFallbackEvent,
+		createWebhookForwardRule:     createWebhookForwardRule,
+		listWebhookForwardRules:      listWebhookForwardRules,
+		deleteWebhookForwardRule:     deleteWebhookForwardRule,
+		listWebhookForwardDeliveries: listWebhookForwardDeliveries,
 		connectBol:                   connectBol,
 		pushProductToBol:             pushProductToBol,
 		getBolProductOverride:        getBolProductOverride,
@@ -352,6 +376,8 @@ func Register(
 ) {
 	connRepo := repositories.NewConnectionRepo(db)
 	webhookFallbackRepo := repositories.NewWebhookFallbackRepo(db)
+	webhookForwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
+	webhookForwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
 	categoryRepo := repositories.NewCategoryRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
@@ -452,6 +478,10 @@ func Register(
 		appwebhooks.NewListWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appwebhooks.NewRetryWebhookFallbackEventUseCase(db, webhookFallbackRepo, webhookPublisher),
 		appwebhooks.NewAbandonWebhookFallbackEventUseCase(db, webhookFallbackRepo),
+		appwebhooks.NewCreateForwardRuleUseCase(db, webhookForwardRuleRepo),
+		appwebhooks.NewListForwardRulesUseCase(db, webhookForwardRuleRepo),
+		appwebhooks.NewDeleteForwardRuleUseCase(db, webhookForwardRuleRepo),
+		appwebhooks.NewListForwardDeliveriesUseCase(db, webhookForwardDeliveryRepo),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
@@ -689,6 +719,78 @@ func (h *Handler) ListWebhookFallbackEvents(c *gin.Context, params genintegratio
 		receivedAt := e.ReceivedAt
 		out[i] = genintegrations.WebhookFallbackEvent{
 			Id: &id, EventId: &eventID, Provider: &provider, Status: &st, ReceivedAt: &receivedAt,
+		}
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) ListWebhookForwardRules(c *gin.Context) {
+	rules, err := h.listWebhookForwardRules.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genintegrations.WebhookForwardRule, len(rules))
+	for i, r := range rules {
+		id, provider, topic, targetURL, active, createdAt := r.ID, r.Provider, r.Topic, r.TargetURL, r.Active, r.CreatedAt
+		out[i] = genintegrations.WebhookForwardRule{
+			Id: &id, Provider: &provider, Topic: &topic, TargetUrl: &targetURL, Active: &active, CreatedAt: &createdAt,
+		}
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) CreateWebhookForwardRule(c *gin.Context) {
+	var req genintegrations.CreateWebhookForwardRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	topic := ""
+	if req.Topic != nil {
+		topic = *req.Topic
+	}
+	rule, err := h.createWebhookForwardRule.Execute(c.Request.Context(), req.Provider, topic, req.TargetUrl)
+	if err != nil {
+		if errors.Is(err, webhooksDomain.ErrInvalidTargetURL) || errors.Is(err, webhooksDomain.ErrProviderRequired) {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+		if err := mapError(c, err); err != nil {
+			return
+		}
+	}
+	middleware.OK(c, genintegrations.WebhookForwardRule{
+		Id: &rule.ID, Provider: &rule.Provider, Topic: &rule.Topic, TargetUrl: &rule.TargetURL,
+		Active: &rule.Active, CreatedAt: &rule.CreatedAt,
+	})
+}
+
+func (h *Handler) DeleteWebhookForwardRule(c *gin.Context, id genintegrations.Id) {
+	err := h.deleteWebhookForwardRule.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *Handler) ListWebhookForwardDeliveries(c *gin.Context, params genintegrations.ListWebhookForwardDeliveriesParams) {
+	limit := 50
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	deliveries, err := h.listWebhookForwardDeliveries.Execute(c.Request.Context(), limit)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genintegrations.WebhookForwardDelivery, len(deliveries))
+	for i, d := range deliveries {
+		id, ruleID, provider, topic, targetURL := d.ID, d.RuleID, d.Provider, d.Topic, d.TargetURL
+		status := genintegrations.WebhookForwardDeliveryStatus(d.Status)
+		attempts, lastError, nextAttemptAt, createdAt := d.Attempts, d.LastError, d.NextAttemptAt, d.CreatedAt
+		out[i] = genintegrations.WebhookForwardDelivery{
+			Id: &id, RuleId: &ruleID, Provider: &provider, Topic: &topic, TargetUrl: &targetURL,
+			Status: &status, Attempts: &attempts, LastError: &lastError,
+			NextAttemptAt: &nextAttemptAt, DeliveredAt: d.DeliveredAt, CreatedAt: &createdAt,
 		}
 	}
 	middleware.OK(c, out)

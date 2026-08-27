@@ -71,7 +71,9 @@ func main() {
 		repositories.NewConnectionRepo(db), repositories.NewSalesOrderRepo(db),
 		myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 	)
-	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, shipmentHandler)
+	forwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
+	forwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
+	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, shipmentHandler, forwardRuleRepo, forwardDeliveryRepo)
 	webhookConsumer := consumers.NewWebhookConsumer(processedRepo, processWebhookEventUC, js)
 
 	// "webhooks.received.*" -- one subscription covers every provider

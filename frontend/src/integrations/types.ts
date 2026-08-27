@@ -268,6 +268,36 @@ export interface WebhookSecretResult {
   webhook_secret: string
 }
 
+// A tenant-configured fan-out rule -- "also POST every provider/topic
+// webhook to target_url". Topic '' matches every event for provider. See
+// backend/domain/webhooks.ForwardRule.
+export interface WebhookForwardRule {
+  id: string
+  provider: string
+  topic: string
+  target_url: string
+  active: boolean
+  created_at: string
+}
+
+export type WebhookForwardDeliveryStatus = 'pending' | 'delivered' | 'failed'
+
+// One attempt to relay a received webhook to one ForwardRule's target_url
+// -- the delivery log. See backend/domain/webhooks.ForwardDelivery.
+export interface WebhookForwardDelivery {
+  id: string
+  rule_id: string
+  provider: string
+  topic: string
+  target_url: string
+  status: WebhookForwardDeliveryStatus
+  attempts: number
+  last_error: string
+  next_attempt_at: string
+  delivered_at: string | null
+  created_at: string
+}
+
 export interface APIError {
   code: string
   message: string

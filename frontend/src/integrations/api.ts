@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, BolProductOverride, BolProductContent, BolCommission } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, BolProductOverride, BolProductContent, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -395,6 +395,25 @@ export function retryWebhookFallbackEvent(token: string, id: string): Promise<nu
 
 export function abandonWebhookFallbackEvent(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/webhook-fallback-events/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listWebhookForwardRules(token: string): Promise<WebhookForwardRule[]> {
+  return request<WebhookForwardRule[]>(`${base()}/webhook-forward-rules`, { method: 'GET' }, token)
+}
+
+export function createWebhookForwardRule(
+  token: string, input: { provider: string; topic?: string; target_url: string },
+): Promise<WebhookForwardRule> {
+  return request<WebhookForwardRule>(`${base()}/webhook-forward-rules`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function deleteWebhookForwardRule(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/webhook-forward-rules/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listWebhookForwardDeliveries(token: string, limit?: number): Promise<WebhookForwardDelivery[]> {
+  const query = limit ? `?limit=${limit}` : ''
+  return request<WebhookForwardDelivery[]>(`${base()}/webhook-forward-deliveries${query}`, { method: 'GET' }, token)
 }
 
 export interface ConnectBolPayload {

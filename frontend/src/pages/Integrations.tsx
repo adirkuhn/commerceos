@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
 import { useWebhookFallbackEvents } from '../integrations/hooks/useWebhookFallbackEvents'
+import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardRules'
 import * as api from '../integrations/api'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../integrations/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -54,6 +55,7 @@ export default function Integrations() {
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
   const showWebhookAdmin = canManageWebhooks(user?.role)
   const fallbackEvents = useWebhookFallbackEvents(showWebhookAdmin ? token ?? '' : '')
+  const forwardRules = useWebhookForwardRules(showWebhookAdmin ? token ?? '' : '')
 
   const [configuringConnection, setConfiguringConnection] = useState<Connection | null>(null)
 
@@ -344,6 +346,7 @@ export default function Integrations() {
         )}
 
         {showWebhookAdmin && <WebhookFallbackEventsTable {...fallbackEvents} />}
+        {showWebhookAdmin && <WebhookForwardRulesPanel {...forwardRules} />}
       </div>
 
       {browsing && (
@@ -764,6 +767,150 @@ function WebhookFallbackEventsTable({
                       </button>
                     </div>
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The tenant's own webhook fan-out configuration: "also POST every
+// provider/topic webhook to this URL" -- topic left blank matches every
+// topic for that provider (see backend/domain/webhooks.ForwardRule's doc
+// comment). The create form always shows (unlike the fallback table, which
+// hides itself when empty) since this is a config surface, not just an
+// alert list; the rules/deliveries tables below it only render once there's
+// something to show.
+function WebhookForwardRulesPanel({
+  rules, deliveries, loading, error, create, remove,
+}: ReturnType<typeof useWebhookForwardRules>) {
+  const [provider, setProvider] = useState('')
+  const [topic, setTopic] = useState('')
+  const [targetUrl, setTargetUrl] = useState('')
+  const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError('')
+    setSubmitting(true)
+    try {
+      await create({ provider: provider.trim(), topic: topic.trim() || undefined, target_url: targetUrl.trim() })
+      setProvider('')
+      setTopic('')
+      setTargetUrl('')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to add rule')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleRemove(id: string) {
+    setBusyId(id)
+    try {
+      await remove(id)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to remove rule')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const inputClass = 'px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+      <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Webhook forwarding</h2>
+      <p className="text-xs dark:text-gray-500 text-gray-400 mb-3">
+        Fan out a received webhook to other systems -- every event matching provider/topic is also POSTed to the target
+        URL (its exact original payload, byte for byte). Leave topic blank to match every event for that provider.
+      </p>
+
+      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+      {formError && <p className="text-xs text-red-400 mb-2">{formError}</p>}
+
+      <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 mb-4">
+        <div>
+          <label htmlFor="forward-provider" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Provider</label>
+          <input id="forward-provider" required value={provider} onChange={e => setProvider(e.target.value)} placeholder="woocommerce" className={inputClass} />
+        </div>
+        <div>
+          <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic (optional)</label>
+          <input id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} placeholder="order.updated" className={inputClass} />
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <label htmlFor="forward-target-url" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Target URL</label>
+          <input id="forward-target-url" required value={targetUrl} onChange={e => setTargetUrl(e.target.value)} placeholder="https://shop.example.com/hook" className={`${inputClass} w-full`} />
+        </div>
+        <button
+          type="submit" disabled={submitting}
+          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {submitting ? 'Adding…' : 'Add rule'}
+        </button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+      ) : rules.length === 0 ? (
+        <p className="text-xs dark:text-gray-500 text-gray-400">No forwarding rules configured yet.</p>
+      ) : (
+        <div className="overflow-x-auto mb-4">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <th className="py-2 pr-3 font-medium">Provider</th>
+                <th className="py-2 pr-3 font-medium">Topic</th>
+                <th className="py-2 pr-3 font-medium">Target URL</th>
+                <th className="py-2 pr-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map(r => (
+                <tr key={r.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
+                  <td className="py-2 pr-3 dark:text-gray-300 text-gray-700 capitalize">{r.provider}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{r.topic || 'any'}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono truncate max-w-[240px]" title={r.target_url}>{r.target_url}</td>
+                  <td className="py-2 pr-3">
+                    <button
+                      onClick={() => handleRemove(r.id)}
+                      disabled={busyId === r.id}
+                      className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {deliveries.length > 0 && (
+        <div className="overflow-x-auto">
+          <h3 className="text-xs font-medium dark:text-gray-400 text-gray-500 mb-2">Recent deliveries</h3>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <th className="py-2 pr-3 font-medium">Provider / Topic</th>
+                <th className="py-2 pr-3 font-medium">Target URL</th>
+                <th className="py-2 pr-3 font-medium">Status</th>
+                <th className="py-2 pr-3 font-medium">Attempts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deliveries.map(d => (
+                <tr key={d.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
+                  <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{d.provider} / {d.topic || 'any'}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono truncate max-w-[200px]" title={d.target_url}>{d.target_url}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500" title={d.last_error}>{d.status}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{d.attempts}</td>
                 </tr>
               ))}
             </tbody>
