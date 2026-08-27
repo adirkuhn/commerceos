@@ -154,12 +154,16 @@ func (h *Handler) UpdateShippingSettings(c *gin.Context, connectionId genshippin
 	if req.AutoPrintEnabled != nil {
 		autoPrint = *req.AutoPrintEnabled
 	}
+	insureByDefault := false
+	if req.InsureByDefault != nil {
+		insureByDefault = *req.InsureByDefault
+	}
 	settings, err := h.updateSettings.Execute(c.Request.Context(), appshipping.UpdateShippingSettingsInput{
 		ConnectionID: connectionId.String(), DefaultCarrier: shippingDomain.Carrier(req.DefaultCarrier),
 		DefaultPackageType: shippingDomain.PackageType(req.DefaultPackageType), DefaultLabelFormat: string(req.DefaultLabelFormat),
 		DefaultSignatureRequired: sig, DefaultOnlyRecipient: onlyRecipient,
-		DefaultInsuranceAmountMinorUnits: req.DefaultInsuranceAmountMinorUnits,
-		MyParcelAccountID:                req.MyparcelAccountId, MyParcelShopID: req.MyparcelShopId, AutoPrintEnabled: autoPrint,
+		InsureByDefault:   insureByDefault,
+		MyParcelAccountID: req.MyparcelAccountId, MyParcelShopID: req.MyparcelShopId, AutoPrintEnabled: autoPrint,
 	})
 	if err != nil {
 		mapErr(c, err)
@@ -182,7 +186,7 @@ func (h *Handler) UpsertCarrierOverride(c *gin.Context, connectionId genshipping
 	override, err := h.upsertOverride.Execute(c.Request.Context(), appshipping.UpsertCarrierOverrideInput{
 		ConnectionID: connectionId.String(), Carrier: shippingDomain.Carrier(carrier),
 		PackageType: packageType, SignatureRequired: req.SignatureRequired, OnlyRecipient: req.OnlyRecipient,
-		InsuranceAmountMinorUnits: req.InsuranceAmountMinorUnits,
+		InsureByDefault: req.InsureByDefault,
 	})
 	if err != nil {
 		mapErr(c, err)
@@ -321,8 +325,8 @@ func settingsToResponse(s *shippingDomain.ShippingConnectionSettings) *genshippi
 	return &genshipping.ShippingConnectionSettings{
 		ConnectionId: &s.ConnectionID, DefaultCarrier: &carrier, DefaultPackageType: &pkgType,
 		DefaultLabelFormat: &format, DefaultSignatureRequired: &s.DefaultSignatureRequired, DefaultOnlyRecipient: &s.DefaultOnlyRecipient,
-		DefaultInsuranceAmountMinorUnits: s.DefaultInsuranceAmountMinorUnits,
-		MyparcelAccountId:                s.MyParcelAccountID, MyparcelShopId: s.MyParcelShopID, AutoPrintEnabled: &s.AutoPrintEnabled,
+		InsureByDefault:   &s.InsureByDefault,
+		MyparcelAccountId: s.MyParcelAccountID, MyparcelShopId: s.MyParcelShopID, AutoPrintEnabled: &s.AutoPrintEnabled,
 	}
 }
 
@@ -330,7 +334,7 @@ func overrideToResponse(o shippingDomain.ShippingCarrierOverride) genshipping.Sh
 	carrier := int(o.Carrier)
 	resp := genshipping.ShippingCarrierOverride{
 		ConnectionId: &o.ConnectionID, Carrier: &carrier, SignatureRequired: o.SignatureRequired, OnlyRecipient: o.OnlyRecipient,
-		InsuranceAmountMinorUnits: o.InsuranceAmountMinorUnits,
+		InsureByDefault: o.InsureByDefault,
 	}
 	if o.PackageType != nil {
 		pt := int(*o.PackageType)
@@ -371,7 +375,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	myParcelFactory := myparcel.NewClientFactory()
-	recordActivity := appoms.NewRecordSalesOrderActivityUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderActivityRepo(db))
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	recordActivity := appoms.NewRecordSalesOrderActivityUseCase(db, salesOrderRepo, repositories.NewSalesOrderActivityRepo(db))
 
 	h := NewHandler(
 		appintegrations.NewConnectMyParcelUseCase(db, connRepo, settingsRepo, outboxRepo, encryptionSecret),
@@ -379,7 +384,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, myParcelFactory, encryptionSecret, recordActivity),

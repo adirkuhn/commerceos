@@ -176,26 +176,26 @@ type ShipmentResponse struct {
 
 // ShippingCarrierOverride defines model for ShippingCarrierOverride.
 type ShippingCarrierOverride struct {
-	Carrier                   *int    `json:"carrier,omitempty"`
-	ConnectionId              *string `json:"connection_id,omitempty"`
-	InsuranceAmountMinorUnits *int    `json:"insurance_amount_minor_units,omitempty"`
-	OnlyRecipient             *bool   `json:"only_recipient,omitempty"`
-	PackageType               *int    `json:"package_type,omitempty"`
-	SignatureRequired         *bool   `json:"signature_required,omitempty"`
+	Carrier           *int    `json:"carrier,omitempty"`
+	ConnectionId      *string `json:"connection_id,omitempty"`
+	InsureByDefault   *bool   `json:"insure_by_default,omitempty"`
+	OnlyRecipient     *bool   `json:"only_recipient,omitempty"`
+	PackageType       *int    `json:"package_type,omitempty"`
+	SignatureRequired *bool   `json:"signature_required,omitempty"`
 }
 
 // ShippingConnectionSettings defines model for ShippingConnectionSettings.
 type ShippingConnectionSettings struct {
-	AutoPrintEnabled                 *bool                                         `json:"auto_print_enabled,omitempty"`
-	ConnectionId                     *string                                       `json:"connection_id,omitempty"`
-	DefaultCarrier                   *int                                          `json:"default_carrier,omitempty"`
-	DefaultInsuranceAmountMinorUnits *int                                          `json:"default_insurance_amount_minor_units,omitempty"`
-	DefaultLabelFormat               *ShippingConnectionSettingsDefaultLabelFormat `json:"default_label_format,omitempty"`
-	DefaultOnlyRecipient             *bool                                         `json:"default_only_recipient,omitempty"`
-	DefaultPackageType               *int                                          `json:"default_package_type,omitempty"`
-	DefaultSignatureRequired         *bool                                         `json:"default_signature_required,omitempty"`
-	MyparcelAccountId                *int                                          `json:"myparcel_account_id,omitempty"`
-	MyparcelShopId                   *int                                          `json:"myparcel_shop_id,omitempty"`
+	AutoPrintEnabled         *bool                                         `json:"auto_print_enabled,omitempty"`
+	ConnectionId             *string                                       `json:"connection_id,omitempty"`
+	DefaultCarrier           *int                                          `json:"default_carrier,omitempty"`
+	DefaultLabelFormat       *ShippingConnectionSettingsDefaultLabelFormat `json:"default_label_format,omitempty"`
+	DefaultOnlyRecipient     *bool                                         `json:"default_only_recipient,omitempty"`
+	DefaultPackageType       *int                                          `json:"default_package_type,omitempty"`
+	DefaultSignatureRequired *bool                                         `json:"default_signature_required,omitempty"`
+	InsureByDefault          *bool                                         `json:"insure_by_default,omitempty"`
+	MyparcelAccountId        *int                                          `json:"myparcel_account_id,omitempty"`
+	MyparcelShopId           *int                                          `json:"myparcel_shop_id,omitempty"`
 }
 
 // ShippingConnectionSettingsDefaultLabelFormat defines model for ShippingConnectionSettings.DefaultLabelFormat.
@@ -212,15 +212,15 @@ type ShippingSettingsResponse struct {
 
 // UpdateShippingSettingsRequest defines model for UpdateShippingSettingsRequest.
 type UpdateShippingSettingsRequest struct {
-	AutoPrintEnabled                 *bool                                           `json:"auto_print_enabled,omitempty"`
-	DefaultCarrier                   int                                             `json:"default_carrier"`
-	DefaultInsuranceAmountMinorUnits *int                                            `json:"default_insurance_amount_minor_units,omitempty"`
-	DefaultLabelFormat               UpdateShippingSettingsRequestDefaultLabelFormat `json:"default_label_format"`
-	DefaultOnlyRecipient             *bool                                           `json:"default_only_recipient,omitempty"`
-	DefaultPackageType               int                                             `json:"default_package_type"`
-	DefaultSignatureRequired         *bool                                           `json:"default_signature_required,omitempty"`
-	MyparcelAccountId                *int                                            `json:"myparcel_account_id,omitempty"`
-	MyparcelShopId                   *int                                            `json:"myparcel_shop_id,omitempty"`
+	AutoPrintEnabled         *bool                                           `json:"auto_print_enabled,omitempty"`
+	DefaultCarrier           int                                             `json:"default_carrier"`
+	DefaultLabelFormat       UpdateShippingSettingsRequestDefaultLabelFormat `json:"default_label_format"`
+	DefaultOnlyRecipient     *bool                                           `json:"default_only_recipient,omitempty"`
+	DefaultPackageType       int                                             `json:"default_package_type"`
+	DefaultSignatureRequired *bool                                           `json:"default_signature_required,omitempty"`
+	InsureByDefault          *bool                                           `json:"insure_by_default,omitempty"`
+	MyparcelAccountId        *int                                            `json:"myparcel_account_id,omitempty"`
+	MyparcelShopId           *int                                            `json:"myparcel_shop_id,omitempty"`
 }
 
 // UpdateShippingSettingsRequestDefaultLabelFormat defines model for UpdateShippingSettingsRequest.DefaultLabelFormat.
@@ -228,10 +228,10 @@ type UpdateShippingSettingsRequestDefaultLabelFormat string
 
 // UpsertCarrierOverrideRequest defines model for UpsertCarrierOverrideRequest.
 type UpsertCarrierOverrideRequest struct {
-	InsuranceAmountMinorUnits *int  `json:"insurance_amount_minor_units,omitempty"`
-	OnlyRecipient             *bool `json:"only_recipient,omitempty"`
-	PackageType               *int  `json:"package_type,omitempty"`
-	SignatureRequired         *bool `json:"signature_required,omitempty"`
+	InsureByDefault   *bool `json:"insure_by_default,omitempty"`
+	OnlyRecipient     *bool `json:"only_recipient,omitempty"`
+	PackageType       *int  `json:"package_type,omitempty"`
+	SignatureRequired *bool `json:"signature_required,omitempty"`
 }
 
 // ConnectionId defines model for connectionId.
@@ -562,45 +562,45 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"nyren5+S5c3y3wEAAP//",
+	"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",
+	"/w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

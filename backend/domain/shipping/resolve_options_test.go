@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/adirkuhn/commerceos/domain/shipping"
 )
@@ -52,31 +51,27 @@ func TestResolveOptions_carrierOverride_winsOverConnectionSettings(t *testing.T)
 }
 
 func TestResolveOptions_insuranceLayersLikeOtherFields(t *testing.T) {
-	connDefault := 10000
-	overrideAmount := 50000
-	settings := &shipping.ShippingConnectionSettings{DefaultInsuranceAmountMinorUnits: &connDefault}
-	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsuranceAmountMinorUnits: &overrideAmount}
+	settings := &shipping.ShippingConnectionSettings{InsureByDefault: true}
+	no := false
+	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsureByDefault: &no}
 
 	out := shipping.ResolveOptions(settings, override, shipping.CarrierPostNL)
 
-	require.NotNil(t, out.InsuranceAmountMinorUnits)
-	assert.Equal(t, 50000, *out.InsuranceAmountMinorUnits)
+	assert.False(t, out.Insure, "a non-nil override always wins over the connection default, even to turn it off")
 }
 
 func TestResolveOptions_insuranceFallsBackToConnectionDefaultWhenNoOverride(t *testing.T) {
-	connDefault := 25000
-	settings := &shipping.ShippingConnectionSettings{DefaultInsuranceAmountMinorUnits: &connDefault}
+	settings := &shipping.ShippingConnectionSettings{InsureByDefault: true}
 
 	out := shipping.ResolveOptions(settings, nil, shipping.CarrierPostNL)
 
-	require.NotNil(t, out.InsuranceAmountMinorUnits)
-	assert.Equal(t, 25000, *out.InsuranceAmountMinorUnits)
+	assert.True(t, out.Insure)
 }
 
 func TestResolveOptions_insuredShipmentForcesSignatureAndOnlyRecipient(t *testing.T) {
-	amount := 50000
 	settings := &shipping.ShippingConnectionSettings{DefaultSignatureRequired: false, DefaultOnlyRecipient: false}
-	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsuranceAmountMinorUnits: &amount}
+	yes := true
+	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsureByDefault: &yes}
 
 	out := shipping.ResolveOptions(settings, override, shipping.CarrierPostNL)
 
@@ -84,9 +79,9 @@ func TestResolveOptions_insuredShipmentForcesSignatureAndOnlyRecipient(t *testin
 	assert.True(t, out.OnlyRecipient, "MyParcel requires only_recipient whenever a shipment is insured")
 }
 
-func TestResolveOptions_zeroInsuranceDoesNotForceSignatureOrOnlyRecipient(t *testing.T) {
-	zero := 0
-	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsuranceAmountMinorUnits: &zero}
+func TestResolveOptions_notInsuredDoesNotForceSignatureOrOnlyRecipient(t *testing.T) {
+	no := false
+	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsureByDefault: &no}
 
 	out := shipping.ResolveOptions(nil, override, shipping.CarrierPostNL)
 

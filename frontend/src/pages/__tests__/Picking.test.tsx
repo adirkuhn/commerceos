@@ -325,7 +325,7 @@ describe('Picking page', () => {
       vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({
         settings: {
           connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1, default_label_format: 'pdf',
-          default_signature_required: false, default_only_recipient: false, default_insurance_amount_minor_units: null,
+          default_signature_required: false, default_only_recipient: false, insure_by_default: false,
           myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: true,
         },
         carrier_overrides: [],

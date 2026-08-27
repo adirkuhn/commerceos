@@ -163,6 +163,17 @@ func (f *fakeRecordActivity) Execute(_ context.Context, in appoms.RecordSalesOrd
 	return &omsDomain.SalesOrderActivity{ID: "activity-1"}, nil
 }
 
+// --- salesOrderTotalGetter fake (narrow -- just what CreateShipmentUseCase
+// needs to compute the insured amount from the order's own value) ---
+
+type fakeSalesOrderTotalGetter struct {
+	findByIDFn func(ctx context.Context, id string) (*omsDomain.SalesOrder, error)
+}
+
+func (f *fakeSalesOrderTotalGetter) FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error) {
+	return f.findByIDFn(ctx, id)
+}
+
 // --- settings.Repository fake (tenant-wide Localization settings) ---
 
 type fakeTenantSettingsRepo struct {

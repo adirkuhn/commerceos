@@ -8,11 +8,19 @@ import (
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
+
+// salesOrderTotalGetter is the one method CreateShipmentUseCase needs from
+// oms.SalesOrderRepository (ISP) -- looking up the order's own value to
+// insure it for, only when the resolved carrier/connection config says to.
+type salesOrderTotalGetter interface {
+	FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error)
+}
 
 // RecipientInput is the confirmed, MyParcel-shaped recipient address the
 // frontend's address-confirm step collects -- see
@@ -38,12 +46,15 @@ type CreateShipmentInput struct {
 	Recipient    RecipientInput
 	// PackageType/SignatureRequired/OnlyRecipient/LabelFormat are optional
 	// per-shipment overrides on top of ResolveOptions' connection/carrier
-	// defaults -- nil/empty means "use the resolved default."
-	PackageType               *shippingDomain.PackageType
-	SignatureRequired         *bool
-	OnlyRecipient             *bool
-	LabelFormat               string
-	InsuranceAmountMinorUnits *int
+	// defaults -- nil/empty means "use the resolved default." Insurance has
+	// no such override here: whether to insure is entirely
+	// ResolveOptions(settings, override, carrier).Insure, and the amount is
+	// always this SalesOrder's own TotalMinorUnits, computed below -- never
+	// a caller-supplied figure that could go stale against the order.
+	PackageType       *shippingDomain.PackageType
+	SignatureRequired *bool
+	OnlyRecipient     *bool
+	LabelFormat       string
 	// UserID is the acting staff member, for the activity log entry.
 	UserID string
 }
@@ -63,6 +74,7 @@ type CreateShipmentUseCase struct {
 	encSecret          string
 	recordActivity     recordActivityUC
 	tenantSettingsRepo settingsDomain.Repository
+	salesOrderRepo     salesOrderTotalGetter
 }
 
 func NewCreateShipmentUseCase(
@@ -75,11 +87,12 @@ func NewCreateShipmentUseCase(
 	encryptionSecret string,
 	recordActivity recordActivityUC,
 	tenantSettingsRepo settingsDomain.Repository,
+	salesOrderRepo salesOrderTotalGetter,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo,
+		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo, salesOrderRepo: salesOrderRepo,
 	}
 }
 
@@ -128,12 +141,23 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if in.LabelFormat != "" {
 		resolved.LabelFormat = in.LabelFormat
 	}
-	if in.InsuranceAmountMinorUnits != nil {
-		resolved.InsuranceAmountMinorUnits = in.InsuranceAmountMinorUnits
-		if *in.InsuranceAmountMinorUnits > 0 {
-			resolved.SignatureRequired = true
-			resolved.OnlyRecipient = true
+
+	// The insured amount is always this specific order's own value, never a
+	// caller-supplied or pre-configured figure -- looked up only when
+	// actually insuring, to avoid the read otherwise.
+	var insuranceAmount *int
+	if resolved.Insure {
+		var order *omsDomain.SalesOrder
+		err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+			var err error
+			order, err = uc.salesOrderRepo.FindByID(ctx, in.SalesOrderID)
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("createShipment: %w", err)
 		}
+		amt := int(order.TotalMinorUnits)
+		insuranceAmount = &amt
 	}
 
 	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
@@ -153,7 +177,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		Carrier: int(in.Carrier),
 		Options: integrationsDomain.MyParcelShipmentOptions{
 			PackageType: int(resolved.PackageType), SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
-			InsuranceAmountMinorEUR: resolved.InsuranceAmountMinorUnits,
+			InsuranceAmountMinorEUR: insuranceAmount,
 			Currency:                tenantSettings.DefaultCurrency,
 		},
 		OrderReference: in.SalesOrderID,
@@ -168,7 +192,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		Carrier: in.Carrier, MyParcelShipmentID: result.ShipmentID, Barcode: result.Barcode,
 		Status: 0, StatusMain: "registered", LabelFormat: resolved.LabelFormat,
 		PackageType: resolved.PackageType, SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
-		InsuranceAmountMinorEUR: resolved.InsuranceAmountMinorUnits,
+		InsuranceAmountMinorEUR: insuranceAmount,
 		RecipientPerson:         r.Person, RecipientCompany: r.Company, RecipientStreet: r.Street,
 		RecipientNumber: r.Number, RecipientNumberSuffix: r.NumberSuffix, RecipientPostalCode: r.PostalCode,
 		RecipientCity: r.City, RecipientCC: r.CC, RecipientEmail: r.Email, RecipientPhone: r.Phone,

@@ -43,7 +43,7 @@ export function updateShippingSettings(
 
 export function upsertCarrierOverride(
   token: string, connectionId: string, carrier: number,
-  input: { package_type?: number | null; signature_required?: boolean | null; only_recipient?: boolean | null; insurance_amount_minor_units?: number | null },
+  input: { package_type?: number | null; signature_required?: boolean | null; only_recipient?: boolean | null; insure_by_default?: boolean | null },
 ): Promise<ShippingCarrierOverride> {
   return request(`${base()}/connections/${connectionId}/carrier-overrides/${carrier}`, { method: 'PUT', body: JSON.stringify(input) }, token)
 }

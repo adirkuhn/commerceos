@@ -26,7 +26,7 @@ export default function MyParcelSyncSettingsPage({
   const [defaultLabelFormat, setDefaultLabelFormat] = useState<'pdf' | 'zpl'>('pdf')
   const [defaultSignatureRequired, setDefaultSignatureRequired] = useState(false)
   const [defaultOnlyRecipient, setDefaultOnlyRecipient] = useState(false)
-  const [defaultInsuranceAmount, setDefaultInsuranceAmount] = useState<number | ''>('')
+  const [insureByDefault, setInsureByDefault] = useState(false)
   const [myparcelAccountId, setMyparcelAccountId] = useState<number | ''>('')
   const [myparcelShopId, setMyparcelShopId] = useState<number | ''>('')
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
@@ -48,7 +48,7 @@ export default function MyParcelSyncSettingsPage({
           setDefaultLabelFormat(result.settings.default_label_format)
           setDefaultSignatureRequired(result.settings.default_signature_required)
           setDefaultOnlyRecipient(result.settings.default_only_recipient)
-          setDefaultInsuranceAmount(result.settings.default_insurance_amount_minor_units ?? '')
+          setInsureByDefault(result.settings.insure_by_default)
           setMyparcelAccountId(result.settings.myparcel_account_id ?? '')
           setMyparcelShopId(result.settings.myparcel_shop_id ?? '')
           setAutoPrintEnabled(result.settings.auto_print_enabled)
@@ -85,7 +85,7 @@ export default function MyParcelSyncSettingsPage({
       await api.updateShippingSettings(token, connectionId, {
         default_carrier: defaultCarrier, default_package_type: defaultPackageType, default_label_format: defaultLabelFormat,
         default_signature_required: defaultSignatureRequired, default_only_recipient: defaultOnlyRecipient,
-        default_insurance_amount_minor_units: defaultInsuranceAmount === '' ? null : defaultInsuranceAmount,
+        insure_by_default: insureByDefault,
         myparcel_account_id: myparcelAccountId === '' ? null : myparcelAccountId,
         myparcel_shop_id: myparcelShopId === '' ? null : myparcelShopId,
         auto_print_enabled: autoPrintEnabled,
@@ -102,14 +102,14 @@ export default function MyParcelSyncSettingsPage({
     return overrides.find(o => o.carrier === carrier)
   }
 
-  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient' | 'insurance_amount_minor_units', value: number | boolean | null) {
+  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient' | 'insure_by_default', value: number | boolean | null) {
     if (!token || !connectionId) return
     const current = overrideFor(carrier)
     const input = {
       package_type: current?.package_type ?? null,
       signature_required: current?.signature_required ?? null,
       only_recipient: current?.only_recipient ?? null,
-      insurance_amount_minor_units: current?.insurance_amount_minor_units ?? null,
+      insure_by_default: current?.insure_by_default ?? null,
       [field]: value,
     }
     try {
@@ -197,19 +197,12 @@ export default function MyParcelSyncSettingsPage({
                 </label>
               </div>
               <div>
-                <label htmlFor="default-insurance-amount" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">
-                  Default insurance amount (cents, blank = not insured)
+                <label className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                  <input type="checkbox" checked={insureByDefault} onChange={e => setInsureByDefault(e.target.checked)} />
+                  Insure shipments by default
                 </label>
-                <input
-                  id="default-insurance-amount"
-                  type="number"
-                  min={0}
-                  value={defaultInsuranceAmount}
-                  onChange={e => setDefaultInsuranceAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
-                />
                 <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
-                  Insuring a shipment forces "Signature required" and "Only recipient" -- required by MyParcel whenever insurance is set.
+                  Insured amount is always the order's own value, computed automatically when the label is created -- not a fixed figure set here. Insuring a shipment forces "Signature required" and "Only recipient" -- required by MyParcel whenever insurance is set.
                 </p>
               </div>
               <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 pt-2">MyParcel fulfilment account</h3>
@@ -282,15 +275,15 @@ export default function MyParcelSyncSettingsPage({
                         />
                         Signature
                       </label>
-                      <input
-                        type="number"
-                        min={0}
-                        aria-label={`${c.label} insurance amount override (cents)`}
-                        placeholder="Insurance (cents)"
-                        value={o?.insurance_amount_minor_units ?? ''}
-                        onChange={e => handleOverrideChange(c.id, 'insurance_amount_minor_units', e.target.value === '' ? null : Number(e.target.value))}
-                        className="w-32 px-2 py-1 text-[11px] rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
-                      />
+                      <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
+                        <input
+                          type="checkbox"
+                          aria-label={`${c.label} insure by default override`}
+                          checked={o?.insure_by_default ?? false}
+                          onChange={e => handleOverrideChange(c.id, 'insure_by_default', e.target.checked)}
+                        />
+                        Insure
+                      </label>
                     </div>
                   )
                 })}

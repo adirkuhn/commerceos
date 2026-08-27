@@ -67,14 +67,14 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
       settings: {
         connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
         default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
-        default_insurance_amount_minor_units: null, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+        insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
       },
       carrier_overrides: [],
     })
     vi.mocked(api.updateShippingSettings).mockResolvedValue({
       connection_id: 'conn-mp-1', default_carrier: 4, default_package_type: 1,
       default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
-      default_insurance_amount_minor_units: null, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+      insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
     })
     render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
 
@@ -91,7 +91,7 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     vi.mocked(api.upsertCarrierOverride).mockResolvedValue({
       connection_id: 'conn-mp-1', carrier: 1, package_type: null, signature_required: true, only_recipient: null,
-      insurance_amount_minor_units: null,
+      insure_by_default: null,
     })
     render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
 
@@ -101,45 +101,45 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     expect(api.upsertCarrierOverride).toHaveBeenCalledWith('test-token', 'conn-mp-1', 1, expect.objectContaining({ signature_required: true }))
   })
 
-  it('saves insurance amount, MyParcel account/shop id, and auto-print together', async () => {
+  it('saves insure-by-default, MyParcel account/shop id, and auto-print together', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({
       settings: {
         connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
         default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
-        default_insurance_amount_minor_units: null, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+        insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
       },
       carrier_overrides: [],
     })
     vi.mocked(api.updateShippingSettings).mockResolvedValue({
       connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
       default_label_format: 'pdf', default_signature_required: true, default_only_recipient: true,
-      default_insurance_amount_minor_units: 50000, myparcel_account_id: 111, myparcel_shop_id: 222, auto_print_enabled: true,
+      insure_by_default: true, myparcel_account_id: 111, myparcel_shop_id: 222, auto_print_enabled: true,
     })
     render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
     await screen.findByLabelText('Default carrier')
 
-    fireEvent.change(screen.getByLabelText(/Default insurance amount/), { target: { value: '50000' } })
+    await userEvent.click(screen.getByLabelText('Insure shipments by default'))
     fireEvent.change(screen.getByLabelText('Account ID'), { target: { value: '111' } })
     fireEvent.change(screen.getByLabelText('Shop ID'), { target: { value: '222' } })
     await userEvent.click(screen.getByLabelText('Auto-print labels'))
     await userEvent.click(screen.getByRole('button', { name: 'Save defaults' }))
 
     expect(api.updateShippingSettings).toHaveBeenCalledWith('test-token', 'conn-mp-1', expect.objectContaining({
-      default_insurance_amount_minor_units: 50000, myparcel_account_id: 111, myparcel_shop_id: 222, auto_print_enabled: true,
+      insure_by_default: true, myparcel_account_id: 111, myparcel_shop_id: 222, auto_print_enabled: true,
     }))
   })
 
-  it('saves a per-carrier insurance amount override', async () => {
+  it('saves a per-carrier insure-by-default override', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     vi.mocked(api.upsertCarrierOverride).mockResolvedValue({
       connection_id: 'conn-mp-1', carrier: 1, package_type: null, signature_required: null, only_recipient: null,
-      insurance_amount_minor_units: 50000,
+      insure_by_default: true,
     })
     render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
 
     await screen.findByText('Per-carrier overrides')
-    fireEvent.change(screen.getByLabelText('PostNL insurance amount override (cents)'), { target: { value: '50000' } })
+    await userEvent.click(screen.getByLabelText('PostNL insure by default override'))
 
-    expect(api.upsertCarrierOverride).toHaveBeenCalledWith('test-token', 'conn-mp-1', 1, expect.objectContaining({ insurance_amount_minor_units: 50000 }))
+    expect(api.upsertCarrierOverride).toHaveBeenCalledWith('test-token', 'conn-mp-1', 1, expect.objectContaining({ insure_by_default: true }))
   })
 })

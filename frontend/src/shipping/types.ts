@@ -66,7 +66,10 @@ export interface ShippingConnectionSettings {
   default_label_format: 'pdf' | 'zpl'
   default_signature_required: boolean
   default_only_recipient: boolean
-  default_insurance_amount_minor_units: number | null
+  // Insurance is on/off only -- the insured amount is never configured
+  // here, the backend computes it at shipment-creation time from that
+  // specific sales order's own value.
+  insure_by_default: boolean
   // MyParcel's own merchant account/shop identifiers -- required by their
   // Orders/Fulfilment API export step, not secrets (unlike the API key).
   myparcel_account_id: number | null
@@ -83,7 +86,7 @@ export interface ShippingCarrierOverride {
   package_type: number | null
   signature_required: boolean | null
   only_recipient: boolean | null
-  insurance_amount_minor_units: number | null
+  insure_by_default: boolean | null
 }
 
 export interface ShippingSettingsResult {

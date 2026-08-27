@@ -54,16 +54,16 @@ func (uc *GetShippingSettingsUseCase) Execute(ctx context.Context, connectionID 
 // ConnectionID must already have a settings row (created at connect time,
 // see ConnectMyParcelUseCase).
 type UpdateShippingSettingsInput struct {
-	ConnectionID                     string
-	DefaultCarrier                   shippingDomain.Carrier
-	DefaultPackageType               shippingDomain.PackageType
-	DefaultLabelFormat               string
-	DefaultSignatureRequired         bool
-	DefaultOnlyRecipient             bool
-	DefaultInsuranceAmountMinorUnits *int
-	MyParcelAccountID                *int
-	MyParcelShopID                   *int
-	AutoPrintEnabled                 bool
+	ConnectionID             string
+	DefaultCarrier           shippingDomain.Carrier
+	DefaultPackageType       shippingDomain.PackageType
+	DefaultLabelFormat       string
+	DefaultSignatureRequired bool
+	DefaultOnlyRecipient     bool
+	InsureByDefault          bool
+	MyParcelAccountID        *int
+	MyParcelShopID           *int
+	AutoPrintEnabled         bool
 }
 
 type UpdateShippingSettingsUseCase struct {
@@ -79,8 +79,8 @@ func (uc *UpdateShippingSettingsUseCase) Execute(ctx context.Context, in UpdateS
 	settings := shippingDomain.ShippingConnectionSettings{
 		ConnectionID: in.ConnectionID, DefaultCarrier: in.DefaultCarrier, DefaultPackageType: in.DefaultPackageType,
 		DefaultLabelFormat: in.DefaultLabelFormat, DefaultSignatureRequired: in.DefaultSignatureRequired, DefaultOnlyRecipient: in.DefaultOnlyRecipient,
-		DefaultInsuranceAmountMinorUnits: in.DefaultInsuranceAmountMinorUnits,
-		MyParcelAccountID:                in.MyParcelAccountID, MyParcelShopID: in.MyParcelShopID, AutoPrintEnabled: in.AutoPrintEnabled,
+		InsureByDefault:   in.InsureByDefault,
+		MyParcelAccountID: in.MyParcelAccountID, MyParcelShopID: in.MyParcelShopID, AutoPrintEnabled: in.AutoPrintEnabled,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		settings.TenantID = tenant.IDFromContext(ctx)
@@ -98,12 +98,12 @@ func (uc *UpdateShippingSettingsUseCase) Execute(ctx context.Context, in UpdateS
 // a connection's global defaults -- nil fields mean "no override, fall
 // through to the connection setting" (see domain/shipping.ResolveOptions).
 type UpsertCarrierOverrideInput struct {
-	ConnectionID              string
-	Carrier                   shippingDomain.Carrier
-	PackageType               *shippingDomain.PackageType
-	SignatureRequired         *bool
-	OnlyRecipient             *bool
-	InsuranceAmountMinorUnits *int
+	ConnectionID      string
+	Carrier           shippingDomain.Carrier
+	PackageType       *shippingDomain.PackageType
+	SignatureRequired *bool
+	OnlyRecipient     *bool
+	InsureByDefault   *bool
 }
 
 type UpsertCarrierOverrideUseCase struct {
@@ -119,7 +119,7 @@ func (uc *UpsertCarrierOverrideUseCase) Execute(ctx context.Context, in UpsertCa
 	override := shippingDomain.ShippingCarrierOverride{
 		ConnectionID: in.ConnectionID, Carrier: in.Carrier,
 		PackageType: in.PackageType, SignatureRequired: in.SignatureRequired, OnlyRecipient: in.OnlyRecipient,
-		InsuranceAmountMinorUnits: in.InsuranceAmountMinorUnits,
+		InsureByDefault: in.InsureByDefault,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		override.TenantID = tenant.IDFromContext(ctx)

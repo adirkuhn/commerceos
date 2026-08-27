@@ -14,19 +14,26 @@ import (
 )
 
 type shippingConnectionSettingsModel struct {
-	ConnectionID                     string `gorm:"primaryKey;type:uuid"`
-	TenantID                         string `gorm:"not null;type:uuid"`
-	DefaultCarrier                   int
-	DefaultPackageType               int
-	DefaultLabelFormat               string
-	DefaultSignatureRequired         bool
-	DefaultOnlyRecipient             bool
-	DefaultInsuranceAmountMinorUnits *int
-	MyParcelAccountID                *int
-	MyParcelShopID                   *int
-	AutoPrintEnabled                 bool
-	CreatedAt                        time.Time
-	UpdatedAt                        time.Time
+	ConnectionID             string `gorm:"primaryKey;type:uuid"`
+	TenantID                 string `gorm:"not null;type:uuid"`
+	DefaultCarrier           int
+	DefaultPackageType       int
+	DefaultLabelFormat       string
+	DefaultSignatureRequired bool
+	DefaultOnlyRecipient     bool
+	InsureByDefault          bool
+	// MyParcelAccountID/MyParcelShopID need explicit column tags -- GORM's
+	// default namer splits "MyParcel" into two words ("my_parcel_..."),
+	// but migration 096/111 named these columns "myparcel_..." (matching
+	// this codebase's other MyParcel-prefixed names, e.g.
+	// ShipmentRepo's MyParcelShipmentID `gorm:"column:myparcel_shipment_id"`)
+	// -- without the tag, Upsert fails with "column my_parcel_account_id
+	// does not exist" (caught 2026-08-27).
+	MyParcelAccountID *int `gorm:"column:myparcel_account_id"`
+	MyParcelShopID    *int `gorm:"column:myparcel_shop_id"`
+	AutoPrintEnabled  bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (shippingConnectionSettingsModel) TableName() string { return "shipping_connection_settings" }
@@ -62,8 +69,8 @@ func (r *ShippingConnectionSettingsRepo) FindByConnectionID(ctx context.Context,
 		ConnectionID: m.ConnectionID, TenantID: m.TenantID,
 		DefaultCarrier: shippingDomain.Carrier(m.DefaultCarrier), DefaultPackageType: shippingDomain.PackageType(m.DefaultPackageType),
 		DefaultLabelFormat: m.DefaultLabelFormat, DefaultSignatureRequired: m.DefaultSignatureRequired, DefaultOnlyRecipient: m.DefaultOnlyRecipient,
-		DefaultInsuranceAmountMinorUnits: m.DefaultInsuranceAmountMinorUnits,
-		MyParcelAccountID:                m.MyParcelAccountID, MyParcelShopID: m.MyParcelShopID, AutoPrintEnabled: m.AutoPrintEnabled,
+		InsureByDefault:   m.InsureByDefault,
+		MyParcelAccountID: m.MyParcelAccountID, MyParcelShopID: m.MyParcelShopID, AutoPrintEnabled: m.AutoPrintEnabled,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}, nil
 }
@@ -77,8 +84,8 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 		ConnectionID: s.ConnectionID, TenantID: s.TenantID,
 		DefaultCarrier: int(s.DefaultCarrier), DefaultPackageType: int(s.DefaultPackageType),
 		DefaultLabelFormat: s.DefaultLabelFormat, DefaultSignatureRequired: s.DefaultSignatureRequired, DefaultOnlyRecipient: s.DefaultOnlyRecipient,
-		DefaultInsuranceAmountMinorUnits: s.DefaultInsuranceAmountMinorUnits,
-		MyParcelAccountID:                s.MyParcelAccountID, MyParcelShopID: s.MyParcelShopID, AutoPrintEnabled: s.AutoPrintEnabled,
+		InsureByDefault:   s.InsureByDefault,
+		MyParcelAccountID: s.MyParcelAccountID, MyParcelShopID: s.MyParcelShopID, AutoPrintEnabled: s.AutoPrintEnabled,
 		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
@@ -86,7 +93,7 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 		DoUpdates: clause.AssignmentColumns([]string{
 			"default_carrier", "default_package_type", "default_label_format",
 			"default_signature_required", "default_only_recipient",
-			"default_insurance_amount_minor_units", "myparcel_account_id", "myparcel_shop_id", "auto_print_enabled",
+			"insure_by_default", "myparcel_account_id", "myparcel_shop_id", "auto_print_enabled",
 			"updated_at",
 		}),
 	}).Create(&m).Error
@@ -99,16 +106,16 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 // --- ShippingCarrierOverride ---
 
 type shippingCarrierOverrideModel struct {
-	ID                        string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID                  string `gorm:"not null;type:uuid"`
-	ConnectionID              string `gorm:"not null;type:uuid"`
-	Carrier                   int
-	PackageType               *int
-	SignatureRequired         *bool
-	OnlyRecipient             *bool
-	InsuranceAmountMinorUnits *int
-	CreatedAt                 time.Time
-	UpdatedAt                 time.Time
+	ID                string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID          string `gorm:"not null;type:uuid"`
+	ConnectionID      string `gorm:"not null;type:uuid"`
+	Carrier           int
+	PackageType       *int
+	SignatureRequired *bool
+	OnlyRecipient     *bool
+	InsureByDefault   *bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (shippingCarrierOverrideModel) TableName() string { return "shipping_carrier_overrides" }
@@ -168,13 +175,13 @@ func (r *ShippingCarrierOverrideRepo) Upsert(ctx context.Context, o *shippingDom
 	m := shippingCarrierOverrideModel{
 		TenantID: o.TenantID, ConnectionID: o.ConnectionID, Carrier: int(o.Carrier),
 		PackageType: intPtrFromPackageType(o.PackageType), SignatureRequired: o.SignatureRequired, OnlyRecipient: o.OnlyRecipient,
-		InsuranceAmountMinorUnits: o.InsuranceAmountMinorUnits,
-		CreatedAt:                 o.CreatedAt, UpdatedAt: o.UpdatedAt,
+		InsureByDefault: o.InsureByDefault,
+		CreatedAt:       o.CreatedAt, UpdatedAt: o.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "connection_id"}, {Name: "carrier"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"package_type", "signature_required", "only_recipient", "insurance_amount_minor_units", "updated_at",
+			"package_type", "signature_required", "only_recipient", "insure_by_default", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -201,7 +208,7 @@ func toCarrierOverrideDomain(m shippingCarrierOverrideModel) shippingDomain.Ship
 	return shippingDomain.ShippingCarrierOverride{
 		ID: m.ID, TenantID: m.TenantID, ConnectionID: m.ConnectionID, Carrier: shippingDomain.Carrier(m.Carrier),
 		PackageType: pt, SignatureRequired: m.SignatureRequired, OnlyRecipient: m.OnlyRecipient,
-		InsuranceAmountMinorUnits: m.InsuranceAmountMinorUnits,
-		CreatedAt:                 m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		InsureByDefault: m.InsureByDefault,
+		CreatedAt:       m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
