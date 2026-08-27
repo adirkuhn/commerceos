@@ -270,7 +270,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewDuplicateProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewDeleteProductUseCase(db, productRepo, listingRepo, outboxRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo),
-		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo, productHistoryRepo),
+		apppms.NewUpdateVariantUseCase(db, variantRepo, mediaRepo, productHistoryRepo, outboxRepo),
 		apppms.NewDeleteVariantUseCase(db, variantRepo),
 		apppms.NewCreateSKUUseCase(db, variantRepo, skuRepo, priceHistoryRepo),
 		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo),

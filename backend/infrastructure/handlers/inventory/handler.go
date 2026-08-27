@@ -210,7 +210,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, fileSto
 		appinventory.NewUpdateWarehouseUseCase(db, warehouseRepo),
 		appinventory.NewDeleteWarehouseUseCase(db, warehouseRepo),
 		appinventory.NewCreateBatchUseCase(db, batchRepo),
-		appinventory.NewUpdateBatchUseCase(db, batchRepo),
+		appinventory.NewUpdateBatchUseCase(db, batchRepo, outboxRepo),
 		appinventory.NewDeleteBatchUseCase(db, batchRepo, movementRepo),
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo),

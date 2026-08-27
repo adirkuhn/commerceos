@@ -14,7 +14,7 @@ import (
 func TestUpdateVariant_updatesNameAndPositionWithoutTouchingMediaLookup(t *testing.T) {
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Old"}}
 	mediaRepo := &stubMediaRepo{}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	v, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large", Position: 1})
 
@@ -27,7 +27,7 @@ func TestUpdateVariant_setsFeaturedMediaWhenItBelongsToTheVariantsProduct(t *tes
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Large"}}
 	productID := "p1"
 	mediaRepo := &stubMediaRepo{findResult: &pmsDomain.Media{ID: "m1", ProductID: &productID}}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	mediaID := "m1"
 	v, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large", FeaturedMediaID: &mediaID})
@@ -41,7 +41,7 @@ func TestUpdateVariant_clearsFeaturedMediaWhenNil(t *testing.T) {
 	existingMediaID := "m1"
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", FeaturedMediaID: &existingMediaID}}
 	mediaRepo := &stubMediaRepo{}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	v, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large", FeaturedMediaID: nil})
 
@@ -52,7 +52,7 @@ func TestUpdateVariant_clearsFeaturedMediaWhenNil(t *testing.T) {
 func TestUpdateVariant_rejectsFeaturedMediaThatDoesNotExist(t *testing.T) {
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1"}}
 	mediaRepo := &stubMediaRepo{findErr: pmsDomain.ErrMediaNotFound}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	mediaID := "missing"
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large", FeaturedMediaID: &mediaID})
@@ -65,7 +65,7 @@ func TestUpdateVariant_rejectsFeaturedMediaBelongingToAnotherProduct(t *testing.
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1"}}
 	otherProductID := "p2"
 	mediaRepo := &stubMediaRepo{findResult: &pmsDomain.Media{ID: "m1", ProductID: &otherProductID}}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	mediaID := "m1"
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large", FeaturedMediaID: &mediaID})
@@ -78,7 +78,7 @@ func TestUpdateVariant_rejectsFeaturedMediaThatBelongsToAVariantNotAProduct(t *t
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1"}}
 	variantID := "v2"
 	mediaRepo := &stubMediaRepo{findResult: &pmsDomain.Media{ID: "m1", VariantID: &variantID}}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	mediaID := "m1"
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large", FeaturedMediaID: &mediaID})
@@ -87,10 +87,26 @@ func TestUpdateVariant_rejectsFeaturedMediaThatBelongsToAVariantNotAProduct(t *t
 	require.True(t, errors.Is(err, pmsDomain.ErrFeaturedMediaProductMismatch))
 }
 
+// TestUpdateVariant_raisesProductChangedEvent proves renaming a variant
+// reaches every channel the product is linked to -- variant name feeds Woo
+// directly (product title suffix / variation attribute value, see
+// sync_product_to_channels.go), so without this event a rename silently
+// never syncs.
+func TestUpdateVariant_raisesProductChangedEvent(t *testing.T) {
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Old"}}
+	outboxRepo := &stubOutboxRepo{}
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, &stubProductHistoryRepo{}, outboxRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large"})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"pms.product.changed"}, outboxRepo.calls)
+}
+
 func TestUpdateVariant_propagatesVariantNotFound(t *testing.T) {
 	variantRepo := &stubVariantRepo{findErr: pmsDomain.ErrVariantNotFound}
 	mediaRepo := &stubMediaRepo{}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, mediaRepo, &stubProductHistoryRepo{}, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "missing", Name: "Large"})
 
@@ -101,7 +117,7 @@ func TestUpdateVariant_propagatesVariantNotFound(t *testing.T) {
 func TestUpdateVariant_recordsHistoryWhenNameChanges(t *testing.T) {
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Old"}}
 	historyRepo := &stubProductHistoryRepo{}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, historyRepo)
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, historyRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large"})
 
@@ -118,7 +134,7 @@ func TestUpdateVariant_recordsHistoryWhenNameChanges(t *testing.T) {
 func TestUpdateVariant_doesNotRecordHistoryWhenNameUnchanged(t *testing.T) {
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Same"}}
 	historyRepo := &stubProductHistoryRepo{}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, historyRepo)
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, historyRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Same", Position: 2})
 
@@ -129,7 +145,7 @@ func TestUpdateVariant_doesNotRecordHistoryWhenNameUnchanged(t *testing.T) {
 func TestUpdateVariant_propagatesHistoryRepoError(t *testing.T) {
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "v1", ProductID: "p1", Name: "Old"}}
 	historyRepo := &stubProductHistoryRepo{createErr: errors.New("db down")}
-	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, historyRepo)
+	uc := apppms.NewUpdateVariantUseCase(newMockGormDB(t), variantRepo, &stubMediaRepo{}, historyRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateVariantInput{ID: "v1", Name: "Large"})
 

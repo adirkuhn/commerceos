@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -24,10 +25,11 @@ type UpdateVariantUseCase struct {
 	variantRepo pmsDomain.VariantRepository
 	mediaRepo   pmsDomain.MediaRepository
 	historyRepo pmsDomain.ProductHistoryRepository
+	outboxRepo  outbox.Repository
 }
 
-func NewUpdateVariantUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, mediaRepo pmsDomain.MediaRepository, historyRepo pmsDomain.ProductHistoryRepository) *UpdateVariantUseCase {
-	return &UpdateVariantUseCase{db: db, variantRepo: variantRepo, mediaRepo: mediaRepo, historyRepo: historyRepo}
+func NewUpdateVariantUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, mediaRepo pmsDomain.MediaRepository, historyRepo pmsDomain.ProductHistoryRepository, outboxRepo outbox.Repository) *UpdateVariantUseCase {
+	return &UpdateVariantUseCase{db: db, variantRepo: variantRepo, mediaRepo: mediaRepo, historyRepo: historyRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInput) (*pmsDomain.Variant, error) {
@@ -57,7 +59,16 @@ func (uc *UpdateVariantUseCase) Execute(ctx context.Context, in UpdateVariantInp
 			return err
 		}
 		variant = *existing
-		return recordProductHistoryFieldIfChanged(ctx, uc.historyRepo, pmsDomain.ProductHistoryEntityVariant, variant.ID, pmsDomain.ProductHistoryFieldName, oldName, variant.Name)
+		if err := recordProductHistoryFieldIfChanged(ctx, uc.historyRepo, pmsDomain.ProductHistoryEntityVariant, variant.ID, pmsDomain.ProductHistoryFieldName, oldName, variant.Name); err != nil {
+			return err
+		}
+
+		// Variant name feeds Woo directly -- the product title suffix for a
+		// "separate products" listing and the variation attribute value for
+		// a "variations" listing (see sync_product_to_channels.go) -- so a
+		// rename must reach every channel the product is linked to, same as
+		// any other product-affecting edit.
+		return enqueueProductChanged(ctx, uc.outboxRepo, variant.ProductID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateVariant: %w", err)
