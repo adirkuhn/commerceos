@@ -380,6 +380,15 @@ func (uc *PushProductToBolUseCase) pushOne(
 		return fail(fmt.Errorf("pushProductToBol: %w", channelsDomain.ErrBolMissingEAN), nil)
 	}
 
+	// title wins over product.Name when the merchant set a Bol-only name
+	// override (Bol tab) -- feeds only the Title submitted to Bol's Product
+	// Content API below, nothing else reads it, so this never touches Woo
+	// or any other channel's copy of the product name.
+	title := product.Name
+	if override != nil && override.NameOverride != nil && *override.NameOverride != "" {
+		title = *override.NameOverride
+	}
+
 	stockAmount := 0
 	if uc.stockLevel != nil {
 		if level, err := uc.stockLevel.Execute(ctx, pu.SKU.ID); err == nil && level != nil {
@@ -441,7 +450,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 	contentSubmitted := false
 	if len(contentAttrs) > 0 {
 		if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
-			EAN: ean, Title: product.Name, Description: product.Description,
+			EAN: ean, Title: title, Description: product.Description,
 			Attributes: contentAttrs, AttributeUnits: contentUnits,
 		}); contentErr != nil {
 			return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
@@ -483,7 +492,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 			// the EAN.
 			if !contentSubmitted {
 				if contentErr := client.SubmitProductContent(ctx, integrationsDomain.BolProductContentInput{
-					EAN: ean, Title: product.Name, Description: product.Description,
+					EAN: ean, Title: title, Description: product.Description,
 				}); contentErr != nil {
 					return fail(fmt.Errorf("pushProductToBol: submit product content: %w", contentErr), offerFields)
 				}

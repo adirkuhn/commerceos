@@ -686,6 +686,37 @@ func TestPushProductToBol_appliesOverrideEANAndFields(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestPushProductToBol_nameOverride_winsOverProductNameForBolTitleOnly
+// proves the Bol tab's name override reaches Bol's Product Content API
+// Title, Bol-only -- pms.Product.Name itself is left untouched (nothing
+// else in this codebase reads Title from BolProductOverride), so Woo and
+// every other channel keep syncing the real product name.
+func TestPushProductToBol_nameOverride_winsOverProductNameForBolTitleOnly(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Real Product Name", HasVariants: false}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	// ReferenceOverride forces contentAttrs non-empty (unconditional
+	// "Internal Reference" entry) so SubmitProductContent actually fires --
+	// with no content/reference/gpc configured at all, this push would take
+	// the CreateOffer-succeeds-immediately path and never call it.
+	name, reference := "Custom Bol Title", "ref-1"
+	h.overrideRepo.override = &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", NameOverride: &name, ReferenceOverride: &reference,
+	}
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Len(t, client.contentCalls, 1)
+	assert.Equal(t, "Custom Bol Title", client.contentCalls[0].Title)
+	assert.Equal(t, "Real Product Name", product.Name, "the product's own name is never mutated by a Bol-only override")
+}
+
 // TestPushProductToBol_notForSale_savesNoteAndNotifies is a regression test
 // for a real prod symptom: a product's Bol offer stayed "not for sale"
 // (Bol's own seller portal message: "mandatory product information is

@@ -62,8 +62,15 @@ type BolProductOverride struct {
 	// to Bol (PushProductToBolUseCase) and the price-bracket-dependent
 	// commission lookup (GetBolCommissionUseCase).
 	CustomPriceMinorUnits *int64
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	// NameOverride wins over pms.Product.Name when set, as the Title
+	// submitted to Bol's Product Content API (PushProductToBolUseCase) --
+	// same fallback convention as EANOverride/CustomPriceMinorUnits.
+	// Bol-only: no other channel reads this field, so a merchant can list a
+	// different name on Bol without touching the product's real name (which
+	// still feeds Woo and everywhere else in CommerceOS).
+	NameOverride *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type BolProductOverrideRepository interface {

@@ -56,6 +56,23 @@ func TestUpsertBolProductOverride_savesCustomPrice(t *testing.T) {
 	assert.Equal(t, int64(2499), *repo.upserted[0].CustomPriceMinorUnits)
 }
 
+func TestUpsertBolProductOverride_savesNameOverride(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
+
+	name := "Custom Bol Title"
+	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1", NameOverride: &name,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result.NameOverride)
+	assert.Equal(t, "Custom Bol Title", *result.NameOverride)
+	require.Len(t, repo.upserted, 1)
+	require.NotNil(t, repo.upserted[0].NameOverride)
+	assert.Equal(t, "Custom Bol Title", *repo.upserted[0].NameOverride)
+}
+
 // TestUpsertBolProductOverride_raisesProductChangedEvent proves saving the
 // Bol tab's Custom price (or any other override field) raises the same
 // pms.product.changed event a normal product edit does -- SyncProductToChannelsUseCase

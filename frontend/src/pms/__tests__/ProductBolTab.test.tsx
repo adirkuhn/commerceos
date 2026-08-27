@@ -67,6 +67,60 @@ describe('ProductBolTab', () => {
     expect(screen.getByDisplayValue('80006362')).toBeInTheDocument()
   })
 
+  // Bol-only title override: reaches PushProductToBolUseCase's Title
+  // (backend), never the product's real name -- see push_product_to_bol.go.
+  describe('title override', () => {
+    it('shows the real product name as a placeholder when no override is set', async () => {
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} productName="Real Product Name" />)
+
+      expect(await screen.findByPlaceholderText('Real Product Name')).toBeInTheDocument()
+      expect(screen.getByLabelText('Product title override')).toHaveValue('')
+    })
+
+    it('prefills the field from an existing name override', async () => {
+      vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue({
+        product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+        name_override: 'Custom Bol Title',
+      })
+
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+
+      expect(await screen.findByDisplayValue('Custom Bol Title')).toBeInTheDocument()
+    })
+
+    it('saving sends the entered title override', async () => {
+      vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
+        product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+        name_override: 'Custom Bol Title',
+      })
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+
+      await userEvent.type(screen.getByLabelText('Product title override'), 'Custom Bol Title')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(
+        'test-token', 'conn-1', 'prod-1',
+        expect.objectContaining({ nameOverride: 'Custom Bol Title' }),
+      ))
+    })
+
+    it('saving with an empty title override sends null (falls back to the real name)', async () => {
+      vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
+        product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+      })
+      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+      await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(
+        'test-token', 'conn-1', 'prod-1',
+        expect.objectContaining({ nameOverride: null }),
+      ))
+    })
+  })
+
   it('prefills custom price from an existing override and uses it as the sell price', async () => {
     const override: BolProductOverride = {
       product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',

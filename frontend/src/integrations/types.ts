@@ -50,6 +50,9 @@ export interface BolProductOverride {
   commission_override_basis_points?: number | null
   reference_override?: string | null
   custom_price_minor_units?: number | null
+  // Bol-only product title override -- falls back to the product's real
+  // name when unset. Never synced to any other channel.
+  name_override?: string | null
 }
 
 // Product-content fields Bol's Product Content API needs to move a

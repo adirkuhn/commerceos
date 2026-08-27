@@ -25,6 +25,7 @@ type bolProductOverrideModel struct {
 	CommissionOverrideBasisPoints *int32
 	ReferenceOverride             *string
 	CustomPriceMinorUnits         *int64
+	NameOverride                  *string
 	CreatedAt                     time.Time
 	UpdatedAt                     time.Time
 }
@@ -73,14 +74,14 @@ func (r *BolProductOverrideRepo) Upsert(ctx context.Context, o *channelsDomain.B
 		EANOverride: o.EANOverride, GPCCode: o.GPCCode,
 		ConditionCategory: string(o.ConditionCategory), FulfilmentMethod: string(o.FulfilmentMethod),
 		CommissionOverrideBasisPoints: o.CommissionOverrideBasisPoints, ReferenceOverride: o.ReferenceOverride,
-		CustomPriceMinorUnits: o.CustomPriceMinorUnits,
-		CreatedAt:             o.CreatedAt, UpdatedAt: o.UpdatedAt,
+		CustomPriceMinorUnits: o.CustomPriceMinorUnits, NameOverride: o.NameOverride,
+		CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "product_id"}, {Name: "connection_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"ean_override", "gpc_code", "condition_category", "fulfilment_method",
-			"commission_override_basis_points", "reference_override", "custom_price_minor_units", "updated_at",
+			"commission_override_basis_points", "reference_override", "custom_price_minor_units", "name_override", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -99,6 +100,7 @@ func toBolProductOverrideDomain(m bolProductOverrideModel) *channelsDomain.BolPr
 		CommissionOverrideBasisPoints: m.CommissionOverrideBasisPoints,
 		ReferenceOverride:             m.ReferenceOverride,
 		CustomPriceMinorUnits:         m.CustomPriceMinorUnits,
+		NameOverride:                  m.NameOverride,
 		CreatedAt:                     m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

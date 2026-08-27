@@ -748,7 +748,7 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         {activeTab === 'bol' && savedProductId && bolConnection && (
           <div className="max-w-5xl mx-auto p-6">
             <ProductBolTab
-              productId={savedProductId} connection={bolConnection} sku={currentSku}
+              productId={savedProductId} connection={bolConnection} sku={currentSku} productName={existing?.name}
               onSaveBarcode={async (skuId, newBarcode) => {
                 if (!currentSku) return
                 await detail.updateSKU(skuId, {

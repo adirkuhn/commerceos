@@ -912,6 +912,7 @@ func (h *Handler) UpsertBolProductOverride(c *gin.Context, id genintegrations.Id
 		CommissionOverrideBasisPoints: basisPoints,
 		ReferenceOverride:             req.ReferenceOverride,
 		CustomPriceMinorUnits:         req.CustomPriceMinorUnits,
+		NameOverride:                  req.NameOverride,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1296,6 +1297,7 @@ func toGenBolOverride(o channelsDomain.BolProductOverride) genintegrations.BolPr
 		FulfilmentMethod:      genintegrations.BolProductOverrideFulfilmentMethod(o.FulfilmentMethod),
 		ReferenceOverride:     o.ReferenceOverride,
 		CustomPriceMinorUnits: o.CustomPriceMinorUnits,
+		NameOverride:          o.NameOverride,
 	}
 	if o.CommissionOverrideBasisPoints != nil {
 		bp := int(*o.CommissionOverrideBasisPoints)

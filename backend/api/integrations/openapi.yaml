@@ -1200,6 +1200,10 @@ components:
           format: int64
           nullable: true
           description: Merchant's own sell price for this Bol offer, minor currency units -- falls back to the SKU's default price when unset.
+        name_override:
+          type: string
+          nullable: true
+          description: Bol-only product title override -- falls back to the product's real name when unset. Never affects any other channel.
 
     BolProductOverrideResponse:
       type: object
@@ -1219,6 +1223,7 @@ components:
         commission_override_basis_points: { type: integer, nullable: true }
         reference_override: { type: string, nullable: true }
         custom_price_minor_units: { type: integer, format: int64, nullable: true }
+        name_override: { type: string, nullable: true, description: "Bol-only product title override -- falls back to the product's real name when unset." }
 
     BolProductContent:
       type: object

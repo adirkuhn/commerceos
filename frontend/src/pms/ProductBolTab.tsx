@@ -122,11 +122,14 @@ function ContentCheckField({ id, label, checked, onChange }: {
 }
 
 export function ProductBolTab({
-  productId, connection, sku, onSaveBarcode,
+  productId, connection, sku, productName, onSaveBarcode,
 }: {
   productId: string
   connection: Connection
   sku: SKU | null
+  // Used only as the title-override field's placeholder (what Bol would
+  // sync without an override) -- never sent anywhere itself.
+  productName?: string
   // Edits the SKU's real barcode (not the Bol-only EAN override below) --
   // added here since this is where a merchant fixing a Bol validation
   // error ("missing EAN") is already looking, without having to go find
@@ -163,6 +166,7 @@ export function ProductBolTab({
     }
   }
 
+  const [nameOverride, setNameOverride] = useState('')
   const [eanOverride, setEanOverride] = useState('')
   const [gpcCode, setGpcCode] = useState('')
   const [condition, setCondition] = useState<BolProductOverride['condition_category']>('NEW')
@@ -256,6 +260,7 @@ export function ProductBolTab({
         if (cancelled) return
         setOverride(result)
         if (result) {
+          setNameOverride(result.name_override ?? '')
           setEanOverride(result.ean_override ?? '')
           setGpcCode(result.gpc_code ?? '')
           setCondition(result.condition_category)
@@ -295,6 +300,7 @@ export function ProductBolTab({
       const commissionPercent = parseFloat(commissionPercentInput)
       const parsedCustomPrice = parseFloat(customPrice)
       const result = await integrationsApi.upsertBolProductOverride(token, connection.id, productId, {
+        nameOverride: nameOverride || null,
         eanOverride: eanOverride || null,
         gpcCode: gpcCode || null,
         conditionCategory: condition,
@@ -368,6 +374,14 @@ export function ProductBolTab({
               {barcodeError && <p className="text-[10px] text-red-400 mt-1">{barcodeError}</p>}
             </div>
           )}
+          <div>
+            <label htmlFor="bol-name-override" className={labelClass}>Product title override</label>
+            <input id="bol-name-override" value={nameOverride} onChange={e => setNameOverride(e.target.value)}
+              placeholder={productName} className={inputClass} />
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+              Bol-only -- overrides the title synced to Bol without changing the product's real name. Every other channel keeps syncing the actual name.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="bol-ean-override" className={labelClass}>EAN override</label>
