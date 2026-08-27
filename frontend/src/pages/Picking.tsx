@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2 } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
 import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult } from '../scanner/types'
+import { pickedQuantityByLineItem, computeMissingItems } from '../scanner/pickingMissingItems'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import type { RecipientAddress } from '../shipping/types'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
+import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
 import { playErrorSound } from '../scanner/errorSound'
 import type { Address } from '../oms/types'
@@ -52,18 +54,6 @@ function shippingAddressLine(address?: Address): string {
   return [streetAndLocality, address.country].filter(Boolean).join(', ')
 }
 
-// A pick or substitute scan's net effect on a line's picked progress --
-// mirrors the backend's own missingPickItems scoring exactly (freebie/
-// new_item never count against an original line, they have no line_item_id).
-function pickedQtyByLineItem(scans: PickScan[]): Map<string, number> {
-  const byLineItem = new Map<string, number>()
-  for (const s of scans) {
-    if (!s.line_item_id) continue
-    if (s.action_type !== 'pick' && s.action_type !== 'substitute') continue
-    byLineItem.set(s.line_item_id, (byLineItem.get(s.line_item_id) ?? 0) + s.quantity)
-  }
-  return byLineItem
-}
 
 const ACTION_LABEL: Record<PickScan['action_type'], string> = {
   pick: 'Picked', substitute: 'Substituted', freebie: 'Freebie', new_item: 'New item',
@@ -100,10 +90,24 @@ export default function Picking() {
   const [pausing, setPausing] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [completeResult, setCompleteResult] = useState<CompletePickingResult | null>(null)
+  // Complete no longer fires the API directly -- it opens this review step
+  // first (divergences + customer/address, always shown even with none) so
+  // gaps can't silently slip through into a "fulfilled" order. Only
+  // handleConfirmComplete (below) actually calls completePicking.
+  const [confirmingFinish, setConfirmingFinish] = useState(false)
 
   const { connections } = useConnections(token ?? '')
   const myParcelConnection = connections.find(c => c.provider === 'myparcel')
-  const [confirmingAddress, setConfirmingAddress] = useState(false)
+  // Label creation is a 3-step flow: 'address' (AddressConfirmModal, no API
+  // call) -> 'preview' (LabelPreviewModal, still no API call -- staff see
+  // exactly what will be sent) -> Print label actually creates the shipment
+  // (see handlePrintLabel). pendingRecipient/pendingCarrier hold the
+  // address step's output across both steps so "Back to edit" doesn't lose
+  // it.
+  const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
+  const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
+  const [pendingCarrier, setPendingCarrier] = useState(1)
+  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
   // auto_print_enabled -- see SalesOrders.tsx's identical logic for the doc;
@@ -112,7 +116,10 @@ export default function Picking() {
   useEffect(() => {
     if (!token || !myParcelConnection) return
     shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false))
+      .then(result => {
+        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
+        setLabelSize(result.settings?.default_label_size ?? 'A4')
+      })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
 
@@ -173,7 +180,9 @@ export default function Picking() {
     setCompleteResult(null)
     setError('')
     setCreatedShipmentId(null)
-    setConfirmingAddress(false)
+    setLabelStep(null)
+    setPendingRecipient(null)
+    setConfirmingFinish(false)
   }
 
   // A scanned/typed code that matches one of this order's own line items
@@ -195,7 +204,7 @@ export default function Picking() {
       setCode('')
       const li = session.line_items.find(l => l.sku_id === resolved.sku_id)
       if (li) {
-        const pickedSoFar = pickedQtyByLineItem(session.scans).get(li.id) ?? 0
+        const pickedSoFar = pickedQuantityByLineItem(session.scans).get(li.id) ?? 0
         if (pickedSoFar >= li.quantity) {
           playErrorSound()
           setScanErrorAlert('Already fully picked')
@@ -340,12 +349,16 @@ export default function Picking() {
     }
   }
 
-  async function handleComplete() {
+  // handleConfirmComplete is the ONLY place that calls the completePicking
+  // API -- the header's "Complete" button just opens the review step
+  // (setConfirmingFinish(true) below), it never calls this directly.
+  async function handleConfirmComplete() {
     if (!session || !token) return
     setCompleting(true)
     setError('')
     try {
       setCompleteResult(await pickingApi.completePicking(token, session.session.id))
+      setConfirmingFinish(false)
       await loadOrders()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to complete picking')
@@ -354,15 +367,26 @@ export default function Picking() {
     }
   }
 
-  async function handleCreateShipment(input: { carrier: number; recipient: RecipientAddress }) {
-    if (!token || !activeOrder || !myParcelConnection) return
-    const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: activeOrder.id })
-    setConfirmingAddress(false)
+  // The actual shipment-creation call -- moved here from the old
+  // AddressConfirmModal.onConfirm. Staff have already seen this exact data
+  // laid out label-style in LabelPreviewModal and explicitly clicked "Print
+  // label"; this is what that click does, then opens the print view
+  // immediately (the click itself was the print intent, independent of
+  // auto_print_enabled -- that setting only matters for the *separate*
+  // "Retry print" entry point below, after this flow has already finished
+  // once).
+  async function handlePrintLabel() {
+    if (!token || !activeOrder || !myParcelConnection || !pendingRecipient) return
+    const shipment = await shippingApi.createShipment(token, {
+      carrier: pendingCarrier, recipient: pendingRecipient,
+      connection_id: myParcelConnection.id, sales_order_id: activeOrder.id,
+    })
+    setLabelStep(null)
     setCreatedShipmentId(shipment.id)
-    if (autoPrintEnabled) setPrintingLabelId(shipment.id)
+    setPrintingLabelId(shipment.id)
   }
 
-  const pickedByLineItem = session ? pickedQtyByLineItem(session.scans) : new Map<string, number>()
+  const pickedByLineItem = session ? pickedQuantityByLineItem(session.scans) : new Map<string, number>()
   const totalItems = session?.line_items.reduce((s, li) => s + li.quantity, 0) ?? 0
   const pickedItems = session ? session.line_items.reduce((s, li) => s + Math.min(li.quantity, pickedByLineItem.get(li.id) ?? 0), 0) : 0
   const progress = totalItems > 0 ? (pickedItems / totalItems) * 100 : 0
@@ -457,7 +481,7 @@ export default function Picking() {
 
             {myParcelConnection && !createdShipmentId && (
               <button
-                type="button" onClick={() => setConfirmingAddress(true)}
+                type="button" onClick={() => setLabelStep('address')}
                 className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
               >
                 Create shipping label
@@ -481,18 +505,86 @@ export default function Picking() {
           </div>
         )}
 
-        {confirmingAddress && activeOrder && (
+        {labelStep === 'address' && activeOrder && (
           <AddressConfirmModal
             initialAddress={activeOrder.shipping}
-            onConfirm={handleCreateShipment}
-            onClose={() => setConfirmingAddress(false)}
+            initialRecipient={pendingRecipient ?? undefined}
+            initialCarrier={pendingCarrier}
+            onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+            onClose={() => setLabelStep(null)}
+          />
+        )}
+        {labelStep === 'preview' && pendingRecipient && (
+          <LabelPreviewModal
+            recipient={pendingRecipient}
+            carrier={pendingCarrier}
+            labelSize={labelSize}
+            onLabelSizeChange={setLabelSize}
+            onBack={() => setLabelStep('address')}
+            onPrint={handlePrintLabel}
+            onClose={() => setLabelStep(null)}
           />
         )}
         {printingLabelId && token && (
-          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} onClose={() => setPrintingLabelId(null)} />
+          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
         )}
 
-        {activeOrder && session && !completeResult && (
+        {activeOrder && session && confirmingFinish && !completeResult && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
+              <button onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to picking">
+                <ArrowLeft size={18} className="dark:text-gray-400 text-gray-500" />
+              </button>
+              <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 flex-1">Review before completing</h2>
+            </div>
+            {/* Customer/address stays visible here too, not just during
+                active picking -- staff confirming completion should never
+                have to go back just to double-check who this ships to. */}
+            <div className="px-6 py-3 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
+              <p className="text-sm font-medium dark:text-gray-200 text-gray-800">
+                #{activeOrder.number || activeOrder.external_order_id} · {customerName(activeOrder)}
+              </p>
+              {shippingAddressLine(activeOrder.shipping) && (
+                <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">{shippingAddressLine(activeOrder.shipping)}</p>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+              {(() => {
+                const missing = computeMissingItems(session.line_items, session.scans)
+                return missing.length === 0 ? (
+                  <p className="text-sm dark:text-gray-400 text-gray-500">Every line is fully picked.</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-amber-400">{missing.length} line(s) aren't fully picked yet:</p>
+                    {missing.map(m => (
+                      <div key={m.line_item_id} className="rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 px-3 py-2">
+                        <p className="text-sm dark:text-gray-200 text-gray-800">{m.name}</p>
+                        <p className="text-xs dark:text-gray-500 text-gray-400">expected {m.expected_qty} · picked {m.picked_qty}</p>
+                      </div>
+                    ))}
+                  </>
+                )
+              })()}
+            </div>
+            <div className="p-6 border-t dark:border-[#2D3748] border-gray-200 shrink-0 space-y-2">
+              {error && <p className="text-sm text-red-400">{error}</p>}
+              <button
+                onClick={handleConfirmComplete} disabled={completing}
+                className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
+              >
+                {completing ? 'Completing…' : 'Confirm & Complete'}
+              </button>
+              <button
+                onClick={() => setConfirmingFinish(false)}
+                className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-300 text-gray-700 text-sm font-medium"
+              >
+                Back to scanning
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeOrder && session && !completeResult && !confirmingFinish && (
           <>
             {/* Header */}
             <div className={clsx(
@@ -523,10 +615,10 @@ export default function Picking() {
                   <PackagePlus size={13} /> Add item
                 </button>
                 <button
-                  type="button" onClick={handleComplete} disabled={completing}
+                  type="button" onClick={() => setConfirmingFinish(true)}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50"
                 >
-                  <CheckCircle size={13} /> {completing ? 'Completing…' : 'Complete'}
+                  <CheckCircle size={13} /> Complete
                 </button>
               </div>
             </div>

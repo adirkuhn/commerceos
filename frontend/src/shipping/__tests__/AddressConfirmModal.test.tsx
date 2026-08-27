@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { AddressConfirmModal, splitStreetAndNumber, addressToRecipientDraft } from '../AddressConfirmModal'
@@ -42,9 +42,9 @@ describe('addressToRecipientDraft', () => {
 describe('AddressConfirmModal', () => {
   const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1A', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
 
-  it('prefills the form from the order address and submits the edited/confirmed recipient + carrier', async () => {
-    const onConfirm = vi.fn().mockResolvedValue(undefined)
-    render(<AddressConfirmModal initialAddress={address} defaultCarrier={1} onConfirm={onConfirm} onClose={vi.fn()} />)
+  it('prefills the form from the order address and hands off the edited/confirmed recipient + carrier', async () => {
+    const onNext = vi.fn()
+    render(<AddressConfirmModal initialAddress={address} defaultCarrier={1} onNext={onNext} onClose={vi.fn()} />)
 
     expect(screen.getByLabelText('Name')).toHaveValue('Jane Doe')
     expect(screen.getByLabelText('Street')).toHaveValue('Damrak')
@@ -55,26 +55,37 @@ describe('AddressConfirmModal', () => {
     // silently overwritten/ignored.
     await userEvent.clear(screen.getByLabelText('Number'))
     await userEvent.type(screen.getByLabelText('Number'), '2')
-    await userEvent.click(screen.getByRole('button', { name: 'Create shipping label' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
 
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({
+    expect(onNext).toHaveBeenCalledWith({
       carrier: 1,
       recipient: expect.objectContaining({ person: 'Jane Doe', street: 'Damrak', number: '2', city: 'Amsterdam' }),
-    }))
+    })
   })
 
-  it('shows an error and does not close when onConfirm rejects (MyParcel rejected the address)', async () => {
-    const onConfirm = vi.fn().mockRejectedValue(new Error('invalid postal_code'))
-    render(<AddressConfirmModal initialAddress={address} onConfirm={onConfirm} onClose={vi.fn()} />)
+  // Reaching this modal via LabelPreviewModal's "Back to edit" must not
+  // reset staff's edits back to the order's raw address -- initialRecipient
+  // wins over re-deriving from initialAddress.
+  it('prefers initialRecipient/initialCarrier over the order address when returning from the preview step', () => {
+    const onNext = vi.fn()
+    render(
+      <AddressConfirmModal
+        initialAddress={address}
+        initialRecipient={{ person: 'Edited Name', street: 'Edited Street', city: 'Rotterdam', cc: 'NL' }}
+        initialCarrier={4}
+        onNext={onNext}
+        onClose={vi.fn()}
+      />,
+    )
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create shipping label' }))
-
-    expect(await screen.findByText('invalid postal_code')).toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toHaveValue('Edited Name')
+    expect(screen.getByLabelText('Street')).toHaveValue('Edited Street')
+    expect(screen.getByLabelText<HTMLSelectElement>('Carrier').value).toBe('4')
   })
 
   it('calls onClose when the close button is clicked', async () => {
     const onClose = vi.fn()
-    render(<AddressConfirmModal initialAddress={address} onConfirm={vi.fn()} onClose={onClose} />)
+    render(<AddressConfirmModal initialAddress={address} onNext={vi.fn()} onClose={onClose} />)
 
     await userEvent.click(screen.getByLabelText('Close'))
 

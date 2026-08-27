@@ -64,6 +64,10 @@ export interface ShippingConnectionSettings {
   default_carrier: number
   default_package_type: number
   default_label_format: 'pdf' | 'zpl'
+  // Physical page format for label printing (A4 sheet vs a single A6
+  // label) -- a retrieval-time default only, re-askable on every print;
+  // see api.ts's getShipmentLabel size parameter.
+  default_label_size?: 'A4' | 'A6'
   default_signature_required: boolean
   default_only_recipient: boolean
   // Insurance is on/off only -- the insured amount is never configured

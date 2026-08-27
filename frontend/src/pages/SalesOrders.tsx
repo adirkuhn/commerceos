@@ -18,6 +18,7 @@ import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
+import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
 import type { RecipientAddress } from '../shipping/types'
 
@@ -611,13 +612,20 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
   // "Create label" -- a second, independent entry point for creating a
   // MyParcel shipment, alongside the existing one on the Picking page
-  // (Picking.tsx's own handleCreateShipment/AddressConfirmModal usage).
+  // (Picking.tsx's own handlePrintLabel/AddressConfirmModal usage).
   // Unlike Picking's flow, this one exports the order via MyParcel's real
   // Orders API first (ExportMyParcelOrderUseCase) -- confirmed address in
   // hand from the same modal -- before creating the actual shipment.
   const { connections } = useConnections(token ?? '')
   const myParcelConnection = connections.find(c => c.provider === 'myparcel')
-  const [confirmingAddress, setConfirmingAddress] = useState(false)
+  // Label creation is a 3-step flow: 'address' (AddressConfirmModal, no API
+  // call) -> 'preview' (LabelPreviewModal, still no API call) -> Print
+  // label actually creates the shipment (see handlePrintLabel). Same shape
+  // as Picking.tsx's identical flow.
+  const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
+  const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
+  const [pendingCarrier, setPendingCarrier] = useState(1)
+  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
   // auto_print_enabled: once a label exists, open the print view right
@@ -629,17 +637,26 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   useEffect(() => {
     if (!token || !myParcelConnection) return
     shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false))
+      .then(result => {
+        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
+        setLabelSize(result.settings?.default_label_size ?? 'A4')
+      })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
 
-  async function handleCreateLabel(input: { carrier: number; recipient: RecipientAddress }) {
-    if (!token || !detail || !myParcelConnection) return
+  // The actual shipment-creation call -- moved here from the old
+  // AddressConfirmModal.onConfirm. Staff have already seen this exact data
+  // laid out label-style in LabelPreviewModal and explicitly clicked "Print
+  // label"; this is what that click does, then opens the print view
+  // immediately.
+  async function handlePrintLabel() {
+    if (!token || !detail || !myParcelConnection || !pendingRecipient) return
+    const input = { carrier: pendingCarrier, recipient: pendingRecipient }
     await shippingApi.exportMyParcelOrder(token, myParcelConnection.id, detail.sales_order.id, input)
     const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id })
-    setConfirmingAddress(false)
+    setLabelStep(null)
     setCreatedShipmentId(shipment.id)
-    if (autoPrintEnabled) setPrintingLabelId(shipment.id)
+    setPrintingLabelId(shipment.id)
     refreshActivities()
   }
 
@@ -715,7 +732,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             </button>
             {myParcelConnection && !createdShipmentId && (
               <button
-                onClick={() => setConfirmingAddress(true)}
+                onClick={() => setLabelStep('address')}
                 title="Create a MyParcel shipping label for this order"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
               >
@@ -862,15 +879,28 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
         </div>
       </div>
 
-      {confirmingAddress && detail && (
+      {labelStep === 'address' && detail && (
         <AddressConfirmModal
           initialAddress={detail.sales_order.shipping}
-          onConfirm={handleCreateLabel}
-          onClose={() => setConfirmingAddress(false)}
+          initialRecipient={pendingRecipient ?? undefined}
+          initialCarrier={pendingCarrier}
+          onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+          onClose={() => setLabelStep(null)}
+        />
+      )}
+      {labelStep === 'preview' && pendingRecipient && (
+        <LabelPreviewModal
+          recipient={pendingRecipient}
+          carrier={pendingCarrier}
+          labelSize={labelSize}
+          onLabelSizeChange={setLabelSize}
+          onBack={() => setLabelStep('address')}
+          onPrint={handlePrintLabel}
+          onClose={() => setLabelStep(null)}
         />
       )}
       {printingLabelId && token && (
-        <ShippingLabelPrintView token={token} shipmentId={printingLabelId} onClose={() => setPrintingLabelId(null)} />
+        <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
       )}
     </div>
   )

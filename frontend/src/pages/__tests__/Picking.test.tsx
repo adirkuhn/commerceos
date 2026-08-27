@@ -256,6 +256,11 @@ describe('Picking page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Complete' }))
 
+    // Complete no longer fires the API directly -- it opens a review step
+    // showing the divergences first.
+    expect(await screen.findByText('Review before completing')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+
     expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     const missing = screen.getByText('Not fully picked').closest('div')!
     expect(within(missing).getByText('Widget: 0/2')).toBeInTheDocument()
@@ -271,6 +276,8 @@ describe('Picking page', () => {
     await user.click(await screen.findByText('#1001'))
     await screen.findByText('Widget')
     await user.click(screen.getByRole('button', { name: 'Complete' }))
+    await screen.findByText('Review before completing')
+    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
 
     await screen.findByText('#1001 marked fulfilled')
     expect(screen.queryByRole('button', { name: 'Create shipping label' })).not.toBeInTheDocument()
@@ -298,26 +305,37 @@ describe('Picking page', () => {
         recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
         created_at: '2026-08-23T00:00:00Z',
       })
+      // Print label always opens the print view now (the click itself is the
+      // print intent) -- give it something to fetch so it doesn't hang.
+      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+      vi.stubGlobal('print', vi.fn())
 
       const user = userEvent.setup()
       render(<Picking />)
       await user.click(await screen.findByText('#1001'))
       await screen.findByText('Widget')
       await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('Review before completing')
+      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
       await screen.findByText('#1001 marked fulfilled')
 
       await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
       expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
 
-      // Two buttons now share this label: the page's trigger (still
-      // rendered behind the modal) and the modal's own submit button,
-      // which renders after it in the DOM.
-      const allCreateButtons = screen.getAllByRole('button', { name: 'Create shipping label' })
-      await user.click(allCreateButtons[allCreateButtons.length - 1])
+      // Confirming the address only previews now -- nothing is created yet.
+      await user.click(screen.getByRole('button', { name: 'Review label' }))
+      expect(await screen.findByText('Ready to print')).toBeInTheDocument()
+      expect(shippingApi.createShipment).not.toHaveBeenCalled()
+
+      // Print label is what actually creates the shipment.
+      await user.click(screen.getByRole('button', { name: 'Print label' }))
 
       await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({
         connection_id: 'conn-mp-1', sales_order_id: 'so-1',
       })))
+      // The print view opened on its own; closing it reveals the underlying
+      // "Print shipping label" re-access button (auto_print_enabled is off).
+      await user.click(await screen.findByTitle('Close'))
       expect(await screen.findByRole('button', { name: 'Print shipping label' })).toBeInTheDocument()
     })
 
@@ -351,11 +369,15 @@ describe('Picking page', () => {
       await user.click(await screen.findByText('#1001'))
       await screen.findByText('Widget')
       await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('Review before completing')
+      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
       await screen.findByText('#1001 marked fulfilled')
 
       await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
-      const allCreateButtons = await screen.findAllByRole('button', { name: 'Create shipping label' })
-      await user.click(allCreateButtons[allCreateButtons.length - 1])
+      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Review label' }))
+      expect(await screen.findByText('Ready to print')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Print label' }))
 
       expect(await screen.findByTitle('Close')).toBeInTheDocument()
       await user.click(screen.getByTitle('Close'))

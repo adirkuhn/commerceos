@@ -5,6 +5,10 @@ import * as shippingApi from '../../shipping/api'
 interface ShippingLabelPrintViewProps {
   token: string
   shipmentId: string
+  // Physical page format to fetch/print -- a retrieval-time choice (see
+  // shipping/api.ts's getShipmentLabel), so it's plain component state here,
+  // re-fetchable via the size toggle below without recreating the shipment.
+  defaultSize?: 'A4' | 'A6'
   onClose: () => void
 }
 
@@ -23,14 +27,20 @@ interface ShippingLabelPrintViewProps {
 // command language, not a document format) -- this view only knows how to
 // preview/print PDF; a ZPL label gets a plain download link instead of a
 // broken embed + garbage print output.
-export function ShippingLabelPrintView({ token, shipmentId, onClose }: ShippingLabelPrintViewProps) {
+export function ShippingLabelPrintView({ token, shipmentId, defaultSize, onClose }: ShippingLabelPrintViewProps) {
+  const [size, setSize] = useState<'A4' | 'A6'>(defaultSize ?? 'A4')
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [contentType, setContentType] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
     let url: string | null = null
-    shippingApi.getShipmentLabel(token, shipmentId)
+    // Reset to the loading state on every size change too, not just mount --
+    // switching A4<->A6 re-fetches (size is retrieval-time, no new shipment
+    // needed) and the stale previous-size embed shouldn't linger mid-fetch.
+    setBlobUrl(null)
+    setError('')
+    shippingApi.getShipmentLabel(token, shipmentId, size)
       .then(blob => {
         url = URL.createObjectURL(blob)
         setContentType(blob.type)
@@ -40,19 +50,34 @@ export function ShippingLabelPrintView({ token, shipmentId, onClose }: ShippingL
     return () => {
       if (url) URL.revokeObjectURL(url)
     }
-  }, [token, shipmentId])
+  }, [token, shipmentId, size])
 
   const isPdf = contentType.includes('pdf')
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
-      <button
-        onClick={onClose}
-        className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 z-10"
-        title="Close"
-      >
-        <X size={16} />
-      </button>
+      <div className="print:hidden fixed top-4 right-4 flex items-center gap-2 z-10">
+        <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
+          {(['A4', 'A6'] as const).map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSize(s)}
+              aria-pressed={size === s}
+              className={`px-3 py-2 text-xs font-medium ${size === s ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
+          title="Close"
+        >
+          <X size={16} />
+        </button>
+      </div>
 
       {error && <p className="m-auto text-sm text-red-500">{error}</p>}
 

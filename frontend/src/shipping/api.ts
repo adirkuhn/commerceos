@@ -64,9 +64,12 @@ export function listShipmentsForOrder(token: string, salesOrderId: string): Prom
 
 // getShipmentLabel returns the raw label bytes as a Blob (PDF or ZPL,
 // whatever the shipment was created with) -- not JSON-wrapped, so this
-// bypasses the request() helper above entirely.
-export async function getShipmentLabel(token: string, shipmentId: string): Promise<Blob> {
-  const res = await fetch(`${base()}/shipments/${shipmentId}/label`, {
+// bypasses the request() helper above entirely. size ('A4'/'A6') is a
+// retrieval-time choice, re-askable on every print/reprint of the same
+// label -- omit to use the connection's own default_label_size.
+export async function getShipmentLabel(token: string, shipmentId: string, size?: 'A4' | 'A6'): Promise<Blob> {
+  const query = size ? `?size=${size}` : ''
+  const res = await fetch(`${base()}/shipments/${shipmentId}/label${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) {

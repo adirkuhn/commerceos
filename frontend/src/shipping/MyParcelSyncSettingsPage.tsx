@@ -24,6 +24,7 @@ export default function MyParcelSyncSettingsPage({
   const [defaultCarrier, setDefaultCarrier] = useState(1)
   const [defaultPackageType, setDefaultPackageType] = useState(1)
   const [defaultLabelFormat, setDefaultLabelFormat] = useState<'pdf' | 'zpl'>('pdf')
+  const [defaultLabelSize, setDefaultLabelSize] = useState<'A4' | 'A6'>('A4')
   const [defaultSignatureRequired, setDefaultSignatureRequired] = useState(false)
   const [defaultOnlyRecipient, setDefaultOnlyRecipient] = useState(false)
   const [insureByDefault, setInsureByDefault] = useState(false)
@@ -46,6 +47,7 @@ export default function MyParcelSyncSettingsPage({
           setDefaultCarrier(result.settings.default_carrier)
           setDefaultPackageType(result.settings.default_package_type)
           setDefaultLabelFormat(result.settings.default_label_format)
+          setDefaultLabelSize(result.settings.default_label_size ?? 'A4')
           setDefaultSignatureRequired(result.settings.default_signature_required)
           setDefaultOnlyRecipient(result.settings.default_only_recipient)
           setInsureByDefault(result.settings.insure_by_default)
@@ -84,6 +86,7 @@ export default function MyParcelSyncSettingsPage({
     try {
       await api.updateShippingSettings(token, connectionId, {
         default_carrier: defaultCarrier, default_package_type: defaultPackageType, default_label_format: defaultLabelFormat,
+        default_label_size: defaultLabelSize,
         default_signature_required: defaultSignatureRequired, default_only_recipient: defaultOnlyRecipient,
         insure_by_default: insureByDefault,
         myparcel_account_id: myparcelAccountId === '' ? null : myparcelAccountId,
@@ -184,6 +187,14 @@ export default function MyParcelSyncSettingsPage({
                     <option value="pdf">PDF</option>
                     <option value="zpl">ZPL (thermal)</option>
                   </select>
+                </div>
+                <div>
+                  <label htmlFor="default-label-size" className="block text-[11px] font-medium dark:text-gray-400 text-gray-500 mb-1">Label print size</label>
+                  <select id="default-label-size" value={defaultLabelSize} onChange={e => setDefaultLabelSize(e.target.value as 'A4' | 'A6')} className={selectClass + ' w-full'}>
+                    <option value="A4">A4</option>
+                    <option value="A6">A6</option>
+                  </select>
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">Default only -- staff can pick a different size on each print.</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">

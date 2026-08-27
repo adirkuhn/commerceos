@@ -34,22 +34,30 @@ export function addressToRecipientDraft(address: Address | undefined): Recipient
 interface AddressConfirmModalProps {
   initialAddress?: Address
   defaultCarrier?: number
-  onConfirm: (input: { carrier: number; recipient: RecipientAddress }) => void | Promise<void>
+  // Present when returning here from LabelPreviewModal's "Back to edit" --
+  // takes priority over initialAddress so a staff edit already made isn't
+  // silently discarded by re-deriving from the order's raw address again.
+  initialRecipient?: RecipientAddress
+  initialCarrier?: number
+  // Synchronous: this step is preview-only now -- no shipment is created
+  // here. onNext just hands the confirmed fields up to LabelPreviewModal,
+  // which is where "Print label" actually creates it (see that component's
+  // doc comment for why creation moved to the print click).
+  onNext: (input: { carrier: number; recipient: RecipientAddress }) => void
   onClose: () => void
 }
 
 // The "show window to confirm the address, number, complement" step from
 // the design -- staff review/edit the MyParcel-shaped structured fields
 // (split from the order's own free-text address as a starting point, see
-// addressToRecipientDraft) before a shipment is actually created. There is
-// no MyParcel address-validation endpoint to check against ahead of time;
-// real validation happens when MyParcel accepts/rejects the create-shipment
-// call itself, surfaced back to the user to fix and retry.
-export function AddressConfirmModal({ initialAddress, defaultCarrier, onConfirm, onClose }: AddressConfirmModalProps) {
-  const [recipient, setRecipient] = useState<RecipientAddress>(() => addressToRecipientDraft(initialAddress))
-  const [carrier, setCarrier] = useState(defaultCarrier ?? 1)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+// addressToRecipientDraft) before a label preview is shown. There is no
+// MyParcel address-validation endpoint to check against ahead of time; real
+// validation happens when MyParcel accepts/rejects the create-shipment call
+// itself, surfaced back to the user on LabelPreviewModal's Print step to fix
+// and retry.
+export function AddressConfirmModal({ initialAddress, defaultCarrier, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
+  const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress))
+  const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
 
   function field<K extends keyof RecipientAddress>(key: K) {
     return {
@@ -58,17 +66,9 @@ export function AddressConfirmModal({ initialAddress, defaultCarrier, onConfirm,
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
-    setSubmitting(true)
-    try {
-      await onConfirm({ carrier, recipient })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create shipment')
-    } finally {
-      setSubmitting(false)
-    }
+    onNext({ carrier, recipient })
   }
 
   const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
@@ -121,13 +121,11 @@ export function AddressConfirmModal({ initialAddress, defaultCarrier, onConfirm,
               {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
           >
-            {submitting ? 'Creating label…' : 'Create shipping label'}
+            Review label
           </button>
         </form>
       </div>

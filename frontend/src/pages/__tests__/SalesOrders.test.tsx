@@ -339,6 +339,10 @@ describe('Sales order detail page', () => {
       recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
       created_at: '2026-08-23T00:00:00Z',
     })
+    // Print label always opens the print view now (the click itself is the
+    // print intent) -- give it something to fetch so it doesn't hang.
+    vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+    vi.stubGlobal('print', vi.fn())
 
     render(<SalesOrders />)
     await userEvent.click(await screen.findByText('#1001'))
@@ -347,10 +351,20 @@ describe('Sales order detail page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create label' }))
     expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create shipping label' }))
+    // Confirming the address only previews now -- nothing is created yet.
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+    expect(await screen.findByText('Ready to print')).toBeInTheDocument()
+    expect(shippingApi.exportMyParcelOrder).not.toHaveBeenCalled()
+    expect(shippingApi.createShipment).not.toHaveBeenCalled()
+
+    // Print label is what actually creates the shipment.
+    await userEvent.click(screen.getByRole('button', { name: 'Print label' }))
 
     await waitFor(() => expect(shippingApi.exportMyParcelOrder).toHaveBeenCalledWith('test-token', 'conn-mp-1', 'so-1', expect.objectContaining({ carrier: 1 })))
     expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({ connection_id: 'conn-mp-1', sales_order_id: 'so-1' }))
+    // The print view opened on its own; closing it reveals the underlying
+    // "Print label" re-access button (auto_print_enabled is off here).
+    await userEvent.click(await screen.findByTitle('Close'))
     expect(await screen.findByRole('button', { name: 'Print label' })).toBeInTheDocument()
   })
 
@@ -396,7 +410,10 @@ describe('Sales order detail page', () => {
     await screen.findByText('Blue Widget')
 
     await userEvent.click(screen.getByRole('button', { name: 'Create label' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Create shipping label' }))
+    expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+    expect(await screen.findByText('Ready to print')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Print label' }))
 
     // The print view opens on its own -- no click needed to get here.
     expect(await screen.findByTitle('Close')).toBeInTheDocument()
