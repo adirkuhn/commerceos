@@ -41,11 +41,14 @@ func newMockGormDB(t *testing.T, n int) *gorm.DB {
 // --- MyParcelClient/MyParcelClientFactory fakes ---
 
 type fakeMyParcelClient struct {
-	createShipmentFn  func(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error)
-	createOrderFn     func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
-	getLabelFn        func(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error)
-	getTrackTraceFn   func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
-	registerWebhookFn func(ctx context.Context, callbackURL string) error
+	createShipmentFn             func(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error)
+	createOrderFn                func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
+	getLabelFn                   func(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error)
+	getTrackTraceFn              func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
+	registerWebhookFn            func(ctx context.Context, callbackURL string) error
+	listWebhookSubscriptionsFn   func(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error)
+	createWebhookSubscriptionFn  func(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error)
+	deleteWebhookSubscriptionFn  func(ctx context.Context, id string) error
 }
 
 func (f *fakeMyParcelClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
@@ -62,6 +65,24 @@ func (f *fakeMyParcelClient) GetTrackTrace(ctx context.Context, id int64) (integ
 }
 func (f *fakeMyParcelClient) RegisterWebhook(ctx context.Context, callbackURL string) error {
 	return f.registerWebhookFn(ctx, callbackURL)
+}
+func (f *fakeMyParcelClient) ListWebhookSubscriptions(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error) {
+	if f.listWebhookSubscriptionsFn == nil {
+		return nil, nil
+	}
+	return f.listWebhookSubscriptionsFn(ctx)
+}
+func (f *fakeMyParcelClient) CreateWebhookSubscription(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error) {
+	if f.createWebhookSubscriptionFn == nil {
+		return integrationsDomain.WebhookSubscription{}, nil
+	}
+	return f.createWebhookSubscriptionFn(ctx, hook, deliveryURL)
+}
+func (f *fakeMyParcelClient) DeleteWebhookSubscription(ctx context.Context, id string) error {
+	if f.deleteWebhookSubscriptionFn == nil {
+		return nil
+	}
+	return f.deleteWebhookSubscriptionFn(ctx, id)
 }
 
 type fakeMyParcelClientFactory struct {

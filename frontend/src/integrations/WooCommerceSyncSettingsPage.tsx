@@ -8,6 +8,7 @@ import type { Connection, SyncSchedule, SyncEntityType, SyncDirection, DeleteAll
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { notifyProductsChanged } from '../pms/productsBus'
+import ProviderWebhooksPanel from './ProviderWebhooksPanel'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useExternalTaxClassLinks } from '../tax/hooks/useExternalTaxClassLinks'
 import type { ExternalTaxClassLink } from '../tax/types'
@@ -1008,6 +1009,8 @@ function WebhooksTab({ token, connectionId, tenantId, provider }: { token: strin
             {generating ? 'Generating…' : secret ? 'Regenerate secret' : 'Generate secret'}
           </button>
         </div>
+
+        <ProviderWebhooksPanel token={token} connectionId={connectionId} />
       </div>
     </div>
   )

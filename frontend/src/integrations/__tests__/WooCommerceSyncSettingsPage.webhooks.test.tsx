@@ -18,6 +18,9 @@ vi.mock('../api', () => ({
   upsertSyncSchedules: vi.fn(),
   updateConnectionSettings: vi.fn(),
   setWebhookSecret: vi.fn(),
+  listProviderWebhooks: vi.fn(),
+  createProviderWebhook: vi.fn(),
+  deleteProviderWebhook: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -42,6 +45,7 @@ beforeEach(() => {
     tenant_id: 'tenant-1', default_currency: '', timezone: '', date_format: '', language: '',
     prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
+  vi.mocked(api.listProviderWebhooks).mockResolvedValue([])
 })
 
 async function openWebhooksTab() {
@@ -75,5 +79,47 @@ describe('WooCommerceSyncSettingsPage — Webhooks tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Generate secret' }))
 
     expect(await screen.findByText('connection not found')).toBeInTheDocument()
+  })
+
+  it('lists provider webhook subscriptions and Create registers a new one', async () => {
+    vi.mocked(api.listProviderWebhooks).mockResolvedValue([
+      { id: '1', provider: 'woocommerce', topic: 'order.updated', delivery_url: 'https://commerceos.example.com/hook', status: 'active' },
+    ])
+    vi.mocked(api.createProviderWebhook).mockResolvedValue({
+      id: '2', provider: 'woocommerce', topic: 'product.updated', delivery_url: 'https://commerceos.example.com/hook', status: 'active',
+    })
+    await openWebhooksTab()
+
+    expect(await screen.findByText('order.updated')).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Topic'), 'product.updated')
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    expect(api.createProviderWebhook).toHaveBeenCalledWith('test-token', 'conn-1', 'product.updated')
+    expect(await screen.findByText('product.updated')).toBeInTheDocument()
+  })
+
+  it('Remove calls the delete endpoint and removes the row', async () => {
+    vi.mocked(api.listProviderWebhooks).mockResolvedValue([
+      { id: '1', provider: 'woocommerce', topic: 'order.updated', delivery_url: 'https://commerceos.example.com/hook', status: 'active' },
+    ])
+    vi.mocked(api.deleteProviderWebhook).mockResolvedValue(null)
+    await openWebhooksTab()
+    await screen.findByText('order.updated')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(api.deleteProviderWebhook).toHaveBeenCalledWith('test-token', 'conn-1', '1')
+    expect(screen.queryByText('order.updated')).not.toBeInTheDocument()
+  })
+
+  it('surfaces a create failure inline (e.g. no webhook secret set yet)', async () => {
+    vi.mocked(api.createProviderWebhook).mockRejectedValue(new Error('connection has no webhook secret set yet'))
+    await openWebhooksTab()
+
+    await userEvent.type(screen.getByLabelText('Topic'), 'order.updated')
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    expect(await screen.findByText('connection has no webhook secret set yet')).toBeInTheDocument()
   })
 })

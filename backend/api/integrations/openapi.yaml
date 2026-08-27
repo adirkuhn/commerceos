@@ -365,6 +365,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebhookForwardDeliveryListResponse'
 
+  /integrations/connections/{id}/provider-webhooks:
+    get:
+      operationId: listProviderWebhooks
+      summary: List webhook subscriptions actually registered at the provider for this connection (WooCommerce/MyParcel)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderWebhookListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: Provider has no provider-webhooks support (only woocommerce/myparcel are implemented).
+          $ref: '#/components/responses/Error'
+        '502':
+          description: The live provider API call failed.
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: createProviderWebhook
+      summary: Register a new subscription at the provider for topic, pointed at CommerceOS's own ingest URL
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProviderWebhookRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderWebhookResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: The connection has no webhook secret set yet (see SetWebhookSecret), or the provider isn't supported.
+          $ref: '#/components/responses/Error'
+        '502':
+          description: The live provider API call failed.
+          $ref: '#/components/responses/Error'
+
+  /integrations/connections/{id}/provider-webhooks/{webhookId}:
+    delete:
+      operationId: deleteProviderWebhook
+      summary: Unregister a subscription at the provider by its own id
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/webhookId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
+          description: The live provider API call failed.
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/woo-taxes:
     get:
       operationId: listWooTaxes
@@ -1010,6 +1078,14 @@ components:
       name: linkId
       in: path
       required: true
+      schema:
+        type: string
+
+    webhookId:
+      name: webhookId
+      in: path
+      required: true
+      description: The provider's own webhook subscription id (not a CommerceOS id).
       schema:
         type: string
 
@@ -1822,6 +1898,35 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WebhookForwardDelivery' }
+        error: { nullable: true }
+
+    ProviderWebhook:
+      type: object
+      properties:
+        id: { type: string, description: The provider's own subscription id. }
+        provider: { type: string }
+        topic: { type: string }
+        delivery_url: { type: string }
+        status: { type: string }
+
+    CreateProviderWebhookRequest:
+      type: object
+      required: [topic]
+      properties:
+        topic: { type: string, description: "e.g. order.updated (WooCommerce) or shipment_status_change (MyParcel)." }
+
+    ProviderWebhookResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProviderWebhook' }
+        error: { nullable: true }
+
+    ProviderWebhookListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ProviderWebhook' }
         error: { nullable: true }
 
     EmptyResponse:

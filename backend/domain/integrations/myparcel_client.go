@@ -111,6 +111,19 @@ type TrackTraceResult struct {
 	StatusMain string
 }
 
+// WebhookSubscription is one currently-registered MyParcel webhook
+// subscription (GET /webhook_subscriptions/) -- ID is MyParcel's own
+// subscription id (for DeleteWebhookSubscription), Hook is the event type
+// (e.g. "shipment_status_change"), URL is the callback address MyParcel
+// currently has on file for it. See infrastructure/myparcel's package doc
+// comment: the exact response envelope shape for this list wasn't
+// confirmed against a real sandbox during this build.
+type WebhookSubscription struct {
+	ID   string
+	Hook string
+	URL  string
+}
+
 // MyParcelClient is one MyParcel connection's credentials + endpoints,
 // adapted to exactly what this codebase's use cases need (ISP). Implemented
 // by infrastructure/myparcel.
@@ -129,8 +142,28 @@ type MyParcelClient interface {
 	// RegisterWebhook registers (or, per MyParcel's own "adding the same
 	// webhook overwrites any existing one" behavior, re-registers) this
 	// shop's shipment_status_change callback URL. Safe to call more than
-	// once for the same connection.
+	// once for the same connection. Implemented as a thin wrapper over
+	// CreateWebhookSubscription (hook fixed to "shipment_status_change") --
+	// kept as its own method rather than folded away so the existing
+	// shipping-setup call site (application/shipping.RegisterMyParcelWebhookUseCase)
+	// doesn't need to know MyParcel supports other hook types too.
 	RegisterWebhook(ctx context.Context, callbackURL string) error
+	// ListWebhookSubscriptions lists every webhook subscription currently
+	// registered for this shop/API key, across all hook types -- used
+	// before creating a new one (MyParcel allows only one subscription per
+	// hook type per shop; whatever URL is about to be overwritten can be
+	// surfaced to the admin first) and by the provider-webhooks admin UI's
+	// read side.
+	ListWebhookSubscriptions(ctx context.Context) ([]WebhookSubscription, error)
+	// CreateWebhookSubscription registers hook (any of MyParcel's own hook
+	// type names, e.g. "shipment_status_change", "shipment_label_created",
+	// "order_status_change" -- not validated against an enum here, MyParcel
+	// itself rejects an unknown one) pointed at deliveryURL. Silently
+	// overwrites any existing subscription of the same hook type (MyParcel's
+	// own behavior, see RegisterWebhook's doc comment).
+	CreateWebhookSubscription(ctx context.Context, hook, deliveryURL string) (WebhookSubscription, error)
+	// DeleteWebhookSubscription removes one subscription by MyParcel's own id.
+	DeleteWebhookSubscription(ctx context.Context, id string) error
 }
 
 // MyParcelClientFactory builds a MyParcelClient scoped to one connection's

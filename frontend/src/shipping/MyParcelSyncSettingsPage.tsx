@@ -4,6 +4,25 @@ import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
 import { CARRIERS, PACKAGE_TYPES } from './types'
 import type { ShippingCarrierOverride } from './types'
+import * as integrationsApi from '../integrations/api'
+import ProviderWebhooksPanel from '../integrations/ProviderWebhooksPanel'
+
+// Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- exposes
+// a signing secret + the ability to register/remove live provider
+// subscriptions, security/ops-adjacent rather than day-to-day integration
+// use.
+function canManageWebhooks(role: string | undefined): boolean {
+  return role === 'customer_owner' || role === 'customer_admin' || role === 'super_admin'
+}
+
+// Mirrors WooCommerceSyncSettingsPage's own webhookURL helper -- the
+// webhook receiver lives at a URL outside VITE_API_BASE_URL's per-domain
+// convention, the single unauthenticated route mounted at
+// /webhooks/v1/{tenant_id}/{provider} on the API's root router.
+function webhookURL(tenantId: string): string {
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
+  return `${apiBase}/webhooks/v1/${tenantId}/myparcel`
+}
 
 // MyParcel has one credential (the API key) -- no OAuth redirect, no
 // client_id/secret pair like Bol's client_credentials, so the connect step
@@ -15,7 +34,7 @@ import type { ShippingCarrierOverride } from './types'
 export default function MyParcelSyncSettingsPage({
   connectionId: initialConnectionId, onClose, onConnected,
 }: { connectionId?: string; onClose: () => void; onConnected?: () => void }) {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
   const [apiKey, setApiKey] = useState('')
   const [connectError, setConnectError] = useState('')
@@ -36,6 +55,36 @@ export default function MyParcelSyncSettingsPage({
   const [settingsError, setSettingsError] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedNote, setSavedNote] = useState('')
+
+  const [webhookSecret, setWebhookSecret] = useState('')
+  const [generatingSecret, setGeneratingSecret] = useState(false)
+  const [webhookSecretError, setWebhookSecretError] = useState('')
+  const [copiedField, setCopiedField] = useState<'url' | 'secret' | null>(null)
+
+  async function handleGenerateWebhookSecret() {
+    setWebhookSecretError('')
+    setGeneratingSecret(true)
+    try {
+      const result = await integrationsApi.setWebhookSecret(token ?? '', connectionId)
+      setWebhookSecret(result.webhook_secret)
+    } catch (err) {
+      setWebhookSecretError(err instanceof Error ? err.message : 'Failed to generate webhook secret')
+    } finally {
+      setGeneratingSecret(false)
+    }
+  }
+
+  async function handleCopy(field: 'url' | 'secret', value: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(prev => (prev === field ? null : prev)), 1500)
+    } catch {
+      // Clipboard access can be denied -- the value is already shown
+      // selectable on screen, so this is a convenience failure, not a
+      // blocker.
+    }
+  }
 
   useEffect(() => {
     if (!connectionId || !token) return
@@ -300,6 +349,74 @@ export default function MyParcelSyncSettingsPage({
                 })}
               </div>
             </div>
+
+            {canManageWebhooks(user?.role) && (
+              <div>
+                <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 mb-2">Webhooks</h3>
+                <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+                  <div>
+                    <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      Delivery URL
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 px-3 py-2 text-[11px] rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+                        {webhookURL(user?.tenant_id ?? '')}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy('url', webhookURL(user?.tenant_id ?? ''))}
+                        className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+                      >
+                        {copiedField === 'url' ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {webhookSecret ? (
+                    <div>
+                      <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                        Secret (shown once -- copy it now)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+                          {webhookSecret}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy('secret', webhookSecret)}
+                          className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+                        >
+                          {copiedField === 'secret' ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-[10px] text-amber-500">
+                        This won't be shown again -- generate a new one if you lose it.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs dark:text-gray-500 text-gray-400">
+                      No secret generated yet -- Create a subscription below needs one first (MyParcel embeds it as a
+                      ?token= query param, since MyParcel signs nothing).
+                    </p>
+                  )}
+
+                  {webhookSecretError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{webhookSecretError}</p>}
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateWebhookSecret}
+                    disabled={generatingSecret}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {generatingSecret ? 'Generating…' : webhookSecret ? 'Regenerate secret' : 'Generate secret'}
+                  </button>
+                </div>
+
+                <div className="mt-3">
+                  <ProviderWebhooksPanel token={token ?? ''} connectionId={connectionId} />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

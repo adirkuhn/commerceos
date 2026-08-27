@@ -36,4 +36,17 @@ var (
 	// 403 because the connection's app registration lacks the
 	// economic-operators.read/.manage OAuth scope, not a bug in this codebase.
 	ErrBolEconomicOperatorsRequestFailed = errors.New("failed to fetch economic operators from bol")
+	// ErrWebhookSecretNotSet guards the provider-webhooks admin feature's
+	// create action (application/integrations.CreateProviderWebhookUseCase)
+	// -- a subscription can't be created before the tenant has a webhook
+	// secret provisioned (SetWebhookSecretUseCase), since the new
+	// subscription needs to embed/sign with it (WooCommerce: request body
+	// `secret` field; MyParcel: `?token=` query param -- see that use
+	// case's doc comment for why both reuse the same
+	// WebhookSecretEncrypted field despite verifying differently).
+	ErrWebhookSecretNotSet = errors.New("integrations: connection has no webhook secret set yet")
+	// ErrProviderWebhookRequestFailed distinguishes a live provider API
+	// call failure (list/create/delete a webhook subscription) from an
+	// internal error -- handlers map it to 502, not 500.
+	ErrProviderWebhookRequestFailed = errors.New("provider webhook request failed")
 )

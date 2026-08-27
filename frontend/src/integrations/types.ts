@@ -282,6 +282,18 @@ export interface WebhookForwardRule {
 
 export type WebhookForwardDeliveryStatus = 'pending' | 'delivered' | 'failed'
 
+// A webhook subscription actually registered AT the provider (WooCommerce
+// or MyParcel) for this connection -- distinct from WebhookForwardRule,
+// which is CommerceOS's own fan-out configuration on top of an event once
+// received. See backend/domain/integrations.ProviderWebhook.
+export interface ProviderWebhook {
+  id: string
+  provider: string
+  topic: string
+  delivery_url: string
+  status: string
+}
+
 // One attempt to relay a received webhook to one ForwardRule's target_url
 // -- the delivery log. See backend/domain/webhooks.ForwardDelivery.
 export interface WebhookForwardDelivery {

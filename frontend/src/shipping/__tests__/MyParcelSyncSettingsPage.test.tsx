@@ -19,10 +19,19 @@ vi.mock('../api', () => ({
   upsertCarrierOverride: vi.fn(),
 }))
 
+vi.mock('../../integrations/api', () => ({
+  setWebhookSecret: vi.fn(),
+  listProviderWebhooks: vi.fn(),
+  createProviderWebhook: vi.fn(),
+  deleteProviderWebhook: vi.fn(),
+}))
+
 import * as api from '../api'
+import * as integrationsApi from '../../integrations/api'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(integrationsApi.listProviderWebhooks).mockResolvedValue([])
 })
 
 describe('MyParcelSyncSettingsPage -- connect step', () => {
@@ -141,5 +150,45 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     await userEvent.click(screen.getByLabelText('PostNL insure by default override'))
 
     expect(api.upsertCarrierOverride).toHaveBeenCalledWith('test-token', 'conn-mp-1', 1, expect.objectContaining({ insure_by_default: true }))
+  })
+})
+
+describe('MyParcelSyncSettingsPage -- Webhooks section', () => {
+  it('shows the delivery URL, no secret by default, and the provider webhooks panel', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+
+    await screen.findByText('Per-carrier overrides')
+
+    expect(screen.getByText(/webhooks\/v1\/tenant-1\/myparcel/)).toBeInTheDocument()
+    expect(screen.getByText(/No secret generated yet/)).toBeInTheDocument()
+    expect(screen.getByText('Provider webhook subscriptions')).toBeInTheDocument()
+  })
+
+  it('generating a secret calls setWebhookSecret and shows the plaintext value once', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-mp-1', webhook_secret: 'top-secret-value' })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+    await screen.findByText('Per-carrier overrides')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Generate secret' }))
+
+    expect(await screen.findByText('top-secret-value')).toBeInTheDocument()
+    expect(integrationsApi.setWebhookSecret).toHaveBeenCalledWith('test-token', 'conn-mp-1')
+  })
+
+  it('Create registers a new provider webhook subscription', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    vi.mocked(integrationsApi.createProviderWebhook).mockResolvedValue({
+      id: '1', provider: 'myparcel', topic: 'shipment_status_change', delivery_url: 'https://commerceos.example.com/hook?token=abc', status: 'active',
+    })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+    await screen.findByText('Per-carrier overrides')
+
+    await userEvent.type(screen.getByLabelText('Topic'), 'shipment_status_change')
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    expect(integrationsApi.createProviderWebhook).toHaveBeenCalledWith('test-token', 'conn-mp-1', 'shipment_status_change')
+    expect(await screen.findByText('shipment_status_change')).toBeInTheDocument()
   })
 })

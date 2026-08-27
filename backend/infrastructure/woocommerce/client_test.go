@@ -246,3 +246,53 @@ func TestCreateVariation_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	require.Equal(t, "0012345678905", body.GlobalUniqueID, "GTIN must reach the wire as global_unique_id")
 	require.Equal(t, "0012345678905", result.GTIN)
 }
+
+func TestCreateWebhook_sendsTopicDeliveryURLAndSecret(t *testing.T) {
+	var body wc.Webhook
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		json.NewEncoder(w).Encode(wc.Webhook{ID: 7, Topic: body.Topic, DeliveryURL: body.DeliveryURL, Status: "active"})
+	})
+
+	result, err := c.CreateWebhook(context.Background(), "order.updated", "https://commerceos.example.com/webhooks/v1/tenant/woocommerce", "shh")
+
+	require.NoError(t, err)
+	require.Equal(t, "order.updated", body.Topic)
+	require.Equal(t, "https://commerceos.example.com/webhooks/v1/tenant/woocommerce", body.DeliveryURL)
+	require.Equal(t, "shh", body.Secret)
+	require.Equal(t, integrationsDomain.WooWebhook{
+		ID: "7", Topic: "order.updated", DeliveryURL: "https://commerceos.example.com/webhooks/v1/tenant/woocommerce", Status: "active",
+	}, result)
+}
+
+func TestListWebhooks_parsesEveryTopic(t *testing.T) {
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		json.NewEncoder(w).Encode([]wc.Webhook{
+			{ID: 1, Topic: "order.updated", DeliveryURL: "https://a.example.com", Status: "active"},
+			{ID: 2, Topic: "product.updated", DeliveryURL: "https://b.example.com", Status: "disabled"},
+		})
+	})
+
+	result, err := c.ListWebhooks(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	require.Equal(t, integrationsDomain.WooWebhook{ID: "1", Topic: "order.updated", DeliveryURL: "https://a.example.com", Status: "active"}, result[0])
+	require.Equal(t, integrationsDomain.WooWebhook{ID: "2", Topic: "product.updated", DeliveryURL: "https://b.example.com", Status: "disabled"}, result[1])
+}
+
+func TestDeleteWebhook_deletesByID(t *testing.T) {
+	var gotMethod, gotPath string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath = r.Method, r.URL.Path
+		json.NewEncoder(w).Encode(wc.Webhook{ID: 7})
+	})
+
+	err := c.DeleteWebhook(context.Background(), "7")
+
+	require.NoError(t, err)
+	require.Equal(t, http.MethodDelete, gotMethod)
+	require.Equal(t, "/wp-json/wc/v3/webhooks/7", gotPath)
+}

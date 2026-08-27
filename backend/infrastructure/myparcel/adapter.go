@@ -79,6 +79,30 @@ func (a *Adapter) RegisterWebhook(ctx context.Context, callbackURL string) error
 	return a.client.RegisterWebhook(ctx, callbackURL)
 }
 
+func (a *Adapter) ListWebhookSubscriptions(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error) {
+	subs, err := a.client.ListWebhookSubscriptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]integrationsDomain.WebhookSubscription, len(subs))
+	for i, s := range subs {
+		out[i] = integrationsDomain.WebhookSubscription{ID: s.ID, Hook: s.Hook, URL: s.URL}
+	}
+	return out, nil
+}
+
+func (a *Adapter) CreateWebhookSubscription(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error) {
+	s, err := a.client.CreateWebhookSubscription(ctx, hook, deliveryURL)
+	if err != nil {
+		return integrationsDomain.WebhookSubscription{}, err
+	}
+	return integrationsDomain.WebhookSubscription{ID: s.ID, Hook: s.Hook, URL: s.URL}, nil
+}
+
+func (a *Adapter) DeleteWebhookSubscription(ctx context.Context, id string) error {
+	return a.client.DeleteWebhookSubscription(ctx, id)
+}
+
 // ClientFactory implements domain/integrations.MyParcelClientFactory.
 type ClientFactory struct{}
 

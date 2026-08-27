@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, BolProductOverride, BolProductContent, BolCommission } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -414,6 +414,18 @@ export function deleteWebhookForwardRule(token: string, id: string): Promise<nul
 export function listWebhookForwardDeliveries(token: string, limit?: number): Promise<WebhookForwardDelivery[]> {
   const query = limit ? `?limit=${limit}` : ''
   return request<WebhookForwardDelivery[]>(`${base()}/webhook-forward-deliveries${query}`, { method: 'GET' }, token)
+}
+
+export function listProviderWebhooks(token: string, connectionId: string): Promise<ProviderWebhook[]> {
+  return request<ProviderWebhook[]>(`${base()}/connections/${connectionId}/provider-webhooks`, { method: 'GET' }, token)
+}
+
+export function createProviderWebhook(token: string, connectionId: string, topic: string): Promise<ProviderWebhook> {
+  return request<ProviderWebhook>(`${base()}/connections/${connectionId}/provider-webhooks`, { method: 'POST', body: JSON.stringify({ topic }) }, token)
+}
+
+export function deleteProviderWebhook(token: string, connectionId: string, webhookId: string): Promise<null> {
+  return request<null>(`${base()}/connections/${connectionId}/provider-webhooks/${webhookId}`, { method: 'DELETE' }, token)
 }
 
 export interface ConnectBolPayload {

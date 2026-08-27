@@ -145,6 +145,11 @@ type stubWooClient struct {
 
 	deleteVariationCalled []stubDeleteVariationCall
 	deleteVariationErr    error
+
+	webhooks         []integrationsDomain.WooWebhook
+	listWebhooksErr  error
+	createWebhookErr error
+	deleteWebhookErr error
 }
 
 type stubCreateVariableCall struct {
@@ -316,6 +321,21 @@ func (s *stubWooClient) ListTaxRates(_ context.Context) ([]integrationsDomain.Wo
 		return nil, s.taxRatesErr
 	}
 	return s.taxRates, nil
+}
+
+func (s *stubWooClient) ListWebhooks(_ context.Context) ([]integrationsDomain.WooWebhook, error) {
+	return s.webhooks, s.listWebhooksErr
+}
+
+func (s *stubWooClient) CreateWebhook(_ context.Context, topic, deliveryURL, secret string) (integrationsDomain.WooWebhook, error) {
+	if s.createWebhookErr != nil {
+		return integrationsDomain.WooWebhook{}, s.createWebhookErr
+	}
+	return integrationsDomain.WooWebhook{ID: "wh-1", Topic: topic, DeliveryURL: deliveryURL, Status: "active"}, nil
+}
+
+func (s *stubWooClient) DeleteWebhook(_ context.Context, id string) error {
+	return s.deleteWebhookErr
 }
 
 // stubMediaUploader stands in for application/pms's UploadMediaUseCase.

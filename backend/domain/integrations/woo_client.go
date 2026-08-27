@@ -318,6 +318,29 @@ type WooClient interface {
 	// class), and Woo's own /wc/v3/taxes endpoint doesn't expose a
 	// modified-since filter to make incremental fetching worthwhile.
 	ListTaxRates(ctx context.Context) ([]WooTaxRate, error)
+	// ListWebhooks lists every webhook subscription currently registered
+	// on this store, across all topics -- unlike MyParcel, WooCommerce has
+	// no one-per-type limit, so this can return several rows for the same
+	// topic. Used by the provider-webhooks admin UI's read side.
+	ListWebhooks(ctx context.Context) ([]WooWebhook, error)
+	// CreateWebhook registers a new subscription for topic (one of
+	// WooCommerce's own fixed topic names, e.g. "order.updated",
+	// "product.updated" -- not validated against an enum here, WooCommerce
+	// itself rejects an unknown one) pointed at deliveryURL, signed with
+	// secret (must match the tenant's own WebhookSecretEncrypted so
+	// WooCommerceVerifier can actually verify deliveries -- see
+	// application/integrations.CreateProviderWebhookUseCase).
+	CreateWebhook(ctx context.Context, topic, deliveryURL, secret string) (WooWebhook, error)
+	// DeleteWebhook permanently removes one subscription by its Woo id.
+	DeleteWebhook(ctx context.Context, id string) error
+}
+
+// WooWebhook is one currently-registered WooCommerce webhook subscription.
+type WooWebhook struct {
+	ID          string
+	Topic       string
+	DeliveryURL string
+	Status      string
 }
 
 // WooClientFactory builds a WooClient scoped to one store's credentials.

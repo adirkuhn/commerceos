@@ -302,3 +302,58 @@ func TestClient_RegisterWebhook_sendsCorrectHookType(t *testing.T) {
 	assert.Equal(t, "shipment_status_change", hooks[0].(map[string]any)["hook"])
 	assert.Equal(t, "https://example.com/webhooks/v1/tenant/myparcel?token=abc", hooks[0].(map[string]any)["url"])
 }
+
+func TestClient_CreateWebhookSubscription_sendsGivenHookAndParsesResponse(t *testing.T) {
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"webhook_subscriptions":[{"id":42,"hook":"order_status_change","url":"https://example.com/hook"}]}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	sub, err := c.CreateWebhookSubscription(context.Background(), "order_status_change", "https://example.com/hook")
+
+	require.NoError(t, err)
+	hooks := gotBody["data"].(map[string]any)["hooks"].([]any)
+	assert.Equal(t, "order_status_change", hooks[0].(map[string]any)["hook"])
+	assert.Equal(t, myparcel.WebhookSubscription{ID: "42", Hook: "order_status_change", URL: "https://example.com/hook"}, sub)
+}
+
+func TestClient_ListWebhookSubscriptions_parsesEveryHookType(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "/webhook_subscriptions", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"webhook_subscriptions":[
+			{"id":1,"hook":"shipment_status_change","url":"https://a.example.com"},
+			{"id":2,"hook":"shipment_label_created","url":"https://b.example.com"}
+		]}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	subs, err := c.ListWebhookSubscriptions(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, subs, 2)
+	assert.Equal(t, myparcel.WebhookSubscription{ID: "1", Hook: "shipment_status_change", URL: "https://a.example.com"}, subs[0])
+	assert.Equal(t, myparcel.WebhookSubscription{ID: "2", Hook: "shipment_label_created", URL: "https://b.example.com"}, subs[1])
+}
+
+func TestClient_DeleteWebhookSubscription_deletesByID(t *testing.T) {
+	var gotMethod, gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath = r.Method, r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	err := c.DeleteWebhookSubscription(context.Background(), "42")
+
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodDelete, gotMethod)
+	assert.Equal(t, "/webhook_subscriptions/42", gotPath)
+}

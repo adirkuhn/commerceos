@@ -23,6 +23,7 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
+	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -76,6 +77,15 @@ type deleteWebhookForwardRuleUC interface {
 }
 type listWebhookForwardDeliveriesUC interface {
 	Execute(ctx context.Context, limit int) ([]webhooksDomain.ForwardDelivery, error)
+}
+type listProviderWebhooksUC interface {
+	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.ProviderWebhook, error)
+}
+type createProviderWebhookUC interface {
+	Execute(ctx context.Context, connectionID, topic string) (*integrationsDomain.ProviderWebhook, error)
+}
+type deleteProviderWebhookUC interface {
+	Execute(ctx context.Context, connectionID, webhookID string) error
 }
 type createImportJobUC interface {
 	Execute(ctx context.Context, in appchannels.CreateImportJobInput) (*channelsDomain.ImportJob, error)
@@ -226,6 +236,9 @@ type Handler struct {
 	listWebhookForwardRules      listWebhookForwardRulesUC
 	deleteWebhookForwardRule     deleteWebhookForwardRuleUC
 	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC
+	listProviderWebhooks         listProviderWebhooksUC
+	createProviderWebhook        createProviderWebhookUC
+	deleteProviderWebhook        deleteProviderWebhookUC
 	connectBol                   connectBolUC
 	pushProductToBol             pushProductToBolUC
 	getBolProductOverride        getBolProductOverrideUC
@@ -280,6 +293,9 @@ func NewHandler(
 	listWebhookForwardRules listWebhookForwardRulesUC,
 	deleteWebhookForwardRule deleteWebhookForwardRuleUC,
 	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC,
+	listProviderWebhooks listProviderWebhooksUC,
+	createProviderWebhook createProviderWebhookUC,
+	deleteProviderWebhook deleteProviderWebhookUC,
 	connectBol connectBolUC,
 	pushProductToBol pushProductToBolUC,
 	getBolProductOverride getBolProductOverrideUC,
@@ -332,6 +348,9 @@ func NewHandler(
 		listWebhookForwardRules:      listWebhookForwardRules,
 		deleteWebhookForwardRule:     deleteWebhookForwardRule,
 		listWebhookForwardDeliveries: listWebhookForwardDeliveries,
+		listProviderWebhooks:         listProviderWebhooks,
+		createProviderWebhook:        createProviderWebhook,
+		deleteProviderWebhook:        deleteProviderWebhook,
 		connectBol:                   connectBol,
 		pushProductToBol:             pushProductToBol,
 		getBolProductOverride:        getBolProductOverride,
@@ -482,6 +501,9 @@ func Register(
 		appwebhooks.NewListForwardRulesUseCase(db, webhookForwardRuleRepo),
 		appwebhooks.NewDeleteForwardRuleUseCase(db, webhookForwardRuleRepo),
 		appwebhooks.NewListForwardDeliveriesUseCase(db, webhookForwardDeliveryRepo),
+		appintegrations.NewListProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
+		appintegrations.NewCreateProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret, publicAPIBaseURL),
+		appintegrations.NewDeleteProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
@@ -794,6 +816,69 @@ func (h *Handler) ListWebhookForwardDeliveries(c *gin.Context, params genintegra
 		}
 	}
 	middleware.OK(c, out)
+}
+
+func (h *Handler) ListProviderWebhooks(c *gin.Context, id genintegrations.Id) {
+	hooks, err := h.listProviderWebhooks.Execute(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, integrationsDomain.ErrProviderNotSupported) {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+		if errors.Is(err, integrationsDomain.ErrProviderWebhookRequestFailed) {
+			middleware.Fail(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err.Error())
+			return
+		}
+		if err := mapError(c, err); err != nil {
+			return
+		}
+	}
+	out := make([]genintegrations.ProviderWebhook, len(hooks))
+	for i, hook := range hooks {
+		hookID, provider, topic, deliveryURL, status := hook.ID, string(hook.Provider), hook.Topic, hook.DeliveryURL, hook.Status
+		out[i] = genintegrations.ProviderWebhook{Id: &hookID, Provider: &provider, Topic: &topic, DeliveryUrl: &deliveryURL, Status: &status}
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) CreateProviderWebhook(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.CreateProviderWebhookRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	hook, err := h.createProviderWebhook.Execute(c.Request.Context(), id, req.Topic)
+	if err != nil {
+		if errors.Is(err, integrationsDomain.ErrWebhookSecretNotSet) || errors.Is(err, integrationsDomain.ErrProviderNotSupported) {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+		if errors.Is(err, integrationsDomain.ErrProviderWebhookRequestFailed) {
+			middleware.Fail(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err.Error())
+			return
+		}
+		if err := mapError(c, err); err != nil {
+			return
+		}
+	}
+	provider := string(hook.Provider)
+	middleware.OK(c, genintegrations.ProviderWebhook{
+		Id: &hook.ID, Provider: &provider, Topic: &hook.Topic, DeliveryUrl: &hook.DeliveryURL, Status: &hook.Status,
+	})
+}
+
+func (h *Handler) DeleteProviderWebhook(c *gin.Context, id genintegrations.Id, webhookId genintegrations.WebhookId) {
+	err := h.deleteProviderWebhook.Execute(c.Request.Context(), id, webhookId)
+	if err != nil {
+		if errors.Is(err, integrationsDomain.ErrProviderWebhookRequestFailed) {
+			middleware.Fail(c, http.StatusBadGateway, "PROVIDER_REQUEST_FAILED", err.Error())
+			return
+		}
+		if err := mapError(c, err); err != nil {
+			return
+		}
+	}
+	middleware.OK(c, nil)
 }
 
 func (h *Handler) RetryWebhookFallbackEvent(c *gin.Context, id genintegrations.Id) {

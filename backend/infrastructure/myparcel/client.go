@@ -24,6 +24,12 @@
 //     exact endpoint, distinct from the Accept header's pdf/zpl content
 //     type), but the param name/values weren't confirmed against a real
 //     sandbox response during this build.
+//   - The GET/POST /webhook_subscriptions response envelope
+//     (webhookSubscriptionListResponse) -- modeled as
+//     `data.webhook_subscriptions[].{id,hook,url}` by analogy with the
+//     create request's own `data.hooks[].{hook,url}` shape and the field
+//     names documented for the resource, but not confirmed against a real
+//     sandbox response.
 package myparcel
 
 import (
@@ -196,6 +202,15 @@ type LabelResult struct {
 type TrackTraceResult struct {
 	StatusCode int
 	StatusMain string
+}
+
+// WebhookSubscription is this package's own response shape for a
+// registered webhook subscription -- adapter.go maps it to
+// domain/integrations.WebhookSubscription at the boundary.
+type WebhookSubscription struct {
+	ID   string
+	Hook string
+	URL  string
 }
 
 type recipient struct {
@@ -435,15 +450,72 @@ type webhookSubscriptionRequest struct {
 	} `json:"data"`
 }
 
+// webhookSubscriptionListResponse is GET/POST /webhook_subscriptions'
+// response envelope -- the exact nesting (data.webhook_subscriptions[])
+// mirrors the create request's own data.hooks[] nesting convention and the
+// id/hook/url field names documented for the resource, but -- like the
+// three items already flagged in this package's doc comment -- was NOT
+// confirmed against a real sandbox response during this build.
+type webhookSubscriptionListResponse struct {
+	Data struct {
+		WebhookSubscriptions []struct {
+			ID   int    `json:"id"`
+			Hook string `json:"hook"`
+			URL  string `json:"url"`
+		} `json:"webhook_subscriptions"`
+	} `json:"data"`
+}
+
 // RegisterWebhook registers this shop's shipment_status_change callback
 // URL. MyParcel: "you can only have one webhook of each type at a time for
 // a shop, so adding the same webhook overwrites any existing one" -- so
 // this is safe to call more than once for the same connection/URL.
 func (c *Client) RegisterWebhook(ctx context.Context, callbackURL string) error {
+	_, err := c.CreateWebhookSubscription(ctx, "shipment_status_change", callbackURL)
+	return err
+}
+
+// CreateWebhookSubscription is RegisterWebhook generalized to any hook type
+// -- see domain/integrations.MyParcelClient.CreateWebhookSubscription's doc
+// comment for why this exists separately (the provider-webhooks admin
+// feature, which lets an admin pick any of MyParcel's own hook types, not
+// just shipment_status_change).
+func (c *Client) CreateWebhookSubscription(ctx context.Context, hook, deliveryURL string) (WebhookSubscription, error) {
 	var req webhookSubscriptionRequest
 	req.Data.Hooks = []struct {
 		Hook string `json:"hook"`
 		URL  string `json:"url"`
-	}{{Hook: "shipment_status_change", URL: callbackURL}}
-	return c.doJSON(ctx, http.MethodPost, "/webhook_subscriptions", "application/json", req, nil)
+	}{{Hook: hook, URL: deliveryURL}}
+	var resp webhookSubscriptionListResponse
+	if err := c.doJSON(ctx, http.MethodPost, "/webhook_subscriptions", "application/json", req, &resp); err != nil {
+		return WebhookSubscription{}, err
+	}
+	if len(resp.Data.WebhookSubscriptions) == 0 {
+		// MyParcel accepted the request but the response envelope wasn't
+		// what this client expected (see webhookSubscriptionListResponse's
+		// doc comment) -- return what we asked for rather than an empty
+		// struct, since the subscription was still created.
+		return WebhookSubscription{Hook: hook, URL: deliveryURL}, nil
+	}
+	s := resp.Data.WebhookSubscriptions[0]
+	return WebhookSubscription{ID: strconv.Itoa(s.ID), Hook: s.Hook, URL: s.URL}, nil
+}
+
+// ListWebhookSubscriptions lists every subscription currently registered
+// for this shop/API key, across all hook types.
+func (c *Client) ListWebhookSubscriptions(ctx context.Context) ([]WebhookSubscription, error) {
+	var resp webhookSubscriptionListResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/webhook_subscriptions", "application/json", nil, &resp); err != nil {
+		return nil, err
+	}
+	out := make([]WebhookSubscription, len(resp.Data.WebhookSubscriptions))
+	for i, s := range resp.Data.WebhookSubscriptions {
+		out[i] = WebhookSubscription{ID: strconv.Itoa(s.ID), Hook: s.Hook, URL: s.URL}
+	}
+	return out, nil
+}
+
+// DeleteWebhookSubscription removes one subscription by its MyParcel id.
+func (c *Client) DeleteWebhookSubscription(ctx context.Context, id string) error {
+	return c.doJSON(ctx, http.MethodDelete, "/webhook_subscriptions/"+id, "application/json", nil, nil)
 }

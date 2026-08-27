@@ -1,0 +1,243 @@
+package integrations
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+
+	"gorm.io/gorm"
+
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	"github.com/adirkuhn/commerceos/internal/crypto"
+	"github.com/adirkuhn/commerceos/internal/tenant"
+)
+
+// providerWebhookIngestURL builds the base callback URL a provider should
+// deliver to -- CommerceOS's own unauthenticated webhook-ingestion route
+// (see api/webhooks/openapi.yaml). WooCommerce signs deliveries via the
+// request body's own `secret` field (see CreateProviderWebhookUseCase),
+// MyParcel has no such field and instead embeds a `?token=` query param on
+// top of this (same convention application/shipping.RegisterMyParcelWebhookUseCase
+// already uses).
+func providerWebhookIngestURL(publicAPIBaseURL, tenantID string, provider integrationsDomain.Provider) string {
+	return publicAPIBaseURL + "/api/v1/webhooks/v1/" + url.PathEscape(tenantID) + "/" + string(provider)
+}
+
+// ListProviderWebhooksUseCase lists what's actually registered at the
+// provider for this connection -- distinct from
+// application/webhooks.ListForwardRulesUseCase, which lists CommerceOS's
+// own fan-out configuration on top of an event once received.
+type ListProviderWebhooksUseCase struct {
+	db              *gorm.DB
+	connRepo        integrationsDomain.ConnectionRepository
+	wooFactory      integrationsDomain.WooClientFactory
+	myParcelFactory integrationsDomain.MyParcelClientFactory
+	encSecret       string
+}
+
+func NewListProviderWebhooksUseCase(
+	db *gorm.DB, connRepo integrationsDomain.ConnectionRepository,
+	wooFactory integrationsDomain.WooClientFactory, myParcelFactory integrationsDomain.MyParcelClientFactory,
+	encryptionSecret string,
+) *ListProviderWebhooksUseCase {
+	return &ListProviderWebhooksUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory, encSecret: encryptionSecret}
+}
+
+func (uc *ListProviderWebhooksUseCase) Execute(ctx context.Context, connectionID string) ([]integrationsDomain.ProviderWebhook, error) {
+	var out []integrationsDomain.ProviderWebhook
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		conn, err := uc.connRepo.FindByID(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		switch conn.Provider {
+		case integrationsDomain.ProviderWooCommerce:
+			client, err := newWooClientForConn(uc.wooFactory, uc.encSecret, *conn)
+			if err != nil {
+				return err
+			}
+			hooks, err := client.ListWebhooks(ctx)
+			if err != nil {
+				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
+			}
+			out = make([]integrationsDomain.ProviderWebhook, len(hooks))
+			for i, h := range hooks {
+				out[i] = integrationsDomain.ProviderWebhook{ID: h.ID, Provider: conn.Provider, Topic: h.Topic, DeliveryURL: h.DeliveryURL, Status: h.Status}
+			}
+			return nil
+		case integrationsDomain.ProviderMyParcel:
+			client, err := newMyParcelClientForConn(uc.myParcelFactory, uc.encSecret, *conn)
+			if err != nil {
+				return err
+			}
+			subs, err := client.ListWebhookSubscriptions(ctx)
+			if err != nil {
+				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
+			}
+			out = make([]integrationsDomain.ProviderWebhook, len(subs))
+			for i, s := range subs {
+				out[i] = integrationsDomain.ProviderWebhook{ID: s.ID, Provider: conn.Provider, Topic: s.Hook, DeliveryURL: s.URL, Status: "active"}
+			}
+			return nil
+		default:
+			return integrationsDomain.ErrProviderNotSupported
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listProviderWebhooks: %w", err)
+	}
+	return out, nil
+}
+
+// CreateProviderWebhookUseCase registers a new subscription for topic,
+// pointed at CommerceOS's own ingest URL -- the "subscribe CommerceOS to
+// receive this" action. Requires the connection's WebhookSecretEncrypted
+// to already be set (SetWebhookSecretUseCase) -- both providers need it to
+// let CommerceOS verify what it's about to start receiving, just via
+// different mechanisms (see providerWebhookIngestURL's doc comment).
+type CreateProviderWebhookUseCase struct {
+	db               *gorm.DB
+	connRepo         integrationsDomain.ConnectionRepository
+	wooFactory       integrationsDomain.WooClientFactory
+	myParcelFactory  integrationsDomain.MyParcelClientFactory
+	encSecret        string
+	publicAPIBaseURL string
+}
+
+func NewCreateProviderWebhookUseCase(
+	db *gorm.DB, connRepo integrationsDomain.ConnectionRepository,
+	wooFactory integrationsDomain.WooClientFactory, myParcelFactory integrationsDomain.MyParcelClientFactory,
+	encryptionSecret, publicAPIBaseURL string,
+) *CreateProviderWebhookUseCase {
+	return &CreateProviderWebhookUseCase{
+		db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory,
+		encSecret: encryptionSecret, publicAPIBaseURL: publicAPIBaseURL,
+	}
+}
+
+func (uc *CreateProviderWebhookUseCase) Execute(ctx context.Context, connectionID, topic string) (*integrationsDomain.ProviderWebhook, error) {
+	var out integrationsDomain.ProviderWebhook
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		conn, err := uc.connRepo.FindByID(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		if conn.WebhookSecretEncrypted == "" {
+			return integrationsDomain.ErrWebhookSecretNotSet
+		}
+		webhookSecret, err := crypto.Decrypt(uc.encSecret, conn.WebhookSecretEncrypted)
+		if err != nil {
+			return fmt.Errorf("decrypt webhook secret: %w", err)
+		}
+
+		switch conn.Provider {
+		case integrationsDomain.ProviderWooCommerce:
+			client, err := newWooClientForConn(uc.wooFactory, uc.encSecret, *conn)
+			if err != nil {
+				return err
+			}
+			deliveryURL := providerWebhookIngestURL(uc.publicAPIBaseURL, conn.TenantID, conn.Provider)
+			hook, err := client.CreateWebhook(ctx, topic, deliveryURL, webhookSecret)
+			if err != nil {
+				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
+			}
+			out = integrationsDomain.ProviderWebhook{ID: hook.ID, Provider: conn.Provider, Topic: hook.Topic, DeliveryURL: hook.DeliveryURL, Status: hook.Status}
+			return nil
+		case integrationsDomain.ProviderMyParcel:
+			client, err := newMyParcelClientForConn(uc.myParcelFactory, uc.encSecret, *conn)
+			if err != nil {
+				return err
+			}
+			deliveryURL := providerWebhookIngestURL(uc.publicAPIBaseURL, conn.TenantID, conn.Provider) + "?token=" + url.QueryEscape(webhookSecret)
+			sub, err := client.CreateWebhookSubscription(ctx, topic, deliveryURL)
+			if err != nil {
+				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
+			}
+			out = integrationsDomain.ProviderWebhook{ID: sub.ID, Provider: conn.Provider, Topic: sub.Hook, DeliveryURL: sub.URL, Status: "active"}
+			return nil
+		default:
+			return integrationsDomain.ErrProviderNotSupported
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("createProviderWebhook: %w", err)
+	}
+	return &out, nil
+}
+
+// DeleteProviderWebhookUseCase removes one subscription by the provider's
+// own id -- unregisters CommerceOS from receiving it.
+type DeleteProviderWebhookUseCase struct {
+	db              *gorm.DB
+	connRepo        integrationsDomain.ConnectionRepository
+	wooFactory      integrationsDomain.WooClientFactory
+	myParcelFactory integrationsDomain.MyParcelClientFactory
+	encSecret       string
+}
+
+func NewDeleteProviderWebhookUseCase(
+	db *gorm.DB, connRepo integrationsDomain.ConnectionRepository,
+	wooFactory integrationsDomain.WooClientFactory, myParcelFactory integrationsDomain.MyParcelClientFactory,
+	encryptionSecret string,
+) *DeleteProviderWebhookUseCase {
+	return &DeleteProviderWebhookUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory, encSecret: encryptionSecret}
+}
+
+func (uc *DeleteProviderWebhookUseCase) Execute(ctx context.Context, connectionID, webhookID string) error {
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		conn, err := uc.connRepo.FindByID(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		switch conn.Provider {
+		case integrationsDomain.ProviderWooCommerce:
+			client, err := newWooClientForConn(uc.wooFactory, uc.encSecret, *conn)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteWebhook(ctx, webhookID); err != nil {
+				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
+			}
+			return nil
+		case integrationsDomain.ProviderMyParcel:
+			client, err := newMyParcelClientForConn(uc.myParcelFactory, uc.encSecret, *conn)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteWebhookSubscription(ctx, webhookID); err != nil {
+				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)
+			}
+			return nil
+		default:
+			return integrationsDomain.ErrProviderNotSupported
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("deleteProviderWebhook: %w", err)
+	}
+	return nil
+}
+
+func newWooClientForConn(factory integrationsDomain.WooClientFactory, encSecret string, conn integrationsDomain.Connection) (integrationsDomain.WooClient, error) {
+	secret, err := crypto.Decrypt(encSecret, conn.ConsumerSecretEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt consumer secret: %w", err)
+	}
+	client, err := factory.NewClient(conn.StoreURL.String(), conn.ConsumerKey, secret)
+	if err != nil {
+		return nil, fmt.Errorf("build woo client: %w", err)
+	}
+	return client, nil
+}
+
+func newMyParcelClientForConn(factory integrationsDomain.MyParcelClientFactory, encSecret string, conn integrationsDomain.Connection) (integrationsDomain.MyParcelClient, error) {
+	apiKey, err := crypto.Decrypt(encSecret, conn.ConsumerSecretEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt api key: %w", err)
+	}
+	client, err := factory.NewClient(apiKey)
+	if err != nil {
+		return nil, fmt.Errorf("build myparcel client: %w", err)
+	}
+	return client, nil
+}
