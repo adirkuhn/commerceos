@@ -365,6 +365,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebhookForwardDeliveryListResponse'
 
+  /integrations/webhook-topics:
+    get:
+      operationId: listAvailableWebhookTopics
+      summary: List topics this tenant could write a fan-out rule for -- every topic actually received (real traffic) unioned with every topic currently subscribed at the provider, grouped by provider
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookTopicsResponse'
+
   /integrations/provider-webhooks:
     get:
       operationId: listAllProviderWebhooks
@@ -1910,6 +1922,17 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WebhookForwardDelivery' }
+        error: { nullable: true }
+
+    WebhookTopicsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Provider -> its known topics (sorted, deduplicated). A provider with no known topics yet is omitted, not an empty array.
+          additionalProperties:
+            type: array
+            items: { type: string }
         error: { nullable: true }
 
     ProviderWebhook:

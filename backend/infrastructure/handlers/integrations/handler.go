@@ -84,6 +84,9 @@ type listProviderWebhooksUC interface {
 type listAllProviderWebhooksUC interface {
 	Execute(ctx context.Context) (*appintegrations.ListAllProviderWebhooksResult, error)
 }
+type listAvailableWebhookTopicsUC interface {
+	Execute(ctx context.Context) (appwebhooks.TopicsByProvider, error)
+}
 type createProviderWebhookUC interface {
 	Execute(ctx context.Context, connectionID, topic string) (*integrationsDomain.ProviderWebhook, error)
 }
@@ -241,6 +244,7 @@ type Handler struct {
 	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC
 	listProviderWebhooks         listProviderWebhooksUC
 	listAllProviderWebhooks      listAllProviderWebhooksUC
+	listAvailableWebhookTopics   listAvailableWebhookTopicsUC
 	createProviderWebhook        createProviderWebhookUC
 	deleteProviderWebhook        deleteProviderWebhookUC
 	connectBol                   connectBolUC
@@ -299,6 +303,7 @@ func NewHandler(
 	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC,
 	listProviderWebhooks listProviderWebhooksUC,
 	listAllProviderWebhooks listAllProviderWebhooksUC,
+	listAvailableWebhookTopics listAvailableWebhookTopicsUC,
 	createProviderWebhook createProviderWebhookUC,
 	deleteProviderWebhook deleteProviderWebhookUC,
 	connectBol connectBolUC,
@@ -355,6 +360,7 @@ func NewHandler(
 		listWebhookForwardDeliveries: listWebhookForwardDeliveries,
 		listProviderWebhooks:         listProviderWebhooks,
 		listAllProviderWebhooks:      listAllProviderWebhooks,
+		listAvailableWebhookTopics:   listAvailableWebhookTopics,
 		createProviderWebhook:        createProviderWebhook,
 		deleteProviderWebhook:        deleteProviderWebhook,
 		connectBol:                   connectBol,
@@ -403,6 +409,7 @@ func Register(
 	webhookFallbackRepo := repositories.NewWebhookFallbackRepo(db)
 	webhookForwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
 	webhookForwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
+	webhookEventRepo := repositories.NewWebhookEventRepo(db)
 	categoryRepo := repositories.NewCategoryRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
@@ -461,6 +468,7 @@ func Register(
 	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(
 		db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC, enrollProductInChannelsUC,
 	)
+	listAllProviderWebhooksUC := appintegrations.NewListAllProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -508,7 +516,8 @@ func Register(
 		appwebhooks.NewDeleteForwardRuleUseCase(db, webhookForwardRuleRepo),
 		appwebhooks.NewListForwardDeliveriesUseCase(db, webhookForwardDeliveryRepo),
 		appintegrations.NewListProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
-		appintegrations.NewListAllProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
+		listAllProviderWebhooksUC,
+		appwebhooks.NewListAvailableWebhookTopicsUseCase(db, webhookEventRepo, listAllProviderWebhooksUC),
 		appintegrations.NewCreateProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret, publicAPIBaseURL),
 		appintegrations.NewDeleteProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
@@ -839,6 +848,15 @@ func (h *Handler) ListAllProviderWebhooks(c *gin.Context) {
 			ConnectionId: &connectionID, StoreLabel: &storeLabel,
 		}
 	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) ListAvailableWebhookTopics(c *gin.Context) {
+	byProvider, err := h.listAvailableWebhookTopics.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := map[string][]string(byProvider)
 	middleware.OK(c, out)
 }
 

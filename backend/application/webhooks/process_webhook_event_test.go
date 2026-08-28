@@ -27,6 +27,10 @@ func (f *fakeWebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEven
 	return nil
 }
 
+func (f *fakeWebhookEventRepo) DistinctTopics(ctx context.Context) ([]webhooks.TopicRef, error) {
+	panic("not used")
+}
+
 type fakeForwardRuleRepo struct {
 	rules []webhooks.ForwardRule
 	err   error

@@ -3,6 +3,7 @@ import { Webhook, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardRules'
 import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebhooks'
+import { useWebhookTopics } from '../integrations/hooks/useWebhookTopics'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab and
 // Integrations.tsx's undelivered-webhooks table -- gated client-side only
@@ -14,23 +15,6 @@ function canManageWebhooks(role: string | undefined): boolean {
 }
 
 type Tab = 'fanout' | 'subscriptions'
-
-// Fixed topic lists per provider, so the Topic field can be a select
-// instead of free text -- WooCommerce's own REST API webhook topics
-// (Woo docs: Webhooks -> Topics) and MyParcel's three hook types (see
-// backend/domain/integrations.WebhookSubscription's doc comment,
-// confirmed against developer.myparcel.nl/api-reference/10.webhooks.html).
-// Not validated against these on the backend -- Woo/MyParcel themselves
-// reject an unknown one -- this list only drives the dropdown.
-const TOPICS_BY_PROVIDER: Record<string, string[]> = {
-  woocommerce: [
-    'order.created', 'order.updated', 'order.deleted',
-    'product.created', 'product.updated', 'product.deleted',
-    'customer.created', 'customer.updated', 'customer.deleted',
-    'coupon.created', 'coupon.updated', 'coupon.deleted',
-  ],
-  myparcel: ['shipment_status_change', 'shipment_label_created', 'order_status_change'],
-}
 
 // The dedicated home for everything webhook-related: Screen 1 (Fan-out)
 // configures CommerceOS's own fan-out rules (provider/topic -> target
@@ -45,6 +29,7 @@ export default function Webhooks() {
 
   const forwardRules = useWebhookForwardRules(allowed ? token ?? '' : '')
   const allWebhooks = useAllProviderWebhooks(allowed && tab === 'subscriptions' ? token ?? '' : '')
+  const { topicsByProvider } = useWebhookTopics(allowed ? token ?? '' : '')
 
   if (!allowed) {
     return (
@@ -84,7 +69,7 @@ export default function Webhooks() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {tab === 'fanout' && <FanOutTab {...forwardRules} />}
+        {tab === 'fanout' && <FanOutTab {...forwardRules} topicsByProvider={topicsByProvider} />}
         {tab === 'subscriptions' && <SubscriptionsTab {...allWebhooks} />}
       </div>
     </div>
@@ -98,8 +83,8 @@ export default function Webhooks() {
 // which hide themselves when empty) since this is a config surface, not
 // just an alert list.
 function FanOutTab({
-  rules, deliveries, loading, error, create, remove,
-}: ReturnType<typeof useWebhookForwardRules>) {
+  rules, deliveries, loading, error, create, remove, topicsByProvider,
+}: ReturnType<typeof useWebhookForwardRules> & { topicsByProvider: Record<string, string[]> }) {
   const [provider, setProvider] = useState('')
   const [topic, setTopic] = useState('')
   const [targetUrl, setTargetUrl] = useState('')
@@ -165,7 +150,7 @@ function FanOutTab({
             <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic</label>
             <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
               <option value="">All events</option>
-              {(TOPICS_BY_PROVIDER[provider] ?? []).map(t => (
+              {(topicsByProvider[provider] ?? []).map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>

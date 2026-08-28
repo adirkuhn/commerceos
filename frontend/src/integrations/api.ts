@@ -424,6 +424,14 @@ export function listAllProviderWebhooks(token: string): Promise<ProviderWebhook[
   return request<ProviderWebhook[]>(`${base()}/provider-webhooks`, { method: 'GET' }, token)
 }
 
+// Provider -> topics actually available for this tenant: the union of every
+// topic ever actually received (real traffic) and every topic currently
+// subscribed at the provider -- drives the fan-out rule form's Topic
+// dropdown instead of a guessed hardcoded list.
+export function listAvailableWebhookTopics(token: string): Promise<Record<string, string[]>> {
+  return request<Record<string, string[]>>(`${base()}/webhook-topics`, { method: 'GET' }, token)
+}
+
 export function createProviderWebhook(token: string, connectionId: string, topic: string): Promise<ProviderWebhook> {
   return request<ProviderWebhook>(`${base()}/connections/${connectionId}/provider-webhooks`, { method: 'POST', body: JSON.stringify({ topic }) }, token)
 }

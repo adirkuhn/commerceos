@@ -61,3 +61,19 @@ func (r *WebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEvent) e
 	e.ID = m.ID
 	return nil
 }
+
+func (r *WebhookEventRepo) DistinctTopics(ctx context.Context) ([]webhooks.TopicRef, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("webhookEventRepo: DistinctTopics called outside a transaction")
+	}
+	var rows []webhookEventModel
+	if err := tx.WithContext(ctx).Distinct("provider", "topic").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("webhookEventRepo.DistinctTopics: %w", err)
+	}
+	out := make([]webhooks.TopicRef, len(rows))
+	for i, row := range rows {
+		out[i] = webhooks.TopicRef{Provider: row.Provider, Topic: row.Topic}
+	}
+	return out, nil
+}

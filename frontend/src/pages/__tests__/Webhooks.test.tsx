@@ -20,6 +20,7 @@ vi.mock('../../integrations/api', () => ({
   listWebhookForwardDeliveries: vi.fn(),
   listAllProviderWebhooks: vi.fn(),
   deleteProviderWebhook: vi.fn(),
+  listAvailableWebhookTopics: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -48,6 +49,7 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listWebhookForwardRules).mockResolvedValue([])
   vi.mocked(integrationsApi.listWebhookForwardDeliveries).mockResolvedValue([])
   vi.mocked(integrationsApi.listAllProviderWebhooks).mockResolvedValue([])
+  vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({})
 })
 
 describe('Webhooks page — Fan-out tab', () => {
@@ -82,6 +84,21 @@ describe('Webhooks page — Fan-out tab', () => {
       provider: 'myparcel', topic: undefined, target_url: 'https://example.com/mp-hook',
     })
     expect(await screen.findByText('https://example.com/mp-hook')).toBeInTheDocument()
+  })
+
+  it('Topic dropdown lists real topics fetched for the selected provider, not a hardcoded list', async () => {
+    vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
+      woocommerce: ['order.updated', 'product.updated'],
+      myparcel: ['shipment_status_change'],
+    })
+    render(<Webhooks />)
+    await screen.findByText('Webhook forwarding')
+
+    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'woocommerce')
+
+    expect(screen.getByRole('option', { name: 'order.updated' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'product.updated' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'shipment_status_change' })).not.toBeInTheDocument()
   })
 
   it('Remove calls the delete endpoint and removes the row', async () => {

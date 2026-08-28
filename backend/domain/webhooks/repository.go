@@ -26,6 +26,12 @@ type WebhookEventRepository interface {
 	// when this call hit the existing row rather than inserting) -- callers
 	// (ProcessWebhookEventUseCase) depend on it as the ForwardDelivery FK.
 	Save(ctx context.Context, e *WebhookEvent) error
+	// DistinctTopics lists every (provider, topic) pair this tenant has
+	// actually received at least one webhook event for, topic never empty
+	// -- real events actually seen, not a guessed enum. Used by
+	// ListAvailableWebhookTopicsUseCase to populate the fan-out rule form's
+	// Topic dropdown.
+	DistinctTopics(ctx context.Context) ([]TopicRef, error)
 }
 
 // ForwardRuleRepository persists a tenant's webhook fan-out configuration

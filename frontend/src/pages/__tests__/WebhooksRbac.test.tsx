@@ -22,6 +22,7 @@ vi.mock('../../integrations/api', () => ({
   listWebhookForwardDeliveries: vi.fn(),
   listAllProviderWebhooks: vi.fn(),
   deleteProviderWebhook: vi.fn(),
+  listAvailableWebhookTopics: vi.fn(),
 }))
 
 describe('Webhooks page — RBAC', () => {

@@ -46,6 +46,14 @@ type WebhookEvent struct {
 	ProcessedAt time.Time
 }
 
+// TopicRef is one (provider, topic) pair this tenant has actually received
+// at least one WebhookEvent for -- see
+// WebhookEventRepository.DistinctTopics's doc comment.
+type TopicRef struct {
+	Provider string
+	Topic    string
+}
+
 // FallbackEvent is the durable record of a webhook ReceiveWebhookUseCase
 // could not hand off to JetStream after exhausting its publish retries --
 // the "don't miss it" safety net for a NATS outage. Requires manual
