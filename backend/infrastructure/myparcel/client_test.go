@@ -297,7 +297,7 @@ func TestClient_RegisterWebhook_sendsCorrectHookType(t *testing.T) {
 	err := c.RegisterWebhook(context.Background(), "https://example.com/webhooks/v1/tenant/myparcel?token=abc")
 
 	require.NoError(t, err)
-	hooks := gotBody["data"].(map[string]any)["hooks"].([]any)
+	hooks := gotBody["data"].(map[string]any)["webhook_subscriptions"].([]any)
 	require.Len(t, hooks, 1)
 	assert.Equal(t, "shipment_status_change", hooks[0].(map[string]any)["hook"])
 	assert.Equal(t, "https://example.com/webhooks/v1/tenant/myparcel?token=abc", hooks[0].(map[string]any)["url"])
@@ -316,7 +316,7 @@ func TestClient_CreateWebhookSubscription_sendsGivenHookAndParsesResponse(t *tes
 	sub, err := c.CreateWebhookSubscription(context.Background(), "order_status_change", "https://example.com/hook")
 
 	require.NoError(t, err)
-	hooks := gotBody["data"].(map[string]any)["hooks"].([]any)
+	hooks := gotBody["data"].(map[string]any)["webhook_subscriptions"].([]any)
 	assert.Equal(t, "order_status_change", hooks[0].(map[string]any)["hook"])
 	assert.Equal(t, myparcel.WebhookSubscription{ID: "42", Hook: "order_status_change", URL: "https://example.com/hook"}, sub)
 }

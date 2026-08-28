@@ -33,7 +33,7 @@ function AppContent() {
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-hidden dark:bg-[#0B1220] bg-[#F9FAFB]">
+        <main className="flex-1 overflow-y-auto dark:bg-[#0B1220] bg-[#F9FAFB]">
           <Routes>
             {PAGE_ROUTES.map(({ path, Component }) => (
               <Route key={path} path={path} element={<Component />} />

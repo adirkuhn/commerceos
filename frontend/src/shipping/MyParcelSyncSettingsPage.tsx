@@ -146,15 +146,12 @@ export default function MyParcelSyncSettingsPage({
   }, [connectionId, token])
 
   // Deep link from Integrations.tsx's "Register webhook" quick action --
-  // scrolls to the Webhooks section AND actually runs the registration
-  // (handleRegisterWebhook), instead of just landing on a form the admin
-  // still has to fill in themselves. autoRegisterRanRef guards against
-  // React StrictMode's double-invoke firing this (and the live API calls
-  // it makes) twice.
-  const autoRegisterRanRef = useRef(false)
+  // scrolls straight to the Webhooks section. Does NOT auto-run the
+  // registration itself -- that's a real outbound call to MyParcel
+  // (overwrites whatever subscription of this hook type MyParcel already
+  // has), so it stays behind the explicit "Register with MyParcel" click.
   useEffect(() => {
-    if (focusWebhooks && !settingsLoading && connectionId && !autoRegisterRanRef.current) {
-      autoRegisterRanRef.current = true
+    if (focusWebhooks && !settingsLoading && connectionId) {
       // jsdom (unit tests) has no real layout engine -- scrollIntoView
       // throws "Not implemented" there. try/catch keeps that a no-op
       // instead of failing the render.
@@ -163,9 +160,7 @@ export default function MyParcelSyncSettingsPage({
       } catch {
         // no-op -- see comment above
       }
-      handleRegisterWebhook()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusWebhooks, settingsLoading, connectionId])
 
   async function handleConnect(e: React.FormEvent) {
@@ -237,18 +232,16 @@ export default function MyParcelSyncSettingsPage({
   const selectClass = 'px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <div className="flex items-center gap-3 px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
         <button onClick={onClose} aria-label="Back" className="p-1.5 rounded-lg dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors">
           <ArrowLeft size={18} className="dark:text-gray-400 text-gray-500" />
         </button>
         <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">MyParcel</h2>
       </div>
-      {/* min-h-0 overrides the flex item's default min-height:auto, which
-          otherwise refuses to shrink below this div's own (tall) content --
-          without it, overflow-y-auto never actually gets a smaller box to
-          scroll within, and the page just grows past the viewport. */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-5 max-w-2xl">
+      {/* The page's own <main> scrolls (App.tsx) -- no overflow/height
+          wiring needed here, just flow naturally. */}
+      <div className="p-5 max-w-2xl">
         {!connectionId ? (
           <form onSubmit={handleConnect} className="space-y-4">
             <p className="text-xs dark:text-gray-500 text-gray-400">

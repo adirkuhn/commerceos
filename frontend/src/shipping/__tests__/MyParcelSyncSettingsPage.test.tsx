@@ -193,10 +193,8 @@ describe('MyParcelSyncSettingsPage -- Webhooks section', () => {
     expect(await screen.findByText('shipment_status_change')).toBeInTheDocument()
   })
 
-  it('focusWebhooks scrolls the Webhooks section into view and auto-registers with MyParcel', async () => {
+  it('focusWebhooks scrolls the Webhooks section into view without registering anything on its own', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
-    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-mp-1', webhook_secret: 'top-secret-value' })
-    vi.mocked(api.registerMyParcelWebhook).mockResolvedValue({ ok: true })
     // jsdom doesn't implement scrollIntoView at all (not even a stub) --
     // assign one directly rather than vi.spyOn, which requires the
     // property to already exist.
@@ -207,9 +205,8 @@ describe('MyParcelSyncSettingsPage -- Webhooks section', () => {
     await screen.findByText('Per-carrier overrides')
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
-    expect(integrationsApi.setWebhookSecret).toHaveBeenCalledWith('test-token', 'conn-mp-1')
-    expect(await screen.findByText(/MyParcel is now sending shipment_status_change webhooks to CommerceOS/)).toBeInTheDocument()
-    expect(api.registerMyParcelWebhook).toHaveBeenCalledWith('test-token', 'conn-mp-1')
+    expect(integrationsApi.setWebhookSecret).not.toHaveBeenCalled()
+    expect(api.registerMyParcelWebhook).not.toHaveBeenCalled()
   })
 
   it('Register with MyParcel generates a secret and registers the webhook in one click', async () => {

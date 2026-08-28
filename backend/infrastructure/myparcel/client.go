@@ -26,10 +26,13 @@
 //     sandbox response during this build.
 //   - The GET/POST /webhook_subscriptions response envelope
 //     (webhookSubscriptionListResponse) -- modeled as
-//     `data.webhook_subscriptions[].{id,hook,url}` by analogy with the
-//     create request's own `data.hooks[].{hook,url}` shape and the field
-//     names documented for the resource, but not confirmed against a real
-//     sandbox response.
+//     `data.webhook_subscriptions[].{id,hook,url}`, matching the request
+//     body's own confirmed `data.webhook_subscriptions[].{hook,url}` shape
+//     (developer.myparcel.nl/api-reference/10.webhooks.html's own example --
+//     the request body WAS a real bug: this client originally sent
+//     `data.hooks[]`, which MyParcel rejects with a 422 schema-validation
+//     error), but the exact response field names still aren't confirmed
+//     against a real sandbox response.
 package myparcel
 
 import (
@@ -441,12 +444,18 @@ func (c *Client) GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (T
 	return TrackTraceResult{StatusCode: tt.Status.Current, StatusMain: tt.Status.Main}, nil
 }
 
+// webhookSubscriptionRequest is POST /webhook_subscriptions' request body
+// -- confirmed against developer.myparcel.nl/api-reference/10.webhooks.html's
+// own example: `{"data":{"webhook_subscriptions":[{"hook":...,"url":...}]}}`.
+// Was previously `data.hooks[]`, which MyParcel rejects with a 422 ("the
+// property hooks is not defined and the definition does not allow
+// additional properties").
 type webhookSubscriptionRequest struct {
 	Data struct {
-		Hooks []struct {
+		WebhookSubscriptions []struct {
 			Hook string `json:"hook"`
 			URL  string `json:"url"`
-		} `json:"hooks"`
+		} `json:"webhook_subscriptions"`
 	} `json:"data"`
 }
 
@@ -482,7 +491,7 @@ func (c *Client) RegisterWebhook(ctx context.Context, callbackURL string) error 
 // just shipment_status_change).
 func (c *Client) CreateWebhookSubscription(ctx context.Context, hook, deliveryURL string) (WebhookSubscription, error) {
 	var req webhookSubscriptionRequest
-	req.Data.Hooks = []struct {
+	req.Data.WebhookSubscriptions = []struct {
 		Hook string `json:"hook"`
 		URL  string `json:"url"`
 	}{{Hook: hook, URL: deliveryURL}}
