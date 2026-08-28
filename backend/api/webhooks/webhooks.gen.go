@@ -43,14 +43,23 @@ type Error = ErrorResponse
 // ReceiveWebhookJSONBody defines parameters for ReceiveWebhook.
 type ReceiveWebhookJSONBody = interface{}
 
+// ReceiveWebhookWithTokenJSONBody defines parameters for ReceiveWebhookWithToken.
+type ReceiveWebhookWithTokenJSONBody = interface{}
+
 // ReceiveWebhookJSONRequestBody defines body for ReceiveWebhook for application/json ContentType.
 type ReceiveWebhookJSONRequestBody = ReceiveWebhookJSONBody
+
+// ReceiveWebhookWithTokenJSONRequestBody defines body for ReceiveWebhookWithToken for application/json ContentType.
+type ReceiveWebhookWithTokenJSONRequestBody = ReceiveWebhookWithTokenJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ReceiveWebhook Receive an inbound webhook delivery (unauthenticated, provider signature verified instead)
 	// (POST /webhooks/v1/{tenant_id}/{provider})
 	ReceiveWebhook(c *gin.Context, tenantId openapi_types.UUID, provider string)
+	// ReceiveWebhookWithToken Same as receiveWebhook, but for a provider whose only verification mechanism is a shared secret with nothing to sign (MyParcel) -- embedded as a path segment instead of a `?token=` query string, so it isn't the part most likely to leak into access logs/proxies/ browser history. Query-string `?token=` is still accepted on the base receiveWebhook route for callback URLs registered before this existed.
+	// (POST /webhooks/v1/{tenant_id}/{provider}/{token})
+	ReceiveWebhookWithToken(c *gin.Context, tenantId openapi_types.UUID, provider string, token string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -96,6 +105,49 @@ func (siw *ServerInterfaceWrapper) ReceiveWebhook(c *gin.Context) {
 	siw.Handler.ReceiveWebhook(c, tenantId, provider)
 }
 
+// ReceiveWebhookWithToken operation middleware
+func (siw *ServerInterfaceWrapper) ReceiveWebhookWithToken(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", c.Param("tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tenant_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "provider" -------------
+	var provider string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", c.Param("provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter provider: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", c.Param("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter token: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ReceiveWebhookWithToken(c, tenantId, provider, token)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -124,6 +176,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/webhooks/v1/:tenant_id/:provider", wrapper.ReceiveWebhook)
+	router.POST(options.BaseURL+"/webhooks/v1/:tenant_id/:provider/:token", wrapper.ReceiveWebhookWithToken)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -131,25 +184,29 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"xFZLjxs5Dv4rhHaB7V6UH53HxbfenRySS4J0Y3KYCQYsieVSWiUpFGWj0PB/H0jlcj/iTBBggLmVJYr8",
-	"+JEf6XulwxCDJy9Jbe4VU4rBJ6o/3jAHLh86eCEv5RNjdFaj2OBXX1Lw5SzpngYsX/9m6tRG/Wv14HU1",
-	"3aZV9fbx6F8dDodGGUqabSzO1EZRDVfOj09OGE6vNvcqcojEYieIBqUG9tk5bB2pjXCmQ3N09o29DqZ6",
-	"kTGS2qgkbP1WHRo1UEq4PXd3aOaT0H4hLedOGvWRNNkdfaK2D+Hux4CfntKOvPxhzVloHTrXor57dNmG",
-	"4Aj9eSin1J+RciaRQ6Os70IF9qQWtz1Bsn7rCLLHLD15KWUnAxyyEEhv2SwisowQOeysIU5w8SmE/4dh",
-	"INbUwE0fou3GBkj08hI+vL+5hf1EEBhydkdsKYGEJfxCzrbEKORGQLh58+H64/XtG0iR9CqivsMtQcdh",
-	"ANoR15BCusDBaFf/rXYNJBwImDAFb/0WMNVb64W2XFs26SOXm5JAOuYy5CTQEgwh++IyeJCegEOQyYIb",
-	"CFmSNVQv3n26XTwA2HLIsQH0ZnLkC0JAra0hL+jcCOQN5Agt9dYbKHTCYI1xtEcmaEdIPXJFPCVcEHOH",
-	"mmBvpZ8wJJAeBUxYwvVDPWzw0BMT2ASReDGXApLdepTMBIXlbra9SERgfceYhLMuBqtjSU5VvGzABwGE",
-	"lpCJQcId+eXvXjVKrJR2UnON39/AsePhrd9SqjGuP7yFi5hbZ/WlatSOOE1NdbVcl/4MkTxGqzbq5XK9",
-	"fKkaFVH6qoMZS1rtrlb3Qh6rLA6r+xndoYonpDqMioRqXm+N2jyTYHXLOJAQJ7X57V7ZgqGEUo3yOJQ8",
-	"ThFUo5i+ZstkJrU0j6ZaF3hAURuVc7X8ZkA8V88+BH1kaOqLMSJrclDK3eXSEnaIjgYq/baENrgGhuBp",
-	"bC2bBtIsHGe3vaRIVA7JG+1CNtUL09YmISYDbRZgksweXq+vIHuxrvSpfdwFNZvaJo8iQxe46MVN1T1D",
-	"0Ez7X/LznI/PkzEl+V8w488skDNboUyiGcV/EoS9P82QiKMLaJqSxh7ZFC5GoUUXeFE+wHoJVbG1G1NP",
-	"BsjvyIVIsFgU1cVKyY68Cbww1FlfqJ4kvENnTR15uEXrU5HEhHSS3AVWyU2PH1Gte9J3xW2JjFoyOtii",
-	"UCnhj8U3leIp2Yfm6WJ+sV7/bWv5O4vrTCV+rYOk0OENmMzYuvERsxLgHcmNMOGwLDp/sX7xD6Jsqi5O",
-	"iGCPCbJnQt2XnQjYCTG8nBMoCqrbaLE45ZZwN+VVCjlvYZD6vPQDoYGLstCXp8tSdc50WTn6mikfRTag",
-	"L21QgoylwodGvVpffS/rU7GnP02T9aufsH79E77L/608DMjjwwwF9GB9G7I3zzf2CBfP/hE08N2tQ2Ym",
-	"6nKqVSLezfM4s1MbtSorenelDp8PfwYAAP//",
+	"7Fffj9vGEf5XBtsCuSso6c5OXgQUhdv6wUGLuL5r/dAGzZA7Eje33GFmh1KIg/73YpaSTqfITQwYbh/y",
+	"Ji2X8+Ob+b4ZPrqGu54TJc1u+eiEcs8pU/nzWoTFfjSclJLaT+z7GBrUwGnxfeZkZ7lpqUP79VuhlVu6",
+	"3yyerC6mp3lRrL3b23e73a5ynnIjoTdjbumouLPz/SvHGI5vLR9dL9yTaJhC9KjFcRpixDqSW6oMtKv2",
+	"xn5yv2FfrOjYk1u6rBLS2u0q11HOuL70bFcdTrj+nhq9dFK5d9RQ2NB7qlvmh58P+PkpbSjpv4O/GNoK",
+	"Y6yxeTh5WDNHwnQ5lGPqZ6BcSGRXuZBWXAJ7Vov7liCHtI4EQ8JBW0pqZScPwoMSaBvEz3oUHaEX3gRP",
+	"kuHqPfOfuOtIGqrgruU+rMYKSJv5Nbz95u4ethNA4CmGDUmgDMpz+DPFUJOgUhwB4e7121fvXt2/htxT",
+	"s+ixecA1wUq4A9qQFJdKjYWDfVj8rtyrIGNHIISZU0hrwFyehqS0ltKyudljubQE8j6XbsgKNUHHQzKT",
+	"nEBbAmHW6YZUwIPm4Kk8+Pr9/ewpgLXw0FeAyU+GkkUI2DTBU1KMcQRKHoYeampD8mBwQhe8j7RFIahH",
+	"yC1KiXhK2CKWFTYE26DtFEMGbVHB8xxePdUjcIKWhCBk6Elmh1JADuuEOgiBobw63L3KRBDSSjCrDI1d",
+	"WOxLcqzidQWJFRBqQiEB5QdK838lVzkNau3kDjX+5g72HQ9v0ppy8fHq7Ru46oc6hubaVW5Dkqemup3f",
+	"WH9yTwn74Jbu5fxm/tJVrkdtCw8OseTF5nbxqJSw0GK3eDxEtyvk4VzEyChU8nrj3fKMgsWsYEdKkt3y",
+	"n48uWAzmylUuYWd5HD24ygn9MAQhP7GlOlG1FUuH6pZuGMrNnwjEOXu2zM0eoakvxh6loQhW7tVgLRG6",
+	"PlJH1m9zqDlW0HGisQ7iK8gH4sSwbjX3RHZIyTeRB1+sCK1DVhLyUA8KQjpIgq9ubmFIGqL1aTjtgpJN",
+	"aZMTz7BiMb7EqboXADrA/l/xOcfj2+kyZf0j+/FjBsiFqWBKdIjiiwy8TUcN6XGMjL6yNLYo3rAYlWYr",
+	"lpn9gJCUC2NLN+aWPFDaUOSeYDYz1vUFkg0lzzLztArJoJ4ovMEYfJE8XGNI2SgxRTpR7goL5aaXT6Bu",
+	"WmoezKx5xkYHjLBGJSvhz5NvKsVzsHfV88H84ubmk43lDwyuC5X4RxESgyN58INgHccTZJXha9I7FcJu",
+	"bjx/cfPifxhlVXhxjAi2mGFIQti0NhMBV0oCLw8JGIPKNJrNjrll3Ex5WSEPUxi0vG79QOjhygb6/PjQ",
+	"qi4DXReMfhho2JOsw2RtYE5Gq/Cucl/e3H4o62Oxp6Vpuv3lR9z+6iNs2741dB3K+KShgAlCqnlI/nxi",
+	"j3B1thFU8MGpQ/4A1HVx9Av0ffFY5s0v1vn3Qdt7e+PzCv6n0srLpnSf0GfT3F/15tPozcdIB69O5MnG",
+	"EdlYP/U7/7/ViTvbtDGfxTthYHqHT5qwbTkTcIrj81W0o6bFFHJnoollBSYPmRohnfbexNraVqxchAWu",
+	"/jq+LXvUtcFFXU3eZr6t+WD8gUxrW2xOEUb47g+FTb//zvRYRpgoU0FmCAohpy902hFQFDrOCjE82GeI",
+	"MkTCh2mLwKahnCHyOi964R8D5QXUwttMAm3IyjLO4W/mYTZ5OHEcMmQNMRYr/cknRo35vOb7bxID8fCx",
+	"An9/95f8bOOjFQtNnzD0o536MlRKjUg2BwEcJLqlW9hH0ObW7b7d/ScAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

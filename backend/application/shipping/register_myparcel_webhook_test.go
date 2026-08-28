@@ -2,7 +2,6 @@ package shipping_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,8 +34,7 @@ func TestRegisterMyParcelWebhook_buildsCallbackURLWithTenantAndToken(t *testing.
 	err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "conn-1")
 
 	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(gotURL, "https://api.example.com/api/v1/webhooks/v1/tenant-1/myparcel?token="))
-	assert.Contains(t, gotURL, "webhook-secret-xyz")
+	assert.Equal(t, "https://api.example.com/api/v1/webhooks/v1/tenant-1/myparcel/webhook-secret-xyz", gotURL)
 }
 
 func TestRegisterMyParcelWebhook_noSecretSet_returnsErrWebhookSecretNotSet(t *testing.T) {

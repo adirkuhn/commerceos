@@ -15,12 +15,19 @@ import (
 // providerWebhookIngestURL builds the base callback URL a provider should
 // deliver to -- CommerceOS's own unauthenticated webhook-ingestion route
 // (see api/webhooks/openapi.yaml). WooCommerce signs deliveries via the
-// request body's own `secret` field (see CreateProviderWebhookUseCase),
-// MyParcel has no such field and instead embeds a `?token=` query param on
-// top of this (same convention application/shipping.RegisterMyParcelWebhookUseCase
-// already uses).
+// request body's own `secret` field (see CreateProviderWebhookUseCase).
 func providerWebhookIngestURL(publicAPIBaseURL, tenantID string, provider integrationsDomain.Provider) string {
 	return publicAPIBaseURL + "/api/v1/webhooks/v1/" + url.PathEscape(tenantID) + "/" + string(provider)
+}
+
+// providerWebhookIngestURLWithToken is providerWebhookIngestURL for a
+// provider with no signature scheme of its own (MyParcel) -- the shared
+// secret travels as a path segment (api/webhooks/openapi.yaml's
+// receiveWebhookWithToken route) rather than a `?token=` query string,
+// which is more likely to leak into access logs/proxies/browser history.
+// Same convention application/shipping.RegisterMyParcelWebhookUseCase uses.
+func providerWebhookIngestURLWithToken(publicAPIBaseURL, tenantID string, provider integrationsDomain.Provider, token string) string {
+	return providerWebhookIngestURL(publicAPIBaseURL, tenantID, provider) + "/" + url.PathEscape(token)
 }
 
 // ListProviderWebhooksUseCase lists what's actually registered at the
@@ -238,7 +245,7 @@ func (uc *CreateProviderWebhookUseCase) Execute(ctx context.Context, connectionI
 			if err != nil {
 				return err
 			}
-			deliveryURL := providerWebhookIngestURL(uc.publicAPIBaseURL, conn.TenantID, conn.Provider) + "?token=" + url.QueryEscape(webhookSecret)
+			deliveryURL := providerWebhookIngestURLWithToken(uc.publicAPIBaseURL, conn.TenantID, conn.Provider, webhookSecret)
 			sub, err := client.CreateWebhookSubscription(ctx, topic, deliveryURL)
 			if err != nil {
 				return fmt.Errorf("%w: %w", integrationsDomain.ErrProviderWebhookRequestFailed, err)

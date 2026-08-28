@@ -19,7 +19,9 @@ import (
 // tenant's own Connection.WebhookSecretEncrypted (set via
 // application/integrations.SetWebhookSecretUseCase, same field the
 // HMAC-based providers use, just compared differently) is embedded as a
-// `?token=` query parameter in the callback URL instead. Requires that
+// path segment in the callback URL instead (api/webhooks/openapi.yaml's
+// receiveWebhookWithToken route), not a `?token=` query string -- less
+// likely to leak into access logs/proxies/browser history. Requires that
 // secret to already be set -- callers must run SetWebhookSecretUseCase
 // first.
 type RegisterMyParcelWebhookUseCase struct {
@@ -74,8 +76,7 @@ func (uc *RegisterMyParcelWebhookUseCase) Execute(ctx context.Context, connectio
 		return fmt.Errorf("registerMyParcelWebhook: build client: %w", err)
 	}
 
-	callbackURL := uc.publicAPIBaseURL + "/api/v1/webhooks/v1/" + url.PathEscape(conn.TenantID) + "/myparcel" +
-		"?token=" + url.QueryEscape(webhookToken)
+	callbackURL := uc.publicAPIBaseURL + "/api/v1/webhooks/v1/" + url.PathEscape(conn.TenantID) + "/myparcel/" + url.PathEscape(webhookToken)
 	if err := client.RegisterWebhook(ctx, callbackURL); err != nil {
 		return fmt.Errorf("registerMyParcelWebhook: %w", err)
 	}

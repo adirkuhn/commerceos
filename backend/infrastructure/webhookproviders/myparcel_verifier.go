@@ -19,13 +19,18 @@ const myParcelQueryTokenKey = "__query_token"
 // MyParcel. Unlike WooCommerce (HMAC-SHA256 over the body), MyParcel signs
 // nothing at all -- its docs state webhook authenticity relies on HTTPS
 // transport alone, no signature header or scheme. Verification here
-// instead checks the `?token=` query parameter on the callback URL itself
-// against the tenant's Connection.WebhookSecretEncrypted -- the token is
-// embedded in the URL registered with MyParcel
-// (RegisterMyParcelWebhookUseCase), so only whoever holds that URL (us, via
-// the URL we ourselves chose) can produce a matching request. Weaker than
-// an HMAC by construction (a URL can leak into logs/proxies more easily
-// than a header), but it's what the vendor's API actually supports.
+// instead checks a shared-secret token embedded in the callback URL itself
+// against the tenant's Connection.WebhookSecretEncrypted, so only whoever
+// holds that URL (us, via the URL we ourselves chose) can produce a
+// matching request. The token travels as a path segment
+// (api/webhooks/openapi.yaml's receiveWebhookWithToken route,
+// RegisterMyParcelWebhookUseCase / CreateProviderWebhookUseCase both build
+// this shape) -- infrastructure/handlers/webhooks.Handler forwards either
+// that or the older `?token=` query-string form (still accepted for
+// callback URLs registered before the path form existed) into the same
+// headers key this verifier reads. Weaker than an HMAC by construction (a
+// URL can leak into logs/proxies more easily than a header), but it's what
+// the vendor's API actually supports.
 type MyParcelVerifier struct{}
 
 func NewMyParcelVerifier() *MyParcelVerifier { return &MyParcelVerifier{} }

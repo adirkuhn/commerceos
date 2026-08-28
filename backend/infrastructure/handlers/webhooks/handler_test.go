@@ -138,3 +138,20 @@ func TestReceiveWebhook_forwardsQueryTokenForMyParcel(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "secret-abc", uc.headers["__query_token"])
 }
+
+// ReceiveWebhookWithToken is the current registration shape for MyParcel
+// (application/shipping.RegisterMyParcelWebhookUseCase /
+// application/integrations.CreateProviderWebhookUseCase both build this
+// URL now) -- the token travels as a path segment instead of a `?token=`
+// query string.
+func TestReceiveWebhookWithToken_forwardsPathTokenForMyParcel(t *testing.T) {
+	uc := &stubReceiveWebhook{result: appwebhooks.Result{EventID: "evt-1"}}
+	r := newTestRouter(uc)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/webhooks/v1/"+testTenantID+"/myparcel/secret-abc", bytes.NewReader([]byte(`{}`)))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "secret-abc", uc.headers["__query_token"])
+}

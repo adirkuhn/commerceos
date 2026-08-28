@@ -296,7 +296,7 @@ func TestCreateProviderWebhookUseCase_woo_sendsIngestURLAndPlaintextSecret(t *te
 	assert.Equal(t, "1", result.ID)
 }
 
-func TestCreateProviderWebhookUseCase_myParcel_appendsTokenQueryParam(t *testing.T) {
+func TestCreateProviderWebhookUseCase_myParcel_appendsTokenPathSegment(t *testing.T) {
 	plaintextSecret := "webhook-token-plaintext"
 	encryptedSecret, _ := crypto.Encrypt(testEncSecret, plaintextSecret)
 	conn := myParcelConn(func(c *integrationsDomain.Connection) { c.WebhookSecretEncrypted = encryptedSecret })
@@ -312,7 +312,7 @@ func TestCreateProviderWebhookUseCase_myParcel_appendsTokenQueryParam(t *testing
 
 	require.NoError(t, err)
 	assert.Equal(t, "shipment_status_change", gotHook)
-	assert.Equal(t, "https://api.example.com/api/v1/webhooks/v1/tenant-1/myparcel?token=webhook-token-plaintext", gotURL)
+	assert.Equal(t, "https://api.example.com/api/v1/webhooks/v1/tenant-1/myparcel/webhook-token-plaintext", gotURL)
 	assert.Equal(t, "9", result.ID)
 }
 

@@ -67,6 +67,58 @@ paths:
           description: Provider is registered but has no real verification yet, or the tenant hasn't configured a webhook secret for it.
           $ref: '#/components/responses/Error'
 
+  /webhooks/v1/{tenant_id}/{provider}/{token}:
+    post:
+      operationId: receiveWebhookWithToken
+      summary: >
+        Same as receiveWebhook, but for a provider whose only verification
+        mechanism is a shared secret with nothing to sign (MyParcel) --
+        embedded as a path segment instead of a `?token=` query string, so
+        it isn't the part most likely to leak into access logs/proxies/
+        browser history. Query-string `?token=` is still accepted on the
+        base receiveWebhook route for callback URLs registered before this
+        existed.
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {}
+      responses:
+        '200':
+          description: Verified and durably published to JetStream.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiveWebhookResponse'
+        '202':
+          description: Verified, but durably saved to the fallback table instead of JetStream -- see receiveWebhook.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiveWebhookResponse'
+        '401':
+          description: Token missing or did not match.
+          $ref: '#/components/responses/Error'
+        '404':
+          description: Unknown provider name.
+          $ref: '#/components/responses/Error'
+        '501':
+          description: Provider is registered but has no real verification yet, or the tenant hasn't configured a webhook secret for it.
+          $ref: '#/components/responses/Error'
+
 components:
   responses:
     Error:

@@ -473,8 +473,8 @@ export default function MyParcelSyncSettingsPage({
                     </div>
                   ) : (
                     <p className="text-xs dark:text-gray-500 text-gray-400">
-                      No secret generated yet -- Create a subscription below needs one first (MyParcel embeds it as a
-                      ?token= query param, since MyParcel signs nothing).
+                      No secret generated yet -- Create a subscription below needs one first (MyParcel embeds it as
+                      part of the delivery URL's path, since MyParcel signs nothing).
                     </p>
                   )}
 

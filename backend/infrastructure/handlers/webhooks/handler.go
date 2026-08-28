@@ -37,6 +37,21 @@ func NewHandler(receive receiveWebhookUseCase) *Handler {
 }
 
 func (h *Handler) ReceiveWebhook(c *gin.Context, tenantID openapi_types.UUID, provider string) {
+	// MyParcel signs nothing (no HMAC/signature header) -- its verifier
+	// checks this token instead. Query-string form, kept for callback URLs
+	// registered before ReceiveWebhookWithToken's path-segment form existed.
+	h.receiveWithToken(c, tenantID, provider, c.Query("token"))
+}
+
+// ReceiveWebhookWithToken is ReceiveWebhook for a provider whose token
+// travels as a path segment instead of a `?token=` query string (see
+// api/webhooks/openapi.yaml's doc comment on this route) -- currently just
+// MyParcel, registered via this shape from here on.
+func (h *Handler) ReceiveWebhookWithToken(c *gin.Context, tenantID openapi_types.UUID, provider string, token string) {
+	h.receiveWithToken(c, tenantID, provider, token)
+}
+
+func (h *Handler) receiveWithToken(c *gin.Context, tenantID openapi_types.UUID, provider string, token string) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		writeWebhookError(c, http.StatusBadRequest, "invalid_body", "could not read request body")
@@ -47,12 +62,10 @@ func (h *Handler) ReceiveWebhook(c *gin.Context, tenantID openapi_types.UUID, pr
 	for name := range c.Request.Header {
 		headers[name] = c.Request.Header.Get(name)
 	}
-	// MyParcel signs nothing (no HMAC/signature header) -- its verifier
-	// checks a `?token=` query parameter instead, embedded in the callback
-	// URL registered with MyParcel (see webhookproviders.MyParcelVerifier's
-	// doc comment). Injected into the same headers map ProviderVerifier
-	// already takes rather than widening that interface for one provider.
-	headers["__query_token"] = c.Query("token")
+	// Injected into the same headers map ProviderVerifier already takes
+	// rather than widening that interface for one provider (see
+	// webhookproviders.MyParcelVerifier's doc comment).
+	headers["__query_token"] = token
 
 	result, err := h.receive.Execute(c.Request.Context(), tenantID.String(), provider, body, headers)
 	if err != nil {
