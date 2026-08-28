@@ -74,7 +74,7 @@ describe('Webhooks page — Fan-out tab', () => {
     render(<Webhooks />)
     await screen.findByText('Webhook forwarding')
 
-    await userEvent.type(screen.getByLabelText('Provider'), 'myparcel')
+    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'myparcel')
     await userEvent.type(screen.getByLabelText('Target URL'), 'https://example.com/mp-hook')
     await userEvent.click(screen.getByRole('button', { name: 'Add rule' }))
 

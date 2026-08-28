@@ -15,6 +15,23 @@ function canManageWebhooks(role: string | undefined): boolean {
 
 type Tab = 'fanout' | 'subscriptions'
 
+// Fixed topic lists per provider, so the Topic field can be a select
+// instead of free text -- WooCommerce's own REST API webhook topics
+// (Woo docs: Webhooks -> Topics) and MyParcel's three hook types (see
+// backend/domain/integrations.WebhookSubscription's doc comment,
+// confirmed against developer.myparcel.nl/api-reference/10.webhooks.html).
+// Not validated against these on the backend -- Woo/MyParcel themselves
+// reject an unknown one -- this list only drives the dropdown.
+const TOPICS_BY_PROVIDER: Record<string, string[]> = {
+  woocommerce: [
+    'order.created', 'order.updated', 'order.deleted',
+    'product.created', 'product.updated', 'product.deleted',
+    'customer.created', 'customer.updated', 'customer.deleted',
+    'coupon.created', 'coupon.updated', 'coupon.deleted',
+  ],
+  myparcel: ['shipment_status_change', 'shipment_label_created', 'order_status_change'],
+}
+
 // The dedicated home for everything webhook-related: Screen 1 (Fan-out)
 // configures CommerceOS's own fan-out rules (provider/topic -> target
 // URL), Screen 2 (Subscriptions) shows every webhook subscription actually
@@ -134,11 +151,24 @@ function FanOutTab({
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 mb-4">
           <div>
             <label htmlFor="forward-provider" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Provider</label>
-            <input id="forward-provider" required value={provider} onChange={e => setProvider(e.target.value)} placeholder="woocommerce" className={inputClass} />
+            <select
+              id="forward-provider" required value={provider}
+              onChange={e => { setProvider(e.target.value); setTopic('') }}
+              className={inputClass}
+            >
+              <option value="">Select…</option>
+              <option value="woocommerce">WooCommerce</option>
+              <option value="myparcel">MyParcel</option>
+            </select>
           </div>
           <div>
-            <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic (optional)</label>
-            <input id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} placeholder="order.updated" className={inputClass} />
+            <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic</label>
+            <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
+              <option value="">All events</option>
+              {(TOPICS_BY_PROVIDER[provider] ?? []).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
           <div className="flex-1 min-w-[220px]">
             <label htmlFor="forward-target-url" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Target URL</label>
