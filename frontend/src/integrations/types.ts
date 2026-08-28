@@ -292,6 +292,11 @@ export interface ProviderWebhook {
   topic: string
   delivery_url: string
   status: string
+  // Only set by listAllProviderWebhooks (the tenant-wide aggregate read) --
+  // empty on the single-connection listProviderWebhooks response, which
+  // already has connectionId in scope via its own request.
+  connection_id?: string
+  store_label?: string
 }
 
 // One attempt to relay a received webhook to one ForwardRule's target_url

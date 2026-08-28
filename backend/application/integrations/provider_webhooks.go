@@ -89,6 +89,96 @@ func (uc *ListProviderWebhooksUseCase) Execute(ctx context.Context, connectionID
 	return out, nil
 }
 
+// ListAllProviderWebhooksResult mirrors ReconcileShipmentsResult's
+// partial-failure-tolerant shape: one connection's live call failing (a
+// revoked key, a store that's down) must not hide every other
+// connection's subscriptions -- callers see both the rows that succeeded
+// and which connections failed, with why.
+type ListAllProviderWebhooksResult struct {
+	Webhooks []integrationsDomain.ProviderWebhook
+	Errors   []string
+}
+
+// ListAllProviderWebhooksUseCase aggregates ListProviderWebhooksUseCase
+// across every WooCommerce/MyParcel connection the tenant has -- the "one
+// place to see everything actually subscribed" view, instead of having to
+// open each connection's own settings page one at a time.
+type ListAllProviderWebhooksUseCase struct {
+	db              *gorm.DB
+	connRepo        integrationsDomain.ConnectionRepository
+	wooFactory      integrationsDomain.WooClientFactory
+	myParcelFactory integrationsDomain.MyParcelClientFactory
+	encSecret       string
+}
+
+func NewListAllProviderWebhooksUseCase(
+	db *gorm.DB, connRepo integrationsDomain.ConnectionRepository,
+	wooFactory integrationsDomain.WooClientFactory, myParcelFactory integrationsDomain.MyParcelClientFactory,
+	encryptionSecret string,
+) *ListAllProviderWebhooksUseCase {
+	return &ListAllProviderWebhooksUseCase{db: db, connRepo: connRepo, wooFactory: wooFactory, myParcelFactory: myParcelFactory, encSecret: encryptionSecret}
+}
+
+func (uc *ListAllProviderWebhooksUseCase) Execute(ctx context.Context) (*ListAllProviderWebhooksResult, error) {
+	var conns []integrationsDomain.Connection
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		conns, err = uc.connRepo.ListByTenant(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listAllProviderWebhooks: %w", err)
+	}
+
+	result := &ListAllProviderWebhooksResult{}
+	for _, conn := range conns {
+		switch conn.Provider {
+		case integrationsDomain.ProviderWooCommerce:
+			client, err := newWooClientForConn(uc.wooFactory, uc.encSecret, conn)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s (%s): %v", conn.Provider, conn.ID, err))
+				continue
+			}
+			hooks, err := client.ListWebhooks(ctx)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s (%s): %v", conn.Provider, conn.ID, err))
+				continue
+			}
+			for _, h := range hooks {
+				result.Webhooks = append(result.Webhooks, integrationsDomain.ProviderWebhook{
+					ID: h.ID, Provider: conn.Provider, Topic: h.Topic, DeliveryURL: h.DeliveryURL, Status: h.Status,
+					ConnectionID: conn.ID, StoreLabel: conn.StoreURL.String(),
+				})
+			}
+		case integrationsDomain.ProviderMyParcel:
+			client, err := newMyParcelClientForConn(uc.myParcelFactory, uc.encSecret, conn)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s (%s): %v", conn.Provider, conn.ID, err))
+				continue
+			}
+			subs, err := client.ListWebhookSubscriptions(ctx)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s (%s): %v", conn.Provider, conn.ID, err))
+				continue
+			}
+			for _, s := range subs {
+				result.Webhooks = append(result.Webhooks, integrationsDomain.ProviderWebhook{
+					ID: s.ID, Provider: conn.Provider, Topic: s.Hook, DeliveryURL: s.URL, Status: "active",
+					ConnectionID: conn.ID, StoreLabel: "MyParcel",
+				})
+			}
+		default:
+			// Bol and any other connected-but-unsupported provider: not an
+			// error, just nothing to list -- ListProviderWebhooksUseCase
+			// returns ErrProviderNotSupported for a direct per-connection
+			// call, but silently skipping here keeps this aggregate view
+			// from showing an error row for every non-webhook-capable
+			// connection a tenant happens to have.
+		}
+	}
+	return result, nil
+}
+
 // CreateProviderWebhookUseCase registers a new subscription for topic,
 // pointed at CommerceOS's own ingest URL -- the "subscribe CommerceOS to
 // receive this" action. Requires the connection's WebhookSecretEncrypted

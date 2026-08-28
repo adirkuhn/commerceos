@@ -210,6 +210,70 @@ func TestListProviderWebhooksUseCase_liveCallFailure_wrapsErrProviderWebhookRequ
 	require.ErrorIs(t, err, integrationsDomain.ErrProviderWebhookRequestFailed)
 }
 
+func TestListAllProviderWebhooksUseCase_aggregatesAcrossConnections(t *testing.T) {
+	wc := wooConn(func(c *integrationsDomain.Connection) { c.ID = "conn-woo"; c.StoreURL = "https://mystore.com" })
+	mp := myParcelConn(func(c *integrationsDomain.Connection) { c.ID = "conn-mp" })
+	connRepo := &mocks.ConnectionRepo{ListByTenantFn: func(_ context.Context) ([]integrationsDomain.Connection, error) {
+		return []integrationsDomain.Connection{*wc, *mp}, nil
+	}}
+	wooClient := &fakeFullWooClient{listWebhooksFn: func(_ context.Context) ([]integrationsDomain.WooWebhook, error) {
+		return []integrationsDomain.WooWebhook{{ID: "1", Topic: "order.updated", DeliveryURL: "https://a.example.com", Status: "active"}}, nil
+	}}
+	wooFactory := &mocks.WooClientFactory{NewClientFn: func(_, _, _ string) (integrationsDomain.WooClient, error) { return wooClient, nil }}
+	mpClient := &fakeFullMyParcelClient{listWebhookSubscriptionsFn: func(_ context.Context) ([]integrationsDomain.WebhookSubscription, error) {
+		return []integrationsDomain.WebhookSubscription{{ID: "9", Hook: "shipment_status_change", URL: "https://b.example.com"}}, nil
+	}}
+	uc := appintegrations.NewListAllProviderWebhooksUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{client: mpClient}, testEncSecret)
+
+	result, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	require.Len(t, result.Webhooks, 2)
+	assert.Equal(t, "conn-woo", result.Webhooks[0].ConnectionID)
+	assert.Equal(t, "https://mystore.com", result.Webhooks[0].StoreLabel)
+	assert.Equal(t, "conn-mp", result.Webhooks[1].ConnectionID)
+	assert.Equal(t, "MyParcel", result.Webhooks[1].StoreLabel)
+}
+
+func TestListAllProviderWebhooksUseCase_skipsUnsupportedProviders(t *testing.T) {
+	bolConn := integrationsDomain.Connection{ID: "conn-bol", Provider: integrationsDomain.ProviderBol}
+	connRepo := &mocks.ConnectionRepo{ListByTenantFn: func(_ context.Context) ([]integrationsDomain.Connection, error) {
+		return []integrationsDomain.Connection{bolConn}, nil
+	}}
+	uc := appintegrations.NewListAllProviderWebhooksUseCase(newMockGormDB(t), connRepo, &mocks.WooClientFactory{}, &fakeMyParcelClientFactory{}, testEncSecret)
+
+	result, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	assert.Empty(t, result.Webhooks)
+	assert.Empty(t, result.Errors)
+}
+
+func TestListAllProviderWebhooksUseCase_oneConnectionFailing_stillReturnsTheRest(t *testing.T) {
+	badWoo := wooConn(func(c *integrationsDomain.Connection) { c.ID = "conn-bad" })
+	goodMP := myParcelConn(func(c *integrationsDomain.Connection) { c.ID = "conn-good" })
+	connRepo := &mocks.ConnectionRepo{ListByTenantFn: func(_ context.Context) ([]integrationsDomain.Connection, error) {
+		return []integrationsDomain.Connection{*badWoo, *goodMP}, nil
+	}}
+	badWooClient := &fakeFullWooClient{listWebhooksFn: func(_ context.Context) ([]integrationsDomain.WooWebhook, error) {
+		return nil, errors.New("connection refused")
+	}}
+	wooFactory := &mocks.WooClientFactory{NewClientFn: func(_, _, _ string) (integrationsDomain.WooClient, error) { return badWooClient, nil }}
+	goodMPClient := &fakeFullMyParcelClient{listWebhookSubscriptionsFn: func(_ context.Context) ([]integrationsDomain.WebhookSubscription, error) {
+		return []integrationsDomain.WebhookSubscription{{ID: "1", Hook: "shipment_status_change", URL: "https://b.example.com"}}, nil
+	}}
+	uc := appintegrations.NewListAllProviderWebhooksUseCase(newMockGormDB(t), connRepo, wooFactory, &fakeMyParcelClientFactory{client: goodMPClient}, testEncSecret)
+
+	result, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, result.Webhooks, 1)
+	assert.Equal(t, "conn-good", result.Webhooks[0].ConnectionID)
+	require.Len(t, result.Errors, 1)
+	assert.Contains(t, result.Errors[0], "conn-bad")
+}
+
 func TestCreateProviderWebhookUseCase_woo_sendsIngestURLAndPlaintextSecret(t *testing.T) {
 	plaintextSecret := "webhook-secret-plaintext"
 	encryptedSecret, _ := crypto.Encrypt(testEncSecret, plaintextSecret)

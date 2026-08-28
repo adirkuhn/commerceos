@@ -420,6 +420,10 @@ export function listProviderWebhooks(token: string, connectionId: string): Promi
   return request<ProviderWebhook[]>(`${base()}/connections/${connectionId}/provider-webhooks`, { method: 'GET' }, token)
 }
 
+export function listAllProviderWebhooks(token: string): Promise<ProviderWebhook[]> {
+  return request<ProviderWebhook[]>(`${base()}/provider-webhooks`, { method: 'GET' }, token)
+}
+
 export function createProviderWebhook(token: string, connectionId: string, topic: string): Promise<ProviderWebhook> {
   return request<ProviderWebhook>(`${base()}/connections/${connectionId}/provider-webhooks`, { method: 'POST', body: JSON.stringify({ topic }) }, token)
 }

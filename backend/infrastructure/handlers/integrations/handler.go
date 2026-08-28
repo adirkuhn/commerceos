@@ -81,6 +81,9 @@ type listWebhookForwardDeliveriesUC interface {
 type listProviderWebhooksUC interface {
 	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.ProviderWebhook, error)
 }
+type listAllProviderWebhooksUC interface {
+	Execute(ctx context.Context) (*appintegrations.ListAllProviderWebhooksResult, error)
+}
 type createProviderWebhookUC interface {
 	Execute(ctx context.Context, connectionID, topic string) (*integrationsDomain.ProviderWebhook, error)
 }
@@ -237,6 +240,7 @@ type Handler struct {
 	deleteWebhookForwardRule     deleteWebhookForwardRuleUC
 	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC
 	listProviderWebhooks         listProviderWebhooksUC
+	listAllProviderWebhooks      listAllProviderWebhooksUC
 	createProviderWebhook        createProviderWebhookUC
 	deleteProviderWebhook        deleteProviderWebhookUC
 	connectBol                   connectBolUC
@@ -294,6 +298,7 @@ func NewHandler(
 	deleteWebhookForwardRule deleteWebhookForwardRuleUC,
 	listWebhookForwardDeliveries listWebhookForwardDeliveriesUC,
 	listProviderWebhooks listProviderWebhooksUC,
+	listAllProviderWebhooks listAllProviderWebhooksUC,
 	createProviderWebhook createProviderWebhookUC,
 	deleteProviderWebhook deleteProviderWebhookUC,
 	connectBol connectBolUC,
@@ -349,6 +354,7 @@ func NewHandler(
 		deleteWebhookForwardRule:     deleteWebhookForwardRule,
 		listWebhookForwardDeliveries: listWebhookForwardDeliveries,
 		listProviderWebhooks:         listProviderWebhooks,
+		listAllProviderWebhooks:      listAllProviderWebhooks,
 		createProviderWebhook:        createProviderWebhook,
 		deleteProviderWebhook:        deleteProviderWebhook,
 		connectBol:                   connectBol,
@@ -502,6 +508,7 @@ func Register(
 		appwebhooks.NewDeleteForwardRuleUseCase(db, webhookForwardRuleRepo),
 		appwebhooks.NewListForwardDeliveriesUseCase(db, webhookForwardDeliveryRepo),
 		appintegrations.NewListProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
+		appintegrations.NewListAllProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewCreateProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret, publicAPIBaseURL),
 		appintegrations.NewDeleteProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
@@ -813,6 +820,23 @@ func (h *Handler) ListWebhookForwardDeliveries(c *gin.Context, params genintegra
 			Id: &id, RuleId: &ruleID, Provider: &provider, Topic: &topic, TargetUrl: &targetURL,
 			Status: &status, Attempts: &attempts, LastError: &lastError,
 			NextAttemptAt: &nextAttemptAt, DeliveredAt: d.DeliveredAt, CreatedAt: &createdAt,
+		}
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) ListAllProviderWebhooks(c *gin.Context) {
+	result, err := h.listAllProviderWebhooks.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genintegrations.ProviderWebhook, len(result.Webhooks))
+	for i, hook := range result.Webhooks {
+		hookID, provider, topic, deliveryURL, status := hook.ID, string(hook.Provider), hook.Topic, hook.DeliveryURL, hook.Status
+		connectionID, storeLabel := hook.ConnectionID, hook.StoreLabel
+		out[i] = genintegrations.ProviderWebhook{
+			Id: &hookID, Provider: &provider, Topic: &topic, DeliveryUrl: &deliveryURL, Status: &status,
+			ConnectionId: &connectionID, StoreLabel: &storeLabel,
 		}
 	}
 	middleware.OK(c, out)

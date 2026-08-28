@@ -2,6 +2,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { AppProvider } from '../../context/AppContext'
 import Integrations from '../Integrations'
 import type { Connection, WebhookFallbackEvent } from '../../integrations/types'
 import type { Warehouse } from '../../inventory/types'
@@ -74,7 +76,7 @@ describe('Integrations — undelivered webhooks table', () => {
   it('renders rows for pending fallback events', async () => {
     vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
 
     expect(await screen.findByText('hash-abc')).toBeInTheDocument()
     expect(screen.getByText('woocommerce', { selector: 'td' })).toBeInTheDocument()
@@ -82,7 +84,7 @@ describe('Integrations — undelivered webhooks table', () => {
   })
 
   it('shows nothing pending when the list is empty', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
 
     await screen.findByRole('heading', { name: 'Connected integrations' })
     expect(screen.queryByText('Undelivered webhooks')).not.toBeInTheDocument()
@@ -92,7 +94,7 @@ describe('Integrations — undelivered webhooks table', () => {
     vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
     vi.mocked(integrationsApi.retryWebhookFallbackEvent).mockResolvedValue(null)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await screen.findByText('hash-abc')
 
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
@@ -105,7 +107,7 @@ describe('Integrations — undelivered webhooks table', () => {
     vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
     vi.mocked(integrationsApi.abandonWebhookFallbackEvent).mockResolvedValue(null)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await screen.findByText('hash-abc')
 
     await userEvent.click(screen.getByRole('button', { name: 'Abandon' }))
@@ -118,7 +120,7 @@ describe('Integrations — undelivered webhooks table', () => {
     vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue([fallbackEvent()])
     vi.mocked(integrationsApi.retryWebhookFallbackEvent).mockRejectedValue(new Error('publish failed: nats unreachable'))
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await screen.findByText('hash-abc')
 
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))

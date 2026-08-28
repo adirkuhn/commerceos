@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3,
-  ChevronRight, ChevronDown, Zap,
+  ChevronRight, ChevronDown, Zap, Webhook,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
@@ -79,6 +79,7 @@ const NAV_ITEMS: NavRow[] = [
   { id: 'suppliers', label: 'Suppliers', icon: Truck },
   { id: 'procurement', label: 'Procurement', icon: ShoppingBag },
   { id: 'integrations', label: 'Integrations', icon: Plug, badge: '1', badgeColor: 'red' },
+  { id: 'webhooks', label: 'Webhooks', icon: Webhook },
   { id: 'sales-channels', label: 'Sales Channels', icon: Radio },
   { id: 'sync-log', label: 'Sync History', icon: History },
   // { id: 'shipping', label: 'Shipping', icon: Truck },

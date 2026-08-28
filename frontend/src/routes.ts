@@ -9,6 +9,7 @@ import Warehouses from './pages/Warehouses'
 import Orders from './pages/Orders'
 import Picking from './pages/Picking'
 import Integrations from './pages/Integrations'
+import Webhooks from './pages/Webhooks'
 import SalesChannels from './pages/SalesChannels'
 import SyncLog from './pages/SyncLog'
 import Users from './pages/Users'
@@ -62,6 +63,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'suppliers', path: '/suppliers', Component: Suppliers },
   { nav: 'procurement', path: '/procurement', Component: Procurement },
   { nav: 'integrations', path: '/integrations', Component: Integrations },
+  { nav: 'webhooks', path: '/webhooks', Component: Webhooks },
   { nav: 'sales-channels', path: '/sales-channels', Component: SalesChannels },
   { nav: 'sync-log', path: '/sync-log', Component: SyncLog },
   { nav: 'shipping', path: '/shipping', Component: Shipping },

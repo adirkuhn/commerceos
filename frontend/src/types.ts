@@ -13,6 +13,7 @@ export type NavItem =
   | 'stock-issues'
   | 'unmatched-skus'
   | 'integrations'
+  | 'webhooks'
   | 'sales-channels'
   | 'sync-log'
   | 'shipping'

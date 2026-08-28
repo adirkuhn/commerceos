@@ -12,4 +12,12 @@ type ProviderWebhook struct {
 	Topic       string
 	DeliveryURL string
 	Status      string
+	// ConnectionID/StoreLabel are populated by the tenant-wide aggregate
+	// read (ListAllProviderWebhooksUseCase) so the admin UI can show which
+	// connection each row belongs to and target Delete at the right one --
+	// both empty when this came from the single-connection
+	// ListProviderWebhooksUseCase, which already has connectionID in scope
+	// via its own request.
+	ConnectionID string
+	StoreLabel   string
 }

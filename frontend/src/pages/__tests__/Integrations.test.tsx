@@ -2,6 +2,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { AppProvider } from '../../context/AppContext'
 import Integrations from '../Integrations'
 import type { Connection, ImportJob, DeleteAllImportedProductsResult } from '../../integrations/types'
 import type { Warehouse } from '../../inventory/types'
@@ -86,13 +88,13 @@ beforeEach(() => {
 
 describe('Configure connection', () => {
   it('shows a Configure button for WooCommerce connections', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
 
     expect(await screen.findByRole('button', { name: 'Configure' })).toBeInTheDocument()
   })
 
   it('clicking Configure opens the WooCommerce sync settings page', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
 
@@ -101,7 +103,7 @@ describe('Configure connection', () => {
   })
 
   it('Back from the sync settings page returns to the connections grid', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
 
@@ -112,7 +114,7 @@ describe('Configure connection', () => {
 
   it('shows a Configure button for Bol connections and opens the Bol sync settings page', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([bolConnection()])
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
 
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
 
@@ -124,7 +126,7 @@ describe('Configure connection', () => {
 
 describe('Import products', () => {
   it('clicking Import opens a modal asking for warehouse and currency', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
     expect(screen.getByText('Import products')).toBeInTheDocument()
@@ -135,7 +137,7 @@ describe('Import products', () => {
   it('prefills the currency from the connection default', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: 'EUR' })])
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
     expect(screen.getByLabelText('Default currency')).toHaveValue('EUR')
@@ -144,7 +146,7 @@ describe('Import products', () => {
   it('prefills the currency even when stored in a different case or with stray whitespace', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: ' eur ' })])
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
     expect(screen.getByLabelText('Default currency')).toHaveValue('EUR')
@@ -157,7 +159,7 @@ describe('Import products', () => {
       prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
@@ -171,7 +173,7 @@ describe('Import products', () => {
       prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
     })
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await waitFor(() => expect(tenantSettingsApi.getTenantSettings).toHaveBeenCalled())
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
 
@@ -185,7 +187,7 @@ describe('Import products', () => {
     }
     vi.mocked(integrationsApi.importWooProducts).mockResolvedValue(job)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
     await screen.findByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
@@ -205,7 +207,7 @@ describe('Import products', () => {
     const listener = vi.fn()
     const unsubscribe = subscribeNotificationsChanged(listener)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
     await screen.findByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
@@ -219,7 +221,7 @@ describe('Import products', () => {
   it('shows an error if the connection already has an import running (409)', async () => {
     vi.mocked(integrationsApi.importWooProducts).mockRejectedValue(new Error('an import is already running for this connection'))
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
     await screen.findByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
@@ -233,7 +235,7 @@ describe('Import products', () => {
     let resolveImport!: (job: ImportJob) => void
     vi.mocked(integrationsApi.importWooProducts).mockReturnValue(new Promise(resolve => { resolveImport = resolve }))
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
     await screen.findByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
@@ -253,7 +255,7 @@ describe('Import products', () => {
   it('shows an error if the import fails', async () => {
     vi.mocked(integrationsApi.importWooProducts).mockRejectedValue(new Error('woo unreachable'))
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
     await screen.findByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
@@ -264,7 +266,7 @@ describe('Import products', () => {
   })
 
   it('closing the modal resets it', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Import' }))
     await screen.findByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
@@ -280,7 +282,7 @@ describe('Import products', () => {
 
 describe('Delete imported products', () => {
   it('clicking Delete imported shows a warning and requires typing DELETE', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
 
     expect(screen.getByText('Delete imported products')).toBeInTheDocument()
@@ -300,7 +302,7 @@ describe('Delete imported products', () => {
     const result: DeleteAllImportedProductsResult = { deleted_sales_orders: 0, deleted_products: 805, deleted_categories: 12, errors: [] }
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue(result)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -315,7 +317,7 @@ describe('Delete imported products', () => {
       deleted_sales_orders: 3, deleted_products: 805, deleted_categories: 12, errors: [],
     })
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -329,7 +331,7 @@ describe('Delete imported products', () => {
     const listener = vi.fn()
     const unsubscribe = subscribeProductsChanged(listener)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -342,7 +344,7 @@ describe('Delete imported products', () => {
     const result = { deleted_products: 805, deleted_categories: 12, errors: null } as unknown as DeleteAllImportedProductsResult
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockResolvedValue(result)
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -353,7 +355,7 @@ describe('Delete imported products', () => {
   it('shows an error if the delete fails', async () => {
     vi.mocked(integrationsApi.deleteAllImportedProducts).mockRejectedValue(new Error('db down'))
 
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -362,7 +364,7 @@ describe('Delete imported products', () => {
   })
 
   it('Cancel closes the modal without calling the API', async () => {
-    render(<Integrations />)
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete imported' }))
     await userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE')
 

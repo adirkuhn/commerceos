@@ -365,6 +365,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebhookForwardDeliveryListResponse'
 
+  /integrations/provider-webhooks:
+    get:
+      operationId: listAllProviderWebhooks
+      summary: List webhook subscriptions actually registered at the provider, across every WooCommerce/MyParcel connection this tenant has
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderWebhookListResponse'
+
   /integrations/connections/{id}/provider-webhooks:
     get:
       operationId: listProviderWebhooks
@@ -1908,6 +1920,8 @@ components:
         topic: { type: string }
         delivery_url: { type: string }
         status: { type: string }
+        connection_id: { type: string, description: Only set on the tenant-wide listAllProviderWebhooks endpoint. }
+        store_label: { type: string, description: Only set on the tenant-wide listAllProviderWebhooks endpoint -- the store URL (WooCommerce) or provider name (MyParcel). }
 
     CreateProviderWebhookRequest:
       type: object
