@@ -191,4 +191,18 @@ describe('MyParcelSyncSettingsPage -- Webhooks section', () => {
     expect(integrationsApi.createProviderWebhook).toHaveBeenCalledWith('test-token', 'conn-mp-1', 'shipment_status_change')
     expect(await screen.findByText('shipment_status_change')).toBeInTheDocument()
   })
+
+  it('focusWebhooks scrolls the Webhooks section into view once settings finish loading', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    // jsdom doesn't implement scrollIntoView at all (not even a stub) --
+    // assign one directly rather than vi.spyOn, which requires the
+    // property to already exist.
+    const scrollIntoView = vi.fn()
+    HTMLDivElement.prototype.scrollIntoView = scrollIntoView
+
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" focusWebhooks onClose={vi.fn()} />)
+    await screen.findByText('Per-carrier overrides')
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+  })
 })

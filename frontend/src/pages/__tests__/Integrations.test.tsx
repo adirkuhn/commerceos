@@ -38,6 +38,16 @@ vi.mock('../../settings/api', () => ({
   updateTenantSettings: vi.fn(),
 }))
 
+// Real MyParcelSyncSettingsPage needs its own heavy set of mocks (shipping
+// api, extra integrations api functions) covered exhaustively in its own
+// test file -- here we only care whether Integrations.tsx passes the right
+// props when opening it, so a lightweight stub that just echoes them back.
+vi.mock('../../shipping/MyParcelSyncSettingsPage', () => ({
+  default: ({ focusWebhooks }: { focusWebhooks?: boolean }) => (
+    <div>MyParcel settings (focusWebhooks: {String(!!focusWebhooks)})</div>
+  ),
+}))
+
 vi.mock('../../tax/api', () => ({
   listTaxClasses: vi.fn(),
   createTaxClass: vi.fn(),
@@ -64,6 +74,10 @@ function wooConnection(overrides: Partial<Connection> = {}): Connection {
 
 function bolConnection(overrides: Partial<Connection> = {}): Connection {
   return { id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '', ...overrides }
+}
+
+function myParcelConnection(overrides: Partial<Connection> = {}): Connection {
+  return { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '', ...overrides }
 }
 
 const sampleWarehouse: Warehouse = {
@@ -121,6 +135,24 @@ describe('Configure connection', () => {
     expect(await screen.findByText('Sync schedule')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Bol.com' })).toBeInTheDocument()
     expect(integrationsApi.listSyncSchedules).toHaveBeenCalledWith('test-token', 'conn-bol-1')
+  })
+
+  it('shows a Register webhook button for MyParcel connections that opens the settings page focused on Webhooks', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([myParcelConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Register webhook' }))
+
+    expect(await screen.findByText('MyParcel settings (focusWebhooks: true)')).toBeInTheDocument()
+  })
+
+  it('MyParcel Configure opens the settings page without focusing Webhooks', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([myParcelConnection()])
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+
+    expect(await screen.findByText('MyParcel settings (focusWebhooks: false)')).toBeInTheDocument()
   })
 })
 

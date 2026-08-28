@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
+import { AppProvider } from '../../context/AppContext'
 import Webhooks from '../Webhooks'
 
 // Separate file (its own top-level vi.mock, hoisted per-file) so this
@@ -27,7 +29,7 @@ vi.mock('../../integrations/api', () => ({
 
 describe('Webhooks page — RBAC', () => {
   it('shows a permission message instead of the tabs for a plain customer_user', async () => {
-    render(<Webhooks />)
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
 
     expect(await screen.findByText(/don't have permission/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Fan-out' })).not.toBeInTheDocument()

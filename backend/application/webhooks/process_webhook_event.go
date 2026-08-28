@@ -10,12 +10,22 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-// topicHeader is the header WooCommerce sends its event topic under (e.g.
-// "order.updated", "product.created") -- best-effort only, never verified
-// or relied on for correctness (see the events themselves for the
-// authoritative payload); used purely so an operator browsing WebhookEvent
-// rows can tell what kind of event each one was without opening the payload.
-const topicHeader = "X-Wc-Webhook-Topic"
+// topicHeaderByProvider maps provider -> the (canonical-cased) HTTP header
+// that provider's webhook request sends its event topic/hook-type under --
+// best-effort only, never verified or relied on for correctness (see the
+// events themselves for the authoritative payload). Used both so an
+// operator browsing WebhookEvent rows can tell what kind of event each one
+// was without opening the payload, AND for ForwardRule.Match's per-topic
+// fan-out matching -- a provider missing here (or a request missing the
+// header) always lands with Topic == "", which only ever matches a
+// provider-wide wildcard rule (Topic == ""), never a topic-specific one.
+// WooCommerce docs: Webhooks -> Delivery -- X-Wc-Webhook-Topic. MyParcel:
+// developer.myparcel.nl/api-reference/11.webhook-object-definitions.html --
+// X-MyParcel-Hook, canonicalized by net/http to X-Myparcel-Hook.
+var topicHeaderByProvider = map[string]string{
+	"woocommerce": "X-Wc-Webhook-Topic",
+	"myparcel":    "X-Myparcel-Hook",
+}
 
 // shipmentStatusWebhookHandler is application/shipping.HandleShipmentWebhookUseCase
 // narrowed to point of use (ISP) -- lets this package stay decoupled from
@@ -61,7 +71,7 @@ func NewProcessWebhookEventUseCase(
 
 func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webhooks.Envelope) error {
 	ctx = tenant.WithTenantID(ctx, envelope.TenantID)
-	topic := envelope.Headers[topicHeader]
+	topic := envelope.Headers[topicHeaderByProvider[envelope.Provider]]
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		event := webhooks.WebhookEvent{
 			TenantID: envelope.TenantID, Provider: envelope.Provider, EventID: envelope.EventID,

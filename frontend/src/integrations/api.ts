@@ -424,12 +424,21 @@ export function listAllProviderWebhooks(token: string): Promise<ProviderWebhook[
   return request<ProviderWebhook[]>(`${base()}/provider-webhooks`, { method: 'GET' }, token)
 }
 
-// Provider -> topics actually available for this tenant: the union of every
-// topic ever actually received (real traffic) and every topic currently
-// subscribed at the provider -- drives the fan-out rule form's Topic
-// dropdown instead of a guessed hardcoded list.
-export function listAvailableWebhookTopics(token: string): Promise<Record<string, string[]>> {
-  return request<Record<string, string[]>>(`${base()}/webhook-topics`, { method: 'GET' }, token)
+export interface AvailableWebhookTopics {
+  // Every kind of event that could ever happen for a provider -- the
+  // baseline catalog unioned with everything this tenant has actually
+  // received. A reference list; picking one doesn't guarantee it's
+  // actually being delivered.
+  all_events: Record<string, string[]>
+  // Topics with a currently active subscription registered at the
+  // provider right now -- what's actually about to arrive.
+  active_webhooks: Record<string, string[]>
+}
+
+// Drives the fan-out rule form's Topic dropdown -- see
+// AvailableWebhookTopics' field docs for how the two groups differ.
+export function listAvailableWebhookTopics(token: string): Promise<AvailableWebhookTopics> {
+  return request<AvailableWebhookTopics>(`${base()}/webhook-topics`, { method: 'GET' }, token)
 }
 
 export function createProviderWebhook(token: string, connectionId: string, topic: string): Promise<ProviderWebhook> {

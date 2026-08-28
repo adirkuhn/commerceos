@@ -201,6 +201,42 @@ func TestProcessWebhookEventUseCase_providerWideRule_matchesEveryTopic(t *testin
 	require.Len(t, deliveryRepo.created, 1)
 }
 
+func TestProcessWebhookEventUseCase_myParcelTopicSpecificRule_matchesViaXMyparcelHookHeader(t *testing.T) {
+	repo := &fakeWebhookEventRepo{}
+	ruleRepo := &fakeForwardRuleRepo{rules: []webhooks.ForwardRule{
+		{ID: "rule-1", Provider: "myparcel", Topic: "shipment_status_change", TargetURL: "https://example.com/hook", Active: true},
+	}}
+	deliveryRepo := &fakeForwardDeliveryRepo{}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, nil, ruleRepo, deliveryRepo)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{
+		EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel", RawPayload: []byte(`{"data":{"hooks":[]}}`),
+		Headers: map[string]string{"X-Myparcel-Hook": "shipment_status_change"},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, repo.saved, 1)
+	assert.Equal(t, "shipment_status_change", repo.saved[0].Topic, "MyParcel's hook type comes from X-Myparcel-Hook, not X-Wc-Webhook-Topic")
+	require.Len(t, deliveryRepo.created, 1, "a myparcel rule scoped to one specific topic must actually match that topic, not just provider-wide rules")
+}
+
+func TestProcessWebhookEventUseCase_myParcelTopicSpecificRule_doesNotMatchADifferentHook(t *testing.T) {
+	repo := &fakeWebhookEventRepo{}
+	ruleRepo := &fakeForwardRuleRepo{rules: []webhooks.ForwardRule{
+		{ID: "rule-1", Provider: "myparcel", Topic: "shipment_status_change", TargetURL: "https://example.com/hook", Active: true},
+	}}
+	deliveryRepo := &fakeForwardDeliveryRepo{}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, nil, ruleRepo, deliveryRepo)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{
+		EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel",
+		Headers: map[string]string{"X-Myparcel-Hook": "shop_updated"},
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, deliveryRepo.created)
+}
+
 func TestProcessWebhookEventUseCase_forwardDeliveryCreateError_propagates(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
 	ruleRepo := &fakeForwardRuleRepo{rules: []webhooks.ForwardRule{

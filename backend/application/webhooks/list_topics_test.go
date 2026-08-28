@@ -43,19 +43,31 @@ func (f *fakeSubscriptionsLister) Execute(ctx context.Context) (*appintegrations
 
 // A provider outside integrationsDomain.KnownWebhookTopicsByProvider's
 // baseline catalog -- isolates these assertions from that seeding so they
-// only exercise the received/subscribed union logic itself. Baseline
-// seeding gets its own test below.
+// only exercise the received/subscribed logic itself. Baseline seeding
+// gets its own test below.
 const customProvider = "customprovider"
 
-func TestListAvailableWebhookTopicsUseCase_unionsReceivedAndSubscribedTopics(t *testing.T) {
+func TestListAvailableWebhookTopicsUseCase_allEvents_isCatalogPlusReceivedTraffic(t *testing.T) {
 	events := &fakeTopicsEventRepo{refs: []webhooks.TopicRef{
 		{Provider: customProvider, Topic: "thing.updated"},
 		{Provider: customProvider, Topic: "thing.created"},
 	}}
+	subs := &fakeSubscriptionsLister{result: &appintegrations.ListAllProviderWebhooksResult{}}
+	uc := appwebhooks.NewListAvailableWebhookTopicsUseCase(newMockGormDB(t, 1), events, subs)
+
+	out, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"thing.created", "thing.updated"}, out.AllEvents[customProvider])
+}
+
+func TestListAvailableWebhookTopicsUseCase_activeWebhooks_isCurrentlyActiveSubscriptionsOnly(t *testing.T) {
+	events := &fakeTopicsEventRepo{}
 	subs := &fakeSubscriptionsLister{result: &appintegrations.ListAllProviderWebhooksResult{
 		Webhooks: []integrationsDomain.ProviderWebhook{
-			{Provider: customProvider, Topic: "other.updated"},
-			{Provider: integrationsDomain.ProviderMyParcel, Topic: string(integrationsDomain.MyParcelHookShipmentStatusChange)},
+			{Provider: customProvider, Topic: "active.one", Status: "active"},
+			{Provider: customProvider, Topic: "disabled.one", Status: "disabled"},
+			{Provider: integrationsDomain.ProviderMyParcel, Topic: string(integrationsDomain.MyParcelHookShipmentStatusChange), Status: "active"},
 		},
 	}}
 	uc := appwebhooks.NewListAvailableWebhookTopicsUseCase(newMockGormDB(t, 1), events, subs)
@@ -63,24 +75,11 @@ func TestListAvailableWebhookTopicsUseCase_unionsReceivedAndSubscribedTopics(t *
 	out, err := uc.Execute(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"other.updated", "thing.created", "thing.updated"}, out[customProvider])
-	assert.Contains(t, out["myparcel"], string(integrationsDomain.MyParcelHookShipmentStatusChange))
+	assert.Equal(t, []string{"active.one"}, out.ActiveWebhooks[customProvider])
+	assert.Contains(t, out.ActiveWebhooks["myparcel"], string(integrationsDomain.MyParcelHookShipmentStatusChange))
 }
 
-func TestListAvailableWebhookTopicsUseCase_dedupesAcrossBothSources(t *testing.T) {
-	events := &fakeTopicsEventRepo{refs: []webhooks.TopicRef{{Provider: customProvider, Topic: "thing.updated"}}}
-	subs := &fakeSubscriptionsLister{result: &appintegrations.ListAllProviderWebhooksResult{
-		Webhooks: []integrationsDomain.ProviderWebhook{{Provider: customProvider, Topic: "thing.updated"}},
-	}}
-	uc := appwebhooks.NewListAvailableWebhookTopicsUseCase(newMockGormDB(t, 1), events, subs)
-
-	out, err := uc.Execute(context.Background())
-
-	require.NoError(t, err)
-	assert.Equal(t, []string{"thing.updated"}, out[customProvider])
-}
-
-func TestListAvailableWebhookTopicsUseCase_subscriptionsFailure_stillReturnsReceivedTopics(t *testing.T) {
+func TestListAvailableWebhookTopicsUseCase_subscriptionsFailure_stillReturnsAllEvents(t *testing.T) {
 	events := &fakeTopicsEventRepo{refs: []webhooks.TopicRef{{Provider: customProvider, Topic: "thing.updated"}}}
 	subs := &fakeSubscriptionsLister{err: errors.New("provider api down")}
 	uc := appwebhooks.NewListAvailableWebhookTopicsUseCase(newMockGormDB(t, 1), events, subs)
@@ -88,7 +87,8 @@ func TestListAvailableWebhookTopicsUseCase_subscriptionsFailure_stillReturnsRece
 	out, err := uc.Execute(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"thing.updated"}, out[customProvider])
+	assert.Equal(t, []string{"thing.updated"}, out.AllEvents[customProvider])
+	assert.Empty(t, out.ActiveWebhooks[customProvider])
 }
 
 func TestListAvailableWebhookTopicsUseCase_eventRepoFailure_propagatesError(t *testing.T) {
@@ -109,6 +109,7 @@ func TestListAvailableWebhookTopicsUseCase_seedsKnownCatalogEvenWithNoTrafficOrS
 	out, err := uc.Execute(context.Background())
 
 	require.NoError(t, err)
-	assert.Contains(t, out["woocommerce"], string(integrationsDomain.WooTopicOrderUpdated))
-	assert.Contains(t, out["myparcel"], string(integrationsDomain.MyParcelHookShipmentStatusChange))
+	assert.Contains(t, out.AllEvents["woocommerce"], string(integrationsDomain.WooTopicOrderUpdated))
+	assert.Contains(t, out.AllEvents["myparcel"], string(integrationsDomain.MyParcelHookShipmentStatusChange))
+	assert.Contains(t, out.AllEvents["myparcel"], string(integrationsDomain.MyParcelHookShopUpdated))
 }

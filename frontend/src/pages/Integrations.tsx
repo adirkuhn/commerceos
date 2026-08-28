@@ -63,6 +63,7 @@ export default function Integrations() {
   const [connectingWoo, setConnectingWoo] = useState(false)
   const [bolConnection, setBolConnection] = useState<Connection | 'new' | null>(null)
   const [myParcelConnection, setMyParcelConnection] = useState<Connection | 'new' | null>(null)
+  const [focusMyParcelWebhooks, setFocusMyParcelWebhooks] = useState(false)
   const [connectMode, setConnectMode] = useState<'auto' | 'manual'>('auto')
   const [storeUrl, setStoreUrl] = useState('')
   const [consumerKey, setConsumerKey] = useState('')
@@ -216,7 +217,8 @@ export default function Integrations() {
     return (
       <MyParcelSyncSettingsPage
         connectionId={myParcelConnection === 'new' ? undefined : myParcelConnection.id}
-        onClose={() => setMyParcelConnection(null)}
+        focusWebhooks={focusMyParcelWebhooks}
+        onClose={() => { setMyParcelConnection(null); setFocusMyParcelWebhooks(false) }}
         onConnected={() => {
           setMyParcelConnection(null)
           refresh()
@@ -314,6 +316,14 @@ export default function Integrations() {
                           className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                         >
                           Configure
+                        </button>
+                      )}
+                      {conn.provider === 'myparcel' && (
+                        <button
+                          onClick={() => { setFocusMyParcelWebhooks(true); setMyParcelConnection(conn) }}
+                          className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                        >
+                          Register webhook
                         </button>
                       )}
                       {conn.provider === 'bol' && (

@@ -33,23 +33,31 @@ var AllWooWebhookTopics = []WooWebhookTopic{
 	WooTopicCouponCreated, WooTopicCouponUpdated, WooTopicCouponDeleted,
 }
 
-// MyParcelHookType is one of MyParcel's own three webhook hook types (see
-// developer.myparcel.nl/api-reference/10.webhooks.html -- "we currently
-// have three available hooks"). Same typed-constant convention as
-// WooWebhookTopic; MyParcelClient.CreateWebhookSubscription still takes a
-// plain string for the same reason.
+// MyParcelHookType is one of MyParcel's webhook hook types. The first
+// three are documented (developer.myparcel.nl/api-reference/10.webhooks.html
+// -- "we currently have three available hooks"); the shop_*/subscription_*
+// ones aren't in that page but are real hook types MyParcel actually
+// offers per subscription accounts observed in production. Same typed-
+// constant convention as WooWebhookTopic; MyParcelClient.CreateWebhookSubscription
+// still takes a plain string for the same reason.
 type MyParcelHookType string
 
 const (
-	MyParcelHookShipmentStatusChange MyParcelHookType = "shipment_status_change"
-	MyParcelHookShipmentLabelCreated MyParcelHookType = "shipment_label_created"
-	MyParcelHookOrderStatusChange    MyParcelHookType = "order_status_change"
+	MyParcelHookShipmentStatusChange            MyParcelHookType = "shipment_status_change"
+	MyParcelHookShipmentLabelCreated            MyParcelHookType = "shipment_label_created"
+	MyParcelHookOrderStatusChange               MyParcelHookType = "order_status_change"
+	MyParcelHookShopUpdated                     MyParcelHookType = "shop_updated"
+	MyParcelHookShopCarrierAccessibilityUpdated MyParcelHookType = "shop_carrier_accessibility_updated"
+	MyParcelHookShopCarrierConfigurationUpdated MyParcelHookType = "shop_carrier_configuration_updated"
+	MyParcelHookSubscriptionCreatedOrUpdated    MyParcelHookType = "subscription_created_or_updated"
 )
 
 // AllMyParcelHookTypes lists every MyParcelHookType -- the Topic dropdown
 // seed for provider "myparcel".
 var AllMyParcelHookTypes = []MyParcelHookType{
 	MyParcelHookShipmentStatusChange, MyParcelHookShipmentLabelCreated, MyParcelHookOrderStatusChange,
+	MyParcelHookShopUpdated, MyParcelHookShopCarrierAccessibilityUpdated, MyParcelHookShopCarrierConfigurationUpdated,
+	MyParcelHookSubscriptionCreatedOrUpdated,
 }
 
 // KnownWebhookTopicsByProvider is every topic this codebase knows about

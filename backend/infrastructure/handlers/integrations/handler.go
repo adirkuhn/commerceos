@@ -85,7 +85,7 @@ type listAllProviderWebhooksUC interface {
 	Execute(ctx context.Context) (*appintegrations.ListAllProviderWebhooksResult, error)
 }
 type listAvailableWebhookTopicsUC interface {
-	Execute(ctx context.Context) (appwebhooks.TopicsByProvider, error)
+	Execute(ctx context.Context) (*appwebhooks.AvailableWebhookTopics, error)
 }
 type createProviderWebhookUC interface {
 	Execute(ctx context.Context, connectionID, topic string) (*integrationsDomain.ProviderWebhook, error)
@@ -852,12 +852,13 @@ func (h *Handler) ListAllProviderWebhooks(c *gin.Context) {
 }
 
 func (h *Handler) ListAvailableWebhookTopics(c *gin.Context) {
-	byProvider, err := h.listAvailableWebhookTopics.Execute(c.Request.Context())
+	topics, err := h.listAvailableWebhookTopics.Execute(c.Request.Context())
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	out := map[string][]string(byProvider)
-	middleware.OK(c, out)
+	allEvents := genintegrations.TopicsByProvider(topics.AllEvents)
+	activeWebhooks := genintegrations.TopicsByProvider(topics.ActiveWebhooks)
+	middleware.OK(c, genintegrations.AvailableWebhookTopics{AllEvents: &allEvents, ActiveWebhooks: &activeWebhooks})
 }
 
 func (h *Handler) ListProviderWebhooks(c *gin.Context, id genintegrations.Id) {

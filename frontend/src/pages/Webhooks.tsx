@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Webhook, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import { useApp } from '../context/AppContext'
 import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardRules'
 import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebhooks'
 import { useWebhookTopics } from '../integrations/hooks/useWebhookTopics'
+import type { AvailableWebhookTopics } from '../integrations/api'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab and
 // Integrations.tsx's undelivered-webhooks table -- gated client-side only
@@ -27,9 +29,10 @@ export default function Webhooks() {
   const [tab, setTab] = useState<Tab>('fanout')
   const allowed = canManageWebhooks(user?.role)
 
+  const { setActiveNav } = useApp()
   const forwardRules = useWebhookForwardRules(allowed ? token ?? '' : '')
   const allWebhooks = useAllProviderWebhooks(allowed && tab === 'subscriptions' ? token ?? '' : '')
-  const { topicsByProvider } = useWebhookTopics(allowed ? token ?? '' : '')
+  const { topics } = useWebhookTopics(allowed ? token ?? '' : '')
 
   if (!allowed) {
     return (
@@ -69,8 +72,8 @@ export default function Webhooks() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {tab === 'fanout' && <FanOutTab {...forwardRules} topicsByProvider={topicsByProvider} />}
-        {tab === 'subscriptions' && <SubscriptionsTab {...allWebhooks} />}
+        {tab === 'fanout' && <FanOutTab {...forwardRules} topics={topics} />}
+        {tab === 'subscriptions' && <SubscriptionsTab {...allWebhooks} onRegisterWebhook={() => setActiveNav('integrations')} />}
       </div>
     </div>
   )
@@ -83,8 +86,8 @@ export default function Webhooks() {
 // which hide themselves when empty) since this is a config surface, not
 // just an alert list.
 function FanOutTab({
-  rules, deliveries, loading, error, create, remove, topicsByProvider,
-}: ReturnType<typeof useWebhookForwardRules> & { topicsByProvider: Record<string, string[]> }) {
+  rules, deliveries, loading, error, create, remove, topics,
+}: ReturnType<typeof useWebhookForwardRules> & { topics: AvailableWebhookTopics }) {
   const [provider, setProvider] = useState('')
   const [topic, setTopic] = useState('')
   const [targetUrl, setTargetUrl] = useState('')
@@ -92,16 +95,14 @@ function FanOutTab({
   const [submitting, setSubmitting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // Every topic worth offering, regardless of provider -- topicsByProvider
-  // already carries the baseline catalog (backend/domain/integrations'
-  // WooWebhookTopic/MyParcelHookType constants, seeded by
-  // ListAvailableWebhookTopicsUseCase so a brand-new tenant still gets a
-  // populated dropdown) merged with whatever this tenant has actually
-  // received or subscribed to. Provider is free text (any WooCommerce/
-  // MyParcel connection, or a future provider this codebase doesn't know
-  // the name of yet), so the topic list can't be filtered by it -- show
-  // everything, deduplicated.
-  const topicOptions = Array.from(new Set(Object.values(topicsByProvider).flat())).sort()
+  // Two option groups, regardless of provider (Provider is free text --
+  // any WooCommerce/MyParcel connection, or a future provider this
+  // codebase doesn't know the name of yet -- so the topic list can't be
+  // filtered by it): "Webhooks" is what's actually subscribed right now
+  // (guaranteed to really arrive), "All events" is the full reference
+  // catalog (may include topics nothing is subscribed to yet).
+  const activeWebhookOptions = Array.from(new Set(Object.values(topics.active_webhooks).flat())).sort()
+  const allEventOptions = Array.from(new Set(Object.values(topics.all_events).flat())).sort()
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -156,10 +157,19 @@ function FanOutTab({
           <div>
             <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic</label>
             <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
-              <option value="">All events</option>
-              {topicOptions.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              <option value="">Any topic (match everything)</option>
+              {activeWebhookOptions.length > 0 && (
+                <optgroup label="Webhooks (actively subscribed)">
+                  {activeWebhookOptions.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="All events">
+                {allEventOptions.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
           <div className="flex-1 min-w-[220px]">
@@ -249,9 +259,18 @@ function FanOutTab({
 // / MyParcelSyncSettingsPage's Webhooks tab), since creating one requires
 // picking which connection it belongs to and that page already has that
 // context, plus the webhook-secret generation step right next to it.
-function SubscriptionsTab({ webhooks, loading, error, remove }: ReturnType<typeof useAllProviderWebhooks>) {
+function SubscriptionsTab({
+  webhooks, loading, error, remove, onRegisterWebhook,
+}: ReturnType<typeof useAllProviderWebhooks> & { onRegisterWebhook: () => void }) {
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [rowError, setRowError] = useState('')
+
+  // A CommerceOS-registered webhook's delivery_url always hits our own
+  // ingest route (see application/integrations.providerWebhookIngestURL) --
+  // if none of the rows do, every subscription here points somewhere else
+  // entirely (e.g. an ERP, a WordPress plugin) and CommerceOS itself isn't
+  // receiving anything yet.
+  const noneTargetCommerceOS = webhooks.length > 0 && webhooks.every(w => !w.delivery_url.includes('/webhooks/v1/'))
 
   async function handleRemove(connectionId: string, webhookId: string) {
     const key = `${connectionId}:${webhookId}`
@@ -269,11 +288,28 @@ function SubscriptionsTab({ webhooks, loading, error, remove }: ReturnType<typeo
   return (
     <div className="max-w-4xl">
       <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
-        <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Active provider subscriptions</h2>
-        <p className="text-xs dark:text-gray-500 text-gray-400 mb-3">
-          Every webhook subscription actually registered at WooCommerce/MyParcel, across every connection this tenant has.
-          To add a new one, open that connection's own settings page (Webhooks tab).
-        </p>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Active provider subscriptions</h2>
+            <p className="text-xs dark:text-gray-500 text-gray-400">
+              Every webhook subscription actually registered at WooCommerce/MyParcel, across every connection this tenant has --
+              not necessarily pointed at CommerceOS itself.
+            </p>
+          </div>
+          <button
+            type="button" onClick={onRegisterWebhook}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors shrink-0"
+          >
+            Register a webhook
+          </button>
+        </div>
+
+        {noneTargetCommerceOS && (
+          <p className="text-xs text-amber-500 bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2 mb-3">
+            None of these are registered with CommerceOS -- they're all pointed at other systems. Click "Register a webhook"
+            above to open a connection's settings and subscribe CommerceOS too.
+          </p>
+        )}
 
         {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
         {rowError && <p className="text-xs text-red-400 mb-2">{rowError}</p>}

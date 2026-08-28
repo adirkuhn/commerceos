@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import * as api from './api'
@@ -32,10 +32,11 @@ function webhookURL(tenantId: string): string {
 // override rows -- "configure general configuration and settings global
 // and per carrier" from the design.
 export default function MyParcelSyncSettingsPage({
-  connectionId: initialConnectionId, onClose, onConnected,
-}: { connectionId?: string; onClose: () => void; onConnected?: () => void }) {
+  connectionId: initialConnectionId, onClose, onConnected, focusWebhooks,
+}: { connectionId?: string; onClose: () => void; onConnected?: () => void; focusWebhooks?: boolean }) {
   const { token, user } = useAuth()
   const [connectionId, setConnectionId] = useState(initialConnectionId ?? '')
+  const webhooksSectionRef = useRef<HTMLDivElement>(null)
   const [apiKey, setApiKey] = useState('')
   const [connectError, setConnectError] = useState('')
   const [connecting, setConnecting] = useState(false)
@@ -109,6 +110,22 @@ export default function MyParcelSyncSettingsPage({
       .catch(err => setSettingsError(err instanceof Error ? err.message : 'Failed to load settings'))
       .finally(() => setSettingsLoading(false))
   }, [connectionId, token])
+
+  // Deep link from Integrations.tsx's "Register webhook" quick action --
+  // jump straight to the Webhooks section instead of making the admin
+  // scroll past carrier overrides to find it.
+  useEffect(() => {
+    if (focusWebhooks && !settingsLoading && connectionId) {
+      // jsdom (unit tests) has no real layout engine -- scrollIntoView
+      // throws "Not implemented" there. try/catch keeps that a no-op
+      // instead of failing the render.
+      try {
+        webhooksSectionRef.current?.scrollIntoView({ block: 'start' })
+      } catch {
+        // no-op -- see comment above
+      }
+    }
+  }, [focusWebhooks, settingsLoading, connectionId])
 
   async function handleConnect(e: React.FormEvent) {
     e.preventDefault()
@@ -351,7 +368,7 @@ export default function MyParcelSyncSettingsPage({
             </div>
 
             {canManageWebhooks(user?.role) && (
-              <div>
+              <div ref={webhooksSectionRef}>
                 <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 mb-2">Webhooks</h3>
                 <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
                   <div>

@@ -22,19 +22,31 @@ type providerWebhookSubscriptionsLister interface {
 	Execute(ctx context.Context) (*appintegrations.ListAllProviderWebhooksResult, error)
 }
 
-// TopicsByProvider maps provider -> its known topics, sorted, deduplicated,
-// never including "" (the fan-out form's own "All events" wildcard option
-// is added client-side, not part of this list).
+// TopicsByProvider maps provider -> its topics, sorted, deduplicated, never
+// including "" (the fan-out form's own "All events" wildcard option is
+// added client-side, not part of this list).
 type TopicsByProvider map[string][]string
 
+// AvailableWebhookTopics is ListAvailableWebhookTopicsUseCase's result,
+// split into the two groups the fan-out rule form's Topic dropdown offers
+// as separate option groups:
+//   - AllEvents: every kind of event that could ever happen for a
+//     provider -- the baseline catalog (integrationsDomain.
+//     KnownWebhookTopicsByProvider) unioned with every topic this tenant
+//     has actually received (WebhookEventRepository). A reference list;
+//     picking one here doesn't guarantee it's actually being delivered.
+//   - ActiveWebhooks: topics with a currently active subscription
+//     registered at the provider right now (providerWebhookSubscriptionsLister,
+//     status == "active") -- what's actually about to arrive, i.e. what a
+//     fan-out rule written against it will really fire for.
+type AvailableWebhookTopics struct {
+	AllEvents      TopicsByProvider
+	ActiveWebhooks TopicsByProvider
+}
+
 // ListAvailableWebhookTopicsUseCase answers "what topics could I actually
-// write a fan-out rule for" -- the union of three sources: the baseline
-// catalog (integrationsDomain.KnownWebhookTopicsByProvider, so a brand-new
-// tenant with zero traffic still gets a populated dropdown instead of an
-// empty one), every topic this tenant has ever actually received a webhook
-// event for (WebhookEventRepository, real traffic), and every topic
-// currently subscribed at the provider (providerWebhookSubscriptionsLister,
-// what's about to start arriving).
+// write a fan-out rule for". See AvailableWebhookTopics' doc comment for
+// how the two groups it returns differ.
 type ListAvailableWebhookTopicsUseCase struct {
 	db                *gorm.DB
 	eventRepo         webhooks.WebhookEventRepository
@@ -47,21 +59,11 @@ func NewListAvailableWebhookTopicsUseCase(
 	return &ListAvailableWebhookTopicsUseCase{db: db, eventRepo: eventRepo, subscriptionsList: subscriptionsList}
 }
 
-func (uc *ListAvailableWebhookTopicsUseCase) Execute(ctx context.Context) (TopicsByProvider, error) {
-	sets := map[string]map[string]struct{}{}
-	add := func(provider, topic string) {
-		if provider == "" || topic == "" {
-			return
-		}
-		if sets[provider] == nil {
-			sets[provider] = map[string]struct{}{}
-		}
-		sets[provider][topic] = struct{}{}
-	}
-
+func (uc *ListAvailableWebhookTopicsUseCase) Execute(ctx context.Context) (*AvailableWebhookTopics, error) {
+	allEvents := newTopicSet()
 	for provider, topics := range integrationsDomain.KnownWebhookTopicsByProvider() {
 		for _, topic := range topics {
-			add(string(provider), topic)
+			allEvents.add(string(provider), topic)
 		}
 	}
 
@@ -71,7 +73,7 @@ func (uc *ListAvailableWebhookTopicsUseCase) Execute(ctx context.Context) (Topic
 			return err
 		}
 		for _, ref := range refs {
-			add(ref.Provider, ref.Topic)
+			allEvents.add(ref.Provider, ref.Topic)
 		}
 		return nil
 	})
@@ -79,18 +81,41 @@ func (uc *ListAvailableWebhookTopicsUseCase) Execute(ctx context.Context) (Topic
 		return nil, fmt.Errorf("listAvailableWebhookTopics: %w", err)
 	}
 
-	// Subscriptions is a best-effort second source -- a live provider API
-	// failure here (already surfaced to the admin on the Subscriptions tab)
-	// must not blank out the topics already known from real received
-	// traffic.
+	activeWebhooks := newTopicSet()
+	// Subscriptions is a best-effort source -- a live provider API failure
+	// here (already surfaced to the admin on the Subscriptions tab) just
+	// means an empty ActiveWebhooks group, not a failed request.
 	if result, err := uc.subscriptionsList.Execute(ctx); err == nil {
 		for _, w := range result.Webhooks {
-			add(string(w.Provider), w.Topic)
+			if w.Status != "active" {
+				continue
+			}
+			activeWebhooks.add(string(w.Provider), w.Topic)
 		}
 	}
 
-	out := make(TopicsByProvider, len(sets))
-	for provider, set := range sets {
+	return &AvailableWebhookTopics{AllEvents: allEvents.result(), ActiveWebhooks: activeWebhooks.result()}, nil
+}
+
+// topicSet accumulates provider -> topic pairs, deduplicated, until
+// result() sorts and finalizes them into a TopicsByProvider.
+type topicSet map[string]map[string]struct{}
+
+func newTopicSet() topicSet { return topicSet{} }
+
+func (s topicSet) add(provider, topic string) {
+	if provider == "" || topic == "" {
+		return
+	}
+	if s[provider] == nil {
+		s[provider] = map[string]struct{}{}
+	}
+	s[provider][topic] = struct{}{}
+}
+
+func (s topicSet) result() TopicsByProvider {
+	out := make(TopicsByProvider, len(s))
+	for provider, set := range s {
 		topics := make([]string, 0, len(set))
 		for topic := range set {
 			topics = append(topics, topic)
@@ -98,5 +123,5 @@ func (uc *ListAvailableWebhookTopicsUseCase) Execute(ctx context.Context) (Topic
 		sort.Strings(topics)
 		out[provider] = topics
 	}
-	return out, nil
+	return out
 }

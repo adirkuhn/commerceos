@@ -563,12 +563,15 @@ func (s *stubListAllProviderWebhooks) Execute(_ context.Context) (*appintegratio
 }
 
 type stubListAvailableWebhookTopics struct {
-	out appwebhooks.TopicsByProvider
+	out *appwebhooks.AvailableWebhookTopics
 	err error
 }
 
-func (s *stubListAvailableWebhookTopics) Execute(_ context.Context) (appwebhooks.TopicsByProvider, error) {
-	return s.out, s.err
+func (s *stubListAvailableWebhookTopics) Execute(_ context.Context) (*appwebhooks.AvailableWebhookTopics, error) {
+	if s.out != nil {
+		return s.out, s.err
+	}
+	return &appwebhooks.AvailableWebhookTopics{}, s.err
 }
 
 type stubCreateProviderWebhook struct {
@@ -1936,10 +1939,15 @@ func newListAvailableWebhookTopicsTestHandler(stub *stubListAvailableWebhookTopi
 	)
 }
 
-func TestListAvailableWebhookTopicsHandler_returnsTopicsByProvider(t *testing.T) {
-	stub := &stubListAvailableWebhookTopics{out: appwebhooks.TopicsByProvider{
-		"woocommerce": {"order.created", "order.updated"},
-		"myparcel":    {"shipment_status_change"},
+func TestListAvailableWebhookTopicsHandler_returnsAllEventsAndActiveWebhooks(t *testing.T) {
+	stub := &stubListAvailableWebhookTopics{out: &appwebhooks.AvailableWebhookTopics{
+		AllEvents: appwebhooks.TopicsByProvider{
+			"woocommerce": {"order.created", "order.updated"},
+			"myparcel":    {"shipment_status_change"},
+		},
+		ActiveWebhooks: appwebhooks.TopicsByProvider{
+			"myparcel": {"shipment_status_change"},
+		},
 	}}
 	h := newListAvailableWebhookTopicsTestHandler(stub)
 	r := gin.New()
@@ -1950,6 +1958,8 @@ func TestListAvailableWebhookTopicsHandler_returnsTopicsByProvider(t *testing.T)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "order.updated")
 	assert.Contains(t, w.Body.String(), "shipment_status_change")
+	assert.Contains(t, w.Body.String(), "active_webhooks")
+	assert.Contains(t, w.Body.String(), "all_events")
 }
 
 func TestListProviderWebhooksHandler_returnsList(t *testing.T) {

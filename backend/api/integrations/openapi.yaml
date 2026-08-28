@@ -368,7 +368,7 @@ paths:
   /integrations/webhook-topics:
     get:
       operationId: listAvailableWebhookTopics
-      summary: List topics this tenant could write a fan-out rule for -- every topic actually received (real traffic) unioned with every topic currently subscribed at the provider, grouped by provider
+      summary: List topics this tenant could write a fan-out rule for, split into all_events (baseline catalog + real traffic, a reference list) and active_webhooks (topics with a currently active subscription, what's actually arriving), each grouped by provider
       responses:
         '200':
           description: ok
@@ -1924,15 +1924,27 @@ components:
           items: { $ref: '#/components/schemas/WebhookForwardDelivery' }
         error: { nullable: true }
 
+    TopicsByProvider:
+      type: object
+      description: Provider -> its topics (sorted, deduplicated). A provider with no topics in this group is omitted, not an empty array.
+      additionalProperties:
+        type: array
+        items: { type: string }
+
+    AvailableWebhookTopics:
+      type: object
+      properties:
+        all_events:
+          allOf: [{ $ref: '#/components/schemas/TopicsByProvider' }]
+          description: Every kind of event that could ever happen for a provider -- the baseline catalog unioned with everything this tenant has actually received. A reference list; picking one doesn't guarantee it's actually being delivered.
+        active_webhooks:
+          allOf: [{ $ref: '#/components/schemas/TopicsByProvider' }]
+          description: Topics with a currently active subscription registered at the provider right now -- what's actually about to arrive.
+
     WebhookTopicsResponse:
       type: object
       properties:
-        data:
-          type: object
-          description: Provider -> its known topics (sorted, deduplicated). A provider with no known topics yet is omitted, not an empty array.
-          additionalProperties:
-            type: array
-            items: { type: string }
+        data: { $ref: '#/components/schemas/AvailableWebhookTopics' }
         error: { nullable: true }
 
     ProviderWebhook:
