@@ -106,6 +106,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	var settings *shippingDomain.ShippingConnectionSettings
 	var override *shippingDomain.ShippingCarrierOverride
 	var tenantSettings *settingsDomain.TenantSettings
+	var existing []shippingDomain.Shipment
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		c, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
 		if err != nil {
@@ -122,10 +123,26 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 			return err
 		}
 		tenantSettings, err = uc.tenantSettingsRepo.Get(ctx)
+		if err != nil {
+			return err
+		}
+		existing, err = uc.shipmentRepo.FindBySalesOrderID(ctx, in.SalesOrderID)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: %w", err)
+	}
+	// A shipment already exists for this order on this connection -- return
+	// it instead of creating a real second MyParcel shipment. This is a
+	// defense-in-depth backstop (races, a caller that skipped its own
+	// pre-check); the frontend's own "already exists, re-download?" prompt
+	// is the primary UX for this (see Picking.tsx/PickingScreen.tsx/
+	// SalesOrders.tsx), this just guarantees the backend never silently
+	// duplicates regardless of what called it.
+	for _, s := range existing {
+		if s.ConnectionID == in.ConnectionID {
+			return &s, nil
+		}
 	}
 
 	resolved := shippingDomain.ResolveOptions(settings, override, in.Carrier)

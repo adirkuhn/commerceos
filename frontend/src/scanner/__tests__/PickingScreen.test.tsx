@@ -27,6 +27,7 @@ vi.mock('../../shipping/api', () => ({
   createShipment: vi.fn(),
   getShippingSettings: vi.fn(),
   getShipmentLabel: vi.fn(),
+  listShipmentsForOrder: vi.fn(),
 }))
 
 vi.mock('../errorSound', () => ({
@@ -146,6 +147,34 @@ describe('PickingScreen', () => {
     beforeEach(() => {
       vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
       vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+      vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    })
+
+    it('offers to reprint instead of creating a new label when a shipment already exists for the order', async () => {
+      vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+      vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([{
+        id: 'ship-existing', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA9',
+        status: 1, status_main: 'registered', label_format: 'pdf',
+        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+        created_at: '2026-08-23T00:00:00Z',
+      }])
+      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+      vi.stubGlobal('print', vi.fn())
+
+      const user = userEvent.setup()
+      render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Finish' }))
+      await screen.findByText('Review before finishing')
+
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+      expect(await screen.findByText('Label already exists')).toBeInTheDocument()
+      expect(screen.queryByText('Confirm shipping address')).not.toBeInTheDocument()
+      expect(shippingApi.createShipment).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('button', { name: /Download & print again/ }))
+      expect(await screen.findByTitle('Close')).toBeInTheDocument()
+      expect(shippingApi.createShipment).not.toHaveBeenCalled()
     })
 
     it('lets staff create the shipping label from the review screen, before Confirm & Complete', async () => {

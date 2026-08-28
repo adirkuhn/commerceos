@@ -3,21 +3,37 @@
 // third-party Go SDK exists for this API -- built to spec against the docs
 // fetched during design (05.authentication.html, 06.shipments.html,
 // 07.shipment-related-object-definitions.html, 10.webhooks.html,
-// 11.webhook-object-definitions.html).
+// 11.webhook-object-definitions.html, 13.orders.html).
 //
-// Two things were NOT fully confirmed against a real sandbox response
-// during this build and need verification before this goes live:
+// CreateShipment's response envelope was originally guessed wrong
+// (data.shipments[]{id,barcode}) and produced a spurious "empty response"
+// error on every real create -- despite MyParcel actually creating the
+// shipment -- because the real envelope is data.ids[]{id,reference_identifier}
+// (confirmed against developer.myparcel.nl/api-reference/06.shipments.html
+// and 07.shipment-related-object-definitions.html's ShipmentIds object).
+// Barcode isn't in that response at all; CreateShipment now makes a
+// follow-up GET /shipments/{id} for it (data.search_results.shipments[],
+// confirmed against 06.shipments.html's search example) -- see
+// getShipmentByID's doc comment for why a failure there is non-fatal.
+//
+// Orders/Fulfilment's response envelope (data.orders[]{uuid,status}) and
+// request's reference field (there IS NO per-shipment reference_identifier
+// on this endpoint, only the order-level external_identifier) are both
+// confirmed against 13.orders.html. Its price/vat/price_after_vat and
+// order_lines[] fields are also confirmed present and required by that
+// page's own example request, but the page does NOT state their unit
+// (minor units/cents vs whole currency) -- this client sends them in minor
+// units, matching every other money field in this codebase and MyParcel's
+// own confirmed Shipments-insurance convention, but that specific choice
+// is unconfirmed against a real sandbox response.
+//
+// Things still NOT fully confirmed against a real sandbox response and
+// needing verification before this goes live:
 //   - The auth header: two independent doc-page fetches described
 //     `Authorization: bearer base64(apiKey)`, but one page separately
 //     mentioned a header named `X-MyParcel-Authorization` carrying the same
 //     value. This client sends `Authorization: bearer ...` (authHeader
 //     below is the one place to change if a real key gets a 401).
-//   - The exact field MyParcel's create-shipment request uses to round-trip
-//     our own SalesOrder.ID (referred to in the docs as
-//     shipment_reference_identifier on the *webhook payload* side) -- this
-//     client sends it as `reference_identifier` in the request body, the
-//     most likely counterpart name, but this wasn't confirmed against the
-//     request schema itself.
 //   - The physical page-size query param on GetLabel (A4 sheet vs a single
 //     A6 label) -- this client sends `?format=A6` on the shipment_labels
 //     GET request (MyParcel's docs describe a "format" query param for this
@@ -33,6 +49,7 @@
 //     `data.hooks[]`, which MyParcel rejects with a 422 schema-validation
 //     error), but the exact response field names still aren't confirmed
 //     against a real sandbox response.
+//   - The order_lines[]/price minor-units assumption above.
 package myparcel
 
 import (
@@ -250,13 +267,56 @@ type createShipmentRequest struct {
 	ReferenceIdentifier string `json:"reference_identifier,omitempty"`
 }
 
-type shipmentsEnvelope struct {
+// shipmentIdsEnvelope is POST /shipments' real response envelope --
+// data.ids[]{id,reference_identifier} -- see the package doc comment for
+// why this isn't data.shipments[]{id,barcode} (the original, wrong guess).
+type shipmentIdsEnvelope struct {
 	Data struct {
-		Shipments []struct {
-			ID      int64  `json:"id"`
-			Barcode string `json:"barcode"`
-		} `json:"shipments"`
+		IDs []struct {
+			ID                  int64  `json:"id"`
+			ReferenceIdentifier string `json:"reference_identifier"`
+		} `json:"ids"`
 	} `json:"data"`
+}
+
+// shipmentSearchEnvelope is GET /shipments/{id}'s response envelope --
+// data.search_results.shipments[], confirmed against
+// 06.shipments.html's search example. Used only by getShipmentByID's
+// post-create barcode fetch; other fields in the real response (recipient,
+// options, price, etc) are intentionally not modeled here since nothing
+// needs them yet.
+type shipmentSearchEnvelope struct {
+	Data struct {
+		SearchResults struct {
+			Shipments []struct {
+				ID      int64  `json:"id"`
+				Barcode string `json:"barcode"`
+				Status  int    `json:"status"`
+			} `json:"shipments"`
+		} `json:"search_results"`
+	} `json:"data"`
+}
+
+// getShipmentByID fetches a just-created shipment's barcode (and current
+// status) -- CreateShipment's own response never includes them (see the
+// package doc comment). Errors here are handled by the caller as non-fatal:
+// the shipment id is already confirmed to exist on MyParcel's side by this
+// point, so treating a barcode-fetch failure as a full CreateShipment
+// failure would make the caller re-POST on retry and create a genuine
+// second MyParcel shipment -- exactly the duplicate-creation bug this fix
+// is for. A missing barcode gets backfilled later by
+// ReconcileShipmentsUseCase's poll (ShipmentRepository.FindStaleNonTerminal).
+func (c *Client) getShipmentByID(ctx context.Context, id int64) (barcode string, status int, err error) {
+	var resp shipmentSearchEnvelope
+	path := "/shipments/" + strconv.FormatInt(id, 10)
+	if err := c.doJSON(ctx, http.MethodGet, path, shipmentAccept, nil, &resp); err != nil {
+		return "", 0, err
+	}
+	if len(resp.Data.SearchResults.Shipments) == 0 {
+		return "", 0, fmt.Errorf("myparcel: get shipment %d: empty response", id)
+	}
+	s := resp.Data.SearchResults.Shipments[0]
+	return s.Barcode, s.Status, nil
 }
 
 // CreateShipment creates one MyParcel shipment. MyParcel's create-shipment
@@ -290,15 +350,22 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 		ReferenceIdentifier: in.OrderReference,
 	}}
 
-	var resp shipmentsEnvelope
+	var resp shipmentIdsEnvelope
 	if err := c.doJSON(ctx, http.MethodPost, "/shipments", shipmentAccept, req, &resp); err != nil {
 		return ShipmentResult{}, err
 	}
-	if len(resp.Data.Shipments) == 0 {
+	if len(resp.Data.IDs) == 0 {
 		return ShipmentResult{}, fmt.Errorf("myparcel: create shipment: empty response")
 	}
-	s := resp.Data.Shipments[0]
-	return ShipmentResult{ShipmentID: s.ID, Barcode: s.Barcode}, nil
+	id := resp.Data.IDs[0].ID
+
+	barcode, _, err := c.getShipmentByID(ctx, id)
+	if err != nil {
+		// The shipment id is confirmed real -- see getShipmentByID's doc
+		// comment for why this doesn't fail the whole create.
+		return ShipmentResult{ShipmentID: id}, nil
+	}
+	return ShipmentResult{ShipmentID: id, Barcode: barcode}, nil
 }
 
 // --- Orders (Fulfilment API) ---
@@ -307,6 +374,18 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 // separate from domain/integrations.CreateOrderInput the same way
 // ShipmentInput is kept separate from CreateShipmentInput (see the comment
 // above ShipmentInput); adapter.go maps between the two.
+// OrderLine is one line item on the order -- see the package doc comment
+// for the confirmed field names/nesting and the unconfirmed minor-units
+// assumption on Price/VAT/PriceAfterVAT.
+type OrderLine struct {
+	Quantity                int
+	SKU                     string
+	Name                    string
+	PriceMinorUnits         int
+	VATMinorUnits           int
+	PriceAfterVATMinorUnits int
+}
+
 type OrderInput struct {
 	ExternalIdentifier string
 	OrderDate          time.Time
@@ -315,6 +394,14 @@ type OrderInput struct {
 	Carrier            int
 	Recipient          Recipient
 	PackageType        int
+	// PriceMinorUnits/VATMinorUnits/PriceAfterVATMinorUnits are the order's
+	// own totals -- required by MyParcel's Orders API (see the package doc
+	// comment); PriceAfterVATMinorUnits should equal
+	// PriceMinorUnits+VATMinorUnits.
+	PriceMinorUnits         int
+	VATMinorUnits           int
+	PriceAfterVATMinorUnits int
+	OrderLines              []OrderLine
 }
 
 type orderShipment struct {
@@ -323,12 +410,29 @@ type orderShipment struct {
 	Options   shipmentOptions `json:"options"`
 }
 
+type orderLineProduct struct {
+	SKU  string `json:"sku"`
+	Name string `json:"name"`
+}
+
+type orderLine struct {
+	Quantity      int              `json:"quantity"`
+	Price         int              `json:"price"`
+	VAT           int              `json:"vat"`
+	PriceAfterVAT int              `json:"price_after_vat"`
+	Product       orderLineProduct `json:"product"`
+}
+
 type createOrderRequest struct {
 	ExternalIdentifier string        `json:"external_identifier"`
 	OrderDate          string        `json:"order_date"`
 	AccountID          int           `json:"account_id"`
 	ShopID             int           `json:"shop_id"`
+	Price              int           `json:"price"`
+	VAT                int           `json:"vat"`
+	PriceAfterVAT      int           `json:"price_after_vat"`
 	Shipment           orderShipment `json:"shipment"`
+	OrderLines         []orderLine   `json:"order_lines"`
 }
 
 type ordersEnvelope struct {
@@ -353,11 +457,19 @@ func (c *Client) CreateOrder(ctx context.Context, in OrderInput) (OrderResult, e
 			Orders []createOrderRequest `json:"orders"`
 		} `json:"data"`
 	}{}
+	lines := make([]orderLine, len(in.OrderLines))
+	for i, l := range in.OrderLines {
+		lines[i] = orderLine{
+			Quantity: l.Quantity, Price: l.PriceMinorUnits, VAT: l.VATMinorUnits, PriceAfterVAT: l.PriceAfterVATMinorUnits,
+			Product: orderLineProduct{SKU: l.SKU, Name: l.Name},
+		}
+	}
 	req.Data.Orders = []createOrderRequest{{
 		ExternalIdentifier: in.ExternalIdentifier,
 		OrderDate:          in.OrderDate.Format("2006-01-02 15:04:05"),
 		AccountID:          in.AccountID,
 		ShopID:             in.ShopID,
+		Price:              in.PriceMinorUnits, VAT: in.VATMinorUnits, PriceAfterVAT: in.PriceAfterVATMinorUnits,
 		Shipment: orderShipment{
 			Carrier: in.Carrier,
 			Recipient: recipient{
@@ -368,6 +480,7 @@ func (c *Client) CreateOrder(ctx context.Context, in OrderInput) (OrderResult, e
 			},
 			Options: shipmentOptions{PackageType: in.PackageType},
 		},
+		OrderLines: lines,
 	}}
 
 	var resp ordersEnvelope

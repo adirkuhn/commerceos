@@ -42,6 +42,7 @@ vi.mock('../../shipping/api', () => ({
   createShipment: vi.fn(),
   getShippingSettings: vi.fn(),
   getShipmentLabel: vi.fn(),
+  listShipmentsForOrder: vi.fn(),
 }))
 
 vi.mock('../../tax/api', () => ({
@@ -109,6 +110,7 @@ beforeEach(() => {
   vi.mocked(omsApi.listSalesOrderActivities).mockResolvedValue({ activities: [] })
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
   vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+  vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
 })
 
 describe('Sales orders list', () => {
@@ -313,6 +315,36 @@ describe('Sales order detail page', () => {
     await screen.findByText('Blue Widget')
 
     expect(screen.queryByRole('button', { name: 'Create label' })).not.toBeInTheDocument()
+  })
+
+  it('offers to reprint instead of creating a new label when a shipment already exists for the order', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
+    ])
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([{
+      id: 'ship-existing', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA9',
+      status: 1, status_main: 'registered', label_format: 'pdf',
+      recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+      created_at: '2026-08-23T00:00:00Z',
+    }])
+    vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+    vi.stubGlobal('print', vi.fn())
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create label' }))
+    expect(await screen.findByText('Label already exists')).toBeInTheDocument()
+    expect(screen.queryByText('Confirm shipping address')).not.toBeInTheDocument()
+    expect(shippingApi.exportMyParcelOrder).not.toHaveBeenCalled()
+    expect(shippingApi.createShipment).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /Download & print again/ }))
+    expect(await screen.findByTitle('Close')).toBeInTheDocument()
+    expect(shippingApi.createShipment).not.toHaveBeenCalled()
   })
 
   it('exports the order to MyParcel, creates the shipment, and shows Print label afterward', async () => {

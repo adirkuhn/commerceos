@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -15,15 +16,39 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 )
 
+// shipmentCreateAndFetchServer builds an httptest.Server that handles both
+// calls CreateShipment now makes: POST /shipments (real envelope
+// data.ids[]{id,reference_identifier} -- barcode is NOT in this response,
+// see client.go's package doc comment) and the follow-up
+// GET /shipments/{id} (data.search_results.shipments[]) that fetches it.
+func shipmentCreateAndFetchServer(t *testing.T, shipmentID int64, barcode string, captureBody *map[string]any) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			require.NoError(t, json.NewDecoder(r.Body).Decode(captureBody))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"ids":[{"id":` + strconv.FormatInt(shipmentID, 10) + `,"reference_identifier":"order-abc"}]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"search_results":{"shipments":[{"id":` + strconv.FormatInt(shipmentID, 10) + `,"barcode":"` + barcode + `","status":1}]}}}`))
+	}))
+}
+
 func TestClient_CreateShipment_sendsAuthHeaderAndParsesResponse(t *testing.T) {
 	var gotAuth, gotAccept string
 	var gotBody map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		gotAccept = r.Header.Get("Accept")
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		if r.Method == http.MethodPost {
+			gotAuth = r.Header.Get("Authorization")
+			gotAccept = r.Header.Get("Accept")
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"ids":[{"id":123,"reference_identifier":"order-abc"}]}}`))
+			return
+		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"shipments":[{"id":123,"barcode":"3SMYPA1"}]}}`))
+		_, _ = w.Write([]byte(`{"data":{"search_results":{"shipments":[{"id":123,"barcode":"3SMYPA1","status":1}]}}}`))
 	}))
 	defer srv.Close()
 
@@ -47,13 +72,54 @@ func TestClient_CreateShipment_sendsAuthHeaderAndParsesResponse(t *testing.T) {
 	assert.Equal(t, "order-abc", shipments[0].(map[string]any)["reference_identifier"])
 }
 
+// TestClient_CreateShipment_barcodeFetchFailureIsNonFatal is a regression
+// test for the actual duplicate-shipment bug: if the id is confirmed but
+// the follow-up barcode fetch fails, CreateShipment must still return
+// success (with the real id, empty barcode) rather than an error -- an
+// error here would make the caller believe creation failed and re-POST on
+// retry, creating a second real MyParcel shipment.
+func TestClient_CreateShipment_barcodeFetchFailureIsNonFatal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"ids":[{"id":123,"reference_identifier":"order-abc"}]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	result, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
+		Carrier: 1, Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Options: myparcel.Options{PackageType: 1},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(123), result.ShipmentID)
+	assert.Equal(t, "", result.Barcode)
+}
+
+func TestClient_CreateShipment_emptyIdsArrayOnSuccessReturnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"ids":[]}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
+		Carrier: 1, Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Options: myparcel.Options{PackageType: 1},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty response")
+}
+
 func TestClient_CreateShipment_insuredShipmentSendsInsuranceOption(t *testing.T) {
 	var gotBody map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"shipments":[{"id":123,"barcode":"3SMYPA1"}]}}`))
-	}))
+	srv := shipmentCreateAndFetchServer(t, 123, "3SMYPA1", &gotBody)
 	defer srv.Close()
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
@@ -81,11 +147,7 @@ func TestClient_CreateShipment_insuredShipmentSendsInsuranceOption(t *testing.T)
 // this can't just omit the field.
 func TestClient_CreateShipment_insuredShipmentWithNoCurrencyFallsBackToEUR(t *testing.T) {
 	var gotBody map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"shipments":[{"id":123,"barcode":"3SMYPA1"}]}}`))
-	}))
+	srv := shipmentCreateAndFetchServer(t, 123, "3SMYPA1", &gotBody)
 	defer srv.Close()
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
@@ -104,11 +166,7 @@ func TestClient_CreateShipment_insuredShipmentWithNoCurrencyFallsBackToEUR(t *te
 
 func TestClient_CreateShipment_noInsuranceOmitsInsuranceOption(t *testing.T) {
 	var gotBody map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"shipments":[{"id":123,"barcode":"3SMYPA1"}]}}`))
-	}))
+	srv := shipmentCreateAndFetchServer(t, 123, "3SMYPA1", &gotBody)
 	defer srv.Close()
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
@@ -141,7 +199,13 @@ func TestClient_CreateOrder_sendsExpectedRequestAndParsesResponse(t *testing.T) 
 	result, err := c.CreateOrder(context.Background(), myparcel.OrderInput{
 		ExternalIdentifier: "order-abc", OrderDate: orderDate, AccountID: 111, ShopID: 222,
 		Carrier: 1, PackageType: 1,
-		Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Recipient:               myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		PriceMinorUnits:         3300,
+		VATMinorUnits:           700,
+		PriceAfterVATMinorUnits: 4000,
+		OrderLines: []myparcel.OrderLine{
+			{Quantity: 2, SKU: "WIDGET-1", Name: "Widget", PriceMinorUnits: 2000, VATMinorUnits: 420, PriceAfterVATMinorUnits: 2420},
+		},
 	})
 
 	require.NoError(t, err)
@@ -156,10 +220,24 @@ func TestClient_CreateOrder_sendsExpectedRequestAndParsesResponse(t *testing.T) 
 	assert.Equal(t, "order-abc", order["external_identifier"])
 	assert.Equal(t, float64(111), order["account_id"])
 	assert.Equal(t, float64(222), order["shop_id"])
+	assert.Equal(t, float64(3300), order["price"])
+	assert.Equal(t, float64(700), order["vat"])
+	assert.Equal(t, float64(4000), order["price_after_vat"])
 	shipment := order["shipment"].(map[string]any)
 	assert.Equal(t, float64(1), shipment["carrier"])
 	recipient := shipment["recipient"].(map[string]any)
 	assert.Equal(t, "Jane Doe", recipient["person"])
+
+	orderLines := order["order_lines"].([]any)
+	require.Len(t, orderLines, 1)
+	line := orderLines[0].(map[string]any)
+	assert.Equal(t, float64(2), line["quantity"])
+	assert.Equal(t, float64(2000), line["price"])
+	assert.Equal(t, float64(420), line["vat"])
+	assert.Equal(t, float64(2420), line["price_after_vat"])
+	product := line["product"].(map[string]any)
+	assert.Equal(t, "WIDGET-1", product["sku"])
+	assert.Equal(t, "Widget", product["name"])
 }
 
 func TestClient_CreateOrder_nonOKStatus_returnsAPIError(t *testing.T) {

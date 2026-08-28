@@ -64,6 +64,19 @@ type ShipmentResult struct {
 	Barcode    string
 }
 
+// OrderLineInput is one line item on the exported order -- MyParcel's
+// Orders API requires this array (see infrastructure/myparcel's package doc
+// comment for the confirmed field names and the unconfirmed minor-units
+// assumption on the price fields).
+type OrderLineInput struct {
+	Quantity                int
+	SKU                     string
+	Name                    string
+	PriceMinorUnits         int
+	VATMinorUnits           int
+	PriceAfterVATMinorUnits int
+}
+
 // CreateOrderInput is what ExportMyParcelOrderUseCase needs to export a
 // sales order via MyParcel's Orders/Fulfilment API (POST
 // /fulfilment/orders) -- a separate, real MyParcel endpoint from
@@ -72,6 +85,10 @@ type ShipmentResult struct {
 // ExportMyParcelOrderUseCase's doc). AccountID/ShopID are the tenant's own
 // MyParcel merchant identifiers (domain/shipping.ShippingConnectionSettings),
 // required by this endpoint specifically -- Shipments API doesn't need them.
+// PriceMinorUnits/VATMinorUnits/PriceAfterVATMinorUnits and OrderLines are
+// also required by this endpoint (see infrastructure/myparcel's package doc
+// comment) -- ExportMyParcelOrderUseCase computes them from the SalesOrder's
+// own totals and line items.
 type CreateOrderInput struct {
 	ExternalIdentifier string
 	OrderDate          time.Time
@@ -80,6 +97,11 @@ type CreateOrderInput struct {
 	Carrier            int
 	Recipient          MyParcelAddress
 	PackageType        int
+
+	PriceMinorUnits         int
+	VATMinorUnits           int
+	PriceAfterVATMinorUnits int
+	OrderLines              []OrderLineInput
 }
 
 // OrderResult is what MyParcel returns for a created order -- UUID is

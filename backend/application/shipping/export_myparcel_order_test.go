@@ -10,6 +10,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -39,10 +40,18 @@ func TestExportMyParcelOrder_happyPath_createsAndPersistsAndRecordsActivity(t *t
 			return nil
 		},
 	}
+	salesOrderRepo := &fakeSalesOrderTotalGetter{findByIDFn: func(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
+		return &omsDomain.SalesOrder{ID: "order-1", Number: "1001", TotalMinorUnits: 4000, TaxTotalMinorUnits: 700}, nil
+	}}
+	lineItemRepo := &fakeSalesOrderLineItemLister{listBySalesOrderFn: func(_ context.Context, _ string) ([]omsDomain.SalesOrderLineItem, error) {
+		return []omsDomain.SalesOrderLineItem{
+			{ID: "li-1", SKUCode: "WIDGET-1", Name: "Widget", Quantity: 2, TotalMinorUnits: 2000, TotalTaxMinorUnits: 420},
+		}, nil
+	}}
 	activity := &fakeRecordActivity{}
 
 	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 2), connRepo, settingsRepo, fulfilmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+		salesOrderRepo, lineItemRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.ExportMyParcelOrderInput{
@@ -54,9 +63,16 @@ func TestExportMyParcelOrder_happyPath_createsAndPersistsAndRecordsActivity(t *t
 	assert.Equal(t, "fulfilment-1", result.ID)
 	assert.Equal(t, "order-uuid-1", result.MyParcelUUID)
 
-	assert.Equal(t, "order-1", gotCreateOrderInput.ExternalIdentifier)
+	assert.Equal(t, "1001", gotCreateOrderInput.ExternalIdentifier, "the human order number, not our internal SalesOrder.ID -- MyParcel's Orders API has no separate per-shipment reference field")
 	assert.Equal(t, 111, gotCreateOrderInput.AccountID)
 	assert.Equal(t, 222, gotCreateOrderInput.ShopID)
+	assert.Equal(t, 3300, gotCreateOrderInput.PriceMinorUnits)
+	assert.Equal(t, 700, gotCreateOrderInput.VATMinorUnits)
+	assert.Equal(t, 4000, gotCreateOrderInput.PriceAfterVATMinorUnits)
+	require.Len(t, gotCreateOrderInput.OrderLines, 1)
+	assert.Equal(t, integrationsDomain.OrderLineInput{
+		Quantity: 2, SKU: "WIDGET-1", Name: "Widget", PriceMinorUnits: 2000, VATMinorUnits: 420, PriceAfterVATMinorUnits: 2420,
+	}, gotCreateOrderInput.OrderLines[0])
 
 	require.NotNil(t, created)
 	assert.Equal(t, "tenant-1", created.TenantID)
@@ -85,8 +101,10 @@ func TestExportMyParcelOrder_alreadyExported_returnsExistingWithoutCallingMyParc
 			return integrationsDomain.OrderResult{}, nil
 		},
 	}
+	// existing != nil short-circuits before the order/line-item fetch (see
+	// Execute's doc) -- these fakes must never be called.
 	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, fulfilmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeSalesOrderTotalGetter{}, &fakeSalesOrderLineItemLister{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.ExportMyParcelOrderInput{
@@ -99,7 +117,7 @@ func TestExportMyParcelOrder_alreadyExported_returnsExistingWithoutCallingMyParc
 }
 
 func TestExportMyParcelOrder_incompleteRecipient_returnsErrMissingRecipient(t *testing.T) {
-	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 0), nil, nil, nil, nil, testEncSecret, nil)
+	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 0), nil, nil, nil, nil, nil, nil, testEncSecret, nil)
 
 	_, err := uc.Execute(context.Background(), appshipping.ExportMyParcelOrderInput{
 		SalesOrderID: "order-1", ConnectionID: "conn-1", Recipient: appshipping.RecipientInput{},
@@ -122,9 +140,15 @@ func TestExportMyParcelOrder_myParcelAPIError_recordsFailureActivity(t *testing.
 			return integrationsDomain.OrderResult{}, assert.AnError
 		},
 	}
+	salesOrderRepo := &fakeSalesOrderTotalGetter{findByIDFn: func(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
+		return &omsDomain.SalesOrder{ID: "order-1", Number: "1001"}, nil
+	}}
+	lineItemRepo := &fakeSalesOrderLineItemLister{listBySalesOrderFn: func(_ context.Context, _ string) ([]omsDomain.SalesOrderLineItem, error) {
+		return nil, nil
+	}}
 	activity := &fakeRecordActivity{}
 	uc := appshipping.NewExportMyParcelOrderUseCase(newMockGormDB(t, 1), connRepo, settingsRepo, fulfilmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
+		salesOrderRepo, lineItemRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret, activity)
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.ExportMyParcelOrderInput{

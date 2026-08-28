@@ -99,6 +99,13 @@ func (f *fakeMyParcelClientFactory) NewClient(apiKey string) (integrationsDomain
 
 // --- ShipmentRepository fake ---
 
+// noExistingShipments is the common fakeShipmentRepo.findBySalesOrderIDFn
+// for every CreateShipmentUseCase test that isn't specifically about the
+// idempotency check -- CreateShipmentUseCase.Execute now always looks this
+// up before creating (see TestCreateShipment_shipmentAlreadyExists_returns
+// ExistingWithoutCallingMyParcel for the other branch).
+func noExistingShipments(_ context.Context, _ string) ([]shippingDomain.Shipment, error) { return nil, nil }
+
 type fakeShipmentRepo struct {
 	createFn                   func(ctx context.Context, s *shippingDomain.Shipment) error
 	findByIDFn                 func(ctx context.Context, id string) (*shippingDomain.Shipment, error)
@@ -193,6 +200,18 @@ type fakeSalesOrderTotalGetter struct {
 
 func (f *fakeSalesOrderTotalGetter) FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error) {
 	return f.findByIDFn(ctx, id)
+}
+
+// --- salesOrderLineItemLister fake (narrow -- just what
+// ExportMyParcelOrderUseCase needs to build MyParcel's required
+// order_lines[]) ---
+
+type fakeSalesOrderLineItemLister struct {
+	listBySalesOrderFn func(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderLineItem, error)
+}
+
+func (f *fakeSalesOrderLineItemLister) ListBySalesOrder(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderLineItem, error) {
+	return f.listBySalesOrderFn(ctx, salesOrderID)
 }
 
 // --- settings.Repository fake (tenant-wide Localization settings) ---

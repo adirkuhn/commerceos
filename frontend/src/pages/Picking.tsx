@@ -14,6 +14,8 @@ import type { RecipientAddress } from '../shipping/types'
 import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
+import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
+import type { Shipment } from '../shipping/types'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
 import { playErrorSound } from '../scanner/errorSound'
 import type { Address } from '../oms/types'
@@ -114,6 +116,12 @@ export default function Picking() {
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // existingShipment: set when "Create shipping label" is clicked and a
+  // shipment already exists for this order (checkForExistingShipment) --
+  // shows ExistingShipmentConfirmModal instead of silently opening the
+  // address-confirm flow, so staff choose to reprint rather than a second
+  // MyParcel shipment quietly getting created underneath them.
+  const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
   // auto_print_enabled -- see SalesOrders.tsx's identical logic for the doc;
   // same setting, same "still the OS print dialog" caveat.
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
@@ -189,6 +197,7 @@ export default function Picking() {
     setLabelStep(null)
     setPendingRecipient(null)
     setConfirmingFinish(false)
+    setExistingShipment(null)
   }
 
   // A scanned/typed code that matches one of this order's own line items
@@ -373,6 +382,20 @@ export default function Picking() {
     }
   }
 
+  // Entry point for both "Create shipping label" buttons (review screen and
+  // post-complete screen) -- checks for an already-created shipment first
+  // (see ExistingShipmentConfirmModal's doc) instead of jumping straight
+  // into the address-confirm flow.
+  async function handleCreateLabelClick() {
+    if (!token || !activeOrder) return
+    const shipments = await shippingApi.listShipmentsForOrder(token, activeOrder.id)
+    if (shipments.length > 0) {
+      setExistingShipment(shipments[0])
+      return
+    }
+    setLabelStep('address')
+  }
+
   // The actual shipment-creation call -- moved here from the old
   // AddressConfirmModal.onConfirm. Staff have already seen this exact data
   // laid out label-style in LabelPreviewModal and explicitly clicked "Print
@@ -487,7 +510,7 @@ export default function Picking() {
 
             {myParcelConnection && !createdShipmentId && (
               <button
-                type="button" onClick={() => setLabelStep('address')}
+                type="button" onClick={handleCreateLabelClick}
                 className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
               >
                 Create shipping label
@@ -534,6 +557,17 @@ export default function Picking() {
         )}
         {printingLabelId && token && (
           <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        )}
+        {existingShipment && (
+          <ExistingShipmentConfirmModal
+            shipment={existingShipment}
+            onCancel={() => setExistingShipment(null)}
+            onReprint={() => {
+              setCreatedShipmentId(existingShipment.id)
+              setPrintingLabelId(existingShipment.id)
+              setExistingShipment(null)
+            }}
+          />
         )}
 
         {activeOrder && session && confirmingFinish && !completeResult && (
@@ -582,7 +616,7 @@ export default function Picking() {
               {error && <p className="text-sm text-red-400">{error}</p>}
               {myParcelConnection && !createdShipmentId && (
                 <button
-                  type="button" onClick={() => setLabelStep('address')}
+                  type="button" onClick={handleCreateLabelClick}
                   className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-sm font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                 >
                   Create shipping label

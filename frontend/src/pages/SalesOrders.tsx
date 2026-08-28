@@ -19,8 +19,9 @@ import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
+import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
-import type { RecipientAddress } from '../shipping/types'
+import type { RecipientAddress, Shipment } from '../shipping/types'
 
 const PAGE_SIZE = 20
 const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed']
@@ -628,6 +629,8 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // See Picking.tsx's identical existingShipment doc.
+  const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
   // auto_print_enabled: once a label exists, open the print view right
   // away instead of requiring a manual click -- still the OS print dialog,
   // not silent printing (see ShippingConnectionSettings.AutoPrintEnabled's
@@ -643,6 +646,17 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
       })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
+
+  // See Picking.tsx's identical handleCreateLabelClick doc.
+  async function handleCreateLabelClick() {
+    if (!token || !detail || !myParcelConnection) return
+    const shipments = await shippingApi.listShipmentsForOrder(token, detail.sales_order.id)
+    if (shipments.length > 0) {
+      setExistingShipment(shipments[0])
+      return
+    }
+    setLabelStep('address')
+  }
 
   // The actual shipment-creation call -- moved here from the old
   // AddressConfirmModal.onConfirm. Staff have already seen this exact data
@@ -732,7 +746,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             </button>
             {myParcelConnection && !createdShipmentId && (
               <button
-                onClick={() => setLabelStep('address')}
+                onClick={handleCreateLabelClick}
                 title="Create a MyParcel shipping label for this order"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
               >
@@ -901,6 +915,17 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
       )}
       {printingLabelId && token && (
         <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+      )}
+      {existingShipment && (
+        <ExistingShipmentConfirmModal
+          shipment={existingShipment}
+          onCancel={() => setExistingShipment(null)}
+          onReprint={() => {
+            setCreatedShipmentId(existingShipment.id)
+            setPrintingLabelId(existingShipment.id)
+            setExistingShipment(null)
+          }}
+        />
       )}
     </div>
   )

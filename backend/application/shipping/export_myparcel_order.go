@@ -24,6 +24,13 @@ type recordActivityUC interface {
 	Execute(ctx context.Context, in appoms.RecordSalesOrderActivityInput) (*omsDomain.SalesOrderActivity, error)
 }
 
+// salesOrderLineItemLister is *oms.SalesOrderLineItemRepository narrowed to
+// point of use (ISP) -- ExportMyParcelOrderUseCase needs the order's own
+// line items to build MyParcel's required order_lines[] array.
+type salesOrderLineItemLister interface {
+	ListBySalesOrder(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderLineItem, error)
+}
+
 type ExportMyParcelOrderInput struct {
 	SalesOrderID string
 	ConnectionID string
@@ -45,6 +52,8 @@ type ExportMyParcelOrderUseCase struct {
 	connRepo        integrationsDomain.ConnectionRepository
 	settingsRepo    shippingDomain.ShippingConnectionSettingsRepository
 	fulfilmentRepo  shippingDomain.MyParcelFulfilmentOrderRepository
+	salesOrderRepo  salesOrderTotalGetter
+	lineItemRepo    salesOrderLineItemLister
 	myParcelFactory integrationsDomain.MyParcelClientFactory
 	encSecret       string
 	recordActivity  recordActivityUC
@@ -55,12 +64,15 @@ func NewExportMyParcelOrderUseCase(
 	connRepo integrationsDomain.ConnectionRepository,
 	settingsRepo shippingDomain.ShippingConnectionSettingsRepository,
 	fulfilmentRepo shippingDomain.MyParcelFulfilmentOrderRepository,
+	salesOrderRepo salesOrderTotalGetter,
+	lineItemRepo salesOrderLineItemLister,
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	recordActivity recordActivityUC,
 ) *ExportMyParcelOrderUseCase {
 	return &ExportMyParcelOrderUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, fulfilmentRepo: fulfilmentRepo,
+		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo,
 		myParcelFactory: myParcelFactory, encSecret: encryptionSecret, recordActivity: recordActivity,
 	}
 }
@@ -74,6 +86,8 @@ func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyPa
 	var conn integrationsDomain.Connection
 	var settings *shippingDomain.ShippingConnectionSettings
 	var existing *shippingDomain.MyParcelFulfilmentOrder
+	var order *omsDomain.SalesOrder
+	var lineItems []omsDomain.SalesOrderLineItem
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		c, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
 		if err != nil {
@@ -85,6 +99,16 @@ func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyPa
 			return err
 		}
 		existing, err = uc.fulfilmentRepo.FindByConnectionAndSalesOrder(ctx, in.ConnectionID, in.SalesOrderID)
+		if err != nil || existing != nil {
+			// Already exported -- skip the order/line-item fetch below
+			// entirely, nothing here will be used to build a request.
+			return err
+		}
+		order, err = uc.salesOrderRepo.FindByID(ctx, in.SalesOrderID)
+		if err != nil {
+			return err
+		}
+		lineItems, err = uc.lineItemRepo.ListBySalesOrder(ctx, in.SalesOrderID)
 		return err
 	})
 	if err != nil {
@@ -112,27 +136,50 @@ func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyPa
 		return nil, fmt.Errorf("exportMyParcelOrder: build client: %w", err)
 	}
 
+	// externalIdentifier is the order's human-facing number, not our own
+	// internal SalesOrder.ID -- MyParcel's Orders API has no separate
+	// per-shipment reference field (see infrastructure/myparcel's package
+	// doc comment), this external_identifier is the only reference visible
+	// on MyParcel's own dashboard for the order. Falls back to the internal
+	// ID only in the unexpected case Number is blank.
+	externalIdentifier := order.Number
+	if externalIdentifier == "" {
+		externalIdentifier = in.SalesOrderID
+	}
+
+	orderLines := make([]integrationsDomain.OrderLineInput, len(lineItems))
+	for i, li := range lineItems {
+		orderLines[i] = integrationsDomain.OrderLineInput{
+			Quantity: int(li.Quantity), SKU: li.SKUCode, Name: li.Name,
+			PriceMinorUnits: int(li.TotalMinorUnits), VATMinorUnits: int(li.TotalTaxMinorUnits),
+			PriceAfterVATMinorUnits: int(li.TotalMinorUnits + li.TotalTaxMinorUnits),
+		}
+	}
+	priceMinorUnits := int(order.TotalMinorUnits - order.TaxTotalMinorUnits)
+
 	result, err := client.CreateOrder(ctx, integrationsDomain.CreateOrderInput{
-		ExternalIdentifier: in.SalesOrderID, OrderDate: time.Now(), AccountID: accountID, ShopID: shopID,
+		ExternalIdentifier: externalIdentifier, OrderDate: time.Now(), AccountID: accountID, ShopID: shopID,
 		Carrier: int(in.Carrier), PackageType: int(resolved.PackageType),
 		Recipient: integrationsDomain.MyParcelAddress{
 			Person: r.Person, Company: r.Company, Street: r.Street, Number: r.Number, NumberSuffix: r.NumberSuffix,
 			PostalCode: r.PostalCode, City: r.City, CC: r.CC, Email: r.Email, Phone: r.Phone,
 		},
+		PriceMinorUnits: priceMinorUnits, VATMinorUnits: int(order.TaxTotalMinorUnits), PriceAfterVATMinorUnits: int(order.TotalMinorUnits),
+		OrderLines: orderLines,
 	})
 	if err != nil {
 		uc.recordFailure(ctx, in, err)
 		return nil, fmt.Errorf("exportMyParcelOrder: %w", err)
 	}
 
-	order := shippingDomain.MyParcelFulfilmentOrder{
+	fulfilmentOrder := shippingDomain.MyParcelFulfilmentOrder{
 		ConnectionID: in.ConnectionID, SalesOrderID: in.SalesOrderID, MyParcelUUID: result.UUID, Status: result.Status,
 	}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		order.TenantID = tenant.IDFromContext(ctx)
+		fulfilmentOrder.TenantID = tenant.IDFromContext(ctx)
 		now := time.Now()
-		order.CreatedAt, order.UpdatedAt = now, now
-		return uc.fulfilmentRepo.Create(ctx, &order)
+		fulfilmentOrder.CreatedAt, fulfilmentOrder.UpdatedAt = now, now
+		return uc.fulfilmentRepo.Create(ctx, &fulfilmentOrder)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("exportMyParcelOrder: persist: %w", err)
@@ -145,7 +192,7 @@ func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyPa
 			Metadata: map[string]any{"myparcel_uuid": result.UUID, "status": result.Status},
 		})
 	}
-	return &order, nil
+	return &fulfilmentOrder, nil
 }
 
 // recordFailure writes an activity entry for a MyParcel API error -- a

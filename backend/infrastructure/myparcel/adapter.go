@@ -36,6 +36,13 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 }
 
 func (a *Adapter) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
+	lines := make([]OrderLine, len(in.OrderLines))
+	for i, l := range in.OrderLines {
+		lines[i] = OrderLine{
+			Quantity: l.Quantity, SKU: l.SKU, Name: l.Name,
+			PriceMinorUnits: l.PriceMinorUnits, VATMinorUnits: l.VATMinorUnits, PriceAfterVATMinorUnits: l.PriceAfterVATMinorUnits,
+		}
+	}
 	r, err := a.client.CreateOrder(ctx, OrderInput{
 		ExternalIdentifier: in.ExternalIdentifier, OrderDate: in.OrderDate, AccountID: in.AccountID, ShopID: in.ShopID,
 		Carrier: in.Carrier, PackageType: in.PackageType,
@@ -45,6 +52,8 @@ func (a *Adapter) CreateOrder(ctx context.Context, in integrationsDomain.CreateO
 			PostalCode: in.Recipient.PostalCode, City: in.Recipient.City, CC: in.Recipient.CC,
 			Email: in.Recipient.Email, Phone: in.Recipient.Phone,
 		},
+		PriceMinorUnits: in.PriceMinorUnits, VATMinorUnits: in.VATMinorUnits, PriceAfterVATMinorUnits: in.PriceAfterVATMinorUnits,
+		OrderLines: lines,
 	})
 	if err != nil {
 		return integrationsDomain.OrderResult{}, err

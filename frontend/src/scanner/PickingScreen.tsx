@@ -15,6 +15,8 @@ import type { RecipientAddress } from '../shipping/types'
 import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
+import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
+import type { Shipment } from '../shipping/types'
 import { ShippingLabelPrintView } from '../pages/print/ShippingLabelPrintView'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
@@ -93,6 +95,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // See Picking.tsx's identical existingShipment doc.
+  const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
   const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
   useEffect(() => {
@@ -105,6 +109,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
       })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
+
+  // See Picking.tsx's identical handleCreateLabelClick doc.
+  async function handleCreateLabelClick() {
+    if (!myParcelConnection) return
+    const shipments = await shippingApi.listShipmentsForOrder(token, order.id)
+    if (shipments.length > 0) {
+      setExistingShipment(shipments[0])
+      return
+    }
+    setLabelStep('address')
+  }
 
   async function handlePrintLabel() {
     if (!myParcelConnection || !pendingRecipient) return
@@ -302,7 +317,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           {error && <p className="text-sm text-red-400">{error}</p>}
           {myParcelConnection && !createdShipmentId && (
             <button
-              type="button" onClick={() => setLabelStep('address')}
+              type="button" onClick={handleCreateLabelClick}
               className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
             >
               Create shipping label
@@ -352,6 +367,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         {printingLabelId && (
           <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
         )}
+        {existingShipment && (
+          <ExistingShipmentConfirmModal
+            shipment={existingShipment}
+            onCancel={() => setExistingShipment(null)}
+            onReprint={() => {
+              setCreatedShipmentId(existingShipment.id)
+              setPrintingLabelId(existingShipment.id)
+              setExistingShipment(null)
+            }}
+          />
+        )}
       </div>
     )
   }
@@ -380,7 +406,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         <div className="p-6 shrink-0 space-y-2">
           {myParcelConnection && !createdShipmentId && (
             <button
-              type="button" onClick={() => setLabelStep('address')}
+              type="button" onClick={handleCreateLabelClick}
               className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
             >
               Create shipping label
@@ -422,6 +448,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         )}
         {printingLabelId && (
           <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        )}
+        {existingShipment && (
+          <ExistingShipmentConfirmModal
+            shipment={existingShipment}
+            onCancel={() => setExistingShipment(null)}
+            onReprint={() => {
+              setCreatedShipmentId(existingShipment.id)
+              setPrintingLabelId(existingShipment.id)
+              setExistingShipment(null)
+            }}
+          />
         )}
       </div>
     )
