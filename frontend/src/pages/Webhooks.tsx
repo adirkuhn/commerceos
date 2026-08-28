@@ -44,7 +44,7 @@ export default function Webhooks() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden p-5 gap-4">
+    <div className="flex flex-col h-full p-5 gap-4">
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg dark:bg-blue-600/15 bg-blue-50 flex items-center justify-center shrink-0">
           <Webhook size={15} className="text-blue-400" />

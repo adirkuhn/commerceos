@@ -196,7 +196,7 @@ export default function MyParcelSyncSettingsPage({
   const selectClass = 'px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-5 py-4 border-b dark:border-[#2D3748] border-gray-200">
         <button onClick={onClose} aria-label="Back" className="p-1.5 rounded-lg dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors">
           <ArrowLeft size={18} className="dark:text-gray-400 text-gray-500" />
