@@ -86,18 +86,22 @@ describe('Webhooks page — Fan-out tab', () => {
     expect(await screen.findByText('https://example.com/mp-hook')).toBeInTheDocument()
   })
 
-  it('Topic dropdown always offers the baseline catalog plus any real topics fetched, regardless of provider', async () => {
+  it('Topic dropdown flattens topics from every provider the backend returns, deduplicated', async () => {
+    // topicsByProvider already carries the backend's seeded baseline catalog
+    // (backend/domain/integrations' WooWebhookTopic/MyParcelHookType
+    // constants -- see ListAvailableWebhookTopicsUseCase) -- this only
+    // needs to verify the frontend flattens/dedupes what it's given,
+    // regardless of provider (Provider is free text now).
     vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
-      customprovider: ['custom.thing.happened'],
+      woocommerce: ['order.updated', 'product.updated'],
+      customprovider: ['product.updated', 'custom.thing.happened'],
     })
     render(<Webhooks />)
     await screen.findByText('Webhook forwarding')
 
-    // Baseline catalog topics are always present, even with zero real traffic.
     expect(screen.getByRole('option', { name: 'order.updated' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'shipment_status_change' })).toBeInTheDocument()
-    // Real topics fetched from any provider (Provider is free text now) are merged in too.
     expect(screen.getByRole('option', { name: 'custom.thing.happened' })).toBeInTheDocument()
+    expect(screen.getAllByRole('option', { name: 'product.updated' })).toHaveLength(1)
   })
 
   it('Remove calls the delete endpoint and removes the row', async () => {

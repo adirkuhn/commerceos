@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -27,12 +28,13 @@ type providerWebhookSubscriptionsLister interface {
 type TopicsByProvider map[string][]string
 
 // ListAvailableWebhookTopicsUseCase answers "what topics could I actually
-// write a fan-out rule for" -- the union of every topic this tenant has
-// ever actually received a webhook event for (WebhookEventRepository,
-// real traffic) and every topic currently subscribed at the provider
-// (providerWebhookSubscriptionsLister, what's about to start arriving).
-// Replaces a guessed hardcoded topic list on the frontend: this reflects
-// what the tenant's own integrations actually do, not a generic enum.
+// write a fan-out rule for" -- the union of three sources: the baseline
+// catalog (integrationsDomain.KnownWebhookTopicsByProvider, so a brand-new
+// tenant with zero traffic still gets a populated dropdown instead of an
+// empty one), every topic this tenant has ever actually received a webhook
+// event for (WebhookEventRepository, real traffic), and every topic
+// currently subscribed at the provider (providerWebhookSubscriptionsLister,
+// what's about to start arriving).
 type ListAvailableWebhookTopicsUseCase struct {
 	db                *gorm.DB
 	eventRepo         webhooks.WebhookEventRepository
@@ -55,6 +57,12 @@ func (uc *ListAvailableWebhookTopicsUseCase) Execute(ctx context.Context) (Topic
 			sets[provider] = map[string]struct{}{}
 		}
 		sets[provider][topic] = struct{}{}
+	}
+
+	for provider, topics := range integrationsDomain.KnownWebhookTopicsByProvider() {
+		for _, topic := range topics {
+			add(string(provider), topic)
+		}
 	}
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {

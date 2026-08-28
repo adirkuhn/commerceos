@@ -16,23 +16,6 @@ function canManageWebhooks(role: string | undefined): boolean {
 
 type Tab = 'fanout' | 'subscriptions'
 
-// Baseline topic catalog, always offered regardless of what this tenant
-// has actually seen yet (a brand-new tenant has zero received events and
-// zero subscriptions -- the dropdown must never be empty just because
-// nothing has happened yet). WooCommerce's own REST API webhook topics
-// (Woo docs: Webhooks -> Topics) and MyParcel's three hook types (see
-// backend/domain/integrations.WebhookSubscription's doc comment, confirmed
-// against developer.myparcel.nl/api-reference/10.webhooks.html). Merged
-// with useWebhookTopics' real (received + subscribed) topics -- see
-// FanOutTab's topic options below.
-const KNOWN_TOPICS = [
-  'order.created', 'order.updated', 'order.deleted',
-  'product.created', 'product.updated', 'product.deleted',
-  'customer.created', 'customer.updated', 'customer.deleted',
-  'coupon.created', 'coupon.updated', 'coupon.deleted',
-  'shipment_status_change', 'shipment_label_created', 'order_status_change',
-]
-
 // The dedicated home for everything webhook-related: Screen 1 (Fan-out)
 // configures CommerceOS's own fan-out rules (provider/topic -> target
 // URL), Screen 2 (Subscriptions) shows every webhook subscription actually
@@ -109,13 +92,16 @@ function FanOutTab({
   const [submitting, setSubmitting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // Every topic worth offering, regardless of provider -- the baseline
-  // catalog plus whatever this tenant has actually received or subscribed
-  // to (useWebhookTopics), deduplicated. Provider is free text (any
-  // WooCommerce/MyParcel connection, or a future provider this codebase
-  // doesn't know the name of yet), so the topic list can't be filtered by
-  // it -- show everything.
-  const topicOptions = Array.from(new Set([...KNOWN_TOPICS, ...Object.values(topicsByProvider).flat()])).sort()
+  // Every topic worth offering, regardless of provider -- topicsByProvider
+  // already carries the baseline catalog (backend/domain/integrations'
+  // WooWebhookTopic/MyParcelHookType constants, seeded by
+  // ListAvailableWebhookTopicsUseCase so a brand-new tenant still gets a
+  // populated dropdown) merged with whatever this tenant has actually
+  // received or subscribed to. Provider is free text (any WooCommerce/
+  // MyParcel connection, or a future provider this codebase doesn't know
+  // the name of yet), so the topic list can't be filtered by it -- show
+  // everything, deduplicated.
+  const topicOptions = Array.from(new Set(Object.values(topicsByProvider).flat())).sort()
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
