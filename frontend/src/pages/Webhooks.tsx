@@ -16,6 +16,23 @@ function canManageWebhooks(role: string | undefined): boolean {
 
 type Tab = 'fanout' | 'subscriptions'
 
+// Baseline topic catalog, always offered regardless of what this tenant
+// has actually seen yet (a brand-new tenant has zero received events and
+// zero subscriptions -- the dropdown must never be empty just because
+// nothing has happened yet). WooCommerce's own REST API webhook topics
+// (Woo docs: Webhooks -> Topics) and MyParcel's three hook types (see
+// backend/domain/integrations.WebhookSubscription's doc comment, confirmed
+// against developer.myparcel.nl/api-reference/10.webhooks.html). Merged
+// with useWebhookTopics' real (received + subscribed) topics -- see
+// FanOutTab's topic options below.
+const KNOWN_TOPICS = [
+  'order.created', 'order.updated', 'order.deleted',
+  'product.created', 'product.updated', 'product.deleted',
+  'customer.created', 'customer.updated', 'customer.deleted',
+  'coupon.created', 'coupon.updated', 'coupon.deleted',
+  'shipment_status_change', 'shipment_label_created', 'order_status_change',
+]
+
 // The dedicated home for everything webhook-related: Screen 1 (Fan-out)
 // configures CommerceOS's own fan-out rules (provider/topic -> target
 // URL), Screen 2 (Subscriptions) shows every webhook subscription actually
@@ -92,6 +109,14 @@ function FanOutTab({
   const [submitting, setSubmitting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
+  // Every topic worth offering, regardless of provider -- the baseline
+  // catalog plus whatever this tenant has actually received or subscribed
+  // to (useWebhookTopics), deduplicated. Provider is free text (any
+  // WooCommerce/MyParcel connection, or a future provider this codebase
+  // doesn't know the name of yet), so the topic list can't be filtered by
+  // it -- show everything.
+  const topicOptions = Array.from(new Set([...KNOWN_TOPICS, ...Object.values(topicsByProvider).flat()])).sort()
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')
@@ -136,21 +161,17 @@ function FanOutTab({
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2 mb-4">
           <div>
             <label htmlFor="forward-provider" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Provider</label>
-            <select
+            <input
               id="forward-provider" required value={provider}
-              onChange={e => { setProvider(e.target.value); setTopic('') }}
-              className={inputClass}
-            >
-              <option value="">Select…</option>
-              <option value="woocommerce">WooCommerce</option>
-              <option value="myparcel">MyParcel</option>
-            </select>
+              onChange={e => setProvider(e.target.value)}
+              placeholder="woocommerce" className={inputClass}
+            />
           </div>
           <div>
             <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic</label>
             <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
               <option value="">All events</option>
-              {(topicsByProvider[provider] ?? []).map(t => (
+              {topicOptions.map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>

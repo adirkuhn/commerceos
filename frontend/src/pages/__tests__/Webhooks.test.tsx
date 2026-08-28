@@ -76,7 +76,7 @@ describe('Webhooks page — Fan-out tab', () => {
     render(<Webhooks />)
     await screen.findByText('Webhook forwarding')
 
-    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'myparcel')
+    await userEvent.type(screen.getByLabelText('Provider'), 'myparcel')
     await userEvent.type(screen.getByLabelText('Target URL'), 'https://example.com/mp-hook')
     await userEvent.click(screen.getByRole('button', { name: 'Add rule' }))
 
@@ -86,19 +86,18 @@ describe('Webhooks page — Fan-out tab', () => {
     expect(await screen.findByText('https://example.com/mp-hook')).toBeInTheDocument()
   })
 
-  it('Topic dropdown lists real topics fetched for the selected provider, not a hardcoded list', async () => {
+  it('Topic dropdown always offers the baseline catalog plus any real topics fetched, regardless of provider', async () => {
     vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
-      woocommerce: ['order.updated', 'product.updated'],
-      myparcel: ['shipment_status_change'],
+      customprovider: ['custom.thing.happened'],
     })
     render(<Webhooks />)
     await screen.findByText('Webhook forwarding')
 
-    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'woocommerce')
-
+    // Baseline catalog topics are always present, even with zero real traffic.
     expect(screen.getByRole('option', { name: 'order.updated' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'product.updated' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'shipment_status_change' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'shipment_status_change' })).toBeInTheDocument()
+    // Real topics fetched from any provider (Provider is free text now) are merged in too.
+    expect(screen.getByRole('option', { name: 'custom.thing.happened' })).toBeInTheDocument()
   })
 
   it('Remove calls the delete endpoint and removes the row', async () => {
