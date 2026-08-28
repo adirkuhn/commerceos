@@ -17,6 +17,7 @@ vi.mock('../api', () => ({
   getShippingSettings: vi.fn(),
   updateShippingSettings: vi.fn(),
   upsertCarrierOverride: vi.fn(),
+  registerMyParcelWebhook: vi.fn(),
 }))
 
 vi.mock('../../integrations/api', () => ({
@@ -192,8 +193,10 @@ describe('MyParcelSyncSettingsPage -- Webhooks section', () => {
     expect(await screen.findByText('shipment_status_change')).toBeInTheDocument()
   })
 
-  it('focusWebhooks scrolls the Webhooks section into view once settings finish loading', async () => {
+  it('focusWebhooks scrolls the Webhooks section into view and auto-registers with MyParcel', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-mp-1', webhook_secret: 'top-secret-value' })
+    vi.mocked(api.registerMyParcelWebhook).mockResolvedValue({ ok: true })
     // jsdom doesn't implement scrollIntoView at all (not even a stub) --
     // assign one directly rather than vi.spyOn, which requires the
     // property to already exist.
@@ -204,5 +207,35 @@ describe('MyParcelSyncSettingsPage -- Webhooks section', () => {
     await screen.findByText('Per-carrier overrides')
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' })
+    expect(integrationsApi.setWebhookSecret).toHaveBeenCalledWith('test-token', 'conn-mp-1')
+    expect(await screen.findByText(/MyParcel is now sending shipment_status_change webhooks to CommerceOS/)).toBeInTheDocument()
+    expect(api.registerMyParcelWebhook).toHaveBeenCalledWith('test-token', 'conn-mp-1')
+  })
+
+  it('Register with MyParcel generates a secret and registers the webhook in one click', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-mp-1', webhook_secret: 'top-secret-value' })
+    vi.mocked(api.registerMyParcelWebhook).mockResolvedValue({ ok: true })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+    await screen.findByText('Per-carrier overrides')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Register with MyParcel' }))
+
+    expect(integrationsApi.setWebhookSecret).toHaveBeenCalledWith('test-token', 'conn-mp-1')
+    expect(api.registerMyParcelWebhook).toHaveBeenCalledWith('test-token', 'conn-mp-1')
+    expect(await screen.findByText(/MyParcel is now sending shipment_status_change webhooks to CommerceOS/)).toBeInTheDocument()
+    expect(screen.getByText('top-secret-value')).toBeInTheDocument()
+  })
+
+  it('Register with MyParcel shows an inline error if it fails', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-mp-1', webhook_secret: 'top-secret-value' })
+    vi.mocked(api.registerMyParcelWebhook).mockRejectedValue(new Error('myparcel api unreachable'))
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+    await screen.findByText('Per-carrier overrides')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Register with MyParcel' }))
+
+    expect(await screen.findByText('myparcel api unreachable')).toBeInTheDocument()
   })
 })

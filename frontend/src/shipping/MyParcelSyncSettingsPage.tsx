@@ -62,6 +62,16 @@ export default function MyParcelSyncSettingsPage({
   const [webhookSecretError, setWebhookSecretError] = useState('')
   const [copiedField, setCopiedField] = useState<'url' | 'secret' | null>(null)
 
+  const [registeringWebhook, setRegisteringWebhook] = useState(false)
+  const [registerWebhookError, setRegisterWebhookError] = useState('')
+  const [registerWebhookDone, setRegisterWebhookDone] = useState(false)
+  // Bumped after a successful register so ProviderWebhooksPanel (its own
+  // component, own useProviderWebhooks fetch) remounts and re-fetches --
+  // RegisterMyParcelWebhookUseCase writes directly at MyParcel, not through
+  // that hook, so without this the new subscription wouldn't show up in
+  // its table until the next full page load.
+  const [webhooksPanelKey, setWebhooksPanelKey] = useState(0)
+
   async function handleGenerateWebhookSecret() {
     setWebhookSecretError('')
     setGeneratingSecret(true)
@@ -72,6 +82,30 @@ export default function MyParcelSyncSettingsPage({
       setWebhookSecretError(err instanceof Error ? err.message : 'Failed to generate webhook secret')
     } finally {
       setGeneratingSecret(false)
+    }
+  }
+
+  // The actual "make MyParcel send webhooks to CommerceOS" action --
+  // generates a fresh signing secret (RegisterMyParcelWebhookUseCase
+  // requires one) then registers the shipment_status_change callback with
+  // MyParcel using it. Safe to re-run: MyParcel overwrites its existing
+  // subscription of that hook type rather than erroring (see
+  // domain/integrations.MyParcelClient.RegisterWebhook's doc comment), so
+  // regenerating the secret and re-registering together always leave the
+  // live subscription's token in sync with the secret CommerceOS has on file.
+  async function handleRegisterWebhook() {
+    setRegisterWebhookError('')
+    setRegisteringWebhook(true)
+    try {
+      const secretResult = await integrationsApi.setWebhookSecret(token ?? '', connectionId)
+      setWebhookSecret(secretResult.webhook_secret)
+      await api.registerMyParcelWebhook(token ?? '', connectionId)
+      setRegisterWebhookDone(true)
+      setWebhooksPanelKey(k => k + 1)
+    } catch (err) {
+      setRegisterWebhookError(err instanceof Error ? err.message : 'Failed to register webhook with MyParcel')
+    } finally {
+      setRegisteringWebhook(false)
     }
   }
 
@@ -112,10 +146,15 @@ export default function MyParcelSyncSettingsPage({
   }, [connectionId, token])
 
   // Deep link from Integrations.tsx's "Register webhook" quick action --
-  // jump straight to the Webhooks section instead of making the admin
-  // scroll past carrier overrides to find it.
+  // scrolls to the Webhooks section AND actually runs the registration
+  // (handleRegisterWebhook), instead of just landing on a form the admin
+  // still has to fill in themselves. autoRegisterRanRef guards against
+  // React StrictMode's double-invoke firing this (and the live API calls
+  // it makes) twice.
+  const autoRegisterRanRef = useRef(false)
   useEffect(() => {
-    if (focusWebhooks && !settingsLoading && connectionId) {
+    if (focusWebhooks && !settingsLoading && connectionId && !autoRegisterRanRef.current) {
+      autoRegisterRanRef.current = true
       // jsdom (unit tests) has no real layout engine -- scrollIntoView
       // throws "Not implemented" there. try/catch keeps that a no-op
       // instead of failing the render.
@@ -124,7 +163,9 @@ export default function MyParcelSyncSettingsPage({
       } catch {
         // no-op -- see comment above
       }
+      handleRegisterWebhook()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusWebhooks, settingsLoading, connectionId])
 
   async function handleConnect(e: React.FormEvent) {
@@ -203,7 +244,11 @@ export default function MyParcelSyncSettingsPage({
         </button>
         <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">MyParcel</h2>
       </div>
-      <div className="flex-1 overflow-y-auto p-5 max-w-2xl">
+      {/* min-h-0 overrides the flex item's default min-height:auto, which
+          otherwise refuses to shrink below this div's own (tall) content --
+          without it, overflow-y-auto never actually gets a smaller box to
+          scroll within, and the page just grows past the viewport. */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 max-w-2xl">
         {!connectionId ? (
           <form onSubmit={handleConnect} className="space-y-4">
             <p className="text-xs dark:text-gray-500 text-gray-400">
@@ -371,6 +416,29 @@ export default function MyParcelSyncSettingsPage({
               <div ref={webhooksSectionRef}>
                 <h3 className="text-xs font-semibold dark:text-gray-300 text-gray-700 mb-2">Webhooks</h3>
                 <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs dark:text-gray-400 text-gray-500">
+                      Registers CommerceOS's own delivery URL with MyParcel for shipment_status_change -- this is what
+                      makes MyParcel actually start sending shipment updates here.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRegisterWebhook}
+                      disabled={registeringWebhook}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shrink-0"
+                    >
+                      {registeringWebhook ? 'Registering…' : 'Register with MyParcel'}
+                    </button>
+                  </div>
+                  {registerWebhookError && (
+                    <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{registerWebhookError}</p>
+                  )}
+                  {registerWebhookDone && !registerWebhookError && (
+                    <p className="text-xs text-green-500 bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">
+                      Registered -- MyParcel is now sending shipment_status_change webhooks to CommerceOS.
+                    </p>
+                  )}
+
                   <div>
                     <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
                       Delivery URL
@@ -430,7 +498,7 @@ export default function MyParcelSyncSettingsPage({
                 </div>
 
                 <div className="mt-3">
-                  <ProviderWebhooksPanel token={token ?? ''} connectionId={connectionId} />
+                  <ProviderWebhooksPanel key={webhooksPanelKey} token={token ?? ''} connectionId={connectionId} />
                 </div>
               </div>
             )}

@@ -71,7 +71,7 @@ export default function Webhooks() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {tab === 'fanout' && <FanOutTab {...forwardRules} topics={topics} />}
         {tab === 'subscriptions' && <SubscriptionsTab {...allWebhooks} onRegisterWebhook={() => setActiveNav('integrations')} />}
       </div>
