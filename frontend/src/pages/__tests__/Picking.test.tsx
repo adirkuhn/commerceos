@@ -266,6 +266,27 @@ describe('Picking page', () => {
     expect(within(missing).getByText('Widget: 0/2')).toBeInTheDocument()
   })
 
+  it('shows the shipping method below the address on the review screen', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({
+        shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+        shipping_method_title: 'PostNL PakjeGemak',
+      })],
+      total: 1,
+    })
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Complete' }))
+
+    expect(await screen.findByText('Review before completing')).toBeInTheDocument()
+    expect(screen.getByText('Shipping: PostNL PakjeGemak')).toBeInTheDocument()
+  })
+
   it('does not show "Create shipping label" when no MyParcel connection exists', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
@@ -289,6 +310,58 @@ describe('Picking page', () => {
     beforeEach(() => {
       vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
       vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    })
+
+    it('lets staff create the shipping label from the review screen, before Confirm & Complete', async () => {
+      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+        salesOrders: [salesOrder({
+          shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+          shipping_method_title: 'DHL Europe',
+        })],
+        total: 1,
+      })
+      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(shippingApi.createShipment).mockResolvedValue({
+        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 9, barcode: '3SMYPA1',
+        status: 1, status_main: 'registered', label_format: 'pdf',
+        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+        created_at: '2026-08-23T00:00:00Z',
+      })
+      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+      vi.stubGlobal('print', vi.fn())
+
+      const user = userEvent.setup()
+      render(<Picking />)
+      await user.click(await screen.findByText('#1001'))
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('Review before completing')
+
+      // Label creation is reachable here, before Confirm & Complete has run.
+      expect(pickingApi.completePicking).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+
+      // The order's shipping method ("DHL Europe") best-effort pre-selects
+      // DHL in the carrier dropdown -- still just a default, staff can pick
+      // any other carrier from the same select.
+      expect(screen.getByLabelText('Carrier')).toHaveValue('9')
+
+      await user.click(screen.getByRole('button', { name: 'Review label' }))
+      await user.click(screen.getByRole('button', { name: 'Print label' }))
+
+      await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        connection_id: 'conn-mp-1', sales_order_id: 'so-1', carrier: 9,
+      })))
+      expect(pickingApi.completePicking).not.toHaveBeenCalled()
+
+      // Confirm & Complete still works independently of the label having
+      // been created.
+      await user.click(await screen.findByTitle('Close'))
+      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+      expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     })
 
     it('creates a shipment from the confirmed address and shows Print shipping label afterward', async () => {

@@ -109,6 +109,19 @@ describe('PickingScreen', () => {
     expect(api.completePicking).not.toHaveBeenCalled()
   })
 
+  it('shows the shipping method below the address on the review screen', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+
+    const user = userEvent.setup()
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder({ shipping_method_title: 'PostNL PakjeGemak' })} onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Finish' }))
+
+    expect(await screen.findByText('Review before finishing')).toBeInTheDocument()
+    expect(screen.getByText('Damrak 1, 1012AB Amsterdam, NL')).toBeInTheDocument()
+    expect(screen.getByText('Shipping: PostNL PakjeGemak')).toBeInTheDocument()
+  })
+
   it('does not show "Create shipping label" when no MyParcel connection exists', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue(detail())
     vi.mocked(api.completePicking).mockResolvedValue({
@@ -133,6 +146,45 @@ describe('PickingScreen', () => {
     beforeEach(() => {
       vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
       vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    })
+
+    it('lets staff create the shipping label from the review screen, before Confirm & Complete', async () => {
+      vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+      vi.mocked(api.completePicking).mockResolvedValue({
+        session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '', completed_by: '' },
+        missing_items: [],
+      })
+      vi.mocked(shippingApi.createShipment).mockResolvedValue({
+        id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 9, barcode: '3SMYPA1',
+        status: 1, status_main: 'registered', label_format: 'pdf',
+        recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+        created_at: '2026-08-23T00:00:00Z',
+      })
+      vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+      vi.stubGlobal('print', vi.fn())
+
+      const user = userEvent.setup()
+      render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder({ shipping_method_title: 'DHL Europe' })} onExit={vi.fn()} onAuthError={vi.fn()} />)
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Finish' }))
+      await screen.findByText('Review before finishing')
+
+      expect(api.completePicking).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+      expect(screen.getByLabelText('Carrier')).toHaveValue('9')
+
+      await user.click(screen.getByRole('button', { name: 'Review label' }))
+      await user.click(screen.getByRole('button', { name: 'Print label' }))
+
+      await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith(TOKEN, expect.objectContaining({
+        connection_id: 'conn-mp-1', sales_order_id: 'so-1', carrier: 9,
+      })))
+      expect(api.completePicking).not.toHaveBeenCalled()
+
+      await user.click(await screen.findByTitle('Close'))
+      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+      expect(await screen.findByText('Order picked')).toBeInTheDocument()
     })
 
     it('creates a shipment via the address confirm -> label preview flow, then opens the print view', async () => {

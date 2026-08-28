@@ -11,6 +11,7 @@ import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import type { RecipientAddress } from '../shipping/types'
+import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
@@ -106,19 +107,24 @@ export default function Picking() {
   // it.
   const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
   const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
-  const [pendingCarrier, setPendingCarrier] = useState(1)
+  // null until AddressConfirmModal's onNext runs once -- lets its own
+  // defaultCarrier (the shipping-method guess below) take effect on first
+  // open instead of always being masked by a hardcoded initial value.
+  const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
   // auto_print_enabled -- see SalesOrders.tsx's identical logic for the doc;
   // same setting, same "still the OS print dialog" caveat.
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
   useEffect(() => {
     if (!token || !myParcelConnection) return
     shippingApi.getShippingSettings(token, myParcelConnection.id)
       .then(result => {
         setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
         setLabelSize(result.settings?.default_label_size ?? 'A4')
+        setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
       })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
@@ -378,7 +384,7 @@ export default function Picking() {
   async function handlePrintLabel() {
     if (!token || !activeOrder || !myParcelConnection || !pendingRecipient) return
     const shipment = await shippingApi.createShipment(token, {
-      carrier: pendingCarrier, recipient: pendingRecipient,
+      carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
       connection_id: myParcelConnection.id, sales_order_id: activeOrder.id,
     })
     setLabelStep(null)
@@ -509,7 +515,8 @@ export default function Picking() {
           <AddressConfirmModal
             initialAddress={activeOrder.shipping}
             initialRecipient={pendingRecipient ?? undefined}
-            initialCarrier={pendingCarrier}
+            initialCarrier={pendingCarrier ?? undefined}
+            defaultCarrier={guessCarrierFromShippingMethod(activeOrder.shipping_method_title, activeOrder.shipping_method, connectionDefaultCarrier)}
             onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
             onClose={() => setLabelStep(null)}
           />
@@ -517,7 +524,7 @@ export default function Picking() {
         {labelStep === 'preview' && pendingRecipient && (
           <LabelPreviewModal
             recipient={pendingRecipient}
-            carrier={pendingCarrier}
+            carrier={pendingCarrier ?? connectionDefaultCarrier}
             labelSize={labelSize}
             onLabelSizeChange={setLabelSize}
             onBack={() => setLabelStep('address')}
@@ -547,6 +554,11 @@ export default function Picking() {
               {shippingAddressLine(activeOrder.shipping) && (
                 <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">{shippingAddressLine(activeOrder.shipping)}</p>
               )}
+              {(activeOrder.shipping_method_title || activeOrder.shipping_method) && (
+                <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+                  Shipping: {activeOrder.shipping_method_title || activeOrder.shipping_method}
+                </p>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
               {(() => {
@@ -568,6 +580,22 @@ export default function Picking() {
             </div>
             <div className="p-6 border-t dark:border-[#2D3748] border-gray-200 shrink-0 space-y-2">
               {error && <p className="text-sm text-red-400">{error}</p>}
+              {myParcelConnection && !createdShipmentId && (
+                <button
+                  type="button" onClick={() => setLabelStep('address')}
+                  className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-sm font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                >
+                  Create shipping label
+                </button>
+              )}
+              {createdShipmentId && (
+                <button
+                  type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+                  className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-sm font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                >
+                  {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+                </button>
+              )}
               <button
                 onClick={handleConfirmComplete} disabled={completing}
                 className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"

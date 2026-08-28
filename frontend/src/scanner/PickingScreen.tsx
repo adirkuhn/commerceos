@@ -12,6 +12,7 @@ import { computeMissingItems, pickedQuantityByLineItem } from './pickingMissingI
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import type { RecipientAddress } from '../shipping/types'
+import { guessCarrierFromShippingMethod } from '../shipping/carrierGuess'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ShippingLabelPrintView } from '../pages/print/ShippingLabelPrintView'
@@ -85,17 +86,22 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   // shipment (handlePrintLabel).
   const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
   const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
-  const [pendingCarrier, setPendingCarrier] = useState(1)
+  // null until AddressConfirmModal's onNext runs once -- lets its own
+  // defaultCarrier (the shipping-method guess below) take effect on first
+  // open instead of always being masked by a hardcoded initial value.
+  const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
   useEffect(() => {
     if (!myParcelConnection) return
     shippingApi.getShippingSettings(token, myParcelConnection.id)
       .then(result => {
         setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
         setLabelSize(result.settings?.default_label_size ?? 'A4')
+        setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
       })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
@@ -103,7 +109,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   async function handlePrintLabel() {
     if (!myParcelConnection || !pendingRecipient) return
     const shipment = await shippingApi.createShipment(token, {
-      carrier: pendingCarrier, recipient: pendingRecipient,
+      carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
       connection_id: myParcelConnection.id, sales_order_id: order.id,
     })
     setLabelStep(null)
@@ -260,6 +266,23 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           </button>
           <h1 className="flex-1 text-base font-semibold">Review before finishing</h1>
         </div>
+        {/* Customer/address stays visible here too, not just during active
+            picking -- staff confirming completion should never have to go
+            back just to double-check who this ships to (or create the label
+            below without knowing the destination). */}
+        <div className="px-4 py-3 border-b border-[#2D3748] shrink-0 bg-[#111827]">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-base font-semibold">#{order.number || order.external_order_id}</span>
+            <span className="text-gray-500">·</span>
+            <span className="text-base text-gray-300">{customerName(order)}</span>
+          </div>
+          {shippingAddressLine(order.shipping) && (
+            <p className="text-sm text-gray-400 mt-0.5">{shippingAddressLine(order.shipping)}</p>
+          )}
+          {(order.shipping_method_title || order.shipping_method) && (
+            <p className="text-sm text-gray-400 mt-0.5">Shipping: {order.shipping_method_title || order.shipping_method}</p>
+          )}
+        </div>
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
           {missing.length === 0 ? (
             <p className="text-center text-sm text-gray-400 py-8">Every line is fully picked.</p>
@@ -277,6 +300,22 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         </div>
         <div className="p-4 border-t border-[#2D3748] shrink-0 space-y-2">
           {error && <p className="text-sm text-red-400">{error}</p>}
+          {myParcelConnection && !createdShipmentId && (
+            <button
+              type="button" onClick={() => setLabelStep('address')}
+              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+            >
+              Create shipping label
+            </button>
+          )}
+          {createdShipmentId && (
+            <button
+              type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+              className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
+            >
+              {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
+            </button>
+          )}
           <button
             onClick={handleConfirmComplete}
             disabled={finishing}
@@ -288,6 +327,31 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             Back, scan more
           </button>
         </div>
+
+        {labelStep === 'address' && (
+          <AddressConfirmModal
+            initialAddress={order.shipping}
+            initialRecipient={pendingRecipient ?? undefined}
+            initialCarrier={pendingCarrier ?? undefined}
+            defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
+            onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+            onClose={() => setLabelStep(null)}
+          />
+        )}
+        {labelStep === 'preview' && pendingRecipient && (
+          <LabelPreviewModal
+            recipient={pendingRecipient}
+            carrier={pendingCarrier ?? connectionDefaultCarrier}
+            labelSize={labelSize}
+            onLabelSizeChange={setLabelSize}
+            onBack={() => setLabelStep('address')}
+            onPrint={handlePrintLabel}
+            onClose={() => setLabelStep(null)}
+          />
+        )}
+        {printingLabelId && (
+          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        )}
       </div>
     )
   }
@@ -339,7 +403,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <AddressConfirmModal
             initialAddress={order.shipping}
             initialRecipient={pendingRecipient ?? undefined}
-            initialCarrier={pendingCarrier}
+            initialCarrier={pendingCarrier ?? undefined}
+            defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
             onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
             onClose={() => setLabelStep(null)}
           />
@@ -347,7 +412,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         {labelStep === 'preview' && pendingRecipient && (
           <LabelPreviewModal
             recipient={pendingRecipient}
-            carrier={pendingCarrier}
+            carrier={pendingCarrier ?? connectionDefaultCarrier}
             labelSize={labelSize}
             onLabelSizeChange={setLabelSize}
             onBack={() => setLabelStep('address')}
