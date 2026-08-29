@@ -347,6 +347,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/EmptyResponse'
 
+  /integrations/webhook-events:
+    get:
+      operationId: listWebhookEvents
+      summary: List every inbound webhook this tenant has received (the cold-path landing record) -- "see all messages", optionally filtered by sender
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          description: Filter to one sender (e.g. myparcel, woocommerce). Omit to list every provider.
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          description: Defaults to 50, max 200.
+          schema: { type: integer }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookEventListResponse'
+
   /integrations/webhook-forward-deliveries:
     get:
       operationId: listWebhookForwardDeliveries
@@ -1899,6 +1922,26 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WebhookForwardRule' }
+        error: { nullable: true }
+
+    WebhookEvent:
+      type: object
+      description: One inbound webhook this tenant received, as persisted by the cold-path landing record (see backend/domain/webhooks.WebhookEvent).
+      properties:
+        id: { type: string }
+        provider: { type: string, description: "The sender -- e.g. myparcel, woocommerce." }
+        topic: { type: string }
+        event_id: { type: string }
+        payload: { description: "The provider's raw JSON payload, parsed. Any shape -- provider-defined.", nullable: true }
+        received_at: { type: string, format: date-time }
+        processed_at: { type: string, format: date-time }
+
+    WebhookEventListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookEvent' }
         error: { nullable: true }
 
     WebhookForwardDelivery:

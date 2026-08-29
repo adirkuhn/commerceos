@@ -31,6 +31,10 @@ func (f *fakeWebhookEventRepo) DistinctTopics(ctx context.Context) ([]webhooks.T
 	panic("not used")
 }
 
+func (f *fakeWebhookEventRepo) List(ctx context.Context, provider string, limit int) ([]webhooks.WebhookEvent, error) {
+	panic("not used")
+}
+
 type fakeForwardRuleRepo struct {
 	rules []webhooks.ForwardRule
 	err   error

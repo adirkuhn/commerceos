@@ -29,6 +29,10 @@ func (f *fakeTopicsEventRepo) DistinctTopics(ctx context.Context) ([]webhooks.To
 	return f.refs, nil
 }
 
+func (f *fakeTopicsEventRepo) List(ctx context.Context, provider string, limit int) ([]webhooks.WebhookEvent, error) {
+	panic("not used")
+}
+
 type fakeSubscriptionsLister struct {
 	result *appintegrations.ListAllProviderWebhooksResult
 	err    error

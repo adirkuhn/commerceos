@@ -32,6 +32,11 @@ type WebhookEventRepository interface {
 	// ListAvailableWebhookTopicsUseCase to populate the fan-out rule form's
 	// Topic dropdown.
 	DistinctTopics(ctx context.Context) ([]TopicRef, error)
+	// List returns this tenant's received webhooks, newest first, optionally
+	// filtered to one sender (provider == "" means every provider) -- the
+	// Webhooks page's "Messages" tab ("see all messages, filter by
+	// sender").
+	List(ctx context.Context, provider string, limit int) ([]WebhookEvent, error)
 }
 
 // ForwardRuleRepository persists a tenant's webhook fan-out configuration

@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -77,6 +78,9 @@ type deleteWebhookForwardRuleUC interface {
 }
 type listWebhookForwardDeliveriesUC interface {
 	Execute(ctx context.Context, limit int) ([]webhooksDomain.ForwardDelivery, error)
+}
+type listWebhookEventsUC interface {
+	Execute(ctx context.Context, provider string, limit int) ([]webhooksDomain.WebhookEvent, error)
 }
 type listProviderWebhooksUC interface {
 	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.ProviderWebhook, error)
@@ -255,6 +259,7 @@ type Handler struct {
 	upsertBolProductContent      upsertBolProductContentUC
 	getBolCommission             getBolCommissionUC
 	listBolEconomicOperators     listBolEconomicOperatorsUC
+	listWebhookEvents            listWebhookEventsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -314,6 +319,7 @@ func NewHandler(
 	upsertBolProductContent upsertBolProductContentUC,
 	getBolCommission getBolCommissionUC,
 	listBolEconomicOperators listBolEconomicOperatorsUC,
+	listWebhookEvents listWebhookEventsUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -371,6 +377,7 @@ func NewHandler(
 		upsertBolProductContent:      upsertBolProductContent,
 		getBolCommission:             getBolCommission,
 		listBolEconomicOperators:     listBolEconomicOperators,
+		listWebhookEvents:            listWebhookEvents,
 	}
 }
 
@@ -528,6 +535,7 @@ func Register(
 		appchannels.NewUpsertBolProductContentUseCase(db, bolContentRepo, outboxRepo),
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
+		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -829,6 +837,33 @@ func (h *Handler) ListWebhookForwardDeliveries(c *gin.Context, params genintegra
 			Id: &id, RuleId: &ruleID, Provider: &provider, Topic: &topic, TargetUrl: &targetURL,
 			Status: &status, Attempts: &attempts, LastError: &lastError,
 			NextAttemptAt: &nextAttemptAt, DeliveredAt: d.DeliveredAt, CreatedAt: &createdAt,
+		}
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) ListWebhookEvents(c *gin.Context, params genintegrations.ListWebhookEventsParams) {
+	provider := ""
+	if params.Provider != nil {
+		provider = *params.Provider
+	}
+	limit := 50
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	events, err := h.listWebhookEvents.Execute(c.Request.Context(), provider, limit)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genintegrations.WebhookEvent, len(events))
+	for i, e := range events {
+		id, eventID, provider, topic := e.ID, e.EventID, e.Provider, e.Topic
+		receivedAt, processedAt := e.ReceivedAt, e.ProcessedAt
+		var payload any
+		_ = json.Unmarshal(e.Payload, &payload)
+		out[i] = genintegrations.WebhookEvent{
+			Id: &id, EventId: &eventID, Provider: &provider, Topic: &topic,
+			Payload: payload, ReceivedAt: &receivedAt, ProcessedAt: &processedAt,
 		}
 	}
 	middleware.OK(c, out)

@@ -62,6 +62,32 @@ func (r *WebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEvent) e
 	return nil
 }
 
+// List returns this tenant's received webhooks, newest first, optionally
+// filtered to one provider -- see WebhookEventRepository.List's doc
+// comment.
+func (r *WebhookEventRepo) List(ctx context.Context, provider string, limit int) ([]webhooks.WebhookEvent, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("webhookEventRepo: List called outside a transaction")
+	}
+	q := tx.WithContext(ctx).Order("received_at DESC").Limit(limit)
+	if provider != "" {
+		q = q.Where("provider = ?", provider)
+	}
+	var rows []webhookEventModel
+	if err := q.Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("webhookEventRepo.List: %w", err)
+	}
+	out := make([]webhooks.WebhookEvent, len(rows))
+	for i, m := range rows {
+		out[i] = webhooks.WebhookEvent{
+			ID: m.ID, TenantID: m.TenantID, Provider: m.Provider, EventID: m.EventID,
+			Topic: m.Topic, Payload: m.Payload, ReceivedAt: m.ReceivedAt, ProcessedAt: m.ProcessedAt,
+		}
+	}
+	return out, nil
+}
+
 func (r *WebhookEventRepo) DistinctTopics(ctx context.Context) ([]webhooks.TopicRef, error) {
 	tx, ok := txctx.FromContext(ctx)
 	if !ok {
