@@ -115,7 +115,7 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 		if tt.StatusMain == s.StatusMain && tt.StatusCode == s.Status {
 			continue // nothing actually changed -- still touch nothing, just confirms it's genuinely stalled, not missed
 		}
-		if err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
+		if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
 			s.ID, s.SalesOrderID, tt, shippingDomain.StatusEventSourceReconciliation); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: apply update: %v", s.ID, err))
 			continue

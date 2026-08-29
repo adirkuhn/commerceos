@@ -137,11 +137,18 @@ func (f *fakeShipmentRepo) UpdateStatus(ctx context.Context, id string, status i
 // --- ShipmentStatusEventRepository fake ---
 
 type fakeShipmentStatusEventRepo struct {
-	appendFn func(ctx context.Context, e *shippingDomain.ShipmentStatusEvent) error
+	appendFn           func(ctx context.Context, e *shippingDomain.ShipmentStatusEvent) error
+	listByShipmentIDFn func(ctx context.Context, shipmentID string) ([]shippingDomain.ShipmentStatusEvent, error)
 }
 
 func (f *fakeShipmentStatusEventRepo) Append(ctx context.Context, e *shippingDomain.ShipmentStatusEvent) error {
 	return f.appendFn(ctx, e)
+}
+func (f *fakeShipmentStatusEventRepo) ListByShipmentID(ctx context.Context, shipmentID string) ([]shippingDomain.ShipmentStatusEvent, error) {
+	if f.listByShipmentIDFn == nil {
+		return nil, nil
+	}
+	return f.listByShipmentIDFn(ctx, shipmentID)
 }
 
 // --- ShippingCarrierOverrideRepository fake ---

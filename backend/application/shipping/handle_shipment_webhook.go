@@ -123,6 +123,7 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 		return fmt.Errorf("get tracktrace: %w", err)
 	}
 
-	return applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
+	_, err = applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
 		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook)
+	return err
 }

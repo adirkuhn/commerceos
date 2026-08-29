@@ -187,6 +187,58 @@ func TestShipmentStatusEventRepo_Integration_Append(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestShipmentStatusEventRepo_Integration_ListByShipmentID_newestFirstAndScopedToShipment(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+	connectionID := seedMyParcelConnection(t, db, ctx)
+	shipmentRepo := repositories.NewShipmentRepo(db)
+	eventRepo := repositories.NewShipmentStatusEventRepo(db)
+
+	var shipmentAID, shipmentBID string
+	now := time.Now()
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		mk := func(mpID int64, barcode string) string {
+			s := shippingDomain.Shipment{
+				TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
+				Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: mpID, Barcode: barcode,
+				LabelFormat: shippingDomain.LabelFormatPDF, RecipientPerson: "P", RecipientStreet: "S",
+				RecipientCity: "C", RecipientCC: "NL",
+			}
+			require.NoError(t, shipmentRepo.Create(ctx, &s))
+			return s.ID
+		}
+		shipmentAID = mk(4001, "3SMYPA-A")
+		shipmentBID = mk(4002, "3SMYPA-B")
+
+		appendEvent := func(shipmentID string, status int, statusMain, source string, occurredAt time.Time) {
+			e := shippingDomain.ShipmentStatusEvent{
+				TenantID: tenant.IDFromContext(ctx), ShipmentID: shipmentID, Status: status, StatusMain: statusMain,
+				Source: shippingDomain.StatusEventSource(source), OccurredAt: occurredAt,
+			}
+			require.NoError(t, eventRepo.Append(ctx, &e))
+		}
+		appendEvent(shipmentAID, 1, "registered", "webhook", now.Add(-2*time.Hour))
+		appendEvent(shipmentAID, 3, "shipped", "webhook", now.Add(-time.Hour))
+		appendEvent(shipmentAID, 5, "enroute", "manual", now)
+		appendEvent(shipmentBID, 1, "registered", "webhook", now)
+		return nil
+	})
+	require.NoError(t, err)
+
+	var events []shippingDomain.ShipmentStatusEvent
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		events, err = eventRepo.ListByShipmentID(ctx, shipmentAID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, events, 3, "must not include shipment B's event")
+	require.Equal(t, []int{5, 3, 1}, []int{events[0].Status, events[1].Status, events[2].Status}, "newest first")
+	require.Equal(t, shippingDomain.StatusEventSourceManual, events[0].Source)
+}
+
 func TestShipmentRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 	superDB, superDSN := newIntegrationDBAndDSN(t)
 	db := newAppRoleDB(t, superDSN)

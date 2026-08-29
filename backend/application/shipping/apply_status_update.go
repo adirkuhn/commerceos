@@ -25,15 +25,16 @@ func applyStatusUpdate(
 	shipmentID, salesOrderID string,
 	tt integrationsDomain.TrackTraceResult,
 	source shippingDomain.StatusEventSource,
-) error {
-	return tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+) (shippingDomain.ShipmentStatusEvent, error) {
+	event := shippingDomain.ShipmentStatusEvent{
+		ShipmentID: shipmentID, Status: tt.StatusCode, StatusMain: tt.StatusMain, Source: source, OccurredAt: time.Now(),
+	}
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		if err := shipmentRepo.UpdateStatus(ctx, shipmentID, tt.StatusCode, tt.StatusMain); err != nil {
 			return err
 		}
-		if err := statusEventRepo.Append(ctx, &shippingDomain.ShipmentStatusEvent{
-			TenantID: tenant.IDFromContext(ctx), ShipmentID: shipmentID, Status: tt.StatusCode, StatusMain: tt.StatusMain,
-			Source: source, OccurredAt: time.Now(),
-		}); err != nil {
+		event.TenantID = tenant.IDFromContext(ctx)
+		if err := statusEventRepo.Append(ctx, &event); err != nil {
 			return err
 		}
 		if tt.StatusMain == shippingDomain.StatusMainShipped {
@@ -43,4 +44,5 @@ func applyStatusUpdate(
 		}
 		return nil
 	})
+	return event, err
 }

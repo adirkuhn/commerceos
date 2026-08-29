@@ -25,9 +25,13 @@ type ShipmentRepository interface {
 	UpdateStatus(ctx context.Context, id string, status int, statusMain string) error
 }
 
-// ShipmentStatusEventRepository appends to a Shipment's status history.
+// ShipmentStatusEventRepository appends to and reads back a Shipment's
+// status history.
 type ShipmentStatusEventRepository interface {
 	Append(ctx context.Context, e *ShipmentStatusEvent) error
+	// ListByShipmentID returns every event for one shipment, newest first --
+	// the Sales Order detail page's tracking timeline.
+	ListByShipmentID(ctx context.Context, shipmentID string) ([]ShipmentStatusEvent, error)
 }
 
 // ShippingConnectionSettingsRepository persists one MyParcel connection's

@@ -61,6 +61,11 @@ type StatusEventSource string
 const (
 	StatusEventSourceWebhook        StatusEventSource = "webhook"
 	StatusEventSourceReconciliation StatusEventSource = "reconciliation"
+	// StatusEventSourceManual is a staff-triggered "refresh from provider"
+	// (RefreshShipmentTrackingUseCase) -- same applyStatusUpdate path as the
+	// other two sources, just told to check right now instead of waiting for
+	// a webhook or the next reconciliation tick.
+	StatusEventSourceManual StatusEventSource = "manual"
 )
 
 // StatusMainShipped is the MyParcel status.main value this codebase treats

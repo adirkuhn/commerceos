@@ -230,3 +230,22 @@ func (r *ShipmentStatusEventRepo) Append(ctx context.Context, e *shippingDomain.
 	e.ID = m.ID
 	return nil
 }
+
+func (r *ShipmentStatusEventRepo) ListByShipmentID(ctx context.Context, shipmentID string) ([]shippingDomain.ShipmentStatusEvent, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("shipmentStatusEventRepo: operation called outside a transaction")
+	}
+	var ms []shipmentStatusEventModel
+	if err := tx.WithContext(ctx).Where("shipment_id = ?", shipmentID).Order("occurred_at DESC").Find(&ms).Error; err != nil {
+		return nil, fmt.Errorf("shipmentStatusEventRepo.ListByShipmentID: %w", err)
+	}
+	out := make([]shippingDomain.ShipmentStatusEvent, len(ms))
+	for i, m := range ms {
+		out[i] = shippingDomain.ShipmentStatusEvent{
+			ID: m.ID, TenantID: m.TenantID, ShipmentID: m.ShipmentID, Status: m.Status,
+			StatusMain: m.StatusMain, Source: shippingDomain.StatusEventSource(m.Source), OccurredAt: m.OccurredAt,
+		}
+	}
+	return out, nil
+}
