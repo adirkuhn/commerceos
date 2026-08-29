@@ -53,6 +53,12 @@ type listShipmentsUseCase interface {
 type exportMyParcelOrderUseCase interface {
 	Execute(ctx context.Context, in appshipping.ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error)
 }
+type listTrackingEventsUseCase interface {
+	Execute(ctx context.Context, shipmentID string) ([]shippingDomain.ShipmentStatusEvent, error)
+}
+type refreshTrackingUseCase interface {
+	Execute(ctx context.Context, shipmentID string) (shippingDomain.ShipmentStatusEvent, error)
+}
 
 // Handler implements genshipping.ServerInterface.
 type Handler struct {
@@ -65,6 +71,8 @@ type Handler struct {
 	getLabel            getLabelUseCase
 	listShipments       listShipmentsUseCase
 	exportMyParcelOrder exportMyParcelOrderUseCase
+	listTrackingEvents  listTrackingEventsUseCase
+	refreshTracking     refreshTrackingUseCase
 }
 
 func NewHandler(
@@ -77,11 +85,13 @@ func NewHandler(
 	getLabel getLabelUseCase,
 	listShipments listShipmentsUseCase,
 	exportMyParcelOrder exportMyParcelOrderUseCase,
+	listTrackingEvents listTrackingEventsUseCase,
+	refreshTracking refreshTrackingUseCase,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
-		exportMyParcelOrder: exportMyParcelOrder,
+		exportMyParcelOrder: exportMyParcelOrder, listTrackingEvents: listTrackingEvents, refreshTracking: refreshTracking,
 	}
 }
 
@@ -325,6 +335,37 @@ func (h *Handler) ListShipmentsForOrder(c *gin.Context, salesOrderId openapi_typ
 	c.JSON(http.StatusOK, gin.H{"data": out, "error": nil})
 }
 
+func (h *Handler) ListShipmentTrackingEvents(c *gin.Context, shipmentId openapi_types.UUID) {
+	events, err := h.listTrackingEvents.Execute(c.Request.Context(), shipmentId.String())
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	out := make([]genshipping.ShipmentTrackingEvent, len(events))
+	for i, e := range events {
+		out[i] = trackingEventToResponse(e)
+	}
+	c.JSON(http.StatusOK, gin.H{"data": out, "error": nil})
+}
+
+func (h *Handler) RefreshShipmentTracking(c *gin.Context, shipmentId openapi_types.UUID) {
+	event, err := h.refreshTracking.Execute(c.Request.Context(), shipmentId.String())
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": trackingEventToResponse(event), "error": nil})
+}
+
+func trackingEventToResponse(e shippingDomain.ShipmentStatusEvent) genshipping.ShipmentTrackingEvent {
+	source := string(e.Source)
+	label := shippingDomain.MyParcelStatusLabel(e.Status)
+	return genshipping.ShipmentTrackingEvent{
+		Id: &e.ID, ShipmentId: &e.ShipmentID, Status: &e.Status, StatusMain: &e.StatusMain,
+		StatusLabel: &label, Source: (*genshipping.ShipmentTrackingEventSource)(&source), OccurredAt: &e.OccurredAt,
+	}
+}
+
 func settingsToResponse(s *shippingDomain.ShippingConnectionSettings) *genshipping.ShippingConnectionSettings {
 	if s == nil {
 		return nil
@@ -386,6 +427,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	tenantSettingsRepo := repositories.NewTenantSettingsRepo(db)
 	overrideRepo := repositories.NewShippingCarrierOverrideRepo(db)
 	shipmentRepo := repositories.NewShipmentRepo(db)
+	statusEventRepo := repositories.NewShipmentStatusEventRepo(db)
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	myParcelFactory := myparcel.NewClientFactory()
@@ -403,6 +445,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, salesOrderRepo, lineItemRepo, myParcelFactory, encryptionSecret, recordActivity),
+		appshipping.NewListShipmentTrackingEventsUseCase(db, statusEventRepo),
+		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, myParcelFactory, encryptionSecret),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

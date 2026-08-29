@@ -38,6 +38,27 @@ func (e CreateShipmentRequestLabelFormat) Valid() bool {
 	}
 }
 
+// Defines values for ShipmentTrackingEventSource.
+const (
+	Manual         ShipmentTrackingEventSource = "manual"
+	Reconciliation ShipmentTrackingEventSource = "reconciliation"
+	Webhook        ShipmentTrackingEventSource = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the ShipmentTrackingEventSource enum.
+func (e ShipmentTrackingEventSource) Valid() bool {
+	switch e {
+	case Manual:
+		return true
+	case Reconciliation:
+		return true
+	case Webhook:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ShippingConnectionSettingsDefaultLabelFormat.
 const (
 	ShippingConnectionSettingsDefaultLabelFormatPdf ShippingConnectionSettingsDefaultLabelFormat = "pdf"
@@ -228,6 +249,34 @@ type ShipmentResponse struct {
 	Error interface{} `json:"error,omitempty"`
 }
 
+// ShipmentTrackingEvent defines model for ShipmentTrackingEvent.
+type ShipmentTrackingEvent struct {
+	Id         *string                      `json:"id,omitempty"`
+	OccurredAt *time.Time                   `json:"occurred_at,omitempty"`
+	ShipmentId *string                      `json:"shipment_id,omitempty"`
+	Source     *ShipmentTrackingEventSource `json:"source,omitempty"`
+	Status     *int                         `json:"status,omitempty"`
+
+	// StatusLabel Human-readable label for `status` -- MyParcel-specific today (see domain/shipping.MyParcelStatusLabel), generic across providers as more are added.
+	StatusLabel *string `json:"status_label,omitempty"`
+	StatusMain  *string `json:"status_main,omitempty"`
+}
+
+// ShipmentTrackingEventSource defines model for ShipmentTrackingEvent.Source.
+type ShipmentTrackingEventSource string
+
+// ShipmentTrackingEventListResponse defines model for ShipmentTrackingEventListResponse.
+type ShipmentTrackingEventListResponse struct {
+	Data  *[]ShipmentTrackingEvent `json:"data,omitempty"`
+	Error interface{}              `json:"error,omitempty"`
+}
+
+// ShipmentTrackingEventResponse defines model for ShipmentTrackingEventResponse.
+type ShipmentTrackingEventResponse struct {
+	Data  *ShipmentTrackingEvent `json:"data,omitempty"`
+	Error interface{}            `json:"error,omitempty"`
+}
+
 // ShippingCarrierOverride defines model for ShippingCarrierOverride.
 type ShippingCarrierOverride struct {
 	Carrier           *int    `json:"carrier,omitempty"`
@@ -360,6 +409,12 @@ type ServerInterface interface {
 	// GetShipmentLabel Fetch a shipment's label (PDF or ZPL, whatever it was created with)
 	// (GET /shipping/shipments/{shipmentId}/label)
 	GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID, params GetShipmentLabelParams)
+	// ListShipmentTrackingEvents List every status MyParcel has reported for this shipment, newest first -- the tracking timeline
+	// (GET /shipping/shipments/{shipmentId}/tracking-events)
+	ListShipmentTrackingEvents(c *gin.Context, shipmentId openapi_types.UUID)
+	// RefreshShipmentTracking Fetch this shipment's current status from the shipping provider right now (rather than waiting for a webhook or the next reconciliation tick) and save it as a new tracking event -- the timeline's "fetch more info from provider" action.
+	// (POST /shipping/shipments/{shipmentId}/tracking-events/refresh)
+	RefreshShipmentTracking(c *gin.Context, shipmentId openapi_types.UUID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -601,6 +656,56 @@ func (siw *ServerInterfaceWrapper) GetShipmentLabel(c *gin.Context) {
 	siw.Handler.GetShipmentLabel(c, shipmentId, params)
 }
 
+// ListShipmentTrackingEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListShipmentTrackingEvents(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shipmentId" -------------
+	var shipmentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shipmentId", c.Param("shipmentId"), &shipmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter shipmentId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListShipmentTrackingEvents(c, shipmentId)
+}
+
+// RefreshShipmentTracking operation middleware
+func (siw *ServerInterfaceWrapper) RefreshShipmentTracking(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shipmentId" -------------
+	var shipmentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shipmentId", c.Param("shipmentId"), &shipmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter shipmentId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RefreshShipmentTracking(c, shipmentId)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -636,6 +741,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/shipping/shipments", wrapper.CreateShipment)
 	router.POST(options.BaseURL+"/shipping/connections/:connectionId/sales-orders/:salesOrderId/export-order", wrapper.ExportMyParcelOrder)
 	router.GET(options.BaseURL+"/shipping/sales-orders/:salesOrderId/shipments", wrapper.ListShipmentsForOrder)
+	router.GET(options.BaseURL+"/shipping/shipments/:shipmentId/tracking-events", wrapper.ListShipmentTrackingEvents)
+	router.POST(options.BaseURL+"/shipping/shipments/:shipmentId/tracking-events/refresh", wrapper.RefreshShipmentTracking)
 	router.GET(options.BaseURL+"/shipping/shipments/:shipmentId/label", wrapper.GetShipmentLabel)
 }
 
@@ -644,47 +751,52 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"tEjXTCWkT3pUst70hMxv5/8OAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

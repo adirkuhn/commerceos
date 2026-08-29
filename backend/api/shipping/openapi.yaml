@@ -189,6 +189,46 @@ paths:
                     items: { $ref: '#/components/schemas/Shipment' }
                   error: { nullable: true }
 
+  /shipping/shipments/{shipmentId}/tracking-events:
+    get:
+      operationId: listShipmentTrackingEvents
+      summary: List every status MyParcel has reported for this shipment, newest first -- the tracking timeline
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentTrackingEventListResponse' }
+
+  /shipping/shipments/{shipmentId}/tracking-events/refresh:
+    post:
+      operationId: refreshShipmentTracking
+      summary: >
+        Fetch this shipment's current status from the shipping provider
+        right now (rather than waiting for a webhook or the next
+        reconciliation tick) and save it as a new tracking event -- the
+        timeline's "fetch more info from provider" action.
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShipmentTrackingEventResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502':
+          description: The shipping provider could not be reached or rejected the request.
+          $ref: '#/components/responses/Error'
+
   /shipping/shipments/{shipmentId}/label:
     get:
       operationId: getShipmentLabel
@@ -397,4 +437,31 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/Shipment' }
+        error: { nullable: true }
+
+    ShipmentTrackingEvent:
+      type: object
+      properties:
+        id: { type: string }
+        shipment_id: { type: string }
+        status: { type: integer }
+        status_main: { type: string }
+        status_label:
+          type: string
+          description: Human-readable label for `status` -- MyParcel-specific today (see domain/shipping.MyParcelStatusLabel), generic across providers as more are added.
+        source: { type: string, enum: [webhook, reconciliation, manual] }
+        occurred_at: { type: string, format: date-time }
+
+    ShipmentTrackingEventListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ShipmentTrackingEvent' }
+        error: { nullable: true }
+
+    ShipmentTrackingEventResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ShipmentTrackingEvent' }
         error: { nullable: true }
