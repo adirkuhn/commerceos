@@ -47,6 +47,18 @@ export interface Shipment {
   created_at: string
 }
 
+// One status MyParcel has reported for a shipment -- the tracking
+// timeline. See backend/domain/shipping.ShipmentStatusEvent.
+export interface ShipmentTrackingEvent {
+  id: string
+  shipment_id: string
+  status: number
+  status_main: string
+  status_label: string
+  source: 'webhook' | 'reconciliation' | 'manual'
+  occurred_at: string
+}
+
 // MyParcelFulfilmentOrder is one order exported via MyParcel's real
 // Orders/Fulfilment API -- step one of the Sales Order detail page's
 // "Create label" flow, before createShipment (the Shipments API) creates

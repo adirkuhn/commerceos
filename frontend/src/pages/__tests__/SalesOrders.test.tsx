@@ -43,6 +43,8 @@ vi.mock('../../shipping/api', () => ({
   getShippingSettings: vi.fn(),
   getShipmentLabel: vi.fn(),
   listShipmentsForOrder: vi.fn(),
+  listShipmentTrackingEvents: vi.fn(),
+  refreshShipmentTracking: vi.fn(),
 }))
 
 vi.mock('../../tax/api', () => ({
@@ -111,7 +113,18 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
   vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
   vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+  vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([])
 })
+
+function shipment(overrides: Partial<import('../../shipping/types').Shipment> = {}): import('../../shipping/types').Shipment {
+  return {
+    id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
+    status: 1, status_main: 'registered', label_format: 'pdf',
+    recipient: { person: 'Jane Doe', street: 'Damrak', city: 'Amsterdam', cc: 'NL' },
+    created_at: '2026-08-23T00:00:00Z',
+    ...overrides,
+  }
+}
 
 describe('Sales orders list', () => {
   it('shows an empty state when there are no sales orders', async () => {
@@ -345,6 +358,74 @@ describe('Sales order detail page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Download & print again/ }))
     expect(await screen.findByTitle('Close')).toBeInTheDocument()
     expect(shippingApi.createShipment).not.toHaveBeenCalled()
+  })
+
+  it('shows a Shipments section with each shipment\'s tracking timeline', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
+    vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([
+      { id: 'evt-1', shipment_id: 'ship-1', status: 3, status_main: 'enroute', status_label: 'Enroute - handed to carrier', source: 'webhook', occurred_at: '2026-08-24T10:00:00Z' },
+    ])
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    expect(await screen.findByText('Shipments')).toBeInTheDocument()
+    expect(screen.getByText('PostNL')).toBeInTheDocument()
+    expect(screen.getByText('3SMYPA1', { exact: false })).toBeInTheDocument()
+    expect(screen.getByText('Enroute - handed to carrier')).toBeInTheDocument()
+    expect(shippingApi.listShipmentTrackingEvents).toHaveBeenCalledWith('test-token', 'ship-1')
+  })
+
+  it('shows an empty-tracking state when a shipment has no events yet', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+
+    expect(await screen.findByText('No tracking updates yet.')).toBeInTheDocument()
+  })
+
+  it('Refresh from provider fetches a new tracking event and prepends it without a full reload', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
+    vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([
+      { id: 'evt-1', shipment_id: 'ship-1', status: 2, status_main: 'registered', status_label: 'Pending - registered', source: 'webhook', occurred_at: '2026-08-24T09:00:00Z' },
+    ])
+    vi.mocked(shippingApi.refreshShipmentTracking).mockResolvedValue(
+      { id: 'evt-2', shipment_id: 'ship-1', status: 7, status_main: 'delivered', status_label: 'Delivered - at recipient', source: 'manual', occurred_at: '2026-08-24T11:00:00Z' },
+    )
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Pending - registered')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh from provider' }))
+
+    expect(await screen.findByText('Delivered - at recipient')).toBeInTheDocument()
+    expect(screen.getByText('Pending - registered')).toBeInTheDocument()
+    expect(shippingApi.refreshShipmentTracking).toHaveBeenCalledWith('test-token', 'ship-1')
+  })
+
+  it('shows an error and keeps the existing timeline when Refresh from provider fails', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
+    vi.mocked(shippingApi.refreshShipmentTracking).mockRejectedValue(new Error('myparcel unreachable'))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('No tracking updates yet.')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh from provider' }))
+
+    expect(await screen.findByText('myparcel unreachable')).toBeInTheDocument()
   })
 
   it('exports the order to MyParcel, creates the shipment, and shows Print label afterward', async () => {

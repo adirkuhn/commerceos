@@ -1,6 +1,6 @@
 import type {
   APIResponse, Shipment, ShippingSettingsResult, ShippingConnectionSettings, ShippingCarrierOverride, CreateShipmentInput,
-  MyParcelFulfilmentOrder, RecipientAddress,
+  MyParcelFulfilmentOrder, RecipientAddress, ShipmentTrackingEvent,
 } from './types'
 
 function base(): string {
@@ -60,6 +60,18 @@ export function createShipment(token: string, input: CreateShipmentInput): Promi
 
 export function listShipmentsForOrder(token: string, salesOrderId: string): Promise<Shipment[]> {
   return request(`${base()}/sales-orders/${salesOrderId}/shipments`, { method: 'GET' }, token)
+}
+
+export function listShipmentTrackingEvents(token: string, shipmentId: string): Promise<ShipmentTrackingEvent[]> {
+  return request(`${base()}/shipments/${shipmentId}/tracking-events`, { method: 'GET' }, token)
+}
+
+// refreshShipmentTracking is the timeline's "fetch more info from
+// provider" button -- fetches the shipment's current status right now and
+// saves it as a new tracking event, returned here so the caller can
+// prepend it without a full reload.
+export function refreshShipmentTracking(token: string, shipmentId: string): Promise<ShipmentTrackingEvent> {
+  return request(`${base()}/shipments/${shipmentId}/tracking-events/refresh`, { method: 'POST' }, token)
 }
 
 // getShipmentLabel returns the raw label bytes as a Blob (PDF or ZPL,

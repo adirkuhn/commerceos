@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -21,7 +21,8 @@ import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
 import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
-import type { RecipientAddress, Shipment } from '../shipping/types'
+import type { RecipientAddress, Shipment, ShipmentTrackingEvent } from '../shipping/types'
+import { CARRIERS } from '../shipping/types'
 
 const PAGE_SIZE = 20
 const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed']
@@ -631,6 +632,16 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
   // See Picking.tsx's identical existingShipment doc.
   const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
+  // Every shipment ever created for this order -- normally one, but
+  // nothing stops a second after a failed/lost first attempt (see
+  // ShipmentRepository.FindBySalesOrderID's own doc comment). Each gets
+  // its own tracking timeline below.
+  const [shipments, setShipments] = useState<Shipment[]>([])
+  const loadShipments = useCallback(() => {
+    if (!token || !detail) return
+    shippingApi.listShipmentsForOrder(token, detail.sales_order.id).then(setShipments).catch(() => setShipments([]))
+  }, [token, detail])
+  useEffect(() => { loadShipments() }, [loadShipments])
   // auto_print_enabled: once a label exists, open the print view right
   // away instead of requiring a manual click -- still the OS print dialog,
   // not silent printing (see ShippingConnectionSettings.AutoPrintEnabled's
@@ -672,6 +683,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
     setCreatedShipmentId(shipment.id)
     setPrintingLabelId(shipment.id)
     refreshActivities()
+    loadShipments()
   }
 
   if (printMode && detail) {
@@ -877,6 +889,13 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
                 )}
               </div>
 
+              {shipments.length > 0 && token && (
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
+                  <p className="font-medium dark:text-gray-300 text-gray-700">Shipments</p>
+                  {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} />)}
+                </div>
+              )}
+
               {activities.length > 0 && (
                 <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
                   <p className="font-medium dark:text-gray-300 text-gray-700">Activity</p>
@@ -926,6 +945,76 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             setExistingShipment(null)
           }}
         />
+      )}
+    </div>
+  )
+}
+
+// One shipment's carrier/barcode header plus its full tracking timeline
+// (newest first) and a "Refresh from provider" button -- fetches the
+// shipment's current status right now instead of waiting for the next
+// webhook/reconciliation tick, and saves it as a new timeline entry (see
+// RefreshShipmentTrackingUseCase).
+function ShipmentTrackingSection({ token, shipment }: { token: string; shipment: Shipment }) {
+  const [events, setEvents] = useState<ShipmentTrackingEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(() => {
+    setLoading(true)
+    shippingApi.listShipmentTrackingEvents(token, shipment.id)
+      .then(setEvents)
+      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load tracking'))
+      .finally(() => setLoading(false))
+  }, [token, shipment.id])
+  useEffect(() => { load() }, [load])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    setError('')
+    try {
+      const event = await shippingApi.refreshShipmentTracking(token, shipment.id)
+      setEvents(prev => [event, ...prev])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch from provider')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const carrierLabel = CARRIERS.find(c => c.id === shipment.carrier)?.label ?? `Carrier ${shipment.carrier}`
+
+  return (
+    <div className="border dark:border-[#2D3748] border-gray-100 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <span className="dark:text-gray-200 text-gray-800 font-medium">{carrierLabel}</span>
+          <span className="dark:text-gray-500 text-gray-400"> · {shipment.barcode || 'no barcode yet'}</span>
+        </div>
+        <button
+          type="button" onClick={handleRefresh} disabled={refreshing}
+          className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
+        >
+          {refreshing ? 'Fetching…' : 'Refresh from provider'}
+        </button>
+      </div>
+
+      {error && <p className="text-red-400">{error}</p>}
+
+      {loading ? (
+        <p className="dark:text-gray-500 text-gray-400">Loading tracking…</p>
+      ) : events.length === 0 ? (
+        <p className="dark:text-gray-500 text-gray-400">No tracking updates yet.</p>
+      ) : (
+        <div className="space-y-1">
+          {events.map(e => (
+            <div key={e.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
+              <span className="dark:text-gray-200 text-gray-800">{e.status_label}</span>
+              <span className="shrink-0">{new Date(e.occurred_at).toLocaleString()} · {e.source}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
