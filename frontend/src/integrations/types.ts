@@ -315,6 +315,18 @@ export interface WebhookForwardDelivery {
   created_at: string
 }
 
+// One inbound webhook this tenant received -- the cold-path landing record.
+// See backend/domain/webhooks.WebhookEvent.
+export interface WebhookEvent {
+  id: string
+  provider: string
+  topic: string
+  event_id: string
+  payload: unknown
+  received_at: string
+  processed_at: string
+}
+
 export interface APIError {
   code: string
   message: string

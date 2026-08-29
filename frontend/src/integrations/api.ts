@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, WebhookEvent, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -414,6 +414,14 @@ export function deleteWebhookForwardRule(token: string, id: string): Promise<nul
 export function listWebhookForwardDeliveries(token: string, limit?: number): Promise<WebhookForwardDelivery[]> {
   const query = limit ? `?limit=${limit}` : ''
   return request<WebhookForwardDelivery[]>(`${base()}/webhook-forward-deliveries${query}`, { method: 'GET' }, token)
+}
+
+export function listWebhookEvents(token: string, opts?: { provider?: string; limit?: number }): Promise<WebhookEvent[]> {
+  const params = new URLSearchParams()
+  if (opts?.provider) params.set('provider', opts.provider)
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return request<WebhookEvent[]>(`${base()}/webhook-events${query}`, { method: 'GET' }, token)
 }
 
 export function listProviderWebhooks(token: string, connectionId: string): Promise<ProviderWebhook[]> {

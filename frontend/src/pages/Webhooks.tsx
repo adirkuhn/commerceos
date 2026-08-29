@@ -5,7 +5,17 @@ import { useApp } from '../context/AppContext'
 import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardRules'
 import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebhooks'
 import { useWebhookTopics } from '../integrations/hooks/useWebhookTopics'
+import { useWebhookEvents } from '../integrations/hooks/useWebhookEvents'
 import type { AvailableWebhookTopics } from '../integrations/api'
+
+// Known providers get a friendlier display name; any future provider this
+// codebase doesn't know the name of yet falls back to capitalizing what the
+// backend sent -- same "provider is free text" convention as FanOutTab's
+// own create form.
+const KNOWN_PROVIDER_LABELS: Record<string, string> = { myparcel: 'MyParcel', woocommerce: 'WooCommerce', bol: 'Bol.com' }
+function providerLabel(provider: string): string {
+  return KNOWN_PROVIDER_LABELS[provider] ?? (provider.charAt(0).toUpperCase() + provider.slice(1))
+}
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab and
 // Integrations.tsx's undelivered-webhooks table -- gated client-side only
@@ -16,23 +26,27 @@ function canManageWebhooks(role: string | undefined): boolean {
   return role === 'customer_owner' || role === 'customer_admin' || role === 'super_admin'
 }
 
-type Tab = 'fanout' | 'subscriptions'
+type Tab = 'fanout' | 'subscriptions' | 'messages'
 
 // The dedicated home for everything webhook-related: Screen 1 (Fan-out)
 // configures CommerceOS's own fan-out rules (provider/topic -> target
 // URL), Screen 2 (Subscriptions) shows every webhook subscription actually
 // registered at WooCommerce/MyParcel across every connection this tenant
 // has, in one place -- previously only visible one connection at a time,
-// buried inside that connection's own settings page.
+// buried inside that connection's own settings page. Screen 3 (Messages)
+// is the raw "see all messages" log -- every webhook actually received,
+// filterable by sender.
 export default function Webhooks() {
   const { token, user } = useAuth()
   const [tab, setTab] = useState<Tab>('fanout')
+  const [messageProvider, setMessageProvider] = useState('')
   const allowed = canManageWebhooks(user?.role)
 
   const { setActiveNav } = useApp()
   const forwardRules = useWebhookForwardRules(allowed ? token ?? '' : '')
   const allWebhooks = useAllProviderWebhooks(allowed && tab === 'subscriptions' ? token ?? '' : '')
   const { topics } = useWebhookTopics(allowed ? token ?? '' : '')
+  const webhookEvents = useWebhookEvents(allowed && tab === 'messages' ? token ?? '' : '', messageProvider)
 
   if (!allowed) {
     return (
@@ -69,11 +83,22 @@ export default function Webhooks() {
         >
           Subscriptions
         </button>
+        <button
+          onClick={() => setTab('messages')}
+          className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+            tab === 'messages' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+          }`}
+        >
+          Messages
+        </button>
       </div>
 
       <div>
         {tab === 'fanout' && <FanOutTab {...forwardRules} topics={topics} />}
         {tab === 'subscriptions' && <SubscriptionsTab {...allWebhooks} onRegisterWebhook={() => setActiveNav('integrations')} />}
+        {tab === 'messages' && (
+          <MessagesTab {...webhookEvents} topics={topics} provider={messageProvider} onProviderChange={setMessageProvider} />
+        )}
       </div>
     </div>
   )
@@ -95,14 +120,26 @@ function FanOutTab({
   const [submitting, setSubmitting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // Two option groups, regardless of provider (Provider is free text --
-  // any WooCommerce/MyParcel connection, or a future provider this
-  // codebase doesn't know the name of yet -- so the topic list can't be
-  // filtered by it): "Webhooks" is what's actually subscribed right now
-  // (guaranteed to really arrive), "All events" is the full reference
-  // catalog (may include topics nothing is subscribed to yet).
-  const activeWebhookOptions = Array.from(new Set(Object.values(topics.active_webhooks).flat())).sort()
-  const allEventOptions = Array.from(new Set(Object.values(topics.all_events).flat())).sort()
+  // One optgroup per provider per section -- who's responsible for each
+  // topic matters (a customer_admin picking "order.updated" needs to know
+  // whether that's WooCommerce's or some future service's event), so
+  // topics are never flattened across providers. Two sections regardless
+  // of which providers show up: "active" is what's actually subscribed
+  // right now for that provider (guaranteed to really arrive), "all
+  // events" is the full reference catalog (may include topics nothing is
+  // subscribed to yet). Driven entirely by the topics object's own keys,
+  // so a brand-new provider gets its own groups automatically.
+  function providerOptgroups(byProvider: Record<string, string[]>, suffix: string) {
+    return Object.keys(byProvider).sort().map(provider => {
+      const opts = Array.from(new Set(byProvider[provider])).sort()
+      if (opts.length === 0) return null
+      return (
+        <optgroup key={`${suffix}-${provider}`} label={`${providerLabel(provider)} — ${suffix}`}>
+          {opts.map(t => <option key={t} value={t}>{t}</option>)}
+        </optgroup>
+      )
+    })
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -158,18 +195,8 @@ function FanOutTab({
             <label htmlFor="forward-topic" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Topic</label>
             <select id="forward-topic" value={topic} onChange={e => setTopic(e.target.value)} className={inputClass}>
               <option value="">Any topic (match everything)</option>
-              {activeWebhookOptions.length > 0 && (
-                <optgroup label="Webhooks (actively subscribed)">
-                  {activeWebhookOptions.map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </optgroup>
-              )}
-              <optgroup label="All events">
-                {allEventOptions.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </optgroup>
+              {providerOptgroups(topics.active_webhooks, 'active')}
+              {providerOptgroups(topics.all_events, 'all events')}
             </select>
           </div>
           <div className="flex-1 min-w-[220px]">
@@ -360,5 +387,103 @@ function SubscriptionsTab({
         )}
       </div>
     </div>
+  )
+}
+
+// Screen 3: "see all messages" -- every webhook this tenant has actually
+// received (backend/domain/webhooks.WebhookEvent), filterable by sender.
+// Payload is truncated by default and expands inline on click -- these are
+// order/shipment bodies, not huge, but a raw dump for every row would still
+// bury the table.
+function MessagesTab({
+  events, loading, error, topics, provider, onProviderChange,
+}: ReturnType<typeof useWebhookEvents> & { topics: AvailableWebhookTopics; provider: string; onProviderChange: (provider: string) => void }) {
+  const senders = Array.from(new Set([...Object.keys(topics.active_webhooks), ...Object.keys(topics.all_events)])).sort()
+
+  return (
+    <div className="max-w-4xl">
+      <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Received messages</h2>
+            <p className="text-xs dark:text-gray-500 text-gray-400">
+              Every webhook this tenant has actually received, newest first.
+            </p>
+          </div>
+          <div>
+            <label htmlFor="message-sender" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Sender</label>
+            <select
+              id="message-sender" value={provider} onChange={e => onProviderChange(e.target.value)}
+              className="px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+            >
+              <option value="">Any sender</option>
+              {senders.map(s => <option key={s} value={s}>{providerLabel(s)}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+
+        {loading ? (
+          <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+        ) : events.length === 0 ? (
+          <p className="text-xs dark:text-gray-500 text-gray-400">No messages received yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                  <th className="py-2 pr-3 font-medium">Sender</th>
+                  <th className="py-2 pr-3 font-medium">Topic</th>
+                  <th className="py-2 pr-3 font-medium">Received</th>
+                  <th className="py-2 pr-3 font-medium">Payload</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map(e => (
+                  <tr key={e.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0 align-top">
+                    <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{providerLabel(e.provider)}</td>
+                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{e.topic}</td>
+                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 whitespace-nowrap">{new Date(e.received_at).toLocaleString()}</td>
+                    <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono max-w-[360px]">
+                      <PayloadPreview payload={e.payload} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Truncated one-line preview that expands into the full formatted JSON on
+// click -- avoids a wall of raw JSON per row while still letting an admin
+// actually see what was sent.
+function PayloadPreview({ payload }: { payload: unknown }) {
+  const [expanded, setExpanded] = useState(false)
+  const json = JSON.stringify(payload)
+  const pretty = JSON.stringify(payload, null, 2)
+
+  if (!json || json === 'null') {
+    return <span className="dark:text-gray-600 text-gray-400">—</span>
+  }
+
+  if (expanded) {
+    return (
+      <div>
+        <pre className="whitespace-pre-wrap break-all text-[11px] dark:bg-[#111827] bg-gray-50 rounded-lg p-2 max-h-64 overflow-y-auto">{pretty}</pre>
+        <button type="button" onClick={() => setExpanded(false)} className="text-blue-400 hover:underline mt-1">Collapse</button>
+      </div>
+    )
+  }
+
+  const preview = json.length > 60 ? `${json.slice(0, 60)}…` : json
+  return (
+    <button type="button" onClick={() => setExpanded(true)} className="truncate max-w-[360px] block text-left hover:underline" title="View full payload">
+      {preview}
+    </button>
   )
 }

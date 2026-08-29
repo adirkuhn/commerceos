@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { AppProvider } from '../../context/AppContext'
 import Webhooks from '../Webhooks'
-import type { WebhookForwardRule, WebhookForwardDelivery, ProviderWebhook } from '../../integrations/types'
+import type { WebhookForwardRule, WebhookForwardDelivery, ProviderWebhook, WebhookEvent } from '../../integrations/types'
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({
@@ -23,6 +23,7 @@ vi.mock('../../integrations/api', () => ({
   listAllProviderWebhooks: vi.fn(),
   deleteProviderWebhook: vi.fn(),
   listAvailableWebhookTopics: vi.fn(),
+  listWebhookEvents: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -46,12 +47,21 @@ function providerWebhook(overrides: Partial<ProviderWebhook> = {}): ProviderWebh
   }
 }
 
+function webhookEvent(overrides: Partial<WebhookEvent> = {}): WebhookEvent {
+  return {
+    id: 'evt-1', provider: 'myparcel', topic: 'shipment_status_change', event_id: 'e-1',
+    payload: { status: 'shipped' }, received_at: '2026-08-23T10:00:00Z', processed_at: '2026-08-23T10:00:01Z',
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.listWebhookForwardRules).mockResolvedValue([])
   vi.mocked(integrationsApi.listWebhookForwardDeliveries).mockResolvedValue([])
   vi.mocked(integrationsApi.listAllProviderWebhooks).mockResolvedValue([])
   vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({ all_events: {}, active_webhooks: {} })
+  vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([])
 })
 
 describe('Webhooks page — Fan-out tab', () => {
@@ -88,12 +98,12 @@ describe('Webhooks page — Fan-out tab', () => {
     expect(await screen.findByText('https://example.com/mp-hook')).toBeInTheDocument()
   })
 
-  it('Topic dropdown flattens all_events across providers, deduplicated', async () => {
+  it('Topic dropdown groups all_events by provider -- who is responsible for each topic stays visible, generic for any future provider', async () => {
     // all_events already carries the backend's seeded baseline catalog
     // (backend/domain/integrations' WooWebhookTopic/MyParcelHookType
-    // constants -- see ListAvailableWebhookTopicsUseCase) -- this only
-    // needs to verify the frontend flattens/dedupes what it's given,
-    // regardless of provider (Provider is free text now).
+    // constants -- see ListAvailableWebhookTopicsUseCase) -- the frontend
+    // must not flatten this across providers, since which service owns a
+    // topic is exactly the information an admin needs when picking one.
     vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
       all_events: {
         woocommerce: ['order.updated', 'product.updated'],
@@ -104,12 +114,14 @@ describe('Webhooks page — Fan-out tab', () => {
     render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
     await screen.findByText('Webhook forwarding')
 
-    expect(screen.getByRole('option', { name: 'order.updated' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'WooCommerce — all events' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Customprovider — all events' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'custom.thing.happened' })).toBeInTheDocument()
-    expect(screen.getAllByRole('option', { name: 'product.updated' })).toHaveLength(1)
+    // Same topic name offered once per provider that actually has it, not deduped away
+    expect(screen.getAllByRole('option', { name: 'product.updated' })).toHaveLength(2)
   })
 
-  it('Topic dropdown puts active_webhooks in their own optgroup, separate from all_events', async () => {
+  it('Topic dropdown separates one provider\'s active subscriptions from its all-events group', async () => {
     vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
       all_events: { myparcel: ['shipment_status_change', 'shop_updated'] },
       active_webhooks: { myparcel: ['shipment_status_change'] },
@@ -117,9 +129,22 @@ describe('Webhooks page — Fan-out tab', () => {
     render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
     await screen.findByText('Webhook forwarding')
 
-    expect(screen.getByRole('group', { name: 'Webhooks (actively subscribed)' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'MyParcel — active' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'MyParcel — all events' })).toBeInTheDocument()
     expect(screen.getAllByRole('option', { name: 'shipment_status_change' })).toHaveLength(2)
     expect(screen.getAllByRole('option', { name: 'shop_updated' })).toHaveLength(1)
+  })
+
+  it('Topic dropdown supports multiple providers with active subscriptions at once, each in its own group', async () => {
+    vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
+      all_events: { myparcel: ['shipment_status_change'], woocommerce: ['order.updated'] },
+      active_webhooks: { myparcel: ['shipment_status_change'], woocommerce: ['order.updated'] },
+    })
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await screen.findByText('Webhook forwarding')
+
+    expect(screen.getByRole('group', { name: 'MyParcel — active' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'WooCommerce — active' })).toBeInTheDocument()
   })
 
   it('Remove calls the delete endpoint and removes the row', async () => {
@@ -214,5 +239,66 @@ describe('Webhooks page — Subscriptions tab', () => {
     await screen.findByText('Active provider subscriptions')
 
     expect(screen.queryByText(/None of these are registered with CommerceOS/)).not.toBeInTheDocument()
+  })
+})
+
+describe('Webhooks page — Messages tab', () => {
+  it('does not fetch messages until the Messages tab is opened', async () => {
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await screen.findByText('Webhook forwarding')
+
+    expect(integrationsApi.listWebhookEvents).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Messages' }))
+
+    expect(await screen.findByText('Received messages')).toBeInTheDocument()
+    expect(integrationsApi.listWebhookEvents).toHaveBeenCalledWith('test-token', { provider: undefined })
+  })
+
+  it('lists received messages with sender and topic', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([webhookEvent()])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+
+    expect(await screen.findByText('MyParcel')).toBeInTheDocument()
+    expect(screen.getByText('shipment_status_change')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when nothing has been received yet', async () => {
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+
+    expect(await screen.findByText('No messages received yet.')).toBeInTheDocument()
+  })
+
+  it('changing the sender filter refetches with the selected provider', async () => {
+    vi.mocked(integrationsApi.listAvailableWebhookTopics).mockResolvedValue({
+      all_events: { myparcel: ['shipment_status_change'], woocommerce: ['order.updated'] },
+      active_webhooks: {},
+    })
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([webhookEvent()])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+    await screen.findByText('Received messages')
+
+    await userEvent.selectOptions(screen.getByLabelText('Sender'), 'myparcel')
+
+    expect(integrationsApi.listWebhookEvents).toHaveBeenCalledWith('test-token', { provider: 'myparcel' })
+  })
+
+  it('payload is truncated by default and expands on click', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([
+      webhookEvent({ payload: { status: 'shipped', tracking_id: 'a-very-long-tracking-identifier-that-is-quite-long' } }),
+    ])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+
+    const preview = await screen.findByTitle('View full payload')
+    expect(preview.textContent?.length).toBeLessThan(70)
+
+    await userEvent.click(preview)
+
+    expect(screen.getByText('Collapse')).toBeInTheDocument()
+    expect(screen.getByText(/a-very-long-tracking-identifier-that-is-quite-long/)).toBeInTheDocument()
   })
 })
