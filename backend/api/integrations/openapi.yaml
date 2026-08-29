@@ -1935,6 +1935,17 @@ components:
         payload: { description: "The provider's raw JSON payload, parsed. Any shape -- provider-defined.", nullable: true }
         received_at: { type: string, format: date-time }
         processed_at: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [received, processed, failed]
+          description: >-
+            "received" is the normal terminal state for most events (no
+            per-topic dispatch handler exists for their provider/topic).
+            "processed"/"failed" mean a dispatch handler actually ran
+            (myparcel's shipment_status_change today) and its outcome.
+        dispatch_error:
+          type: string
+          description: The dispatch handler's error message when status is "failed", empty otherwise.
 
     WebhookEventListResponse:
       type: object

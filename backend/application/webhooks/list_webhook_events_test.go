@@ -27,6 +27,9 @@ func (f *fakeWebhookEventRepoAdmin) Save(ctx context.Context, e *webhooks.Webhoo
 func (f *fakeWebhookEventRepoAdmin) DistinctTopics(ctx context.Context) ([]webhooks.TopicRef, error) {
 	panic("not used")
 }
+func (f *fakeWebhookEventRepoAdmin) MarkDispatchResult(ctx context.Context, id string, status webhooks.WebhookEventStatus, dispatchError string) error {
+	panic("not used")
+}
 func (f *fakeWebhookEventRepoAdmin) List(ctx context.Context, provider string, limit int) ([]webhooks.WebhookEvent, error) {
 	f.captureCalls++
 	f.gotProvider, f.gotLimit = provider, limit

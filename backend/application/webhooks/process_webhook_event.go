@@ -72,8 +72,9 @@ func NewProcessWebhookEventUseCase(
 func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webhooks.Envelope) error {
 	ctx = tenant.WithTenantID(ctx, envelope.TenantID)
 	topic := envelope.Headers[topicHeaderByProvider[envelope.Provider]]
+	var event webhooks.WebhookEvent
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		event := webhooks.WebhookEvent{
+		event = webhooks.WebhookEvent{
 			TenantID: envelope.TenantID, Provider: envelope.Provider, EventID: envelope.EventID,
 			Topic: topic, Payload: envelope.RawPayload, ReceivedAt: envelope.ReceivedAt,
 		}
@@ -102,10 +103,25 @@ func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webh
 		return fmt.Errorf("processWebhookEvent: %w", err)
 	}
 
-	if envelope.Provider == "myparcel" && uc.shipmentHandler != nil {
-		if err := uc.shipmentHandler.Execute(ctx, envelope); err != nil {
-			return fmt.Errorf("processWebhookEvent: shipment dispatch: %w", err)
-		}
+	if envelope.Provider != "myparcel" || uc.shipmentHandler == nil {
+		return nil
+	}
+
+	if dispatchErr := uc.shipmentHandler.Execute(ctx, envelope); dispatchErr != nil {
+		// Best-effort: the dispatch failure is what actually needs the
+		// caller to nack/retry (Save above is idempotent, so redelivery is
+		// safe) -- a failure recording that fact must not hide or replace
+		// it.
+		_ = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+			return uc.eventRepo.MarkDispatchResult(ctx, event.ID, webhooks.WebhookEventStatusFailed, dispatchErr.Error())
+		})
+		return fmt.Errorf("processWebhookEvent: shipment dispatch: %w", dispatchErr)
+	}
+
+	if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return uc.eventRepo.MarkDispatchResult(ctx, event.ID, webhooks.WebhookEventStatusProcessed, "")
+	}); err != nil {
+		return fmt.Errorf("processWebhookEvent: mark processed: %w", err)
 	}
 	return nil
 }

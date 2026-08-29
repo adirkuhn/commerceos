@@ -32,9 +32,10 @@ const (
 
 // WebhookEvent is the cold-path landing record: written once
 // cmd/webhook-processor has successfully consumed an Envelope off
-// COMMERCEOS_WEBHOOKS -- the actual "process later" destination. Per-topic
-// business-rule dispatch is deliberately out of scope for this pass; this
-// is the durable, queryable proof the event was received and accepted.
+// COMMERCEOS_WEBHOOKS -- the durable, queryable proof the event was
+// received and accepted. Per-topic business-rule dispatch exists only for
+// myparcel (see application/webhooks.ProcessWebhookEventUseCase) -- Status
+// records what happened with it, if anything.
 type WebhookEvent struct {
 	ID          string
 	TenantID    string
@@ -44,7 +45,26 @@ type WebhookEvent struct {
 	Payload     []byte
 	ReceivedAt  time.Time
 	ProcessedAt time.Time
+	// Status defaults to Received. Only a provider/topic with an actual
+	// dispatch handler (myparcel today) ever moves it to Processed/Failed --
+	// every other event stays Received forever, which is its normal,
+	// successful terminal state (nothing more was ever going to happen to
+	// it), not an unprocessed one.
+	Status WebhookEventStatus
+	// DispatchError is the dispatch handler's error message when Status is
+	// Failed, empty otherwise.
+	DispatchError string
 }
+
+// WebhookEventStatus is WebhookEvent's per-topic dispatch outcome -- see
+// WebhookEvent.Status's doc comment.
+type WebhookEventStatus string
+
+const (
+	WebhookEventStatusReceived  WebhookEventStatus = "received"
+	WebhookEventStatusProcessed WebhookEventStatus = "processed"
+	WebhookEventStatusFailed    WebhookEventStatus = "failed"
+)
 
 // TopicRef is one (provider, topic) pair this tenant has actually received
 // at least one WebhookEvent for -- see

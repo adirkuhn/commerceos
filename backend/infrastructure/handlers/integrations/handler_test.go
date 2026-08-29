@@ -1983,6 +1983,23 @@ func TestListWebhookEventsHandler_returnsList(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"foo":"bar"`)
 }
 
+func TestListWebhookEventsHandler_includesDispatchStatus(t *testing.T) {
+	stub := &stubListWebhookEvents{out: []webhooksDomain.WebhookEvent{
+		{ID: "evt-1", Provider: "myparcel", Topic: "shipment_status_change", EventID: "e-1", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusFailed, DispatchError: "myparcel unreachable"},
+		{ID: "evt-2", Provider: "woocommerce", Topic: "order.updated", EventID: "e-2", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusReceived},
+	}}
+	h := newListWebhookEventsTestHandler(stub)
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/webhook-events", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"status":"failed"`)
+	assert.Contains(t, w.Body.String(), `"dispatch_error":"myparcel unreachable"`)
+	assert.Contains(t, w.Body.String(), `"status":"received"`)
+}
+
 func TestListWebhookEventsHandler_passesProviderAndLimitQueryParams(t *testing.T) {
 	stub := &stubListWebhookEvents{}
 	h := newListWebhookEventsTestHandler(stub)

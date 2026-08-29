@@ -859,11 +859,14 @@ func (h *Handler) ListWebhookEvents(c *gin.Context, params genintegrations.ListW
 	for i, e := range events {
 		id, eventID, provider, topic := e.ID, e.EventID, e.Provider, e.Topic
 		receivedAt, processedAt := e.ReceivedAt, e.ProcessedAt
+		status := genintegrations.WebhookEventStatus(e.Status)
+		dispatchError := e.DispatchError
 		var payload any
 		_ = json.Unmarshal(e.Payload, &payload)
 		out[i] = genintegrations.WebhookEvent{
 			Id: &id, EventId: &eventID, Provider: &provider, Topic: &topic,
 			Payload: payload, ReceivedAt: &receivedAt, ProcessedAt: &processedAt,
+			Status: &status, DispatchError: &dispatchError,
 		}
 	}
 	middleware.OK(c, out)

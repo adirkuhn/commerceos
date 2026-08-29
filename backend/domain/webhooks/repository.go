@@ -37,6 +37,11 @@ type WebhookEventRepository interface {
 	// Webhooks page's "Messages" tab ("see all messages, filter by
 	// sender").
 	List(ctx context.Context, provider string, limit int) ([]WebhookEvent, error)
+	// MarkDispatchResult records what a per-topic dispatch handler did with
+	// this event -- called once right after ProcessWebhookEventUseCase
+	// invokes it, dispatchError empty unless status is Failed. A no-op
+	// (never called) leaves Status at its Received default.
+	MarkDispatchResult(ctx context.Context, id string, status WebhookEventStatus, dispatchError string) error
 }
 
 // ForwardRuleRepository persists a tenant's webhook fan-out configuration

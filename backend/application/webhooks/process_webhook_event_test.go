@@ -14,8 +14,16 @@ import (
 )
 
 type fakeWebhookEventRepo struct {
-	saved []webhooks.WebhookEvent
-	err   error
+	saved             []webhooks.WebhookEvent
+	err               error
+	markDispatchCalls []markDispatchCall
+	markDispatchErr   error
+}
+
+type markDispatchCall struct {
+	id            string
+	status        webhooks.WebhookEventStatus
+	dispatchError string
 }
 
 func (f *fakeWebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEvent) error {
@@ -35,14 +43,21 @@ func (f *fakeWebhookEventRepo) List(ctx context.Context, provider string, limit 
 	panic("not used")
 }
 
+func (f *fakeWebhookEventRepo) MarkDispatchResult(ctx context.Context, id string, status webhooks.WebhookEventStatus, dispatchError string) error {
+	f.markDispatchCalls = append(f.markDispatchCalls, markDispatchCall{id: id, status: status, dispatchError: dispatchError})
+	return f.markDispatchErr
+}
+
 type fakeForwardRuleRepo struct {
 	rules []webhooks.ForwardRule
 	err   error
 }
 
 func (f *fakeForwardRuleRepo) Create(ctx context.Context, r *webhooks.ForwardRule) error { return nil }
-func (f *fakeForwardRuleRepo) List(ctx context.Context) ([]webhooks.ForwardRule, error)  { return f.rules, nil }
-func (f *fakeForwardRuleRepo) Delete(ctx context.Context, id string) error               { return nil }
+func (f *fakeForwardRuleRepo) List(ctx context.Context) ([]webhooks.ForwardRule, error) {
+	return f.rules, nil
+}
+func (f *fakeForwardRuleRepo) Delete(ctx context.Context, id string) error { return nil }
 func (f *fakeForwardRuleRepo) Match(ctx context.Context, provider, topic string) ([]webhooks.ForwardRule, error) {
 	if f.err != nil {
 		return nil, f.err
@@ -120,7 +135,7 @@ func (f *fakeShipmentHandler) Execute(_ context.Context, e webhooks.Envelope) er
 func TestProcessWebhookEventUseCase_myParcelProvider_dispatchesToShipmentHandler(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
 	handler := &fakeShipmentHandler{}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
 
 	envelope := webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel", RawPayload: []byte(`{}`)}
 	err := uc.Execute(context.Background(), envelope)
@@ -128,6 +143,20 @@ func TestProcessWebhookEventUseCase_myParcelProvider_dispatchesToShipmentHandler
 	require.NoError(t, err)
 	assert.True(t, handler.called)
 	assert.Equal(t, "evt-1", handler.envelope.EventID)
+	require.Len(t, repo.markDispatchCalls, 1, "a successful dispatch must be recorded so 'was this processed' is visible")
+	assert.Equal(t, "webhook-event-evt-1", repo.markDispatchCalls[0].id)
+	assert.Equal(t, webhooks.WebhookEventStatusProcessed, repo.markDispatchCalls[0].status)
+	assert.Empty(t, repo.markDispatchCalls[0].dispatchError)
+}
+
+func TestProcessWebhookEventUseCase_markDispatchResultError_onSuccessPath_propagates(t *testing.T) {
+	repo := &fakeWebhookEventRepo{markDispatchErr: errors.New("db down")}
+	handler := &fakeShipmentHandler{}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
+
+	require.Error(t, err, "a successful dispatch whose own status write fails must still surface an error, not silently look fine")
 }
 
 func TestProcessWebhookEventUseCase_otherProviders_neverDispatchToShipmentHandler(t *testing.T) {
@@ -144,12 +173,26 @@ func TestProcessWebhookEventUseCase_otherProviders_neverDispatchToShipmentHandle
 func TestProcessWebhookEventUseCase_shipmentHandlerError_propagates(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
 	handler := &fakeShipmentHandler{err: errors.New("myparcel lookup failed")}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
 
 	require.Error(t, err)
+	require.Len(t, repo.markDispatchCalls, 1, "a failed dispatch must also be recorded, not just retried silently")
+	assert.Equal(t, webhooks.WebhookEventStatusFailed, repo.markDispatchCalls[0].status)
+	assert.Equal(t, "myparcel lookup failed", repo.markDispatchCalls[0].dispatchError)
 	require.Len(t, repo.saved, 1, "the event is still durably persisted even if the subsequent dispatch fails")
+}
+
+func TestProcessWebhookEventUseCase_markDispatchResultError_onFailurePath_stillSurfacesTheDispatchError(t *testing.T) {
+	repo := &fakeWebhookEventRepo{markDispatchErr: errors.New("db down")}
+	handler := &fakeShipmentHandler{err: errors.New("myparcel lookup failed")}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "myparcel lookup failed", "the recordable-but-secondary status write failing must not hide the actual dispatch error the caller needs to retry on")
 }
 
 func TestProcessWebhookEventUseCase_enqueuesForwardDeliveryForMatchingRule(t *testing.T) {

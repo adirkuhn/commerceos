@@ -14,14 +14,16 @@ import (
 )
 
 type webhookEventModel struct {
-	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID    string `gorm:"not null;type:uuid"`
-	Provider    string `gorm:"not null"`
-	EventID     string `gorm:"not null"`
-	Topic       string `gorm:"not null"`
-	Payload     []byte `gorm:"type:jsonb;not null"`
-	ReceivedAt  time.Time
-	ProcessedAt time.Time
+	ID            string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID      string `gorm:"not null;type:uuid"`
+	Provider      string `gorm:"not null"`
+	EventID       string `gorm:"not null"`
+	Topic         string `gorm:"not null"`
+	Payload       []byte `gorm:"type:jsonb;not null"`
+	ReceivedAt    time.Time
+	ProcessedAt   time.Time
+	Status        string `gorm:"not null;default:received"`
+	DispatchError string `gorm:"not null;default:''"`
 }
 
 func (webhookEventModel) TableName() string { return "webhook_events" }
@@ -38,7 +40,7 @@ func (r *WebhookEventRepo) Save(ctx context.Context, e *webhooks.WebhookEvent) e
 	txc := tx.WithContext(ctx)
 	m := webhookEventModel{
 		TenantID: e.TenantID, Provider: e.Provider, EventID: e.EventID, Topic: e.Topic,
-		Payload: e.Payload, ReceivedAt: e.ReceivedAt,
+		Payload: e.Payload, ReceivedAt: e.ReceivedAt, Status: string(webhooks.WebhookEventStatusReceived),
 	}
 	res := txc.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}, {Name: "provider"}, {Name: "event_id"}}, DoNothing: true,
@@ -83,9 +85,25 @@ func (r *WebhookEventRepo) List(ctx context.Context, provider string, limit int)
 		out[i] = webhooks.WebhookEvent{
 			ID: m.ID, TenantID: m.TenantID, Provider: m.Provider, EventID: m.EventID,
 			Topic: m.Topic, Payload: m.Payload, ReceivedAt: m.ReceivedAt, ProcessedAt: m.ProcessedAt,
+			Status: webhooks.WebhookEventStatus(m.Status), DispatchError: m.DispatchError,
 		}
 	}
 	return out, nil
+}
+
+// MarkDispatchResult records a per-topic dispatch handler's outcome for one
+// event -- see WebhookEventRepository.MarkDispatchResult's doc comment.
+func (r *WebhookEventRepo) MarkDispatchResult(ctx context.Context, id string, status webhooks.WebhookEventStatus, dispatchError string) error {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return errors.New("webhookEventRepo: MarkDispatchResult called outside a transaction")
+	}
+	err := tx.WithContext(ctx).Model(&webhookEventModel{}).Where("id = ?", id).
+		Updates(map[string]any{"status": string(status), "dispatch_error": dispatchError}).Error
+	if err != nil {
+		return fmt.Errorf("webhookEventRepo.MarkDispatchResult: %w", err)
+	}
+	return nil
 }
 
 func (r *WebhookEventRepo) DistinctTopics(ctx context.Context) ([]webhooks.TopicRef, error) {

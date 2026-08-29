@@ -16,16 +16,19 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-func saveWebhookEvent(t *testing.T, db *gorm.DB, ctx context.Context, provider, topic, eventID string, receivedAt time.Time) {
+func saveWebhookEvent(t *testing.T, db *gorm.DB, ctx context.Context, provider, topic, eventID string, receivedAt time.Time) string {
 	t.Helper()
 	repo := repositories.NewWebhookEventRepo(db)
+	var saved webhooks.WebhookEvent
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.Save(ctx, &webhooks.WebhookEvent{
+		saved = webhooks.WebhookEvent{
 			TenantID: tenant.IDFromContext(ctx), Provider: provider, Topic: topic,
 			EventID: eventID, Payload: []byte(`{}`), ReceivedAt: receivedAt,
-		})
+		}
+		return repo.Save(ctx, &saved)
 	})
 	require.NoError(t, err)
+	return saved.ID
 }
 
 func TestWebhookEventRepo_Integration_List_filtersByProviderNewestFirst(t *testing.T) {
@@ -79,6 +82,65 @@ func TestWebhookEventRepo_Integration_List_respectsLimit(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, limited, 2)
+}
+
+func TestWebhookEventRepo_Integration_Save_defaultsStatusToReceived(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewWebhookEventRepo(db)
+
+	saveWebhookEvent(t, db, ctx, "woocommerce", "order.updated", "evt-default", time.Now())
+
+	var all []webhooks.WebhookEvent
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		all, err = repo.List(ctx, "", 50)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.Equal(t, webhooks.WebhookEventStatusReceived, all[0].Status)
+	require.Empty(t, all[0].DispatchError)
+}
+
+func TestWebhookEventRepo_Integration_MarkDispatchResult_updatesStatusAndError(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewWebhookEventRepo(db)
+
+	eventID := saveWebhookEvent(t, db, ctx, "myparcel", "shipment_status_change", "evt-mark", time.Now())
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.MarkDispatchResult(ctx, eventID, webhooks.WebhookEventStatusFailed, "myparcel unreachable")
+	})
+	require.NoError(t, err)
+
+	var all []webhooks.WebhookEvent
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		all, err = repo.List(ctx, "", 50)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.Equal(t, webhooks.WebhookEventStatusFailed, all[0].Status)
+	require.Equal(t, "myparcel unreachable", all[0].DispatchError)
+
+	// Marking it processed on retry must overwrite the prior failure, not
+	// stack another row.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.MarkDispatchResult(ctx, eventID, webhooks.WebhookEventStatusProcessed, "")
+	})
+	require.NoError(t, err)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		all, err = repo.List(ctx, "", 50)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.Equal(t, webhooks.WebhookEventStatusProcessed, all[0].Status)
+	require.Empty(t, all[0].DispatchError)
 }
 
 // TestWebhookEventRepo_Integration_List_RLSHidesOtherTenantsEvents: RLS is

@@ -33,6 +33,10 @@ func (f *fakeTopicsEventRepo) List(ctx context.Context, provider string, limit i
 	panic("not used")
 }
 
+func (f *fakeTopicsEventRepo) MarkDispatchResult(ctx context.Context, id string, status webhooks.WebhookEventStatus, dispatchError string) error {
+	panic("not used")
+}
+
 type fakeSubscriptionsLister struct {
 	result *appintegrations.ListAllProviderWebhooksResult
 	err    error
