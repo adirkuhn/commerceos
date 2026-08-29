@@ -7,6 +7,7 @@ import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebh
 import { useWebhookTopics } from '../integrations/hooks/useWebhookTopics'
 import { useWebhookEvents } from '../integrations/hooks/useWebhookEvents'
 import type { AvailableWebhookTopics } from '../integrations/api'
+import type { WebhookEvent } from '../integrations/types'
 
 // Known providers get a friendlier display name; any future provider this
 // codebase doesn't know the name of yet falls back to capitalizing what the
@@ -435,7 +436,8 @@ function MessagesTab({
                 <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
                   <th className="py-2 pr-3 font-medium">Sender</th>
                   <th className="py-2 pr-3 font-medium">Topic</th>
-                  <th className="py-2 pr-3 font-medium">Received</th>
+                  <th className="py-2 pr-3 font-medium">Received at</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Payload</th>
                 </tr>
               </thead>
@@ -445,6 +447,7 @@ function MessagesTab({
                     <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{providerLabel(e.provider)}</td>
                     <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{e.topic}</td>
                     <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 whitespace-nowrap">{new Date(e.received_at).toLocaleString()}</td>
+                    <td className="py-2 pr-3"><MessageStatusBadge status={e.status} dispatchError={e.dispatch_error} /></td>
                     <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono max-w-[360px]">
                       <PayloadPreview payload={e.payload} />
                     </td>
@@ -457,6 +460,27 @@ function MessagesTab({
       </div>
     </div>
   )
+}
+
+// "received" is the normal, successful terminal state for most events --
+// no per-topic dispatch handler exists for their provider/topic, so
+// nothing more was ever going to happen. Only "processed"/"failed" mean a
+// dispatch handler (myparcel's shipment_status_change today) actually ran.
+function MessageStatusBadge({ status, dispatchError }: { status: WebhookEvent['status']; dispatchError: string }) {
+  if (status === 'failed') {
+    return (
+      <span
+        title={dispatchError || undefined}
+        className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-red-500/15 text-red-500 cursor-help"
+      >
+        Failed
+      </span>
+    )
+  }
+  if (status === 'processed') {
+    return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-500">Processed</span>
+  }
+  return <span className="px-1.5 py-0.5 rounded text-[11px] font-medium dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500">Received</span>
 }
 
 // Truncated one-line preview that expands into the full formatted JSON on

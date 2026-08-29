@@ -51,6 +51,7 @@ function webhookEvent(overrides: Partial<WebhookEvent> = {}): WebhookEvent {
   return {
     id: 'evt-1', provider: 'myparcel', topic: 'shipment_status_change', event_id: 'e-1',
     payload: { status: 'shipped' }, received_at: '2026-08-23T10:00:00Z', processed_at: '2026-08-23T10:00:01Z',
+    status: 'received', dispatch_error: '',
     ...overrides,
   }
 }
@@ -300,5 +301,32 @@ describe('Webhooks page — Messages tab', () => {
 
     expect(screen.getByText('Collapse')).toBeInTheDocument()
     expect(screen.getByText(/a-very-long-tracking-identifier-that-is-quite-long/)).toBeInTheDocument()
+  })
+
+  it('shows a Received badge for a message with no dispatch handler', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([webhookEvent({ status: 'received' })])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+
+    expect(await screen.findByText('Received')).toBeInTheDocument()
+  })
+
+  it('shows a Processed badge when a dispatch handler ran successfully', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([webhookEvent({ status: 'processed' })])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+
+    expect(await screen.findByText('Processed')).toBeInTheDocument()
+  })
+
+  it('shows a Failed badge with the dispatch error in a tooltip', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([
+      webhookEvent({ status: 'failed', dispatch_error: 'myparcel unreachable' }),
+    ])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+
+    const badge = await screen.findByText('Failed')
+    expect(badge).toHaveAttribute('title', 'myparcel unreachable')
   })
 })

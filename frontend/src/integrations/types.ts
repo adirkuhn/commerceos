@@ -325,6 +325,12 @@ export interface WebhookEvent {
   payload: unknown
   received_at: string
   processed_at: string
+  // "received" is the normal terminal state for most events (no per-topic
+  // dispatch handler exists for their provider/topic) -- only
+  // "processed"/"failed" mean a dispatch handler (myparcel's
+  // shipment_status_change today) actually ran.
+  status: 'received' | 'processed' | 'failed'
+  dispatch_error: string
 }
 
 export interface APIError {
