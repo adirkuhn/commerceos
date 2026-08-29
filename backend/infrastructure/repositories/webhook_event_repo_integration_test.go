@@ -143,6 +143,30 @@ func TestWebhookEventRepo_Integration_MarkDispatchResult_updatesStatusAndError(t
 	require.Empty(t, all[0].DispatchError)
 }
 
+func TestWebhookEventRepo_Integration_FindByID(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewWebhookEventRepo(db)
+
+	eventID := saveWebhookEvent(t, db, ctx, "myparcel", "shipment_status_change", "evt-findbyid", time.Now())
+
+	var found *webhooks.WebhookEvent
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByID(ctx, eventID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "evt-findbyid", found.EventID)
+	require.Equal(t, webhooks.WebhookEventStatusReceived, found.Status)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		_, err := repo.FindByID(ctx, "00000000-0000-0000-0000-000000000000")
+		return err
+	})
+	require.ErrorIs(t, err, webhooks.ErrWebhookEventNotFound)
+}
+
 // TestWebhookEventRepo_Integration_List_RLSHidesOtherTenantsEvents: RLS is
 // never enforced against a superuser/BYPASSRLS role regardless of policy,
 // so this only means something routed through commerceos_app -- the same

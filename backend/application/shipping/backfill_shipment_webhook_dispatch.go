@@ -59,16 +59,23 @@ type shipmentDispatchOutcome struct {
 	err                    error
 }
 
-// BackfillShipmentWebhookDispatchUseCase is a one-time reprocessing of
-// myparcel shipment_status_change webhooks received before dispatch-status
-// tracking existed (see application/webhooks.ProcessWebhookEventUseCase),
-// so their outcome becomes visible on the Messages tab instead of staying
-// "received" forever. Reuses the exact same per-shipment resolution and
+// eventDispatchStats is one webhook_events row's per-hook outcome tally --
+// shared shape both BackfillShipmentWebhookDispatchUseCase (aggregates
+// across many rows) and RetryWebhookEventDispatchUseCase (just reports on
+// its one row) read from shipmentWebhookDispatcher.processEvent.
+type eventDispatchStats struct {
+	applied, duplicate, unknownShipment int
+	failed                              bool
+}
+
+// shipmentWebhookDispatcher is the per-shipment resolution and
 // applyStatusUpdate path HandleShipmentWebhookUseCase/ReconcileShipments-
-// UseCase already share -- including ReconcileShipmentsUseCase's own
-// "nothing actually changed" skip -- so a backfill run can never produce a
-// different outcome than what live processing would have.
-type BackfillShipmentWebhookDispatchUseCase struct {
+// UseCase already share, reused a third time here for reprocessing a
+// webhook_events row after the fact -- BackfillShipmentWebhookDispatchUseCase
+// (many old rows, one run) and RetryWebhookEventDispatchUseCase (one row,
+// on demand) both just wrap this with their own entry point, so neither
+// can ever produce a different outcome than live processing would have.
+type shipmentWebhookDispatcher struct {
 	db               *gorm.DB
 	webhookEventRepo webhooksDomain.WebhookEventRepository
 	shipmentRepo     shippingDomain.ShipmentRepository
@@ -77,6 +84,118 @@ type BackfillShipmentWebhookDispatchUseCase struct {
 	salesOrderRepo   omsDomain.SalesOrderRepository
 	myParcelFactory  integrationsDomain.MyParcelClientFactory
 	encSecret        string
+}
+
+// processEvent parses one webhook_events row's payload and resolves each
+// hook via cache (pass a fresh map for a single-event caller, or share one
+// across a batch to dedupe repeated shipments -- see
+// shipmentDispatchOutcome's doc comment), then marks the row's dispatch
+// result. The returned error is only ever a failure to persist that mark
+// itself (Processed path) -- a dispatch failure is recorded in the
+// returned stats/the row's own dispatch_error, not returned as an error,
+// since that's an expected, retryable outcome, not a fault in this method.
+func (d *shipmentWebhookDispatcher) processEvent(ctx context.Context, event webhooksDomain.WebhookEvent, cache map[int64]*shipmentDispatchOutcome) (eventDispatchStats, error) {
+	var stats eventDispatchStats
+
+	var payload myParcelWebhookPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		_ = d.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusFailed, fmt.Sprintf("decode payload: %v", err))
+		stats.failed = true
+		return stats, nil
+	}
+
+	eventErr := ""
+	for _, hook := range payload.Data.Hooks {
+		outcome, alreadySeenThisRun := cache[hook.ShipmentID]
+		if !alreadySeenThisRun {
+			outcome = d.resolveShipment(ctx, hook.ShipmentID)
+			cache[hook.ShipmentID] = outcome
+		}
+		switch {
+		case outcome.err != nil:
+			eventErr = outcome.err.Error()
+		case outcome.skippedUnknownShipment:
+			stats.unknownShipment++
+		// A cache hit means an earlier hook in this same call already wrote
+		// (or determined there was nothing to write for) this shipment --
+		// this one causes no new write of its own, so it always counts as
+		// a duplicate, even if the first occurrence was Applied.
+		case !alreadySeenThisRun && outcome.applied:
+			stats.applied++
+		default:
+			stats.duplicate++
+		}
+	}
+
+	if eventErr != "" {
+		_ = d.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusFailed, eventErr)
+		stats.failed = true
+		return stats, nil
+	}
+	if err := d.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusProcessed, ""); err != nil {
+		return stats, fmt.Errorf("mark processed: %w", err)
+	}
+	return stats, nil
+}
+
+func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParcelShipmentID int64) *shipmentDispatchOutcome {
+	var shipment shippingDomain.Shipment
+	var conn integrationsDomain.Connection
+	err := tenant.WithTenant(ctx, d.db, func(ctx context.Context) error {
+		s, err := d.shipmentRepo.FindByMyParcelShipmentID(ctx, myParcelShipmentID)
+		if err != nil {
+			return err
+		}
+		shipment = *s
+		c, err := d.connRepo.FindByID(ctx, s.ConnectionID)
+		if err != nil {
+			return err
+		}
+		conn = *c
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, shippingDomain.ErrShipmentNotFound) {
+			return &shipmentDispatchOutcome{skippedUnknownShipment: true}
+		}
+		return &shipmentDispatchOutcome{err: err}
+	}
+
+	apiKey, err := crypto.Decrypt(d.encSecret, conn.ConsumerSecretEncrypted)
+	if err != nil {
+		return &shipmentDispatchOutcome{err: fmt.Errorf("decrypt api key: %w", err)}
+	}
+	client, err := d.myParcelFactory.NewClient(apiKey)
+	if err != nil {
+		return &shipmentDispatchOutcome{err: fmt.Errorf("build client: %w", err)}
+	}
+	tt, err := client.GetTrackTrace(ctx, myParcelShipmentID)
+	if err != nil {
+		return &shipmentDispatchOutcome{err: fmt.Errorf("get tracktrace: %w", err)}
+	}
+	if tt.StatusMain == shipment.StatusMain && tt.StatusCode == shipment.Status {
+		return &shipmentDispatchOutcome{applied: false}
+	}
+	if _, err := applyStatusUpdate(ctx, d.db, d.shipmentRepo, d.statusEventRepo, d.salesOrderRepo,
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill); err != nil {
+		return &shipmentDispatchOutcome{err: fmt.Errorf("apply status update: %w", err)}
+	}
+	return &shipmentDispatchOutcome{applied: true}
+}
+
+func (d *shipmentWebhookDispatcher) markDispatchResult(ctx context.Context, eventID string, status webhooksDomain.WebhookEventStatus, dispatchError string) error {
+	return tenant.WithTenant(ctx, d.db, func(ctx context.Context) error {
+		return d.webhookEventRepo.MarkDispatchResult(ctx, eventID, status, dispatchError)
+	})
+}
+
+// BackfillShipmentWebhookDispatchUseCase is a one-time reprocessing of
+// myparcel shipment_status_change webhooks received before dispatch-status
+// tracking existed (see application/webhooks.ProcessWebhookEventUseCase),
+// so their outcome becomes visible on the Messages tab instead of staying
+// "received" forever.
+type BackfillShipmentWebhookDispatchUseCase struct {
+	dispatcher *shipmentWebhookDispatcher
 }
 
 func NewBackfillShipmentWebhookDispatchUseCase(
@@ -89,17 +208,17 @@ func NewBackfillShipmentWebhookDispatchUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 ) *BackfillShipmentWebhookDispatchUseCase {
-	return &BackfillShipmentWebhookDispatchUseCase{
+	return &BackfillShipmentWebhookDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,
 		connRepo: connRepo, salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-	}
+	}}
 }
 
 func (uc *BackfillShipmentWebhookDispatchUseCase) Execute(ctx context.Context) (*BackfillShipmentWebhookDispatchResult, error) {
 	var events []webhooksDomain.WebhookEvent
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err := tenant.WithTenant(ctx, uc.dispatcher.db, func(ctx context.Context) error {
 		var err error
-		events, err = uc.webhookEventRepo.List(ctx, "myparcel", backfillFetchLimit)
+		events, err = uc.dispatcher.webhookEventRepo.List(ctx, "myparcel", backfillFetchLimit)
 		return err
 	})
 	if err != nil {
@@ -115,96 +234,16 @@ func (uc *BackfillShipmentWebhookDispatchUseCase) Execute(ctx context.Context) (
 		}
 		result.Checked++
 
-		var payload myParcelWebhookPayload
-		if err := json.Unmarshal(event.Payload, &payload); err != nil {
-			_ = uc.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusFailed, fmt.Sprintf("decode payload: %v", err))
+		stats, err := uc.dispatcher.processEvent(ctx, event, cache)
+		if err != nil {
+			return nil, fmt.Errorf("backfillShipmentWebhookDispatch: %w", err)
+		}
+		result.Applied += stats.applied
+		result.SkippedDuplicate += stats.duplicate
+		result.SkippedUnknownShipment += stats.unknownShipment
+		if stats.failed {
 			result.Failed++
-			continue
-		}
-
-		eventErr := ""
-		for _, hook := range payload.Data.Hooks {
-			outcome, alreadySeenThisRun := cache[hook.ShipmentID]
-			if !alreadySeenThisRun {
-				outcome = uc.resolveShipment(ctx, hook.ShipmentID)
-				cache[hook.ShipmentID] = outcome
-			}
-			switch {
-			case outcome.err != nil:
-				eventErr = outcome.err.Error()
-			case outcome.skippedUnknownShipment:
-				result.SkippedUnknownShipment++
-			// A cache hit means an earlier row in this same run already
-			// wrote (or determined there was nothing to write for) this
-			// shipment -- this row causes no new write of its own, so it
-			// always counts as a duplicate from here, even if the first
-			// occurrence was Applied.
-			case !alreadySeenThisRun && outcome.applied:
-				result.Applied++
-			default:
-				result.SkippedDuplicate++
-			}
-		}
-
-		if eventErr != "" {
-			_ = uc.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusFailed, eventErr)
-			result.Failed++
-			continue
-		}
-		if err := uc.markDispatchResult(ctx, event.ID, webhooksDomain.WebhookEventStatusProcessed, ""); err != nil {
-			return nil, fmt.Errorf("backfillShipmentWebhookDispatch: mark processed: %w", err)
 		}
 	}
 	return result, nil
-}
-
-func (uc *BackfillShipmentWebhookDispatchUseCase) resolveShipment(ctx context.Context, myParcelShipmentID int64) *shipmentDispatchOutcome {
-	var shipment shippingDomain.Shipment
-	var conn integrationsDomain.Connection
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		s, err := uc.shipmentRepo.FindByMyParcelShipmentID(ctx, myParcelShipmentID)
-		if err != nil {
-			return err
-		}
-		shipment = *s
-		c, err := uc.connRepo.FindByID(ctx, s.ConnectionID)
-		if err != nil {
-			return err
-		}
-		conn = *c
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, shippingDomain.ErrShipmentNotFound) {
-			return &shipmentDispatchOutcome{skippedUnknownShipment: true}
-		}
-		return &shipmentDispatchOutcome{err: err}
-	}
-
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
-	if err != nil {
-		return &shipmentDispatchOutcome{err: fmt.Errorf("decrypt api key: %w", err)}
-	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
-	if err != nil {
-		return &shipmentDispatchOutcome{err: fmt.Errorf("build client: %w", err)}
-	}
-	tt, err := client.GetTrackTrace(ctx, myParcelShipmentID)
-	if err != nil {
-		return &shipmentDispatchOutcome{err: fmt.Errorf("get tracktrace: %w", err)}
-	}
-	if tt.StatusMain == shipment.StatusMain && tt.StatusCode == shipment.Status {
-		return &shipmentDispatchOutcome{applied: false}
-	}
-	if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill); err != nil {
-		return &shipmentDispatchOutcome{err: fmt.Errorf("apply status update: %w", err)}
-	}
-	return &shipmentDispatchOutcome{applied: true}
-}
-
-func (uc *BackfillShipmentWebhookDispatchUseCase) markDispatchResult(ctx context.Context, eventID string, status webhooksDomain.WebhookEventStatus, dispatchError string) error {
-	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.webhookEventRepo.MarkDispatchResult(ctx, eventID, status, dispatchError)
-	})
 }

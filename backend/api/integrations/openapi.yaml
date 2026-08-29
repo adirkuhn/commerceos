@@ -370,6 +370,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/WebhookEventListResponse'
 
+  /integrations/webhook-events/{id}/retry:
+    post:
+      operationId: retryWebhookEventDispatch
+      summary: >
+        Re-run dispatch for one webhook right now (myparcel
+        shipment_status_change only, the only provider/topic with a
+        dispatch handler) -- the Messages tab's per-row Retry action, for a
+        message stuck Failed or still Received.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: >
+            ok -- the row's updated state. A provider call failing again is
+            still a 200 with status "failed", not an error response; this
+            only errors when the retry action itself couldn't run at all.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookEventResponse'
+        '404': { $ref: '#/components/responses/Error' }
+        '422':
+          description: This event's provider/topic has no dispatch handler to retry.
+          $ref: '#/components/responses/Error'
+
   /integrations/webhook-forward-deliveries:
     get:
       operationId: listWebhookForwardDeliveries
@@ -1953,6 +1978,12 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/WebhookEvent' }
+        error: { nullable: true }
+
+    WebhookEventResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/WebhookEvent' }
         error: { nullable: true }
 
     WebhookForwardDelivery:

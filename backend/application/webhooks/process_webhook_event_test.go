@@ -48,6 +48,10 @@ func (f *fakeWebhookEventRepo) MarkDispatchResult(ctx context.Context, id string
 	return f.markDispatchErr
 }
 
+func (f *fakeWebhookEventRepo) FindByID(ctx context.Context, id string) (*webhooks.WebhookEvent, error) {
+	panic("not used")
+}
+
 type fakeForwardRuleRepo struct {
 	rules []webhooks.ForwardRule
 	err   error

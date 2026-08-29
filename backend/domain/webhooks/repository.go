@@ -42,6 +42,10 @@ type WebhookEventRepository interface {
 	// invokes it, dispatchError empty unless status is Failed. A no-op
 	// (never called) leaves Status at its Received default.
 	MarkDispatchResult(ctx context.Context, id string, status WebhookEventStatus, dispatchError string) error
+	// FindByID returns ErrWebhookEventNotFound (not a generic error) when
+	// no row matches -- the Messages tab's per-row Retry action
+	// (RetryWebhookEventDispatchUseCase).
+	FindByID(ctx context.Context, id string) (*WebhookEvent, error)
 }
 
 // ForwardRuleRepository persists a tenant's webhook fan-out configuration

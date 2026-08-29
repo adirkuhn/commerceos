@@ -17,6 +17,7 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -81,6 +82,9 @@ type listWebhookForwardDeliveriesUC interface {
 }
 type listWebhookEventsUC interface {
 	Execute(ctx context.Context, provider string, limit int) ([]webhooksDomain.WebhookEvent, error)
+}
+type retryWebhookEventDispatchUC interface {
+	Execute(ctx context.Context, eventID string) (*webhooksDomain.WebhookEvent, error)
 }
 type listProviderWebhooksUC interface {
 	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.ProviderWebhook, error)
@@ -260,6 +264,7 @@ type Handler struct {
 	getBolCommission             getBolCommissionUC
 	listBolEconomicOperators     listBolEconomicOperatorsUC
 	listWebhookEvents            listWebhookEventsUC
+	retryWebhookEventDispatch    retryWebhookEventDispatchUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -320,6 +325,7 @@ func NewHandler(
 	getBolCommission getBolCommissionUC,
 	listBolEconomicOperators listBolEconomicOperatorsUC,
 	listWebhookEvents listWebhookEventsUC,
+	retryWebhookEventDispatch retryWebhookEventDispatchUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -378,6 +384,7 @@ func NewHandler(
 		getBolCommission:             getBolCommission,
 		listBolEconomicOperators:     listBolEconomicOperators,
 		listWebhookEvents:            listWebhookEvents,
+		retryWebhookEventDispatch:    retryWebhookEventDispatch,
 	}
 }
 
@@ -417,6 +424,8 @@ func Register(
 	webhookForwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
 	webhookForwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
 	webhookEventRepo := repositories.NewWebhookEventRepo(db)
+	shipmentRepo := repositories.NewShipmentRepo(db)
+	shipmentStatusEventRepo := repositories.NewShipmentStatusEventRepo(db)
 	categoryRepo := repositories.NewCategoryRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
@@ -536,6 +545,7 @@ func Register(
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
+		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -857,19 +867,31 @@ func (h *Handler) ListWebhookEvents(c *gin.Context, params genintegrations.ListW
 	}
 	out := make([]genintegrations.WebhookEvent, len(events))
 	for i, e := range events {
-		id, eventID, provider, topic := e.ID, e.EventID, e.Provider, e.Topic
-		receivedAt, processedAt := e.ReceivedAt, e.ProcessedAt
-		status := genintegrations.WebhookEventStatus(e.Status)
-		dispatchError := e.DispatchError
-		var payload any
-		_ = json.Unmarshal(e.Payload, &payload)
-		out[i] = genintegrations.WebhookEvent{
-			Id: &id, EventId: &eventID, Provider: &provider, Topic: &topic,
-			Payload: payload, ReceivedAt: &receivedAt, ProcessedAt: &processedAt,
-			Status: &status, DispatchError: &dispatchError,
-		}
+		out[i] = webhookEventToResponse(e)
 	}
 	middleware.OK(c, out)
+}
+
+func (h *Handler) RetryWebhookEventDispatch(c *gin.Context, id genintegrations.Id) {
+	event, err := h.retryWebhookEventDispatch.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, webhookEventToResponse(*event))
+}
+
+func webhookEventToResponse(e webhooksDomain.WebhookEvent) genintegrations.WebhookEvent {
+	id, eventID, provider, topic := e.ID, e.EventID, e.Provider, e.Topic
+	receivedAt, processedAt := e.ReceivedAt, e.ProcessedAt
+	status := genintegrations.WebhookEventStatus(e.Status)
+	dispatchError := e.DispatchError
+	var payload any
+	_ = json.Unmarshal(e.Payload, &payload)
+	return genintegrations.WebhookEvent{
+		Id: &id, EventId: &eventID, Provider: &provider, Topic: &topic,
+		Payload: payload, ReceivedAt: &receivedAt, ProcessedAt: &processedAt,
+		Status: &status, DispatchError: &dispatchError,
+	}
 }
 
 func (h *Handler) ListAllProviderWebhooks(c *gin.Context) {
@@ -1694,8 +1716,11 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrSalesChannelNotFound),
 		errors.Is(err, channelsDomain.ErrExternalCategoryLinkNotFound),
 		errors.Is(err, channelsDomain.ErrSyncLogNotFound),
-		errors.Is(err, webhooksDomain.ErrFallbackEventNotFound):
+		errors.Is(err, webhooksDomain.ErrFallbackEventNotFound),
+		errors.Is(err, webhooksDomain.ErrWebhookEventNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+	case errors.Is(err, webhooksDomain.ErrWebhookEventNotDispatchable):
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, channelsDomain.ErrSyncLogHasNoListing):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStoreURLInvalid):

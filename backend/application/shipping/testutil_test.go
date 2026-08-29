@@ -158,6 +158,7 @@ func (f *fakeShipmentStatusEventRepo) ListByShipmentID(ctx context.Context, ship
 type fakeWebhookEventRepoForBackfill struct {
 	events            []webhooksDomain.WebhookEvent
 	listErr           error
+	findByIDErr       error
 	markDispatchCalls []backfillMarkDispatchCall
 	markDispatchErr   error
 }
@@ -182,7 +183,28 @@ func (f *fakeWebhookEventRepoForBackfill) List(_ context.Context, provider strin
 }
 func (f *fakeWebhookEventRepoForBackfill) MarkDispatchResult(_ context.Context, id string, status webhooksDomain.WebhookEventStatus, dispatchError string) error {
 	f.markDispatchCalls = append(f.markDispatchCalls, backfillMarkDispatchCall{id: id, status: status, dispatchError: dispatchError})
+	// Keep the in-memory row consistent with what a real repo would show on
+	// a subsequent FindByID -- RetryWebhookEventDispatchUseCase re-fetches
+	// after dispatching to return the caller the row's current state.
+	for i := range f.events {
+		if f.events[i].ID == id {
+			f.events[i].Status, f.events[i].DispatchError = status, dispatchError
+		}
+	}
 	return f.markDispatchErr
+}
+
+func (f *fakeWebhookEventRepoForBackfill) FindByID(_ context.Context, id string) (*webhooksDomain.WebhookEvent, error) {
+	if f.findByIDErr != nil {
+		return nil, f.findByIDErr
+	}
+	for _, e := range f.events {
+		if e.ID == id {
+			evt := e
+			return &evt, nil
+		}
+	}
+	return nil, webhooksDomain.ErrWebhookEventNotFound
 }
 
 // --- ShippingCarrierOverrideRepository fake ---

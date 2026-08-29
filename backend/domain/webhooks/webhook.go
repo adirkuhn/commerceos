@@ -4,7 +4,22 @@
 // every in-request retry (see application/webhooks.ReceiveWebhookUseCase).
 package webhooks
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	// ErrWebhookEventNotFound is returned by WebhookEventRepository.FindByID
+	// when no row matches -- typed so handlers can map it to 404 instead of
+	// leaking a generic DB error.
+	ErrWebhookEventNotFound = errors.New("webhooks: webhook event not found")
+	// ErrWebhookEventNotDispatchable is returned by a retry action
+	// (RetryWebhookEventDispatchUseCase) for an event whose provider/topic
+	// has no dispatch handler at all (myparcel shipment_status_change is
+	// the only one today) -- retrying it could never do anything.
+	ErrWebhookEventNotDispatchable = errors.New("webhooks: this event's provider/topic has no dispatch handler to retry")
+)
 
 // Envelope is the payload published to the COMMERCEOS_WEBHOOKS stream (and
 // stored verbatim in a FallbackEvent on publish failure). RawPayload is the

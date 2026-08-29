@@ -91,6 +91,28 @@ func (r *WebhookEventRepo) List(ctx context.Context, provider string, limit int)
 	return out, nil
 }
 
+// FindByID returns ErrWebhookEventNotFound (not a generic error) when no
+// row matches -- see WebhookEventRepository.FindByID's doc comment.
+func (r *WebhookEventRepo) FindByID(ctx context.Context, id string) (*webhooks.WebhookEvent, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("webhookEventRepo: FindByID called outside a transaction")
+	}
+	var m webhookEventModel
+	err := tx.WithContext(ctx).Where("id = ?", id).First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, webhooks.ErrWebhookEventNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("webhookEventRepo.FindByID: %w", err)
+	}
+	return &webhooks.WebhookEvent{
+		ID: m.ID, TenantID: m.TenantID, Provider: m.Provider, EventID: m.EventID,
+		Topic: m.Topic, Payload: m.Payload, ReceivedAt: m.ReceivedAt, ProcessedAt: m.ProcessedAt,
+		Status: webhooks.WebhookEventStatus(m.Status), DispatchError: m.DispatchError,
+	}, nil
+}
+
 // MarkDispatchResult records a per-topic dispatch handler's outcome for one
 // event -- see WebhookEventRepository.MarkDispatchResult's doc comment.
 func (r *WebhookEventRepo) MarkDispatchResult(ctx context.Context, id string, status webhooks.WebhookEventStatus, dispatchError string) error {
