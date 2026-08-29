@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 )
 
@@ -363,22 +364,57 @@ func TestClient_GetTrackTrace_parsesStatus(t *testing.T) {
 	assert.Equal(t, "shipped", result.StatusMain)
 }
 
-func TestClient_RegisterWebhook_sendsCorrectHookType(t *testing.T) {
-	var gotBody map[string]any
+func TestClient_RegisterWebhook_registersEveryKnownHookType(t *testing.T) {
+	var gotHooks []string
+	var gotURLs []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		subs := body["data"].(map[string]any)["webhook_subscriptions"].([]any)
+		require.Len(t, subs, 1)
+		sub := subs[0].(map[string]any)
+		gotHooks = append(gotHooks, sub["hook"].(string))
+		gotURLs = append(gotURLs, sub["url"].(string))
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
-	err := c.RegisterWebhook(context.Background(), "https://example.com/webhooks/v1/tenant/myparcel?token=abc")
+	err := c.RegisterWebhook(context.Background(), "https://example.com/webhooks/v1/tenant/myparcel/abc")
 
 	require.NoError(t, err)
-	hooks := gotBody["data"].(map[string]any)["webhook_subscriptions"].([]any)
-	require.Len(t, hooks, 1)
-	assert.Equal(t, "shipment_status_change", hooks[0].(map[string]any)["hook"])
-	assert.Equal(t, "https://example.com/webhooks/v1/tenant/myparcel?token=abc", hooks[0].(map[string]any)["url"])
+	wantHooks := make([]string, len(integrations.AllMyParcelHookTypes))
+	for i, h := range integrations.AllMyParcelHookTypes {
+		wantHooks[i] = string(h)
+	}
+	assert.ElementsMatch(t, wantHooks, gotHooks)
+	for _, u := range gotURLs {
+		assert.Equal(t, "https://example.com/webhooks/v1/tenant/myparcel/abc", u)
+	}
+}
+
+func TestClient_RegisterWebhook_oneHookFailingStillAttemptsRestAndReturnsError(t *testing.T) {
+	var gotHooks []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		sub := body["data"].(map[string]any)["webhook_subscriptions"].([]any)[0].(map[string]any)
+		hook := sub["hook"].(string)
+		gotHooks = append(gotHooks, hook)
+		if hook == "shop_updated" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	err := c.RegisterWebhook(context.Background(), "https://example.com/webhooks/v1/tenant/myparcel/abc")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "shop_updated")
+	assert.Len(t, gotHooks, len(integrations.AllMyParcelHookTypes), "every hook type should still be attempted despite one failing")
 }
 
 func TestClient_CreateWebhookSubscription_sendsGivenHookAndParsesResponse(t *testing.T) {

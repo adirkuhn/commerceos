@@ -57,11 +57,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/adirkuhn/commerceos/domain/integrations"
 )
 
 // Config holds one MyParcel connection's credentials + endpoint. BaseURL
@@ -588,13 +591,26 @@ type webhookSubscriptionListResponse struct {
 	} `json:"data"`
 }
 
-// RegisterWebhook registers this shop's shipment_status_change callback
-// URL. MyParcel: "you can only have one webhook of each type at a time for
-// a shop, so adding the same webhook overwrites any existing one" -- so
-// this is safe to call more than once for the same connection/URL.
+// RegisterWebhook registers this shop's callback URL for every hook type
+// this codebase knows about (integrations.AllMyParcelHookTypes), not just
+// shipment_status_change. MyParcel: "you can only have one webhook of each
+// type at a time for a shop, so adding the same webhook overwrites any
+// existing one" -- so this is safe to call more than once for the same
+// connection/URL, and also overwrites any stale subscription (e.g. one left
+// behind by a previous integration such as a WooCommerce plugin) pointing
+// at a different delivery URL for the same hook.
+//
+// Every hook type is attempted even if an earlier one fails, so one bad
+// hook can't silently leave the rest unregistered; all failures are joined
+// into a single returned error naming which hook(s) failed.
 func (c *Client) RegisterWebhook(ctx context.Context, callbackURL string) error {
-	_, err := c.CreateWebhookSubscription(ctx, "shipment_status_change", callbackURL)
-	return err
+	var errs []error
+	for _, hook := range integrations.AllMyParcelHookTypes {
+		if _, err := c.CreateWebhookSubscription(ctx, string(hook), callbackURL); err != nil {
+			errs = append(errs, fmt.Errorf("hook %s: %w", hook, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // CreateWebhookSubscription is RegisterWebhook generalized to any hook type
