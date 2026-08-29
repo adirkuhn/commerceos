@@ -24,6 +24,7 @@ vi.mock('../../integrations/api', () => ({
   deleteProviderWebhook: vi.fn(),
   listAvailableWebhookTopics: vi.fn(),
   listWebhookEvents: vi.fn(),
+  retryWebhookEventDispatch: vi.fn(),
 }))
 
 import * as integrationsApi from '../../integrations/api'
@@ -328,5 +329,65 @@ describe('Webhooks page — Messages tab', () => {
 
     const badge = await screen.findByText('Failed')
     expect(badge).toHaveAttribute('title', 'myparcel unreachable')
+  })
+
+  it('Needs attention view shows only Failed/still-pending-dispatchable messages, with a count', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([
+      webhookEvent({ id: 'evt-failed', status: 'failed' }),
+      webhookEvent({ id: 'evt-received-dispatchable', status: 'received' }),
+      webhookEvent({ id: 'evt-processed', status: 'processed' }),
+      webhookEvent({ id: 'evt-other-topic', provider: 'woocommerce', topic: 'order.updated', status: 'received' }),
+    ])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+    await screen.findByText('Received messages')
+
+    expect(screen.getByRole('button', { name: 'Needs attention (2)' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Needs attention (2)' }))
+
+    expect(await screen.findAllByRole('button', { name: 'Retry' })).toHaveLength(2)
+    expect(screen.queryByText('Nothing needs attention.')).not.toBeInTheDocument()
+  })
+
+  it('Retry calls the API for that one message and updates its badge in place', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([webhookEvent({ id: 'evt-1', status: 'failed', dispatch_error: 'myparcel unreachable' })])
+    vi.mocked(integrationsApi.retryWebhookEventDispatch).mockResolvedValue(webhookEvent({ id: 'evt-1', status: 'processed', dispatch_error: '' }))
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+    await screen.findByText('Failed')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(integrationsApi.retryWebhookEventDispatch).toHaveBeenCalledWith('test-token', 'evt-1')
+    expect(await screen.findByText('Processed')).toBeInTheDocument()
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument()
+  })
+
+  it('Retry all retries every currently-filtered message sequentially', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([
+      webhookEvent({ id: 'evt-1', status: 'failed' }),
+      webhookEvent({ id: 'evt-2', status: 'failed' }),
+    ])
+    vi.mocked(integrationsApi.retryWebhookEventDispatch).mockImplementation(async (_token, eventId) =>
+      webhookEvent({ id: eventId, status: 'processed', dispatch_error: '' }),
+    )
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Needs attention (2)' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry all (2)' }))
+
+    await screen.findByText('Nothing needs attention.')
+    expect(integrationsApi.retryWebhookEventDispatch).toHaveBeenCalledWith('test-token', 'evt-1')
+    expect(integrationsApi.retryWebhookEventDispatch).toHaveBeenCalledWith('test-token', 'evt-2')
+  })
+
+  it('a message that does not need attention has no Retry button', async () => {
+    vi.mocked(integrationsApi.listWebhookEvents).mockResolvedValue([webhookEvent({ status: 'processed' })])
+    render(<MemoryRouter><AppProvider><Webhooks /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Messages' }))
+    await screen.findByText('Processed')
+
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
   })
 })

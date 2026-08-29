@@ -10,6 +10,9 @@ interface UseWebhookEventsState {
 
 interface UseWebhookEventsActions {
   refresh: () => void
+  // Merges one retried row's fresh state in place -- avoids a full reload
+  // just to reflect a single Retry action's result.
+  updateEvent: (updated: WebhookEvent) => void
 }
 
 // Backs the Webhooks page's Messages tab -- every inbound webhook this
@@ -36,5 +39,9 @@ export function useWebhookEvents(token: string, provider: string): UseWebhookEve
 
   useEffect(() => { load() }, [load])
 
-  return { events, loading, error, refresh: load }
+  const updateEvent = useCallback((updated: WebhookEvent) => {
+    setEvents(prev => prev.map(e => (e.id === updated.id ? updated : e)))
+  }, [])
+
+  return { events, loading, error, refresh: load, updateEvent }
 }

@@ -6,6 +6,7 @@ import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardR
 import { useAllProviderWebhooks } from '../integrations/hooks/useAllProviderWebhooks'
 import { useWebhookTopics } from '../integrations/hooks/useWebhookTopics'
 import { useWebhookEvents } from '../integrations/hooks/useWebhookEvents'
+import * as api from '../integrations/api'
 import type { AvailableWebhookTopics } from '../integrations/api'
 import type { WebhookEvent } from '../integrations/types'
 
@@ -391,15 +392,70 @@ function SubscriptionsTab({
   )
 }
 
+// A message "needs attention" if it's Failed, or Received on a
+// provider/topic that actually has a dispatch handler (myparcel
+// shipment_status_change today) -- meaning it should have moved past
+// Received but hasn't. A Received message on any other provider/topic is
+// its normal, successful terminal state, not something stuck.
+function needsAttention(e: WebhookEvent): boolean {
+  if (e.status === 'failed') return true
+  return e.status === 'received' && e.provider === 'myparcel' && e.topic === 'shipment_status_change'
+}
+
 // Screen 3: "see all messages" -- every webhook this tenant has actually
 // received (backend/domain/webhooks.WebhookEvent), filterable by sender.
 // Payload is truncated by default and expands inline on click -- these are
 // order/shipment bodies, not huge, but a raw dump for every row would still
-// bury the table.
+// bury the table. A view toggle narrows to just Failed/still-pending
+// messages, each with its own Retry action (and a bulk one for the whole
+// filtered set) -- re-running dispatch right now instead of waiting for
+// the next webhook or a manual backfill run.
 function MessagesTab({
-  events, loading, error, topics, provider, onProviderChange,
+  events, loading, error, updateEvent, topics, provider, onProviderChange,
 }: ReturnType<typeof useWebhookEvents> & { topics: AvailableWebhookTopics; provider: string; onProviderChange: (provider: string) => void }) {
   const senders = Array.from(new Set([...Object.keys(topics.active_webhooks), ...Object.keys(topics.all_events)])).sort()
+  const [view, setView] = useState<'all' | 'needsAttention'>('all')
+  const [retryingId, setRetryingId] = useState<string | null>(null)
+  const [bulkRetrying, setBulkRetrying] = useState(false)
+  const [retryError, setRetryError] = useState('')
+  const { token } = useAuth()
+
+  const displayedEvents = view === 'needsAttention' ? events.filter(needsAttention) : events
+
+  async function handleRetry(eventId: string) {
+    if (!token) return
+    setRetryError('')
+    setRetryingId(eventId)
+    try {
+      const updated = await api.retryWebhookEventDispatch(token, eventId)
+      updateEvent(updated)
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : 'Failed to retry')
+    } finally {
+      setRetryingId(null)
+    }
+  }
+
+  async function handleRetryAll() {
+    if (!token) return
+    setRetryError('')
+    setBulkRetrying(true)
+    try {
+      // Sequential, not parallel -- this hits MyParcel's real API once per
+      // message, and the dataset this view targets is small by design (see
+      // needsAttention's own doc comment).
+      for (const e of events.filter(needsAttention)) {
+        try {
+          const updated = await api.retryWebhookEventDispatch(token, e.id)
+          updateEvent(updated)
+        } catch (err) {
+          setRetryError(err instanceof Error ? err.message : 'Failed to retry one or more messages')
+        }
+      }
+    } finally {
+      setBulkRetrying(false)
+    }
+  }
 
   return (
     <div className="max-w-4xl">
@@ -411,24 +467,56 @@ function MessagesTab({
               Every webhook this tenant has actually received, newest first.
             </p>
           </div>
-          <div>
-            <label htmlFor="message-sender" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Sender</label>
-            <select
-              id="message-sender" value={provider} onChange={e => onProviderChange(e.target.value)}
-              className="px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
-            >
-              <option value="">Any sender</option>
-              {senders.map(s => <option key={s} value={s}>{providerLabel(s)}</option>)}
-            </select>
+          <div className="flex items-end gap-2">
+            <div>
+              <label htmlFor="message-sender" className="block text-[11px] dark:text-gray-400 text-gray-500 mb-1">Sender</label>
+              <select
+                id="message-sender" value={provider} onChange={e => onProviderChange(e.target.value)}
+                className="px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+              >
+                <option value="">Any sender</option>
+                {senders.map(s => <option key={s} value={s}>{providerLabel(s)}</option>)}
+              </select>
+            </div>
+            {view === 'needsAttention' && displayedEvents.length > 0 && (
+              <button
+                type="button" onClick={handleRetryAll} disabled={bulkRetrying}
+                className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {bulkRetrying ? 'Retrying…' : `Retry all (${displayedEvents.length})`}
+              </button>
+            )}
           </div>
         </div>
 
+        <div className="flex gap-1 mb-3 border-b dark:border-[#2D3748] border-gray-200">
+          <button
+            type="button" onClick={() => setView('all')}
+            className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+              view === 'all' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+            }`}
+          >
+            All messages
+          </button>
+          <button
+            type="button" onClick={() => setView('needsAttention')}
+            className={`px-2.5 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+              view === 'needsAttention' ? 'border-blue-500 text-blue-400' : 'border-transparent dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600'
+            }`}
+          >
+            Needs attention{events.filter(needsAttention).length > 0 && ` (${events.filter(needsAttention).length})`}
+          </button>
+        </div>
+
         {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+        {retryError && <p className="text-xs text-red-400 mb-2">{retryError}</p>}
 
         {loading ? (
           <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
-        ) : events.length === 0 ? (
-          <p className="text-xs dark:text-gray-500 text-gray-400">No messages received yet.</p>
+        ) : displayedEvents.length === 0 ? (
+          <p className="text-xs dark:text-gray-500 text-gray-400">
+            {view === 'needsAttention' ? 'Nothing needs attention.' : 'No messages received yet.'}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -439,10 +527,11 @@ function MessagesTab({
                   <th className="py-2 pr-3 font-medium">Received at</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Payload</th>
+                  <th className="py-2 pr-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                {events.map(e => (
+                {displayedEvents.map(e => (
                   <tr key={e.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0 align-top">
                     <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{providerLabel(e.provider)}</td>
                     <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{e.topic}</td>
@@ -450,6 +539,16 @@ function MessagesTab({
                     <td className="py-2 pr-3"><MessageStatusBadge status={e.status} dispatchError={e.dispatch_error} /></td>
                     <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 font-mono max-w-[360px]">
                       <PayloadPreview payload={e.payload} />
+                    </td>
+                    <td className="py-2 pr-3">
+                      {needsAttention(e) && (
+                        <button
+                          type="button" onClick={() => handleRetry(e.id)} disabled={retryingId === e.id || bulkRetrying}
+                          className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
+                        >
+                          {retryingId === e.id ? 'Retrying…' : 'Retry'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -424,6 +424,13 @@ export function listWebhookEvents(token: string, opts?: { provider?: string; lim
   return request<WebhookEvent[]>(`${base()}/webhook-events${query}`, { method: 'GET' }, token)
 }
 
+// retryWebhookEventDispatch re-runs dispatch for one message right now
+// (myparcel shipment_status_change only) and returns its updated row --
+// the Messages tab's per-row/bulk Retry action.
+export function retryWebhookEventDispatch(token: string, eventId: string): Promise<WebhookEvent> {
+  return request<WebhookEvent>(`${base()}/webhook-events/${eventId}/retry`, { method: 'POST' }, token)
+}
+
 export function listProviderWebhooks(token: string, connectionId: string): Promise<ProviderWebhook[]> {
   return request<ProviderWebhook[]>(`${base()}/connections/${connectionId}/provider-webhooks`, { method: 'GET' }, token)
 }
