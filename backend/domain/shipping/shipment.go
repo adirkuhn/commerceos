@@ -66,6 +66,12 @@ const (
 	// other two sources, just told to check right now instead of waiting for
 	// a webhook or the next reconciliation tick.
 	StatusEventSourceManual StatusEventSource = "manual"
+	// StatusEventSourceBackfill is BackfillShipmentWebhookDispatchUseCase --
+	// a one-time reprocessing of webhooks received before dispatch-status
+	// tracking existed, so their outcome is visible instead of stuck
+	// showing "received" forever. Distinct from Manual so the timeline
+	// itself shows which entries came from that one-off run.
+	StatusEventSourceBackfill StatusEventSource = "backfill"
 )
 
 // StatusMainShipped is the MyParcel status.main value this codebase treats

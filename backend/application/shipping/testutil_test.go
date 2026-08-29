@@ -15,6 +15,7 @@ import (
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
+	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 )
 
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy n
@@ -149,6 +150,39 @@ func (f *fakeShipmentStatusEventRepo) ListByShipmentID(ctx context.Context, ship
 		return nil, nil
 	}
 	return f.listByShipmentIDFn(ctx, shipmentID)
+}
+
+// --- webhooks.WebhookEventRepository fake (narrow -- only List and
+// MarkDispatchResult are exercised by BackfillShipmentWebhookDispatchUseCase) ---
+
+type fakeWebhookEventRepoForBackfill struct {
+	events            []webhooksDomain.WebhookEvent
+	listErr           error
+	markDispatchCalls []backfillMarkDispatchCall
+	markDispatchErr   error
+}
+
+type backfillMarkDispatchCall struct {
+	id            string
+	status        webhooksDomain.WebhookEventStatus
+	dispatchError string
+}
+
+func (f *fakeWebhookEventRepoForBackfill) Save(context.Context, *webhooksDomain.WebhookEvent) error {
+	panic("not used")
+}
+func (f *fakeWebhookEventRepoForBackfill) DistinctTopics(context.Context) ([]webhooksDomain.TopicRef, error) {
+	panic("not used")
+}
+func (f *fakeWebhookEventRepoForBackfill) List(_ context.Context, provider string, limit int) ([]webhooksDomain.WebhookEvent, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+	return f.events, nil
+}
+func (f *fakeWebhookEventRepoForBackfill) MarkDispatchResult(_ context.Context, id string, status webhooksDomain.WebhookEventStatus, dispatchError string) error {
+	f.markDispatchCalls = append(f.markDispatchCalls, backfillMarkDispatchCall{id: id, status: status, dispatchError: dispatchError})
+	return f.markDispatchErr
 }
 
 // --- ShippingCarrierOverrideRepository fake ---
