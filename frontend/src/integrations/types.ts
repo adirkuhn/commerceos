@@ -168,6 +168,13 @@ export interface ProductChannelListing {
   connection_id: string
   provider: string
   external_id: string
+  // variant_id is null for the product-level row (a flat single-SKU
+  // product, or the parent of a Woo variable product) -- set to a
+  // specific Variant's id for a per-variant row (separate-products mode,
+  // or a variation nested under the parent in variations mode, see
+  // is_variation).
+  variant_id?: string | null
+  is_variation?: boolean
   sync_status: ProductChannelListingSyncStatus
   last_synced_at?: string | null
   // Bol's own reason(s) the offer isn't for sale (checked after every

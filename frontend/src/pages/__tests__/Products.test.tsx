@@ -49,6 +49,7 @@ vi.mock('../../pms/api', () => ({
 vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
   getProductChannelListing: vi.fn(),
+  listProductChannelListings: vi.fn(),
   resyncProductToChannels: vi.fn(),
   linkExistingWooProduct: vi.fn(),
 }))
@@ -121,6 +122,7 @@ beforeEach(() => {
   vi.mocked(pmsApi.listCategories).mockResolvedValue([category()])
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
   vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+  vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
     tenant_id: 't1', default_currency: 'USD', timezone: '', date_format: '', language: '',
@@ -1032,7 +1034,7 @@ describe('WooCommerce tab', () => {
   it('shows "not linked yet" when the product has no listing for this connection', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
@@ -1040,13 +1042,13 @@ describe('WooCommerce tab', () => {
 
     await waitFor(() => expect(screen.getByText(/mystore\.com/)).toBeInTheDocument())
     expect(await screen.findByText(/not linked to this WooCommerce store yet/i)).toBeInTheDocument()
-    expect(integrationsApi.getProductChannelListing).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1')
+    expect(integrationsApi.listProductChannelListings).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1')
   })
 
   it('links to an existing WooCommerce product by SKU and shows the resulting sync state', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
     vi.mocked(integrationsApi.linkExistingWooProduct).mockResolvedValue({
       id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'woocommerce',
       external_id: '23609', sync_status: 'synced', last_synced_at: '2026-07-26T12:00:00Z',
@@ -1069,7 +1071,7 @@ describe('WooCommerce tab', () => {
   it('surfaces an error when linking to an existing WooCommerce product fails', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
     vi.mocked(integrationsApi.linkExistingWooProduct).mockRejectedValue(new Error('this product already has a listing for this connection'))
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
@@ -1086,11 +1088,11 @@ describe('WooCommerce tab', () => {
   it('shows real sync state when the product is linked to this connection', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue({
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([{
       id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'woocommerce',
       external_id: '23609', sync_status: 'synced', last_synced_at: '2026-07-26T12:00:00Z',
       created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-26T12:00:00Z',
-    })
+    }])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
@@ -1104,7 +1106,7 @@ describe('WooCommerce tab', () => {
   it('surfaces an error instead of silently showing "not linked" when the fetch fails', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockRejectedValue(new Error('internal server error'))
+    vi.mocked(integrationsApi.listProductChannelListings).mockRejectedValue(new Error('internal server error'))
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
@@ -1120,7 +1122,7 @@ describe('WooCommerce tab', () => {
       variants: [{ ...baseVariant, skus: [{ ...baseSku, woo_tax_class_slug: 'reduced-rate', woo_tax_status: 'taxable' }] }],
     })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
@@ -1136,7 +1138,7 @@ describe('WooCommerce tab', () => {
       variants: [{ ...baseVariant, skus: [{ ...baseSku, woo_tax_class_slug: '', woo_tax_status: 'taxable' }] }],
     })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
@@ -1151,7 +1153,7 @@ describe('WooCommerce tab', () => {
       variants: [{ ...baseVariant, skus: [baseSku] }],
     })
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
-    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([])
 
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Edit'))
@@ -1159,6 +1161,34 @@ describe('WooCommerce tab', () => {
 
     await screen.findByText(/not linked to this WooCommerce store yet/i)
     expect(screen.queryByLabelText('Tax class (Woo)')).not.toBeInTheDocument()
+  })
+
+  it('shows one entry per variant for a multi-variant product instead of a single summary', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({
+      product: product({ has_variants: true }),
+      variants: [
+        { ...baseVariant, id: 'var-1', name: '378g', skus: [{ ...baseSku, id: 'sku-1', variant_id: 'var-1', sku_code: 'CARNE-378' }] },
+        { ...baseVariant, id: 'var-2', name: '412g', skus: [{ ...baseSku, id: 'sku-2', variant_id: 'var-2', sku_code: 'CARNE-412' }] },
+      ],
+    })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.listProductChannelListings).mockResolvedValue([
+      { id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'woocommerce', variant_id: 'var-1', external_id: '100', sync_status: 'synced', created_at: '', updated_at: '' },
+    ])
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+
+    const tab = within(await screen.findByTestId('woocommerce-tab'))
+    expect(tab.getByText('378g')).toBeInTheDocument()
+    expect(tab.getByText('412g')).toBeInTheDocument()
+    expect(tab.getByText('CARNE-378')).toBeInTheDocument()
+    expect(tab.getByText('CARNE-412')).toBeInTheDocument()
+    expect(tab.getByText(/Woo ID 100/)).toBeInTheDocument()
+    expect(tab.getByText('Not linked')).toBeInTheDocument()
+    expect(tab.queryByText(/not linked to this WooCommerce store yet/i)).not.toBeInTheDocument()
+    expect(tab.queryByPlaceholderText('SKU on WooCommerce')).not.toBeInTheDocument()
   })
 })
 

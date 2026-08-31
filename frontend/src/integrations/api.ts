@@ -168,6 +168,14 @@ export async function getProductChannelListing(token: string, connectionId: stri
   return body.data
 }
 
+// Every listing row for this product on this connection -- one entry per
+// variant for a multi-variant product (plus the parent row too, in
+// variations mode), unlike getProductChannelListing's single representative
+// row. An empty array means the product has never been linked.
+export function listProductChannelListings(token: string, connectionId: string, productId: string): Promise<ProductChannelListing[]> {
+  return request<ProductChannelListing[]>(`${base()}/connections/${connectionId}/listings/${productId}/all`, { method: 'GET' }, token)
+}
+
 export function listSyncLogs(token: string, connectionId: string, productId: string): Promise<SyncLogEntry[]> {
   return request<SyncLogEntry[]>(`${base()}/connections/${connectionId}/listings/${productId}/sync-logs`, { method: 'GET' }, token)
 }

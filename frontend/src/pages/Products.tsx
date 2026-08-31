@@ -742,7 +742,10 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         </div>
         {activeTab === 'woocommerce' && savedProductId && wooConnection && (
           <div className="max-w-5xl mx-auto p-6">
-            <ProductWooCommerceTab productId={savedProductId} connection={wooConnection} sku={currentSku} />
+            <ProductWooCommerceTab
+              productId={savedProductId} connection={wooConnection} sku={currentSku}
+              hasVariants={variantsMode} variants={detail.detail?.variants ?? []}
+            />
           </div>
         )}
         {activeTab === 'bol' && savedProductId && bolConnection && (
@@ -1660,22 +1663,27 @@ const WOO_SYNC_STATUS_STYLE: Record<ProductChannelListingSyncStatus, string> = {
   error: 'dark:text-red-400 text-red-600',
 }
 
-function ProductWooCommerceTab({ productId, connection, sku }: { productId: string; connection: Connection; sku: SKU | null }) {
+function ProductWooCommerceTab({
+  productId, connection, sku, hasVariants, variants,
+}: {
+  productId: string; connection: Connection; sku: SKU | null
+  hasVariants: boolean; variants: VariantWithSKUs[]
+}) {
   const { token } = useAuth()
-  const [listing, setListing] = useState<ProductChannelListing | null>(null)
+  const [listings, setListings] = useState<ProductChannelListing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [linkSku, setLinkSku] = useState('')
   const [linking, setLinking] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
 
-  const loadListing = useCallback(async () => {
+  const loadListings = useCallback(async () => {
     if (!token) return
     setLoading(true)
     setError(null)
     try {
-      const result = await integrationsApi.getProductChannelListing(token, connection.id, productId)
-      setListing(result)
+      const result = await integrationsApi.listProductChannelListings(token, connection.id, productId)
+      setListings(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load WooCommerce sync status')
     } finally {
@@ -1684,8 +1692,18 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
   }, [token, connection.id, productId])
 
   useEffect(() => {
-    loadListing()
-  }, [loadListing])
+    loadListings()
+  }, [loadListings])
+
+  // Per-variant push (separate-products or variations mode) shows one row
+  // per variant instead of collapsing everything to a single summary --
+  // GetProductChannelListingUseCase's one-representative-row shape was
+  // fine for a flat product but misleading otherwise. The "link existing"
+  // form below only supports the flat (!HasVariants) case -- see
+  // LinkExistingWooProductUseCase's own doc -- so it's only shown there.
+  const isMultiVariant = hasVariants && variants.length > 1
+  const listing = listings[0] ?? null
+  const parentListing = listings.find(l => l.variant_id == null) ?? null
 
   const handleLinkExisting = async (e: FormEvent) => {
     e.preventDefault()
@@ -1694,7 +1712,7 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
     setLinkError(null)
     try {
       const result = await integrationsApi.linkExistingWooProduct(token, productId, connection.id, linkSku.trim())
-      setListing(result)
+      setListings([result])
       setLinkSku('')
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : 'Failed to link product')
@@ -1707,7 +1725,7 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
   const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
 
   return (
-    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+    <div data-testid="woocommerce-tab" className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Plug size={13} className="dark:text-gray-400 text-gray-500" />
         <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">WooCommerce</h3>
@@ -1722,7 +1740,26 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
         <p className="text-[11px] dark:text-red-400 text-red-600">{error}</p>
       )}
 
-      {!loading && !error && !listing && (
+      {!loading && !error && isMultiVariant && (
+        <div className="space-y-2">
+          {parentListing && (
+            <WooListingRow
+              label="Parent product" sku={null}
+              listing={parentListing}
+            />
+          )}
+          {variants.map(v => (
+            <WooListingRow
+              key={v.id}
+              label={v.name}
+              sku={v.skus?.[0]?.sku_code ?? null}
+              listing={listings.find(l => l.variant_id === v.id) ?? null}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && !error && !isMultiVariant && !listing && (
         <div className="space-y-2">
           <p className="text-[11px] dark:text-gray-500 text-gray-400">
             Not linked to this WooCommerce store yet — import it from WooCommerce or push it from CommerceOS to start syncing.
@@ -1748,7 +1785,7 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
         </div>
       )}
 
-      {!loading && !error && listing && (
+      {!loading && !error && !isMultiVariant && listing && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>WooCommerce product ID</label>
@@ -1802,6 +1839,29 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
             />
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// One row of the multi-variant WooCommerce sync summary -- a variant (or
+// the variable parent) alongside whatever listing matches it, if any.
+function WooListingRow({ label, sku, listing }: { label: string; sku: string | null; listing: ProductChannelListing | null }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2 dark:bg-[#1F2937]/40 bg-gray-50 text-[11px]">
+      <div className="flex-1 min-w-0">
+        <div className="font-medium truncate dark:text-gray-200 text-gray-800">{label}</div>
+        {sku && <div className="dark:text-gray-500 text-gray-400 truncate">{sku}</div>}
+      </div>
+      {listing ? (
+        <>
+          <span className="dark:text-gray-400 text-gray-500 shrink-0">Woo ID {listing.external_id}</span>
+          <span className={clsx('font-medium shrink-0', WOO_SYNC_STATUS_STYLE[listing.sync_status])}>
+            {WOO_SYNC_STATUS_LABEL[listing.sync_status]}
+          </span>
+        </>
+      ) : (
+        <span className="dark:text-gray-500 text-gray-400 shrink-0">Not linked</span>
       )}
     </div>
   )
