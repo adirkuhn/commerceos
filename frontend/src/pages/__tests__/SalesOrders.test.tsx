@@ -45,6 +45,7 @@ vi.mock('../../shipping/api', () => ({
   listShipmentsForOrder: vi.fn(),
   listShipmentTrackingEvents: vi.fn(),
   refreshShipmentTracking: vi.fn(),
+  cancelShipment: vi.fn(),
 }))
 
 vi.mock('../../tax/api', () => ({
@@ -381,6 +382,37 @@ describe('Sales order detail page', () => {
     expect(screen.getByText('3SMYPA1', { exact: false })).toBeInTheDocument()
     expect(screen.getByText('Enroute - handed to carrier')).toBeInTheDocument()
     expect(shippingApi.listShipmentTrackingEvents).toHaveBeenCalledWith('test-token', 'ship-1')
+  })
+
+  it('lets staff delete a wrong-carrier shipment directly from the Shipments section', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder)
+      .mockResolvedValueOnce([shipment()])
+      .mockResolvedValueOnce([shipment({
+        cancelled_at: '2026-08-31T10:00:00Z',
+        cancel_note: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
+      })])
+    vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([])
+    vi.mocked(shippingApi.cancelShipment).mockResolvedValue({
+      deleted_on_myparcel: false,
+      message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
+    })
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+    await screen.findByText('Shipments')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(shippingApi.cancelShipment).toHaveBeenCalledWith('test-token', 'ship-1'))
+    expect(await screen.findByText('Cancelled')).toBeInTheDocument()
+    expect(await screen.findByText(/could not delete this shipment/)).toBeInTheDocument()
+    // Re-fetches the shipment list, which now excludes it from the delete
+    // affordance (already cancelled).
+    expect(shippingApi.listShipmentsForOrder).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
   })
 
   it('shows an empty-tracking state when a shipment has no events yet', async () => {

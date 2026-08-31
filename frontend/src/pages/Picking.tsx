@@ -594,6 +594,7 @@ export default function Picking() {
           <AddressConfirmModal
             token={token ?? ''}
             initialAddress={activeOrder.shipping}
+            fallbackEmail={activeOrder.billing?.email}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
             defaultCarrier={guessCarrierFromShippingMethod(activeOrder.shipping_method_title, activeOrder.shipping_method, connectionDefaultCarrier)}

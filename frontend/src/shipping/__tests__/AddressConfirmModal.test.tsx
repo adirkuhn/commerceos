@@ -78,6 +78,16 @@ describe('addressToRecipientDraft', () => {
     expect(draft.street).toBe('Fossa Iberica')
     expect(draft.number).toBe('9')
   })
+
+  it('falls back to the order billing email when the shipping address has none', () => {
+    const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+    expect(addressToRecipientDraft(address, 'billing@example.com').email).toBe('billing@example.com')
+  })
+
+  it('prefers the shipping address\'s own email over the billing fallback', () => {
+    const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'shipping@example.com' }
+    expect(addressToRecipientDraft(address, 'billing@example.com').email).toBe('shipping@example.com')
+  })
 })
 
 describe('AddressConfirmModal', () => {
@@ -135,6 +145,13 @@ describe('AddressConfirmModal', () => {
     await userEvent.click(screen.getByLabelText('Close'))
 
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('prefills email from fallbackEmail (order billing email) when the shipping address has none', () => {
+    const addressNoEmail: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1A', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+    render(<AddressConfirmModal token="test-token" initialAddress={addressNoEmail} fallbackEmail="billing@example.com" onNext={vi.fn()} onClose={vi.fn()} />)
+
+    expect(screen.getByLabelText('Email')).toHaveValue('billing@example.com')
   })
 })
 

@@ -374,6 +374,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <AddressConfirmModal
             token={token}
             initialAddress={order.shipping}
+            fallbackEmail={order.billing?.email}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
             defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
@@ -462,6 +463,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <AddressConfirmModal
             token={token}
             initialAddress={order.shipping}
+            fallbackEmail={order.billing?.email}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
             defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}

@@ -920,7 +920,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
               {shipments.length > 0 && token && (
                 <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
                   <p className="font-medium dark:text-gray-300 text-gray-700">Shipments</p>
-                  {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} />)}
+                  {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
                 </div>
               )}
 
@@ -944,6 +944,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
         <AddressConfirmModal
           token={token ?? ''}
           initialAddress={detail.sales_order.shipping}
+          fallbackEmail={detail.sales_order.billing?.email}
           initialRecipient={pendingRecipient ?? undefined}
           initialCarrier={pendingCarrier}
           onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
@@ -989,11 +990,13 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 // shipment's current status right now instead of waiting for the next
 // webhook/reconciliation tick, and saves it as a new timeline entry (see
 // RefreshShipmentTrackingUseCase).
-function ShipmentTrackingSection({ token, shipment }: { token: string; shipment: Shipment }) {
+function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: string; shipment: Shipment; onCancelled: () => void }) {
   const [events, setEvents] = useState<ShipmentTrackingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelMessage, setCancelMessage] = useState('')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -1017,6 +1020,25 @@ function ShipmentTrackingSection({ token, shipment }: { token: string; shipment:
     }
   }
 
+  // Wrong carrier picked -- attempts MyParcel's real delete, then always
+  // marks the shipment cancelled locally regardless of that outcome (see
+  // cancelShipment's doc comment). onCancelled() re-fetches the parent's
+  // shipment list so this card picks up cancelled_at/cancel_note and
+  // "Create label" up top stops treating this as the active shipment.
+  async function handleCancel() {
+    setCancelling(true)
+    setError('')
+    try {
+      const result = await shippingApi.cancelShipment(token, shipment.id)
+      setCancelMessage(result.message)
+      onCancelled()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel shipment')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const carrierLabel = CARRIERS.find(c => c.id === shipment.carrier)?.label ?? `Carrier ${shipment.carrier}`
 
   return (
@@ -1025,15 +1047,30 @@ function ShipmentTrackingSection({ token, shipment }: { token: string; shipment:
         <div>
           <span className="dark:text-gray-200 text-gray-800 font-medium">{carrierLabel}</span>
           <span className="dark:text-gray-500 text-gray-400"> · {shipment.barcode || 'no barcode yet'}</span>
+          {shipment.cancelled_at && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">Cancelled</span>
+          )}
         </div>
-        <button
-          type="button" onClick={handleRefresh} disabled={refreshing}
-          className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
-        >
-          {refreshing ? 'Fetching…' : 'Refresh from provider'}
-        </button>
+        <div className="flex items-center gap-2">
+          {!shipment.cancelled_at && (
+            <button
+              type="button" onClick={handleCancel} disabled={cancelling}
+              title="Wrong carrier? Cancel this shipment so a corrected one can be created"
+              className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 text-red-500 hover:dark:text-red-400 hover:text-red-600 disabled:opacity-50 transition-colors"
+            >
+              {cancelling ? 'Cancelling…' : 'Delete'}
+            </button>
+          )}
+          <button
+            type="button" onClick={handleRefresh} disabled={refreshing}
+            className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {refreshing ? 'Fetching…' : 'Refresh from provider'}
+          </button>
+        </div>
       </div>
 
+      {(shipment.cancel_note || cancelMessage) && <p className="text-amber-500">{shipment.cancel_note || cancelMessage}</p>}
       {error && <p className="text-red-400">{error}</p>}
 
       {loading ? (

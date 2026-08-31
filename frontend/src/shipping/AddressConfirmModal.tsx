@@ -30,7 +30,12 @@ export function splitStreetAndNumber(address1: string, address2?: string): { str
   return { street: trimmed1, number: '', suffix: '' }
 }
 
-export function addressToRecipientDraft(address: Address | undefined): RecipientAddress {
+// fallbackEmail is the order's billing email -- WooCommerce orders
+// reliably have a billing email (the checkout email) but the shipping
+// address often doesn't carry its own, which used to leave this blank and
+// reach MyParcel empty (MyParcel rejects some carriers' shipments without
+// one). Only used when the shipping address itself has none.
+export function addressToRecipientDraft(address: Address | undefined, fallbackEmail?: string): RecipientAddress {
   const { street, number, suffix } = splitStreetAndNumber(address?.address_1 ?? '', address?.address_2)
   return {
     person: [address?.first_name, address?.last_name].filter(Boolean).join(' '),
@@ -41,7 +46,7 @@ export function addressToRecipientDraft(address: Address | undefined): Recipient
     postal_code: address?.postcode ?? '',
     city: address?.city ?? '',
     cc: (address?.country ?? '').toUpperCase(),
-    email: address?.email ?? '',
+    email: address?.email || fallbackEmail || '',
     phone: address?.phone ?? '',
   }
 }
@@ -54,6 +59,9 @@ interface AddressConfirmModalProps {
   // convention).
   token: string
   initialAddress?: Address
+  // See addressToRecipientDraft's doc comment -- the order's billing email,
+  // used only when initialAddress itself has none.
+  fallbackEmail?: string
   defaultCarrier?: number
   // Present when returning here from LabelPreviewModal's "Back to edit" --
   // takes priority over initialAddress so a staff edit already made isn't
@@ -83,8 +91,8 @@ function normalize(s: string): string {
 // whatever staff already entered, with a one-click fix. Real MyParcel-side
 // validation still only happens when the create-shipment call itself
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
-export function AddressConfirmModal({ token, initialAddress, defaultCarrier, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
-  const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress))
+export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
+  const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
   type AddressCheckState =
     | { status: 'idle' | 'checking' | 'match' | 'not_found' | 'error' | 'dismissed' }
