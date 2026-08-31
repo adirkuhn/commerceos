@@ -45,15 +45,15 @@ func newMockGormDB(t *testing.T, n int) *gorm.DB {
 // --- MyParcelClient/MyParcelClientFactory fakes ---
 
 type fakeMyParcelClient struct {
-	createShipmentFn             func(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error)
-	createOrderFn                func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
-	getLabelFn                   func(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error)
-	getTrackTraceFn              func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
-	registerWebhookFn            func(ctx context.Context, callbackURL string) error
-	listWebhookSubscriptionsFn   func(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error)
-	createWebhookSubscriptionFn  func(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error)
-	deleteWebhookSubscriptionFn  func(ctx context.Context, id string) error
-	deleteShipmentFn             func(ctx context.Context, myParcelShipmentID int64) error
+	createShipmentFn            func(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error)
+	createOrderFn               func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
+	getLabelFn                  func(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error)
+	getTrackTraceFn             func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
+	registerWebhookFn           func(ctx context.Context, callbackURL string) error
+	listWebhookSubscriptionsFn  func(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error)
+	createWebhookSubscriptionFn func(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error)
+	deleteWebhookSubscriptionFn func(ctx context.Context, id string) error
+	deleteShipmentFn            func(ctx context.Context, myParcelShipmentID int64) error
 }
 
 func (f *fakeMyParcelClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
@@ -115,7 +115,9 @@ func (f *fakeMyParcelClientFactory) NewClient(apiKey string) (integrationsDomain
 // idempotency check -- CreateShipmentUseCase.Execute now always looks this
 // up before creating (see TestCreateShipment_shipmentAlreadyExists_returns
 // ExistingWithoutCallingMyParcel for the other branch).
-func noExistingShipments(_ context.Context, _ string) ([]shippingDomain.Shipment, error) { return nil, nil }
+func noExistingShipments(_ context.Context, _ string) ([]shippingDomain.Shipment, error) {
+	return nil, nil
+}
 
 type fakeShipmentRepo struct {
 	createFn                   func(ctx context.Context, s *shippingDomain.Shipment) error
@@ -261,6 +263,7 @@ func (f *fakeShippingCarrierOverrideRepo) Upsert(ctx context.Context, o *shippin
 type fakeMyParcelFulfilmentOrderRepo struct {
 	createFn                        func(ctx context.Context, o *shippingDomain.MyParcelFulfilmentOrder) error
 	findByConnectionAndSalesOrderFn func(ctx context.Context, connectionID, salesOrderID string) (*shippingDomain.MyParcelFulfilmentOrder, error)
+	findByMyParcelUUIDFn            func(ctx context.Context, myParcelUUID string) (*shippingDomain.MyParcelFulfilmentOrder, error)
 }
 
 func (f *fakeMyParcelFulfilmentOrderRepo) Create(ctx context.Context, o *shippingDomain.MyParcelFulfilmentOrder) error {
@@ -268,6 +271,12 @@ func (f *fakeMyParcelFulfilmentOrderRepo) Create(ctx context.Context, o *shippin
 }
 func (f *fakeMyParcelFulfilmentOrderRepo) FindByConnectionAndSalesOrder(ctx context.Context, connectionID, salesOrderID string) (*shippingDomain.MyParcelFulfilmentOrder, error) {
 	return f.findByConnectionAndSalesOrderFn(ctx, connectionID, salesOrderID)
+}
+func (f *fakeMyParcelFulfilmentOrderRepo) FindByMyParcelUUID(ctx context.Context, myParcelUUID string) (*shippingDomain.MyParcelFulfilmentOrder, error) {
+	if f.findByMyParcelUUIDFn == nil {
+		return nil, nil
+	}
+	return f.findByMyParcelUUIDFn(ctx, myParcelUUID)
 }
 
 // --- recordActivityUC fake ---
@@ -369,12 +378,16 @@ func tenantSettingsRepoWithCurrency(currency string) *fakeTenantSettingsRepo {
 // package -- the rest are no-ops satisfying the interface) ---
 
 type fakeSalesOrderRepo struct {
-	updateFn func(ctx context.Context, id string, fields map[string]any) error
+	updateFn   func(ctx context.Context, id string, fields map[string]any) error
+	findByIDFn func(ctx context.Context, id string) (*omsDomain.SalesOrder, error)
 }
 
 func (f *fakeSalesOrderRepo) Create(context.Context, *omsDomain.SalesOrder) error { return nil }
-func (f *fakeSalesOrderRepo) FindByID(context.Context, string) (*omsDomain.SalesOrder, error) {
-	return nil, nil
+func (f *fakeSalesOrderRepo) FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error) {
+	if f.findByIDFn == nil {
+		return nil, nil
+	}
+	return f.findByIDFn(ctx, id)
 }
 func (f *fakeSalesOrderRepo) FindByExternalID(context.Context, omsDomain.SalesOrderSource, string) (*omsDomain.SalesOrder, error) {
 	return nil, nil
@@ -392,3 +405,28 @@ func (f *fakeSalesOrderRepo) TrySetStockDecremented(context.Context, string, boo
 	return false, nil
 }
 func (f *fakeSalesOrderRepo) Delete(context.Context, string) error { return nil }
+
+// --- salesOrderStatusUpdater fake (narrow -- what completeOrderOnDelivery /
+// HandleOrderStatusWebhookUseCase need from *appoms.UpdateSalesOrderUseCase) ---
+
+type fakeSalesOrderStatusUpdater struct {
+	calls     []fakeSalesOrderStatusUpdateCall
+	executeFn func(ctx context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error)
+}
+
+type fakeSalesOrderStatusUpdateCall struct {
+	id     string
+	status omsDomain.SalesOrderStatus
+}
+
+func (f *fakeSalesOrderStatusUpdater) Execute(ctx context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
+	var status omsDomain.SalesOrderStatus
+	if in.Status != nil {
+		status = *in.Status
+	}
+	f.calls = append(f.calls, fakeSalesOrderStatusUpdateCall{id: id, status: status})
+	if f.executeFn != nil {
+		return f.executeFn(ctx, id, in)
+	}
+	return &omsDomain.SalesOrder{ID: id, Status: status}, nil
+}

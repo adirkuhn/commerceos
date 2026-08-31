@@ -47,13 +47,14 @@ type myParcelWebhookPayload struct {
 // SalesOrder Fulfilled. Nothing more speculative than that (see the
 // approved design's conservative scope).
 type HandleShipmentWebhookUseCase struct {
-	db              *gorm.DB
-	shipmentRepo    shippingDomain.ShipmentRepository
-	statusEventRepo shippingDomain.ShipmentStatusEventRepository
-	connRepo        integrationsDomain.ConnectionRepository
-	salesOrderRepo  omsDomain.SalesOrderRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
-	encSecret       string
+	db               *gorm.DB
+	shipmentRepo     shippingDomain.ShipmentRepository
+	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
+	connRepo         integrationsDomain.ConnectionRepository
+	salesOrderRepo   omsDomain.SalesOrderRepository
+	myParcelFactory  integrationsDomain.MyParcelClientFactory
+	encSecret        string
+	updateSalesOrder salesOrderStatusUpdater
 }
 
 func NewHandleShipmentWebhookUseCase(
@@ -64,10 +65,12 @@ func NewHandleShipmentWebhookUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
+	updateSalesOrder salesOrderStatusUpdater,
 ) *HandleShipmentWebhookUseCase {
 	return &HandleShipmentWebhookUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
 		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		updateSalesOrder: updateSalesOrder,
 	}
 }
 
@@ -123,7 +126,9 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 		return fmt.Errorf("get tracktrace: %w", err)
 	}
 
-	_, err = applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook)
-	return err
+	if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook); err != nil {
+		return err
+	}
+	return completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID)
 }

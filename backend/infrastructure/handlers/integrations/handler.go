@@ -446,6 +446,8 @@ func Register(
 	batchRepo := repositories.NewBatchRepo(db)
 	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo)
 	allocateStockUC := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
+	updateSalesOrderForWebhooksUC := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC)
+	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
 	)
@@ -545,7 +547,7 @@ func Register(
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
-		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret),
+		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)

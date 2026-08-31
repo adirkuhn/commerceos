@@ -24,22 +24,30 @@ const (
 	SalesOrderStatusPending    SalesOrderStatus = "pending"
 	SalesOrderStatusProcessing SalesOrderStatus = "processing"
 	SalesOrderStatusOnHold     SalesOrderStatus = "on-hold"
-	SalesOrderStatusCompleted  SalesOrderStatus = "completed"
-	SalesOrderStatusCancelled  SalesOrderStatus = "cancelled"
-	SalesOrderStatusRefunded   SalesOrderStatus = "refunded"
-	SalesOrderStatusFailed     SalesOrderStatus = "failed"
+	// SalesOrderStatusShipped is not one of WooCommerce's own statuses (see
+	// this type's doc comment on mirroring Woo) -- added specifically for a
+	// non-Woo order (pos/manual/bol) handed to a carrier via MyParcel's
+	// order_status_change webhook ("processed"), since none of Woo's own
+	// values mean "in transit." A Woo-sourced order uses OnHold for the same
+	// transition instead, to keep its status round-trippable against Woo's
+	// own vocabulary. See application/shipping.HandleOrderStatusWebhookUseCase.
+	SalesOrderStatusShipped   SalesOrderStatus = "shipped"
+	SalesOrderStatusCompleted SalesOrderStatus = "completed"
+	SalesOrderStatusCancelled SalesOrderStatus = "cancelled"
+	SalesOrderStatusRefunded  SalesOrderStatus = "refunded"
+	SalesOrderStatusFailed    SalesOrderStatus = "failed"
 )
 
 // StatusReducesStock mirrors WooCommerce's own stock semantics: pending
-// (payment not yet made) holds no stock impact; on-hold, processing, and
-// completed all mean stock has been taken. Cancelled/failed are the two
-// statuses that return stock -- refunded deliberately does not auto-restock
-// here, since a refund's actual stock disposition (returned to sellable,
-// damaged, lost) is a separate staff decision made through the stock
-// correction flow, not something this status transition can infer.
+// (payment not yet made) holds no stock impact; on-hold, processing,
+// shipped, and completed all mean stock has been taken. Cancelled/failed are
+// the two statuses that return stock -- refunded deliberately does not
+// auto-restock here, since a refund's actual stock disposition (returned to
+// sellable, damaged, lost) is a separate staff decision made through the
+// stock correction flow, not something this status transition can infer.
 func (s SalesOrderStatus) ReducesStock() bool {
 	switch s {
-	case SalesOrderStatusOnHold, SalesOrderStatusProcessing, SalesOrderStatusCompleted:
+	case SalesOrderStatusOnHold, SalesOrderStatusProcessing, SalesOrderStatusShipped, SalesOrderStatusCompleted:
 		return true
 	default:
 		return false

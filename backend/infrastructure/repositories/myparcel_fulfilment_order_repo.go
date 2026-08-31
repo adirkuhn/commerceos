@@ -65,3 +65,22 @@ func (r *MyParcelFulfilmentOrderRepo) FindByConnectionAndSalesOrder(ctx context.
 		MyParcelUUID: m.MyParcelUUID, Status: m.Status, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}, nil
 }
+
+func (r *MyParcelFulfilmentOrderRepo) FindByMyParcelUUID(ctx context.Context, myParcelUUID string) (*shippingDomain.MyParcelFulfilmentOrder, error) {
+	tx, ok := txctx.FromContext(ctx)
+	if !ok {
+		return nil, errors.New("myParcelFulfilmentOrderRepo: operation called outside a transaction")
+	}
+	var m myParcelFulfilmentOrderModel
+	err := tx.WithContext(ctx).Where("myparcel_uuid = ?", myParcelUUID).First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("myParcelFulfilmentOrderRepo.FindByMyParcelUUID: %w", err)
+	}
+	return &shippingDomain.MyParcelFulfilmentOrder{
+		ID: m.ID, TenantID: m.TenantID, ConnectionID: m.ConnectionID, SalesOrderID: m.SalesOrderID,
+		MyParcelUUID: m.MyParcelUUID, Status: m.Status, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+	}, nil
+}

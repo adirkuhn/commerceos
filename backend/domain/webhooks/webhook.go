@@ -16,8 +16,9 @@ var (
 	ErrWebhookEventNotFound = errors.New("webhooks: webhook event not found")
 	// ErrWebhookEventNotDispatchable is returned by a retry action
 	// (RetryWebhookEventDispatchUseCase) for an event whose provider/topic
-	// has no dispatch handler at all (myparcel shipment_status_change is
-	// the only one today) -- retrying it could never do anything.
+	// has no dispatch handler at all (myparcel shipment_status_change and
+	// order_status_change are the only two today) -- retrying it could
+	// never do anything.
 	ErrWebhookEventNotDispatchable = errors.New("webhooks: this event's provider/topic has no dispatch handler to retry")
 )
 

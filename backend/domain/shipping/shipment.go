@@ -85,6 +85,14 @@ const (
 // different string for this transition.
 const StatusMainShipped = "shipped"
 
+// StatusMainDelivered is MyParcel's status.main value for a shipment's final,
+// actually-delivered-to-customer state -- see StatusMainShipped's doc for
+// the same not-fully-enumerated caveat. Distinct from StatusMainShipped
+// (handed to carrier): this is the transition that completes a SalesOrder
+// (see application/shipping.applyStatusUpdate), StatusMainShipped only
+// marks it Fulfilled.
+const StatusMainDelivered = "delivered"
+
 var (
 	ErrShipmentNotFound    = errors.New("shipping: shipment not found")
 	ErrSettingsNotFound    = errors.New("shipping: connection settings not found")
@@ -164,7 +172,7 @@ func (s Shipment) IsActive() bool {
 // captured -- verify and extend this against a real account if a shipment
 // ever gets stuck being re-polled forever.
 func (s Shipment) IsTerminal() bool {
-	return s.StatusMain == "delivered"
+	return s.StatusMain == StatusMainDelivered
 }
 
 // ShipmentStatusEvent is an append-only history row for every status

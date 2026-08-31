@@ -11,6 +11,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
 )
@@ -51,7 +52,7 @@ func TestHandleShipmentWebhook_shippedStatus_marksOrderFulfilled(t *testing.T) {
 	}}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 2, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -61,6 +62,33 @@ func TestHandleShipmentWebhook_shippedStatus_marksOrderFulfilled(t *testing.T) {
 	assert.Equal(t, shippingDomain.StatusEventSourceWebhook, appended.Source)
 	assert.Equal(t, "order-1", fulfilledOrderID)
 	assert.Equal(t, true, fulfilledFields["fulfilled"])
+}
+
+func TestHandleShipmentWebhook_deliveredStatus_completesOrder(t *testing.T) {
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
+	shipmentRepo := &fakeShipmentRepo{
+		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string) error { return nil },
+	}
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+		return integrationsDomain.TrackTraceResult{StatusCode: 7, StatusMain: "delivered"}, nil
+	}}
+	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
+	updater := &fakeSalesOrderStatusUpdater{}
+
+	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+
+	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 7, "3SMYPA1")}
+	err := uc.Execute(context.Background(), envelope)
+
+	require.NoError(t, err)
+	require.Len(t, updater.calls, 1)
+	assert.Equal(t, "order-1", updater.calls[0].id)
+	assert.Equal(t, omsDomain.SalesOrderStatusCompleted, updater.calls[0].status)
 }
 
 func TestHandleShipmentWebhook_nonShippedStatus_doesNotTouchOrder(t *testing.T) {
@@ -82,7 +110,7 @@ func TestHandleShipmentWebhook_nonShippedStatus_doesNotTouchOrder(t *testing.T) 
 	}}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 1, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -98,7 +126,7 @@ func TestHandleShipmentWebhook_unknownShipmentID_isSkippedNotAnError(t *testing.
 		},
 	}
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 1), shipmentRepo, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(999, 2, "x")}
 	err := uc.Execute(context.Background(), envelope)

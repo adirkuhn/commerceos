@@ -44,7 +44,7 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *
 	}}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -77,7 +77,7 @@ func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testi
 	}}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, &fakeSalesOrderRepo{},
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -110,7 +110,7 @@ func TestBackfillShipmentWebhookDispatch_multipleEventsSameShipment_fetchesTrack
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -132,7 +132,7 @@ func TestBackfillShipmentWebhookDispatch_unknownShipment_skipsAndMarksProcessed(
 		},
 	}
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -155,7 +155,7 @@ func TestBackfillShipmentWebhookDispatch_providerFetchFails_marksEventFailed(t *
 	}}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, &fakeShipmentStatusEventRepo{},
-		connRepo, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{client: client}, testEncSecret)
+		connRepo, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -172,7 +172,7 @@ func TestBackfillShipmentWebhookDispatch_ignoresAlreadyProcessedAndOtherTopics(t
 		{ID: "evt-row-2", Provider: "myparcel", Topic: "shop_updated", EventID: "evt-2", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusReceived},
 	}}
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background())
 

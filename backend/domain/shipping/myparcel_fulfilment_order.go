@@ -26,4 +26,12 @@ type MyParcelFulfilmentOrderRepository interface {
 	// FindByConnectionAndSalesOrder returns nil (not an error) when this
 	// order hasn't been exported yet.
 	FindByConnectionAndSalesOrder(ctx context.Context, connectionID, salesOrderID string) (*MyParcelFulfilmentOrder, error)
+	// FindByMyParcelUUID is the reverse lookup an inbound order_status_change
+	// webhook needs (it carries MyParcel's own order UUID, not our sales
+	// order id) -- see application/shipping.HandleOrderStatusWebhookUseCase.
+	// Returns nil (not an error) when no export produced this UUID -- e.g. a
+	// tenant that never turned on ExportOrderToMyParcel still gets these
+	// webhooks for every order MyParcel's Shipments API implicitly creates
+	// one for.
+	FindByMyParcelUUID(ctx context.Context, myParcelUUID string) (*MyParcelFulfilmentOrder, error)
 }

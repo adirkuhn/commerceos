@@ -16,6 +16,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
@@ -66,14 +68,28 @@ func main() {
 	processedRepo := repositories.NewProcessedEventRepo(db)
 	eventRepo := repositories.NewWebhookEventRepo(db)
 
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
+	movementRepo := repositories.NewStockMovementRepo(db)
+	batchRepo := repositories.NewBatchRepo(db)
+	outboxRepo := repositories.NewOutboxRepository(db)
+	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
+	allocateStock := appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
+	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement)
+
 	shipmentHandler := appshipping.NewHandleShipmentWebhookUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
-		repositories.NewConnectionRepo(db), repositories.NewSalesOrderRepo(db),
-		myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+		repositories.NewConnectionRepo(db), salesOrderRepo,
+		myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret, updateSalesOrder,
 	)
+	orderStatusHandler := appshipping.NewHandleOrderStatusWebhookUseCase(
+		db, repositories.NewMyParcelFulfilmentOrderRepo(db), salesOrderRepo, updateSalesOrder,
+	)
+	myParcelRouter := appshipping.NewMyParcelWebhookRouter(shipmentHandler, orderStatusHandler)
 	forwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
 	forwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
-	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, shipmentHandler, forwardRuleRepo, forwardDeliveryRepo)
+	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, myParcelRouter, forwardRuleRepo, forwardDeliveryRepo)
 	webhookConsumer := consumers.NewWebhookConsumer(processedRepo, processWebhookEventUC, js)
 
 	// "webhooks.received.*" -- one subscription covers every provider

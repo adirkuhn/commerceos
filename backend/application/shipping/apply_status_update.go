@@ -2,15 +2,26 @@ package shipping
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 
+	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
+
+// salesOrderStatusUpdater is *application/oms.UpdateSalesOrderUseCase
+// narrowed to point of use (ISP) -- lets a Completed transition go through
+// the same stock decrement/restock rules a manual status edit would (see
+// UpdateSalesOrderUseCase's own doc), instead of a raw repo write that would
+// silently skip them.
+type salesOrderStatusUpdater interface {
+	Execute(ctx context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error)
+}
 
 // applyStatusUpdate is the one place a fetched MyParcel TrackTraceResult
 // turns into local writes -- shared by HandleShipmentWebhookUseCase
@@ -45,4 +56,25 @@ func applyStatusUpdate(
 		return nil
 	})
 	return event, err
+}
+
+// completeOrderOnDelivery moves a SalesOrder to Completed once its shipment
+// is actually delivered (StatusMainDelivered) -- deliberately a separate
+// top-level call after applyStatusUpdate's own transaction commits, not a
+// branch inside it, matching this codebase's established two-phase
+// composition (see UpdateSalesOrderUseCase's doc: header write is one
+// transaction, this use case's own stock-movement side effects are separate
+// calls after) rather than nesting one tenant.WithTenant inside another.
+// updater may be nil (deployment hasn't wired it yet) -- then this is a
+// no-op, same convention as ProcessWebhookEventUseCase's optional
+// shipmentHandler.
+func completeOrderOnDelivery(ctx context.Context, updater salesOrderStatusUpdater, statusMain, salesOrderID string) error {
+	if updater == nil || statusMain != shippingDomain.StatusMainDelivered {
+		return nil
+	}
+	completed := omsDomain.SalesOrderStatusCompleted
+	if _, err := updater.Execute(ctx, salesOrderID, appoms.UpdateSalesOrderInput{Status: &completed}); err != nil {
+		return fmt.Errorf("completeOrderOnDelivery: %w", err)
+	}
+	return nil
 }
