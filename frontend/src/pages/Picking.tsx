@@ -16,7 +16,8 @@ import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
 import type { Shipment } from '../shipping/types'
-import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
+import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
+import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import { playErrorSound } from '../scanner/errorSound'
 import type { Address } from '../oms/types'
 
@@ -115,7 +116,10 @@ export default function Picking() {
   const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
-  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // labelTab: the browser tab a label was last opened into (see
+  // openLabel.ts) -- kept only so LabelOpenedNotice's explicit Print
+  // button can call .print() on it directly.
+  const [labelTab, setLabelTab] = useState<Window | null>(null)
   // existingShipment: set when "Create shipping label" is clicked and a
   // shipment already exists for this order (checkForExistingShipment) --
   // shows ExistingShipmentConfirmModal instead of silently opening the
@@ -149,7 +153,7 @@ export default function Picking() {
     setPendingRecipient(null)
     setPendingCarrier(null)
     setCreatedShipmentId(null)
-    setPrintingLabelId(null)
+    setLabelTab(null)
     setExistingShipment(null)
   }, [activeOrder?.id])
 
@@ -416,23 +420,55 @@ export default function Picking() {
     setLabelStep('address')
   }
 
+  // Reprint entry points (no shipment-creation call involved) -- opens a
+  // blank tab synchronously (see openShipmentLabel) and loads the label
+  // into it. Used by both "Print shipping label"/"Retry print" buttons and
+  // ExistingShipmentConfirmModal's "Download & print again".
+  async function handleOpenLabel(shipmentId: string) {
+    if (!token) return
+    try {
+      setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load label')
+    }
+  }
+
   // The actual shipment-creation call -- moved here from the old
   // AddressConfirmModal.onConfirm. Staff have already seen this exact data
   // laid out label-style in LabelPreviewModal and explicitly clicked "Print
-  // label"; this is what that click does, then opens the print view
-  // immediately (the click itself was the print intent, independent of
+  // label"; this is what that click does, then opens the label in a new
+  // tab immediately (the click itself was the print intent, independent of
   // auto_print_enabled -- that setting only matters for the *separate*
   // "Retry print" entry point below, after this flow has already finished
   // once).
+  //
+  // The blank tab is opened here, synchronously, before the createShipment
+  // await -- opening it after would run outside the click's "user
+  // activation" window and get blocked as a popup (see openLabel.ts's doc).
+  // A creation failure closes the tab and rethrows so LabelPreviewModal's
+  // own try/catch can show it inline and let staff fix the address; a
+  // label-fetch failure (shipment already exists at that point) surfaces
+  // via the page's own error banner instead.
   async function handlePrintLabel() {
     if (!token || !activeOrder || !myParcelConnection || !pendingRecipient) return
-    const shipment = await shippingApi.createShipment(token, {
-      carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
-      connection_id: myParcelConnection.id, sales_order_id: activeOrder.id,
-    })
+    const tab = window.open('', '_blank')
+    let shipment
+    try {
+      shipment = await shippingApi.createShipment(token, {
+        carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
+        connection_id: myParcelConnection.id, sales_order_id: activeOrder.id,
+      })
+    } catch (err) {
+      tab?.close()
+      throw err
+    }
     setLabelStep(null)
     setCreatedShipmentId(shipment.id)
-    setPrintingLabelId(shipment.id)
+    try {
+      setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load label')
+    }
   }
 
   const pickedByLineItem = session ? pickedQuantityByLineItem(session.scans) : new Map<string, number>()
@@ -538,7 +574,7 @@ export default function Picking() {
             )}
             {createdShipmentId && (
               <button
-                type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+                type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
                 className="mt-5 px-4 py-2 rounded-lg dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-xs font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
               >
                 {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
@@ -576,8 +612,8 @@ export default function Picking() {
             onClose={() => setLabelStep(null)}
           />
         )}
-        {printingLabelId && token && (
-          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        {labelTab && (
+          <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
         )}
         {existingShipment && (
           <ExistingShipmentConfirmModal
@@ -586,7 +622,7 @@ export default function Picking() {
             onCancel={() => setExistingShipment(null)}
             onReprint={() => {
               setCreatedShipmentId(existingShipment.id)
-              setPrintingLabelId(existingShipment.id)
+              handleOpenLabel(existingShipment.id)
               setExistingShipment(null)
             }}
             onCreateNew={() => {
@@ -650,7 +686,7 @@ export default function Picking() {
               )}
               {createdShipmentId && (
                 <button
-                  type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+                  type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
                   className="w-full py-2.5 rounded-xl dark:bg-[#1F2937] bg-gray-100 dark:text-gray-200 text-gray-700 text-sm font-medium hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                 >
                   {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}

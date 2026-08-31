@@ -148,6 +148,8 @@ describe('PickingScreen', () => {
       vi.mocked(useConnections).mockReturnValue({ connections: [myParcelConn], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
       vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
       vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+      // openLabel.ts's blob->new-tab flow -- jsdom has no real implementation.
+      URL.createObjectURL = vi.fn(() => 'blob:mock-url')
     })
 
     it('offers to reprint instead of creating a new label when a shipment already exists for the order', async () => {
@@ -159,7 +161,8 @@ describe('PickingScreen', () => {
         created_at: '2026-08-23T00:00:00Z',
       }])
       vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      vi.stubGlobal('print', vi.fn())
+      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
+      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
       const user = userEvent.setup()
       render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
@@ -173,7 +176,8 @@ describe('PickingScreen', () => {
       expect(shippingApi.createShipment).not.toHaveBeenCalled()
 
       await user.click(screen.getByRole('button', { name: /Download & print again/ }))
-      expect(await screen.findByTitle('Close')).toBeInTheDocument()
+      expect(await screen.findByText('Label opened in a new tab')).toBeInTheDocument()
+      expect(fakeTab.location.href).toBe('blob:mock-url')
       expect(shippingApi.createShipment).not.toHaveBeenCalled()
     })
 
@@ -190,7 +194,8 @@ describe('PickingScreen', () => {
         created_at: '2026-08-23T00:00:00Z',
       })
       vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      vi.stubGlobal('print', vi.fn())
+      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
+      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
       const user = userEvent.setup()
       render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder({ shipping_method_title: 'DHL Europe' })} onExit={vi.fn()} onAuthError={vi.fn()} />)
@@ -211,7 +216,8 @@ describe('PickingScreen', () => {
       })))
       expect(api.completePicking).not.toHaveBeenCalled()
 
-      await user.click(await screen.findByTitle('Close'))
+      // No overlay to close anymore -- the label opened directly in a new
+      // browser tab.
       await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
       expect(await screen.findByText('Order picked')).toBeInTheDocument()
     })
@@ -229,7 +235,8 @@ describe('PickingScreen', () => {
         created_at: '2026-08-23T00:00:00Z',
       })
       vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      vi.stubGlobal('print', vi.fn())
+      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
+      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
       const user = userEvent.setup()
       render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
@@ -247,15 +254,14 @@ describe('PickingScreen', () => {
       expect(await screen.findByText('Ready to print')).toBeInTheDocument()
       expect(shippingApi.createShipment).not.toHaveBeenCalled()
 
-      // Print label is what actually creates the shipment and opens the print view.
+      // Print label is what actually creates the shipment and opens the label in a new tab.
       await user.click(screen.getByRole('button', { name: 'Print label' }))
 
       await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith(TOKEN, expect.objectContaining({
         connection_id: 'conn-mp-1', sales_order_id: 'so-1',
       })))
-      expect(await screen.findByTitle('Close')).toBeInTheDocument()
-      await user.click(screen.getByTitle('Close'))
       expect(await screen.findByRole('button', { name: 'Print shipping label' })).toBeInTheDocument()
+      expect(fakeTab.location.href).toBe('blob:mock-url')
     })
 
     it('auto-opens the print view when auto_print_enabled is on, and offers Retry print', async () => {
@@ -279,7 +285,8 @@ describe('PickingScreen', () => {
         created_at: '2026-08-23T00:00:00Z',
       })
       vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
-      vi.stubGlobal('print', vi.fn())
+      const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
+      vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
       const user = userEvent.setup()
       render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
@@ -295,8 +302,7 @@ describe('PickingScreen', () => {
       await screen.findByText('Ready to print')
       await user.click(screen.getByRole('button', { name: 'Print label' }))
 
-      expect(await screen.findByTitle('Close')).toBeInTheDocument()
-      await user.click(screen.getByTitle('Close'))
+      expect(await screen.findByText('Label opened in a new tab')).toBeInTheDocument()
       expect(await screen.findByRole('button', { name: 'Retry print' })).toBeInTheDocument()
     })
   })

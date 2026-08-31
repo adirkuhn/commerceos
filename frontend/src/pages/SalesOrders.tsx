@@ -20,7 +20,8 @@ import * as shippingApi from '../shipping/api'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
-import { ShippingLabelPrintView } from './print/ShippingLabelPrintView'
+import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
+import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type { RecipientAddress, Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
 
@@ -629,7 +630,8 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [pendingCarrier, setPendingCarrier] = useState(1)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
-  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // See Picking.tsx's identical labelTab doc.
+  const [labelTab, setLabelTab] = useState<Window | null>(null)
   // See Picking.tsx's identical existingShipment doc.
   const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
   // Every shipment ever created for this order -- normally one, but
@@ -673,19 +675,41 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
     setLabelStep('address')
   }
 
+  // See Picking.tsx's identical handleOpenLabel doc.
+  async function handleOpenLabel(shipmentId: string) {
+    if (!token) return
+    try {
+      setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to load label')
+    }
+  }
+
   // The actual shipment-creation call -- moved here from the old
   // AddressConfirmModal.onConfirm. Staff have already seen this exact data
   // laid out label-style in LabelPreviewModal and explicitly clicked "Print
-  // label"; this is what that click does, then opens the print view
-  // immediately.
+  // label"; this is what that click does, then opens the label in a new
+  // tab immediately (see Picking.tsx's identical handlePrintLabel doc on
+  // why the blank tab opens synchronously, before either await).
   async function handlePrintLabel() {
     if (!token || !detail || !myParcelConnection || !pendingRecipient) return
     const input = { carrier: pendingCarrier, recipient: pendingRecipient }
-    await shippingApi.exportMyParcelOrder(token, myParcelConnection.id, detail.sales_order.id, input)
-    const shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id })
+    const tab = window.open('', '_blank')
+    let shipment
+    try {
+      await shippingApi.exportMyParcelOrder(token, myParcelConnection.id, detail.sales_order.id, input)
+      shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id })
+    } catch (err) {
+      tab?.close()
+      throw err
+    }
     setLabelStep(null)
     setCreatedShipmentId(shipment.id)
-    setPrintingLabelId(shipment.id)
+    try {
+      setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to load label')
+    }
     refreshActivities()
     loadShipments()
   }
@@ -771,7 +795,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
             )}
             {createdShipmentId && (
               <button
-                onClick={() => setPrintingLabelId(createdShipmentId)}
+                onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
                 title="Print shipping label"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
               >
@@ -937,8 +961,8 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
           onClose={() => setLabelStep(null)}
         />
       )}
-      {printingLabelId && token && (
-        <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+      {labelTab && (
+        <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
       )}
       {existingShipment && token && (
         <ExistingShipmentConfirmModal
@@ -947,7 +971,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
           onCancel={() => setExistingShipment(null)}
           onReprint={() => {
             setCreatedShipmentId(existingShipment.id)
-            setPrintingLabelId(existingShipment.id)
+            handleOpenLabel(existingShipment.id)
             setExistingShipment(null)
           }}
           onCreateNew={() => {

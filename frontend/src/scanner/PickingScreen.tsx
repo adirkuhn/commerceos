@@ -17,7 +17,8 @@ import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
 import type { Shipment } from '../shipping/types'
-import { ShippingLabelPrintView } from '../pages/print/ShippingLabelPrintView'
+import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
+import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
   PickScanActionType,
@@ -94,7 +95,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
-  const [printingLabelId, setPrintingLabelId] = useState<string | null>(null)
+  // See Picking.tsx's identical labelTab doc.
+  const [labelTab, setLabelTab] = useState<Window | null>(null)
   // See Picking.tsx's identical existingShipment doc.
   const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
@@ -125,15 +127,36 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     setLabelStep('address')
   }
 
+  // See Picking.tsx's identical handleOpenLabel doc.
+  async function handleOpenLabel(shipmentId: string) {
+    try {
+      setLabelTab(await openShipmentLabel(token, shipmentId, labelSize))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load label')
+    }
+  }
+
+  // See Picking.tsx's identical handlePrintLabel doc.
   async function handlePrintLabel() {
     if (!myParcelConnection || !pendingRecipient) return
-    const shipment = await shippingApi.createShipment(token, {
-      carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
-      connection_id: myParcelConnection.id, sales_order_id: order.id,
-    })
+    const tab = window.open('', '_blank')
+    let shipment
+    try {
+      shipment = await shippingApi.createShipment(token, {
+        carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
+        connection_id: myParcelConnection.id, sales_order_id: order.id,
+      })
+    } catch (err) {
+      tab?.close()
+      throw err
+    }
     setLabelStep(null)
     setCreatedShipmentId(shipment.id)
-    setPrintingLabelId(shipment.id)
+    try {
+      setLabelTab(await loadShipmentLabelIntoTab(tab, token, shipment.id, labelSize))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load label')
+    }
   }
 
   const load = async () => {
@@ -329,7 +352,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           )}
           {createdShipmentId && (
             <button
-              type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+              type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
               className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
             >
               {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
@@ -369,8 +392,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onClose={() => setLabelStep(null)}
           />
         )}
-        {printingLabelId && (
-          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        {labelTab && (
+          <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
         )}
         {existingShipment && (
           <ExistingShipmentConfirmModal
@@ -379,7 +402,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onCancel={() => setExistingShipment(null)}
             onReprint={() => {
               setCreatedShipmentId(existingShipment.id)
-              setPrintingLabelId(existingShipment.id)
+              handleOpenLabel(existingShipment.id)
               setExistingShipment(null)
             }}
             onCreateNew={() => {
@@ -424,7 +447,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           )}
           {createdShipmentId && (
             <button
-              type="button" onClick={() => setPrintingLabelId(createdShipmentId)}
+              type="button" onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
               className="w-full py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-200 text-sm font-medium hover:border-blue-500 transition-colors"
             >
               {autoPrintEnabled ? 'Retry print' : 'Print shipping label'}
@@ -457,8 +480,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onClose={() => setLabelStep(null)}
           />
         )}
-        {printingLabelId && (
-          <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
+        {labelTab && (
+          <LabelOpenedNotice onPrint={() => labelTab.print()} onDismiss={() => setLabelTab(null)} />
         )}
         {existingShipment && (
           <ExistingShipmentConfirmModal
@@ -467,7 +490,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             onCancel={() => setExistingShipment(null)}
             onReprint={() => {
               setCreatedShipmentId(existingShipment.id)
-              setPrintingLabelId(existingShipment.id)
+              handleOpenLabel(existingShipment.id)
               setExistingShipment(null)
             }}
             onCreateNew={() => {
