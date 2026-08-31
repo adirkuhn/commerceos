@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
@@ -50,6 +51,7 @@ type fakeMyParcelClient struct {
 	listWebhookSubscriptionsFn   func(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error)
 	createWebhookSubscriptionFn  func(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error)
 	deleteWebhookSubscriptionFn  func(ctx context.Context, id string) error
+	deleteShipmentFn             func(ctx context.Context, myParcelShipmentID int64) error
 }
 
 func (f *fakeMyParcelClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
@@ -85,6 +87,12 @@ func (f *fakeMyParcelClient) DeleteWebhookSubscription(ctx context.Context, id s
 	}
 	return f.deleteWebhookSubscriptionFn(ctx, id)
 }
+func (f *fakeMyParcelClient) DeleteShipment(ctx context.Context, myParcelShipmentID int64) error {
+	if f.deleteShipmentFn == nil {
+		return nil
+	}
+	return f.deleteShipmentFn(ctx, myParcelShipmentID)
+}
 
 type fakeMyParcelClientFactory struct {
 	client       integrationsDomain.MyParcelClient
@@ -114,6 +122,7 @@ type fakeShipmentRepo struct {
 	findBySalesOrderIDFn       func(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error)
 	findStaleNonTerminalFn     func(ctx context.Context, olderThan time.Time, limit int) ([]shippingDomain.Shipment, error)
 	updateStatusFn             func(ctx context.Context, id string, status int, statusMain string) error
+	markCancelledFn            func(ctx context.Context, id string, cancelledAt time.Time, note string) error
 }
 
 func (f *fakeShipmentRepo) Create(ctx context.Context, s *shippingDomain.Shipment) error {
@@ -133,6 +142,12 @@ func (f *fakeShipmentRepo) FindStaleNonTerminal(ctx context.Context, olderThan t
 }
 func (f *fakeShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain string) error {
 	return f.updateStatusFn(ctx, id, status, statusMain)
+}
+func (f *fakeShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, note string) error {
+	if f.markCancelledFn == nil {
+		return nil
+	}
+	return f.markCancelledFn(ctx, id, cancelledAt, note)
 }
 
 // --- ShipmentStatusEventRepository fake ---
@@ -266,6 +281,22 @@ func (f *fakeRecordActivity) Execute(_ context.Context, in appoms.RecordSalesOrd
 		return nil, f.err
 	}
 	return &omsDomain.SalesOrderActivity{ID: "activity-1"}, nil
+}
+
+// --- myParcelOrderExporter fake -- zero value panics if Execute is called,
+// proving CreateShipmentUseCase skips it when the connection's
+// ExportOrderToMyParcel setting is off (the default in every existing test
+// that doesn't set it). ---
+
+type fakeOrderExporter struct {
+	executeFn func(ctx context.Context, in appshipping.ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error)
+}
+
+func (f *fakeOrderExporter) Execute(ctx context.Context, in appshipping.ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error) {
+	if f.executeFn == nil {
+		panic("fakeOrderExporter: Execute called but ExportOrderToMyParcel should have been off")
+	}
+	return f.executeFn(ctx, in)
 }
 
 // --- salesOrderTotalGetter fake (narrow -- just what CreateShipmentUseCase

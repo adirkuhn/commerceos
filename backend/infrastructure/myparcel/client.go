@@ -334,6 +334,19 @@ func (c *Client) getShipmentByID(ctx context.Context, id int64) (barcode string,
 	return s.Barcode, s.Status, nil
 }
 
+// DeleteShipment cancels a shipment on MyParcel's side (DELETE
+// /shipments/{id}). Per MyParcel's own docs (developer.myparcel.nl/
+// api-reference/06.shipments.html) this only succeeds while the shipment is
+// still status 1 ("pending - concept"), i.e. before a label has been
+// created -- since this client creates the label as part of CreateShipment,
+// MyParcel is expected to reject most real calls here with a 422/*APIError.
+// Callers must treat that as an informative outcome, not a hard failure --
+// see application/shipping.CancelShipmentUseCase.
+func (c *Client) DeleteShipment(ctx context.Context, myParcelShipmentID int64) error {
+	path := "/shipments/" + strconv.FormatInt(myParcelShipmentID, 10)
+	return c.doJSON(ctx, http.MethodDelete, path, shipmentAccept, nil, nil)
+}
+
 // CreateShipment creates one MyParcel shipment. MyParcel's create-shipment
 // endpoint accepts an array of shipments in one call; this client always
 // sends exactly one and returns its result.

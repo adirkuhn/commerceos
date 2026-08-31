@@ -37,6 +37,8 @@ type shipmentModel struct {
 	RecipientCC               string
 	RecipientEmail            string
 	RecipientPhone            string
+	CancelledAt               *time.Time
+	CancelNote                string
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
 }
@@ -158,6 +160,19 @@ func (r *ShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, 
 	return nil
 }
 
+func (r *ShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, note string) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Model(&shipmentModel{}).Where("id = ?", id).
+		Updates(map[string]any{"cancelled_at": cancelledAt, "cancel_note": note, "updated_at": time.Now()}).Error
+	if err != nil {
+		return fmt.Errorf("shipmentRepo.MarkCancelled: %w", err)
+	}
+	return nil
+}
+
 func toShipmentModel(s *shippingDomain.Shipment) shipmentModel {
 	var mpID *int64
 	if s.MyParcelShipmentID != 0 {
@@ -173,6 +188,7 @@ func toShipmentModel(s *shippingDomain.Shipment) shipmentModel {
 		RecipientStreet: s.RecipientStreet, RecipientNumber: s.RecipientNumber, RecipientNumberSuffix: s.RecipientNumberSuffix,
 		RecipientPostalCode: s.RecipientPostalCode, RecipientCity: s.RecipientCity, RecipientCC: s.RecipientCC,
 		RecipientEmail: s.RecipientEmail, RecipientPhone: s.RecipientPhone,
+		CancelledAt: s.CancelledAt, CancelNote: s.CancelNote,
 	}
 }
 
@@ -191,6 +207,7 @@ func toShipmentDomain(m shipmentModel) *shippingDomain.Shipment {
 		RecipientStreet: m.RecipientStreet, RecipientNumber: m.RecipientNumber, RecipientNumberSuffix: m.RecipientNumberSuffix,
 		RecipientPostalCode: m.RecipientPostalCode, RecipientCity: m.RecipientCity, RecipientCC: m.RecipientCC,
 		RecipientEmail: m.RecipientEmail, RecipientPhone: m.RecipientPhone,
+		CancelledAt: m.CancelledAt, CancelNote: m.CancelNote,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

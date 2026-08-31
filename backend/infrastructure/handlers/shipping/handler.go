@@ -63,6 +63,9 @@ type refreshTrackingUseCase interface {
 type lookupAddressUseCase interface {
 	Execute(ctx context.Context, postalCode, houseNumber string) (*shippingDomain.AddressLookupResult, error)
 }
+type cancelShipmentUseCase interface {
+	Execute(ctx context.Context, in appshipping.CancelShipmentInput) (*appshipping.CancelShipmentResult, error)
+}
 
 // Handler implements genshipping.ServerInterface.
 type Handler struct {
@@ -78,6 +81,7 @@ type Handler struct {
 	listTrackingEvents  listTrackingEventsUseCase
 	refreshTracking     refreshTrackingUseCase
 	lookupAddress       lookupAddressUseCase
+	cancelShipment      cancelShipmentUseCase
 }
 
 func NewHandler(
@@ -93,12 +97,13 @@ func NewHandler(
 	listTrackingEvents listTrackingEventsUseCase,
 	refreshTracking refreshTrackingUseCase,
 	lookupAddress lookupAddressUseCase,
+	cancelShipment cancelShipmentUseCase,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
 		exportMyParcelOrder: exportMyParcelOrder, listTrackingEvents: listTrackingEvents, refreshTracking: refreshTracking,
-		lookupAddress: lookupAddress,
+		lookupAddress: lookupAddress, cancelShipment: cancelShipment,
 	}
 }
 
@@ -180,6 +185,10 @@ func (h *Handler) UpdateShippingSettings(c *gin.Context, connectionId genshippin
 	if req.DefaultLabelSize != nil {
 		labelSize = string(*req.DefaultLabelSize)
 	}
+	exportOrder := false
+	if req.ExportOrderToMyparcel != nil {
+		exportOrder = *req.ExportOrderToMyparcel
+	}
 	settings, err := h.updateSettings.Execute(c.Request.Context(), appshipping.UpdateShippingSettingsInput{
 		ConnectionID: connectionId.String(), DefaultCarrier: shippingDomain.Carrier(req.DefaultCarrier),
 		DefaultPackageType: shippingDomain.PackageType(req.DefaultPackageType), DefaultLabelFormat: string(req.DefaultLabelFormat),
@@ -187,6 +196,7 @@ func (h *Handler) UpdateShippingSettings(c *gin.Context, connectionId genshippin
 		DefaultSignatureRequired: sig, DefaultOnlyRecipient: onlyRecipient,
 		InsureByDefault:   insureByDefault,
 		MyParcelAccountID: req.MyparcelAccountId, MyParcelShopID: req.MyparcelShopId, AutoPrintEnabled: autoPrint,
+		ExportOrderToMyParcel: exportOrder,
 	})
 	if err != nil {
 		mapErr(c, err)
@@ -365,6 +375,23 @@ func (h *Handler) RefreshShipmentTracking(c *gin.Context, shipmentId openapi_typ
 	c.JSON(http.StatusOK, gin.H{"data": trackingEventToResponse(event), "error": nil})
 }
 
+func (h *Handler) CancelShipment(c *gin.Context, shipmentId openapi_types.UUID) {
+	userID := ""
+	if claims := middleware.ClaimsFromGin(c); claims != nil {
+		userID = claims.UserID
+	}
+	result, err := h.cancelShipment.Execute(c.Request.Context(), appshipping.CancelShipmentInput{
+		ShipmentID: shipmentId.String(), UserID: userID,
+	})
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": genshipping.CancelShipmentResult{
+		DeletedOnMyparcel: &result.DeletedOnMyParcel, Message: &result.Message,
+	}, "error": nil})
+}
+
 func (h *Handler) LookupAddress(c *gin.Context, params genshipping.LookupAddressParams) {
 	result, err := h.lookupAddress.Execute(c.Request.Context(), params.PostalCode, params.Number)
 	if err != nil {
@@ -394,6 +421,7 @@ func settingsToResponse(s *shippingDomain.ShippingConnectionSettings) *genshippi
 		DefaultLabelFormat: &format, DefaultSignatureRequired: &s.DefaultSignatureRequired, DefaultOnlyRecipient: &s.DefaultOnlyRecipient,
 		InsureByDefault:   &s.InsureByDefault,
 		MyparcelAccountId: s.MyParcelAccountID, MyparcelShopId: s.MyParcelShopID, AutoPrintEnabled: &s.AutoPrintEnabled,
+		ExportOrderToMyparcel: &s.ExportOrderToMyParcel,
 	}
 	if s.DefaultLabelSize != "" {
 		size := genshipping.ShippingConnectionSettingsDefaultLabelSize(s.DefaultLabelSize)
@@ -425,16 +453,17 @@ func overridesToResponse(overrides []shippingDomain.ShippingCarrierOverride) []g
 
 func shipmentToResponse(s shippingDomain.Shipment) genshipping.Shipment {
 	carrier, status := int(s.Carrier), s.Status
-	return genshipping.Shipment{
+	resp := genshipping.Shipment{
 		Id: &s.ID, SalesOrderId: &s.SalesOrderID, ConnectionId: &s.ConnectionID, Carrier: &carrier,
 		Barcode: &s.Barcode, Status: &status, StatusMain: &s.StatusMain, LabelFormat: &s.LabelFormat,
-		CreatedAt: &s.CreatedAt,
+		CreatedAt: &s.CreatedAt, CancelledAt: s.CancelledAt, CancelNote: &s.CancelNote,
 		Recipient: &genshipping.RecipientAddress{
 			Person: s.RecipientPerson, Company: &s.RecipientCompany, Street: s.RecipientStreet,
 			Number: &s.RecipientNumber, NumberSuffix: &s.RecipientNumberSuffix, PostalCode: &s.RecipientPostalCode,
 			City: s.RecipientCity, Cc: s.RecipientCC, Email: &s.RecipientEmail, Phone: &s.RecipientPhone,
 		},
 	}
+	return resp
 }
 
 // Register is the production wiring.
@@ -451,6 +480,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	recordActivity := appoms.NewRecordSalesOrderActivityUseCase(db, salesOrderRepo, repositories.NewSalesOrderActivityRepo(db))
+	exportMyParcelOrderUC := appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, salesOrderRepo, lineItemRepo, myParcelFactory, encryptionSecret, recordActivity)
 
 	h := NewHandler(
 		appintegrations.NewConnectMyParcelUseCase(db, connRepo, settingsRepo, outboxRepo, encryptionSecret),
@@ -458,13 +488,14 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
-		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, salesOrderRepo, lineItemRepo, myParcelFactory, encryptionSecret, recordActivity),
+		exportMyParcelOrderUC,
 		appshipping.NewListShipmentTrackingEventsUseCase(db, statusEventRepo),
 		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewLookupAddressUseCase(pdok.NewClient(pdok.Config{})),
+		appshipping.NewCancelShipmentUseCase(db, connRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

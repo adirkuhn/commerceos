@@ -267,6 +267,32 @@ paths:
           description: The shipping provider could not be reached or rejected the request.
           $ref: '#/components/responses/Error'
 
+  /shipping/shipments/{shipmentId}/cancel:
+    post:
+      operationId: cancelShipment
+      summary: >
+        "Wrong carrier, start over" action: attempts to delete the shipment
+        on MyParcel's side, then always marks it cancelled in CommerceOS
+        regardless of that outcome, so a corrected shipment can be created
+        for the same sales order. MyParcel only allows deletion before a
+        label has been created, so `deleted_on_myparcel: false` (with
+        `message` explaining why) is an expected, non-error outcome, not a
+        failure -- the caller can proceed to create a new shipment either
+        way. Idempotent: cancelling an already-cancelled shipment returns
+        the outcome recorded the first time, without calling MyParcel again.
+      parameters:
+        - name: shipmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CancelShipmentResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /shipping/shipments/{shipmentId}/label:
     get:
       operationId: getShipmentLabel
@@ -359,6 +385,14 @@ components:
         myparcel_account_id: { type: integer, nullable: true }
         myparcel_shop_id: { type: integer, nullable: true }
         auto_print_enabled: { type: boolean }
+        export_order_to_myparcel:
+          type: boolean
+          description: >-
+            When true, creating a shipment also registers the order via
+            MyParcel's separate Orders/Fulfilment API, so it shows up on
+            MyParcel's own Orders dashboard (the plain Shipments API used by
+            default does not). Off by default -- it hands MyParcel the full
+            order (line items, prices).
 
     ShippingCarrierOverride:
       type: object
@@ -398,6 +432,7 @@ components:
         myparcel_account_id: { type: integer, nullable: true }
         myparcel_shop_id: { type: integer, nullable: true }
         auto_print_enabled: { type: boolean }
+        export_order_to_myparcel: { type: boolean }
 
     UpsertCarrierOverrideRequest:
       type: object
@@ -470,11 +505,35 @@ components:
         label_format: { type: string }
         recipient: { $ref: '#/components/schemas/RecipientAddress' }
         created_at: { type: string, format: date-time }
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set once cancelShipment has been called for this shipment -- see CancelShipmentResponse for the outcome recorded at cancel time.
+        cancel_note:
+          type: string
+          description: Populated once cancelled_at is set -- whether MyParcel itself deleted the shipment or rejected the request.
 
     ShipmentResponse:
       type: object
       properties:
         data: { $ref: '#/components/schemas/Shipment' }
+        error: { nullable: true }
+
+    CancelShipmentResult:
+      type: object
+      properties:
+        deleted_on_myparcel:
+          type: boolean
+          description: True only if MyParcel actually deleted the shipment (it only allows this before a label exists). False means the shipment was cancelled locally so a new one can be created, but the old one may still exist/be trackable on MyParcel's own side -- see `message`.
+        message:
+          type: string
+          description: Human-readable outcome, safe to show directly to staff.
+
+    CancelShipmentResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CancelShipmentResult' }
         error: { nullable: true }
 
     ShipmentTrackingEvent:

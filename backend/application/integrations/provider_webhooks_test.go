@@ -96,6 +96,9 @@ type fakeFullMyParcelClient struct {
 func (f *fakeFullMyParcelClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
 	panic("not used")
 }
+func (f *fakeFullMyParcelClient) DeleteShipment(ctx context.Context, myParcelShipmentID int64) error {
+	panic("not used")
+}
 func (f *fakeFullMyParcelClient) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
 	panic("not used")
 }

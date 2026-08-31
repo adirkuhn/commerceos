@@ -496,3 +496,35 @@ func TestClient_DeleteWebhookSubscription_deletesByID(t *testing.T) {
 	assert.Equal(t, http.MethodDelete, gotMethod)
 	assert.Equal(t, "/webhook_subscriptions/42", gotPath)
 }
+
+func TestClient_DeleteShipment_deletesByID(t *testing.T) {
+	var gotMethod, gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath = r.Method, r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	err := c.DeleteShipment(context.Background(), 12345)
+
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodDelete, gotMethod)
+	assert.Equal(t, "/shipments/12345", gotPath)
+}
+
+func TestClient_DeleteShipment_afterLabelCreated_returnsAPIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Shipment cannot be deleted"}]}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	err := c.DeleteShipment(context.Background(), 12345)
+
+	require.Error(t, err)
+	var apiErr *myparcel.APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnprocessableEntity, apiErr.StatusCode)
+}

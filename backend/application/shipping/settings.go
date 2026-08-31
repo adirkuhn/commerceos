@@ -68,6 +68,9 @@ type UpdateShippingSettingsInput struct {
 	MyParcelAccountID        *int
 	MyParcelShopID           *int
 	AutoPrintEnabled         bool
+	// ExportOrderToMyParcel -- see domain/shipping.ShippingConnectionSettings'
+	// doc comment on the field of the same name.
+	ExportOrderToMyParcel bool
 }
 
 type UpdateShippingSettingsUseCase struct {
@@ -86,6 +89,7 @@ func (uc *UpdateShippingSettingsUseCase) Execute(ctx context.Context, in UpdateS
 		DefaultSignatureRequired: in.DefaultSignatureRequired, DefaultOnlyRecipient: in.DefaultOnlyRecipient,
 		InsureByDefault:   in.InsureByDefault,
 		MyParcelAccountID: in.MyParcelAccountID, MyParcelShopID: in.MyParcelShopID, AutoPrintEnabled: in.AutoPrintEnabled,
+		ExportOrderToMyParcel: in.ExportOrderToMyParcel,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		settings.TenantID = tenant.IDFromContext(ctx)

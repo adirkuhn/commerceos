@@ -22,6 +22,19 @@ type salesOrderTotalGetter interface {
 	FindByID(ctx context.Context, id string) (*omsDomain.SalesOrder, error)
 }
 
+// myParcelOrderExporter is *ExportMyParcelOrderUseCase narrowed to point of
+// use (ISP) -- lets CreateShipmentUseCase optionally also register the
+// order via MyParcel's separate Orders/Fulfilment API (visible on
+// MyParcel's own Orders dashboard, distinct from the Shipments API this
+// use case itself calls) when the connection's ExportOrderToMyParcel
+// setting is on. ExportMyParcelOrderUseCase is idempotent by
+// connection+sales order, so calling it here is safe even for a caller
+// (e.g. the Sales Order detail page) that already called it explicitly
+// first.
+type myParcelOrderExporter interface {
+	Execute(ctx context.Context, in ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error)
+}
+
 // RecipientInput is the confirmed, MyParcel-shaped recipient address the
 // frontend's address-confirm step collects -- see
 // domain/shipping.Shipment's doc comment on why this isn't derived live
@@ -75,6 +88,7 @@ type CreateShipmentUseCase struct {
 	recordActivity     recordActivityUC
 	tenantSettingsRepo settingsDomain.Repository
 	salesOrderRepo     salesOrderTotalGetter
+	orderExporter      myParcelOrderExporter
 }
 
 func NewCreateShipmentUseCase(
@@ -88,11 +102,13 @@ func NewCreateShipmentUseCase(
 	recordActivity recordActivityUC,
 	tenantSettingsRepo settingsDomain.Repository,
 	salesOrderRepo salesOrderTotalGetter,
+	orderExporter myParcelOrderExporter,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
 		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo, salesOrderRepo: salesOrderRepo,
+		orderExporter: orderExporter,
 	}
 }
 
@@ -132,16 +148,33 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: %w", err)
 	}
-	// A shipment already exists for this order on this connection -- return
-	// it instead of creating a real second MyParcel shipment. This is a
-	// defense-in-depth backstop (races, a caller that skipped its own
-	// pre-check); the frontend's own "already exists, re-download?" prompt
-	// is the primary UX for this (see Picking.tsx/PickingScreen.tsx/
-	// SalesOrders.tsx), this just guarantees the backend never silently
-	// duplicates regardless of what called it.
+	// An active (non-cancelled) shipment already exists for this order on
+	// this connection -- return it instead of creating a real second
+	// MyParcel shipment. This is a defense-in-depth backstop (races, a
+	// caller that skipped its own pre-check); the frontend's own "already
+	// exists, re-download?" prompt is the primary UX for this (see
+	// Picking.tsx/PickingScreen.tsx/SalesOrders.tsx), this just guarantees
+	// the backend never silently duplicates regardless of what called it.
+	// A cancelled shipment (CancelShipmentUseCase) is deliberately skipped
+	// here -- that's exactly what unblocks creating a corrected shipment
+	// after staff picked the wrong carrier.
 	for _, s := range existing {
-		if s.ConnectionID == in.ConnectionID {
+		if s.ConnectionID == in.ConnectionID && s.IsActive() {
 			return &s, nil
+		}
+	}
+
+	// Best-effort, non-blocking: exporting the order is purely for
+	// visibility on MyParcel's own Orders dashboard, not required to
+	// actually create the shipment/label -- a failure here must not stop
+	// staff from getting their label.
+	if settings != nil && settings.ExportOrderToMyParcel {
+		if _, exportErr := uc.orderExporter.Execute(ctx, ExportMyParcelOrderInput{
+			SalesOrderID: in.SalesOrderID, ConnectionID: in.ConnectionID, Carrier: in.Carrier,
+			Recipient: in.Recipient, UserID: in.UserID,
+		}); exportErr != nil {
+			uc.recordShipmentActivity(ctx, in, "myparcel_order_export_failed",
+				"Failed to export order to MyParcel (label creation continues)", map[string]any{"error": exportErr.Error()})
 		}
 	}
 

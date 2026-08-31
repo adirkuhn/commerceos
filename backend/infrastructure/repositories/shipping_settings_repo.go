@@ -30,11 +30,12 @@ type shippingConnectionSettingsModel struct {
 	// ShipmentRepo's MyParcelShipmentID `gorm:"column:myparcel_shipment_id"`)
 	// -- without the tag, Upsert fails with "column my_parcel_account_id
 	// does not exist" (caught 2026-08-27).
-	MyParcelAccountID *int `gorm:"column:myparcel_account_id"`
-	MyParcelShopID    *int `gorm:"column:myparcel_shop_id"`
-	AutoPrintEnabled  bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	MyParcelAccountID     *int `gorm:"column:myparcel_account_id"`
+	MyParcelShopID        *int `gorm:"column:myparcel_shop_id"`
+	AutoPrintEnabled      bool
+	ExportOrderToMyParcel bool
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 func (shippingConnectionSettingsModel) TableName() string { return "shipping_connection_settings" }
@@ -73,7 +74,8 @@ func (r *ShippingConnectionSettingsRepo) FindByConnectionID(ctx context.Context,
 		DefaultSignatureRequired: m.DefaultSignatureRequired, DefaultOnlyRecipient: m.DefaultOnlyRecipient,
 		InsureByDefault:   m.InsureByDefault,
 		MyParcelAccountID: m.MyParcelAccountID, MyParcelShopID: m.MyParcelShopID, AutoPrintEnabled: m.AutoPrintEnabled,
-		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		ExportOrderToMyParcel: m.ExportOrderToMyParcel,
+		CreatedAt:             m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}, nil
 }
 
@@ -89,7 +91,8 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 		DefaultSignatureRequired: s.DefaultSignatureRequired, DefaultOnlyRecipient: s.DefaultOnlyRecipient,
 		InsureByDefault:   s.InsureByDefault,
 		MyParcelAccountID: s.MyParcelAccountID, MyParcelShopID: s.MyParcelShopID, AutoPrintEnabled: s.AutoPrintEnabled,
-		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
+		ExportOrderToMyParcel: s.ExportOrderToMyParcel,
+		CreatedAt:             s.CreatedAt, UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "connection_id"}},
@@ -97,7 +100,7 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 			"default_carrier", "default_package_type", "default_label_format", "default_label_size",
 			"default_signature_required", "default_only_recipient",
 			"insure_by_default", "myparcel_account_id", "myparcel_shop_id", "auto_print_enabled",
-			"updated_at",
+			"export_order_to_myparcel", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {

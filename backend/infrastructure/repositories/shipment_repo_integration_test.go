@@ -159,6 +159,48 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	require.Empty(t, stale, "a delivered (terminal) shipment must never be re-polled")
 }
 
+func TestShipmentRepo_Integration_MarkCancelled(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+	connectionID := seedMyParcelConnection(t, db, ctx)
+	repo := repositories.NewShipmentRepo(db)
+
+	var shipmentID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		s := shippingDomain.Shipment{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
+			Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: 5000, Barcode: "3SMYPA5",
+			Status: 1, StatusMain: "registered", LabelFormat: shippingDomain.LabelFormatPDF,
+			RecipientPerson: "P", RecipientStreet: "S", RecipientCity: "C", RecipientCC: "NL",
+		}
+		if err := repo.Create(ctx, &s); err != nil {
+			return err
+		}
+		shipmentID = s.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	cancelledAt := time.Now()
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.MarkCancelled(ctx, shipmentID, cancelledAt, "MyParcel could not delete this shipment; cancelled locally.")
+	})
+	require.NoError(t, err)
+
+	var found *shippingDomain.Shipment
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByID(ctx, shipmentID)
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found.CancelledAt)
+	require.False(t, found.IsActive())
+	require.Equal(t, "MyParcel could not delete this shipment; cancelled locally.", found.CancelNote)
+}
+
 func TestShipmentStatusEventRepo_Integration_Append(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

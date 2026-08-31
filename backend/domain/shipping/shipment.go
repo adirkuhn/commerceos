@@ -129,8 +129,31 @@ type Shipment struct {
 	RecipientEmail        string
 	RecipientPhone        string
 
+	// CancelledAt is set by CancelShipmentUseCase once staff have tried to
+	// delete this shipment (e.g. wrong carrier picked) -- non-nil marks the
+	// shipment as no longer "active" for CreateShipmentUseCase's own
+	// existing-shipment guard, so a corrected new shipment can be created
+	// for the same SalesOrder, while this row (and its status history)
+	// stays around for audit instead of being hard-deleted. CancelNote
+	// records the outcome of that attempt -- whether MyParcel itself
+	// actually deleted the shipment or rejected the request (MyParcel only
+	// allows deletion before a label exists, see
+	// infrastructure/myparcel.Client.DeleteShipment's doc comment), so staff
+	// reviewing history later know whether a wrong-carrier label might
+	// still be live on MyParcel's own side.
+	CancelledAt *time.Time
+	CancelNote  string
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// IsActive reports whether this shipment still counts as the current
+// shipment for its SalesOrder -- false once CancelShipmentUseCase has
+// marked it cancelled, at which point a new shipment may be created for the
+// same order/connection.
+func (s Shipment) IsActive() bool {
+	return s.CancelledAt == nil
 }
 
 // IsTerminal reports whether this shipment's status.main means no further
@@ -195,8 +218,17 @@ type ShippingConnectionSettings struct {
 	// see MyParcelSyncSettingsPage's doc for why (cloud-hosted backend,
 	// LAN-local printer, no print-agent infra).
 	AutoPrintEnabled bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	// ExportOrderToMyParcel, when true, makes CreateShipmentUseCase also
+	// register the sales order via MyParcel's separate Orders/Fulfilment API
+	// (ExportMyParcelOrderUseCase) -- the only thing that makes it show up
+	// on MyParcel's own Orders dashboard (backoffice.myparcel.nl/orders),
+	// which the plain Shipments API this codebase uses by default never
+	// populates. Off by default: exporting the full order (line items,
+	// prices) hands MyParcel data/insights the merchant may not want to
+	// share when they only need a label.
+	ExportOrderToMyParcel bool
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // ShippingCarrierOverride overrides ShippingConnectionSettings' defaults for

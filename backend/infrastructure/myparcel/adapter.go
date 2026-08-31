@@ -35,6 +35,10 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 	return integrationsDomain.ShipmentResult{ShipmentID: r.ShipmentID, Barcode: r.Barcode}, nil
 }
 
+func (a *Adapter) DeleteShipment(ctx context.Context, myParcelShipmentID int64) error {
+	return a.client.DeleteShipment(ctx, myParcelShipmentID)
+}
+
 func (a *Adapter) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
 	lines := make([]OrderLine, len(in.OrderLines))
 	for i, l := range in.OrderLines {

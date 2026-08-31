@@ -151,6 +151,12 @@ type WebhookSubscription struct {
 // by infrastructure/myparcel.
 type MyParcelClient interface {
 	CreateShipment(ctx context.Context, in CreateShipmentInput) (ShipmentResult, error)
+	// DeleteShipment cancels a shipment on MyParcel's side. Per MyParcel's
+	// own docs this only succeeds pre-label-creation (status 1, "pending -
+	// concept") -- see infrastructure/myparcel.Client.DeleteShipment's doc
+	// comment. Callers must treat a rejection as an informative outcome, not
+	// necessarily an application error.
+	DeleteShipment(ctx context.Context, myParcelShipmentID int64) error
 	// CreateOrder exports an order via MyParcel's Orders/Fulfilment API --
 	// see CreateOrderInput's doc for how this differs from CreateShipment.
 	CreateOrder(ctx context.Context, in CreateOrderInput) (OrderResult, error)

@@ -149,6 +149,21 @@ func (e GetShipmentLabelParamsSize) Valid() bool {
 	}
 }
 
+// CancelShipmentResponse defines model for CancelShipmentResponse.
+type CancelShipmentResponse struct {
+	Data  *CancelShipmentResult `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
+// CancelShipmentResult defines model for CancelShipmentResult.
+type CancelShipmentResult struct {
+	// DeletedOnMyparcel True only if MyParcel actually deleted the shipment (it only allows this before a label exists). False means the shipment was cancelled locally so a new one can be created, but the old one may still exist/be trackable on MyParcel's own side -- see `message`.
+	DeletedOnMyparcel *bool `json:"deleted_on_myparcel,omitempty"`
+
+	// Message Human-readable outcome, safe to show directly to staff.
+	Message *string `json:"message,omitempty"`
+}
+
 // ConnectionResponse defines model for ConnectionResponse.
 type ConnectionResponse struct {
 	Data *struct {
@@ -231,7 +246,13 @@ type RecipientAddress struct {
 
 // Shipment defines model for Shipment.
 type Shipment struct {
-	Barcode      *string           `json:"barcode,omitempty"`
+	Barcode *string `json:"barcode,omitempty"`
+
+	// CancelNote Populated once cancelled_at is set -- whether MyParcel itself deleted the shipment or rejected the request.
+	CancelNote *string `json:"cancel_note,omitempty"`
+
+	// CancelledAt Set once cancelShipment has been called for this shipment -- see CancelShipmentResponse for the outcome recorded at cancel time.
+	CancelledAt  *time.Time        `json:"cancelled_at,omitempty"`
 	Carrier      *int              `json:"carrier,omitempty"`
 	ConnectionId *string           `json:"connection_id,omitempty"`
 	CreatedAt    *time.Time        `json:"created_at,omitempty"`
@@ -297,9 +318,12 @@ type ShippingConnectionSettings struct {
 	DefaultOnlyRecipient     *bool                                         `json:"default_only_recipient,omitempty"`
 	DefaultPackageType       *int                                          `json:"default_package_type,omitempty"`
 	DefaultSignatureRequired *bool                                         `json:"default_signature_required,omitempty"`
-	InsureByDefault          *bool                                         `json:"insure_by_default,omitempty"`
-	MyparcelAccountId        *int                                          `json:"myparcel_account_id,omitempty"`
-	MyparcelShopId           *int                                          `json:"myparcel_shop_id,omitempty"`
+
+	// ExportOrderToMyparcel When true, creating a shipment also registers the order via MyParcel's separate Orders/Fulfilment API, so it shows up on MyParcel's own Orders dashboard (the plain Shipments API used by default does not). Off by default -- it hands MyParcel the full order (line items, prices).
+	ExportOrderToMyparcel *bool `json:"export_order_to_myparcel,omitempty"`
+	InsureByDefault       *bool `json:"insure_by_default,omitempty"`
+	MyparcelAccountId     *int  `json:"myparcel_account_id,omitempty"`
+	MyparcelShopId        *int  `json:"myparcel_shop_id,omitempty"`
 }
 
 // ShippingConnectionSettingsDefaultLabelFormat defines model for ShippingConnectionSettings.DefaultLabelFormat.
@@ -326,6 +350,7 @@ type UpdateShippingSettingsRequest struct {
 	DefaultOnlyRecipient     *bool                                           `json:"default_only_recipient,omitempty"`
 	DefaultPackageType       int                                             `json:"default_package_type"`
 	DefaultSignatureRequired *bool                                           `json:"default_signature_required,omitempty"`
+	ExportOrderToMyparcel    *bool                                           `json:"export_order_to_myparcel,omitempty"`
 	InsureByDefault          *bool                                           `json:"insure_by_default,omitempty"`
 	MyparcelAccountId        *int                                            `json:"myparcel_account_id,omitempty"`
 	MyparcelShopId           *int                                            `json:"myparcel_shop_id,omitempty"`
@@ -417,6 +442,9 @@ type ServerInterface interface {
 	// CreateShipment Create a MyParcel shipment for a sales order (the pick/pack "Create shipping label" action)
 	// (POST /shipping/shipments)
 	CreateShipment(c *gin.Context)
+	// CancelShipment "Wrong carrier, start over" action: attempts to delete the shipment on MyParcel's side, then always marks it cancelled in CommerceOS regardless of that outcome, so a corrected shipment can be created for the same sales order. MyParcel only allows deletion before a label has been created, so `deleted_on_myparcel: false` (with `message` explaining why) is an expected, non-error outcome, not a failure -- the caller can proceed to create a new shipment either way. Idempotent: cancelling an already-cancelled shipment returns the outcome recorded the first time, without calling MyParcel again.
+	// (POST /shipping/shipments/{shipmentId}/cancel)
+	CancelShipment(c *gin.Context, shipmentId openapi_types.UUID)
 	// GetShipmentLabel Fetch a shipment's label (PDF or ZPL, whatever it was created with)
 	// (GET /shipping/shipments/{shipmentId}/label)
 	GetShipmentLabel(c *gin.Context, shipmentId openapi_types.UUID, params GetShipmentLabelParams)
@@ -666,6 +694,31 @@ func (siw *ServerInterfaceWrapper) CreateShipment(c *gin.Context) {
 	siw.Handler.CreateShipment(c)
 }
 
+// CancelShipment operation middleware
+func (siw *ServerInterfaceWrapper) CancelShipment(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shipmentId" -------------
+	var shipmentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shipmentId", c.Param("shipmentId"), &shipmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter shipmentId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CancelShipment(c, shipmentId)
+}
+
 // GetShipmentLabel operation middleware
 func (siw *ServerInterfaceWrapper) GetShipmentLabel(c *gin.Context) {
 
@@ -790,6 +843,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/shipping/sales-orders/:salesOrderId/shipments", wrapper.ListShipmentsForOrder)
 	router.GET(options.BaseURL+"/shipping/shipments/:shipmentId/tracking-events", wrapper.ListShipmentTrackingEvents)
 	router.POST(options.BaseURL+"/shipping/shipments/:shipmentId/tracking-events/refresh", wrapper.RefreshShipmentTracking)
+	router.POST(options.BaseURL+"/shipping/shipments/:shipmentId/cancel", wrapper.CancelShipment)
 	router.GET(options.BaseURL+"/shipping/shipments/:shipmentId/label", wrapper.GetShipmentLabel)
 }
 
@@ -798,56 +852,68 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"/w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
