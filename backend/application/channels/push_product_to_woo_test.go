@@ -453,6 +453,69 @@ func TestPushProductToWoo_duplicateSKUSelfHealMissFallsBackToTheOriginalError(t 
 	require.True(t, errors.Is(err, integrationsDomain.ErrWooDuplicateSKU))
 }
 
+// TestPushProductToWoo_selfHealsFromTrashWhenNormalSearchMisses is the fix
+// for a real production case FindProductBySKU alone couldn't catch: the
+// conflicting product was sitting in WordPress's trash, whose SKU is still
+// reserved (blocking the create) despite being invisible to a normal
+// "any"-status search. Confirmed in production: deleting the trashed
+// product by hand let the push through immediately after -- this
+// automates exactly that instead of requiring manual cleanup every time.
+func TestPushProductToWoo_selfHealsFromTrashWhenNormalSearchMisses(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	h.wooClient.createErr = fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, errors.New("400 product_invalid_sku"))
+	h.wooClient.createErrUntilCall = 1 // fails once (the original create), succeeds on retry after cleanup
+	h.wooClient.createdWithID = "recreated-id"
+	h.wooClient.findBySKUResult = nil // normal search misses -- it's in trash
+	h.wooClient.findTrashedBySKUResult = &integrationsDomain.WooProduct{ID: "trashed-id", SKU: sku.SKUCode}
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{sku.SKUCode}, h.wooClient.findBySKUCalled)
+	require.Equal(t, []string{sku.SKUCode}, h.wooClient.findTrashedBySKUCalled)
+	require.Equal(t, []string{"trashed-id"}, h.wooClient.deleteProductCalled)
+	require.Len(t, h.wooClient.createCalled, 2, "original create + retry after cleanup")
+	require.Len(t, listings, 1)
+	require.Equal(t, "recreated-id", listings[0].ExternalID)
+}
+
+// TestPushProductToWoo_trashSelfHealMissFallsBackToTheOriginalError proves
+// that when nothing is in trash either (or deleting/retrying still fails),
+// the original duplicate-SKU error still surfaces -- no confusing
+// secondary failure, and no silent success with nothing linked.
+func TestPushProductToWoo_trashSelfHealMissFallsBackToTheOriginalError(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	h.wooClient.createErr = fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, errors.New("400 product_invalid_sku"))
+	h.wooClient.findBySKUResult = nil
+	h.wooClient.findTrashedBySKUResult = nil // trash search also finds nothing
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, integrationsDomain.ErrWooRequestFailed))
+	require.True(t, errors.Is(err, integrationsDomain.ErrWooDuplicateSKU))
+	require.Empty(t, h.wooClient.deleteProductCalled)
+	require.Len(t, h.wooClient.createCalled, 1, "must not retry create when nothing was found in trash either")
+}
+
 func TestPushProductToWoo_pushesVirtualProductWithoutStockManagement(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	sku.IsVirtual = true

@@ -377,7 +377,22 @@ func translateDuplicateSKUError(err error) error {
 }
 
 func (c *wooClient) FindProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {
-	products, _, err := c.client.Products.List(ctx, &wc.ListProductParams{Sku: sku})
+	return c.findProductBySKUWithStatus(ctx, sku, "")
+}
+
+// FindTrashedProductBySKU is FindProductBySKU scoped to WordPress's trash
+// status specifically -- WordPress's own "any" status (what an unset
+// Status param resolves to) excludes trash, so a product moved to trash
+// still reserves its SKU (blocking a future create with the same SKU)
+// while being entirely invisible to FindProductBySKU's normal search. This
+// is what lets self-heal actually find the real cause of a duplicate-SKU
+// rejection that FindProductBySKU alone comes up empty on.
+func (c *wooClient) FindTrashedProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {
+	return c.findProductBySKUWithStatus(ctx, sku, "trash")
+}
+
+func (c *wooClient) findProductBySKUWithStatus(ctx context.Context, sku, status string) (*integrationsDomain.WooProduct, error) {
+	products, _, err := c.client.Products.List(ctx, &wc.ListProductParams{Sku: sku, Status: status})
 	if err != nil {
 		return nil, err
 	}

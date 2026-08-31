@@ -42,6 +42,9 @@ func (f *fakeFullWooClient) UpdateProduct(ctx context.Context, externalProductID
 func (f *fakeFullWooClient) FindProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {
 	panic("not used")
 }
+func (f *fakeFullWooClient) FindTrashedProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {
+	panic("not used")
+}
 func (f *fakeFullWooClient) CreateVariableProduct(ctx context.Context, p integrationsDomain.WooProduct, attributeName string, attributeValues []string) (*integrationsDomain.WooProduct, error) {
 	panic("not used")
 }

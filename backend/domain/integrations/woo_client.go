@@ -262,6 +262,14 @@ type WooClient interface {
 	// CommerceOS product is actually this Woo product" admin action).
 	// Returns nil, nil (not an error) when nothing matches.
 	FindProductBySKU(ctx context.Context, sku string) (*WooProduct, error)
+	// FindTrashedProductBySKU is FindProductBySKU scoped to WordPress's
+	// trash status -- WordPress's own "any" status (what FindProductBySKU
+	// searches) excludes trash, so a product moved to trash still reserves
+	// its SKU (blocking a future create with the same SKU) while being
+	// entirely invisible to FindProductBySKU. Lets self-heal find and
+	// clear that specific case instead of surfacing an unresolvable
+	// duplicate-SKU failure forever. Returns nil, nil when nothing matches.
+	FindTrashedProductBySKU(ctx context.Context, sku string) (*WooProduct, error)
 	// CreateVariableProduct creates the PARENT product with type "variable"
 	// and declares one variation-attribute (attributeName) with the given
 	// possible values -- must be called before any CreateVariation call

@@ -86,10 +86,20 @@ type stubWooClient struct {
 	createCalled  []integrationsDomain.WooProduct
 	createErr     error
 	createdWithID string // external ID assigned to the pushed product
+	// createErrUntilCall, when nonzero, limits createErr to the first N
+	// calls (by call index, 1-based) -- every call after that succeeds.
+	// Zero (the default) means createErr applies to every call, same as
+	// before this field existed. Used to simulate a retry-after-cleanup
+	// succeeding on its second attempt (see selfHealFromTrash).
+	createErrUntilCall int
 
 	findBySKUResult *integrationsDomain.WooProduct
 	findBySKUErr    error
 	findBySKUCalled []string
+
+	findTrashedBySKUResult *integrationsDomain.WooProduct
+	findTrashedBySKUErr    error
+	findTrashedBySKUCalled []string
 
 	updateStockCalled []stubStockUpdate
 	updateStockErr    error
@@ -200,7 +210,7 @@ func (s *stubWooClient) ListProducts(_ context.Context, page, _ int) ([]integrat
 }
 func (s *stubWooClient) CreateProduct(_ context.Context, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
 	s.createCalled = append(s.createCalled, p)
-	if s.createErr != nil {
+	if s.createErr != nil && (s.createErrUntilCall == 0 || len(s.createCalled) <= s.createErrUntilCall) {
 		return nil, s.createErr
 	}
 	id := s.createdWithID
@@ -217,6 +227,14 @@ func (s *stubWooClient) FindProductBySKU(_ context.Context, sku string) (*integr
 		return nil, s.findBySKUErr
 	}
 	return s.findBySKUResult, nil
+}
+
+func (s *stubWooClient) FindTrashedProductBySKU(_ context.Context, sku string) (*integrationsDomain.WooProduct, error) {
+	s.findTrashedBySKUCalled = append(s.findTrashedBySKUCalled, sku)
+	if s.findTrashedBySKUErr != nil {
+		return nil, s.findTrashedBySKUErr
+	}
+	return s.findTrashedBySKUResult, nil
 }
 
 func (s *stubWooClient) UpdateProductStock(_ context.Context, parentExternalID, externalID string, quantity int, metadata []integrationsDomain.WooMetaData) error {

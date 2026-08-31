@@ -262,6 +262,36 @@ func TestFindProductBySKU_returnsNilNotErrorWhenNothingMatches(t *testing.T) {
 	require.Nil(t, found)
 }
 
+// TestFindTrashedProductBySKU_sendsTrashStatus proves the request
+// explicitly asks for status=trash -- WordPress's own "any" status (what
+// FindProductBySKU sends) excludes trash, so this needs its own explicit
+// param to ever see a trashed product at all.
+func TestFindTrashedProductBySKU_sendsTrashStatus(t *testing.T) {
+	var gotStatus string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotStatus = r.URL.Query().Get("status")
+		json.NewEncoder(w).Encode([]wc.Product{{ID: 42, Sku: "TSHIRT-1"}})
+	})
+
+	found, err := c.FindTrashedProductBySKU(context.Background(), "TSHIRT-1")
+
+	require.NoError(t, err)
+	require.Equal(t, "trash", gotStatus)
+	require.NotNil(t, found)
+	require.Equal(t, "42", found.ID)
+}
+
+func TestFindTrashedProductBySKU_returnsNilNotErrorWhenNothingMatches(t *testing.T) {
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]wc.Product{})
+	})
+
+	found, err := c.FindTrashedProductBySKU(context.Background(), "NO-SUCH-SKU")
+
+	require.NoError(t, err)
+	require.Nil(t, found)
+}
+
 func TestUpdateProduct_alwaysSendsSalePriceExplicitly(t *testing.T) {
 	var raw map[string]json.RawMessage
 	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
