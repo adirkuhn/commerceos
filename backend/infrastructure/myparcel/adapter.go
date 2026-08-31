@@ -28,6 +28,7 @@ func (a *Adapter) CreateShipment(ctx context.Context, in integrationsDomain.Crea
 			InsuranceCurrency:         in.Options.Currency,
 		},
 		OrderReference: in.OrderReference,
+		WeightGrams:    in.WeightGrams,
 	})
 	if err != nil {
 		return integrationsDomain.ShipmentResult{}, err

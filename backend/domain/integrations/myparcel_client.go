@@ -56,6 +56,13 @@ type CreateShipmentInput struct {
 	Carrier        int
 	Options        MyParcelShipmentOptions
 	OrderReference string
+	// WeightGrams is the shipment's total physical weight, in grams --
+	// MyParcel's own docs (07.shipment-related-object-definitions.html)
+	// require it for non-EU and digital-stamp shipments, and it's harmless
+	// to include otherwise. Nil when it can't be computed (a line item has
+	// no SKU on file, or that SKU has no weight recorded) -- sending a
+	// wrong/partial total would be worse than sending none.
+	WeightGrams *int
 }
 
 // ShipmentResult is what MyParcel returns for a created/fetched shipment.

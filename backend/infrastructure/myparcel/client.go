@@ -204,6 +204,9 @@ type ShipmentInput struct {
 	Carrier        int
 	Options        Options
 	OrderReference string
+	// WeightGrams -- see domain/integrations.CreateShipmentInput's doc
+	// comment. Nil omits physical_properties entirely.
+	WeightGrams *int
 }
 
 type ShipmentResult struct {
@@ -273,10 +276,19 @@ func boolToMyParcelInt(b bool) int {
 	return 0
 }
 
+// physicalProperties carries a shipment's weight -- confirmed against
+// 07.shipment-related-object-definitions.html: shipments[].physical_properties.weight,
+// an integer number of grams, required for non-EU and digital-stamp
+// shipments (harmless to include otherwise).
+type physicalProperties struct {
+	Weight int `json:"weight"`
+}
+
 type createShipmentRequest struct {
-	Carrier   int             `json:"carrier"`
-	Recipient recipient       `json:"recipient"`
-	Options   shipmentOptions `json:"options"`
+	Carrier            int                 `json:"carrier"`
+	Recipient          recipient           `json:"recipient"`
+	Options            shipmentOptions     `json:"options"`
+	PhysicalProperties *physicalProperties `json:"physical_properties,omitempty"`
 	// ReferenceIdentifier round-trips our own SalesOrder.ID -- see the
 	// package doc comment's second flagged item on the exact field name.
 	ReferenceIdentifier string `json:"reference_identifier,omitempty"`
@@ -366,6 +378,10 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 		}
 		options.Insurance = &insuranceOption{Amount: in.Options.InsuranceAmountMinorUnits, Currency: currency}
 	}
+	var physProps *physicalProperties
+	if in.WeightGrams != nil {
+		physProps = &physicalProperties{Weight: *in.WeightGrams}
+	}
 	req.Data.Shipments = []createShipmentRequest{{
 		Carrier: in.Carrier,
 		Recipient: recipient{
@@ -375,6 +391,7 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 			Email: in.Recipient.Email, Phone: in.Recipient.Phone,
 		},
 		Options:             options,
+		PhysicalProperties:  physProps,
 		ReferenceIdentifier: in.OrderReference,
 	}}
 

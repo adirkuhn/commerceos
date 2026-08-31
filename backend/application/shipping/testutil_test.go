@@ -2,6 +2,7 @@ package shipping_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
@@ -319,7 +321,25 @@ type fakeSalesOrderLineItemLister struct {
 }
 
 func (f *fakeSalesOrderLineItemLister) ListBySalesOrder(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderLineItem, error) {
+	if f.listBySalesOrderFn == nil {
+		return nil, nil
+	}
 	return f.listBySalesOrderFn(ctx, salesOrderID)
+}
+
+// --- skuWeightGetter fake -- zero value returns no line items above, so
+// CreateShipmentUseCase's weight computation resolves to "unknown" (nil)
+// by default in every test that doesn't care about it. ---
+
+type fakeSKURepo struct {
+	findByIDFn func(ctx context.Context, id string) (*pmsDomain.SKU, error)
+}
+
+func (f *fakeSKURepo) FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error) {
+	if f.findByIDFn == nil {
+		return nil, errors.New("fakeSKURepo: FindByID called unexpectedly")
+	}
+	return f.findByIDFn(ctx, id)
 }
 
 // --- settings.Repository fake (tenant-wide Localization settings) ---

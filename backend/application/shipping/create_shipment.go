@@ -2,6 +2,7 @@ package shipping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -9,6 +10,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
@@ -33,6 +35,15 @@ type salesOrderTotalGetter interface {
 // first.
 type myParcelOrderExporter interface {
 	Execute(ctx context.Context, in ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error)
+}
+
+// skuWeightGetter is *pms.SKURepository narrowed to point of use (ISP) --
+// CreateShipmentUseCase looks up each line item's own SKU to compute the
+// shipment's total physical weight (MyParcel requires it for non-EU and
+// digital-stamp shipments; see domain/integrations.CreateShipmentInput's
+// doc comment).
+type skuWeightGetter interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
 }
 
 // RecipientInput is the confirmed, MyParcel-shaped recipient address the
@@ -89,6 +100,8 @@ type CreateShipmentUseCase struct {
 	tenantSettingsRepo settingsDomain.Repository
 	salesOrderRepo     salesOrderTotalGetter
 	orderExporter      myParcelOrderExporter
+	lineItemRepo       salesOrderLineItemLister
+	skuRepo            skuWeightGetter
 }
 
 func NewCreateShipmentUseCase(
@@ -103,12 +116,14 @@ func NewCreateShipmentUseCase(
 	tenantSettingsRepo settingsDomain.Repository,
 	salesOrderRepo salesOrderTotalGetter,
 	orderExporter myParcelOrderExporter,
+	lineItemRepo salesOrderLineItemLister,
+	skuRepo skuWeightGetter,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
 		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo, salesOrderRepo: salesOrderRepo,
-		orderExporter: orderExporter,
+		orderExporter: orderExporter, lineItemRepo: lineItemRepo, skuRepo: skuRepo,
 	}
 }
 
@@ -216,6 +231,8 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		insuranceAmount = &amt
 	}
 
+	weightGrams := uc.computeWeightGrams(ctx, in.SalesOrderID)
+
 	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: decrypt api key: %w", err)
@@ -237,6 +254,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 			Currency:                tenantSettings.DefaultCurrency,
 		},
 		OrderReference: in.SalesOrderID,
+		WeightGrams:    weightGrams,
 	})
 	if err != nil {
 		uc.recordShipmentActivity(ctx, in, "myparcel_error", "Failed to create MyParcel shipment", map[string]any{"error": err.Error()})
@@ -262,6 +280,44 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	}
 	uc.recordShipmentActivity(ctx, in, "myparcel_shipment_created", "Shipment created via MyParcel", map[string]any{"barcode": shipment.Barcode})
 	return &shipment, nil
+}
+
+// errWeightUnknown is computeWeightGrams' own internal signal to stop
+// early inside its tenant.WithTenant closure -- never returned to a
+// caller, always swallowed into a nil total.
+var errWeightUnknown = errors.New("shipping: weight unknown")
+
+// computeWeightGrams sums quantity*SKU.WeightGrams across the order's line
+// items -- best-effort, like recordShipmentActivity: any error, a line
+// item with no SKU on file, or a SKU with no weight recorded makes the
+// total unknown (nil, meaning physical_properties is omitted from the
+// MyParcel request) rather than risk sending a wrong/partial figure.
+func (uc *CreateShipmentUseCase) computeWeightGrams(ctx context.Context, salesOrderID string) *int {
+	total := 0
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		lineItems, err := uc.lineItemRepo.ListBySalesOrder(ctx, salesOrderID)
+		if err != nil {
+			return err
+		}
+		for _, li := range lineItems {
+			if li.SKUID == nil {
+				return errWeightUnknown
+			}
+			sku, err := uc.skuRepo.FindByID(ctx, *li.SKUID)
+			if err != nil {
+				return err
+			}
+			if sku.WeightGrams == nil {
+				return errWeightUnknown
+			}
+			total += int(*sku.WeightGrams) * int(li.Quantity)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+	return &total
 }
 
 // recordShipmentActivity is best-effort -- a failure recording the

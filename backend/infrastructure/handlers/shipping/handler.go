@@ -479,6 +479,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	myParcelFactory := myparcel.NewClientFactory()
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
 	recordActivity := appoms.NewRecordSalesOrderActivityUseCase(db, salesOrderRepo, repositories.NewSalesOrderActivityRepo(db))
 	exportMyParcelOrderUC := appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, salesOrderRepo, lineItemRepo, myParcelFactory, encryptionSecret, recordActivity)
 
@@ -488,7 +489,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
 		exportMyParcelOrderUC,

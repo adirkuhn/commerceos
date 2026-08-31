@@ -183,6 +183,46 @@ func TestClient_CreateShipment_noInsuranceOmitsInsuranceOption(t *testing.T) {
 	assert.False(t, hasInsurance)
 }
 
+// TestClient_CreateShipment_sendsPhysicalPropertiesWeight is a regression
+// test: MyParcel requires shipments[].physical_properties.weight (grams)
+// for non-EU and digital-stamp shipments (confirmed against
+// 07.shipment-related-object-definitions.html) -- this field wasn't sent
+// at all until this was added.
+func TestClient_CreateShipment_sendsPhysicalPropertiesWeight(t *testing.T) {
+	var gotBody map[string]any
+	srv := shipmentCreateAndFetchServer(t, 123, "3SMYPA1", &gotBody)
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
+	weight := 1100
+	_, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
+		Carrier: 1, Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Options: myparcel.Options{PackageType: 1}, WeightGrams: &weight,
+	})
+
+	require.NoError(t, err)
+	shipments := gotBody["data"].(map[string]any)["shipments"].([]any)
+	physProps := shipments[0].(map[string]any)["physical_properties"].(map[string]any)
+	assert.Equal(t, float64(1100), physProps["weight"])
+}
+
+func TestClient_CreateShipment_noWeightOmitsPhysicalProperties(t *testing.T) {
+	var gotBody map[string]any
+	srv := shipmentCreateAndFetchServer(t, 123, "3SMYPA1", &gotBody)
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
+	_, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
+		Carrier: 1, Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Options: myparcel.Options{PackageType: 1},
+	})
+
+	require.NoError(t, err)
+	shipments := gotBody["data"].(map[string]any)["shipments"].([]any)
+	_, hasPhysProps := shipments[0].(map[string]any)["physical_properties"]
+	assert.False(t, hasPhysProps)
+}
+
 // TestClient_CreateShipment_signatureAndOnlyRecipientAreSentAsNumbers is a
 // regression test for a real MyParcel 422 ("Boolean value found, but a
 // number is required... Does not have a value in the enumeration [0,1]")
