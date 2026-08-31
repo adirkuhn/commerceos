@@ -25,8 +25,28 @@ describe('splitStreetAndNumber', () => {
     expect(splitStreetAndNumber('Damrak 1A')).toEqual({ street: 'Damrak', number: '1', suffix: 'A' })
   })
 
-  it('falls back to the whole string as street when there is no trailing number', () => {
+  it('falls back to the whole string as street when there is no trailing number and there is no address2', () => {
     expect(splitStreetAndNumber('Damrak')).toEqual({ street: 'Damrak', number: '', suffix: '' })
+  })
+
+  // Regression: some NL WooCommerce checkouts/address plugins split street
+  // and house number into separate address lines (address_1: "Fossa
+  // Iberica", address_2: "9") instead of one combined string -- real order
+  // data, house number silently went missing before this fallback existed.
+  it('falls back to address2 for the house number when address1 has none and address2 is just a number', () => {
+    expect(splitStreetAndNumber('Fossa Iberica', '9')).toEqual({ street: 'Fossa Iberica', number: '9', suffix: '' })
+  })
+
+  it('falls back to address2 including a letter suffix', () => {
+    expect(splitStreetAndNumber('Fossa Iberica', '9A')).toEqual({ street: 'Fossa Iberica', number: '9', suffix: 'A' })
+  })
+
+  it('ignores address2 when it is not just a number (e.g. an apartment/unit line)', () => {
+    expect(splitStreetAndNumber('Fossa Iberica', 'Apartment 3')).toEqual({ street: 'Fossa Iberica', number: '', suffix: '' })
+  })
+
+  it('prefers a number already found in address1 over address2', () => {
+    expect(splitStreetAndNumber('Damrak 1', '9')).toEqual({ street: 'Damrak', number: '1', suffix: '' })
   })
 })
 
@@ -48,6 +68,16 @@ describe('addressToRecipientDraft', () => {
       postal_code: '', city: '', cc: '', email: '', phone: '',
     })
   })
+
+  it('falls back to address_2 for the house number when address_1 has none', () => {
+    const address: Address = {
+      first_name: 'Letícia', last_name: 'Omena', address_1: 'Fossa Iberica', address_2: '9',
+      city: 'Houten', postcode: '3995 XH', country: 'NL',
+    }
+    const draft = addressToRecipientDraft(address)
+    expect(draft.street).toBe('Fossa Iberica')
+    expect(draft.number).toBe('9')
+  })
 })
 
 describe('AddressConfirmModal', () => {
@@ -68,10 +98,13 @@ describe('AddressConfirmModal', () => {
     await userEvent.type(screen.getByLabelText('Number'), '2')
     await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
 
-    expect(onNext).toHaveBeenCalledWith({
+    // Submitting now runs the address check first (if it hasn't already) --
+    // this order's postal code has no lookup mock set up so it resolves
+    // not_found, which must not block the submit.
+    await waitFor(() => expect(onNext).toHaveBeenCalledWith({
       carrier: 1,
       recipient: expect.objectContaining({ person: 'Jane Doe', street: 'Damrak', number: '2', city: 'Amsterdam' }),
-    })
+    }))
   })
 
   // Reaching this modal via LabelPreviewModal's "Back to edit" must not
@@ -171,5 +204,81 @@ describe('AddressConfirmModal — address check (PDOK lookup)', () => {
     await userEvent.tab()
 
     expect(shippingApi.lookupAddress).not.toHaveBeenCalled()
+  })
+})
+
+describe('AddressConfirmModal — submit-time validation gate', () => {
+  const nlAddress: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+
+  it('runs the check on submit if it never ran before (prefilled fields staff never touched), and blocks on a mismatch', async () => {
+    vi.mocked(shippingApi.lookupAddress).mockResolvedValue({ street: 'Damstraat', city: 'Amsterdam' })
+    const onNext = vi.fn()
+    render(<AddressConfirmModal token="test-token" initialAddress={nlAddress} onNext={onNext} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+
+    expect(await screen.findByText(/Possible typo/)).toBeInTheDocument()
+    expect(onNext).not.toHaveBeenCalled()
+  })
+
+  it('proceeds after "Use suggested" resolves the mismatch', async () => {
+    vi.mocked(shippingApi.lookupAddress).mockResolvedValue({ street: 'Damstraat', city: 'Amsterdam' })
+    const onNext = vi.fn()
+    render(<AddressConfirmModal token="test-token" initialAddress={nlAddress} onNext={onNext} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+    await screen.findByText(/Possible typo/)
+    await userEvent.click(screen.getByRole('button', { name: 'Use suggested' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+
+    expect(onNext).toHaveBeenCalledWith({
+      carrier: 1,
+      recipient: expect.objectContaining({ street: 'Damstraat', city: 'Amsterdam' }),
+    })
+  })
+
+  it('proceeds after "Keep mine" dismisses the mismatch, without re-blocking', async () => {
+    vi.mocked(shippingApi.lookupAddress).mockResolvedValue({ street: 'Damstraat', city: 'Amsterdam' })
+    const onNext = vi.fn()
+    render(<AddressConfirmModal token="test-token" initialAddress={nlAddress} onNext={onNext} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+    await screen.findByText(/Possible typo/)
+    await userEvent.click(screen.getByRole('button', { name: 'Keep mine' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+
+    expect(onNext).toHaveBeenCalledWith({
+      carrier: 1,
+      recipient: expect.objectContaining({ street: 'Damrak', city: 'Amsterdam' }),
+    })
+  })
+
+  it('a lookup failure at submit time does not block -- the API being unavailable is never a reason to stop staff', async () => {
+    vi.mocked(shippingApi.lookupAddress).mockRejectedValue(new Error('network error'))
+    const onNext = vi.fn()
+    render(<AddressConfirmModal token="test-token" initialAddress={nlAddress} onNext={onNext} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+
+    await waitFor(() => expect(onNext).toHaveBeenCalled())
+  })
+
+  it('editing a field after a match/dismissal re-arms the gate for the next submit', async () => {
+    vi.mocked(shippingApi.lookupAddress).mockResolvedValue({ street: 'Damstraat', city: 'Amsterdam' })
+    const onNext = vi.fn()
+    render(<AddressConfirmModal token="test-token" initialAddress={nlAddress} onNext={onNext} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+    await screen.findByText(/Possible typo/)
+    await userEvent.click(screen.getByRole('button', { name: 'Keep mine' }))
+
+    // Staff edits the street after dismissing -- the stale "dismissed"
+    // outcome must not silently wave through a brand new change unchecked.
+    await userEvent.clear(screen.getByLabelText('Street'))
+    await userEvent.type(screen.getByLabelText('Street'), 'Something Else')
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+
+    expect(await screen.findByText(/Possible typo/)).toBeInTheDocument()
+    expect(onNext).not.toHaveBeenCalled()
   })
 })

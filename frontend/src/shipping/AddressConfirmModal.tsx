@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import type { Address } from '../oms/types'
 import type { RecipientAddress } from './types'
@@ -10,14 +10,28 @@ import * as shippingApi from './api'
 // as-is for a real carrier submission. AddressConfirmModal always requires
 // the user to review/edit before confirming; this just saves retyping the
 // common case where it guesses right.
-export function splitStreetAndNumber(address1: string): { street: string; number: string; suffix: string } {
-  const match = address1.trim().match(/^(.*?)\s+(\d+)\s*([a-zA-Z0-9-]*)$/)
-  if (!match) return { street: address1.trim(), number: '', suffix: '' }
-  return { street: match[1], number: match[2], suffix: match[3] ?? '' }
+//
+// address2 is a fallback for orders where the house number never ended up
+// in address1 at all -- some NL WooCommerce checkouts/address plugins
+// split street and house number into separate address lines (e.g.
+// address_1: "Fossa Iberica", address_2: "9") rather than one combined
+// string. Only used when address1 has no trailing number of its own AND
+// address2 is *just* a number (optionally with a letter suffix) -- if
+// address2 holds anything else (an apartment/unit line, say), it's left
+// alone rather than guessed at.
+export function splitStreetAndNumber(address1: string, address2?: string): { street: string; number: string; suffix: string } {
+  const trimmed1 = address1.trim()
+  const match = trimmed1.match(/^(.*?)\s+(\d+)\s*([a-zA-Z0-9-]*)$/)
+  if (match) return { street: match[1], number: match[2], suffix: match[3] ?? '' }
+
+  const address2Match = (address2 ?? '').trim().match(/^(\d+)\s*([a-zA-Z0-9-]*)$/)
+  if (address2Match) return { street: trimmed1, number: address2Match[1], suffix: address2Match[2] ?? '' }
+
+  return { street: trimmed1, number: '', suffix: '' }
 }
 
 export function addressToRecipientDraft(address: Address | undefined): RecipientAddress {
-  const { street, number, suffix } = splitStreetAndNumber(address?.address_1 ?? '')
+  const { street, number, suffix } = splitStreetAndNumber(address?.address_1 ?? '', address?.address_2)
   return {
     person: [address?.first_name, address?.last_name].filter(Boolean).join(' '),
     company: address?.company ?? '',
@@ -72,27 +86,53 @@ function normalize(s: string): string {
 export function AddressConfirmModal({ token, initialAddress, defaultCarrier, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress))
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
-  const [addressCheck, setAddressCheck] = useState<
-    | { status: 'idle' | 'checking' | 'match' | 'not_found' | 'error' }
+  type AddressCheckState =
+    | { status: 'idle' | 'checking' | 'match' | 'not_found' | 'error' | 'dismissed' }
     | { status: 'mismatch'; suggested: { street: string; city: string } }
-  >({ status: 'idle' })
+  const [addressCheck, setAddressCheck] = useState<AddressCheckState>({ status: 'idle' })
+  // Deliberately separate from addressCheck.status: that can flip to
+  // 'checking' from a blur-triggered lookup at any moment, including the
+  // instant a submit click lands (blur fires first as focus leaves the
+  // last-edited field) -- tying the submit button's disabled state to it
+  // could disable the button between mousedown and click, silently
+  // swallowing that exact click. This only reflects a check
+  // handleSubmit itself is waiting on.
+  const [submitting, setSubmitting] = useState(false)
 
   function field<K extends keyof RecipientAddress>(key: K) {
     return {
       value: recipient[key] ?? '',
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => setRecipient(prev => ({ ...prev, [key]: e.target.value })),
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        setRecipient(prev => ({ ...prev, [key]: e.target.value }))
+        // Any edit to a field the check depends on invalidates whatever it
+        // last found -- a fresh check (blur, or the submit-time gate) must
+        // re-run, not reuse a stale match/dismissal from before the edit.
+        if (['street', 'city', 'postal_code', 'number', 'number_suffix', 'cc'].includes(key)) {
+          setAddressCheck({ status: 'idle' })
+        }
+      },
     }
   }
 
-  async function runAddressCheck() {
-    if (!token || recipient.cc !== 'NL' || !recipient.postal_code || !recipient.number) return
+  // Both the blur handlers below and handleSubmit can trigger a check --
+  // in a real browser, blurring the last-edited field and clicking
+  // "Review label" happen back-to-back, so without coalescing, submit
+  // could race a blur-triggered check already in flight (whichever one's
+  // setState lost the race would make handleSubmit read a stale
+  // 'idle'/'checking' status and skip gating on the real outcome).
+  // Sharing one in-flight promise means both callers always await the
+  // exact same result instead of each starting/reading their own.
+  const inFlightCheckRef = useRef<Promise<AddressCheckState['status']> | null>(null)
+
+  async function runAddressCheckImpl(): Promise<AddressCheckState['status']> {
+    if (!token || recipient.cc !== 'NL' || !recipient.postal_code || !recipient.number) return 'idle'
     setAddressCheck({ status: 'checking' })
     try {
       const houseNumber = `${recipient.number}${recipient.number_suffix ?? ''}`
       const found = await shippingApi.lookupAddress(token, recipient.postal_code, houseNumber)
       if (!found) {
         setAddressCheck({ status: 'not_found' })
-        return
+        return 'not_found'
       }
       const streetOk = !recipient.street || normalize(recipient.street) === normalize(found.street)
       const cityOk = !recipient.city || normalize(recipient.city) === normalize(found.city)
@@ -100,12 +140,25 @@ export function AddressConfirmModal({ token, initialAddress, defaultCarrier, ini
         // Blank fields get filled silently; already-matching ones just confirm.
         setRecipient(prev => ({ ...prev, street: prev.street || found.street, city: prev.city || found.city }))
         setAddressCheck({ status: 'match' })
-      } else {
-        setAddressCheck({ status: 'mismatch', suggested: found })
+        return 'match'
       }
+      setAddressCheck({ status: 'mismatch', suggested: found })
+      return 'mismatch'
     } catch {
       setAddressCheck({ status: 'error' })
+      return 'error'
     }
+  }
+
+  // Returns the final status so callers can gate on it synchronously --
+  // handleSubmit needs to know the outcome of a check it just triggered
+  // (or joined), not just that state was (asynchronously) updated
+  // somewhere.
+  function runAddressCheck(): Promise<AddressCheckState['status']> {
+    if (!inFlightCheckRef.current) {
+      inFlightCheckRef.current = runAddressCheckImpl().finally(() => { inFlightCheckRef.current = null })
+    }
+    return inFlightCheckRef.current
   }
 
   function useSuggestedAddress() {
@@ -114,8 +167,24 @@ export function AddressConfirmModal({ token, initialAddress, defaultCarrier, ini
     setAddressCheck({ status: 'match' })
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  // "Validate the address before creating the label": if the check hasn't
+  // settled for the current fields yet (idle -- never ran, e.g. a
+  // prefilled order staff never touched; or checking -- a blur-triggered
+  // one is already in flight), join/run it and gate on the result. An
+  // already-resolved status (match/not_found/error/dismissed) proceeds
+  // without re-checking; a live, unresolved mismatch always blocks until
+  // staff picks "Use suggested" or "Keep mine".
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (addressCheck.status === 'mismatch') return
+    if (
+      (addressCheck.status === 'idle' || addressCheck.status === 'checking')
+      && recipient.cc === 'NL' && recipient.postal_code && recipient.number
+    ) {
+      setSubmitting(true)
+      const outcome = await runAddressCheck().finally(() => setSubmitting(false))
+      if (outcome === 'mismatch') return
+    }
     onNext({ carrier, recipient })
   }
 
@@ -178,7 +247,7 @@ export function AddressConfirmModal({ token, initialAddress, defaultCarrier, ini
                   <button type="button" onClick={useSuggestedAddress} className="px-2 py-1 rounded bg-amber-500 text-white text-[11px] font-medium hover:bg-amber-600 transition-colors">
                     Use suggested
                   </button>
-                  <button type="button" onClick={() => setAddressCheck({ status: 'idle' })} className="px-2 py-1 rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 text-[11px] dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors">
+                  <button type="button" onClick={() => setAddressCheck({ status: 'dismissed' })} className="px-2 py-1 rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 text-[11px] dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors">
                     Keep mine
                   </button>
                 </div>
@@ -198,9 +267,10 @@ export function AddressConfirmModal({ token, initialAddress, defaultCarrier, ini
           </div>
           <button
             type="submit"
-            className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+            disabled={submitting}
+            className="w-full px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            Review label
+            {submitting ? 'Checking address…' : 'Review label'}
           </button>
         </form>
       </div>

@@ -37,6 +37,7 @@ vi.mock('../../shipping/api', () => ({
   getShippingSettings: vi.fn(),
   getShipmentLabel: vi.fn(),
   listShipmentsForOrder: vi.fn(),
+  lookupAddress: vi.fn(),
 }))
 
 vi.mock('../../scanner/errorSound', () => ({
@@ -83,6 +84,7 @@ beforeEach(() => {
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
   vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+  vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
 })
 
 describe('Picking page', () => {
@@ -441,6 +443,56 @@ describe('Picking page', () => {
       // "Print shipping label" re-access button (auto_print_enabled is off).
       await user.click(await screen.findByTitle('Close'))
       expect(await screen.findByRole('button', { name: 'Print shipping label' })).toBeInTheDocument()
+    })
+
+    // Regression: activeOrder switching (clicking a different order in the
+    // sidebar) never remounts anything -- pendingRecipient/labelStep etc
+    // used to survive the switch untouched, so a previous order's already-
+    // edited recipient (set once staff reached the preview step) kept
+    // winning over the new order's own address the next time "Create
+    // shipping label" was clicked.
+    it('does not carry a previous order\'s recipient into a different order\'s label flow', async () => {
+      vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+        salesOrders: [
+          salesOrder({ id: 'so-1', number: '1001', shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } }),
+          salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' }, shipping: { first_name: 'Bob', last_name: 'Smith', address_1: 'Kalverstraat 2', city: 'Amsterdam', postcode: '1012NX', country: 'NL' } }),
+        ],
+        total: 2,
+      })
+      vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+      vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+
+      const user = userEvent.setup()
+      render(<Picking />)
+
+      // Complete order #1001, start the label flow, and advance to the
+      // preview step (this is what sets pendingRecipient) for so-1, then
+      // back out without printing.
+      await user.click(await screen.findByText('#1001'))
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('Review before completing')
+      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+      await screen.findByText('#1001 marked fulfilled')
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+      expect(await screen.findByLabelText('Street')).toHaveValue('Damrak')
+      await user.click(screen.getByRole('button', { name: 'Review label' }))
+      expect(await screen.findByText('Ready to print')).toBeInTheDocument()
+      await user.click(screen.getByLabelText('Close'))
+
+      // Switch to a different order and go through the same flow.
+      await user.click(screen.getByText('#2002'))
+      await screen.findByText('Widget')
+      await user.click(screen.getByRole('button', { name: 'Complete' }))
+      await screen.findByText('Review before completing')
+      await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+      await screen.findByText('#2002 marked fulfilled')
+      await user.click(screen.getByRole('button', { name: 'Create shipping label' }))
+
+      expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+      expect(screen.getByLabelText('Name')).toHaveValue('Bob Smith')
+      expect(screen.getByLabelText('Street')).toHaveValue('Kalverstraat')
     })
 
     it('auto-opens the print view when auto_print_enabled is on, and offers Retry print', async () => {

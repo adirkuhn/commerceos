@@ -137,6 +137,22 @@ export default function Picking() {
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
 
+  // Regression: none of this label-creation state was ever cleared when
+  // staff switched to a different order in the sidebar (activeOrder
+  // changing doesn't remount anything) -- a previous order's
+  // pendingRecipient stuck around and won over the new order's own
+  // address (AddressConfirmModal's initialRecipient always takes priority
+  // over initialAddress), so "Create label" on order B could silently
+  // reopen with order A's already-edited recipient still in it.
+  useEffect(() => {
+    setLabelStep(null)
+    setPendingRecipient(null)
+    setPendingCarrier(null)
+    setCreatedShipmentId(null)
+    setPrintingLabelId(null)
+    setExistingShipment(null)
+  }, [activeOrder?.id])
+
   const loadOrders = useCallback(async () => {
     if (!token) return
     setOrdersLoading(true)
