@@ -183,6 +183,31 @@ func TestClient_CreateShipment_noInsuranceOmitsInsuranceOption(t *testing.T) {
 	assert.False(t, hasInsurance)
 }
 
+// TestClient_CreateShipment_signatureAndOnlyRecipientAreSentAsNumbers is a
+// regression test for a real MyParcel 422 ("Boolean value found, but a
+// number is required... Does not have a value in the enumeration [0,1]")
+// -- these two fields must be the JSON number 1/0, never true/false.
+func TestClient_CreateShipment_signatureAndOnlyRecipientAreSentAsNumbers(t *testing.T) {
+	var gotBody map[string]any
+	srv := shipmentCreateAndFetchServer(t, 123, "3SMYPA1", &gotBody)
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "secret-key", BaseURL: srv.URL})
+	_, err := c.CreateShipment(context.Background(), myparcel.ShipmentInput{
+		Carrier:   1,
+		Recipient: myparcel.Recipient{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"},
+		Options:   myparcel.Options{PackageType: 1, SignatureRequired: true, OnlyRecipient: true},
+	})
+
+	require.NoError(t, err)
+	shipments := gotBody["data"].(map[string]any)["shipments"].([]any)
+	options := shipments[0].(map[string]any)["options"].(map[string]any)
+	assert.IsType(t, float64(0), options["signature"], "must be a JSON number, not a boolean")
+	assert.Equal(t, float64(1), options["signature"])
+	assert.IsType(t, float64(0), options["only_recipient"], "must be a JSON number, not a boolean")
+	assert.Equal(t, float64(1), options["only_recipient"])
+}
+
 func TestClient_CreateOrder_sendsExpectedRequestAndParsesResponse(t *testing.T) {
 	var gotPath, gotContentType string
 	var gotBody map[string]any

@@ -254,11 +254,23 @@ type insuranceOption struct {
 	Currency string `json:"currency"`
 }
 
+// Signature/OnlyRecipient are int (0/1), not bool -- confirmed against a
+// real MyParcel 422: "Boolean value found, but a number is required...
+// Does not have a value in the enumeration [0,1]". Go's json package
+// marshals a bool field as JSON true/false regardless of omitempty;
+// MyParcel's schema wants the numeric form.
 type shipmentOptions struct {
 	PackageType   int              `json:"package_type"`
-	Signature     bool             `json:"signature,omitempty"`
-	OnlyRecipient bool             `json:"only_recipient,omitempty"`
+	Signature     int              `json:"signature,omitempty"`
+	OnlyRecipient int              `json:"only_recipient,omitempty"`
 	Insurance     *insuranceOption `json:"insurance,omitempty"`
+}
+
+func boolToMyParcelInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 type createShipmentRequest struct {
@@ -332,7 +344,7 @@ func (c *Client) CreateShipment(ctx context.Context, in ShipmentInput) (Shipment
 		} `json:"data"`
 	}{}
 	options := shipmentOptions{
-		PackageType: in.Options.PackageType, Signature: in.Options.SignatureRequired, OnlyRecipient: in.Options.OnlyRecipient,
+		PackageType: in.Options.PackageType, Signature: boolToMyParcelInt(in.Options.SignatureRequired), OnlyRecipient: boolToMyParcelInt(in.Options.OnlyRecipient),
 	}
 	if in.Options.InsuranceAmountMinorUnits > 0 {
 		currency := in.Options.InsuranceCurrency
