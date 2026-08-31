@@ -241,6 +241,11 @@ func (c *wooClient) UpdateOrderStatus(ctx context.Context, externalOrderID, stat
 	return err
 }
 
+func (c *wooClient) AddOrderNote(ctx context.Context, externalOrderID, note string) error {
+	_, _, err := c.client.OrderNotes.Create(ctx, externalOrderID, &wc.OrderNote{Note: note, CustomerNote: false})
+	return err
+}
+
 func (c *wooClient) ListCustomers(ctx context.Context, page, perPage int) ([]integrationsDomain.WooCustomer, error) {
 	customers, _, err := c.client.Customers.List(ctx, &wc.ListCustomerParams{Page: page, PerPage: perPage})
 	if err != nil {

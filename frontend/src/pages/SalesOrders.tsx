@@ -26,7 +26,7 @@ import type { RecipientAddress, Shipment, ShipmentTrackingEvent } from '../shipp
 import { CARRIERS } from '../shipping/types'
 
 const PAGE_SIZE = 20
-const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed']
+const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'shipped', 'completed', 'cancelled', 'refunded', 'failed']
 
 // SOURCE_FILTER_OPTIONS: 'manual' reads as "Internal" here -- POS/manual/
 // bol/woocommerce is the wire vocabulary (see SalesOrderSource), Internal is
@@ -42,6 +42,7 @@ const STATUS_COLORS: Record<SalesOrderStatus, string> = {
   pending: 'bg-gray-500/15 text-gray-400',
   processing: 'bg-blue-500/15 text-blue-400',
   'on-hold': 'bg-amber-500/15 text-amber-400',
+  shipped: 'bg-indigo-500/15 text-indigo-400',
   completed: 'bg-green-500/15 text-green-400',
   cancelled: 'bg-gray-500/15 text-gray-400',
   refunded: 'bg-purple-500/15 text-purple-400',

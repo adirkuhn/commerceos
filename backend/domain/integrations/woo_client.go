@@ -329,6 +329,12 @@ type WooClient interface {
 	// domain/events.SalesOrderStatusChanged). Only status is sent (Woo's
 	// partial-update semantics); nothing else about the order is touched.
 	UpdateOrderStatus(ctx context.Context, externalOrderID, status string) error
+	// AddOrderNote posts a private (staff-only, not emailed to the customer)
+	// order note -- used to attach shipment info (carrier, tracking/barcode)
+	// to a Woo order pushed to on-hold on fulfillment, since Woo's core REST
+	// order-update endpoint has no native tracking field of its own (see
+	// application/channels.PushSalesOrderStatusToChannelsUseCase).
+	AddOrderNote(ctx context.Context, externalOrderID, note string) error
 	// ListCustomers pages through the store's customer accounts -- always a
 	// full scan (no modified-since filter), used only by the one-time
 	// customers bootstrap that runs alongside a connection's first

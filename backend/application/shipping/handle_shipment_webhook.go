@@ -54,7 +54,7 @@ type HandleShipmentWebhookUseCase struct {
 	salesOrderRepo   omsDomain.SalesOrderRepository
 	myParcelFactory  integrationsDomain.MyParcelClientFactory
 	encSecret        string
-	updateSalesOrder salesOrderStatusUpdater
+	updateSalesOrder SalesOrderStatusUpdater
 }
 
 func NewHandleShipmentWebhookUseCase(
@@ -65,7 +65,7 @@ func NewHandleShipmentWebhookUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
-	updateSalesOrder salesOrderStatusUpdater,
+	updateSalesOrder SalesOrderStatusUpdater,
 ) *HandleShipmentWebhookUseCase {
 	return &HandleShipmentWebhookUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
@@ -129,6 +129,11 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 	if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
 		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook); err != nil {
 		return err
+	}
+	if tt.StatusMain == shippingDomain.StatusMainShipped && uc.updateSalesOrder != nil {
+		if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, shipment.SalesOrderID); err != nil {
+			return err
+		}
 	}
 	return completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID)
 }

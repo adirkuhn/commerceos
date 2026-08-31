@@ -89,7 +89,7 @@ type shipmentWebhookDispatcher struct {
 	// deliberately doesn't) -- completeOrderOnDelivery is then a no-op, same
 	// "optional dependency" convention as ProcessWebhookEventUseCase's
 	// shipmentHandler.
-	updateSalesOrder salesOrderStatusUpdater
+	updateSalesOrder SalesOrderStatusUpdater
 }
 
 // processEvent parses one webhook_events row's payload and resolves each
@@ -186,6 +186,11 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill); err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("apply status update: %w", err)}
 	}
+	if tt.StatusMain == shippingDomain.StatusMainShipped && d.updateSalesOrder != nil {
+		if err := MarkOrderShippedOnFulfillment(ctx, d.db, d.salesOrderRepo, d.updateSalesOrder, shipment.SalesOrderID); err != nil {
+			return &shipmentDispatchOutcome{err: err}
+		}
+	}
 	if err := completeOrderOnDelivery(ctx, d.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID); err != nil {
 		return &shipmentDispatchOutcome{err: err}
 	}
@@ -216,7 +221,7 @@ func NewBackfillShipmentWebhookDispatchUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
-	updateSalesOrder salesOrderStatusUpdater,
+	updateSalesOrder SalesOrderStatusUpdater,
 ) *BackfillShipmentWebhookDispatchUseCase {
 	return &BackfillShipmentWebhookDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,

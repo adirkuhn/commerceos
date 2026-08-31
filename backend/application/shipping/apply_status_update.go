@@ -14,12 +14,12 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-// salesOrderStatusUpdater is *application/oms.UpdateSalesOrderUseCase
+// SalesOrderStatusUpdater is *application/oms.UpdateSalesOrderUseCase
 // narrowed to point of use (ISP) -- lets a Completed transition go through
 // the same stock decrement/restock rules a manual status edit would (see
 // UpdateSalesOrderUseCase's own doc), instead of a raw repo write that would
 // silently skip them.
-type salesOrderStatusUpdater interface {
+type SalesOrderStatusUpdater interface {
 	Execute(ctx context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error)
 }
 
@@ -68,13 +68,60 @@ func applyStatusUpdate(
 // updater may be nil (deployment hasn't wired it yet) -- then this is a
 // no-op, same convention as ProcessWebhookEventUseCase's optional
 // shipmentHandler.
-func completeOrderOnDelivery(ctx context.Context, updater salesOrderStatusUpdater, statusMain, salesOrderID string) error {
+func completeOrderOnDelivery(ctx context.Context, updater SalesOrderStatusUpdater, statusMain, salesOrderID string) error {
 	if updater == nil || statusMain != shippingDomain.StatusMainDelivered {
 		return nil
 	}
 	completed := omsDomain.SalesOrderStatusCompleted
 	if _, err := updater.Execute(ctx, salesOrderID, appoms.UpdateSalesOrderInput{Status: &completed}); err != nil {
 		return fmt.Errorf("completeOrderOnDelivery: %w", err)
+	}
+	return nil
+}
+
+// MarkOrderShippedOnFulfillment moves a SalesOrder out of Pending/Processing
+// into its carrier-handoff state once it's known to be fulfilled -- Shipped
+// for every source except WooCommerce, which has no native "shipped" status
+// of its own, so a Woo order goes straight to OnHold instead (see
+// application/channels.PushSalesOrderStatusToChannelsUseCase's
+// wooStatusBySalesOrderStatus map, where Shipped is deliberately absent).
+// No-ops (not an error) if the order has already moved past
+// Pending/Processing -- already applied via a different path, or diverged --
+// never moves status backward or reapplies.
+//
+// Shared by HandleOrderStatusWebhookUseCase.applyProcessed (order_status_change
+// webhook), HandleShipmentWebhookUseCase/shipmentWebhookDispatcher's
+// post-applyStatusUpdate call (shipment_status_change webhook), and
+// application/scheduler.ReconcileFulfilledOrdersUseCase (the 24h sweep for
+// orders that missed both webhook paths) so none of them ever drift on this
+// decision. Callers decide for themselves whether/when this should run
+// (e.g. only on StatusMainShipped, only when updater != nil) -- this
+// function itself always attempts the transition for whatever salesOrderID
+// it's given.
+func MarkOrderShippedOnFulfillment(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, updater SalesOrderStatusUpdater, salesOrderID string) error {
+	var order omsDomain.SalesOrder
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		o, err := salesOrderRepo.FindByID(ctx, salesOrderID)
+		if err != nil {
+			return err
+		}
+		order = *o
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("markOrderShippedOnFulfillment: %w", err)
+	}
+
+	if order.Status != omsDomain.SalesOrderStatusPending && order.Status != omsDomain.SalesOrderStatusProcessing {
+		return nil
+	}
+
+	target := omsDomain.SalesOrderStatusShipped
+	if order.Source == omsDomain.SalesOrderSourceWooCommerce {
+		target = omsDomain.SalesOrderStatusOnHold
+	}
+	if _, err := updater.Execute(ctx, order.ID, appoms.UpdateSalesOrderInput{Status: &target}); err != nil {
+		return fmt.Errorf("markOrderShippedOnFulfillment: %w", err)
 	}
 	return nil
 }

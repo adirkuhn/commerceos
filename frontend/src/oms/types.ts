@@ -13,7 +13,7 @@ export interface Address {
   phone?: string
 }
 
-export type SalesOrderStatus = 'pending' | 'processing' | 'on-hold' | 'completed' | 'cancelled' | 'refunded' | 'failed'
+export type SalesOrderStatus = 'pending' | 'processing' | 'on-hold' | 'shipped' | 'completed' | 'cancelled' | 'refunded' | 'failed'
 export type SalesOrderSource = 'pos' | 'manual' | 'woocommerce' | 'bol'
 
 export type SalesOrderSortField = 'occurred_at' | 'customer' | 'source' | 'status' | 'total'

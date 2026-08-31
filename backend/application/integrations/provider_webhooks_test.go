@@ -78,6 +78,9 @@ func (f *fakeFullWooClient) GetOrder(ctx context.Context, externalOrderID string
 func (f *fakeFullWooClient) UpdateOrderStatus(ctx context.Context, externalOrderID, status string) error {
 	panic("not used")
 }
+func (f *fakeFullWooClient) AddOrderNote(ctx context.Context, externalOrderID, note string) error {
+	panic("not used")
+}
 func (f *fakeFullWooClient) ListCustomers(ctx context.Context, page, perPage int) ([]integrationsDomain.WooCustomer, error) {
 	panic("not used")
 }

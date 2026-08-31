@@ -8,7 +8,6 @@ import (
 
 	"gorm.io/gorm"
 
-	appoms "github.com/adirkuhn/commerceos/application/oms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
@@ -65,14 +64,14 @@ type HandleOrderStatusWebhookUseCase struct {
 	db                  *gorm.DB
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository
 	salesOrderRepo      omsDomain.SalesOrderRepository
-	updateSalesOrder    salesOrderStatusUpdater
+	updateSalesOrder    SalesOrderStatusUpdater
 }
 
 func NewHandleOrderStatusWebhookUseCase(
 	db *gorm.DB,
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository,
 	salesOrderRepo omsDomain.SalesOrderRepository,
-	updateSalesOrder salesOrderStatusUpdater,
+	updateSalesOrder SalesOrderStatusUpdater,
 ) *HandleOrderStatusWebhookUseCase {
 	return &HandleOrderStatusWebhookUseCase{
 		db: db, fulfilmentOrderRepo: fulfilmentOrderRepo, salesOrderRepo: salesOrderRepo, updateSalesOrder: updateSalesOrder,
@@ -124,30 +123,7 @@ func (uc *HandleOrderStatusWebhookUseCase) handleOne(ctx context.Context, hook m
 }
 
 func (uc *HandleOrderStatusWebhookUseCase) applyProcessed(ctx context.Context, fulfilment shippingDomain.MyParcelFulfilmentOrder) error {
-	var order omsDomain.SalesOrder
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		o, err := uc.salesOrderRepo.FindByID(ctx, fulfilment.SalesOrderID)
-		if err != nil {
-			return err
-		}
-		order = *o
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	if order.Status != omsDomain.SalesOrderStatusPending && order.Status != omsDomain.SalesOrderStatusProcessing {
-		// Already past this point (applied already, or diverged via a
-		// different path) -- don't move the status backward or reapply.
-		return nil
-	}
-
-	target := omsDomain.SalesOrderStatusShipped
-	if order.Source == omsDomain.SalesOrderSourceWooCommerce {
-		target = omsDomain.SalesOrderStatusOnHold
-	}
-	if _, err := uc.updateSalesOrder.Execute(ctx, order.ID, appoms.UpdateSalesOrderInput{Status: &target}); err != nil {
+	if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, fulfilment.SalesOrderID); err != nil {
 		return fmt.Errorf("update sales order status: %w", err)
 	}
 	return nil

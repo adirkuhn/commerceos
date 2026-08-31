@@ -3,9 +3,11 @@ package channels
 import (
 	"context"
 	"fmt"
+	"log"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -41,6 +43,7 @@ var wooStatusBySalesOrderStatus = map[omsDomain.SalesOrderStatus]string{
 type PushSalesOrderStatusToChannelsUseCase struct {
 	db               *gorm.DB
 	salesOrderRepo   omsDomain.SalesOrderRepository
+	shipmentRepo     shippingDomain.ShipmentRepository
 	connRepo         integrationsDomain.ConnectionRepository
 	wooFactory       integrationsDomain.WooClientFactory
 	encryptionSecret string
@@ -49,12 +52,13 @@ type PushSalesOrderStatusToChannelsUseCase struct {
 func NewPushSalesOrderStatusToChannelsUseCase(
 	db *gorm.DB,
 	salesOrderRepo omsDomain.SalesOrderRepository,
+	shipmentRepo shippingDomain.ShipmentRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 ) *PushSalesOrderStatusToChannelsUseCase {
 	return &PushSalesOrderStatusToChannelsUseCase{
-		db: db, salesOrderRepo: salesOrderRepo, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
+		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 	}
 }
 
@@ -118,5 +122,42 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 	if err := client.UpdateOrderStatus(ctx, order.ExternalOrderID, wooStatus); err != nil {
 		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
 	}
+
+	if order.Status == omsDomain.SalesOrderStatusOnHold && order.Fulfilled {
+		uc.addShipmentNote(ctx, client, order)
+	}
 	return nil
+}
+
+// addShipmentNote attaches the order's shipment info (carrier, tracking) as
+// a Woo order note -- the only signal available that this particular OnHold
+// is the "handed to carrier" one (see
+// application/shipping.MarkOrderShippedOnFulfillment, which is what routes
+// a Woo order to OnHold on fulfillment, since Woo has no native "shipped"
+// status of its own), as opposed to on-hold for any other reason (a manual
+// edit, a payment review). Best-effort: a failure here is logged, not
+// returned -- the status push itself already succeeded and is the part that
+// must not be retried into a duplicate Woo call; the note is a courtesy on
+// top of it.
+func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder) {
+	var shipments []shippingDomain.Shipment
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		shipments, err = uc.shipmentRepo.FindBySalesOrderID(ctx, order.ID)
+		return err
+	})
+	if err != nil {
+		log.Printf("pushSalesOrderStatusToChannels: shipment note: list shipments for order %s: %v", order.ID, err)
+		return
+	}
+	if len(shipments) == 0 {
+		return
+	}
+	// FindBySalesOrderID returns newest first -- the most recent shipment is
+	// the one that actually triggered this fulfillment.
+	s := shipments[0]
+	note := fmt.Sprintf("Shipped via %s, tracking %s", s.Carrier, s.Barcode)
+	if err := client.AddOrderNote(ctx, order.ExternalOrderID, note); err != nil {
+		log.Printf("pushSalesOrderStatusToChannels: shipment note: order %s: %v", order.ID, err)
+	}
 }

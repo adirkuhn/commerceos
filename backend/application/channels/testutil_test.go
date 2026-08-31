@@ -25,6 +25,7 @@ import (
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 )
 
@@ -140,6 +141,9 @@ type stubWooClient struct {
 
 	updateOrderStatusCalls []stubUpdateOrderStatusCall
 	updateOrderStatusErr   error
+
+	addOrderNoteCalls []stubAddOrderNoteCall
+	addOrderNoteErr   error
 
 	// customersByPage mirrors ordersByPage's convention.
 	customersByPage map[int][]integrationsDomain.WooCustomer
@@ -351,6 +355,16 @@ func (s *stubWooClient) UpdateOrderStatus(_ context.Context, externalOrderID, st
 	return s.updateOrderStatusErr
 }
 
+type stubAddOrderNoteCall struct {
+	externalOrderID string
+	note            string
+}
+
+func (s *stubWooClient) AddOrderNote(_ context.Context, externalOrderID, note string) error {
+	s.addOrderNoteCalls = append(s.addOrderNoteCalls, stubAddOrderNoteCall{externalOrderID: externalOrderID, note: note})
+	return s.addOrderNoteErr
+}
+
 func (s *stubWooClient) ListCustomers(_ context.Context, page, _ int) ([]integrationsDomain.WooCustomer, error) {
 	s.customersCalls++
 	if s.customersErr != nil {
@@ -409,6 +423,37 @@ func (s *stubMediaRepo) ListByProduct(_ context.Context, productID string) ([]pm
 		return nil, s.err
 	}
 	return s.byProduct[productID], nil
+}
+
+// stubShipmentRepo stands in for domain/shipping's ShipmentRepository --
+// only FindBySalesOrderID is exercised (PushSalesOrderStatusToChannelsUseCase's
+// shipment-info note lookup); every other method is unused here.
+type stubShipmentRepo struct {
+	bySalesOrder map[string][]shippingDomain.Shipment
+	findErr      error
+}
+
+func (s *stubShipmentRepo) Create(_ context.Context, _ *shippingDomain.Shipment) error { return nil }
+func (s *stubShipmentRepo) FindByID(_ context.Context, _ string) (*shippingDomain.Shipment, error) {
+	return nil, shippingDomain.ErrShipmentNotFound
+}
+func (s *stubShipmentRepo) FindByMyParcelShipmentID(_ context.Context, _ int64) (*shippingDomain.Shipment, error) {
+	return nil, shippingDomain.ErrShipmentNotFound
+}
+func (s *stubShipmentRepo) FindBySalesOrderID(_ context.Context, salesOrderID string) ([]shippingDomain.Shipment, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	return s.bySalesOrder[salesOrderID], nil
+}
+func (s *stubShipmentRepo) FindStaleNonTerminal(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) {
+	return nil, nil
+}
+func (s *stubShipmentRepo) UpdateStatus(_ context.Context, _ string, _ int, _ string) error {
+	return nil
+}
+func (s *stubShipmentRepo) MarkCancelled(_ context.Context, _ string, _ time.Time, _ string) error {
+	return nil
 }
 
 type stubWooClientFactory struct {

@@ -497,7 +497,7 @@ components:
 
     SalesOrderStatus:
       type: string
-      enum: [pending, processing, on-hold, completed, cancelled, refunded, failed]
+      enum: [pending, processing, on-hold, shipped, completed, cancelled, refunded, failed]
 
     SalesOrderSource:
       type: string

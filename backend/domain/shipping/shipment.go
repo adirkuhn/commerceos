@@ -7,6 +7,7 @@ package shipping
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -24,6 +25,31 @@ const (
 	CarrierUPSStandard      Carrier = 12
 	CarrierUPSExpressSaver  Carrier = 13
 )
+
+// carrierLabels mirrors frontend/src/shipping/types.ts's CARRIERS list --
+// keep the two in sync. Used wherever a carrier needs a human-readable
+// label outside the UI (e.g. the shipment-info note
+// PushSalesOrderStatusToChannelsUseCase attaches to a Woo order).
+var carrierLabels = map[Carrier]string{
+	CarrierPostNL:           "PostNL",
+	CarrierBpost:            "bpost",
+	CarrierDPD:              "DPD",
+	CarrierDHLForYou:        "DHL for you",
+	CarrierDHLParcelConnect: "DHL Parcel Connect",
+	CarrierDHLEuroplus:      "DHL Europlus",
+	CarrierUPSStandard:      "UPS Standard",
+	CarrierUPSExpressSaver:  "UPS Express Saver",
+}
+
+// String returns the carrier's display label, or "Carrier {id}" for an id
+// not (yet) in carrierLabels -- never fails, since a note/log line calling
+// this must never block on an unrecognized carrier.
+func (c Carrier) String() string {
+	if label, ok := carrierLabels[c]; ok {
+		return label
+	}
+	return fmt.Sprintf("Carrier %d", int(c))
+}
 
 // PackageType is MyParcel's shipment_options.package_type.
 type PackageType int

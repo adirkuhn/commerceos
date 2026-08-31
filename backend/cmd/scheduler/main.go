@@ -256,7 +256,7 @@ func main() {
 	}
 	defer stockChangedSub.Unsubscribe()
 
-	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	salesOrderStatusChangedSub, err := js.Subscribe(events.SalesOrderStatusChanged{}.EventName(), salesOrderStatusChangedConsumer.Handle,
 		nats.Durable("sales-order-status-changed-scheduler"), nats.ManualAck(),
@@ -281,6 +281,7 @@ func main() {
 	updateSalesOrderUC := appoms.NewUpdateSalesOrderUseCase(
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC, outboxRepo,
 	)
+	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
 
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,

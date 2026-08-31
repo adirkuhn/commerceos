@@ -35,7 +35,7 @@ func NewRetryWebhookEventDispatchUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository,
-	updateSalesOrder salesOrderStatusUpdater,
+	updateSalesOrder SalesOrderStatusUpdater,
 ) *RetryWebhookEventDispatchUseCase {
 	uc := &RetryWebhookEventDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,

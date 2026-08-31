@@ -11,6 +11,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 )
@@ -55,6 +56,40 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *
 	require.Len(t, eventRepo.markDispatchCalls, 1)
 	assert.Equal(t, "evt-row-1", eventRepo.markDispatchCalls[0].id)
 	assert.Equal(t, webhooksDomain.WebhookEventStatusProcessed, eventRepo.markDispatchCalls[0].status)
+}
+
+func TestBackfillShipmentWebhookDispatch_shippedStatus_movesOrderToShipped(t *testing.T) {
+	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
+		myParcelHookEvent("evt-row-1", "evt-1", 555, 2),
+	}}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
+	shipmentRepo := &fakeShipmentRepo{
+		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		updateStatusFn:             func(context.Context, string, int, string) error { return nil },
+	}
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil
+	}}
+	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending}
+	salesOrderRepo := &fakeSalesOrderRepo{
+		updateFn:   func(context.Context, string, map[string]any) error { return nil },
+		findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil },
+	}
+	updater := &fakeSalesOrderStatusUpdater{}
+
+	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+
+	result, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Applied)
+	require.Len(t, updater.calls, 1)
+	assert.Equal(t, "order-1", updater.calls[0].id)
+	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[0].status)
 }
 
 func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testing.T) {

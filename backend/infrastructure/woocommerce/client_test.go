@@ -369,6 +369,34 @@ func TestUpdateOrderStatus_sendsOnlyStatusToTheOrdersEndpoint(t *testing.T) {
 	require.False(t, priceSent, "only status is sent -- nothing else about the order")
 }
 
+// TestAddOrderNote_postsToTheOrderNotesEndpoint proves the shipment-info
+// note attached to a fulfilled Woo order (see application/channels.
+// PushSalesOrderStatusToChannelsUseCase) hits POST /orders/{id}/notes as a
+// private (not customer-facing) note.
+func TestAddOrderNote_postsToTheOrderNotesEndpoint(t *testing.T) {
+	var raw map[string]json.RawMessage
+	var gotPath, gotMethod string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotMethod = r.URL.Path, r.Method
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.OrderNote{ID: 1, Note: "Shipped via PostNL, tracking 3SMYPA1"})
+	})
+
+	err := c.AddOrderNote(context.Background(), "501", "Shipped via PostNL, tracking 3SMYPA1")
+
+	require.NoError(t, err)
+	require.Equal(t, http.MethodPost, gotMethod)
+	require.Contains(t, gotPath, "/orders/501/notes")
+	v, present := raw["note"]
+	require.True(t, present)
+	require.Equal(t, `"Shipped via PostNL, tracking 3SMYPA1"`, string(v))
+	// CustomerNote's zero value (false) is correctly omitted by the SDK's
+	// own `omitempty` tag -- Woo defaults an order note to private
+	// (staff-only) when the field is absent, same outcome as sending false.
+	_, present = raw["customer_note"]
+	require.False(t, present)
+}
+
 func TestCreateVariation_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	var body wc.ProductVariation
 	requestCount := 0
