@@ -346,7 +346,8 @@ func TestShippingConnectionSettingsRepo_Integration_UpsertAndFind(t *testing.T) 
 			ConnectionID: connectionID, TenantID: tenant.IDFromContext(ctx),
 			DefaultCarrier: shippingDomain.CarrierDPD, DefaultPackageType: shippingDomain.PackageTypePackage,
 			DefaultLabelFormat: shippingDomain.LabelFormatZPL, DefaultSignatureRequired: true,
-			CreatedAt: time.Now(), UpdatedAt: time.Now(),
+			ExportOrderToMyParcel: true,
+			CreatedAt:             time.Now(), UpdatedAt: time.Now(),
 		}
 		return repo.Upsert(ctx, s)
 	})
@@ -359,6 +360,7 @@ func TestShippingConnectionSettingsRepo_Integration_UpsertAndFind(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, shippingDomain.CarrierDPD, found.DefaultCarrier)
 	require.True(t, found.DefaultSignatureRequired)
+	require.True(t, found.ExportOrderToMyParcel, "regression: GORM's default namer splits ExportOrderToMyParcel into export_order_to_my_parcel without an explicit column tag")
 }
 
 func TestShippingConnectionSettingsRepo_Integration_NotFoundReturnsNilNotError(t *testing.T) {

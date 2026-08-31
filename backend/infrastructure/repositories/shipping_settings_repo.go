@@ -33,7 +33,7 @@ type shippingConnectionSettingsModel struct {
 	MyParcelAccountID     *int `gorm:"column:myparcel_account_id"`
 	MyParcelShopID        *int `gorm:"column:myparcel_shop_id"`
 	AutoPrintEnabled      bool
-	ExportOrderToMyParcel bool
+	ExportOrderToMyParcel bool `gorm:"column:export_order_to_myparcel"`
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
