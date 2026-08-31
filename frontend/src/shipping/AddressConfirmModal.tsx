@@ -260,6 +260,16 @@ export function AddressConfirmModal({ token, initialAddress, defaultCarrier, ini
             <input id="addr-cc" required maxLength={2} {...field('cc')} onBlur={runAddressCheck} className={inputClass} />
           </div>
           <div>
+            <label htmlFor="addr-email" className={labelClass}>Email</label>
+            {/* Required, not just recommended -- MyParcel rejects some
+                carriers' shipments with a 422 when this is blank (it emails
+                the recipient tracking updates for those carriers). Prefilled
+                from the order's own address, but that can be empty, so
+                staff must be able to see and fill it in here rather than it
+                silently reaching MyParcel blank. */}
+            <input id="addr-email" type="email" required {...field('email')} className={inputClass} />
+          </div>
+          <div>
             <label htmlFor="ship-carrier" className={labelClass}>Carrier</label>
             <select id="ship-carrier" value={carrier} onChange={e => setCarrier(Number(e.target.value))} className={inputClass}>
               {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}

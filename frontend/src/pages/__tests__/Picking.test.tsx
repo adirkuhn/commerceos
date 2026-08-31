@@ -190,7 +190,7 @@ describe('Picking page', () => {
 
   it('shows the shipping address in the header once an order is selected', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-      salesOrders: [salesOrder({ shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } })],
+      salesOrders: [salesOrder({ shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })],
       total: 1,
     })
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
@@ -272,7 +272,7 @@ describe('Picking page', () => {
   it('shows the shipping method below the address on the review screen', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
       salesOrders: [salesOrder({
-        shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+        shipping: { address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
         shipping_method_title: 'PostNL PakjeGemak',
       })],
       total: 1,
@@ -352,7 +352,7 @@ describe('Picking page', () => {
     it('lets staff create the shipping label from the review screen, before Confirm & Complete', async () => {
       vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
         salesOrders: [salesOrder({
-          shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+          shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
           shipping_method_title: 'DHL Europe',
         })],
         total: 1,
@@ -404,7 +404,7 @@ describe('Picking page', () => {
 
     it('creates a shipment from the confirmed address and shows Print shipping label afterward', async () => {
       vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } })],
+        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })],
         total: 1,
       })
       vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
@@ -462,8 +462,8 @@ describe('Picking page', () => {
     it('does not carry a previous order\'s recipient into a different order\'s label flow', async () => {
       vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
         salesOrders: [
-          salesOrder({ id: 'so-1', number: '1001', shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } }),
-          salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' }, shipping: { first_name: 'Bob', last_name: 'Smith', address_1: 'Kalverstraat 2', city: 'Amsterdam', postcode: '1012NX', country: 'NL' } }),
+          salesOrder({ id: 'so-1', number: '1001', shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } }),
+          salesOrder({ id: 'so-2', number: '2002', billing: { first_name: 'Bob', last_name: 'Smith' }, shipping: { first_name: 'Bob', last_name: 'Smith', address_1: 'Kalverstraat 2', city: 'Amsterdam', postcode: '1012NX', country: 'NL', email: 'jane@example.com' } }),
         ],
         total: 2,
       })
@@ -513,7 +513,7 @@ describe('Picking page', () => {
         carrier_overrides: [],
       })
       vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
-        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' } })],
+        salesOrders: [salesOrder({ shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' } })],
         total: 1,
       })
       vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())

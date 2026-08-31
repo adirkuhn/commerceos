@@ -114,7 +114,13 @@ func NewCreateShipmentUseCase(
 
 func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentInput) (*shippingDomain.Shipment, error) {
 	r := in.Recipient
-	if r.Person == "" || r.Street == "" || r.City == "" || r.CC == "" {
+	// Email is required, not just recommended -- MyParcel rejects some
+	// carriers' shipments with a 422 ("recipient.email shorter than the
+	// minimum length of 1") when it's blank, since MyParcel emails the
+	// recipient tracking updates for those carriers. Checked here too
+	// (not just required in the frontend form) so a stale/blank order
+	// email can't silently reach MyParcel's API and fail there instead.
+	if r.Person == "" || r.Street == "" || r.City == "" || r.CC == "" || r.Email == "" {
 		return nil, fmt.Errorf("createShipment: %w", shippingDomain.ErrMissingRecipient)
 	}
 

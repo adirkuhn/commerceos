@@ -79,7 +79,9 @@ func NewExportMyParcelOrderUseCase(
 
 func (uc *ExportMyParcelOrderUseCase) Execute(ctx context.Context, in ExportMyParcelOrderInput) (*shippingDomain.MyParcelFulfilmentOrder, error) {
 	r := in.Recipient
-	if r.Person == "" || r.Street == "" || r.City == "" || r.CC == "" {
+	// See CreateShipmentUseCase's identical check -- email is required, not
+	// just recommended.
+	if r.Person == "" || r.Street == "" || r.City == "" || r.CC == "" || r.Email == "" {
 		return nil, fmt.Errorf("exportMyParcelOrder: %w", shippingDomain.ErrMissingRecipient)
 	}
 

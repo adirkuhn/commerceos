@@ -50,7 +50,7 @@ function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
     total_minor_units: 5000, occurred_at: '2026-08-10T12:00:00Z', created_at: '2026-08-10T12:00:00Z',
     fulfilled: false,
     billing: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com' },
-    shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+    shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
     ...overrides,
   }
 }

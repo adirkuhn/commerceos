@@ -438,13 +438,13 @@ describe('Sales order detail page', () => {
     ])
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
       salesOrders: [salesOrder({
-        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
       })],
       total: 1,
     })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
       sales_order: salesOrder({
-        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
       }),
     }))
     vi.mocked(shippingApi.exportMyParcelOrder).mockResolvedValue({
@@ -502,13 +502,13 @@ describe('Sales order detail page', () => {
     })
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
       salesOrders: [salesOrder({
-        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
       })],
       total: 1,
     })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
       sales_order: salesOrder({
-        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' },
+        shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
       }),
     }))
     vi.mocked(shippingApi.exportMyParcelOrder).mockResolvedValue({

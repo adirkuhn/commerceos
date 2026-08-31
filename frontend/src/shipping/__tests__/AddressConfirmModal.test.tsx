@@ -81,7 +81,7 @@ describe('addressToRecipientDraft', () => {
 })
 
 describe('AddressConfirmModal', () => {
-  const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1A', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+  const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1A', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' }
 
   it('prefills the form from the order address and hands off the edited/confirmed recipient + carrier', async () => {
     const onNext = vi.fn()
@@ -139,7 +139,7 @@ describe('AddressConfirmModal', () => {
 })
 
 describe('AddressConfirmModal — address check (PDOK lookup)', () => {
-  const nlAddress: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+  const nlAddress: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' }
 
   it('fills blank street/city from the lookup result once postal code and number are both entered', async () => {
     vi.mocked(shippingApi.lookupAddress).mockResolvedValue({ street: 'Damrak', city: 'Amsterdam' })
@@ -208,7 +208,7 @@ describe('AddressConfirmModal — address check (PDOK lookup)', () => {
 })
 
 describe('AddressConfirmModal — submit-time validation gate', () => {
-  const nlAddress: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+  const nlAddress: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' }
 
   it('runs the check on submit if it never ran before (prefilled fields staff never touched), and blocks on a mismatch', async () => {
     vi.mocked(shippingApi.lookupAddress).mockResolvedValue({ street: 'Damstraat', city: 'Amsterdam' })

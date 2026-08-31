@@ -27,7 +27,7 @@ func encryptedFor(t *testing.T, plaintext string) string {
 }
 
 func validRecipient() appshipping.RecipientInput {
-	return appshipping.RecipientInput{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL"}
+	return appshipping.RecipientInput{Person: "Jane Doe", Street: "Damrak", Number: "1", City: "Amsterdam", CC: "NL", Email: "jane@example.com"}
 }
 
 // notInsuredSalesOrderRepo has no findByIDFn -- panics if CreateShipmentUseCase
