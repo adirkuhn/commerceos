@@ -86,7 +86,7 @@ func (a *Adapter) GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (
 	if err != nil {
 		return integrationsDomain.TrackTraceResult{}, err
 	}
-	return integrationsDomain.TrackTraceResult{StatusCode: r.StatusCode, StatusMain: r.StatusMain}, nil
+	return integrationsDomain.TrackTraceResult{StatusCode: r.StatusCode, StatusMain: r.StatusMain, TrackingURL: r.TrackingURL}, nil
 }
 
 func (a *Adapter) RegisterWebhook(ctx context.Context, callbackURL string) error {

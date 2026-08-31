@@ -226,8 +226,9 @@ type LabelResult struct {
 }
 
 type TrackTraceResult struct {
-	StatusCode int
-	StatusMain string
+	StatusCode  int
+	StatusMain  string
+	TrackingURL string
 }
 
 // WebhookSubscription is this package's own response shape for a
@@ -582,6 +583,12 @@ type trackTraceEnvelope struct {
 				Current int    `json:"current"`
 				Main    string `json:"main"`
 			} `json:"status"`
+			// LinkConsumerPortal is the carrier-specific tracking page
+			// (e.g. PostNL's own tracktrace URL) MyParcel's docs say is
+			// meant to be shared with the end customer -- confirmed against
+			// developer.myparcel.nl/api-reference/06.shipments.html's own
+			// example response.
+			LinkConsumerPortal string `json:"link_consumer_portal"`
 		} `json:"tracktraces"`
 	} `json:"data"`
 }
@@ -599,7 +606,7 @@ func (c *Client) GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (T
 		return TrackTraceResult{}, fmt.Errorf("myparcel: get tracktrace: empty response")
 	}
 	tt := resp.Data.TrackTraces[0]
-	return TrackTraceResult{StatusCode: tt.Status.Current, StatusMain: tt.Status.Main}, nil
+	return TrackTraceResult{StatusCode: tt.Status.Current, StatusMain: tt.Status.Main, TrackingURL: tt.LinkConsumerPortal}, nil
 }
 
 // webhookSubscriptionRequest is POST /webhook_subscriptions' request body

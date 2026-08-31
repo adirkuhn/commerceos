@@ -16,14 +16,19 @@ import (
 // wooStatusBySalesOrderStatus maps this codebase's internal status
 // vocabulary onto WooCommerce's own status strings -- deliberately the same
 // set (see domain/oms.SalesOrderStatus's doc, "mirrors WooCommerce's order
-// status set exactly") with one exception: SalesOrderStatusShipped only
-// ever applies to a non-Woo order (see
-// application/oms.HandleOrderStatusWebhookUseCase's Woo-vs-other-source
-// branch) and has no Woo equivalent, so it's deliberately absent here.
+// status set exactly") with one exception: Shipped has no native Woo
+// equivalent, so it maps onto Woo's own "on-hold" -- CommerceOS's internal
+// record still says Shipped (see
+// application/shipping.MarkOrderShippedOnFulfillment, which never special-
+// cases Woo), only the outbound push translates it, and pushToWoo attaches
+// a shipment-info order note alongside it (see addShipmentNote below) so
+// Woo staff can tell this on-hold apart from any other reason an order
+// lands there.
 var wooStatusBySalesOrderStatus = map[omsDomain.SalesOrderStatus]string{
 	omsDomain.SalesOrderStatusPending:    "pending",
 	omsDomain.SalesOrderStatusProcessing: "processing",
 	omsDomain.SalesOrderStatusOnHold:     "on-hold",
+	omsDomain.SalesOrderStatusShipped:    "on-hold",
 	omsDomain.SalesOrderStatusCompleted:  "completed",
 	omsDomain.SalesOrderStatusCancelled:  "cancelled",
 	omsDomain.SalesOrderStatusRefunded:   "refunded",
@@ -90,8 +95,10 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) Execute(ctx context.Context, sa
 func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, order omsDomain.SalesOrder) error {
 	wooStatus, ok := wooStatusBySalesOrderStatus[order.Status]
 	if !ok {
-		// No Woo equivalent for this status (e.g. "shipped") -- nothing to
-		// push, not an error.
+		// No Woo equivalent for this status -- every current SalesOrderStatus
+		// value is mapped above, so this is defensive against a future
+		// status being added here before this map learns about it; nothing
+		// to push, not an error.
 		return nil
 	}
 	if order.ConnectionID == nil {
@@ -123,22 +130,21 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
 	}
 
-	if order.Status == omsDomain.SalesOrderStatusOnHold && order.Fulfilled {
+	if order.Status == omsDomain.SalesOrderStatusShipped {
 		uc.addShipmentNote(ctx, client, order)
 	}
 	return nil
 }
 
 // addShipmentNote attaches the order's shipment info (carrier, tracking) as
-// a Woo order note -- the only signal available that this particular OnHold
-// is the "handed to carrier" one (see
-// application/shipping.MarkOrderShippedOnFulfillment, which is what routes
-// a Woo order to OnHold on fulfillment, since Woo has no native "shipped"
-// status of its own), as opposed to on-hold for any other reason (a manual
-// edit, a payment review). Best-effort: a failure here is logged, not
-// returned -- the status push itself already succeeded and is the part that
-// must not be retried into a duplicate Woo call; the note is a courtesy on
-// top of it.
+// a Woo order note -- Shipped is the internal status
+// MarkOrderShippedOnFulfillment sets specifically on fulfillment, so unlike
+// OnHold (which staff can also set by hand, for an unrelated reason like a
+// payment review) it's an unambiguous "this on-hold push is the shipped
+// one" signal, no separate Fulfilled check needed. Best-effort: a failure
+// here is logged, not returned -- the status push itself already succeeded
+// and is the part that must not be retried into a duplicate Woo call; the
+// note is a courtesy on top of it.
 func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder) {
 	var shipments []shippingDomain.Shipment
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -157,6 +163,9 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Con
 	// the one that actually triggered this fulfillment.
 	s := shipments[0]
 	note := fmt.Sprintf("Shipped via %s, tracking %s", s.Carrier, s.Barcode)
+	if s.TrackingURL != "" {
+		note += fmt.Sprintf(" - %s", s.TrackingURL)
+	}
 	if err := client.AddOrderNote(ctx, order.ExternalOrderID, note); err != nil {
 		log.Printf("pushSalesOrderStatusToChannels: shipment note: order %s: %v", order.ID, err)
 	}

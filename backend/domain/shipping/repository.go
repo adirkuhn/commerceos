@@ -22,7 +22,11 @@ type ShipmentRepository interface {
 	// updated_at is older than olderThan -- ReconcileShipmentsUseCase's
 	// "missed webhook" scan.
 	FindStaleNonTerminal(ctx context.Context, olderThan time.Time, limit int) ([]Shipment, error)
-	UpdateStatus(ctx context.Context, id string, status int, statusMain string) error
+	// trackingURL is MyParcel's `link_consumer_portal` for this status
+	// update -- persisted alongside status so it's available later without
+	// a live MyParcel call (see Shipment.TrackingURL's doc). Empty is a
+	// valid value (MyParcel doesn't always have one yet).
+	UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL string) error
 	// MarkCancelled soft-cancels a shipment -- see Shipment.CancelledAt's
 	// doc comment. cancelledAt/note are set unconditionally by the caller
 	// (CancelShipmentUseCase), not derived here.

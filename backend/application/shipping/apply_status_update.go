@@ -41,7 +41,7 @@ func applyStatusUpdate(
 		ShipmentID: shipmentID, Status: tt.StatusCode, StatusMain: tt.StatusMain, Source: source, OccurredAt: time.Now(),
 	}
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		if err := shipmentRepo.UpdateStatus(ctx, shipmentID, tt.StatusCode, tt.StatusMain); err != nil {
+		if err := shipmentRepo.UpdateStatus(ctx, shipmentID, tt.StatusCode, tt.StatusMain, tt.TrackingURL); err != nil {
 			return err
 		}
 		event.TenantID = tenant.IDFromContext(ctx)
@@ -80,14 +80,15 @@ func completeOrderOnDelivery(ctx context.Context, updater SalesOrderStatusUpdate
 }
 
 // MarkOrderShippedOnFulfillment moves a SalesOrder out of Pending/Processing
-// into its carrier-handoff state once it's known to be fulfilled -- Shipped
-// for every source except WooCommerce, which has no native "shipped" status
-// of its own, so a Woo order goes straight to OnHold instead (see
+// into Shipped once it's known to be fulfilled -- uniformly, regardless of
+// source. WooCommerce has no native "shipped" status of its own, but that's
+// handled entirely at the channel-push boundary (see
 // application/channels.PushSalesOrderStatusToChannelsUseCase's
-// wooStatusBySalesOrderStatus map, where Shipped is deliberately absent).
-// No-ops (not an error) if the order has already moved past
-// Pending/Processing -- already applied via a different path, or diverged --
-// never moves status backward or reapplies.
+// wooStatusBySalesOrderStatus map, which maps Shipped -> Woo's "on-hold" and
+// attaches a shipment-info order note) -- CommerceOS's own record of the
+// order always says Shipped. No-ops (not an error) if the order has already
+// moved past Pending/Processing -- already applied via a different path, or
+// diverged -- never moves status backward or reapplies.
 //
 // Shared by HandleOrderStatusWebhookUseCase.applyProcessed (order_status_change
 // webhook), HandleShipmentWebhookUseCase/shipmentWebhookDispatcher's
@@ -117,9 +118,6 @@ func MarkOrderShippedOnFulfillment(ctx context.Context, db *gorm.DB, salesOrderR
 	}
 
 	target := omsDomain.SalesOrderStatusShipped
-	if order.Source == omsDomain.SalesOrderSourceWooCommerce {
-		target = omsDomain.SalesOrderStatusOnHold
-	}
 	if _, err := updater.Execute(ctx, order.ID, appoms.UpdateSalesOrderInput{Status: &target}); err != nil {
 		return fmt.Errorf("markOrderShippedOnFulfillment: %w", err)
 	}

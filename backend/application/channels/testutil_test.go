@@ -449,7 +449,7 @@ func (s *stubShipmentRepo) FindBySalesOrderID(_ context.Context, salesOrderID st
 func (s *stubShipmentRepo) FindStaleNonTerminal(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) {
 	return nil, nil
 }
-func (s *stubShipmentRepo) UpdateStatus(_ context.Context, _ string, _ int, _ string) error {
+func (s *stubShipmentRepo) UpdateStatus(_ context.Context, _ string, _ int, _ string, _ string) error {
 	return nil
 }
 func (s *stubShipmentRepo) MarkCancelled(_ context.Context, _ string, _ time.Time, _ string) error {

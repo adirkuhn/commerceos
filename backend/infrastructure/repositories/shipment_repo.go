@@ -22,6 +22,7 @@ type shipmentModel struct {
 	Barcode                   string
 	Status                    int
 	StatusMain                string
+	TrackingURL               string
 	LabelFormat               string
 	PackageType               int
 	SignatureRequired         bool
@@ -147,13 +148,13 @@ func (r *ShipmentRepo) FindStaleNonTerminal(ctx context.Context, olderThan time.
 	return out, nil
 }
 
-func (r *ShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain string) error {
+func (r *ShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return err
 	}
 	err = tx.Model(&shipmentModel{}).Where("id = ?", id).
-		Updates(map[string]any{"status": status, "status_main": statusMain, "updated_at": time.Now()}).Error
+		Updates(map[string]any{"status": status, "status_main": statusMain, "tracking_url": trackingURL, "updated_at": time.Now()}).Error
 	if err != nil {
 		return fmt.Errorf("shipmentRepo.UpdateStatus: %w", err)
 	}
@@ -181,7 +182,7 @@ func toShipmentModel(s *shippingDomain.Shipment) shipmentModel {
 	return shipmentModel{
 		TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, ConnectionID: s.ConnectionID,
 		Carrier: int(s.Carrier), MyParcelShipmentID: mpID, Barcode: s.Barcode,
-		Status: s.Status, StatusMain: s.StatusMain, LabelFormat: s.LabelFormat,
+		Status: s.Status, StatusMain: s.StatusMain, TrackingURL: s.TrackingURL, LabelFormat: s.LabelFormat,
 		PackageType: int(s.PackageType), SignatureRequired: s.SignatureRequired, OnlyRecipient: s.OnlyRecipient,
 		InsuranceAmountMinorUnits: s.InsuranceAmountMinorEUR,
 		RecipientPerson:           s.RecipientPerson, RecipientCompany: s.RecipientCompany,
@@ -200,7 +201,7 @@ func toShipmentDomain(m shipmentModel) *shippingDomain.Shipment {
 	return &shippingDomain.Shipment{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, ConnectionID: m.ConnectionID,
 		Carrier: shippingDomain.Carrier(m.Carrier), MyParcelShipmentID: mpID, Barcode: m.Barcode,
-		Status: m.Status, StatusMain: m.StatusMain, LabelFormat: m.LabelFormat,
+		Status: m.Status, StatusMain: m.StatusMain, TrackingURL: m.TrackingURL, LabelFormat: m.LabelFormat,
 		PackageType: shippingDomain.PackageType(m.PackageType), SignatureRequired: m.SignatureRequired, OnlyRecipient: m.OnlyRecipient,
 		InsuranceAmountMinorEUR: m.InsuranceAmountMinorUnits,
 		RecipientPerson:         m.RecipientPerson, RecipientCompany: m.RecipientCompany,

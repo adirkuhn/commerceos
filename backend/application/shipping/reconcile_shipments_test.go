@@ -22,7 +22,7 @@ func TestReconcileShipments_updatesChangedStatusAndSkipsUnchanged(t *testing.T) 
 	}
 	shipmentRepo := &fakeShipmentRepo{
 		findStaleNonTerminalFn: func(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) { return stale, nil },
-		updateStatusFn:         func(_ context.Context, _ string, _ int, _ string) error { return nil },
+		updateStatusFn:         func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -54,7 +54,7 @@ func TestReconcileShipments_perShipmentFailure_doesNotAbortTheBatch(t *testing.T
 	}
 	shipmentRepo := &fakeShipmentRepo{
 		findStaleNonTerminalFn: func(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) { return stale, nil },
-		updateStatusFn:         func(_ context.Context, _ string, _ int, _ string) error { return nil },
+		updateStatusFn:         func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}

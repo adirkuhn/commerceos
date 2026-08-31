@@ -47,11 +47,38 @@ func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T
 	assert.Equal(t, "on-hold", wooClient.updateOrderStatusCalls[0].status)
 }
 
-func TestPushSalesOrderStatusToChannels_onHoldFulfilledWooOrder_attachesShipmentNote(t *testing.T) {
+func TestPushSalesOrderStatusToChannels_shippedWooOrder_pushesOnHoldAndAttachesShipmentNote(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
 		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold, Fulfilled: true,
+		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+	}
+	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
+	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
+		"so-1": {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL, Barcode: "3SMYPA1", TrackingURL: "https://postnl.nl/tracktrace/?B=3SMYPA1"}},
+	}}
+	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
+	require.NoError(t, err)
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
+	wooClient := &stubWooClient{}
+	wooFactory := &stubWooClientFactory{client: wooClient}
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 3, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+
+	err = uc.Execute(context.Background(), "so-1")
+
+	require.NoError(t, err)
+	require.Len(t, wooClient.updateOrderStatusCalls, 1)
+	assert.Equal(t, "on-hold", wooClient.updateOrderStatusCalls[0].status, "Woo has no native shipped status -- CommerceOS's own record still says Shipped")
+	require.Len(t, wooClient.addOrderNoteCalls, 1)
+	assert.Equal(t, "501", wooClient.addOrderNoteCalls[0].externalOrderID)
+	assert.Equal(t, "Shipped via PostNL, tracking 3SMYPA1 - https://postnl.nl/tracktrace/?B=3SMYPA1", wooClient.addOrderNoteCalls[0].note)
+}
+
+func TestPushSalesOrderStatusToChannels_shippedWooOrder_noTrackingURLYet_noteOmitsLink(t *testing.T) {
+	connID := "conn-1"
+	order := &omsDomain.SalesOrder{
+		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
+		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -68,15 +95,14 @@ func TestPushSalesOrderStatusToChannels_onHoldFulfilledWooOrder_attachesShipment
 
 	require.NoError(t, err)
 	require.Len(t, wooClient.addOrderNoteCalls, 1)
-	assert.Equal(t, "501", wooClient.addOrderNoteCalls[0].externalOrderID)
-	assert.Equal(t, "Shipped via PostNL, tracking 3SMYPA1", wooClient.addOrderNoteCalls[0].note)
+	assert.Equal(t, "Shipped via PostNL, tracking 3SMYPA1", wooClient.addOrderNoteCalls[0].note, "no tracking URL yet -- note falls back to barcode only")
 }
 
-func TestPushSalesOrderStatusToChannels_onHoldNotFulfilled_doesNotAttachNote(t *testing.T) {
+func TestPushSalesOrderStatusToChannels_onHoldForUnrelatedReason_doesNotAttachNote(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
 		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold, Fulfilled: false,
+		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -92,14 +118,14 @@ func TestPushSalesOrderStatusToChannels_onHoldNotFulfilled_doesNotAttachNote(t *
 	err = uc.Execute(context.Background(), "so-1")
 
 	require.NoError(t, err)
-	assert.Empty(t, wooClient.addOrderNoteCalls, "on-hold for an unrelated reason (not a fulfillment) must not get a shipment note")
+	assert.Empty(t, wooClient.addOrderNoteCalls, "on-hold set for a reason other than fulfillment (e.g. a manual/payment-review hold) must not get a shipment note")
 }
 
 func TestPushSalesOrderStatusToChannels_noteFailure_doesNotFailThePush(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
 		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold, Fulfilled: true,
+		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -127,23 +153,6 @@ func TestPushSalesOrderStatusToChannels_nonWooSource_isNoOp(t *testing.T) {
 	err := uc.Execute(context.Background(), "so-1")
 
 	require.NoError(t, err)
-	assert.Empty(t, wooClient.updateOrderStatusCalls)
-}
-
-func TestPushSalesOrderStatusToChannels_statusWithNoWooEquivalent_isNoOp(t *testing.T) {
-	connID := "conn-1"
-	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
-	}
-	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
-	wooClient := &stubWooClient{}
-	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCase(t, 1, salesOrderRepo, &stubConnectionRepo{}, wooFactory)
-
-	err := uc.Execute(context.Background(), "so-1")
-
-	require.NoError(t, err, "shipped has no Woo equivalent -- skipped, not an error")
 	assert.Empty(t, wooClient.updateOrderStatusCalls)
 }
 

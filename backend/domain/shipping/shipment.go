@@ -142,9 +142,13 @@ type Shipment struct {
 	MyParcelShipmentID int64
 	Barcode            string
 	// Status/StatusMain hold only the latest known state -- see
-	// ShipmentStatusEvent for the full history.
+	// ShipmentStatusEvent for the full history. TrackingURL likewise holds
+	// only the latest known value (MyParcel's `link_consumer_portal`, see
+	// integrations.TrackTraceResult's doc) -- empty until MyParcel's first
+	// tracktrace response actually has one.
 	Status      int
 	StatusMain  string
+	TrackingURL string
 	LabelFormat string
 
 	PackageType             PackageType

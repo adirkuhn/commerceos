@@ -138,6 +138,13 @@ type LabelResult struct {
 type TrackTraceResult struct {
 	StatusCode int
 	StatusMain string
+	// TrackingURL is MyParcel's own `link_consumer_portal` -- the
+	// carrier-specific tracking page (e.g. PostNL's own tracktrace URL)
+	// MyParcel's docs say is the one meant to be shared with the end
+	// customer, as opposed to `link_tracktrace` (same URL in MyParcel's own
+	// example response, purpose not otherwise documented). Empty if MyParcel
+	// hasn't got one yet for this shipment.
+	TrackingURL string
 }
 
 // WebhookSubscription is one currently-registered MyParcel webhook

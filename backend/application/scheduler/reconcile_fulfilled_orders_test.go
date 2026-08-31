@@ -78,7 +78,7 @@ func (s *stubReconcileUpdater) Execute(_ context.Context, id string, in appoms.U
 	return &omsDomain.SalesOrder{ID: id}, nil
 }
 
-func TestReconcileFulfilledOrders_movesStuckOrdersToShippedOrOnHold(t *testing.T) {
+func TestReconcileFulfilledOrders_movesStuckOrdersToShipped(t *testing.T) {
 	orderA := omsDomain.SalesOrder{ID: "order-a", TenantID: "tenant-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
 	orderB := omsDomain.SalesOrder{ID: "order-b", TenantID: "tenant-2", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
 	repo := &stubReconcileSalesOrderRepo{
@@ -95,7 +95,7 @@ func TestReconcileFulfilledOrders_movesStuckOrdersToShippedOrOnHold(t *testing.T
 	assert.Equal(t, "order-a", updater.calls[0].id)
 	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[0].status)
 	assert.Equal(t, "order-b", updater.calls[1].id)
-	assert.Equal(t, omsDomain.SalesOrderStatusOnHold, updater.calls[1].status, "Woo has no native shipped status")
+	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[1].status, "internal status is uniformly Shipped -- Woo's lack of a native shipped status is handled at the channel-push boundary, not here")
 
 	fulfilled := true
 	assert.Equal(t, &fulfilled, repo.listFilter.Fulfilled)

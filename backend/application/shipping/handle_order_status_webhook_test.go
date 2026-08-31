@@ -18,7 +18,7 @@ func myParcelOrderHookPayload(order, status string) []byte {
 	return []byte(`{"data":{"hooks":[{"order":"` + order + `","status":"` + status + `"}]}}`)
 }
 
-func TestHandleOrderStatusWebhook_processed_wooOrder_movesToOnHold(t *testing.T) {
+func TestHandleOrderStatusWebhook_processed_wooOrder_alsoMovesToShipped(t *testing.T) {
 	fulfilment := &shippingDomain.MyParcelFulfilmentOrder{SalesOrderID: "order-1", MyParcelUUID: "mp-uuid-1"}
 	fulfilmentRepo := &fakeMyParcelFulfilmentOrderRepo{findByMyParcelUUIDFn: func(_ context.Context, uuid string) (*shippingDomain.MyParcelFulfilmentOrder, error) {
 		require.Equal(t, "mp-uuid-1", uuid)
@@ -36,7 +36,7 @@ func TestHandleOrderStatusWebhook_processed_wooOrder_movesToOnHold(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, updater.calls, 1)
 	assert.Equal(t, "order-1", updater.calls[0].id)
-	assert.Equal(t, omsDomain.SalesOrderStatusOnHold, updater.calls[0].status)
+	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[0].status, "internal status is uniformly Shipped -- Woo's lack of a native shipped status is handled at the channel-push boundary, not here")
 }
 
 func TestHandleOrderStatusWebhook_processed_nonWooOrder_movesToShipped(t *testing.T) {

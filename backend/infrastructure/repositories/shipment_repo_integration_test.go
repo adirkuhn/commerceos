@@ -111,7 +111,7 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	require.NoError(t, err)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.UpdateStatus(ctx, shipmentID, 2, "shipped")
+		return repo.UpdateStatus(ctx, shipmentID, 2, "shipped", "https://postnl.nl/tracktrace/?B=3SMYPA2")
 	})
 	require.NoError(t, err)
 
@@ -123,6 +123,7 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	})
 	require.NoError(t, err)
 	require.Equal(t, "shipped", found.StatusMain)
+	require.Equal(t, "https://postnl.nl/tracktrace/?B=3SMYPA2", found.TrackingURL)
 
 	// A shipment updated "just now" is not stale against a very old cutoff.
 	var stale []shippingDomain.Shipment
@@ -147,7 +148,7 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	// Mark it delivered (terminal) -- must drop out of the stale scan even
 	// against a far-future cutoff.
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.UpdateStatus(ctx, shipmentID, 99, "delivered")
+		return repo.UpdateStatus(ctx, shipmentID, 99, "delivered", "")
 	})
 	require.NoError(t, err)
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {

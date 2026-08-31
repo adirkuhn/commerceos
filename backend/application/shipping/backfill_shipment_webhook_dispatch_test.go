@@ -30,7 +30,7 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(context.Context, string, int, string) error { return nil },
+		updateStatusFn:             func(context.Context, string, int, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -65,7 +65,7 @@ func TestBackfillShipmentWebhookDispatch_shippedStatus_movesOrderToShipped(t *te
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(context.Context, string, int, string) error { return nil },
+		updateStatusFn:             func(context.Context, string, int, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -132,7 +132,7 @@ func TestBackfillShipmentWebhookDispatch_multipleEventsSameShipment_fetchesTrack
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(context.Context, string, int, string) error { return nil },
+		updateStatusFn:             func(context.Context, string, int, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
