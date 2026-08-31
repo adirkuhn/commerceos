@@ -2302,6 +2302,87 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       setBulkSaving(false)
     }
   }
+  // Editing an existing variant/SKU's own fields (name, price, status,
+  // weight/dimensions, etc.) -- everything the "Add SKU" form below covers
+  // except barcode and the weight-pool link, which already have their own
+  // dedicated inline-edit controls (saveBarcode/saveBulkPool above); adding
+  // a second path to change those here would just create two conflicting
+  // places to do the same thing. Saves both the variant (name) and the SKU
+  // (everything else) as two separate calls -- they're different entities/
+  // endpoints already, same as every other write in this component.
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editSkuCode, setEditSkuCode] = useState('')
+  const [editPrice, setEditPrice] = useState('')
+  const [editSalePrice, setEditSalePrice] = useState('')
+  const [editSaleEndDate, setEditSaleEndDate] = useState('')
+  const [editCurrency, setEditCurrency] = useState('USD')
+  const [editStatus, setEditStatus] = useState<SKUStatus>('active')
+  const [editIsVirtual, setEditIsVirtual] = useState(false)
+  const [editWeightGrams, setEditWeightGrams] = useState('')
+  const [editLengthMM, setEditLengthMM] = useState('')
+  const [editWidthMM, setEditWidthMM] = useState('')
+  const [editHeightMM, setEditHeightMM] = useState('')
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openEdit = () => {
+    setEditError('')
+    setEditName(variant.name)
+    if (sku) {
+      setEditSkuCode(sku.sku_code)
+      setEditPrice(formatMinorUnitsAsInput(sku.price_minor_units))
+      setEditSalePrice(sku.sale_price_minor_units != null ? formatMinorUnitsAsInput(sku.sale_price_minor_units) : '')
+      setEditSaleEndDate(sku.sale_end_date ?? '')
+      setEditCurrency(sku.currency_code)
+      setEditStatus(sku.status)
+      setEditIsVirtual(sku.is_virtual)
+      setEditWeightGrams(sku.weight_grams != null ? String(sku.weight_grams) : '')
+      setEditLengthMM(sku.length_mm != null ? String(sku.length_mm) : '')
+      setEditWidthMM(sku.width_mm != null ? String(sku.width_mm) : '')
+      setEditHeightMM(sku.height_mm != null ? String(sku.height_mm) : '')
+    }
+    setEditing(true)
+  }
+
+  const saveEdit = async () => {
+    setEditError('')
+    setEditSaving(true)
+    try {
+      await detail.updateVariant(variant.id, {
+        name: editName,
+        position: variant.position,
+        featured_media_id: variant.featured_media_id,
+      })
+      if (sku) {
+        await detail.updateSKU(sku.id, {
+          sku_code: editSkuCode,
+          barcode: sku.barcode ?? undefined,
+          price_minor_units: parsePriceToMinorUnits(editPrice),
+          sale_price_minor_units: parseOptionalPriceToMinorUnits(editSalePrice),
+          sale_end_date: editSaleEndDate || null,
+          currency_code: editCurrency,
+          weight_grams: editIsVirtual ? undefined : parseIntOrUndefined(editWeightGrams),
+          length_mm: editIsVirtual ? undefined : parseIntOrUndefined(editLengthMM),
+          width_mm: editIsVirtual ? undefined : parseIntOrUndefined(editWidthMM),
+          height_mm: editIsVirtual ? undefined : parseIntOrUndefined(editHeightMM),
+          is_virtual: editIsVirtual,
+          tracks_expiry: sku.tracks_expiry,
+          case_of_sku_id: sku.case_of_sku_id,
+          units_per_case: sku.units_per_case,
+          unit_type: sku.unit_type,
+          portioned_from_sku_id: sku.portioned_from_sku_id,
+          status: editStatus,
+        })
+      }
+      setEditing(false)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to save changes')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   const selectedImage = productMedia.find(m => m.id === variant.featured_media_id) ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -2373,12 +2454,81 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         {sku && <StockBadge skuId={sku.id} />}
         <button
           type="button"
+          onClick={openEdit}
+          className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors shrink-0"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
           onClick={() => detail.removeVariant(variant.id)}
           className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors shrink-0"
         >
           Remove
         </button>
       </div>
+
+      {editing && (
+        // Plain div, not <form> -- same nested-<form>-inside-the-page's-
+        // outer-form avoidance as the Add Variant/Add SKU panels.
+        <div className="mt-2 space-y-1.5 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+          <input
+            type="text" required placeholder="Variant name" value={editName} onChange={e => setEditName(e.target.value)}
+            className="w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+          />
+          {sku && (
+            <>
+              <div className="grid grid-cols-2 gap-1.5">
+                <input type="text" required placeholder="SKU code" value={editSkuCode} onChange={e => setEditSkuCode(e.target.value)}
+                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)}
+                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
+                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input type="number" step="0.01" min="0" required placeholder="Price" value={editPrice} onChange={e => setEditPrice(e.target.value)}
+                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                <input type="number" step="0.01" min="0" placeholder="Sale price (optional)" value={editSalePrice} onChange={e => setEditSalePrice(e.target.value)}
+                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                <input type="date" title="Sale ends (optional)" value={editSaleEndDate} onChange={e => setEditSaleEndDate(e.target.value)}
+                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                <select value={editStatus} onChange={e => setEditStatus(e.target.value as SKUStatus)}
+                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+                <input type="checkbox" checked={editIsVirtual} onChange={e => setEditIsVirtual(e.target.checked)} />
+                Virtual (no shipping)
+              </label>
+              {!editIsVirtual && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input type="number" step="1" min="0" placeholder="Weight (g)" value={editWeightGrams} onChange={e => setEditWeightGrams(e.target.value)}
+                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                  <input type="number" step="1" min="0" placeholder="Length (mm)" value={editLengthMM} onChange={e => setEditLengthMM(e.target.value)}
+                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                  <input type="number" step="1" min="0" placeholder="Width (mm)" value={editWidthMM} onChange={e => setEditWidthMM(e.target.value)}
+                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                  <input type="number" step="1" min="0" placeholder="Height (mm)" value={editHeightMM} onChange={e => setEditHeightMM(e.target.value)}
+                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                </div>
+              )}
+            </>
+          )}
+          {editError && <p className="text-[10px] text-red-400">{editError}</p>}
+          <div className="flex items-center gap-2">
+            <button
+              type="button" disabled={editSaving || !editName || (!!sku && !editSkuCode)} onClick={saveEdit}
+              className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+            >
+              {editSaving ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" disabled={editSaving} onClick={() => setEditing(false)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors disabled:opacity-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {pickerOpen && (
         <div className="flex flex-wrap gap-1.5 mt-2 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">

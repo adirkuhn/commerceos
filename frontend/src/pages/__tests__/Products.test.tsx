@@ -860,6 +860,100 @@ describe('editing an existing variant SKU\'s barcode/EAN (VariantRow)', () => {
   })
 })
 
+describe('editing an existing variant and its SKU\'s own fields (VariantRow)', () => {
+  it('clicking Edit prefills name/price/status/weight from the current variant and SKU', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [{ ...baseSku, weight_grams: 378, status: 'inactive' as const }] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByPlaceholderText('Variant name')).toHaveValue('378g')
+    expect(screen.getByPlaceholderText('SKU code')).toHaveValue(baseSku.sku_code)
+    expect(screen.getByPlaceholderText('Price')).toHaveValue(19.99)
+    expect(screen.getByPlaceholderText('Weight (g)')).toHaveValue(378)
+    expect(screen.getByDisplayValue('Inactive')).toBeInTheDocument()
+  })
+
+  it('saving updates both the variant name and the SKU\'s fields', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateVariant).mockResolvedValue({ ...baseVariant, id: 'var-1', name: '412g' })
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(baseSku)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    const nameInput = screen.getByPlaceholderText('Variant name')
+    const editPanel = nameInput.closest('div')!.parentElement!
+    await userEvent.clear(nameInput)
+    await userEvent.type(nameInput, '412g')
+    const priceInput = within(editPanel).getByPlaceholderText('Price')
+    await userEvent.clear(priceInput)
+    await userEvent.type(priceInput, '24.99')
+    await userEvent.click(within(editPanel).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateVariant).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
+      name: '412g',
+    })))
+    expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      sku_code: baseSku.sku_code, price_minor_units: 2499, barcode: baseSku.barcode, status: baseSku.status,
+    }))
+  })
+
+  it('shows an error and keeps the form open when saving fails', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateVariant).mockRejectedValue(new Error('name already used'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    const editPanel = screen.getByPlaceholderText('Variant name').closest('div')!.parentElement!
+    await userEvent.click(within(editPanel).getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('name already used')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Variant name')).toBeInTheDocument()
+  })
+
+  it('Cancel closes the form without saving', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByPlaceholderText('Variant name')).toBeInTheDocument()
+    const editPanel = screen.getByPlaceholderText('Variant name').closest('div')!.parentElement!
+    await userEvent.click(within(editPanel).getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByPlaceholderText('Variant name')).not.toBeInTheDocument()
+    expect(pmsApi.updateVariant).not.toHaveBeenCalled()
+    expect(pmsApi.updateSKU).not.toHaveBeenCalled()
+  })
+})
+
 describe('weight pool (unit_type / portioned_from_sku_id)', () => {
   it('is not shown for a brand-new, not-yet-saved product', async () => {
     render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
