@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"gorm.io/gorm"
@@ -222,9 +223,15 @@ func (uc *PushProductToWooUseCase) createProductSelfHealingDuplicateSKU(ctx cont
 		return nil, err
 	}
 	found, findErr := client.FindProductBySKU(ctx, wooProduct.SKU)
-	if findErr != nil || found == nil {
+	if findErr != nil {
+		log.Printf("createProductSelfHealingDuplicateSKU: FindProductBySKU(%q) errored, self-heal miss: %v", wooProduct.SKU, findErr)
 		return nil, err // self-heal didn't pan out -- surface the original error
 	}
+	if found == nil {
+		log.Printf("createProductSelfHealingDuplicateSKU: FindProductBySKU(%q) found nothing, self-heal miss", wooProduct.SKU)
+		return nil, err // self-heal didn't pan out -- surface the original error
+	}
+	log.Printf("createProductSelfHealingDuplicateSKU: FindProductBySKU(%q) found existing Woo product %s, self-healing", wooProduct.SKU, found.ID)
 	return found, nil
 }
 

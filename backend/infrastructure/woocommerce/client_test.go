@@ -15,6 +15,29 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 )
 
+// TestFactoryNewClient_trimsTrailingSlashFromStoreURL proves a store URL
+// saved with a trailing slash (e.g. "https://example.com/", exactly what a
+// connection's StoreURL commonly is) doesn't produce a doubled slash on
+// every request this client makes -- go-woocommerce-api's own base URL is
+// just ShopURL + "/wp-json/wc/v3/" with no trailing-slash check of its
+// own, so an untrimmed ShopURL becomes "https://example.com//wp-json/...".
+func TestFactoryNewClient_trimsTrailingSlashFromStoreURL(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		json.NewEncoder(w).Encode([]wc.Product{})
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := (&Factory{}).NewClient(server.URL+"/", "ck", "cs")
+	require.NoError(t, err)
+
+	_, err = client.FindProductBySKU(context.Background(), "TSHIRT-1")
+
+	require.NoError(t, err)
+	require.NotContains(t, gotPath, "//", "trailing slash on the store URL must not double up against the SDK's own leading slash")
+}
+
 func TestToWcImages_mapsURLAndAltInOrder(t *testing.T) {
 	images := []integrationsDomain.WooProductImage{
 		{URL: "https://cdn.example.com/a.jpg", Alt: "Front"},

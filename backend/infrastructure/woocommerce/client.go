@@ -25,8 +25,15 @@ type Factory struct{}
 func NewFactory() *Factory { return &Factory{} }
 
 func (f *Factory) NewClient(storeURL, consumerKey, consumerSecret string) (integrationsDomain.WooClient, error) {
+	// go-woocommerce-api builds its base URL as ShopURL + "/wp-json/wc/v3/"
+	// with no trailing-slash check of its own -- a store URL saved with a
+	// trailing slash (e.g. "https://example.com/") produces a doubled
+	// slash ("https://example.com//wp-json/...") on every single request
+	// this client makes. Trimming it here, once, is cheaper than fixing
+	// the vendored SDK.
+	trimmedStoreURL := strings.TrimRight(storeURL, "/")
 	client, err := wc.New(wc.Config{
-		ShopURL:        storeURL,
+		ShopURL:        trimmedStoreURL,
 		ConsumerKey:    consumerKey,
 		ConsumerSecret: consumerSecret,
 	})
@@ -39,7 +46,7 @@ func (f *Factory) NewClient(storeURL, consumerKey, consumerSecret string) (integ
 		// its internal httpClient/baseURL, so ListCategories builds its own
 		// request against the same REST base the library itself targets —
 		// these three are all it needs to replicate that.
-		storeURL: strings.TrimRight(storeURL, "/"), consumerKey: consumerKey, consumerSecret: consumerSecret,
+		storeURL: trimmedStoreURL, consumerKey: consumerKey, consumerSecret: consumerSecret,
 	}, nil
 }
 
