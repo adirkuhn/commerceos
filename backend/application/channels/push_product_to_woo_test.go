@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -324,6 +325,62 @@ func TestPushProductToWoo_wrapsWooCreateFailureAsErrWooRequestFailed(t *testing.
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, integrationsDomain.ErrWooRequestFailed))
+}
+
+// TestPushProductToWoo_selfHealsWhenWooAlreadyHasTheSKU is a regression test:
+// WooCommerce rejecting a create because the store already has a product
+// with this SKU (its own uniqueness constraint) used to fail this push
+// forever, even though the product genuinely IS already there -- this
+// codebase's own product_channel_listings link to it had just been lost
+// (e.g. a connection disconnect/reconnect). The fix looks the existing
+// product up by SKU and links to it instead of retrying a create Woo will
+// always reject the same way.
+func TestPushProductToWoo_selfHealsWhenWooAlreadyHasTheSKU(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	h.wooClient.createErr = fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, errors.New("400 product_invalid_sku"))
+	h.wooClient.findBySKUResult = &integrationsDomain.WooProduct{ID: "existing-woo-id", SKU: sku.SKUCode}
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{sku.SKUCode}, h.wooClient.findBySKUCalled)
+	require.Len(t, listings, 1)
+	require.Equal(t, "existing-woo-id", listings[0].ExternalID)
+	require.Equal(t, channelsDomain.SyncStatusSynced, listings[0].SyncStatus)
+}
+
+// TestPushProductToWoo_duplicateSKUSelfHealMissFallsBackToTheOriginalError
+// proves that if the self-heal search itself comes up empty (or errors),
+// the original duplicate-SKU failure still surfaces as ErrWooRequestFailed
+// rather than silently succeeding with nothing linked.
+func TestPushProductToWoo_duplicateSKUSelfHealMissFallsBackToTheOriginalError(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	h.wooClient.createErr = fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, errors.New("400 product_invalid_sku"))
+	h.wooClient.findBySKUResult = nil // search itself finds nothing
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 2), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, integrationsDomain.ErrWooRequestFailed))
+	require.True(t, errors.Is(err, integrationsDomain.ErrWooDuplicateSKU))
 }
 
 func TestPushProductToWoo_pushesVirtualProductWithoutStockManagement(t *testing.T) {

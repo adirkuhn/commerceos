@@ -3,6 +3,7 @@ package woocommerce
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -170,6 +171,70 @@ func TestUpdateProductStock_variation_neverTouchesSalePrice(t *testing.T) {
 // sync path (unlike UpdateProductStock) always sends sale_price on the
 // wire, even when clearing it to "" -- this is the path that owns
 // conveying the product's current sale price state to Woo.
+// TestCreateProduct_duplicateSKU_wrapsAsErrWooDuplicateSKU proves Woo's
+// actual REST error code for this rejection ("product_invalid_sku") gets
+// translated to integrationsDomain.ErrWooDuplicateSKU, not left as an
+// opaque wrapped HTTP error -- this is what lets
+// PushProductToWooUseCase's self-heal path (search by SKU, link) actually
+// trigger.
+func TestCreateProduct_duplicateSKU_wrapsAsErrWooDuplicateSKU(t *testing.T) {
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"code": "product_invalid_sku", "message": "SKU already exists", "data": map[string]any{"status": 400},
+		})
+	})
+
+	_, err := c.CreateProduct(context.Background(), integrationsDomain.WooProduct{Name: "T-Shirt", SKU: "TSHIRT-1"})
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, integrationsDomain.ErrWooDuplicateSKU)
+}
+
+// TestCreateProduct_otherFailure_doesNotBecomeErrWooDuplicateSKU proves the
+// translation is scoped to that one specific Woo error code -- any other
+// rejection must not be misidentified as self-healable.
+func TestCreateProduct_otherFailure_doesNotBecomeErrWooDuplicateSKU(t *testing.T) {
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"code": "rest_invalid_param", "message": "something else is wrong", "data": map[string]any{"status": 400},
+		})
+	})
+
+	_, err := c.CreateProduct(context.Background(), integrationsDomain.WooProduct{Name: "T-Shirt", SKU: "TSHIRT-1"})
+
+	require.Error(t, err)
+	require.False(t, errors.Is(err, integrationsDomain.ErrWooDuplicateSKU))
+}
+
+func TestFindProductBySKU_returnsTheMatch(t *testing.T) {
+	var gotQuery string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query().Get("sku")
+		json.NewEncoder(w).Encode([]wc.Product{{ID: 42, Sku: "TSHIRT-1"}})
+	})
+
+	found, err := c.FindProductBySKU(context.Background(), "TSHIRT-1")
+
+	require.NoError(t, err)
+	require.Equal(t, "TSHIRT-1", gotQuery)
+	require.NotNil(t, found)
+	require.Equal(t, "42", found.ID)
+	require.Equal(t, "TSHIRT-1", found.SKU)
+}
+
+func TestFindProductBySKU_returnsNilNotErrorWhenNothingMatches(t *testing.T) {
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]wc.Product{})
+	})
+
+	found, err := c.FindProductBySKU(context.Background(), "NO-SUCH-SKU")
+
+	require.NoError(t, err)
+	require.Nil(t, found)
+}
+
 func TestUpdateProduct_alwaysSendsSalePriceExplicitly(t *testing.T) {
 	var raw map[string]json.RawMessage
 	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {

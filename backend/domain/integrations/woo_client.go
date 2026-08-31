@@ -255,6 +255,13 @@ type WooClient interface {
 	// JSON tags, so explicitly clearing a previously-true flag back to
 	// false does not round-trip — a pre-existing library limitation.
 	UpdateProduct(ctx context.Context, externalProductID string, p WooProduct) (*WooProduct, error)
+	// FindProductBySKU looks up a Woo product by SKU (WooCommerce's own SKU
+	// uniqueness constraint means at most one can ever match) -- used both
+	// to self-heal PushProductToWooUseCase's create-vs-already-exists
+	// failure and by LinkExistingWooProductUseCase (the manual "this
+	// CommerceOS product is actually this Woo product" admin action).
+	// Returns nil, nil (not an error) when nothing matches.
+	FindProductBySKU(ctx context.Context, sku string) (*WooProduct, error)
 	// CreateVariableProduct creates the PARENT product with type "variable"
 	// and declares one variation-attribute (attributeName) with the given
 	// possible values -- must be called before any CreateVariation call

@@ -87,6 +87,10 @@ type stubWooClient struct {
 	createErr     error
 	createdWithID string // external ID assigned to the pushed product
 
+	findBySKUResult *integrationsDomain.WooProduct
+	findBySKUErr    error
+	findBySKUCalled []string
+
 	updateStockCalled []stubStockUpdate
 	updateStockErr    error
 
@@ -205,6 +209,14 @@ func (s *stubWooClient) CreateProduct(_ context.Context, p integrationsDomain.Wo
 	}
 	p.ID = id
 	return &p, nil
+}
+
+func (s *stubWooClient) FindProductBySKU(_ context.Context, sku string) (*integrationsDomain.WooProduct, error) {
+	s.findBySKUCalled = append(s.findBySKUCalled, sku)
+	if s.findBySKUErr != nil {
+		return nil, s.findBySKUErr
+	}
+	return s.findBySKUResult, nil
 }
 
 func (s *stubWooClient) UpdateProductStock(_ context.Context, parentExternalID, externalID string, quantity int, metadata []integrationsDomain.WooMetaData) error {

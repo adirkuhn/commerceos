@@ -16,6 +16,21 @@ var (
 	// map it to 502, not 500. Used by any use case that calls WooClient
 	// beyond the connection test itself (e.g. product import).
 	ErrWooRequestFailed = errors.New("woocommerce request failed")
+	// ErrWooDuplicateSKU distinguishes WooCommerce rejecting a product
+	// create specifically because a product with this SKU already exists
+	// on the store (Woo's own SKU-uniqueness constraint, WC REST error
+	// code "product_invalid_sku") from any other request failure — lets
+	// PushProductToWooUseCase self-heal (search Woo by SKU, link the
+	// existing product) instead of failing the same way on every retry.
+	// This happens in practice when this codebase's own link to an
+	// already-existing Woo product was lost (e.g. its
+	// product_channel_listings row got orphaned by a connection
+	// disconnect/reconnect) while the real product stays on the store.
+	ErrWooDuplicateSKU = errors.New("woocommerce: a product with this SKU already exists")
+	// ErrWooProductNotFoundBySKU guards LinkExistingWooProductUseCase:
+	// staff supplied a SKU that doesn't match any product currently on
+	// the store.
+	ErrWooProductNotFoundBySKU = errors.New("no woocommerce product found with this SKU")
 	// ErrNoTenantContext fires when the request's JWT carries no tenant at
 	// all — should not happen in practice (lm2 always resolves a company on
 	// login), kept as a defensive guard.

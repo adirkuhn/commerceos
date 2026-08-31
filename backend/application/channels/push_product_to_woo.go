@@ -200,9 +200,37 @@ func rowVariantID(product pmsDomain.Product, variantID string) *string {
 	return &id
 }
 
+// createProductSelfHealingDuplicateSKU wraps client.CreateProduct --
+// WooCommerce rejects a create when a product with this SKU already
+// exists on the store (its own SKU-uniqueness constraint); in production
+// that happens when this codebase's own link to an already-existing Woo
+// product was lost (e.g. a connection disconnect/reconnect orphaned the
+// product_channel_listings row, see integrationsDomain.ErrWooDuplicateSKU's
+// doc), not because the product is actually new. Rather than failing this
+// push forever on every retry, look the existing product up by SKU and
+// treat it as if that had just been created -- re-links CommerceOS to the
+// product Woo already has instead of endlessly retrying a create Woo will
+// always reject. Only wired into the two CreateProduct call sites
+// (single-SKU and separate-products modes) that actually hit this failure
+// in practice; CreateVariation (variations mode) isn't covered.
+func (uc *PushProductToWooUseCase) createProductSelfHealingDuplicateSKU(ctx context.Context, client integrationsDomain.WooClient, wooProduct integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
+	created, err := client.CreateProduct(ctx, wooProduct)
+	if err == nil {
+		return created, nil
+	}
+	if !errors.Is(err, integrationsDomain.ErrWooDuplicateSKU) {
+		return nil, err
+	}
+	found, findErr := client.FindProductBySKU(ctx, wooProduct.SKU)
+	if findErr != nil || found == nil {
+		return nil, err // self-heal didn't pan out -- surface the original error
+	}
+	return found, nil
+}
+
 func (uc *PushProductToWooUseCase) pushSingleSKU(ctx context.Context, client integrationsDomain.WooClient, product pmsDomain.Product, vp variantPush, in PushProductToWooInput, images []integrationsDomain.WooProductImage) ([]channelsDomain.ProductChannelListing, error) {
 	wooProduct := uc.buildWooProduct(ctx, client, in.ConnectionID, product, vp.SKU, product.Name, images)
-	created, err := client.CreateProduct(ctx, wooProduct)
+	created, err := uc.createProductSelfHealingDuplicateSKU(ctx, client, wooProduct)
 	if err != nil {
 		return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
 	}
@@ -227,7 +255,7 @@ func (uc *PushProductToWooUseCase) pushSeparateProducts(ctx context.Context, cli
 
 		name := fmt.Sprintf("%s - %s", product.Name, vp.Variant.Name)
 		wooProduct := uc.buildWooProduct(ctx, client, in.ConnectionID, product, vp.SKU, name, images)
-		created, err := client.CreateProduct(ctx, wooProduct)
+		created, err := uc.createProductSelfHealingDuplicateSKU(ctx, client, wooProduct)
 		if err != nil {
 			return nil, fmt.Errorf("pushProductToWoo: %w: %w", integrationsDomain.ErrWooRequestFailed, err)
 		}

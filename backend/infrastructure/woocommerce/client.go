@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -337,9 +338,35 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 		Categories:     toWcCategories(p.Categories),
 	})
 	if err != nil {
-		return nil, err
+		return nil, translateDuplicateSKUError(err)
 	}
 	result := toWooProduct(*created)
+	return &result, nil
+}
+
+// translateDuplicateSKUError recognizes WooCommerce's own "product_invalid_sku"
+// REST error code (returned when a create's SKU already exists on the
+// store) and wraps it as integrationsDomain.ErrWooDuplicateSKU, so
+// application/channels can distinguish "self-healable, a product with this
+// SKU is already there" from every other request failure. Any other error
+// (network, other 4xx/5xx) passes through unchanged.
+func translateDuplicateSKUError(err error) error {
+	var wcErr *wc.ErrorResponse
+	if errors.As(err, &wcErr) && wcErr.Code == "product_invalid_sku" {
+		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, err)
+	}
+	return err
+}
+
+func (c *wooClient) FindProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {
+	products, _, err := c.client.Products.List(ctx, &wc.ListProductParams{Sku: sku})
+	if err != nil {
+		return nil, err
+	}
+	if len(products) == 0 {
+		return nil, nil
+	}
+	result := toWooProduct(products[0])
 	return &result, nil
 }
 
