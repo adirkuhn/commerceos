@@ -295,17 +295,18 @@ type stubCompletePicking struct {
 	err            error
 	gotID          string
 	gotCompletedBy string
+	gotIn          appoms.CompletePickingInput
 }
 
-func (s *stubCompletePicking) Execute(_ context.Context, id, completedBy string) (*appoms.CompletePickingResult, error) {
-	s.gotID, s.gotCompletedBy = id, completedBy
+func (s *stubCompletePicking) Execute(_ context.Context, in appoms.CompletePickingInput) (*appoms.CompletePickingResult, error) {
+	s.gotID, s.gotCompletedBy, s.gotIn = in.SessionID, in.CompletedBy, in
 	if s.err != nil {
 		return nil, s.err
 	}
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &appoms.CompletePickingResult{Session: omsDomain.PickingSession{ID: id}}, nil
+	return &appoms.CompletePickingResult{Completed: true, Session: omsDomain.PickingSession{ID: in.SessionID}}, nil
 }
 
 func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock) *gin.Engine {
@@ -836,4 +837,33 @@ func TestCompletePicking_notFound(t *testing.T) {
 		"POST", "/api/v1/picking-sessions/missing/complete", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCompletePicking_stockShortfall_returns200WithCompletedFalse(t *testing.T) {
+	var complete *stubCompletePicking
+	w := doRequest(routerWithPicking(func(s *pickingStubs) {
+		complete = s.complete
+		complete.out = &appoms.CompletePickingResult{
+			Completed: false,
+			StockShortfalls: []appoms.StockShortfall{
+				{ScanID: "scan-1", SKUID: "sku-1", Name: "Widget", Needed: 5, Short: 3},
+			},
+		}
+	}), "POST", "/api/v1/picking-sessions/session-1/complete", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"completed":false`)
+	assert.Contains(t, w.Body.String(), `"stock_shortfalls"`)
+	assert.Contains(t, w.Body.String(), `"short":3`)
+}
+
+func TestCompletePicking_threadsResolutionsFromRequestBody(t *testing.T) {
+	var complete *stubCompletePicking
+	body := map[string]any{"resolutions": map[string]string{"scan-1": "with_item"}}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { complete = s.complete }),
+		"POST", "/api/v1/picking-sessions/session-1/complete", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, complete.gotIn.Resolutions, "scan-1")
+	assert.Equal(t, appoms.StockShortfallWithItem, complete.gotIn.Resolutions["scan-1"])
 }

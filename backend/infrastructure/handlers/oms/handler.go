@@ -71,7 +71,7 @@ type pausePickingUC interface {
 	Execute(ctx context.Context, id string) (*omsDomain.PickingSession, error)
 }
 type completePickingUC interface {
-	Execute(ctx context.Context, id, completedBy string) (*appoms.CompletePickingResult, error)
+	Execute(ctx context.Context, in appoms.CompletePickingInput) (*appoms.CompletePickingResult, error)
 }
 type listSalesOrderActivitiesUC interface {
 	Execute(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderActivity, error)
@@ -169,7 +169,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		// param, recordMovement (RecordStockMovementUseCase) is the
 		// movementReverser param. Same swap UpdateSalesOrderUseCase's own
 		// wiring above already has -- see CompletePickingUseCase's doc.
-		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement),
+		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
 	)
@@ -473,15 +473,46 @@ func (h *Handler) CompletePicking(c *gin.Context, id genoms.Id) {
 	if claims != nil {
 		completedBy = claims.UserID
 	}
-	result, err := h.completePicking.Execute(c.Request.Context(), id, completedBy)
+	var req genoms.CompletePickingJSONRequestBody
+	// The request body is optional (no shortfalls to resolve yet) --
+	// ShouldBindJSON on an empty body would error, so only attempt it when
+	// one was actually sent.
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+	}
+	resolutions := make(map[string]appoms.StockShortfallResolution)
+	if req.Resolutions != nil {
+		for scanID, r := range *req.Resolutions {
+			resolutions[scanID] = appoms.StockShortfallResolution(r)
+		}
+	}
+
+	result, err := h.completePicking.Execute(c.Request.Context(), appoms.CompletePickingInput{
+		SessionID: id, CompletedBy: completedBy, Resolutions: resolutions,
+	})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	missing := make([]genoms.MissingPickItem, len(result.MissingItems))
-	for i, m := range result.MissingItems {
-		missing[i] = genoms.MissingPickItem{LineItemId: m.LineItemID, Name: m.Name, ExpectedQty: m.ExpectedQty, PickedQty: m.PickedQty}
+
+	resp := genoms.CompletePickingResult{Completed: result.Completed}
+	if result.Completed {
+		session := toGenPickingSession(result.Session)
+		resp.Session = &session
+		missing := make([]genoms.MissingPickItem, len(result.MissingItems))
+		for i, m := range result.MissingItems {
+			missing[i] = genoms.MissingPickItem{LineItemId: m.LineItemID, Name: m.Name, ExpectedQty: m.ExpectedQty, PickedQty: m.PickedQty}
+		}
+		resp.MissingItems = &missing
+	} else {
+		shortfalls := make([]genoms.StockShortfall, len(result.StockShortfalls))
+		for i, s := range result.StockShortfalls {
+			shortfalls[i] = genoms.StockShortfall{ScanId: s.ScanID, SkuId: s.SKUID, Name: s.Name, Needed: s.Needed, Short: s.Short}
+		}
+		resp.StockShortfalls = &shortfalls
 	}
-	resp := genoms.CompletePickingResult{Session: toGenPickingSession(result.Session), MissingItems: missing}
 	c.JSON(http.StatusOK, genoms.CompletePickingResultResponse{Data: &resp})
 }
 

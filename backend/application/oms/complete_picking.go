@@ -8,6 +8,7 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -24,15 +25,80 @@ type MissingPickItem struct {
 	PickedQty   int64
 }
 
+// StockShortfallResolution is how staff decide to handle one
+// substitute/freebie/new-item scan whose SKU came back short on tracked
+// stock -- see CompletePickingInput.Resolutions.
+type StockShortfallResolution string
+
+const (
+	// StockShortfallWithItem ships the item anyway -- staff know it's
+	// really on the shelf, the ledger's just wrong. Writes a reconciliation
+	// Adjustment for the shortfall (AllocateSaleStockInput.ReconcileShortfall
+	// -- the same escape hatch ForceAcceptStockUseCase and POS sales already
+	// use) before decrementing for real.
+	StockShortfallWithItem StockShortfallResolution = "with_item"
+	// StockShortfallWithoutItem ships without this item -- no stock moves
+	// and, for Freebie/NewItem, no line item is ever created. For a
+	// Substitute, the original line's stock was already reversed (see
+	// replay's Substitute case) and nothing replaces it, so the line shows
+	// up in MissingItems like any other unpicked line.
+	StockShortfallWithoutItem StockShortfallResolution = "without_item"
+)
+
+// StockShortfall is one substitute/freebie/new-item scan whose SKU doesn't
+// have enough tracked stock in the order's warehouse -- surfaced to staff
+// for a decision (see StockShortfallResolution) instead of hard-failing
+// completion the way a bare AllocateSaleStockUseCase call would.
+type StockShortfall struct {
+	ScanID string
+	SKUID  string
+	// Name is the scan's own Reason for Freebie/NewItem (already the
+	// intended display name -- see PickScan.Reason's doc comment), or the
+	// substitute SKU's own SKUCode otherwise.
+	Name   string
+	Needed int64
+	Short  int64
+}
+
 type CompletePickingResult struct {
-	Session      omsDomain.PickingSession
-	MissingItems []MissingPickItem
+	// Completed is false when StockShortfalls is non-empty -- nothing was
+	// replayed or completed yet. Resubmit with Resolutions covering every
+	// listed ScanID; Session/MissingItems are zero values until then.
+	Completed       bool
+	Session         omsDomain.PickingSession
+	MissingItems    []MissingPickItem
+	StockShortfalls []StockShortfall
+}
+
+type CompletePickingInput struct {
+	SessionID   string
+	CompletedBy string
+	// Resolutions maps a PickScan.ID (one already returned in a prior
+	// call's StockShortfalls) to how staff want it handled. A scan with no
+	// entry here that still comes back short blocks completion again the
+	// same way -- safe to retry without resolving everything at once.
+	Resolutions map[string]StockShortfallResolution
 }
 
 // addLineItemForPickCompletionUC is *AddSalesOrderLineItemUseCase, narrowed
 // to point of use (ISP).
 type addLineItemForPickCompletionUC interface {
 	Execute(ctx context.Context, in AddSalesOrderLineItemInput) (*omsDomain.SalesOrderLineItem, error)
+}
+
+// stockAvailabilityChecker is *inventory.AllocateSaleStockUseCase narrowed
+// to point of use (ISP) -- lets CompletePickingUseCase detect a genuine
+// shortfall up front, without writing anything, so staff get a decision
+// instead of a hard failure.
+type stockAvailabilityChecker interface {
+	CheckAvailability(ctx context.Context, skuID, warehouseID string, quantity int64) (short int64, err error)
+}
+
+// skuFinderForShortfallNames is pmsDomain.SKURepository narrowed to point
+// of use (ISP) -- just enough to show a substitute's own SKUCode in a
+// StockShortfall report.
+type skuFinderForShortfallNames interface {
+	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
 }
 
 // CompletePickingUseCase is the scanner app's "Finish" action -- and the
@@ -45,6 +111,14 @@ type addLineItemForPickCompletionUC interface {
 // marks the order Fulfilled, gaps or not -- a partial pick is still a
 // picking decision staff made and confirmed by finishing, not an
 // automatic-retry state the way a partially_received PO is.
+//
+// Before ever replaying anything, every unreplayed substitute/freebie/
+// new-item scan without an already-supplied Resolution is checked for
+// stock availability (no writes) -- see StockShortfall. If any come back
+// short, Execute returns immediately with Completed:false and the list,
+// touching nothing; the caller resubmits with Resolutions once staff have
+// decided, and this check runs again (already-resolved scans are skipped)
+// before replay actually proceeds.
 //
 // Replay algorithm: every unreplayed scan is processed in ScannedAt order
 // (oldest first -- ListBySession already orders this way). Each row's
@@ -61,20 +135,23 @@ type addLineItemForPickCompletionUC interface {
 //   - Pick: no stock effect (stock already left the ledger the moment the
 //     order's Status entered a stock-reducing state) -- markReplayed only.
 //   - Substitute: reverses the ORIGINAL line item's own decrement
-//     movements batch-by-batch (same shape as restockLineItems), then
-//     decrements the substitute SKU for real, linking the new movements to
-//     the ORIGINAL line item's ID (documents "this line shipped via a
-//     substitute"). The original line item row is never mutated.
-//   - Freebie/NewItem: creates a real SalesOrderLineItem via
-//     AddSalesOrderLineItemUseCase (Freebie forced to price 0, NewItem
-//     picker-entered), decrements its SKU for real, links the new
-//     movements to the NEW line item's ID.
+//     movements batch-by-batch (same shape as restockLineItems), then --
+//     unless resolved StockShortfallWithoutItem -- decrements the
+//     substitute SKU for real, linking the new movements to the ORIGINAL
+//     line item's ID (documents "this line shipped via a substitute"). The
+//     original line item row is never mutated.
+//   - Freebie/NewItem: unless resolved StockShortfallWithoutItem, creates a
+//     real SalesOrderLineItem via AddSalesOrderLineItemUseCase (Freebie
+//     forced to price 0, NewItem picker-entered), decrements its SKU for
+//     real, links the new movements to the NEW line item's ID. Resolved
+//     StockShortfallWithoutItem: the line item is never created at all.
 //
-// A replay failure (e.g. ErrInsufficientStock on a substitute/freebie/new
-// item) is a hard stop -- the session stays incomplete, the error
+// A replay failure that ISN'T a pre-flight-checked shortfall (some other
+// error) is still a hard stop -- the session stays incomplete, the error
 // propagates, already-replayed rows stay marked. Only scan-coverage gaps (a
-// line item never scanned as Pick/Substitute) are soft-reported via
-// MissingItems, which never blocks completion.
+// line item never scanned as Pick/Substitute, or a Substitute resolved
+// StockShortfallWithoutItem) are soft-reported via MissingItems, which
+// never blocks completion.
 type CompletePickingUseCase struct {
 	db              *gorm.DB
 	sessionRepo     omsDomain.PickingSessionRepository
@@ -85,6 +162,8 @@ type CompletePickingUseCase struct {
 	addLineItem     addLineItemForPickCompletionUC
 	recordMovement  recordSaleMovementUC
 	reverseMovement movementReverser
+	stockChecker    stockAvailabilityChecker
+	skuRepo         skuFinderForShortfallNames
 }
 
 func NewCompletePickingUseCase(
@@ -97,15 +176,18 @@ func NewCompletePickingUseCase(
 	addLineItem addLineItemForPickCompletionUC,
 	recordMovement recordSaleMovementUC,
 	reverseMovement movementReverser,
+	stockChecker stockAvailabilityChecker,
+	skuRepo skuFinderForShortfallNames,
 ) *CompletePickingUseCase {
 	return &CompletePickingUseCase{
 		db: db, sessionRepo: sessionRepo, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo,
 		linkRepo: linkRepo, scanRepo: scanRepo, addLineItem: addLineItem,
 		recordMovement: recordMovement, reverseMovement: reverseMovement,
+		stockChecker: stockChecker, skuRepo: skuRepo,
 	}
 }
 
-func (uc *CompletePickingUseCase) Execute(ctx context.Context, id, completedBy string) (*CompletePickingResult, error) {
+func (uc *CompletePickingUseCase) Execute(ctx context.Context, in CompletePickingInput) (*CompletePickingResult, error) {
 	var session *omsDomain.PickingSession
 	var order *omsDomain.SalesOrder
 	var lineItems []omsDomain.SalesOrderLineItem
@@ -113,7 +195,7 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, id, completedBy s
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		session, err = uc.sessionRepo.FindByID(ctx, id)
+		session, err = uc.sessionRepo.FindByID(ctx, in.SessionID)
 		if err != nil {
 			return err
 		}
@@ -130,25 +212,34 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, id, completedBy s
 		if err != nil {
 			return err
 		}
-		scans, err = uc.scanRepo.ListBySession(ctx, id)
+		scans, err = uc.scanRepo.ListBySession(ctx, in.SessionID)
 		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("completePicking: %w", err)
 	}
 
-	if err := uc.replay(ctx, id, order.ID, order.WarehouseID, lineItems, scans); err != nil {
+	shortfalls, err := uc.checkStockShortfalls(ctx, order.WarehouseID, scans, in.Resolutions)
+	if err != nil {
+		return nil, fmt.Errorf("completePicking: %w", err)
+	}
+	if len(shortfalls) > 0 {
+		return &CompletePickingResult{StockShortfalls: shortfalls}, nil
+	}
+
+	if err := uc.replay(ctx, in.SessionID, order.ID, order.WarehouseID, lineItems, scans, in.Resolutions); err != nil {
 		return nil, fmt.Errorf("completePicking: %w", err)
 	}
 
 	var result CompletePickingResult
-	result.MissingItems = missingPickItems(lineItems, scans)
+	result.Completed = true
+	result.MissingItems = missingPickItems(lineItems, scans, in.Resolutions)
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		session.Status = omsDomain.PickingSessionStatusCompleted
 		session.CompletedAt = &now
-		session.CompletedBy = completedBy
+		session.CompletedBy = in.CompletedBy
 		if err := uc.sessionRepo.Update(ctx, session); err != nil {
 			return err
 		}
@@ -165,7 +256,49 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, id, completedBy s
 	return &result, nil
 }
 
-func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOrderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan) error {
+// checkStockShortfalls dry-runs every unreplayed substitute/freebie/
+// new-item scan that doesn't already have a Resolution -- see this type's
+// doc comment. Never writes anything.
+func (uc *CompletePickingUseCase) checkStockShortfalls(ctx context.Context, warehouseID string, scans []omsDomain.PickScan, resolutions map[string]StockShortfallResolution) ([]StockShortfall, error) {
+	var shortfalls []StockShortfall
+	for _, s := range scans {
+		if s.ReplayedAt != nil {
+			continue
+		}
+		if s.ActionType != omsDomain.PickScanActionSubstitute && s.ActionType != omsDomain.PickScanActionFreebie && s.ActionType != omsDomain.PickScanActionNewItem {
+			continue
+		}
+		if _, resolved := resolutions[s.ID]; resolved {
+			continue
+		}
+		short, err := uc.stockChecker.CheckAvailability(ctx, s.SKUID, warehouseID, s.Quantity)
+		if err != nil {
+			return nil, err
+		}
+		if short <= 0 {
+			continue
+		}
+		shortfalls = append(shortfalls, StockShortfall{
+			ScanID: s.ID, SKUID: s.SKUID, Name: uc.shortfallName(ctx, s), Needed: s.Quantity, Short: short,
+		})
+	}
+	return shortfalls, nil
+}
+
+func (uc *CompletePickingUseCase) shortfallName(ctx context.Context, s omsDomain.PickScan) string {
+	if s.ActionType == omsDomain.PickScanActionFreebie || s.ActionType == omsDomain.PickScanActionNewItem {
+		if s.Reason != "" {
+			return s.Reason
+		}
+	}
+	sku, err := uc.skuRepo.FindByID(ctx, s.SKUID)
+	if err != nil || sku == nil {
+		return s.SKUID
+	}
+	return sku.SKUCode
+}
+
+func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOrderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan, resolutions map[string]StockShortfallResolution) error {
 	lineItemsByID := make(map[string]omsDomain.SalesOrderLineItem, len(lineItems))
 	for _, li := range lineItems {
 		lineItemsByID[li.ID] = li
@@ -209,16 +342,19 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 					}
 				}
 			}
-			movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
-				SKUID: s.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
-				Quantity: s.Quantity, Reason: fmt.Sprintf("picking session %s substitute", sessionID), OccurredAt: s.ScannedAt,
-			})
-			if err != nil {
-				return err
-			}
-			for _, m := range movements {
-				if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, m); err != nil {
+			if resolutions[s.ID] != StockShortfallWithoutItem {
+				movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
+					SKUID: s.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
+					Quantity: s.Quantity, Reason: fmt.Sprintf("picking session %s substitute", sessionID), OccurredAt: s.ScannedAt,
+					ReconcileShortfall: resolutions[s.ID] == StockShortfallWithItem,
+				})
+				if err != nil {
 					return err
+				}
+				for _, m := range movements {
+					if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, m); err != nil {
+						return err
+					}
 				}
 			}
 			if err := uc.markReplayed(ctx, s.ID); err != nil {
@@ -226,6 +362,14 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 			}
 
 		case omsDomain.PickScanActionFreebie, omsDomain.PickScanActionNewItem:
+			if resolutions[s.ID] == StockShortfallWithoutItem {
+				// Staff chose to ship without this extra item -- it's
+				// never created and nothing is ever decremented for it.
+				if err := uc.markReplayed(ctx, s.ID); err != nil {
+					return err
+				}
+				continue
+			}
 			price := int64(0)
 			if s.PriceMinorUnits != nil {
 				price = *s.PriceMinorUnits
@@ -239,6 +383,7 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 			movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 				SKUID: s.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
 				Quantity: s.Quantity, Reason: fmt.Sprintf("picking session %s %s", sessionID, s.ActionType), OccurredAt: s.ScannedAt,
+				ReconcileShortfall: resolutions[s.ID] == StockShortfallWithItem,
 			})
 			if err != nil {
 				return err
@@ -266,13 +411,19 @@ func (uc *CompletePickingUseCase) markReplayed(ctx context.Context, scanID strin
 	})
 }
 
-func missingPickItems(lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan) []MissingPickItem {
+func missingPickItems(lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan, resolutions map[string]StockShortfallResolution) []MissingPickItem {
 	pickedByLineItem := make(map[string]int64, len(scans))
 	for _, s := range scans {
 		if s.LineItemID == nil {
 			continue
 		}
 		if s.ActionType != omsDomain.PickScanActionPick && s.ActionType != omsDomain.PickScanActionSubstitute {
+			continue
+		}
+		// A substitute staff chose to ship without (StockShortfallWithoutItem)
+		// never actually replaced the original line's stock -- it must not
+		// count as picked.
+		if s.ActionType == omsDomain.PickScanActionSubstitute && resolutions[s.ID] == StockShortfallWithoutItem {
 			continue
 		}
 		pickedByLineItem[*s.LineItemID] += s.Quantity

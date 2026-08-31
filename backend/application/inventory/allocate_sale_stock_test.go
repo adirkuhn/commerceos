@@ -233,3 +233,29 @@ func TestAllocateSaleStock_ignoresBatchesInADifferentWarehouse(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, errors.Is(err, invDomain.ErrInsufficientStock))
 }
+
+func TestAllocateSaleStock_CheckAvailability_reportsZeroShortWhenEnoughStock(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{WarehouseID: "wh-1", BatchID: nil, QuantityDelta: 10},
+	}}
+	uc := appinv.NewAllocateSaleStockUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubOutboxRepo{})
+
+	short, err := uc.CheckAvailability(context.Background(), "sku-1", "wh-1", 3)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(0), short)
+	require.Empty(t, movementRepo.created, "a check must never write anything")
+}
+
+func TestAllocateSaleStock_CheckAvailability_reportsExactShortfall(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{WarehouseID: "wh-1", BatchID: nil, QuantityDelta: 2},
+	}}
+	uc := appinv.NewAllocateSaleStockUseCase(newMockGormDB(t), movementRepo, &stubBatchRepo{}, &stubOutboxRepo{})
+
+	short, err := uc.CheckAvailability(context.Background(), "sku-1", "wh-1", 5)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(3), short)
+	require.Empty(t, movementRepo.created)
+}

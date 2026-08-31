@@ -429,9 +429,18 @@ paths:
         Scanner app -- finish a picking session; returns a missing-items
         report if any order line wasn't fully picked/substituted. Always
         marks the order fulfilled, gaps or not. completed_by is taken from
-        the caller's own JWT claims, not the request body.
+        the caller's own JWT claims, not the request body. If a substitute/
+        freebie/new-item pick's SKU is short on tracked stock, returns
+        completed:false with stock_shortfalls instead of completing --
+        resubmit with resolutions once staff decide.
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePickingRequest'
       responses:
         '200':
           description: ok
@@ -950,15 +959,45 @@ components:
         expected_qty: { type: integer, format: int64 }
         picked_qty: { type: integer, format: int64 }
 
+    StockShortfall:
+      type: object
+      required: [scan_id, sku_id, name, needed, short]
+      properties:
+        scan_id: { type: string }
+        sku_id: { type: string }
+        name: { type: string }
+        needed: { type: integer, format: int64 }
+        short: { type: integer, format: int64 }
+
     CompletePickingResult:
       type: object
-      required: [session, missing_items]
+      required: [completed]
       properties:
+        # completed:false means nothing was replayed or completed --
+        # stock_shortfalls lists what needs a decision (see
+        # CompletePickingRequest.resolutions) before resubmitting. session/
+        # missing_items are absent in that case.
+        completed: { type: boolean }
         session: { $ref: '#/components/schemas/PickingSession' }
         missing_items:
           type: array
           items:
             $ref: '#/components/schemas/MissingPickItem'
+        stock_shortfalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockShortfall'
+
+    CompletePickingRequest:
+      type: object
+      properties:
+        resolutions:
+          type: object
+          description: >-
+            Maps a PickScan id (one already returned in a prior call's
+            stock_shortfalls) to "with_item" (ship it anyway, reconciling
+            the shortfall) or "without_item" (ship without it).
+          additionalProperties: { type: string, enum: [with_item, without_item] }
 
     CompletePickingResultResponse:
       type: object

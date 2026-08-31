@@ -445,6 +445,39 @@ func (s *stubReverseMovement) Execute(_ context.Context, in appinventory.RecordS
 	return &invDomain.StockMovement{ID: "movement-1", SKUID: in.SKUID, BatchID: in.BatchID, Type: in.Type, QuantityDelta: in.QuantityDelta}, nil
 }
 
+// stubStockAvailabilityChecker's zero value reports no shortfall for every
+// SKU (short: 0) -- opens no transaction of its own, unlike the real
+// *inventory.AllocateSaleStockUseCase, so it doesn't affect a test's
+// newMockGormDBN count unless a test explicitly wants a shortfall.
+type stubStockAvailabilityChecker struct {
+	calls  []string // SKUIDs checked, in order
+	shortBySKU map[string]int64
+	err    error
+}
+
+func (s *stubStockAvailabilityChecker) CheckAvailability(_ context.Context, skuID, _ string, _ int64) (int64, error) {
+	s.calls = append(s.calls, skuID)
+	if s.err != nil {
+		return 0, s.err
+	}
+	return s.shortBySKU[skuID], nil
+}
+
+// stubSKUFinderForShortfall's zero value returns a SKU whose SKUCode
+// mirrors the id -- CompletePickingUseCase only calls this to build a
+// human-readable StockShortfall.Name for a substitute (Freebie/NewItem use
+// the scan's own Reason instead, see PickScan.Reason's doc comment).
+type stubSKUFinderForShortfall struct {
+	err error
+}
+
+func (s *stubSKUFinderForShortfall) FindByID(_ context.Context, id string) (*pmsDomain.SKU, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &pmsDomain.SKU{ID: id, SKUCode: id}, nil
+}
+
 type stubSalesOrderActivityRepo struct {
 	createErr        error
 	created          []omsDomain.SalesOrderActivity

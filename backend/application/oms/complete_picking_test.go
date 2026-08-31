@@ -48,9 +48,9 @@ func TestCompletePicking_allPickCleanCompletion(t *testing.T) {
 	addLineItem := &stubAddLineItemForPickCompletion{}
 	recordMovement := &stubRecordMovement{}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, addLineItem, recordMovement, reverseMovement)
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, addLineItem, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	result, err := uc.Execute(context.Background(), "session-1", "user-1")
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	assert.Empty(t, recordMovement.calls, "a plain pick has no stock effect -- stock already left the ledger at order-processing time")
@@ -71,9 +71,9 @@ func TestCompletePicking_reportsMissingItemsButStillCompletes(t *testing.T) {
 	sessionRepo, salesOrderRepo := completablePickingFixtures()
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Name: "Widget", Quantity: 5}}}
 	scanRepo := &stubPickScanRepo{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	result, err := uc.Execute(context.Background(), "session-1", "user-1")
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, result.MissingItems, 1)
@@ -98,9 +98,9 @@ func TestCompletePicking_substituteReversesOriginalAndDecrementsSubstitute(t *te
 	}}
 	recordMovement := &stubRecordMovement{}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement)
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	result, err := uc.Execute(context.Background(), "session-1", "user-1")
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, reverseMovement.calls, 1)
@@ -130,9 +130,9 @@ func TestCompletePicking_substituteSkipsReversalWhenOriginalLineHasNoSKU(t *test
 	}}
 	recordMovement := &stubRecordMovement{}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement)
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "session-1", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	assert.Empty(t, reverseMovement.calls, "nothing was ever decremented for a SKU-less line, so nothing to reverse")
@@ -149,9 +149,9 @@ func TestCompletePicking_freebieCreatesZeroPricedLineItemAndDecrementsStock(t *t
 	addLineItem := &stubAddLineItemForPickCompletion{}
 	recordMovement := &stubRecordMovement{}
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, addLineItem, recordMovement, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, addLineItem, recordMovement, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "session-1", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, addLineItem.calls, 1)
@@ -176,9 +176,9 @@ func TestCompletePicking_newItemUsesPickerEnteredPrice(t *testing.T) {
 		{ID: "scan-1", SKUID: "sku-new", ActionType: omsDomain.PickScanActionNewItem, Quantity: 1, PriceMinorUnits: &price},
 	}}
 	addLineItem := &stubAddLineItemForPickCompletion{}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, addLineItem, &stubRecordMovement{}, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, addLineItem, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "session-1", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, addLineItem.calls, 1)
@@ -196,9 +196,9 @@ func TestCompletePicking_crashSafetySkipsAlreadyReplayedRow(t *testing.T) {
 		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-1", ActionType: omsDomain.PickScanActionPick, Quantity: 1, ReplayedAt: &replayedAt},
 		{ID: "scan-2", LineItemID: strPtr("li-2"), SKUID: "sku-2", ActionType: omsDomain.PickScanActionPick, Quantity: 1},
 	}}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "session-1", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.NoError(t, err)
 	require.Len(t, scanRepo.markReplayed, 1, "only the not-yet-replayed row gets marked -- the already-replayed one is untouched")
@@ -212,9 +212,9 @@ func TestCompletePicking_hardStopsOnReplayFailure(t *testing.T) {
 		{ID: "scan-1", SKUID: "sku-free", ActionType: omsDomain.PickScanActionFreebie, Quantity: 1},
 	}}
 	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "session-1", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, invDomain.ErrInsufficientStock)
@@ -225,9 +225,9 @@ func TestCompletePicking_hardStopsOnReplayFailure(t *testing.T) {
 func TestCompletePicking_rejectsAlreadyCompletedSession(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", Status: omsDomain.PickingSessionStatusCompleted}}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubPickScanRepo{}, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubPickScanRepo{}, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "session-1", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotActive)
 }
@@ -235,9 +235,122 @@ func TestCompletePicking_rejectsAlreadyCompletedSession(t *testing.T) {
 func TestCompletePicking_propagatesNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDErr: omsDomain.ErrPickingSessionNotFound}
-	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubPickScanRepo{}, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{})
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubPickScanRepo{}, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
 
-	_, err := uc.Execute(context.Background(), "missing", "user-1")
+	_, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "missing", CompletedBy: "user-1"})
 
 	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotFound)
+}
+
+func TestCompletePicking_stockShortfall_blocksCompletionAndReportsIt(t *testing.T) {
+	db := newMockGormDBN(t, 2) // read + shortfall-name lookup (nothing replayed/completed)
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, LineItemID: strPtr("li-1"), Quantity: 5},
+	}}
+	stockChecker := &stubStockAvailabilityChecker{shortBySKU: map[string]int64{"sku-sub": 3}}
+	recordMovement := &stubRecordMovement{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, &stubReverseMovement{}, stockChecker, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	require.NoError(t, err)
+	assert.False(t, result.Completed)
+	require.Len(t, result.StockShortfalls, 1)
+	assert.Equal(t, "scan-1", result.StockShortfalls[0].ScanID)
+	assert.Equal(t, "sku-sub", result.StockShortfalls[0].SKUID)
+	assert.Equal(t, "sku-sub", result.StockShortfalls[0].Name, "substitute falls back to the SKU's own SKUCode")
+	assert.Equal(t, int64(5), result.StockShortfalls[0].Needed)
+	assert.Equal(t, int64(3), result.StockShortfalls[0].Short)
+	assert.Empty(t, recordMovement.calls, "nothing is replayed while a shortfall is unresolved")
+	assert.Empty(t, scanRepo.markReplayed)
+}
+
+func TestCompletePicking_freebieShortfall_usesReasonAsName(t *testing.T) {
+	db := newMockGormDBN(t, 1) // read only -- Freebie/NewItem never needs the SKU lookup
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", SKUID: "sku-free", ActionType: omsDomain.PickScanActionFreebie, Quantity: 2, Reason: "Sample gift"},
+	}}
+	stockChecker := &stubStockAvailabilityChecker{shortBySKU: map[string]int64{"sku-free": 2}}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, &stubAddLineItemForPickCompletion{}, &stubRecordMovement{}, &stubReverseMovement{}, stockChecker, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	require.NoError(t, err)
+	require.Len(t, result.StockShortfalls, 1)
+	assert.Equal(t, "Sample gift", result.StockShortfalls[0].Name)
+}
+
+func TestCompletePicking_alreadyResolvedScan_skipsShortfallCheck(t *testing.T) {
+	db := newMockGormDBN(t, 4) // read + linkLineItemMovement(1) + mark-replayed + mark-completed
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", SKUID: "sku-free", ActionType: omsDomain.PickScanActionFreebie, Quantity: 2, Reason: "Sample gift"},
+	}}
+	stockChecker := &stubStockAvailabilityChecker{shortBySKU: map[string]int64{"sku-free": 2}}
+	addLineItem := &stubAddLineItemForPickCompletion{}
+	recordMovement := &stubRecordMovement{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, addLineItem, recordMovement, &stubReverseMovement{}, stockChecker, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{
+		SessionID: "session-1", CompletedBy: "user-1",
+		Resolutions: map[string]appoms.StockShortfallResolution{"scan-1": appoms.StockShortfallWithItem},
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, stockChecker.calls, "an already-resolved scan must not be checked again")
+	assert.True(t, result.Completed)
+	require.Len(t, recordMovement.calls, 1)
+	assert.True(t, recordMovement.calls[0].ReconcileShortfall, "with_item must reconcile the shortfall")
+}
+
+func TestCompletePicking_resolutionWithoutItem_substituteShipsWithoutReplacementAndShowsMissing(t *testing.T) {
+	db := newMockGormDBN(t, 4) // read + listLineItemMovements + mark-replayed + mark-completed (no recordMovement tx since it's a fake)
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-orig"), Name: "Widget", Quantity: 5}}}
+	batchID := "batch-1"
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
+		"li-1": {{SalesOrderLineItemID: "li-1", BatchID: &batchID, QuantityDelta: -5}},
+	}}
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 5},
+	}}
+	recordMovement := &stubRecordMovement{}
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{
+		SessionID: "session-1", CompletedBy: "user-1",
+		Resolutions: map[string]appoms.StockShortfallResolution{"scan-1": appoms.StockShortfallWithoutItem},
+	})
+
+	require.NoError(t, err)
+	assert.True(t, result.Completed)
+	require.Len(t, reverseMovement.calls, 1, "the original line's stock is still given back")
+	assert.Empty(t, recordMovement.calls, "without_item never decrements the substitute SKU")
+	require.Len(t, result.MissingItems, 1, "the line ships with nothing, so it's a gap")
+	assert.Equal(t, "li-1", result.MissingItems[0].LineItemID)
+}
+
+func TestCompletePicking_resolutionWithoutItem_freebieNeverCreatedOrDecremented(t *testing.T) {
+	db := newMockGormDBN(t, 3) // read + mark-replayed + mark-completed (no addLineItem/recordMovement)
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", SKUID: "sku-free", ActionType: omsDomain.PickScanActionFreebie, Quantity: 2, Reason: "Sample gift"},
+	}}
+	addLineItem := &stubAddLineItemForPickCompletion{}
+	recordMovement := &stubRecordMovement{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, scanRepo, addLineItem, recordMovement, &stubReverseMovement{}, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{
+		SessionID: "session-1", CompletedBy: "user-1",
+		Resolutions: map[string]appoms.StockShortfallResolution{"scan-1": appoms.StockShortfallWithoutItem},
+	})
+
+	require.NoError(t, err)
+	assert.True(t, result.Completed)
+	assert.Empty(t, addLineItem.calls)
+	assert.Empty(t, recordMovement.calls)
+	require.Len(t, scanRepo.markReplayed, 1, "the scan is still marked replayed so it's not re-prompted")
 }

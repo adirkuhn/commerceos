@@ -59,6 +59,29 @@ type saleAllocationPlan struct {
 	qty     int64
 }
 
+// CheckAvailability reports how much of quantity would be short if Execute
+// were called right now, without writing anything -- lets a caller (e.g.
+// CompletePickingUseCase) detect a genuine shortfall up front and get a
+// staff decision before committing to either resolution, instead of
+// Execute's own hard failure (ErrInsufficientStock, nothing written) being
+// the first anyone hears of it.
+func (uc *AllocateSaleStockUseCase) CheckAvailability(ctx context.Context, skuID, warehouseID string, quantity int64) (short int64, err error) {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		movements, err := uc.movementRepo.ListBySKU(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		batches, err := uc.batchRepo.ListBySKU(ctx, skuID)
+		if err != nil {
+			return err
+		}
+		_, remaining := planAllocation(movements, batches, warehouseID, quantity)
+		short = remaining
+		return nil
+	})
+	return short, err
+}
+
 // Execute picks stock in this order, splitting across as many scopes as
 // needed to cover Quantity: (1) active batches with an ExpiryDate,
 // soonest-expiring first (FEFO -- sell what expires soonest); (2) active
