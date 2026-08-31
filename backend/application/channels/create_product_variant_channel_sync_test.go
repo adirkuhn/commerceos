@@ -27,8 +27,11 @@ func (noopSKUPriceHistoryRepo) ListBySKU(context.Context, string, int) ([]pmsDom
 
 // TestCreateProductThenAddVariant_endToEnd_reachesWooCommerce is a real,
 // composed-use-case regression test (not narrowly-stubbed unit tests) for
-// the exact reported bug: create a product, add its one ("default")
-// variant and SKU, then run the real enrollment path
+// the exact reported bug: create a REGULAR product (HasVariants: false --
+// the plain/flat product type, not a true multi-variant one), add its one
+// variant and SKU (CreateVariantUseCase explicitly allows exactly one
+// variant on a HasVariants:false product -- this is the "default variant"
+// the original bug report meant), then run the real enrollment path
 // (EnrollProductInChannelsUseCase -> PushProductToWooUseCase) and confirm
 // it actually reaches WooCommerce.
 //
@@ -59,9 +62,9 @@ func TestCreateProductThenAddVariant_endToEnd_reachesWooCommerce(t *testing.T) {
 	)
 	enrollUC := appchannels.NewEnrollProductInChannelsUseCase(db, h.productRepo, channelRepo, overrideRepo, pushUC, nil)
 
-	// 1. Create a "regular" variant-mode product -- no variant/SKU yet.
+	// 1. Create a regular (non-variant-mode) product -- no variant/SKU yet.
 	product, err := createProductUC.Execute(context.Background(), apppms.CreateProductInput{
-		Name: "Xarope de Guaraná", Status: pmsDomain.ProductStatusActive, HasVariants: true,
+		Name: "Xarope de Guaraná", Status: pmsDomain.ProductStatusActive, HasVariants: false,
 	})
 	require.NoError(t, err)
 	h.productRepo.byID = map[string]pmsDomain.Product{product.ID: *product}
