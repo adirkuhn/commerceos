@@ -1059,6 +1059,7 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
   // shipment list so this card picks up cancelled_at/cancel_note and
   // "Create label" up top stops treating this as the active shipment.
   async function handleCancel() {
+    if (!window.confirm('Cancel this shipment? This cannot be undone.')) return
     setCancelling(true)
     setError('')
     try {
@@ -1085,21 +1086,26 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!shipment.cancelled_at && (
-            <button
-              type="button" onClick={handleCancel} disabled={cancelling}
-              title="Wrong carrier? Cancel this shipment so a corrected one can be created"
-              className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 text-red-500 hover:dark:text-red-400 hover:text-red-600 disabled:opacity-50 transition-colors"
-            >
-              {cancelling ? 'Cancelling…' : 'Delete'}
-            </button>
-          )}
           <button
             type="button" onClick={handleRefresh} disabled={refreshing}
             className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700 disabled:opacity-50 transition-colors"
           >
             {refreshing ? 'Fetching…' : 'Refresh from provider'}
           </button>
+          {!shipment.cancelled_at && (
+            <button
+              type="button" onClick={handleCancel} disabled={cancelling}
+              title="Wrong carrier? Cancel this shipment so a corrected one can be created"
+              aria-label="Delete"
+              className="w-7 h-7 flex items-center justify-center rounded dark:bg-[#111827] bg-gray-100 dark:hover:bg-[#2D3748] hover:bg-gray-200 disabled:opacity-50 transition-colors"
+            >
+              {cancelling ? (
+                <span className="text-[10px] text-red-500">…</span>
+              ) : (
+                <Trash2 size={13} className="dark:text-gray-500 text-gray-400 hover:text-red-500" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 

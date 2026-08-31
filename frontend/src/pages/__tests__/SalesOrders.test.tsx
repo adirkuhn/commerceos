@@ -439,6 +439,7 @@ describe('Sales order detail page', () => {
       deleted_on_myparcel: false,
       message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
     })
+    vi.stubGlobal('confirm', vi.fn(() => true))
 
     render(<SalesOrders />)
     await userEvent.click(await screen.findByText('#1001'))
@@ -454,6 +455,23 @@ describe('Sales order detail page', () => {
     // affordance (already cancelled).
     expect(shippingApi.listShipmentsForOrder).toHaveBeenCalledTimes(2)
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('does not delete the shipment when the confirm dialog is dismissed', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
+    vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([])
+    vi.stubGlobal('confirm', vi.fn(() => false))
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+    await screen.findByText('Shipments')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(shippingApi.cancelShipment).not.toHaveBeenCalled()
   })
 
   it('shows an empty-tracking state when a shipment has no events yet', async () => {
