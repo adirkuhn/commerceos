@@ -536,6 +536,7 @@ export default function Picking() {
 
         {labelStep === 'address' && activeOrder && (
           <AddressConfirmModal
+            token={token ?? ''}
             initialAddress={activeOrder.shipping}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}

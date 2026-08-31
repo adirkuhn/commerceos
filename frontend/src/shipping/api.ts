@@ -23,6 +23,27 @@ async function request<T>(path: string, options: RequestInit, token: string): Pr
   return body.data as T
 }
 
+// lookupAddress returns null (not a thrown error) on a 404 -- no address
+// matches that postal code + house number, a normal outcome
+// (typo/new-build), not a fault. See backend's own AddressLookupClient
+// doc comment for why this can be trusted: MyParcel has no equivalent
+// endpoint, this hits PDOK's public Dutch address registry instead.
+export async function lookupAddress(token: string, postalCode: string, houseNumber: string): Promise<{ street: string; city: string } | null> {
+  const params = new URLSearchParams({ postal_code: postalCode, number: houseNumber })
+  const res = await fetch(`${base()}/address-lookup?${params.toString()}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 404) {
+    return null
+  }
+  const body: APIResponse<{ street: string; city: string }> = await res.json()
+  if (!res.ok || body.error) {
+    throw new Error(body.error?.message ?? `HTTP ${res.status}`)
+  }
+  return body.data
+}
+
 export function connectMyParcel(token: string, apiKey: string): Promise<{ connection_id: string; provider: string; status: string }> {
   return request(`${base()}/myparcel/connect`, { method: 'POST', body: JSON.stringify({ api_key: apiKey }) }, token)
 }

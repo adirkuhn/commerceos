@@ -914,6 +914,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
 
       {labelStep === 'address' && detail && (
         <AddressConfirmModal
+          token={token ?? ''}
           initialAddress={detail.sales_order.shipping}
           initialRecipient={pendingRecipient ?? undefined}
           initialCarrier={pendingCarrier}

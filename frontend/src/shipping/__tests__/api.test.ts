@@ -85,3 +85,22 @@ describe('connectMyParcel', () => {
     expect(result.connection_id).toBe('conn-1')
   })
 })
+
+describe('lookupAddress', () => {
+  it('returns the street/city on a match', async () => {
+    mockFetch({ street: 'Damrak', city: 'Amsterdam' })
+    const result = await api.lookupAddress(TOKEN, '1012AB', '1')
+    expect(result).toEqual({ street: 'Damrak', city: 'Amsterdam' })
+  })
+
+  it('returns null (not a thrown error) on a 404', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: () => Promise.resolve({ data: null, error: null }) }))
+    const result = await api.lookupAddress(TOKEN, '9999ZZ', '999')
+    expect(result).toBeNull()
+  })
+
+  it('throws on an unexpected failure', async () => {
+    mockFetchError('upstream_error', 'pdok: request failed (500)', 502)
+    await expect(api.lookupAddress(TOKEN, '1012AB', '1')).rejects.toThrow('pdok: request failed (500)')
+  })
+})

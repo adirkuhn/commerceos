@@ -345,6 +345,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
         {labelStep === 'address' && (
           <AddressConfirmModal
+            token={token}
             initialAddress={order.shipping}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
@@ -427,6 +428,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
         {labelStep === 'address' && (
           <AddressConfirmModal
+            token={token}
             initialAddress={order.shipping}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
