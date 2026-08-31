@@ -191,6 +191,28 @@ func TestCreateProduct_duplicateSKU_wrapsAsErrWooDuplicateSKU(t *testing.T) {
 	require.ErrorIs(t, err, integrationsDomain.ErrWooDuplicateSKU)
 }
 
+// TestCreateProduct_duplicateSKU_matchesTheWooCommercePrefixedCodeVariantToo
+// proves the match isn't scoped to one exact code string -- production
+// traffic kept hitting this rejection as a raw, un-self-healed failure even
+// with the bare "product_invalid_sku" match in place, and this codebase's
+// other Woo error/option codes (e.g. "woocommerce_weight_unit") show
+// WooCommerce/WordPress commonly prefixes its own codes with
+// "woocommerce_". This proves that variant self-heals too, without knowing
+// for certain which one the real store actually returns.
+func TestCreateProduct_duplicateSKU_matchesTheWooCommercePrefixedCodeVariantToo(t *testing.T) {
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"code": "woocommerce_product_invalid_sku", "message": "Invalid or duplicated SKU.", "data": map[string]any{"status": 400},
+		})
+	})
+
+	_, err := c.CreateProduct(context.Background(), integrationsDomain.WooProduct{Name: "T-Shirt", SKU: "TSHIRT-1"})
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, integrationsDomain.ErrWooDuplicateSKU)
+}
+
 // TestCreateProduct_otherFailure_doesNotBecomeErrWooDuplicateSKU proves the
 // translation is scoped to that one specific Woo error code -- any other
 // rejection must not be misidentified as self-healable.

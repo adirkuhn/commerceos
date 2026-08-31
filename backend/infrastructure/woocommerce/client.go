@@ -344,18 +344,34 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 	return &result, nil
 }
 
-// translateDuplicateSKUError recognizes WooCommerce's own "product_invalid_sku"
-// REST error code (returned when a create's SKU already exists on the
-// store) and wraps it as integrationsDomain.ErrWooDuplicateSKU, so
+// translateDuplicateSKUError recognizes WooCommerce's own REST error code
+// for a create rejected because the SKU already exists on the store, and
+// wraps it as integrationsDomain.ErrWooDuplicateSKU, so
 // application/channels can distinguish "self-healable, a product with this
 // SKU is already there" from every other request failure. Any other error
 // (network, other 4xx/5xx) passes through unchanged.
 func translateDuplicateSKUError(err error) error {
 	var wcErr *wc.ErrorResponse
-	if errors.As(err, &wcErr) && wcErr.Code == "product_invalid_sku" {
+	if errors.As(err, &wcErr) && isDuplicateSKUCode(wcErr.Code) {
 		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, err)
 	}
 	return err
+}
+
+// isDuplicateSKUCode matches on a substring rather than one exact code:
+// WooCommerce has shipped this rejection under more than one literal string
+// depending on which layer raises it -- "product_invalid_sku" from the REST
+// controller's own validation vs. "woocommerce_product_invalid_sku" when
+// the same uniqueness check fires from WC_Product_Data_Store_CPT (which
+// prefixes its own WP_Error codes with "woocommerce_", same convention as
+// this file's other Woo option/error code checks). Production traffic kept
+// surfacing this exact rejection as a raw, un-self-healed failure despite
+// self-heal being wired to the "product_invalid_sku" exact match -- the
+// response's actual code was never directly observed (the logged error only
+// renders .Message, not .Code), so rather than guess a single replacement
+// string, this matches every code carrying either known spelling.
+func isDuplicateSKUCode(code string) bool {
+	return strings.Contains(code, "invalid_sku") || strings.Contains(code, "sku_already_exists")
 }
 
 func (c *wooClient) FindProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {
