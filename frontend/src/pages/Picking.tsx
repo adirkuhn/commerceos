@@ -254,11 +254,18 @@ export default function Picking() {
           setScanErrorAlert('Already fully picked')
           return
         }
+      }
+      // No line item already carries this sku_id -- still worth trying the
+      // server: it may auto-link one of this order's still-unmatched Woo
+      // lines (product name matches the scanned item) rather than this
+      // always being a genuine "wrong order" scan (see
+      // ScanPickItemUseCase.autoLinkUnmatchedLine).
+      try {
         await pickingApi.scanPickItem(token, session.session.id, {
-          sku_id: resolved.sku_id, line_item_id: li.id, action_type: 'pick', quantity: 1,
+          sku_id: resolved.sku_id, line_item_id: li?.id, action_type: 'pick', quantity: 1,
         })
         await loadSession(session.session.id)
-      } else {
+      } catch {
         playErrorSound()
         setScanErrorAlert('Item not on this order')
       }

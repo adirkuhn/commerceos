@@ -67,6 +67,19 @@ type SKURepository interface {
 	// barcode straight to a SKU. Returns ErrSKUNotFound when nothing
 	// matches -- same as FindByCode, no separate error type needed.
 	FindByBarcode(ctx context.Context, barcode string) (*SKU, error)
+	// FindByExactProductName resolves a SKU via its parent Product's Name
+	// (normalized: case/punctuation/whitespace-insensitive, same convention
+	// as suppliers.FindByName -- NOT a fuzzy/substring search). Used by
+	// ImportWooOrdersUseCase as a fallback when Woo's own SKU string is
+	// blank or doesn't match anything (a common WooCommerce quirk on order
+	// line snapshots even when the product itself has a real SKU) -- the
+	// line item's own Woo-sent name is compared against the catalog
+	// product's name instead. Returns ErrSKUNotFound both when nothing
+	// matches AND when more than one SKU would match (a same-named product
+	// with multiple variants/SKUs) -- ambiguous is treated the same as
+	// not-found, since guessing wrong here would silently mislink an order
+	// to the wrong product.
+	FindByExactProductName(ctx context.Context, name string) (*SKU, error)
 	ListByVariant(ctx context.Context, variantID string) ([]SKU, error)
 	Update(ctx context.Context, s *SKU) error
 	Delete(ctx context.Context, id string) error

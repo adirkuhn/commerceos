@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -544,6 +545,66 @@ func TestSKURepo_Integration_BulkPoolRoundTripsAndCascadesOnDelete(t *testing.T)
 	})
 	require.NoError(t, err, "the portioned SKU itself must survive the bulk SKU's deletion")
 	require.Nil(t, fetched.PortionedFromSKUID, "ON DELETE SET NULL clears the now-dangling link")
+}
+
+// TestSKURepo_Integration_FindByExactProductName proves the real
+// normalized-equality SQL (case/punctuation/whitespace-insensitive, same
+// convention as suppliers.FindByName) actually resolves against Postgres --
+// sqlmock can't prove the SQL expression itself is valid or behaves as
+// expected.
+func TestSKURepo_Integration_FindByExactProductName(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		product := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Carne Seca ~414g", Slug: "carne-seca-414g",
+			Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: product.Name, CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{
+			TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "CARNE-SECA-414",
+			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, UnitType: pmsDomain.SKUUnitTypeUnit, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	for _, query := range []string{"Carne Seca ~414g", "carne seca ~414g", "  CARNE SECA ~414G  ", "Carne, Seca ~414g."} {
+		var found *pmsDomain.SKU
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			found, err = skuRepo.FindByExactProductName(ctx, query)
+			return err
+		})
+		require.NoError(t, err, "query %q", query)
+		require.NotNil(t, found, "query %q", query)
+		assert.Equal(t, skuID, found.ID, "query %q", query)
+	}
+
+	var notFound *pmsDomain.SKU
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		notFound, err = skuRepo.FindByExactProductName(ctx, "Some Other Product")
+		return err
+	})
+	require.ErrorIs(t, err, pmsDomain.ErrSKUNotFound)
+	assert.Nil(t, notFound)
 }
 
 // TestProductRepo_Integration_DeleteBlockedByReceivingHistory proves

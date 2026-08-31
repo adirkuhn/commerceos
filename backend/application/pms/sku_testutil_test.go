@@ -71,6 +71,10 @@ func (s *stubSKURepo) FindByID(_ context.Context, _ string) (*pmsDomain.SKU, err
 	}
 	return s.findByIDResult, s.findByIDErr
 }
+func (s *stubSKURepo) FindByExactProductName(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, pmsDomain.ErrSKUNotFound
+}
+
 func (s *stubSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU, error) {
 	s.gotCode = code
 	if s.findByCodeResult == nil && s.findByCodeErr == nil {

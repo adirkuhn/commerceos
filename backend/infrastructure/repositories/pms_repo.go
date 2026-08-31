@@ -733,6 +733,26 @@ func (r *SKURepo) FindByBarcode(ctx context.Context, barcode string) (*pmsDomain
 	return toSKUDomain(m), nil
 }
 
+func (r *SKURepo) FindByExactProductName(ctx context.Context, name string) (*pmsDomain.SKU, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	where := fmt.Sprintf(normalizedNameSQL, "products.name") + " = " + fmt.Sprintf(normalizedNameSQL, "?")
+	var models []skuModel
+	err = tx.Joins("JOIN variants ON variants.id = skus.variant_id").
+		Joins("JOIN products ON products.id = variants.product_id").
+		Where(where, name).
+		Find(&models).Error
+	if err != nil {
+		return nil, fmt.Errorf("skuRepo.FindByExactProductName: %w", err)
+	}
+	if len(models) != 1 {
+		return nil, pmsDomain.ErrSKUNotFound
+	}
+	return toSKUDomain(models[0]), nil
+}
+
 func (r *SKURepo) ListByVariant(ctx context.Context, variantID string) ([]pmsDomain.SKU, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {

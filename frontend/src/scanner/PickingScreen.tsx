@@ -176,15 +176,20 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   useEffect(() => { codeInputRef.current?.focus() }, [detail])
   useWakeLock()
 
-  async function stage(input: Parameters<typeof api.scanPickItem>[2]) {
+  async function stage(input: Parameters<typeof api.scanPickItem>[2]): Promise<boolean> {
     setError('')
     setScanning(true)
     try {
       await api.scanPickItem(token, sessionId, input)
       await load()
+      return true
     } catch (err) {
-      if (isAuthError(err)) return onAuthError()
+      if (isAuthError(err)) {
+        onAuthError()
+        return false
+      }
       setError(err instanceof Error ? err.message : 'Scan failed')
+      return false
     } finally {
       setScanning(false)
       codeInputRef.current?.focus()
@@ -201,7 +206,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   // fall through to the freebie/new-item flow. A resolve miss still falls
   // back to a partial name/code/barcode search (same as Booking); only once
   // that search also comes up empty does it become a blocking error too.
-  function routeResolvedSku(skuId: string) {
+  async function routeResolvedSku(skuId: string) {
     const li = detail?.line_items.find(l => l.sku_id === skuId)
     if (li) {
       const pickedSoFar = pickedQuantityByLineItem(detail?.scans ?? []).get(li.id) ?? 0
@@ -210,8 +215,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         setScanErrorAlert('Already fully picked')
         return
       }
-      stage({ line_item_id: li.id, sku_id: skuId, action_type: 'pick', quantity: 1 })
-    } else {
+      await stage({ line_item_id: li.id, sku_id: skuId, action_type: 'pick', quantity: 1 })
+      return
+    }
+    // No line item already carries this sku_id -- still worth trying the
+    // server: it may auto-link one of this order's still-unmatched Woo
+    // lines (product name matches the scanned item) rather than this
+    // always being a genuine "wrong order" scan (see
+    // ScanPickItemUseCase.autoLinkUnmatchedLine).
+    const ok = await stage({ sku_id: skuId, action_type: 'pick', quantity: 1 })
+    if (!ok) {
+      setError('')
       playErrorSound()
       setScanErrorAlert('Item not on this order')
     }

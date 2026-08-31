@@ -246,6 +246,74 @@ func TestImportWooOrders_importsAnUnmatchedLineItemUnlinkedInsteadOfDroppingIt(t
 	assert.Equal(t, true, h.salesOrderRepo.updateCalls[len(h.salesOrderRepo.updateCalls)-1].Fields["needs_sku_review"])
 }
 
+// A blank Woo SKU string (a real WooCommerce quirk -- an order line
+// snapshot can omit it even when the product itself has one) falls back to
+// matching the line item's own name against the catalog product's name,
+// instead of leaving a real product's sale unlinked.
+func TestImportWooOrders_blankWooSKU_fallsBackToMatchingByLineItemName(t *testing.T) {
+	order := simpleWooOrder()
+	order.LineItems[0].SKU = ""
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	taxClassID := "tax-class-standard"
+	h.skuRepo.byProductName = map[string]pmsDomain.SKU{"Widget A": {ID: "sku-1", SKUCode: "WID-A", TaxClassID: &taxClassID}}
+	uc := h.newImportUseCase(t, 4)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	require.Len(t, h.lineItemRepo.created, 1)
+	created := h.lineItemRepo.created[0]
+	require.NotNil(t, created.SKUID)
+	assert.Equal(t, "sku-1", *created.SKUID)
+	assert.Equal(t, omsDomain.StockStatusDecremented, created.StockStatus)
+	require.Empty(t, h.salesOrderRepo.updateCalls, "resolved via name fallback -- never flagged needs_sku_review")
+}
+
+// A Woo SKU string that IS present but doesn't match any catalog SKU code
+// (stale/renamed SKU on Woo's side) still gets the same name fallback --
+// not just the blank-string case.
+func TestImportWooOrders_wooSKUCodeDoesNotMatch_fallsBackToMatchingByLineItemName(t *testing.T) {
+	order := simpleWooOrder()
+	order.LineItems[0].SKU = "STALE-CODE"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.skuRepo.byProductName = map[string]pmsDomain.SKU{"Widget A": {ID: "sku-1", SKUCode: "WID-A"}}
+	uc := h.newImportUseCase(t, 4)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	require.Len(t, h.lineItemRepo.created, 1)
+	require.NotNil(t, h.lineItemRepo.created[0].SKUID)
+	assert.Equal(t, "sku-1", *h.lineItemRepo.created[0].SKUID)
+}
+
+// Neither the SKU code nor the line item's name resolves to anything --
+// still left unlinked, same as before this fallback existed. No guessing.
+func TestImportWooOrders_nameFallbackAlsoMisses_staysUnlinked(t *testing.T) {
+	order := simpleWooOrder()
+	order.LineItems[0].SKU = ""
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	// h.skuRepo.byProductName intentionally has no "Widget A" entry either.
+	uc := h.newImportUseCase(t, 3)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	require.Len(t, h.lineItemRepo.created, 1)
+	assert.Nil(t, h.lineItemRepo.created[0].SKUID)
+	require.NotEmpty(t, h.salesOrderRepo.updateCalls)
+	assert.Equal(t, true, h.salesOrderRepo.updateCalls[len(h.salesOrderRepo.updateCalls)-1].Fields["needs_sku_review"])
+}
+
 // A refund/adjustment on the Woo side can surface as a negative quantity
 // on an order's line_items -- domain/oms.SalesOrderLineItem has no
 // representation for that (refunds are tracked at the whole-order Status

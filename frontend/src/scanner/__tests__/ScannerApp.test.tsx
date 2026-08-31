@@ -818,12 +818,19 @@ describe('ScannerApp picking screen', () => {
   it('scanning a code not on the order shows a blocking error instead of opening the add-item sheet', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
     vi.mocked(api.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-other', product_name: 'Gizmo' })
+    // No line item on this order carries sku-other -- still attempted
+    // server-side (it may auto-link an unmatched Woo line by product name),
+    // and here the server genuinely rejects it as not belonging to this
+    // order.
+    vi.mocked(api.scanPickItem).mockRejectedValue(new Error('scanned item does not match any line item on this order'))
 
     await enterPickingScreen()
     await userEvent.type(screen.getByPlaceholderText('Scan or type barcode…'), 'GIZMO-BARCODE{Enter}')
 
     expect(await screen.findByText('Item not on this order')).toBeInTheDocument()
-    expect(api.scanPickItem).not.toHaveBeenCalled()
+    expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
+      sku_id: 'sku-other', action_type: 'pick', quantity: 1,
+    })
     expect(screen.queryByRole('heading', { name: 'Add freebie or new item' })).not.toBeInTheDocument()
     expect(playErrorSound).toHaveBeenCalled()
 

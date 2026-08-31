@@ -76,8 +76,11 @@ type ScanPickItemUseCase struct {
 	sessionRepo      omsDomain.PickingSessionRepository
 	scanRepo         omsDomain.PickScanRepository
 	lineItemRepo     omsDomain.SalesOrderLineItemRepository
+	salesOrderRepo   omsDomain.SalesOrderRepository
 	skuRepo          skuResolverRepo
 	barcodeAliasRepo barcodeAliasFinder
+	variantRepo      variantFinderForPickScanResolve
+	productRepo      productFinderForPickScanResolve
 }
 
 func NewScanPickItemUseCase(
@@ -85,12 +88,15 @@ func NewScanPickItemUseCase(
 	sessionRepo omsDomain.PickingSessionRepository,
 	scanRepo omsDomain.PickScanRepository,
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
+	salesOrderRepo omsDomain.SalesOrderRepository,
 	skuRepo skuResolverRepo,
 	barcodeAliasRepo barcodeAliasFinder,
+	variantRepo variantFinderForPickScanResolve,
+	productRepo productFinderForPickScanResolve,
 ) *ScanPickItemUseCase {
 	return &ScanPickItemUseCase{
-		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo,
-		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo,
+		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo, salesOrderRepo: salesOrderRepo,
+		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, variantRepo: variantRepo, productRepo: productRepo,
 	}
 }
 
@@ -254,5 +260,74 @@ func (uc *ScanPickItemUseCase) matchLineItemBySKU(ctx context.Context, salesOrde
 			return li.ID, nil
 		}
 	}
-	return "", omsDomain.ErrLineItemSKUMismatch
+	return uc.autoLinkUnmatchedLine(ctx, salesOrderID, skuID, lineItems)
+}
+
+// autoLinkUnmatchedLine is the "scan to resolve" path for a Woo-import line
+// item that never matched a catalog SKU (SKUID nil, see
+// ImportWooOrdersUseCase) -- staff physically holding the item scan its
+// real barcode/code, which resolveCode above already resolved to a genuine
+// catalog SKU; if that SKU's product name exactly matches (normalized)
+// exactly one of this order's still-unlinked lines' own stored Name, link
+// it now (same effect as LinkLineItemSKUUseCase from the Unmatched SKUs
+// admin page) so the pick can proceed immediately, instead of forcing staff
+// to that separate page first. Zero or more-than-one candidate match is
+// left as ErrLineItemSKUMismatch -- guessing wrong here would silently
+// mislink the order to the wrong product.
+func (uc *ScanPickItemUseCase) autoLinkUnmatchedLine(ctx context.Context, salesOrderID, skuID string, lineItems []omsDomain.SalesOrderLineItem) (string, error) {
+	sku, err := uc.skuRepo.FindByID(ctx, skuID)
+	if err != nil {
+		return "", err
+	}
+	variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
+	if err != nil {
+		return "", err
+	}
+	product, err := uc.productRepo.FindByID(ctx, variant.ProductID)
+	if err != nil {
+		return "", err
+	}
+	targetName := normalizeCatalogName(product.Name)
+
+	var match *omsDomain.SalesOrderLineItem
+	for i := range lineItems {
+		li := &lineItems[i]
+		if li.SKUID != nil || normalizeCatalogName(li.Name) != targetName {
+			continue
+		}
+		if match != nil {
+			return "", omsDomain.ErrLineItemSKUMismatch // more than one candidate -- ambiguous, don't guess
+		}
+		match = li
+	}
+	if match == nil {
+		return "", omsDomain.ErrLineItemSKUMismatch
+	}
+
+	if err := uc.lineItemRepo.Update(ctx, match.ID, map[string]any{"sku_id": skuID}); err != nil {
+		return "", err
+	}
+	stillUnlinked := false
+	for _, li := range lineItems {
+		if li.ID != match.ID && li.SKUID == nil {
+			stillUnlinked = true
+			break
+		}
+	}
+	if err := uc.salesOrderRepo.Update(ctx, salesOrderID, map[string]any{"needs_sku_review": stillUnlinked}); err != nil {
+		return "", err
+	}
+	return match.ID, nil
+}
+
+// normalizeCatalogName is the Go-side counterpart to infrastructure/
+// repositories' normalizedNameSQL -- lower-case, strip periods/commas,
+// collapse whitespace, trim. Kept consistent with that SQL expression so a
+// name considered "the same" at Woo-import time is also considered the
+// same here, comparing two already-in-memory strings rather than a SQL
+// query.
+func normalizeCatalogName(s string) string {
+	s = strings.ToLower(s)
+	s = strings.NewReplacer(".", "", ",", "").Replace(s)
+	return strings.Join(strings.Fields(s), " ")
 }

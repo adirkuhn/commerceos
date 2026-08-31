@@ -384,19 +384,15 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 				skippedLines++
 				continue
 			}
+			sku, err := uc.resolveLineItemSKU(ctx, li.SKU, li.Name)
+			if err != nil {
+				return err
+			}
 			var skuID *string
 			var taxClassID *string
-			if li.SKU != "" {
-				sku, err := uc.skuRepo.FindByCode(ctx, li.SKU)
-				if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
-					return err
-				}
-				if err == nil {
-					skuID = &sku.ID
-					taxClassID = sku.TaxClassID
-				} else {
-					unlinkedLines++
-				}
+			if sku != nil {
+				skuID = &sku.ID
+				taxClassID = sku.TaxClassID
 			} else {
 				unlinkedLines++
 			}
@@ -504,6 +500,39 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, err))
 		}
 	}
+}
+
+// resolveLineItemSKU matches one Woo order line item to a catalog SKU.
+// wooSKU (Woo's own line_items[].sku string) is tried first via an exact
+// code match -- the normal, reliable path. When that's blank or doesn't
+// match anything, falls back to lineItemName (Woo's line_items[].name)
+// against the catalog product's own name -- WooCommerce frequently sends a
+// blank sku on an order line snapshot even when the underlying product has
+// a real one (a common quirk on variations/manually-edited order lines),
+// so a line reaching here isn't necessarily for an unknown product. Returns
+// nil, nil (not an error) when neither resolves -- same "unlinked, needs
+// review" outcome as before this fallback existed, never a guess.
+func (uc *ImportWooOrdersUseCase) resolveLineItemSKU(ctx context.Context, wooSKU, lineItemName string) (*pmsDomain.SKU, error) {
+	if wooSKU != "" {
+		sku, err := uc.skuRepo.FindByCode(ctx, wooSKU)
+		if err == nil {
+			return sku, nil
+		}
+		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+			return nil, err
+		}
+	}
+	if lineItemName == "" {
+		return nil, nil
+	}
+	sku, err := uc.skuRepo.FindByExactProductName(ctx, lineItemName)
+	if err != nil {
+		if errors.Is(err, pmsDomain.ErrSKUNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return sku, nil
 }
 
 // findExisting is FindByExternalID wrapped in its own tenant.WithTenant call

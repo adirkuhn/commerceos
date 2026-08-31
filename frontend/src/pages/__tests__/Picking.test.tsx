@@ -171,6 +171,10 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
     vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-other', product_name: 'Gizmo' })
+    // No line item on this order carries sku-other -- still attempted server-
+    // side (it may auto-link an unmatched Woo line by product name), and
+    // here the server genuinely rejects it as not belonging to this order.
+    vi.mocked(pickingApi.scanPickItem).mockRejectedValue(new Error('scanned item does not match any line item on this order'))
 
     const user = userEvent.setup()
     render(<Picking />)
@@ -180,11 +184,32 @@ describe('Picking page', () => {
     await user.type(screen.getByPlaceholderText('Scan barcode or type and press Enter...'), '999{Enter}')
 
     expect(await screen.findByText('Item not on this order')).toBeInTheDocument()
-    expect(pickingApi.scanPickItem).not.toHaveBeenCalled()
+    expect(pickingApi.scanPickItem).toHaveBeenCalledWith('test-token', 'ps-1', {
+      sku_id: 'sku-other', line_item_id: undefined, action_type: 'pick', quantity: 1,
+    })
     expect(screen.queryByText('Add item not on order')).not.toBeInTheDocument()
     expect(playErrorSound).toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'OK' }))
+    expect(screen.queryByText('Item not on this order')).not.toBeInTheDocument()
+  })
+
+  it('scanning a code that auto-links an unmatched line item picks it instead of erroring', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-unmatched-resolved', product_name: 'Carne Seca ~414g' })
+    vi.mocked(pickingApi.scanPickItem).mockResolvedValue({ scan: {} as never })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await user.type(screen.getByPlaceholderText('Scan barcode or type and press Enter...'), '999{Enter}')
+
+    await waitFor(() => expect(pickingApi.scanPickItem).toHaveBeenCalledWith('test-token', 'ps-1', {
+      sku_id: 'sku-unmatched-resolved', line_item_id: undefined, action_type: 'pick', quantity: 1,
+    }))
     expect(screen.queryByText('Item not on this order')).not.toBeInTheDocument()
   })
 

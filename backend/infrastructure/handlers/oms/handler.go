@@ -160,7 +160,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		addLineItem,
 		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
-		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, skuRepo, barcodeAliasRepo),
+		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewPausePickingUseCase(db, pickingSessionRepo),
