@@ -30,6 +30,8 @@ type ListSalesOrdersInput struct {
 	Fulfilled *bool
 	// Status empty means "don't filter" -- see domain/oms.ListSalesOrdersFilter.Status's doc.
 	Status []omsDomain.SalesOrderStatus
+	// Source empty means "don't filter" -- see domain/oms.ListSalesOrdersFilter.Source's doc.
+	Source []omsDomain.SalesOrderSource
 }
 
 type ListSalesOrdersResult struct {
@@ -67,7 +69,7 @@ func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrder
 		orders, total, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
 			Limit: perPage, Offset: (page - 1) * perPage, SortBy: in.SortBy, SortDir: in.SortDir,
 			NeedsStockReview: in.NeedsStockReview, NeedsSKUReview: in.NeedsSKUReview, Fulfilled: in.Fulfilled,
-			Status: in.Status,
+			Status: in.Status, Source: in.Source,
 		})
 		if err != nil {
 			return err

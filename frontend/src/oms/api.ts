@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
@@ -34,6 +34,9 @@ export interface ListSalesOrdersParams {
   // the picking screens use this to exclude completed/cancelled/refunded/
   // failed orders. Omit for the normal unfiltered sales orders list.
   status?: SalesOrderStatus[]
+  // source: narrows to the given channels (Sales Orders page's own filter).
+  // Omit (or empty) for every channel.
+  source?: SalesOrderSource[]
 }
 
 export interface ListSalesOrdersResult {
@@ -51,6 +54,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.needsSkuReview !== undefined) qs.set('needs_sku_review', String(params.needsSkuReview))
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
   for (const status of params.status ?? []) qs.append('status', status)
+  for (const source of params.source ?? []) qs.append('source', source)
   const query = qs.toString()
 
   const result = await request<{ sales_orders: SalesOrder[]; total: number }>(

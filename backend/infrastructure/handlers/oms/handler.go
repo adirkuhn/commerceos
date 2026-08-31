@@ -199,10 +199,17 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 			statuses[i] = omsDomain.SalesOrderStatus(s)
 		}
 	}
+	var sources []omsDomain.SalesOrderSource
+	if params.Source != nil {
+		sources = make([]omsDomain.SalesOrderSource, len(*params.Source))
+		for i, s := range *params.Source {
+			sources[i] = omsDomain.SalesOrderSource(s)
+		}
+	}
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
-		Fulfilled: params.Fulfilled, Status: statuses,
+		Fulfilled: params.Fulfilled, Status: statuses, Source: sources,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -567,7 +574,7 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 	billing := toGenAddress(o.Billing)
 	shipping := toGenAddress(o.Shipping)
 	return genoms.SalesOrder{
-		Id: o.ID, Source: string(o.Source), ExternalOrderId: o.ExternalOrderID, Number: &o.Number, OrderKey: &o.OrderKey,
+		Id: o.ID, Source: genoms.SalesOrderSource(o.Source), ExternalOrderId: o.ExternalOrderID, Number: &o.Number, OrderKey: &o.OrderKey,
 		Status: genoms.SalesOrderStatus(o.Status), WarehouseId: o.WarehouseID, CustomerId: o.CustomerID,
 		Billing: &billing, Shipping: &shipping, CustomerNote: &o.CustomerNote, CurrencyCode: o.CurrencyCode,
 		DiscountTotalMinorUnits: &o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: &o.ShippingTotalMinorUnits,

@@ -14,6 +14,7 @@ export interface Address {
 }
 
 export type SalesOrderStatus = 'pending' | 'processing' | 'on-hold' | 'completed' | 'cancelled' | 'refunded' | 'failed'
+export type SalesOrderSource = 'pos' | 'manual' | 'woocommerce' | 'bol'
 
 export type SalesOrderSortField = 'occurred_at' | 'customer' | 'source' | 'status' | 'total'
 export type SortDirection = 'asc' | 'desc'
@@ -21,7 +22,7 @@ export type SortDirection = 'asc' | 'desc'
 export interface SalesOrder {
   id: string
   tenant_id: string
-  source: string
+  source: SalesOrderSource
   external_order_id: string
   number: string
   order_key: string

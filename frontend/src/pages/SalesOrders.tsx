@@ -6,7 +6,7 @@ import Pagination from '../components/common/Pagination'
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import { useSalesOrderDetail } from '../oms/hooks/useSalesOrderDetail'
 import { useSalesOrderActivities } from '../oms/hooks/useSalesOrderActivities'
-import type { SalesOrder, SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address, SalesOrderSortField, SortDirection } from '../oms/types'
+import type { SalesOrder, SalesOrderStatus, SalesOrderSource, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address, SalesOrderSortField, SortDirection } from '../oms/types'
 import { PickingListPrintView } from './print/PickingListPrintView'
 import { InvoicePrintView } from './print/InvoicePrintView'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
@@ -27,6 +27,16 @@ import { CARRIERS } from '../shipping/types'
 
 const PAGE_SIZE = 20
 const STATUS_OPTIONS: SalesOrderStatus[] = ['pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed']
+
+// SOURCE_FILTER_OPTIONS: 'manual' reads as "Internal" here -- POS/manual/
+// bol/woocommerce is the wire vocabulary (see SalesOrderSource), Internal is
+// the label staff actually recognize for a manually-created order.
+const SOURCE_FILTER_OPTIONS: { value: SalesOrderSource; label: string }[] = [
+  { value: 'pos', label: 'POS' },
+  { value: 'woocommerce', label: 'WOO' },
+  { value: 'bol', label: 'Bol' },
+  { value: 'manual', label: 'Internal' },
+]
 
 const STATUS_COLORS: Record<SalesOrderStatus, string> = {
   pending: 'bg-gray-500/15 text-gray-400',
@@ -84,7 +94,8 @@ export default function SalesOrders() {
   const [sortBy, setSortBy] = useState<SalesOrderSortField>('occurred_at')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
   const [selectedId, setSelectedId] = useState<string | null | 'new'>(null)
-  const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE, sortBy, sortDir })
+  const [sourceFilter, setSourceFilter] = useState<SalesOrderSource[]>([])
+  const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE, sortBy, sortDir, source: sourceFilter })
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkStatus, setBulkStatus] = useState('')
   const [bulkFulfilled, setBulkFulfilled] = useState('')
@@ -142,6 +153,11 @@ export default function SalesOrders() {
     }
   }
 
+  function toggleSourceFilter(source: SalesOrderSource) {
+    setSourceFilter(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source])
+    setPage(1)
+  }
+
   function toggleSort(field: SalesOrderSortField) {
     if (field === sortBy) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
@@ -178,7 +194,24 @@ export default function SalesOrders() {
 
       {/* Stats strip */}
       <div className="flex items-center gap-6 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
-        <span className="text-xs dark:text-gray-500 text-gray-400">{total} sales order{total === 1 ? '' : 's'}</span>
+        <span className="text-xs dark:text-gray-500 text-gray-400 whitespace-nowrap">{total} sales order{total === 1 ? '' : 's'}</span>
+        <div className="flex items-center gap-1.5" role="group" aria-label="Filter by channel">
+          {SOURCE_FILTER_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => toggleSourceFilter(value)}
+              aria-pressed={sourceFilter.includes(value)}
+              className={clsx(
+                'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                sourceFilter.includes(value)
+                  ? 'bg-blue-600 text-white'
+                  : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
       </div>
 

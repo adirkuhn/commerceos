@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, SalesOrderSortField, SortDirection } from '../types'
+import type { SalesOrder, SalesOrderDetail, CreateSalesOrderInput, SalesOrderSortField, SortDirection, SalesOrderSource } from '../types'
 import * as api from '../api'
 import type { BulkUpdateSalesOrdersInput, BulkUpdateSalesOrdersResult } from '../api'
 
@@ -30,9 +30,12 @@ export function useSalesOrders(
     // fulfilled: false powers the picking scanner app's "orders to pick"
     // search.
     fulfilled?: boolean
+    // source: narrows to the given channels -- the Sales Orders page's own
+    // filter.
+    source?: SalesOrderSource[]
   } = {},
 ): UseSalesOrdersState & UseSalesOrdersActions {
-  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled } = params
+  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, source } = params
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -43,7 +46,7 @@ export function useSalesOrders(
     setLoading(true)
     setError(null)
     try {
-      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled })
+      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, source })
       setSalesOrders(result.salesOrders)
       setTotal(result.total)
     } catch (e) {
@@ -51,7 +54,7 @@ export function useSalesOrders(
     } finally {
       setLoading(false)
     }
-  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled])
+  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, source])
 
   useEffect(() => { load() }, [load])
 

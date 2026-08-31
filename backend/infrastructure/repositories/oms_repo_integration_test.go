@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
@@ -977,6 +978,54 @@ func TestSalesOrderRepo_Integration_ListFiltersByStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, pickable, 1)
 	require.Equal(t, processingID, pickable[0].ID)
+}
+
+func TestSalesOrderRepo_Integration_ListFiltersBySource(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var posID, wooID, bolID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		specs := []struct {
+			extID  string
+			source omsDomain.SalesOrderSource
+			id     *string
+		}{
+			{"source-filter-pos", omsDomain.SalesOrderSourcePOS, &posID},
+			{"source-filter-woo", omsDomain.SalesOrderSourceWooCommerce, &wooID},
+			{"source-filter-bol", omsDomain.SalesOrderSourceBol, &bolID},
+		}
+		for _, s := range specs {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: s.source,
+				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			*s.id = order.ID
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var matched []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		matched, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
+			Limit:  50,
+			Source: []omsDomain.SalesOrderSource{omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderSourceWooCommerce},
+		})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, matched, 2)
+	gotIDs := []string{matched[0].ID, matched[1].ID}
+	assert.ElementsMatch(t, []string{posID, wooID}, gotIDs)
 }
 
 // seedDashboardOrder creates one sales order (+ one line item, if qty > 0)

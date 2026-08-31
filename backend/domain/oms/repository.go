@@ -37,9 +37,11 @@ type ListSalesOrdersFilter struct {
 	// admin pages, which list only flagged orders.
 	NeedsStockReview *bool
 	NeedsSKUReview   *bool
-	// Source nil means "don't filter on this" -- used by
-	// cmd/repair-stock-review-flags to scan only WooCommerce-sourced orders.
-	Source *SalesOrderSource
+	// Source empty means "don't filter on this" -- non-empty narrows to
+	// those sources only (OR'd together, same convention as Status). Used
+	// by cmd/repair-stock-review-flags to scan only WooCommerce-sourced
+	// orders, and by the Sales Orders page's channel filter.
+	Source []SalesOrderSource
 	// Fulfilled nil means "don't filter on this" -- false powers the
 	// picking scanner app's "unfulfilled orders" search; also usable from
 	// the OMS Orders page's own filter.

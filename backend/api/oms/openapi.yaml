@@ -62,6 +62,15 @@ paths:
           schema:
             type: array
             items: { $ref: '#/components/schemas/SalesOrderStatus' }
+        - name: source
+          in: query
+          description: >
+            Filter to orders whose source is one of the given values --
+            the Sales Orders page's channel filter.
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/SalesOrderSource' }
       responses:
         '200':
           description: ok
@@ -490,12 +499,16 @@ components:
       type: string
       enum: [pending, processing, on-hold, completed, cancelled, refunded, failed]
 
+    SalesOrderSource:
+      type: string
+      enum: [pos, manual, woocommerce, bol]
+
     SalesOrder:
       type: object
       required: [id, source, external_order_id, status, warehouse_id, currency_code, total_minor_units, occurred_at, created_at]
       properties:
         id: { type: string }
-        source: { type: string }
+        source: { $ref: '#/components/schemas/SalesOrderSource' }
         external_order_id: { type: string }
         number: { type: string }
         order_key: { type: string }

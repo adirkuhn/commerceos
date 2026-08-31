@@ -66,7 +66,7 @@ func (uc *RepairStockReviewFlagsUseCase) Execute(ctx context.Context) (*RepairSt
 		offset := 0
 		for {
 			orders, _, err := uc.salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{
-				Limit: repairScanBatchSize, Offset: offset, Source: &source,
+				Limit: repairScanBatchSize, Offset: offset, Source: []omsDomain.SalesOrderSource{source},
 			})
 			if err != nil {
 				return err

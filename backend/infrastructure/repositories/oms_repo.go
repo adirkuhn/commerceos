@@ -249,8 +249,12 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.NeedsSKUReview != nil {
 		q = q.Where("needs_sku_review = ?", *filter.NeedsSKUReview)
 	}
-	if filter.Source != nil {
-		q = q.Where("source = ?", string(*filter.Source))
+	if len(filter.Source) > 0 {
+		sources := make([]string, len(filter.Source))
+		for i, s := range filter.Source {
+			sources[i] = string(s)
+		}
+		q = q.Where("source IN ?", sources)
 	}
 	if filter.Fulfilled != nil {
 		q = q.Where("fulfilled = ?", *filter.Fulfilled)

@@ -77,7 +77,7 @@ function warehouse(overrides: Record<string, unknown> = {}) {
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
-    id: 'so-1', tenant_id: 'tenant-1', source: 'pos-desktop', external_order_id: 'ext-1',
+    id: 'so-1', tenant_id: 'tenant-1', source: 'pos', external_order_id: 'ext-1',
     number: '1001', order_key: 'wc_order_abc', status: 'completed', currency_code: 'USD',
     discount_total_minor_units: 0, shipping_total_minor_units: 0, tax_total_minor_units: 0,
     total_minor_units: 5000, occurred_at: '2026-08-10T12:00:00Z', created_at: '2026-08-10T12:00:00Z',
@@ -170,7 +170,7 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc' })
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] })
   })
 
   it('defaults to sorting by date, most recent first', async () => {
@@ -179,7 +179,7 @@ describe('Sales orders list', () => {
     render(<SalesOrders />)
     await screen.findByText('#1001')
 
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc' })
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] })
   })
 
   it('clicking a column header sorts by that field', async () => {
@@ -190,7 +190,7 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Total/ }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'total', sortDir: 'desc' })
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'total', sortDir: 'desc', source: [] })
   })
 
   it('clicking the active column header again flips the direction', async () => {
@@ -201,7 +201,7 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Order/ }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'asc' })
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'asc', source: [] })
   })
 
   it('changing sort resets back to page 1', async () => {
@@ -210,11 +210,52 @@ describe('Sales orders list', () => {
     render(<SalesOrders />)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] }))
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Customer/ }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'customer', sortDir: 'desc' })
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'customer', sortDir: 'desc', source: [] })
+  })
+
+  it('clicking a channel filter button narrows to that source and resets to page 1', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 25 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'WOO' }))
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['woocommerce'] }))
+  })
+
+  it('clicking multiple channel filter buttons combines them, and clicking again removes one', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    await userEvent.click(screen.getByRole('button', { name: 'POS' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['pos'] }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Internal' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['pos', 'manual'] }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'POS' }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['manual'] }))
+  })
+
+  it('renders all four channel filter buttons, none active by default', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    for (const label of ['POS', 'WOO', 'Bol', 'Internal']) {
+      const button = screen.getByRole('button', { name: label })
+      expect(button).toHaveAttribute('aria-pressed', 'false')
+    }
   })
 })
 
@@ -676,7 +717,7 @@ describe('Sales order detail page', () => {
   it('falls back to payment_method when payment_method_title is empty (POS orders)', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
-      sales_order: salesOrder({ payment_method: 'pos', payment_method_title: '' }),
+      sales_order: salesOrder({ source: 'manual', payment_method: 'pos', payment_method_title: '' }),
     }))
 
     render(<SalesOrders />)
