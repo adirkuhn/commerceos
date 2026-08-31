@@ -749,6 +749,27 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/listings/{productId}/all:
+    get:
+      operationId: listProductChannelListings
+      summary: >-
+        Every listing row for this product on this connection -- unlike
+        getProductChannelListing (one representative row), this returns
+        one entry per variant for a multi-variant product (plus the parent
+        row too, in variations mode), so the UI can show per-variant sync
+        state instead of collapsing it to a single summary. An empty array
+        means the product has never been linked to this connection.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductChannelListingsResponse'
+
   /integrations/sync-logs:
     get:
       operationId: listAllSyncLogs

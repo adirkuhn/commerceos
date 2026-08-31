@@ -122,6 +122,9 @@ type upsertSyncSchedulesUC interface {
 type getProductChannelListingUC interface {
 	Execute(ctx context.Context, productID, connectionID string) (*channelsDomain.ProductChannelListing, error)
 }
+type listProductChannelListingsUC interface {
+	Execute(ctx context.Context, productID, connectionID string) ([]channelsDomain.ProductChannelListing, error)
+}
 type listSyncLogsUC interface {
 	Execute(ctx context.Context, productID, connectionID string) ([]channelsDomain.SyncLogEntry, error)
 }
@@ -225,6 +228,7 @@ type Handler struct {
 	deleteAllImportedProds       deleteAllImportedProductsUC
 	updateConnectionSettings     updateConnectionSettingsUC
 	getProductChannelListing     getProductChannelListingUC
+	listProductChannelListings   listProductChannelListingsUC
 	listSyncLogs                 listSyncLogsUC
 	listAllSyncLogs              listAllSyncLogsUC
 	listSyncLogsNeedingAttention listSyncLogsNeedingAttentionUC
@@ -331,6 +335,7 @@ func NewHandler(
 	listWebhookEvents listWebhookEventsUC,
 	retryWebhookEventDispatch retryWebhookEventDispatchUC,
 	linkExistingWooProduct linkExistingWooProductUC,
+	listProductChannelListings listProductChannelListingsUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -391,6 +396,7 @@ func NewHandler(
 		listWebhookEvents:            listWebhookEvents,
 		retryWebhookEventDispatch:    retryWebhookEventDispatch,
 		linkExistingWooProduct:       linkExistingWooProduct,
+		listProductChannelListings:   listProductChannelListings,
 	}
 }
 
@@ -555,6 +561,7 @@ func Register(
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
 		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC),
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
+		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -1310,6 +1317,14 @@ func (h *Handler) GetProductChannelListing(c *gin.Context, id genintegrations.Id
 		return
 	}
 	middleware.OK(c, toGenListing(*listing))
+}
+
+func (h *Handler) ListProductChannelListings(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
+	listings, err := h.listProductChannelListings.Execute(c.Request.Context(), productId, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenListings(listings))
 }
 
 func (h *Handler) ListSyncLogs(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId) {
