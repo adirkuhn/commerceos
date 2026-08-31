@@ -50,6 +50,7 @@ vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
   getProductChannelListing: vi.fn(),
   resyncProductToChannels: vi.fn(),
+  linkExistingWooProduct: vi.fn(),
 }))
 
 vi.mock('../../settings/api', () => ({
@@ -1040,6 +1041,46 @@ describe('WooCommerce tab', () => {
     await waitFor(() => expect(screen.getByText(/mystore\.com/)).toBeInTheDocument())
     expect(await screen.findByText(/not linked to this WooCommerce store yet/i)).toBeInTheDocument()
     expect(integrationsApi.getProductChannelListing).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1')
+  })
+
+  it('links to an existing WooCommerce product by SKU and shows the resulting sync state', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.linkExistingWooProduct).mockResolvedValue({
+      id: 'listing-1', product_id: 'prod-1', connection_id: 'conn-1', provider: 'woocommerce',
+      external_id: '23609', sync_status: 'synced', last_synced_at: '2026-07-26T12:00:00Z',
+      created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-26T12:00:00Z',
+    })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+    await screen.findByText(/not linked to this WooCommerce store yet/i)
+
+    await userEvent.type(screen.getByPlaceholderText('SKU on WooCommerce'), 'TSHIRT-1')
+    await userEvent.click(screen.getByRole('button', { name: /Link existing product/i }))
+
+    expect(integrationsApi.linkExistingWooProduct).toHaveBeenCalledWith('test-token', 'prod-1', 'conn-1', 'TSHIRT-1')
+    expect(await screen.findByDisplayValue('23609')).toBeInTheDocument()
+    expect(screen.queryByText(/not linked to this WooCommerce store yet/i)).not.toBeInTheDocument()
+  })
+
+  it('surfaces an error when linking to an existing WooCommerce product fails', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
+    vi.mocked(integrationsApi.linkExistingWooProduct).mockRejectedValue(new Error('this product already has a listing for this connection'))
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await userEvent.click(await screen.findByRole('button', { name: /WooCommerce/ }))
+    await screen.findByText(/not linked to this WooCommerce store yet/i)
+
+    await userEvent.type(screen.getByPlaceholderText('SKU on WooCommerce'), 'TSHIRT-1')
+    await userEvent.click(screen.getByRole('button', { name: /Link existing product/i }))
+
+    expect(await screen.findByText('this product already has a listing for this connection')).toBeInTheDocument()
   })
 
   it('shows real sync state when the product is linked to this connection', async () => {

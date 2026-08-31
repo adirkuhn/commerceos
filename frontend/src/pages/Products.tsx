@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Package, Trash2, Edit3, Copy, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
@@ -1665,18 +1665,43 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
   const [listing, setListing] = useState<ProductChannelListing | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [linkSku, setLinkSku] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const loadListing = useCallback(async () => {
     if (!token) return
-    let cancelled = false
     setLoading(true)
     setError(null)
-    integrationsApi.getProductChannelListing(token, connection.id, productId)
-      .then(result => { if (!cancelled) setListing(result) })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load WooCommerce sync status') })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+    try {
+      const result = await integrationsApi.getProductChannelListing(token, connection.id, productId)
+      setListing(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load WooCommerce sync status')
+    } finally {
+      setLoading(false)
+    }
   }, [token, connection.id, productId])
+
+  useEffect(() => {
+    loadListing()
+  }, [loadListing])
+
+  const handleLinkExisting = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!token || !linkSku.trim()) return
+    setLinking(true)
+    setLinkError(null)
+    try {
+      const result = await integrationsApi.linkExistingWooProduct(token, productId, connection.id, linkSku.trim())
+      setListing(result)
+      setLinkSku('')
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : 'Failed to link product')
+    } finally {
+      setLinking(false)
+    }
+  }
 
   const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937]/60 bg-gray-100 border dark:border-[#2D3748] border-gray-200 outline-none cursor-not-allowed'
   const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
@@ -1698,9 +1723,29 @@ function ProductWooCommerceTab({ productId, connection, sku }: { productId: stri
       )}
 
       {!loading && !error && !listing && (
-        <p className="text-[11px] dark:text-gray-500 text-gray-400">
-          Not linked to this WooCommerce store yet — import it from WooCommerce or push it from CommerceOS to start syncing.
-        </p>
+        <div className="space-y-2">
+          <p className="text-[11px] dark:text-gray-500 text-gray-400">
+            Not linked to this WooCommerce store yet — import it from WooCommerce or push it from CommerceOS to start syncing.
+            If the product already exists on WooCommerce (e.g. after a reconnect), link it by SKU instead:
+          </p>
+          <form onSubmit={handleLinkExisting} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={linkSku}
+              onChange={e => setLinkSku(e.target.value)}
+              placeholder="SKU on WooCommerce"
+              className="flex-1 px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 outline-none focus:ring-1 focus:ring-blue-500 dark:text-gray-100 text-gray-900"
+            />
+            <button
+              type="submit"
+              disabled={linking || !linkSku.trim()}
+              className="px-3 py-2 text-[11px] font-medium rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white shrink-0"
+            >
+              {linking ? 'Linking…' : 'Link existing product'}
+            </button>
+          </form>
+          {linkError && <p className="text-[11px] dark:text-red-400 text-red-600">{linkError}</p>}
+        </div>
       )}
 
       {!loading && !error && listing && (

@@ -272,6 +272,23 @@ export function resyncProductToChannels(token: string, productId: string): Promi
   return request<null>(`${base()}/products/${productId}/resync`, { method: 'POST' }, token)
 }
 
+// Manual escape hatch for a product whose listing row was lost while the
+// real product still exists on WooCommerce (e.g. after a connection
+// disconnect/reconnect) -- looks the SKU up on Woo and links to whatever it
+// finds, instead of requiring a full re-import.
+export function linkExistingWooProduct(
+  token: string,
+  productId: string,
+  connectionId: string,
+  sku: string,
+): Promise<ProductChannelListing> {
+  return request<ProductChannelListing>(
+    `${base()}/products/${productId}/link-existing-woo-product`,
+    { method: 'POST', body: JSON.stringify({ connection_id: connectionId, sku }) },
+    token,
+  )
+}
+
 export function listSalesChannels(token: string): Promise<SalesChannel[]> {
   return request<SalesChannel[]>(`${base()}/sales-channels`, { method: 'GET' }, token)
 }
