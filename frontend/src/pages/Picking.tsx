@@ -5,8 +5,9 @@ import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
 import * as pickingApi from '../scanner/api'
-import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult } from '../scanner/types'
+import type { PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult, StockShortfall, StockShortfallResolution } from '../scanner/types'
 import { pickedQuantityByLineItem, computeMissingItems } from '../scanner/pickingMissingItems'
+import { StockShortfallDialog } from '../scanner/StockShortfallDialog'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
 import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
@@ -99,6 +100,12 @@ export default function Picking() {
   // gaps can't silently slip through into a "fulfilled" order. Only
   // handleConfirmComplete (below) actually calls completePicking.
   const [confirmingFinish, setConfirmingFinish] = useState(false)
+  // Set when completePicking comes back with completed:false -- a
+  // substitute/freebie/new-item pick's SKU is short on tracked stock, see
+  // StockShortfallDialog. Resubmitting with staff's per-item resolutions
+  // either clears this (completed) or replaces it (still short -- shows
+  // the same dialog again with fresh numbers).
+  const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
 
   const { connections } = useConnections(token ?? '')
   const myParcelConnection = connections.find(c => c.provider === 'myparcel')
@@ -189,6 +196,7 @@ export default function Picking() {
   async function selectOrder(order: SalesOrder) {
     setError('')
     setCompleteResult(null)
+    setStockShortfalls(null)
     setPickLine(null)
     setAddItemOpen(null)
     // Switching to a different order while one is actively in progress is
@@ -212,6 +220,7 @@ export default function Picking() {
     setActiveOrder(null)
     setSession(null)
     setCompleteResult(null)
+    setStockShortfalls(null)
     setError('')
     setCreatedShipmentId(null)
     setLabelStep(null)
@@ -387,12 +396,20 @@ export default function Picking() {
   // handleConfirmComplete is the ONLY place that calls the completePicking
   // API -- the header's "Complete" button just opens the review step
   // (setConfirmingFinish(true) below), it never calls this directly.
-  async function handleConfirmComplete() {
+  // resolutions is only ever passed when resubmitting from
+  // StockShortfallDialog; the first attempt always omits it.
+  async function handleConfirmComplete(resolutions?: Record<string, StockShortfallResolution>) {
     if (!session || !token) return
     setCompleting(true)
     setError('')
     try {
-      setCompleteResult(await pickingApi.completePicking(token, session.session.id))
+      const result = await pickingApi.completePicking(token, session.session.id, resolutions)
+      if (!result.completed) {
+        setStockShortfalls(result.stock_shortfalls ?? [])
+        return
+      }
+      setStockShortfalls(null)
+      setCompleteResult(result)
       setConfirmingFinish(false)
       await loadOrders()
     } catch (err) {
@@ -553,7 +570,7 @@ export default function Picking() {
             <p className="text-sm font-semibold dark:text-gray-100 text-gray-900">
               #{activeOrder.number || activeOrder.external_order_id} marked fulfilled
             </p>
-            {completeResult.missing_items.length > 0 && (
+            {!!completeResult.missing_items?.length && (
               <div className="mt-4 w-full max-w-sm rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-amber-500/5 bg-amber-50/40 p-3">
                 <p className="text-[11px] font-medium text-amber-400 mb-2">Not fully picked</p>
                 {completeResult.missing_items.map(m => (
@@ -633,7 +650,16 @@ export default function Picking() {
           />
         )}
 
-        {activeOrder && session && confirmingFinish && !completeResult && (
+        {stockShortfalls && (
+          <StockShortfallDialog
+            shortfalls={stockShortfalls}
+            submitting={completing}
+            onCancel={() => setStockShortfalls(null)}
+            onConfirm={resolutions => handleConfirmComplete(resolutions)}
+          />
+        )}
+
+        {activeOrder && session && confirmingFinish && !completeResult && !stockShortfalls && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 shrink-0">
               <button onClick={() => setConfirmingFinish(false)} className="p-1 -ml-1" title="Back to picking">
@@ -694,7 +720,7 @@ export default function Picking() {
                 </button>
               )}
               <button
-                onClick={handleConfirmComplete} disabled={completing}
+                onClick={() => handleConfirmComplete()} disabled={completing}
                 className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
               >
                 {completing ? 'Completing…' : 'Confirm & Complete'}

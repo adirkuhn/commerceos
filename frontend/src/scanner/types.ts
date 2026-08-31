@@ -241,9 +241,27 @@ export interface MissingPickItem {
   picked_qty: number
 }
 
+// One substitute/freebie/new-item scan whose SKU doesn't have enough
+// tracked stock in the order's warehouse -- returned instead of completing
+// (completed:false) until staff resolve it (see StockShortfallResolution).
+export interface StockShortfall {
+  scan_id: string
+  sku_id: string
+  name: string
+  needed: number
+  short: number
+}
+
+export type StockShortfallResolution = 'with_item' | 'without_item'
+
 export interface CompletePickingResult {
-  session: PickingSession
-  missing_items: MissingPickItem[]
+  // completed:false means nothing was replayed or completed --
+  // stock_shortfalls lists what needs a decision before resubmitting.
+  // session/missing_items are absent in that case.
+  completed: boolean
+  session?: PickingSession
+  missing_items?: MissingPickItem[]
+  stock_shortfalls?: StockShortfall[]
 }
 
 export interface AddSalesOrderLineItemInput {

@@ -900,6 +900,7 @@ describe('ScannerApp picking screen', () => {
       scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'pick', quantity: 6, scanned_at: '', scanned_by: '' }],
     })
     vi.mocked(api.completePicking).mockResolvedValue({
+      completed: true,
       session: pickingSession({ status: 'completed' }),
       missing_items: [{ line_item_id: 'li-1', name: 'Widget A', expected_qty: 10, picked_qty: 6 }],
     })
@@ -911,7 +912,7 @@ describe('ScannerApp picking screen', () => {
 
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
     expect(screen.getByText(/weren't fully picked/)).toBeInTheDocument()
-    expect(api.completePicking).toHaveBeenCalledWith(expect.any(String), 'session-1')
+    expect(api.completePicking).toHaveBeenCalledWith(expect.any(String), 'session-1', undefined)
   })
 
   it('pauses the picking session and returns to the sales order picker', async () => {

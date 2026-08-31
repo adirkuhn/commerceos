@@ -76,6 +76,7 @@ describe('PickingScreen', () => {
   it('completing shows the divergence review before actually completing', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue(detail())
     const result: CompletePickingResult = {
+      completed: true,
       session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '2026-08-22T10:00:00Z', completed_by: '' },
       missing_items: [{ line_item_id: 'li-1', name: 'Widget', expected_qty: 2, picked_qty: 0 }],
     }
@@ -93,6 +94,33 @@ describe('PickingScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
     expect(await screen.findByText('Order picked')).toBeInTheDocument()
     expect(screen.getByText("1 line(s) weren't fully picked:")).toBeInTheDocument()
+  })
+
+  it('shows a stock-shortfall dialog and resubmits with the chosen resolution', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(api.completePicking)
+      .mockResolvedValueOnce({
+        completed: false,
+        stock_shortfalls: [{ scan_id: 'scan-1', sku_id: 'sku-1', name: 'Widget', needed: 5, short: 3 }],
+      })
+      .mockResolvedValueOnce({
+        completed: true,
+        session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '', completed_by: '' },
+        missing_items: [],
+      })
+
+    const user = userEvent.setup()
+    render(<PickingScreen token={TOKEN} sessionId="ps-1" order={salesOrder()} onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Finish' }))
+    await screen.findByText('Review before finishing')
+    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+
+    expect(await screen.findByText('Not enough stock')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+
+    expect(await screen.findByText('Order picked')).toBeInTheDocument()
+    expect(api.completePicking).toHaveBeenLastCalledWith(TOKEN, 'ps-1', { 'scan-1': 'with_item' })
   })
 
   it('going back from the review screen returns to scanning without completing', async () => {
@@ -126,6 +154,7 @@ describe('PickingScreen', () => {
   it('does not show "Create shipping label" when no MyParcel connection exists', async () => {
     vi.mocked(api.getPickingSession).mockResolvedValue(detail())
     vi.mocked(api.completePicking).mockResolvedValue({
+      completed: true,
       session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '', completed_by: '' },
       missing_items: [],
     })
@@ -184,6 +213,7 @@ describe('PickingScreen', () => {
     it('lets staff create the shipping label from the review screen, before Confirm & Complete', async () => {
       vi.mocked(api.getPickingSession).mockResolvedValue(detail())
       vi.mocked(api.completePicking).mockResolvedValue({
+        completed: true,
         session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '', completed_by: '' },
         missing_items: [],
       })
@@ -225,6 +255,7 @@ describe('PickingScreen', () => {
     it('creates a shipment via the address confirm -> label preview flow, then opens the print view', async () => {
       vi.mocked(api.getPickingSession).mockResolvedValue(detail())
       vi.mocked(api.completePicking).mockResolvedValue({
+        completed: true,
         session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '', completed_by: '' },
         missing_items: [],
       })
@@ -275,6 +306,7 @@ describe('PickingScreen', () => {
       })
       vi.mocked(api.getPickingSession).mockResolvedValue(detail())
       vi.mocked(api.completePicking).mockResolvedValue({
+        completed: true,
         session: { id: 'ps-1', sales_order_id: 'so-1', status: 'completed', started_at: '', completed_by: '' },
         missing_items: [],
       })

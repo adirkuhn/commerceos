@@ -282,13 +282,13 @@ describe('pausePicking', () => {
 
 describe('completePicking', () => {
   it('posts to the correct endpoint', async () => {
-    mockFetch({ session: { ...samplePickingSession, status: 'completed' }, missing_items: [] })
+    mockFetch({ completed: true, session: { ...samplePickingSession, status: 'completed' }, missing_items: [] })
     const result = await api.completePicking(TOKEN, 'session-1')
 
-    expect(result.session.status).toBe('completed')
+    expect(result.session?.status).toBe('completed')
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
       'https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/complete',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ resolutions: undefined }) }),
     )
   })
 })

@@ -21,8 +21,9 @@ import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLab
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
-  PickScanActionType,
+  StockShortfall, StockShortfallResolution, PickScanActionType,
 } from './types'
+import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder, Address } from '../oms/types'
 
 function customerName(order: SalesOrder): string {
@@ -77,6 +78,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [finishing, setFinishing] = useState(false)
   const [confirmingFinish, setConfirmingFinish] = useState(false)
   const [result, setResult] = useState<CompletePickingResult | null>(null)
+  const [stockShortfalls, setStockShortfalls] = useState<StockShortfall[] | null>(null)
   const [candidates, setCandidates] = useState<SKUCandidate[]>([])
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
   const [addItemOpen, setAddItemOpen] = useState(false)
@@ -285,10 +287,16 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     }
   }
 
-  async function handleConfirmComplete() {
+  async function handleConfirmComplete(resolutions?: Record<string, StockShortfallResolution>) {
     setFinishing(true)
     try {
-      setResult(await api.completePicking(token, sessionId))
+      const r = await api.completePicking(token, sessionId, resolutions)
+      if (!r.completed) {
+        setStockShortfalls(r.stock_shortfalls ?? [])
+        return
+      }
+      setStockShortfalls(null)
+      setResult(r)
       setConfirmingFinish(false)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
@@ -296,6 +304,17 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     } finally {
       setFinishing(false)
     }
+  }
+
+  if (stockShortfalls) {
+    return (
+      <StockShortfallDialog
+        shortfalls={stockShortfalls}
+        submitting={finishing}
+        onCancel={() => setStockShortfalls(null)}
+        onConfirm={resolutions => handleConfirmComplete(resolutions)}
+      />
+    )
   }
 
   if (confirmingFinish && detail) {
@@ -359,7 +378,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             </button>
           )}
           <button
-            onClick={handleConfirmComplete}
+            onClick={() => handleConfirmComplete()}
             disabled={finishing}
             className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50"
           >
@@ -424,9 +443,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             <PackageCheck size={26} className="text-green-400" />
           </div>
           <h1 className="text-lg font-semibold">Order picked</h1>
-          {result.missing_items.length === 0 && <p className="text-sm text-gray-400">Every line was fully picked.</p>}
+          {!result.missing_items?.length && <p className="text-sm text-gray-400">Every line was fully picked.</p>}
         </div>
-        {result.missing_items.length > 0 && (
+        {!!result.missing_items?.length && (
           <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-2">
             <p className="text-sm text-amber-400">{result.missing_items.length} line(s) weren't fully picked:</p>
             {result.missing_items.map(m => (

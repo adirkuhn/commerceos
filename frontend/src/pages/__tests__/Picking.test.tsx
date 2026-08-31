@@ -247,7 +247,7 @@ describe('Picking page', () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
     const result: CompletePickingResult = {
-      session: session({ status: 'completed' }),
+      completed: true, session: session({ status: 'completed' }),
       missing_items: [{ line_item_id: 'li-1', name: 'Widget', expected_qty: 2, picked_qty: 0 }],
     }
     vi.mocked(pickingApi.completePicking).mockResolvedValue(result)
@@ -267,6 +267,32 @@ describe('Picking page', () => {
     expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
     const missing = screen.getByText('Not fully picked').closest('div')!
     expect(within(missing).getByText('Widget: 0/2')).toBeInTheDocument()
+  })
+
+  it('shows a stock-shortfall dialog and resubmits with the chosen resolution', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.completePicking)
+      .mockResolvedValueOnce({
+        completed: false,
+        stock_shortfalls: [{ scan_id: 'scan-1', sku_id: 'sku-1', name: 'Widget', needed: 5, short: 3 }],
+      })
+      .mockResolvedValueOnce({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByRole('button', { name: 'Complete' }))
+    expect(await screen.findByText('Review before completing')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+
+    expect(await screen.findByText('Not enough stock')).toBeInTheDocument()
+    expect(screen.getByText('Needed 5, 3 short')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Confirm & Complete' }))
+
+    expect(await screen.findByText('#1001 marked fulfilled')).toBeInTheDocument()
+    expect(pickingApi.completePicking).toHaveBeenLastCalledWith('test-token', 'ps-1', { 'scan-1': 'with_item' })
   })
 
   it('shows the shipping method below the address on the review screen', async () => {
@@ -293,7 +319,7 @@ describe('Picking page', () => {
   it('does not show "Create shipping label" when no MyParcel connection exists', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-    vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+    vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
 
     const user = userEvent.setup()
     render(<Picking />)
@@ -359,7 +385,7 @@ describe('Picking page', () => {
       })
       vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
       vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
       vi.mocked(shippingApi.createShipment).mockResolvedValue({
         id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 9, barcode: '3SMYPA1',
         status: 1, status_main: 'registered', label_format: 'pdf',
@@ -409,7 +435,7 @@ describe('Picking page', () => {
       })
       vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
       vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
       vi.mocked(shippingApi.createShipment).mockResolvedValue({
         id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
         status: 1, status_main: 'registered', label_format: 'pdf',
@@ -469,7 +495,7 @@ describe('Picking page', () => {
       })
       vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
       vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
 
       const user = userEvent.setup()
       render(<Picking />)
@@ -518,7 +544,7 @@ describe('Picking page', () => {
       })
       vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
       vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
-      vi.mocked(pickingApi.completePicking).mockResolvedValue({ session: session({ status: 'completed' }), missing_items: [] })
+      vi.mocked(pickingApi.completePicking).mockResolvedValue({ completed: true, session: session({ status: 'completed' }), missing_items: [] })
       vi.mocked(shippingApi.createShipment).mockResolvedValue({
         id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-mp-1', carrier: 1, barcode: '3SMYPA1',
         status: 1, status_main: 'registered', label_format: 'pdf',

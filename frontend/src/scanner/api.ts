@@ -2,7 +2,7 @@ import type {
   Booking, BookingDetail, ScanBookingItemInput, ScanBookingItemResult,
   ResolveBookingScanCodeResult, CompleteBookingResult, ScannerPairingCode, APIResponse,
   PickingSession, PickingSessionDetail, ScanPickItemInput, ScanPickItemResult,
-  ResolvePickScanCodeResult, CompletePickingResult, AddSalesOrderLineItemInput,
+  ResolvePickScanCodeResult, CompletePickingResult, StockShortfallResolution, AddSalesOrderLineItemInput,
 } from './types'
 import type { SalesOrderLineItem } from '../oms/types'
 
@@ -114,8 +114,17 @@ export function pausePicking(token: string, id: string): Promise<PickingSession>
   return request<PickingSession>(`${base()}/picking-sessions/${id}/pause`, { method: 'POST' }, token)
 }
 
-export function completePicking(token: string, id: string): Promise<CompletePickingResult> {
-  return request<CompletePickingResult>(`${base()}/picking-sessions/${id}/complete`, { method: 'POST' }, token)
+// resolutions maps a PickScan id (one already returned in a prior call's
+// stock_shortfalls) to how staff want it handled -- see
+// StockShortfallResolution. Omit/empty on the first attempt.
+export function completePicking(
+  token: string, id: string, resolutions?: Record<string, StockShortfallResolution>,
+): Promise<CompletePickingResult> {
+  return request<CompletePickingResult>(
+    `${base()}/picking-sessions/${id}/complete`,
+    { method: 'POST', body: JSON.stringify({ resolutions }) },
+    token,
+  )
 }
 
 // addSalesOrderLineItem appends a real line item to an already-existing
