@@ -25,8 +25,8 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
-	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
+	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
 
@@ -136,6 +136,9 @@ type retryFailedSyncUC interface {
 }
 type resyncProductToChannelsUC interface {
 	Execute(ctx context.Context, productID string) error
+}
+type linkExistingWooProductUC interface {
+	Execute(ctx context.Context, in appchannels.LinkExistingWooProductInput) (*channelsDomain.ProductChannelListing, error)
 }
 type dismissFailedSyncUC interface {
 	Execute(ctx context.Context, syncLogEntryID string) error
@@ -265,6 +268,7 @@ type Handler struct {
 	listBolEconomicOperators     listBolEconomicOperatorsUC
 	listWebhookEvents            listWebhookEventsUC
 	retryWebhookEventDispatch    retryWebhookEventDispatchUC
+	linkExistingWooProduct       linkExistingWooProductUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -326,6 +330,7 @@ func NewHandler(
 	listBolEconomicOperators listBolEconomicOperatorsUC,
 	listWebhookEvents listWebhookEventsUC,
 	retryWebhookEventDispatch retryWebhookEventDispatchUC,
+	linkExistingWooProduct linkExistingWooProductUC,
 ) *Handler {
 	return &Handler{
 		listConnections:              listConnections,
@@ -385,6 +390,7 @@ func NewHandler(
 		listBolEconomicOperators:     listBolEconomicOperators,
 		listWebhookEvents:            listWebhookEvents,
 		retryWebhookEventDispatch:    retryWebhookEventDispatch,
+		linkExistingWooProduct:       linkExistingWooProduct,
 	}
 }
 
@@ -548,6 +554,7 @@ func Register(
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
 		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC),
+		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
@@ -1395,6 +1402,21 @@ func (h *Handler) ResyncProductToChannels(c *gin.Context, productId genintegrati
 	c.JSON(http.StatusOK, genintegrations.EmptyResponse{})
 }
 
+func (h *Handler) LinkExistingWooProduct(c *gin.Context, productId genintegrations.ProductId) {
+	var req genintegrations.LinkExistingWooProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	listing, err := h.linkExistingWooProduct.Execute(c.Request.Context(), appchannels.LinkExistingWooProductInput{
+		ProductID: productId, ConnectionID: req.ConnectionId, SKU: req.Sku,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenListing(*listing))
+}
+
 func (h *Handler) ListSalesChannels(c *gin.Context) {
 	list, err := h.listSalesChannels.Execute(c.Request.Context())
 	if err := mapError(c, err); err != nil {
@@ -1719,7 +1741,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrExternalCategoryLinkNotFound),
 		errors.Is(err, channelsDomain.ErrSyncLogNotFound),
 		errors.Is(err, webhooksDomain.ErrFallbackEventNotFound),
-		errors.Is(err, webhooksDomain.ErrWebhookEventNotFound):
+		errors.Is(err, webhooksDomain.ErrWebhookEventNotFound),
+		errors.Is(err, integrationsDomain.ErrWooProductNotFoundBySKU):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, webhooksDomain.ErrWebhookEventNotDispatchable):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
@@ -1744,7 +1767,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrConnectionRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentCategoryRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentTagRequired),
-		errors.Is(err, channelsDomain.ErrChannelTypeConnectionMismatch):
+		errors.Is(err, channelsDomain.ErrChannelTypeConnectionMismatch),
+		errors.Is(err, channelsDomain.ErrProductAlreadyLinkedToConnection):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStateInvalid):
 		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())

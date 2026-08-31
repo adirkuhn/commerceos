@@ -80,4 +80,13 @@ var (
 	// correctly configured in the UI (right name, right connection) but
 	// its Type was wrong.
 	ErrChannelTypeConnectionMismatch = errors.New("channel type does not match the connection's provider")
+	// ErrProductAlreadyLinkedToConnection guards LinkExistingWooProductUseCase
+	// -- the manual "this CommerceOS product is actually this Woo product"
+	// admin action refuses to run against a product that already has a
+	// product_channel_listings row for the given connection, since that
+	// would create a second, conflicting row nothing else expects to see
+	// (see the table's own doc: only (connection_id, external_id) is
+	// actually unique at the DB level -- app logic is what prevents two
+	// rows for the same product+connection otherwise).
+	ErrProductAlreadyLinkedToConnection = errors.New("this product already has a listing for this connection")
 )

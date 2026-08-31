@@ -860,6 +860,36 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/products/{productId}/link-existing-woo-product:
+    post:
+      operationId: linkExistingWooProduct
+      summary: >-
+        Manually link this product to a product that already exists on
+        WooCommerce, identified by its SKU there -- the escape hatch for a
+        product whose product_channel_listings row was lost (e.g. after a
+        connection disconnect/reconnect) while the real Woo product is
+        still on the store. Fails if this product already has a listing
+        for the given connection, or if no Woo product matches the SKU.
+      parameters:
+        - $ref: '#/components/parameters/productId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkExistingWooProductRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductChannelListingResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/listings/{productId}/sync-logs:
     get:
       operationId: listSyncLogs
@@ -1372,6 +1402,13 @@ components:
       required: [included]
       properties:
         included: { type: boolean }
+
+    LinkExistingWooProductRequest:
+      type: object
+      required: [connection_id, sku]
+      properties:
+        connection_id: { type: string }
+        sku: { type: string }
 
     ManualConnectWooCommerceRequest:
       type: object
