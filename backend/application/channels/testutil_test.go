@@ -124,6 +124,9 @@ type stubWooClient struct {
 	getOrderErr    error
 	getOrderResult *integrationsDomain.WooOrder
 
+	updateOrderStatusCalls []stubUpdateOrderStatusCall
+	updateOrderStatusErr   error
+
 	// customersByPage mirrors ordersByPage's convention.
 	customersByPage map[int][]integrationsDomain.WooCustomer
 	customersErr    error
@@ -306,6 +309,16 @@ func (s *stubWooClient) GetOrder(_ context.Context, externalOrderID string) (*in
 		return s.getOrderResult, nil
 	}
 	return nil, errors.New("stubWooClient: getOrderResult not set")
+}
+
+type stubUpdateOrderStatusCall struct {
+	externalOrderID string
+	status          string
+}
+
+func (s *stubWooClient) UpdateOrderStatus(_ context.Context, externalOrderID, status string) error {
+	s.updateOrderStatusCalls = append(s.updateOrderStatusCalls, stubUpdateOrderStatusCall{externalOrderID: externalOrderID, status: status})
+	return s.updateOrderStatusErr
 }
 
 func (s *stubWooClient) ListCustomers(_ context.Context, page, _ int) ([]integrationsDomain.WooCustomer, error) {
@@ -1033,6 +1046,8 @@ type stubOrdersSalesOrderRepo struct {
 	// check, before Create was ever attempted) correctly saw nothing.
 	createAttempts        int
 	winnerAfterCreateFail map[string]omsDomain.SalesOrder
+	findByIDResult        *omsDomain.SalesOrder
+	findByIDErr           error
 }
 
 func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesOrder) error {
@@ -1049,7 +1064,10 @@ func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesO
 	return nil
 }
 func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
-	return nil, omsDomain.ErrSalesOrderNotFound
+	if s.findByIDResult == nil && s.findByIDErr == nil {
+		return nil, omsDomain.ErrSalesOrderNotFound
+	}
+	return s.findByIDResult, s.findByIDErr
 }
 func (s *stubOrdersSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDomain.SalesOrderSource, externalOrderID string) (*omsDomain.SalesOrder, error) {
 	if s.findByExternalIDErr != nil {

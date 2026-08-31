@@ -228,6 +228,11 @@ func (c *wooClient) GetOrder(ctx context.Context, externalOrderID string) (*inte
 	return &result, nil
 }
 
+func (c *wooClient) UpdateOrderStatus(ctx context.Context, externalOrderID, status string) error {
+	_, _, err := c.client.Orders.Update(ctx, externalOrderID, &wc.Order{Status: status})
+	return err
+}
+
 func (c *wooClient) ListCustomers(ctx context.Context, page, perPage int) ([]integrationsDomain.WooCustomer, error) {
 	customers, _, err := c.client.Customers.List(ctx, &wc.ListCustomerParams{Page: page, PerPage: perPage})
 	if err != nil {

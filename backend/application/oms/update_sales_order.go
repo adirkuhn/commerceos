@@ -9,6 +9,7 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
@@ -64,10 +65,11 @@ type UpdateSalesOrderUseCase struct {
 	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
 	recordMovement  recordSaleMovementUC
 	reverseMovement movementReverser
+	outboxRepo      outbox.Repository
 }
 
-func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC, reverseMovement movementReverser) *UpdateSalesOrderUseCase {
-	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement, reverseMovement: reverseMovement}
+func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, recordMovement recordSaleMovementUC, reverseMovement movementReverser, outboxRepo outbox.Repository) *UpdateSalesOrderUseCase {
+	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, recordMovement: recordMovement, reverseMovement: reverseMovement, outboxRepo: outboxRepo}
 }
 
 func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -150,6 +152,9 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		if statusChanging {
 			fields["status"] = string(*in.Status)
 			updated.Status = *in.Status
+			if err := enqueueSalesOrderStatusChanged(ctx, uc.outboxRepo, id); err != nil {
+				return err
+			}
 		}
 		// Completing an order (any path -- a manual edit here, or
 		// ImportWooOrdersUseCase.routeToExisting syncing a Woo status

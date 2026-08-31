@@ -146,7 +146,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
-	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement)
+	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement, outboxRepo)
 
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo),

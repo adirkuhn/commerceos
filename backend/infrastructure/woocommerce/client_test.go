@@ -222,6 +222,31 @@ func TestUpdateVariation_sendsSKU(t *testing.T) {
 	require.Equal(t, `"CARNE-378-NEW"`, string(v))
 }
 
+// TestUpdateOrderStatus_sendsOnlyStatusToTheOrdersEndpoint proves the
+// event-driven Woo status push (see application/channels.
+// PushSalesOrderStatusToChannelsUseCase) hits PUT /orders/{id} with only
+// the status field -- Woo's partial-update semantics mean nothing else
+// about the order gets touched by this call.
+func TestUpdateOrderStatus_sendsOnlyStatusToTheOrdersEndpoint(t *testing.T) {
+	var raw map[string]json.RawMessage
+	var gotPath string
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Order{ID: 501, Status: "on-hold"})
+	})
+
+	err := c.UpdateOrderStatus(context.Background(), "501", "on-hold")
+
+	require.NoError(t, err)
+	require.Contains(t, gotPath, "/orders/501")
+	v, present := raw["status"]
+	require.True(t, present)
+	require.Equal(t, `"on-hold"`, string(v))
+	_, priceSent := raw["total"]
+	require.False(t, priceSent, "only status is sent -- nothing else about the order")
+}
+
 func TestCreateVariation_sendsGTINAsGlobalUniqueID(t *testing.T) {
 	var body wc.ProductVariation
 	requestCount := 0

@@ -76,7 +76,7 @@ func main() {
 	outboxRepo := repositories.NewOutboxRepository(db)
 	recordMovement := appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo)
 	allocateStock := appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
-	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement)
+	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement, outboxRepo)
 
 	shipmentHandler := appshipping.NewHandleShipmentWebhookUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),

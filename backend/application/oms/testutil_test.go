@@ -14,10 +14,32 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
 func strPtr(s string) *string { return &s }
+
+// stubOutboxRepo is a no-op outbox -- the tests that need
+// UpdateSalesOrderUseCase to raise an oms.sales_order.status_changed event
+// only care that Enqueue was called (via `calls`), not that it actually
+// persists anything.
+type stubOutboxRepo struct {
+	calls    []string // subjects enqueued
+	payloads [][]byte // one per call, same order as calls
+	err      error
+}
+
+func (s *stubOutboxRepo) Enqueue(_ context.Context, subject, _ string, payload []byte, _ time.Time) error {
+	s.calls = append(s.calls, subject)
+	s.payloads = append(s.payloads, payload)
+	return s.err
+}
+func (s *stubOutboxRepo) FetchPending(_ context.Context, _ int) ([]outbox.Message, error) {
+	return nil, nil
+}
+func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return nil }
+func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
 
 func newMockGormDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -450,9 +472,9 @@ func (s *stubReverseMovement) Execute(_ context.Context, in appinventory.RecordS
 // *inventory.AllocateSaleStockUseCase, so it doesn't affect a test's
 // newMockGormDBN count unless a test explicitly wants a shortfall.
 type stubStockAvailabilityChecker struct {
-	calls  []string // SKUIDs checked, in order
+	calls      []string // SKUIDs checked, in order
 	shortBySKU map[string]int64
-	err    error
+	err        error
 }
 
 func (s *stubStockAvailabilityChecker) CheckAvailability(_ context.Context, skuID, _ string, _ int64) (int64, error) {

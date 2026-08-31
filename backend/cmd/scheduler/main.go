@@ -256,6 +256,16 @@ func main() {
 	}
 	defer stockChangedSub.Unsubscribe()
 
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
+	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
+	salesOrderStatusChangedSub, err := js.Subscribe(events.SalesOrderStatusChanged{}.EventName(), salesOrderStatusChangedConsumer.Handle,
+		nats.Durable("sales-order-status-changed-scheduler"), nats.ManualAck(),
+		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
+	if err != nil {
+		log.Fatalf("subscribe oms.sales_order.status_changed: %v", err)
+	}
+	defer salesOrderStatusChangedSub.Unsubscribe()
+
 	// jobRunners was built before syncProductUC/syncStockUC existed --
 	// added here instead of at its original declaration. Safe to mutate
 	// after being handed to runJobNowUC: that's the same map by reference,
@@ -269,7 +279,7 @@ func main() {
 	customerRepo := repositories.NewCustomerRepo(db)
 	allocateStockUC := invapp.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 	updateSalesOrderUC := appoms.NewUpdateSalesOrderUseCase(
-		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC,
+		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC, outboxRepo,
 	)
 
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(

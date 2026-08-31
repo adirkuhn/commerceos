@@ -307,6 +307,13 @@ type WooClient interface {
 	// "fetch this specific known order" admin action, for backfilling one
 	// order without waiting for (or in place of) a scheduled sync pass.
 	GetOrder(ctx context.Context, externalOrderID string) (*WooOrder, error)
+	// UpdateOrderStatus pushes this codebase's current order status back to
+	// an already-imported Woo order, identified by its external (Woo) order
+	// id -- the event-driven push side of the sync (see
+	// application/channels.PushSalesOrderStatusToChannelsUseCase, raised by
+	// domain/events.SalesOrderStatusChanged). Only status is sent (Woo's
+	// partial-update semantics); nothing else about the order is touched.
+	UpdateOrderStatus(ctx context.Context, externalOrderID, status string) error
 	// ListCustomers pages through the store's customer accounts -- always a
 	// full scan (no modified-since filter), used only by the one-time
 	// customers bootstrap that runs alongside a connection's first
