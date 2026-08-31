@@ -9,13 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
 func TestUpdateProduct_rejectsDisablingHasVariantsWithMultipleVariants(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}, {ID: "v2", ProductID: "p1"}}}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, HasVariants: false})
 
@@ -26,7 +27,7 @@ func TestUpdateProduct_rejectsDisablingHasVariantsWithMultipleVariants(t *testin
 func TestUpdateProduct_allowsDisablingHasVariantsWithAtMostOneVariant(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}}}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, HasVariants: false})
 
@@ -37,7 +38,7 @@ func TestUpdateProduct_allowsDisablingHasVariantsWithAtMostOneVariant(t *testing
 func TestUpdateProduct_allowsEnablingHasVariantsRegardlessOfVariantCount(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{existing: nil}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, HasVariants: true})
 
@@ -45,10 +46,74 @@ func TestUpdateProduct_allowsEnablingHasVariantsRegardlessOfVariantCount(t *test
 	require.True(t, product.HasVariants)
 }
 
+// TestUpdateProduct_flippingToVariantsRelinksTheExistingProductLevelListing
+// is the fix for a real production bug: enabling variants on a product that
+// was already pushed to WooCommerce (as a flat, single-SKU product) left
+// its channel listing keyed VariantID=nil while the next push started
+// looking it up by the variant's own ID, found nothing, and tried to
+// re-CREATE the same SKU on Woo -- which Woo rejects as a duplicate, since
+// it already has the original product. The fix relinks the existing
+// product-level row (VariantID nil) to the one variant that already
+// existed before the flip, instead of leaving it orphaned.
+func TestUpdateProduct_flippingToVariantsRelinksTheExistingProductLevelListing(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}}}
+	listingRepo := &stubProductListingRepo{byProduct: []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: "p1", ConnectionID: "conn-1", ExternalID: "23609", VariantID: nil},
+	}}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, listingRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, HasVariants: true})
+
+	require.NoError(t, err)
+	require.Len(t, listingRepo.updated, 1)
+	require.NotNil(t, listingRepo.updated[0].VariantID)
+	require.Equal(t, "v1", *listingRepo.updated[0].VariantID)
+	require.Equal(t, "listing-1", listingRepo.updated[0].ID)
+}
+
+// TestUpdateProduct_flippingToVariantsWithMultipleExistingVariantsDoesNotRelink
+// guards the ambiguous case: relinking only makes sense for the flat-product
+// shape (exactly one variant already existed) -- if the product somehow has
+// more than one variant already at the moment of the flip, there's no single
+// "the" variant to relink an existing product-level listing to, so it's left
+// untouched rather than guessing.
+func TestUpdateProduct_flippingToVariantsWithMultipleExistingVariantsDoesNotRelink(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}, {ID: "v2", ProductID: "p1"}}}
+	listingRepo := &stubProductListingRepo{byProduct: []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: "p1", ConnectionID: "conn-1", ExternalID: "23609", VariantID: nil},
+	}}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, listingRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, HasVariants: true})
+
+	require.NoError(t, err)
+	require.Empty(t, listingRepo.updated)
+}
+
+// TestUpdateProduct_alreadyInVariantsModeDoesNotRelinkOnEveryUnrelatedSave
+// guards against relinking firing on every ordinary save of an
+// already-variants-mode product -- it must only run on the false->true
+// transition, once.
+func TestUpdateProduct_alreadyInVariantsModeDoesNotRelinkOnEveryUnrelatedSave(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}}}
+	listingRepo := &stubProductListingRepo{byProduct: []channelsDomain.ProductChannelListing{
+		{ID: "listing-1", ProductID: "p1", ConnectionID: "conn-1", ExternalID: "23609", VariantID: nil},
+	}}
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, listingRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, HasVariants: true})
+
+	require.NoError(t, err)
+	require.Empty(t, listingRepo.updated)
+}
+
 func TestUpdateProduct_updatesTags(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Tags: []string{"old"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
 		ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Tags: []string{"summer", "sale"},
@@ -66,7 +131,7 @@ func TestUpdateProduct_updatesTags(t *testing.T) {
 func TestUpdateProduct_updatesSlugWhenProvided(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "biscoito-de-maizena-renata-360g-copy", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	newSlug := "biscoito-de-maizena-renata-360g"
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
@@ -80,7 +145,7 @@ func TestUpdateProduct_updatesSlugWhenProvided(t *testing.T) {
 func TestUpdateProduct_leavesSlugUnchangedWhenNotProvided(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive})
 
@@ -95,7 +160,7 @@ func TestUpdateProduct_rejectsSlugAlreadyUsedByAnotherProduct(t *testing.T) {
 		slugOwner: &pmsDomain.Product{ID: "p2", Slug: "other-product"},
 	}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	newSlug := "other-product"
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &newSlug})
@@ -114,7 +179,7 @@ func TestUpdateProduct_allowsReSubmittingItsOwnCurrentSlug(t *testing.T) {
 		slugOwner: &pmsDomain.Product{ID: "p1", Slug: "t-shirt"},
 	}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	sameSlug := "t-shirt"
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &sameSlug})
@@ -129,7 +194,7 @@ func TestUpdateProduct_allowsReSubmittingItsOwnCurrentSlug(t *testing.T) {
 func TestUpdateProduct_regeneratesSlugFromNameWhenSlugCleared(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Name: "T-Shirt", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	emptySlug := ""
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
@@ -150,7 +215,7 @@ func TestUpdateProduct_clearingSlugWithUnchangedNameIsANoop(t *testing.T) {
 		slugTaken: "should-not-be-queried",
 	}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	emptySlug := ""
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
@@ -174,7 +239,7 @@ func TestUpdateProduct_regeneratedSlugAutoDisambiguatesOnCollision(t *testing.T)
 		slugOwner: &pmsDomain.Product{ID: "p2", Slug: "other-product"},
 	}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	emptySlug := ""
 	product, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
@@ -196,7 +261,7 @@ func TestUpdateProduct_explicitSlugStillRejectsCollision(t *testing.T) {
 		slugOwner: &pmsDomain.Product{ID: "p2", Slug: "other-product"},
 	}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	typedSlug := "other-product"
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{
@@ -210,7 +275,7 @@ func TestUpdateProduct_explicitSlugStillRejectsCollision(t *testing.T) {
 func TestUpdateProduct_rejectsMalformedSlug(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Slug: "t-shirt", CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{}, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, &stubOutboxRepo{}, &stubProductHistoryRepo{})
 
 	badSlug := "Not A Valid Slug!"
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive, Slug: &badSlug})
@@ -223,7 +288,7 @@ func TestUpdateProduct_raisesProductChangedEvent(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	variantRepo := &stubVariantRepo{existing: nil}
 	outboxRepo := &stubOutboxRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, outboxRepo, &stubProductHistoryRepo{})
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, variantRepo, &stubProductListingRepo{}, outboxRepo, &stubProductHistoryRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "T-Shirt", Status: pmsDomain.ProductStatusActive})
 
@@ -236,7 +301,7 @@ func TestUpdateProduct_recordsHistoryForNameAndStatusChanges(t *testing.T) {
 		ID: "p1", Name: "Old Name", Status: pmsDomain.ProductStatusDraft, HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}}
 	historyRepo := &stubProductHistoryRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, &stubVariantRepo{}, &stubOutboxRepo{}, historyRepo)
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, &stubVariantRepo{}, &stubProductListingRepo{}, &stubOutboxRepo{}, historyRepo)
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "New Name", Status: pmsDomain.ProductStatusActive})
 
@@ -259,7 +324,7 @@ func TestUpdateProduct_doesNotRecordHistoryWhenNameAndStatusUnchanged(t *testing
 		ID: "p1", Name: "Same Name", Status: pmsDomain.ProductStatusActive, HasVariants: false, CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}}
 	historyRepo := &stubProductHistoryRepo{}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, &stubVariantRepo{}, &stubOutboxRepo{}, historyRepo)
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, &stubVariantRepo{}, &stubProductListingRepo{}, &stubOutboxRepo{}, historyRepo)
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "Same Name", Status: pmsDomain.ProductStatusActive, Description: "only this changed"})
 
@@ -270,7 +335,7 @@ func TestUpdateProduct_doesNotRecordHistoryWhenNameAndStatusUnchanged(t *testing
 func TestUpdateProduct_propagatesHistoryRepoError(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", Name: "Old Name", Status: pmsDomain.ProductStatusDraft, CreatedAt: time.Now(), UpdatedAt: time.Now()}}
 	historyRepo := &stubProductHistoryRepo{createErr: errors.New("db down")}
-	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, &stubVariantRepo{}, &stubOutboxRepo{}, historyRepo)
+	uc := apppms.NewUpdateProductUseCase(newMockGormDB(t), productRepo, &stubVariantRepo{}, &stubProductListingRepo{}, &stubOutboxRepo{}, historyRepo)
 
 	_, err := uc.Execute(context.Background(), apppms.UpdateProductInput{ID: "p1", Name: "New Name", Status: pmsDomain.ProductStatusDraft})
 

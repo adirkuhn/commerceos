@@ -18,6 +18,8 @@ type stubProductListingRepo struct {
 	byProduct []channelsDomain.ProductChannelListing
 	listErr   error
 	deleted   []string
+	updated   []channelsDomain.ProductChannelListing
+	updateErr error
 }
 
 func (s *stubProductListingRepo) Create(_ context.Context, _ *channelsDomain.ProductChannelListing) error {
@@ -42,7 +44,11 @@ func (s *stubProductListingRepo) ListByProduct(_ context.Context, productID stri
 func (s *stubProductListingRepo) ListByProductAndConnection(_ context.Context, _, _ string) ([]channelsDomain.ProductChannelListing, error) {
 	return nil, nil
 }
-func (s *stubProductListingRepo) Update(_ context.Context, _ *channelsDomain.ProductChannelListing) error {
+func (s *stubProductListingRepo) Update(_ context.Context, l *channelsDomain.ProductChannelListing) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.updated = append(s.updated, *l)
 	return nil
 }
 func (s *stubProductListingRepo) Delete(_ context.Context, _ string) error { return nil }

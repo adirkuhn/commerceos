@@ -266,7 +266,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo),
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
-		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, outboxRepo, productHistoryRepo),
+		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, listingRepo, outboxRepo, productHistoryRepo),
 		apppms.NewDuplicateProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewDeleteProductUseCase(db, productRepo, listingRepo, outboxRepo),
 		apppms.NewCreateVariantUseCase(db, productRepo, variantRepo, outboxRepo),

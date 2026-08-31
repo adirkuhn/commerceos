@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -33,12 +34,20 @@ type UpdateProductUseCase struct {
 	db          *gorm.DB
 	productRepo pmsDomain.ProductRepository
 	variantRepo pmsDomain.VariantRepository
+	listingRepo channelsDomain.ProductChannelListingRepository
 	outboxRepo  outbox.Repository
 	historyRepo pmsDomain.ProductHistoryRepository
 }
 
-func NewUpdateProductUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository, outboxRepo outbox.Repository, historyRepo pmsDomain.ProductHistoryRepository) *UpdateProductUseCase {
-	return &UpdateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, outboxRepo: outboxRepo, historyRepo: historyRepo}
+func NewUpdateProductUseCase(
+	db *gorm.DB,
+	productRepo pmsDomain.ProductRepository,
+	variantRepo pmsDomain.VariantRepository,
+	listingRepo channelsDomain.ProductChannelListingRepository,
+	outboxRepo outbox.Repository,
+	historyRepo pmsDomain.ProductHistoryRepository,
+) *UpdateProductUseCase {
+	return &UpdateProductUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, listingRepo: listingRepo, outboxRepo: outboxRepo, historyRepo: historyRepo}
 }
 
 // Execute updates product fields. Slug is only changed when in.Slug is
@@ -53,14 +62,12 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 		if err != nil {
 			return err
 		}
-		if !in.HasVariants {
-			variants, err := uc.variantRepo.ListByProduct(ctx, in.ID)
-			if err != nil {
-				return err
-			}
-			if len(variants) > 1 {
-				return pmsDomain.ErrVariantsNotEnabled
-			}
+		variants, err := uc.variantRepo.ListByProduct(ctx, in.ID)
+		if err != nil {
+			return err
+		}
+		if !in.HasVariants && len(variants) > 1 {
+			return pmsDomain.ErrVariantsNotEnabled
 		}
 		if in.Slug != nil {
 			regenerated := *in.Slug == ""
@@ -94,6 +101,7 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 				existing.Slug = slug
 			}
 		}
+		wasHasVariants := existing.HasVariants
 		oldName, oldStatus := existing.Name, existing.Status
 		existing.Name = in.Name
 		existing.Description = in.Description
@@ -107,6 +115,23 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 			return err
 		}
 		product = *existing
+		// Flipping a flat (!HasVariants) product into variants mode doesn't
+		// touch its variant -- the same variant/SKU that already existed
+		// keeps its own ID, just now addressed as "the first variant"
+		// instead of the product's only one. Its channel listing rows,
+		// though, were created back when the product was flat and are
+		// keyed VariantID=nil (the "legacy single-SKU simple product"
+		// case -- see ProductChannelListing.VariantID's own doc). Left
+		// alone, the next push looks up existingByVariant[variant.ID],
+		// finds nothing, and tries to CREATE the product/variation on Woo
+		// again -- colliding with the one Woo already has under this exact
+		// SKU. Relinking the existing row(s) to the variant's own ID here
+		// avoids that collision entirely, without any Woo API call.
+		if !wasHasVariants && in.HasVariants && len(variants) == 1 {
+			if err := uc.relinkDefaultVariantListings(ctx, product.ID, variants[0].ID); err != nil {
+				return err
+			}
+		}
 		if err := recordProductHistoryFieldIfChanged(ctx, uc.historyRepo, pmsDomain.ProductHistoryEntityProduct, product.ID, pmsDomain.ProductHistoryFieldName, oldName, product.Name); err != nil {
 			return err
 		}
@@ -119,6 +144,28 @@ func (uc *UpdateProductUseCase) Execute(ctx context.Context, in UpdateProductInp
 		return nil, fmt.Errorf("updateProduct: %w", err)
 	}
 	return &product, nil
+}
+
+// relinkDefaultVariantListings repoints every product-level channel listing
+// (VariantID nil) this product has to variantID -- see the call site's
+// comment for why this only ever runs on a flat-to-variants transition.
+func (uc *UpdateProductUseCase) relinkDefaultVariantListings(ctx context.Context, productID, variantID string) error {
+	listings, err := uc.listingRepo.ListByProduct(ctx, productID)
+	if err != nil {
+		return err
+	}
+	for _, l := range listings {
+		if l.VariantID != nil {
+			continue
+		}
+		l := l
+		vid := variantID
+		l.VariantID = &vid
+		if err := uc.listingRepo.Update(ctx, &l); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // disambiguateSlug finds the first of base, base-2, base-3, ... not already
