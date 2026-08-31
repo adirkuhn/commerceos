@@ -308,6 +308,76 @@ func TestPushProductToWoo_rejectsVariantWithoutExactlyOneSKU(t *testing.T) {
 	require.Empty(t, h.wooClient.createCalled)
 }
 
+// TestPushProductToWoo_relinksOrphanedProductLevelListingWhenFlippedToVariants
+// is the direct fix for a real production bug: a product pushed while flat
+// (!HasVariants, a plain simple product on Woo) later flipped into variants
+// mode. Its one variant's ID never changes, but the pre-existing listing
+// row stayed VariantID=nil (the flat shape) while this push now looks it up
+// keyed by the variant's own ID -- finds nothing, tries to CREATE the same
+// SKU on Woo again, which Woo correctly rejects since it already has it.
+// createProductSelfHealingDuplicateSKU's own Woo-side SKU search is meant
+// to catch this, but proved unreliable in production (Woo's search came up
+// empty despite the create rejection proving the SKU exists) -- this
+// relink needs no Woo API call at all, using only the row CommerceOS
+// already has, so it can't be defeated by Woo's search being wrong.
+func TestPushProductToWoo_relinksOrphanedProductLevelListingWhenFlippedToVariants(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.HasVariants = true // flipped after the original flat push
+	h := newPushHarness(product, variant, sku)
+	existing := channelsDomain.ProductChannelListing{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "999", VariantID: nil}
+	h.listingRepo.listByProduct = map[string][]channelsDomain.ProductChannelListing{product.ID: {existing}}
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, h.wooClient.createCalled, "must not re-create on Woo -- the orphaned row already points at the real product")
+	require.Len(t, listings, 1)
+	require.Equal(t, "999", listings[0].ExternalID)
+	require.NotNil(t, listings[0].VariantID)
+	require.Equal(t, variant.ID, *listings[0].VariantID)
+	require.Len(t, h.listingRepo.updated, 1)
+	require.Equal(t, "listing-1", h.listingRepo.updated[0].ID)
+	require.NotNil(t, h.listingRepo.updated[0].VariantID)
+	require.Equal(t, variant.ID, *h.listingRepo.updated[0].VariantID)
+}
+
+// TestPushProductToWoo_doesNotRelinkTheVariablesParentRow guards the other
+// nil-VariantID meaning: when SyncVariantsAsWooVariations is on, a
+// nil-VariantID row is the variable product's own parent, not an orphaned
+// legacy listing -- it must never be relinked to a variant's ID.
+func TestPushProductToWoo_doesNotRelinkTheVariablesParentRow(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.HasVariants = true
+	product.SyncVariantsAsWooVariations = true
+	h := newPushHarness(product, variant, sku)
+	parent := channelsDomain.ProductChannelListing{ID: "parent-listing", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "900", VariantID: nil}
+	h.listingRepo.listByProduct = map[string][]channelsDomain.ProductChannelListing{product.ID: {parent}}
+	h.wooClient.createVariationWithID = "901"
+	stockLevel := &stubStockLevelGetter{}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, h.listingRepo.updated, "the parent row must not be relinked to a variant")
+	require.Empty(t, h.wooClient.createVariableCalled, "parent already exists, must not be recreated")
+	require.Len(t, h.wooClient.createVariationCalled, 1)
+}
+
 func TestPushProductToWoo_wrapsWooCreateFailureAsErrWooRequestFailed(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	h := newPushHarness(product, variant, sku)

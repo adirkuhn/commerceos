@@ -150,6 +150,42 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 			return channelsDomain.ErrCannotPushBulkPoolSKU
 		}
 
+		// A product that used to be flat (!HasVariants) keeps its one
+		// variant's ID unchanged when flipped into variants mode --
+		// UpdateProductUseCase relinks that variant's pre-existing
+		// product-level listing (VariantID nil) to the variant's own ID
+		// the moment the flag flips, but a product that already flipped
+		// before that fix existed is stuck with the old nil-VariantID row
+		// forever otherwise. Catching it here too, on every push attempt,
+		// self-heals those regardless of when the flip happened -- and
+		// unlike createProductSelfHealingDuplicateSKU below, needs no Woo
+		// API call at all, so it isn't at the mercy of Woo's own search
+		// (e.g. a stale/cached GET result) failing to find what the
+		// create rejection just proved exists. Only unambiguous for
+		// separate-products mode (or the trivial !HasVariants case, which
+		// already matches directly above) with exactly one sellable
+		// variant -- SyncVariantsAsWooVariations' own nil-VariantID row
+		// means something different (the variable parent, see
+		// existingParent below), and more than one variant here means
+		// there's no single "the" variant the orphaned row could
+		// unambiguously belong to.
+		if product.HasVariants && !product.SyncVariantsAsWooVariations && len(pushes) == 1 {
+			vp := pushes[0]
+			if _, ok := existingByVariant[vp.Variant.ID]; !ok {
+				legacy, err := uc.listingRepo.FindByProductVariantAndConnection(ctx, in.ProductID, nil, in.ConnectionID)
+				if err == nil {
+					variantID := vp.Variant.ID
+					legacy.VariantID = &variantID
+					if err := uc.listingRepo.Update(ctx, legacy); err != nil {
+						return err
+					}
+					existingByVariant[vp.Variant.ID] = *legacy
+				} else if !errors.Is(err, channelsDomain.ErrListingNotFound) {
+					return err
+				}
+			}
+		}
+
 		if product.HasVariants && product.SyncVariantsAsWooVariations {
 			l, err := uc.listingRepo.FindByProductVariantAndConnection(ctx, in.ProductID, nil, in.ConnectionID)
 			if err == nil {
