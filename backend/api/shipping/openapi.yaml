@@ -12,6 +12,44 @@ servers:
   - url: /api/v1
 
 paths:
+  /shipping/address-lookup:
+    get:
+      operationId: lookupAddress
+      summary: >
+        Look up the canonical street/city for a Dutch postal code + house
+        number (national BAG registry via PDOK, public/keyless, NL-only) --
+        AddressConfirmModal's typo/address check before a shipment is
+        created. No MyParcel equivalent exists reachable with a merchant
+        API key.
+      parameters:
+        - name: postal_code
+          in: query
+          required: true
+          schema: { type: string }
+        - name: number
+          in: query
+          required: true
+          description: House number, including any letter suffix (e.g. "31A").
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      street: { type: string }
+                      city: { type: string }
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '404':
+          description: No address matches that postal code and house number.
+          $ref: '#/components/responses/Error'
+
   /shipping/myparcel/connect:
     post:
       operationId: connectMyParcel

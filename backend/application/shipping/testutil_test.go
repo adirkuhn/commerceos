@@ -207,6 +207,20 @@ func (f *fakeWebhookEventRepoForBackfill) FindByID(_ context.Context, id string)
 	return nil, webhooksDomain.ErrWebhookEventNotFound
 }
 
+// --- AddressLookupClient fake ---
+
+type fakeAddressLookupClient struct {
+	result *shippingDomain.AddressLookupResult
+	err    error
+}
+
+func (f *fakeAddressLookupClient) Lookup(ctx context.Context, postalCode, houseNumber string) (*shippingDomain.AddressLookupResult, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.result, nil
+}
+
 // --- ShippingCarrierOverrideRepository fake ---
 
 type fakeShippingCarrierOverrideRepo struct {

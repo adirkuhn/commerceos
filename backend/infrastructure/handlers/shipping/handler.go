@@ -20,6 +20,7 @@ import (
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
+	"github.com/adirkuhn/commerceos/infrastructure/pdok"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
 
@@ -59,6 +60,9 @@ type listTrackingEventsUseCase interface {
 type refreshTrackingUseCase interface {
 	Execute(ctx context.Context, shipmentID string) (shippingDomain.ShipmentStatusEvent, error)
 }
+type lookupAddressUseCase interface {
+	Execute(ctx context.Context, postalCode, houseNumber string) (*shippingDomain.AddressLookupResult, error)
+}
 
 // Handler implements genshipping.ServerInterface.
 type Handler struct {
@@ -73,6 +77,7 @@ type Handler struct {
 	exportMyParcelOrder exportMyParcelOrderUseCase
 	listTrackingEvents  listTrackingEventsUseCase
 	refreshTracking     refreshTrackingUseCase
+	lookupAddress       lookupAddressUseCase
 }
 
 func NewHandler(
@@ -87,11 +92,13 @@ func NewHandler(
 	exportMyParcelOrder exportMyParcelOrderUseCase,
 	listTrackingEvents listTrackingEventsUseCase,
 	refreshTracking refreshTrackingUseCase,
+	lookupAddress lookupAddressUseCase,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
 		exportMyParcelOrder: exportMyParcelOrder, listTrackingEvents: listTrackingEvents, refreshTracking: refreshTracking,
+		lookupAddress: lookupAddress,
 	}
 }
 
@@ -101,9 +108,10 @@ func writeError(c *gin.Context, status int, code, message string) {
 
 func mapErr(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, shippingDomain.ErrShipmentNotFound), errors.Is(err, integrationsDomain.ErrNoTenantContext):
+	case errors.Is(err, shippingDomain.ErrShipmentNotFound), errors.Is(err, integrationsDomain.ErrNoTenantContext),
+		errors.Is(err, shippingDomain.ErrAddressNotFound):
 		writeError(c, http.StatusNotFound, "not_found", err.Error())
-	case errors.Is(err, shippingDomain.ErrMissingRecipient):
+	case errors.Is(err, shippingDomain.ErrMissingRecipient), errors.Is(err, shippingDomain.ErrInvalidAddressLookupInput):
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 	case errors.Is(err, shippingDomain.ErrWebhookSecretNotSet):
 		writeError(c, http.StatusConflict, "webhook_secret_not_set", err.Error())
@@ -357,6 +365,15 @@ func (h *Handler) RefreshShipmentTracking(c *gin.Context, shipmentId openapi_typ
 	c.JSON(http.StatusOK, gin.H{"data": trackingEventToResponse(event), "error": nil})
 }
 
+func (h *Handler) LookupAddress(c *gin.Context, params genshipping.LookupAddressParams) {
+	result, err := h.lookupAddress.Execute(c.Request.Context(), params.PostalCode, params.Number)
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"street": result.Street, "city": result.City}, "error": nil})
+}
+
 func trackingEventToResponse(e shippingDomain.ShipmentStatusEvent) genshipping.ShipmentTrackingEvent {
 	source := string(e.Source)
 	label := shippingDomain.MyParcelStatusLabel(e.Status)
@@ -447,6 +464,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewExportMyParcelOrderUseCase(db, connRepo, settingsRepo, fulfilmentOrderRepo, salesOrderRepo, lineItemRepo, myParcelFactory, encryptionSecret, recordActivity),
 		appshipping.NewListShipmentTrackingEventsUseCase(db, statusEventRepo),
 		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, myParcelFactory, encryptionSecret),
+		appshipping.NewLookupAddressUseCase(pdok.NewClient(pdok.Config{})),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }
