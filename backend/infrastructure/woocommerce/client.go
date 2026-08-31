@@ -344,34 +344,29 @@ func (c *wooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooP
 	return &result, nil
 }
 
-// translateDuplicateSKUError recognizes WooCommerce's own REST error code
-// for a create rejected because the SKU already exists on the store, and
-// wraps it as integrationsDomain.ErrWooDuplicateSKU, so
-// application/channels can distinguish "self-healable, a product with this
-// SKU is already there" from every other request failure. Any other error
-// (network, other 4xx/5xx) passes through unchanged.
+// translateDuplicateSKUError wraps as integrationsDomain.ErrWooDuplicateSKU
+// any CreateProduct rejection whose HTTP status is 400, so
+// PushProductToWooUseCase's self-heal (search by SKU, link to what's found)
+// gets a chance to run.
+//
+// This used to gate on WooCommerce's own REST error code instead (an exact
+// string match, later a substring match after the exact one turned out
+// wrong) -- both attempts kept missing in production, because the actual
+// code WooCommerce returns for this rejection was never directly observed:
+// the logged error only ever rendered .Message (translated to the store's
+// locale), never .Code, so every fix so far was a guess at a string this
+// codebase can't actually see. Gating on status alone needs no such guess,
+// and is safe to apply broadly: self-heal's own FindProductBySKU lookup is
+// a harmless miss for a 400 that wasn't actually a duplicate SKU (nothing
+// found -> the original error still surfaces unchanged, see
+// createProductSelfHealingDuplicateSKU), so mislabeling some other 400
+// costs one extra read, not a wrong result.
 func translateDuplicateSKUError(err error) error {
 	var wcErr *wc.ErrorResponse
-	if errors.As(err, &wcErr) && isDuplicateSKUCode(wcErr.Code) {
+	if errors.As(err, &wcErr) && wcErr.Response != nil && wcErr.Response.StatusCode == http.StatusBadRequest {
 		return fmt.Errorf("%w: %w", integrationsDomain.ErrWooDuplicateSKU, err)
 	}
 	return err
-}
-
-// isDuplicateSKUCode matches on a substring rather than one exact code:
-// WooCommerce has shipped this rejection under more than one literal string
-// depending on which layer raises it -- "product_invalid_sku" from the REST
-// controller's own validation vs. "woocommerce_product_invalid_sku" when
-// the same uniqueness check fires from WC_Product_Data_Store_CPT (which
-// prefixes its own WP_Error codes with "woocommerce_", same convention as
-// this file's other Woo option/error code checks). Production traffic kept
-// surfacing this exact rejection as a raw, un-self-healed failure despite
-// self-heal being wired to the "product_invalid_sku" exact match -- the
-// response's actual code was never directly observed (the logged error only
-// renders .Message, not .Code), so rather than guess a single replacement
-// string, this matches every code carrying either known spelling.
-func isDuplicateSKUCode(code string) bool {
-	return strings.Contains(code, "invalid_sku") || strings.Contains(code, "sku_already_exists")
 }
 
 func (c *wooClient) FindProductBySKU(ctx context.Context, sku string) (*integrationsDomain.WooProduct, error) {

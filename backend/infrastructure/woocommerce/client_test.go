@@ -171,13 +171,17 @@ func TestUpdateProductStock_variation_neverTouchesSalePrice(t *testing.T) {
 // sync path (unlike UpdateProductStock) always sends sale_price on the
 // wire, even when clearing it to "" -- this is the path that owns
 // conveying the product's current sale price state to Woo.
-// TestCreateProduct_duplicateSKU_wrapsAsErrWooDuplicateSKU proves Woo's
-// actual REST error code for this rejection ("product_invalid_sku") gets
-// translated to integrationsDomain.ErrWooDuplicateSKU, not left as an
-// opaque wrapped HTTP error -- this is what lets
+// TestCreateProduct_400Failure_wrapsAsErrWooDuplicateSKU proves any 400
+// from a create gets translated to integrationsDomain.ErrWooDuplicateSKU,
+// not left as an opaque wrapped HTTP error -- this is what lets
 // PushProductToWooUseCase's self-heal path (search by SKU, link) actually
-// trigger.
-func TestCreateProduct_duplicateSKU_wrapsAsErrWooDuplicateSKU(t *testing.T) {
+// get a chance to run. See translateDuplicateSKUError's own doc for why
+// this gates on HTTP status alone rather than Woo's REST error code: two
+// attempts at matching a specific code both kept missing in production
+// because the real code was never directly observable from the logged
+// error, and self-heal's own miss-is-harmless fallback makes the broader
+// gate safe.
+func TestCreateProduct_400Failure_wrapsAsErrWooDuplicateSKU(t *testing.T) {
 	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -191,36 +195,14 @@ func TestCreateProduct_duplicateSKU_wrapsAsErrWooDuplicateSKU(t *testing.T) {
 	require.ErrorIs(t, err, integrationsDomain.ErrWooDuplicateSKU)
 }
 
-// TestCreateProduct_duplicateSKU_matchesTheWooCommercePrefixedCodeVariantToo
-// proves the match isn't scoped to one exact code string -- production
-// traffic kept hitting this rejection as a raw, un-self-healed failure even
-// with the bare "product_invalid_sku" match in place, and this codebase's
-// other Woo error/option codes (e.g. "woocommerce_weight_unit") show
-// WooCommerce/WordPress commonly prefixes its own codes with
-// "woocommerce_". This proves that variant self-heals too, without knowing
-// for certain which one the real store actually returns.
-func TestCreateProduct_duplicateSKU_matchesTheWooCommercePrefixedCodeVariantToo(t *testing.T) {
+// TestCreateProduct_nonBadRequestFailure_doesNotBecomeErrWooDuplicateSKU
+// proves the translation is scoped to HTTP 400 -- a different status (e.g.
+// a 500 from the store itself) must not be misidentified as self-healable.
+func TestCreateProduct_nonBadRequestFailure_doesNotBecomeErrWooDuplicateSKU(t *testing.T) {
 	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
-			"code": "woocommerce_product_invalid_sku", "message": "Invalid or duplicated SKU.", "data": map[string]any{"status": 400},
-		})
-	})
-
-	_, err := c.CreateProduct(context.Background(), integrationsDomain.WooProduct{Name: "T-Shirt", SKU: "TSHIRT-1"})
-
-	require.Error(t, err)
-	require.ErrorIs(t, err, integrationsDomain.ErrWooDuplicateSKU)
-}
-
-// TestCreateProduct_otherFailure_doesNotBecomeErrWooDuplicateSKU proves the
-// translation is scoped to that one specific Woo error code -- any other
-// rejection must not be misidentified as self-healable.
-func TestCreateProduct_otherFailure_doesNotBecomeErrWooDuplicateSKU(t *testing.T) {
-	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{
-			"code": "rest_invalid_param", "message": "something else is wrong", "data": map[string]any{"status": 400},
+			"code": "internal_server_error", "message": "something else is wrong", "data": map[string]any{"status": 500},
 		})
 	})
 
