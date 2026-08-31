@@ -21,17 +21,29 @@ afterEach(() => {
 })
 
 describe('ShippingLabelPrintView', () => {
-  it('fetches the label and renders a PDF embed pointed at the blob URL', async () => {
+  it('fetches the label and renders a PDF iframe pointed at the blob URL', async () => {
     const blob = new Blob(['%PDF-fake'], { type: 'application/pdf' })
     vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(blob)
 
     const { container } = render(<ShippingLabelPrintView token="tok" shipmentId="s-1" onClose={vi.fn()} />)
 
-    await waitFor(() => expect(container.querySelector('embed')).toBeInTheDocument())
-    const embed = container.querySelector('embed')!
-    expect(embed).toHaveAttribute('src', 'blob:mock-url')
-    expect(embed).toHaveAttribute('type', 'application/pdf')
+    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
+    const iframe = container.querySelector('iframe')!
+    expect(iframe).toHaveAttribute('src', 'blob:mock-url')
     expect(shippingApi.getShipmentLabel).toHaveBeenCalledWith('tok', 's-1', 'A4')
+  })
+
+  it('opens the label in a new tab instead of navigating away when "Open in new tab" is clicked', async () => {
+    const blob = new Blob(['%PDF-fake'], { type: 'application/pdf' })
+    vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(blob)
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+
+    const { container } = render(<ShippingLabelPrintView token="tok" shipmentId="s-1" onClose={vi.fn()} />)
+    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByTitle('Open in new tab'))
+
+    expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank', 'noopener')
   })
 
   it('defaults to A4, and switching to A6 re-fetches at the new size without a new shipment', async () => {
@@ -40,7 +52,7 @@ describe('ShippingLabelPrintView', () => {
     vi.mocked(shippingApi.getShipmentLabel).mockResolvedValueOnce(blobA4).mockResolvedValueOnce(blobA6)
 
     const { container } = render(<ShippingLabelPrintView token="tok" shipmentId="s-1" onClose={vi.fn()} />)
-    await waitFor(() => expect(container.querySelector('embed')).toBeInTheDocument())
+    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'A4' })).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'A6' }))
@@ -63,10 +75,10 @@ describe('ShippingLabelPrintView', () => {
     vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(blob)
 
     const { container } = render(<ShippingLabelPrintView token="tok" shipmentId="s-1" onClose={vi.fn()} />)
-    await waitFor(() => expect(container.querySelector('embed')).toBeInTheDocument())
+    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
 
     expect(window.print).not.toHaveBeenCalled()
-    fireEvent.load(container.querySelector('embed')!)
+    fireEvent.load(container.querySelector('iframe')!)
     expect(window.print).toHaveBeenCalledTimes(1)
   })
 
@@ -95,7 +107,7 @@ describe('ShippingLabelPrintView', () => {
     const onClose = vi.fn()
 
     const { container } = render(<ShippingLabelPrintView token="tok" shipmentId="s-1" onClose={onClose} />)
-    await waitFor(() => expect(container.querySelector('embed')).toBeInTheDocument())
+    await waitFor(() => expect(container.querySelector('iframe')).toBeInTheDocument())
     fireEvent.click(screen.getByTitle('Close'))
 
     expect(onClose).toHaveBeenCalled()

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { ExternalLink, X } from 'lucide-react'
 import * as shippingApi from '../../shipping/api'
 
 interface ShippingLabelPrintViewProps {
@@ -16,12 +16,16 @@ interface ShippingLabelPrintViewProps {
 // prints the actual label content -- same trigger-on-mount pattern as
 // PickingListPrintView/InvoicePrintView (window.print() in a useEffect,
 // print:hidden close button), adapted for a binary PDF response instead of
-// plain HTML: an <embed> pointed at a blob: URL is how a PDF gets both
+// plain HTML: an <iframe> pointed at a blob: URL is how a PDF gets both
 // displayed AND included in the browser's print output, since window.print()
 // only prints what's actually rendered in the page, not the source bytes.
-// Firing print on the embed's onLoad (not on component mount) matters --
-// the PDF hasn't rendered yet at mount time, and printing before it has
-// loaded produces a blank page.
+// <iframe> over <embed> specifically: the native PDF toolbar's own download
+// button navigates an <embed>'s top-level frame away from the app (no
+// sandboxing), whereas an <iframe> keeps that navigation contained. An
+// explicit "open in new tab" button covers the same need without that risk.
+// Firing print on load (not on component mount) matters -- the PDF hasn't
+// rendered yet at mount time, and printing before it has loaded produces a
+// blank page.
 //
 // ZPL-format labels aren't visually renderable (it's a raw thermal-printer
 // command language, not a document format) -- this view only knows how to
@@ -70,6 +74,15 @@ export function ShippingLabelPrintView({ token, shipmentId, defaultSize, onClose
             </button>
           ))}
         </div>
+        {!error && blobUrl && isPdf && (
+          <button
+            onClick={() => window.open(blobUrl, '_blank', 'noopener')}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
+            title="Open in new tab"
+          >
+            <ExternalLink size={16} />
+          </button>
+        )}
         <button
           onClick={onClose}
           className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
@@ -84,10 +97,10 @@ export function ShippingLabelPrintView({ token, shipmentId, defaultSize, onClose
       {!error && !blobUrl && <p className="m-auto text-sm text-gray-500">Loading label…</p>}
 
       {!error && blobUrl && isPdf && (
-        <embed
+        <iframe
           src={blobUrl}
-          type="application/pdf"
-          className="flex-1 w-full"
+          title="Shipping label"
+          className="flex-1 w-full border-0"
           onLoad={() => window.print()}
         />
       )}
