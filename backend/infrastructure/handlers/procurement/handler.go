@@ -331,8 +331,8 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		linkLineItemToSKUUC,
 		appprocurement.NewCreateProductAndLinkLineItemUseCase(
 			pmsapp.NewCreateProductUseCase(db, productRepo, outboxRepo),
-			pmsapp.NewCreateVariantUseCase(db, productRepo, variantRepo),
-			pmsapp.NewCreateSKUUseCase(db, variantRepo, skuRepo, repositories.NewSKUPriceHistoryRepo(db)),
+			pmsapp.NewCreateVariantUseCase(db, productRepo, variantRepo, outboxRepo),
+			pmsapp.NewCreateSKUUseCase(db, variantRepo, skuRepo, repositories.NewSKUPriceHistoryRepo(db), outboxRepo),
 			linkLineItemToSKUUC,
 		),
 		appprocurement.NewCreateSupplierAndAssignToPurchaseOrderUseCase(

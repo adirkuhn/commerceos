@@ -96,7 +96,7 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 func TestCreateVariant_rejectsSecondVariantWhenHasVariantsIsFalse(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false}}
 	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}}}
-	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo)
+	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateVariantInput{ProductID: "p1", Name: "Large"})
 
@@ -108,7 +108,7 @@ func TestCreateVariant_rejectsSecondVariantWhenHasVariantsIsFalse(t *testing.T) 
 func TestCreateVariant_allowsFirstVariantEvenWhenHasVariantsIsFalse(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: false}}
 	variantRepo := &stubVariantRepo{existing: nil}
-	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo)
+	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateVariantInput{ProductID: "p1", Name: "Default"})
 
@@ -116,10 +116,30 @@ func TestCreateVariant_allowsFirstVariantEvenWhenHasVariantsIsFalse(t *testing.T
 	require.True(t, variantRepo.createCalled)
 }
 
+// TestCreateVariant_enqueuesProductChanged is a regression test for a
+// brand-new variant-mode product never getting enrolled in any channel:
+// CreateProductUseCase's own pms.product.changed fires enrollment before
+// any variant exists, which finds zero variants and bails without ever
+// creating a ProductChannelListing. Nothing re-triggers enrollment unless
+// this create path also raises the event.
+func TestCreateVariant_enqueuesProductChanged(t *testing.T) {
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: true}}
+	variantRepo := &stubVariantRepo{existing: nil}
+	outboxRepo := &stubOutboxRepo{}
+	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo, outboxRepo)
+
+	_, err := uc.Execute(context.Background(), apppms.CreateVariantInput{ProductID: "p1", Name: "900ml"})
+
+	require.NoError(t, err)
+	require.Len(t, outboxRepo.calls, 1)
+	require.Equal(t, "pms.product.changed", outboxRepo.calls[0])
+	require.Contains(t, string(outboxRepo.payloads[0]), `"product_id":"p1"`)
+}
+
 func TestCreateVariant_allowsMultipleVariantsWhenHasVariantsIsTrue(t *testing.T) {
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "p1", HasVariants: true}}
 	variantRepo := &stubVariantRepo{existing: []pmsDomain.Variant{{ID: "v1", ProductID: "p1"}}}
-	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo)
+	uc := apppms.NewCreateVariantUseCase(newMockGormDB(t), productRepo, variantRepo, &stubOutboxRepo{})
 
 	_, err := uc.Execute(context.Background(), apppms.CreateVariantInput{ProductID: "p1", Name: "Large"})
 

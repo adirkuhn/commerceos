@@ -44,19 +44,46 @@ func TestRunScheduledProductExport_pushesEligibleProducts(t *testing.T) {
 	require.Len(t, pusher.calls, 2)
 }
 
-func TestRunScheduledProductExport_skipsProductsWithVariants(t *testing.T) {
+// TestRunScheduledProductExport_pushesProductsWithVariants is a regression
+// test: this used to blanket-skip any HasVariants=true product as
+// "unsupported," even though PushProductToWooUseCase fully supports a
+// variant-mode product (including a single-variant one) -- which meant a
+// variant-mode product that missed its event-driven enrollment could never
+// be rescued by this scheduled fallback either. There's nothing about
+// HasVariants itself that should exclude a product from this export.
+func TestRunScheduledProductExport_pushesProductsWithVariants(t *testing.T) {
 	h := newHarness(nil)
 	h.productRepo.listResult = []pmsDomain.Product{{ID: "p1", Name: "A", HasVariants: true}}
 	pusher := &stubProductPusher{}
 
-	uc := appchannels.NewRunScheduledProductExportUseCase(newMockGormDB(t, 1), h.productRepo, h.listingRepo, pusher)
+	uc := appchannels.NewRunScheduledProductExportUseCase(newMockGormDB(t, 2), h.productRepo, h.listingRepo, pusher)
+
+	result, err := uc.Execute(context.Background(), appchannels.RunScheduledProductExportInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Pushed)
+	require.Equal(t, 0, result.Skipped)
+	require.Len(t, pusher.calls, 1)
+	require.Equal(t, "p1", pusher.calls[0].ProductID)
+}
+
+// TestRunScheduledProductExport_reportsAsErrorWhenVariantModeProductHasNoRealVariants
+// proves a genuinely-inconsistent product (HasVariants=true but zero actual
+// variant rows) surfaces via result.Errors, not a silent Skipped -- that
+// state means something is actually wrong, not an expected/normal case.
+func TestRunScheduledProductExport_reportsAsErrorWhenVariantModeProductHasNoRealVariants(t *testing.T) {
+	h := newHarness(nil)
+	h.productRepo.listResult = []pmsDomain.Product{{ID: "p1", Name: "A", HasVariants: true}}
+	pusher := &stubProductPusher{errFor: map[string]error{"p1": channelsDomain.ErrCannotPushVariableProduct}}
+
+	uc := appchannels.NewRunScheduledProductExportUseCase(newMockGormDB(t, 2), h.productRepo, h.listingRepo, pusher)
 
 	result, err := uc.Execute(context.Background(), appchannels.RunScheduledProductExportInput{ConnectionID: "conn-1"})
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.Pushed)
-	require.Equal(t, 1, result.Skipped)
-	require.Empty(t, pusher.calls)
+	require.Equal(t, 0, result.Skipped)
+	require.Len(t, result.Errors, 1)
 }
 
 func TestRunScheduledProductExport_skipsAlreadyLinkedProducts(t *testing.T) {

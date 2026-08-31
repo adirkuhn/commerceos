@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -20,10 +21,11 @@ type CreateVariantUseCase struct {
 	db          *gorm.DB
 	productRepo pmsDomain.ProductRepository
 	variantRepo pmsDomain.VariantRepository
+	outboxRepo  outbox.Repository
 }
 
-func NewCreateVariantUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository) *CreateVariantUseCase {
-	return &CreateVariantUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo}
+func NewCreateVariantUseCase(db *gorm.DB, productRepo pmsDomain.ProductRepository, variantRepo pmsDomain.VariantRepository, outboxRepo outbox.Repository) *CreateVariantUseCase {
+	return &CreateVariantUseCase{db: db, productRepo: productRepo, variantRepo: variantRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *CreateVariantUseCase) Execute(ctx context.Context, in CreateVariantInput) (*pmsDomain.Variant, error) {
@@ -52,7 +54,17 @@ func (uc *CreateVariantUseCase) Execute(ctx context.Context, in CreateVariantInp
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
-		return uc.variantRepo.Create(ctx, &variant)
+		if err := uc.variantRepo.Create(ctx, &variant); err != nil {
+			return err
+		}
+		// A brand-new variant-mode product's very first enrollment attempt
+		// (fired by CreateProductUseCase's own pms.product.changed, right
+		// when the product row is created) finds zero variants and bails
+		// out without ever creating a ProductChannelListing -- this variant
+		// existing now is exactly what that attempt was missing, so it must
+		// re-trigger enrollment itself rather than leave the product
+		// permanently unsynced until some unrelated later edit happens to.
+		return enqueueProductChanged(ctx, uc.outboxRepo, in.ProductID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createVariant: %w", err)

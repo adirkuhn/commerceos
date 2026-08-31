@@ -31,7 +31,7 @@ type RunScheduledProductExportInput struct {
 
 type ProductExportResult struct {
 	Pushed  int
-	Skipped int // already linked to this connection, or has variants (unsupported)
+	Skipped int // already linked to this connection
 	Errors  []string
 }
 
@@ -77,12 +77,18 @@ func (uc *RunScheduledProductExportUseCase) Execute(ctx context.Context, in RunS
 	return result, nil
 }
 
+// exportOne no longer treats p.HasVariants as categorically unsupported --
+// PushProductToWooUseCase/SyncProductToChannelsUseCase both fully support a
+// variant-mode product, including one with exactly one variant (the
+// previous blanket skip here meant a variant-mode product that missed its
+// event-driven enrollment -- e.g. a brand-new product whose
+// CreateVariantUseCase/CreateSKUUseCase call raced ahead of
+// pms.product.changed, see those use cases' own doc comments -- could never
+// be rescued by this scheduled fallback either). A product that genuinely
+// has HasVariants=true with zero real variants now surfaces as a real
+// Errors entry from the pusher (ErrCannotPushVariableProduct), not a silent
+// Skipped -- that state means something is actually wrong, not "expected".
 func (uc *RunScheduledProductExportUseCase) exportOne(ctx context.Context, in RunScheduledProductExportInput, p pmsDomain.Product, result *ProductExportResult) {
-	if p.HasVariants {
-		result.Skipped++
-		return
-	}
-
 	var alreadyLinked bool
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		_, err := uc.listingRepo.FindByProductAndConnection(ctx, p.ID, in.ConnectionID)

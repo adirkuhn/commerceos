@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -39,10 +40,11 @@ type CreateSKUUseCase struct {
 	variantRepo      pmsDomain.VariantRepository
 	skuRepo          pmsDomain.SKURepository
 	priceHistoryRepo pmsDomain.SKUPriceHistoryRepository
+	outboxRepo       outbox.Repository
 }
 
-func NewCreateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, priceHistoryRepo pmsDomain.SKUPriceHistoryRepository) *CreateSKUUseCase {
-	return &CreateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, priceHistoryRepo: priceHistoryRepo}
+func NewCreateSKUUseCase(db *gorm.DB, variantRepo pmsDomain.VariantRepository, skuRepo pmsDomain.SKURepository, priceHistoryRepo pmsDomain.SKUPriceHistoryRepository, outboxRepo outbox.Repository) *CreateSKUUseCase {
+	return &CreateSKUUseCase{db: db, variantRepo: variantRepo, skuRepo: skuRepo, priceHistoryRepo: priceHistoryRepo, outboxRepo: outboxRepo}
 }
 
 func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pmsDomain.SKU, error) {
@@ -75,11 +77,12 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 
 	var sku pmsDomain.SKU
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		if _, err := uc.variantRepo.FindByID(ctx, in.VariantID); err != nil {
+		variant, err := uc.variantRepo.FindByID(ctx, in.VariantID)
+		if err != nil {
 			return err
 		}
 
-		_, err := uc.skuRepo.FindByCode(ctx, in.SKUCode)
+		_, err = uc.skuRepo.FindByCode(ctx, in.SKUCode)
 		if err == nil {
 			return pmsDomain.ErrDuplicateSKUCode
 		}
@@ -126,7 +129,17 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 		if err := uc.skuRepo.Create(ctx, &sku); err != nil {
 			return err
 		}
-		return writeSKUPriceHistory(ctx, uc.priceHistoryRepo, &sku, pmsDomain.PriceChangeReasonCreated)
+		if err := writeSKUPriceHistory(ctx, uc.priceHistoryRepo, &sku, pmsDomain.PriceChangeReasonCreated); err != nil {
+			return err
+		}
+		// A brand-new variant-mode product's very first enrollment attempt
+		// (fired by CreateProductUseCase's own pms.product.changed, right
+		// when the product row is created) finds zero variants and bails
+		// out without ever creating a ProductChannelListing -- this SKU
+		// existing now is exactly what that attempt was missing, so it must
+		// re-trigger enrollment itself rather than leave the product
+		// permanently unsynced until some unrelated later edit happens to.
+		return enqueueProductChanged(ctx, uc.outboxRepo, variant.ProductID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
