@@ -662,8 +662,12 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   async function handleCreateLabelClick() {
     if (!token || !detail || !myParcelConnection) return
     const shipments = await shippingApi.listShipmentsForOrder(token, detail.sales_order.id)
-    if (shipments.length > 0) {
-      setExistingShipment(shipments[0])
+    // A cancelled shipment (wrong carrier, "Delete & create new") no longer
+    // blocks creating a fresh one -- same rule CreateShipmentUseCase's own
+    // duplicate-guard applies server-side.
+    const active = shipments.find(s => !s.cancelled_at)
+    if (active) {
+      setExistingShipment(active)
       return
     }
     setLabelStep('address')
@@ -936,14 +940,19 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
       {printingLabelId && token && (
         <ShippingLabelPrintView token={token} shipmentId={printingLabelId} defaultSize={labelSize} onClose={() => setPrintingLabelId(null)} />
       )}
-      {existingShipment && (
+      {existingShipment && token && (
         <ExistingShipmentConfirmModal
+          token={token}
           shipment={existingShipment}
           onCancel={() => setExistingShipment(null)}
           onReprint={() => {
             setCreatedShipmentId(existingShipment.id)
             setPrintingLabelId(existingShipment.id)
             setExistingShipment(null)
+          }}
+          onCreateNew={() => {
+            setExistingShipment(null)
+            setLabelStep('address')
           }}
         />
       )}

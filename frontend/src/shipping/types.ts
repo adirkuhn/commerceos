@@ -45,6 +45,11 @@ export interface Shipment {
   label_format: string
   recipient: RecipientAddress
   created_at: string
+  // Set once cancelShipment has been called for this shipment -- see
+  // cancel_note for the outcome recorded at cancel time (whether MyParcel
+  // itself deleted it or rejected the request).
+  cancelled_at?: string | null
+  cancel_note?: string
 }
 
 // One status MyParcel has reported for a shipment -- the tracking
@@ -94,6 +99,11 @@ export interface ShippingConnectionSettings {
   // manual click -- not silent printing, the OS print dialog still shows;
   // see MyParcelSyncSettingsPage's doc for why.
   auto_print_enabled: boolean
+  // When true, creating a shipment also registers the order via MyParcel's
+  // separate Orders/Fulfilment API, so it shows up on MyParcel's own
+  // Orders dashboard -- the plain Shipments API used by default does not.
+  // Off by default: it hands MyParcel the full order (line items, prices).
+  export_order_to_myparcel?: boolean
 }
 
 export interface ShippingCarrierOverride {

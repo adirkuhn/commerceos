@@ -83,6 +83,15 @@ export function listShipmentsForOrder(token: string, salesOrderId: string): Prom
   return request(`${base()}/sales-orders/${salesOrderId}/shipments`, { method: 'GET' }, token)
 }
 
+// cancelShipment attempts MyParcel's real delete, then always marks the
+// shipment cancelled locally regardless of that outcome -- see backend's
+// CancelShipmentUseCase doc comment. deleted_on_myparcel: false is an
+// expected, non-error outcome (MyParcel only allows deletion pre-label),
+// not a failure -- the caller can proceed to create a new shipment either way.
+export function cancelShipment(token: string, shipmentId: string): Promise<{ deleted_on_myparcel: boolean; message: string }> {
+  return request(`${base()}/shipments/${shipmentId}/cancel`, { method: 'POST' }, token)
+}
+
 export function listShipmentTrackingEvents(token: string, shipmentId: string): Promise<ShipmentTrackingEvent[]> {
   return request(`${base()}/shipments/${shipmentId}/tracking-events`, { method: 'GET' }, token)
 }

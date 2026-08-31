@@ -51,6 +51,7 @@ export default function MyParcelSyncSettingsPage({
   const [myparcelAccountId, setMyparcelAccountId] = useState<number | ''>('')
   const [myparcelShopId, setMyparcelShopId] = useState<number | ''>('')
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  const [exportOrderToMyParcel, setExportOrderToMyParcel] = useState(false)
   const [overrides, setOverrides] = useState<ShippingCarrierOverride[]>([])
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [settingsError, setSettingsError] = useState('')
@@ -138,6 +139,7 @@ export default function MyParcelSyncSettingsPage({
           setMyparcelAccountId(result.settings.myparcel_account_id ?? '')
           setMyparcelShopId(result.settings.myparcel_shop_id ?? '')
           setAutoPrintEnabled(result.settings.auto_print_enabled)
+          setExportOrderToMyParcel(result.settings.export_order_to_myparcel ?? false)
         }
         setOverrides(result.carrier_overrides)
       })
@@ -194,6 +196,7 @@ export default function MyParcelSyncSettingsPage({
         myparcel_account_id: myparcelAccountId === '' ? null : myparcelAccountId,
         myparcel_shop_id: myparcelShopId === '' ? null : myparcelShopId,
         auto_print_enabled: autoPrintEnabled,
+        export_order_to_myparcel: exportOrderToMyParcel,
       })
       setSavedNote('Saved')
     } catch (err) {
@@ -345,6 +348,15 @@ export default function MyParcelSyncSettingsPage({
                     className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
+                  <input type="checkbox" checked={exportOrderToMyParcel} onChange={e => setExportOrderToMyParcel(e.target.checked)} />
+                  Export orders to MyParcel
+                </label>
+                <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                  When on, creating a shipment also registers the order via MyParcel's Orders API, so it appears on MyParcel's own Orders page. Off by default -- it shares the full order (line items, prices) with MyParcel, which isn't needed just to print a label.
+                </p>
               </div>
               <label className="flex items-center gap-2 text-xs dark:text-gray-300 text-gray-700">
                 <input type="checkbox" checked={autoPrintEnabled} onChange={e => setAutoPrintEnabled(e.target.checked)} />

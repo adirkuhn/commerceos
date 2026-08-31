@@ -139,6 +139,35 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     }))
   })
 
+  it('loads and saves export-orders-to-myparcel', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({
+      settings: {
+        connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
+        default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
+        insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+        export_order_to_myparcel: false,
+      },
+      carrier_overrides: [],
+    })
+    vi.mocked(api.updateShippingSettings).mockResolvedValue({
+      connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
+      default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
+      insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+      export_order_to_myparcel: true,
+    })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+    await screen.findByLabelText('Default carrier')
+
+    const toggle = screen.getByLabelText('Export orders to MyParcel')
+    expect(toggle).not.toBeChecked()
+    await userEvent.click(toggle)
+    await userEvent.click(screen.getByRole('button', { name: 'Save defaults' }))
+
+    expect(api.updateShippingSettings).toHaveBeenCalledWith('test-token', 'conn-mp-1', expect.objectContaining({
+      export_order_to_myparcel: true,
+    }))
+  })
+
   it('saves a per-carrier insure-by-default override', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     vi.mocked(api.upsertCarrierOverride).mockResolvedValue({
