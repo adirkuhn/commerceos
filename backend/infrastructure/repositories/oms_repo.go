@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/txctx"
@@ -329,6 +330,47 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		NeedsStockReview: m.NeedsStockReview, NeedsSKUReview: m.NeedsSKUReview,
 		Fulfilled: m.Fulfilled,
 	}
+}
+
+func (r *SalesOrderRepo) Search(ctx context.Context, query string, limit int) ([]omsDomain.SalesOrder, error) {
+	if query == "" {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+	pattern := "%" + query + "%"
+	var rows []salesOrderModel
+	err = tx.Where(
+		"unaccent(number) ILIKE unaccent(?) OR "+
+			"similarity(immutable_unaccent(number), immutable_unaccent(?)) > ? OR "+
+			"unaccent(billing_first_name || ' ' || billing_last_name) ILIKE unaccent(?) OR "+
+			"similarity(immutable_unaccent(billing_first_name || ' ' || billing_last_name), immutable_unaccent(?)) > ? OR "+
+			"billing_email ILIKE ?",
+		pattern, query, fuzzySearchSimilarityThreshold,
+		pattern, query, fuzzySearchSimilarityThreshold,
+		pattern,
+	).Clauses(clause.OrderBy{
+		Expression: clause.Expr{
+			SQL: "GREATEST(" +
+				"similarity(immutable_unaccent(number), immutable_unaccent(?)), " +
+				"similarity(immutable_unaccent(billing_first_name || ' ' || billing_last_name), immutable_unaccent(?))" +
+				") DESC, occurred_at desc",
+			Vars: []interface{}{query, query},
+		},
+	}).Limit(limit).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.Search: %w", err)
+	}
+	out := make([]omsDomain.SalesOrder, len(rows))
+	for i, row := range rows {
+		out[i] = *toSalesOrderDomain(row)
+	}
+	return out, nil
 }
 
 func (r *SalesOrderRepo) Update(ctx context.Context, id string, fields map[string]any) error {

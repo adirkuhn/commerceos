@@ -14,6 +14,77 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+// TestCustomerRepo_Integration_SearchByNameIsAccentInsensitiveAndTypoTolerant
+// proves the same unaccent()/pg_trgm search Products already has
+// (127_search_trigram_indexes.sql) actually works against real Postgres
+// for customers too -- powers global search (Cmd+K).
+func TestCustomerRepo_Integration_SearchByNameIsAccentInsensitiveAndTypoTolerant(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewCustomerRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		for _, names := range [][2]string{{"João", "Conceição"}, {"Renée", "Müller"}} {
+			c := &customersDomain.Customer{
+				TenantID: tenant.IDFromContext(ctx), Email: names[0] + "@example.com",
+				FirstName: names[0], LastName: names[1], DateCreated: now, DateModified: now,
+			}
+			if err := repo.Create(ctx, c); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		query    string
+		wantName string
+	}{
+		{"joao conceicao", "João"},
+		{"JOAO", "João"},
+		{"Conceicoa", "João"}, // typo, transposed letters
+		{"renee muller", "Renée"},
+	} {
+		var results []customersDomain.Customer
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			results, err = repo.Search(ctx, tc.query, 10)
+			return err
+		})
+		require.NoError(t, err)
+		require.Len(t, results, 1, "query %q should match exactly one customer", tc.query)
+		require.Equal(t, tc.wantName, results[0].FirstName, "query %q", tc.query)
+	}
+}
+
+func TestCustomerRepo_Integration_SearchByEmail(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewCustomerRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		c := &customersDomain.Customer{
+			TenantID: tenant.IDFromContext(ctx), Email: "unique-lookup@example.com",
+			FirstName: "Pat", LastName: "Smith", DateCreated: now, DateModified: now,
+		}
+		return repo.Create(ctx, c)
+	})
+	require.NoError(t, err)
+
+	var results []customersDomain.Customer
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, err = repo.Search(ctx, "unique-lookup", 10)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "unique-lookup@example.com", results[0].Email)
+}
+
 func TestCustomerRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

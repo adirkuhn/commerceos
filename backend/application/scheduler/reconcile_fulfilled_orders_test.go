@@ -37,6 +37,9 @@ func (s *stubReconcileSalesOrderRepo) FindByID(_ context.Context, id string) (*o
 func (s *stubReconcileSalesOrderRepo) FindByExternalID(context.Context, omsDomain.SalesOrderSource, string) (*omsDomain.SalesOrder, error) {
 	return nil, nil
 }
+func (s *stubReconcileSalesOrderRepo) Search(_ context.Context, _ string, _ int) ([]omsDomain.SalesOrder, error) {
+	return nil, nil
+}
 func (s *stubReconcileSalesOrderRepo) List(_ context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	s.listFilter = filter
 	if s.listErr != nil {

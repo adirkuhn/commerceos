@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/internal/txctx"
@@ -167,6 +168,40 @@ func (r *CustomerRepo) List(ctx context.Context) ([]customersDomain.Customer, er
 	var rows []customerModel
 	if err := tx.Order("date_created desc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("customerRepo.List: %w", err)
+	}
+	out := make([]customersDomain.Customer, len(rows))
+	for i, row := range rows {
+		out[i] = *toCustomerDomain(row)
+	}
+	return out, nil
+}
+
+func (r *CustomerRepo) Search(ctx context.Context, query string, limit int) ([]customersDomain.Customer, error) {
+	if query == "" {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+	pattern := "%" + query + "%"
+	var rows []customerModel
+	err = tx.Where(
+		"unaccent(first_name || ' ' || last_name) ILIKE unaccent(?) OR "+
+			"similarity(immutable_unaccent(first_name || ' ' || last_name), immutable_unaccent(?)) > ? OR "+
+			"email ILIKE ?",
+		pattern, query, fuzzySearchSimilarityThreshold, pattern,
+	).Clauses(clause.OrderBy{
+		Expression: clause.Expr{
+			SQL:  "similarity(immutable_unaccent(first_name || ' ' || last_name), immutable_unaccent(?)) DESC, first_name asc",
+			Vars: []interface{}{query},
+		},
+	}).Limit(limit).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("customerRepo.Search: %w", err)
 	}
 	out := make([]customersDomain.Customer, len(rows))
 	for i, row := range rows {

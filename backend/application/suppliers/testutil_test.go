@@ -65,6 +65,9 @@ func (s *stubSupplierRepo) FindByName(_ context.Context, _ string) (*suppliersDo
 func (s *stubSupplierRepo) List(_ context.Context) ([]suppliersDomain.Supplier, error) {
 	return s.suppliers, nil
 }
+func (s *stubSupplierRepo) Search(_ context.Context, _ string, _ int) ([]suppliersDomain.Supplier, error) {
+	return nil, nil
+}
 func (s *stubSupplierRepo) Update(_ context.Context, sup *suppliersDomain.Supplier) error {
 	if s.updateErr != nil {
 		return s.updateErr

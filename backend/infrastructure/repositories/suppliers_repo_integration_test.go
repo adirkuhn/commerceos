@@ -14,6 +14,66 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+// TestSupplierRepo_Integration_SearchIsAccentInsensitiveAndTypoTolerant
+// proves the same unaccent()/pg_trgm search Products already has
+// (127_search_trigram_indexes.sql) actually works against real Postgres
+// for suppliers too -- powers global search (Cmd+K).
+func TestSupplierRepo_Integration_SearchIsAccentInsensitiveAndTypoTolerant(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSupplierRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		for _, name := range []string{"Açaí Distribuidora", "Feijão & Companhia"} {
+			s := &suppliersDomain.Supplier{
+				TenantID: tenant.IDFromContext(ctx), Name: name,
+				Status: suppliersDomain.SupplierStatusActive, CreatedAt: now, UpdatedAt: now,
+			}
+			if err := repo.Create(ctx, s); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		query string
+		want  string
+	}{
+		{"acai", "Açaí Distribuidora"},
+		{"AÇAÍ", "Açaí Distribuidora"},
+		{"Distribudora", "Açaí Distribuidora"}, // typo, missing an 'i'
+		{"feijao", "Feijão & Companhia"},
+	} {
+		var results []suppliersDomain.Supplier
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			results, err = repo.Search(ctx, tc.query, 10)
+			return err
+		})
+		require.NoError(t, err)
+		require.Len(t, results, 1, "query %q should match exactly one supplier", tc.query)
+		require.Equal(t, tc.want, results[0].Name, "query %q", tc.query)
+	}
+}
+
+func TestSupplierRepo_Integration_SearchEmptyQuery_returnsNil(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSupplierRepo(db)
+
+	var results []suppliersDomain.Supplier
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, err = repo.Search(ctx, "", 10)
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, results)
+}
+
 func TestSupplierRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

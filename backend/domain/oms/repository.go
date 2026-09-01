@@ -63,6 +63,12 @@ type SalesOrderRepository interface {
 	// List returns every sales order for the current tenant (RLS-scoped),
 	// newest first, paginated.
 	List(ctx context.Context, filter ListSalesOrdersFilter) ([]SalesOrder, int64, error)
+	// Search returns up to limit sales orders whose order number or billing
+	// name matches query -- number/name matching is accent-insensitive +
+	// typo-tolerant (pg_trgm), same convention as
+	// pms.ProductRepository.List's Search filter. Ranked best match first.
+	// Powers global search (Cmd+K). Empty query returns nil, not an error.
+	Search(ctx context.Context, query string, limit int) ([]SalesOrder, error)
 	// ListByConnection returns every order stamped with this connection's
 	// ID (see SalesOrder.ConnectionID) -- used by "delete all imported
 	// products" to find that connection's own orders. Unpaginated, same

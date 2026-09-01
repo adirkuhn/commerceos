@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Customers from '../Customers'
+import { MemoryRouter } from 'react-router-dom'
 import type { Customer } from '../../customers/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -34,7 +35,7 @@ beforeEach(() => {
 
 describe('Customers list', () => {
   it('shows an empty state when there are no customers', async () => {
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
 
     expect(await screen.findByText('No customers yet')).toBeInTheDocument()
   })
@@ -42,7 +43,7 @@ describe('Customers list', () => {
   it('lists customers', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('jane@example.com')).toBeInTheDocument()
@@ -54,7 +55,7 @@ describe('Customers list', () => {
       customer({ id: 'customer-2', first_name: 'Bob', last_name: 'Smith', email: 'bob@example.com' }),
     ])
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await screen.findByText('Jane Doe')
 
     await userEvent.type(screen.getByPlaceholderText('Search by name or email...'), 'Bob')
@@ -67,7 +68,7 @@ describe('Customers list', () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(customersApi.deleteCustomer).toHaveBeenCalledWith('test-token', 'customer-1'))
@@ -78,7 +79,7 @@ describe('Customers list', () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
     expect(customersApi.deleteCustomer).not.toHaveBeenCalled()
@@ -88,7 +89,7 @@ describe('Customers list', () => {
   it('shows paying customer status in the row', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer({ is_paying_customer: true })])
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
 
     expect(await screen.findByText('Paying')).toBeInTheDocument()
   })
@@ -98,7 +99,7 @@ describe('Customers list', () => {
       customer({ id: `customer-${i}`, first_name: `Customer${String(i).padStart(2, '0')}`, email: `c${i}@example.com` }))
     vi.mocked(customersApi.listCustomers).mockResolvedValue(many)
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await screen.findByText('Customer00 Doe')
 
     expect(screen.queryByText('Customer20 Doe')).not.toBeInTheDocument()
@@ -115,7 +116,7 @@ describe('Customer edit page', () => {
   it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
 
     expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
@@ -123,7 +124,7 @@ describe('Customer edit page', () => {
   })
 
   it('opening Add Customer shows a blank create form', async () => {
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
 
     expect(screen.getByText('New Customer', { selector: 'h1' })).toBeInTheDocument()
@@ -136,7 +137,7 @@ describe('Customer edit page', () => {
       customer({ id: 'customer-2', first_name: 'Bob', last_name: 'Smith', email: 'bob@example.com' }),
     )
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
     await userEvent.type(screen.getByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
@@ -154,7 +155,7 @@ describe('Customer edit page', () => {
       customer({ id: 'customer-2', first_name: 'Bob', last_name: 'Smith', email: 'bob@example.com' }),
     )
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
     await userEvent.type(screen.getByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
@@ -170,7 +171,7 @@ describe('Customer edit page', () => {
   it('shows an error if creating fails and stays on the form', async () => {
     vi.mocked(customersApi.createCustomer).mockRejectedValue(new Error('email already taken'))
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Customer' }))
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
@@ -183,7 +184,7 @@ describe('Customer edit page', () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     vi.mocked(customersApi.updateCustomer).mockResolvedValue(customer({ last_name: 'Doelist' }))
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
 
     const input = screen.getByLabelText('Last name')
@@ -202,7 +203,7 @@ describe('Customer edit page', () => {
       billing: { city: 'Rotterdam', country: 'NL', phone: '+31 6 1234 5678' },
     })])
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
 
     expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
@@ -214,7 +215,7 @@ describe('Customer edit page', () => {
   it('Discard returns to the list without saving', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
-    render(<Customers />)
+    render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
     await userEvent.type(screen.getByLabelText('Last name'), ' extra')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))

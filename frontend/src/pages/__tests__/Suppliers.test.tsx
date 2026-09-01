@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Suppliers from '../Suppliers'
+import { MemoryRouter } from 'react-router-dom'
 import type { Supplier } from '../../suppliers/types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -34,7 +35,7 @@ beforeEach(() => {
 
 describe('Suppliers list', () => {
   it('shows an empty state when there are no suppliers', async () => {
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
 
     expect(await screen.findByText('No suppliers yet')).toBeInTheDocument()
   })
@@ -42,7 +43,7 @@ describe('Suppliers list', () => {
   it('lists suppliers', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
 
     expect(await screen.findByText('Acme Foods')).toBeInTheDocument()
   })
@@ -50,7 +51,7 @@ describe('Suppliers list', () => {
   it('filters by search', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier(), supplier({ id: 'supplier-2', name: 'Beta Supply' })])
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await screen.findByText('Acme Foods')
 
     await userEvent.type(screen.getByPlaceholderText('Search by name or country...'), 'Beta')
@@ -63,7 +64,7 @@ describe('Suppliers list', () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
     await waitFor(() => expect(suppliersApi.deleteSupplier).toHaveBeenCalledWith('test-token', 'supplier-1'))
@@ -74,7 +75,7 @@ describe('Suppliers list', () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByTitle('Delete'))
 
     expect(suppliersApi.deleteSupplier).not.toHaveBeenCalled()
@@ -84,7 +85,7 @@ describe('Suppliers list', () => {
   it('shows country, lead time, and status in the row', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier({ country: 'US', lead_time_days: 14, status: 'inactive' })])
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
 
     expect(await screen.findByText('US')).toBeInTheDocument()
     expect(screen.getByText('14d')).toBeInTheDocument()
@@ -95,7 +96,7 @@ describe('Suppliers list', () => {
     const many = Array.from({ length: 25 }, (_, i) => supplier({ id: `supplier-${i}`, name: `Supplier ${String(i).padStart(2, '0')}` }))
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue(many)
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await screen.findByText('Supplier 00')
 
     expect(screen.queryByText('Supplier 20')).not.toBeInTheDocument()
@@ -112,7 +113,7 @@ describe('Supplier edit page', () => {
   it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(screen.getByDisplayValue('Acme Foods')).toBeInTheDocument()
@@ -120,7 +121,7 @@ describe('Supplier edit page', () => {
   })
 
   it('opening Add Supplier shows a blank create form', async () => {
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
 
     expect(screen.getByText('New Supplier', { selector: 'h1' })).toBeInTheDocument()
@@ -131,7 +132,7 @@ describe('Supplier edit page', () => {
   it('creates a new supplier and returns to the list', async () => {
     vi.mocked(suppliersApi.createSupplier).mockResolvedValue(supplier({ id: 'supplier-2', name: 'Beta Supply' }))
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
     await userEvent.type(screen.getByLabelText('Name'), 'Beta Supply')
     await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
@@ -143,7 +144,7 @@ describe('Supplier edit page', () => {
   it('submits all fields including lead time and status', async () => {
     vi.mocked(suppliersApi.createSupplier).mockResolvedValue(supplier({ id: 'supplier-2', name: 'Beta Supply' }))
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
     await userEvent.type(screen.getByLabelText('Name'), 'Beta Supply')
     await userEvent.type(screen.getByLabelText('Email'), 'hi@beta.example')
@@ -163,7 +164,7 @@ describe('Supplier edit page', () => {
   it('shows an error if creating fails and stays on the form', async () => {
     vi.mocked(suppliersApi.createSupplier).mockRejectedValue(new Error('name already taken'))
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add Supplier' }))
     await userEvent.type(screen.getByLabelText('Name'), 'Beta Supply')
     await userEvent.click(screen.getByRole('button', { name: 'Create Supplier' }))
@@ -176,7 +177,7 @@ describe('Supplier edit page', () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
     vi.mocked(suppliersApi.updateSupplier).mockResolvedValue(supplier({ name: 'Acme Foods Ltd' }))
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     const input = screen.getByLabelText('Name')
@@ -195,7 +196,7 @@ describe('Supplier edit page', () => {
       email: 'hi@acme.example', phone: '+1 555-0100', country: 'US', lead_time_days: 14, status: 'inactive', notes: 'net-30',
     })])
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
 
     expect(screen.getByLabelText('Email')).toHaveValue('hi@acme.example')
@@ -209,7 +210,7 @@ describe('Supplier edit page', () => {
   it('Discard returns to the list without saving', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 
-    render(<Suppliers />)
+    render(<MemoryRouter><Suppliers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Acme Foods'))
     await userEvent.type(screen.getByLabelText('Name'), ' extra')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))

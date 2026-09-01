@@ -1187,6 +1187,9 @@ func (s *stubOrdersSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDoma
 func (s *stubOrdersSalesOrderRepo) List(_ context.Context, _ omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	return nil, 0, nil
 }
+func (s *stubOrdersSalesOrderRepo) Search(_ context.Context, _ string, _ int) ([]omsDomain.SalesOrder, error) {
+	return nil, nil
+}
 func (s *stubOrdersSalesOrderRepo) ListByConnection(_ context.Context, _ string) ([]omsDomain.SalesOrder, error) {
 	return s.byConnection, s.listByConnectionErr
 }
@@ -1304,6 +1307,9 @@ func (s *stubOrdersCustomerRepo) FindByWooCustomerID(_ context.Context, wooCusto
 	return nil, nil
 }
 func (s *stubOrdersCustomerRepo) List(_ context.Context) ([]customersDomain.Customer, error) {
+	return nil, nil
+}
+func (s *stubOrdersCustomerRepo) Search(_ context.Context, _ string, _ int) ([]customersDomain.Customer, error) {
 	return nil, nil
 }
 func (s *stubOrdersCustomerRepo) Update(_ context.Context, _ *customersDomain.Customer) error {

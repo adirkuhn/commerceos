@@ -32,6 +32,7 @@ import (
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
 	genreports "github.com/adirkuhn/commerceos/api/reports"
+	gensearch "github.com/adirkuhn/commerceos/api/search"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
@@ -49,6 +50,7 @@ import (
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	schedulerhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scheduler"
+	searchhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/search"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
@@ -315,6 +317,22 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	dashboardhandler.Register(dashboardGroup, db)
+
+	searchSpec, err := gensearch.GetSpec()
+	if err != nil {
+		log.Fatalf("search: load openapi spec: %v", err)
+	}
+	// Own sub-group so the search-only spec validator never applies to the
+	// other modules' routes — same reasoning as pmsGroup above. Read-only,
+	// no RequireRole -- same "tenant RLS is the isolation boundary" call as
+	// dashboardGroup above; global search has no fine-grained per-entity
+	// RBAC in this codebase to gate on yet (see CLAUDE.md's documented but
+	// unimplemented user_permissions convention).
+	searchGroup := v1.Group("")
+	searchGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(searchSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	searchhandler.Register(searchGroup, db)
 
 	omsSpec, err := genoms.GetSpec()
 	if err != nil {

@@ -102,7 +102,12 @@ export default function SalesOrders() {
   })
   const [sortBy, setSortBy] = useState<SalesOrderSortField>(() => (searchParams.get('sort_by') as SalesOrderSortField | null) ?? 'occurred_at')
   const [sortDir, setSortDir] = useState<SortDirection>(() => (searchParams.get('sort_dir') as SortDirection | null) ?? 'desc')
-  const [selectedId, setSelectedId] = useState<string | null | 'new'>(null)
+  // Seeded from the URL so a deep link (global search / Cmd+K) opens
+  // straight to that order -- unlike page/sort/filters below, selectedId
+  // isn't kept in sync back to the URL on every change (opening/closing an
+  // order from the list is frequent and shouldn't spam history), so this
+  // is read once, not round-tripped.
+  const [selectedId, setSelectedId] = useState<string | null | 'new'>(() => searchParams.get('id'))
   const [sourceFilter, setSourceFilter] = useState<SalesOrderSource[]>(() => searchParams.getAll('source') as SalesOrderSource[])
   const [statusFilter, setStatusFilter] = useState<SalesOrderStatus[]>(() => searchParams.getAll('status') as SalesOrderStatus[])
   // fulfilledFilter: '' = don't filter (all substatuses), otherwise

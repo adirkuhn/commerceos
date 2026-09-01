@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, User, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -18,7 +19,12 @@ export default function Customers() {
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [editingId, setEditingId] = useState<string | null | 'new'>(null)
+  // The URL is the source of truth for "which customer is open" (?id=<uuid>,
+  // or ?id=new) -- survives a refresh, and is how global search (Cmd+K)
+  // deep-links straight to a specific customer. Same convention as
+  // Products.tsx's editingId.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const editingId = searchParams.get('id')
   const [deleteError, setDeleteError] = useState('')
 
   function handleSearchChange(value: string) {
@@ -48,7 +54,7 @@ export default function Customers() {
         customer={existing}
         onCreate={create}
         onUpdate={update}
-        onClose={() => setEditingId(null)}
+        onClose={() => setSearchParams({})}
       />
     )
   }
@@ -68,7 +74,7 @@ export default function Customers() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => setEditingId('new')}
+            onClick={() => setSearchParams({ id: 'new' })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Customer
@@ -104,7 +110,7 @@ export default function Customers() {
             {paged.map(c => (
               <tr
                 key={c.id}
-                onClick={() => setEditingId(c.id)}
+                onClick={() => setSearchParams({ id: c.id })}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
@@ -130,7 +136,7 @@ export default function Customers() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={e => { e.stopPropagation(); setEditingId(c.id) }}
+                      onClick={e => { e.stopPropagation(); setSearchParams({ id: c.id }) }}
                       className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                       title="Edit"
                     >

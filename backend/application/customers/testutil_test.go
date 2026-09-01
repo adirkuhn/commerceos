@@ -60,6 +60,9 @@ func (s *stubCustomerRepo) FindByWooCustomerID(_ context.Context, _ int64) (*cus
 func (s *stubCustomerRepo) List(_ context.Context) ([]customersDomain.Customer, error) {
 	return s.customers, nil
 }
+func (s *stubCustomerRepo) Search(_ context.Context, _ string, _ int) ([]customersDomain.Customer, error) {
+	return nil, nil
+}
 func (s *stubCustomerRepo) Update(_ context.Context, c *customersDomain.Customer) error {
 	if s.updateErr != nil {
 		return s.updateErr

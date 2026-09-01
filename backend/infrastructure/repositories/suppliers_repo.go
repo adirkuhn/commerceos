@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 	"github.com/adirkuhn/commerceos/internal/txctx"
@@ -106,6 +107,38 @@ func (r *SupplierRepo) List(ctx context.Context) ([]suppliersDomain.Supplier, er
 	var rows []supplierModel
 	if err := tx.Order("name asc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("supplierRepo.List: %w", err)
+	}
+	out := make([]suppliersDomain.Supplier, len(rows))
+	for i, row := range rows {
+		out[i] = *toSupplierDomain(row)
+	}
+	return out, nil
+}
+
+func (r *SupplierRepo) Search(ctx context.Context, query string, limit int) ([]suppliersDomain.Supplier, error) {
+	if query == "" {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+	pattern := "%" + query + "%"
+	var rows []supplierModel
+	err = tx.Where(
+		"unaccent(name) ILIKE unaccent(?) OR similarity(immutable_unaccent(name), immutable_unaccent(?)) > ?",
+		pattern, query, fuzzySearchSimilarityThreshold,
+	).Clauses(clause.OrderBy{
+		Expression: clause.Expr{
+			SQL:  "similarity(immutable_unaccent(name), immutable_unaccent(?)) DESC, name asc",
+			Vars: []interface{}{query},
+		},
+	}).Limit(limit).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("supplierRepo.Search: %w", err)
 	}
 	out := make([]suppliersDomain.Supplier, len(rows))
 	for i, row := range rows {

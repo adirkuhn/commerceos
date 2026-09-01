@@ -23,6 +23,62 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+// TestSalesOrderRepo_Integration_SearchByNumberAndBillingName proves the
+// same unaccent()/pg_trgm search Products already has
+// (127_search_trigram_indexes.sql) actually works against real Postgres
+// for sales orders too -- powers global search (Cmd+K).
+func TestSalesOrderRepo_Integration_SearchByNumberAndBillingName(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		orders := []omsDomain.SalesOrder{
+			{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
+				ExternalOrderID: "search-order-1", Number: "SO-10042", WarehouseID: warehouseID, CurrencyCode: "USD",
+				TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
+				Billing: omsDomain.Address{FirstName: "José", LastName: "Conceição"},
+			},
+			{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
+				ExternalOrderID: "search-order-2", Number: "SO-20099", WarehouseID: warehouseID, CurrencyCode: "USD",
+				TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
+				Billing: omsDomain.Address{FirstName: "Renée", LastName: "Müller"},
+			},
+		}
+		for i := range orders {
+			if err := salesOrderRepo.Create(ctx, &orders[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		query      string
+		wantNumber string
+	}{
+		{"SO-10042", "SO-10042"},
+		{"SO-1004", "SO-10042"}, // partial number
+		{"jose conceicao", "SO-10042"},
+		{"renee muller", "SO-20099"},
+	} {
+		var results []omsDomain.SalesOrder
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			results, err = salesOrderRepo.Search(ctx, tc.query, 10)
+			return err
+		})
+		require.NoError(t, err)
+		require.Len(t, results, 1, "query %q should match exactly one order", tc.query)
+		assert.Equal(t, tc.wantNumber, results[0].Number, "query %q", tc.query)
+	}
+}
+
 func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

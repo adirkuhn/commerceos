@@ -402,6 +402,9 @@ func (f *fakeSalesOrderRepo) FindByExternalID(context.Context, omsDomain.SalesOr
 func (f *fakeSalesOrderRepo) List(context.Context, omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	return nil, 0, nil
 }
+func (f *fakeSalesOrderRepo) Search(context.Context, string, int) ([]omsDomain.SalesOrder, error) {
+	return nil, nil
+}
 func (f *fakeSalesOrderRepo) ListByConnection(context.Context, string) ([]omsDomain.SalesOrder, error) {
 	return nil, nil
 }

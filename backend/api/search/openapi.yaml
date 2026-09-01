@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Global Search API
+  description: >-
+    Cmd+K "search everything" -- one call fans out across Products,
+    Suppliers, Customers, and Sales Orders (see
+    application/search.GlobalSearchUseCase), each accent-insensitive and
+    typo-tolerant (unaccent()/pg_trgm, same matching Products' own list
+    search already used -- see 127_search_trigram_indexes.sql). Results are
+    grouped by module so the frontend can render one section per module,
+    only for modules that actually matched. There is no local user
+    directory in this backend (auth is external, via lm2), so a "users"
+    module is deliberately absent -- see domain/customers for the closest
+    first-class entity CommerceOS actually stores.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /search:
+    get:
+      operationId: globalSearch
+      summary: Search across Products, Suppliers, Customers, and Sales Orders
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+          description: Empty/whitespace-only returns every section empty, not an error.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalSearchResponse'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    SearchProductResult:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+
+    SearchSupplierResult:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+
+    SearchCustomerResult:
+      type: object
+      required: [id, first_name, last_name]
+      properties:
+        id: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string }
+
+    SearchSalesOrderResult:
+      type: object
+      required: [id, number, status]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        billing_first_name: { type: string }
+        billing_last_name: { type: string }
+        status: { type: string }
+
+    GlobalSearchResult:
+      type: object
+      required: [products, suppliers, customers, sales_orders]
+      properties:
+        products:
+          type: array
+          items: { $ref: '#/components/schemas/SearchProductResult' }
+        suppliers:
+          type: array
+          items: { $ref: '#/components/schemas/SearchSupplierResult' }
+        customers:
+          type: array
+          items: { $ref: '#/components/schemas/SearchCustomerResult' }
+        sales_orders:
+          type: array
+          items: { $ref: '#/components/schemas/SearchSalesOrderResult' }
+
+    GlobalSearchResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/GlobalSearchResult' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

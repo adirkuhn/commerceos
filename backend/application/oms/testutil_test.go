@@ -133,6 +133,9 @@ func (s *stubSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDomain.S
 func (s *stubSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDomain.SalesOrderSource, _ string) (*omsDomain.SalesOrder, error) {
 	return s.findByExternalIDResult, s.findByExternalIDErr
 }
+func (s *stubSalesOrderRepo) Search(_ context.Context, _ string, _ int) ([]omsDomain.SalesOrder, error) {
+	return nil, nil
+}
 func (s *stubSalesOrderRepo) List(_ context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
 	s.gotListFilter = filter
 	if s.listErr != nil {
