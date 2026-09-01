@@ -112,6 +112,21 @@ describe('Inventory page', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
+  it('shows the product thumbnail image when one is set', async () => {
+    vi.mocked(pmsApi.listProducts).mockResolvedValue({ products: [{ ...product, image_url: 'https://example.com/widget.jpg' }], total: 1 })
+    const { container } = render(<Inventory />)
+
+    await screen.findByText('Widget')
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/widget.jpg')
+  })
+
+  it('shows a placeholder icon when the product has no image', async () => {
+    const { container } = render(<Inventory />)
+
+    await screen.findByText('Widget')
+    expect(container.querySelector('img')).not.toBeInTheDocument()
+  })
+
   it('filters to only low-stock or out-of-stock products', async () => {
     const lowStockProduct: Product = { ...product, id: 'prod-2', name: 'Low Stock Widget', slug: 'low-stock-widget' }
     const outOfStockProduct: Product = { ...product, id: 'prod-3', name: 'Empty Widget', slug: 'empty-widget' }

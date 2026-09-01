@@ -974,8 +974,8 @@ export interface ProductStockSummary {
   skuCount: number
 }
 
-function ProductStockRow({ token, productId, productName, warehouses, onSummary, onViewHistory, onViewBatchHistory, onViewProductHistory }: {
-  token: string; productId: string; productName: string; warehouses: { id: string; name: string }[]
+function ProductStockRow({ token, productId, productName, productImageUrl, warehouses, onSummary, onViewHistory, onViewBatchHistory, onViewProductHistory }: {
+  token: string; productId: string; productName: string; productImageUrl?: string | null; warehouses: { id: string; name: string }[]
   onSummary: (productId: string, summary: ProductStockSummary) => void
   onViewHistory: (sku: SKU) => void
   onViewBatchHistory: (sku: SKU, batch: Batch) => void
@@ -1038,6 +1038,15 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
         <td className="px-4 py-2.5 w-8">
           {expanded ? <ChevronDown size={13} className="dark:text-gray-500 text-gray-400" /> : <ChevronRight size={13} className="dark:text-gray-500 text-gray-400" />}
         </td>
+        <td className="px-2 py-2.5">
+          {productImageUrl ? (
+            <img src={productImageUrl} alt="" className="w-6 h-6 rounded object-cover dark:bg-[#2D3748] bg-gray-200" />
+          ) : (
+            <div className="w-6 h-6 rounded dark:bg-[#2D3748] bg-gray-200 flex items-center justify-center">
+              <ImageIcon size={12} className="dark:text-gray-500 text-gray-400" />
+            </div>
+          )}
+        </td>
         <td className="px-3 py-2.5 font-medium dark:text-gray-100 text-gray-900">{productName}</td>
         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
           {singleSKU ? (
@@ -1090,7 +1099,7 @@ function ProductStockRow({ token, productId, productName, warehouses, onSummary,
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="p-0">
+          <td colSpan={7} className="p-0">
             {loading && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">Loading SKUs…</p>}
             {!loading && skus.length === 0 && <p className="pl-8 py-3 text-xs dark:text-gray-500 text-gray-400">No SKUs on this product yet.</p>}
             {!loading && skus.map(sku => (
@@ -1889,6 +1898,7 @@ export default function Inventory() {
           <thead className="sticky top-0 z-10 dark:bg-[#111827] bg-gray-50 border-b dark:border-[#2D3748] border-gray-200">
             <tr>
               <th className="px-2 py-2.5 w-8" />
+              <th className="px-2 py-2.5 w-8" />
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Product</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Price</th>
               <th className="px-3 py-2.5 text-left font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider">Sale Price</th>
@@ -1898,14 +1908,14 @@ export default function Inventory() {
           </thead>
           <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
             {loading && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">Loading…</td></tr>
             )}
             {!loading && visibleProducts.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center dark:text-gray-500 text-gray-400">No products found.</td></tr>
             )}
             {!loading && visibleProducts.map(p => (
               <ProductStockRow
-                key={p.id} token={token ?? ''} productId={p.id} productName={p.name} warehouses={warehouses}
+                key={p.id} token={token ?? ''} productId={p.id} productName={p.name} productImageUrl={p.image_url} warehouses={warehouses}
                 onSummary={handleSummary} onViewHistory={setHistorySKU}
                 onViewBatchHistory={(sku, batch) => setHistoryBatch({ sku, batch })}
                 onViewProductHistory={(name, skus) => setHistoryProduct({ name, skus })}
