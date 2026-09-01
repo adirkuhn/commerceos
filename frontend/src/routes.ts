@@ -23,8 +23,6 @@ import Shipping from './pages/Shipping'
 import Settings from './pages/Settings'
 import ScheduledJobs from './pages/ScheduledJobs'
 import OverviewPage from './pages/reports/OverviewPage'
-import ProfitabilityPage from './pages/reports/ProfitabilityPage'
-import RevenueByChannelPage from './pages/reports/RevenueByChannelPage'
 import ProductPerformancePage from './pages/reports/ProductPerformancePage'
 import ProductPerformanceMatrixPage from './pages/reports/ProductPerformanceMatrixPage'
 import CustomerPerformancePage from './pages/reports/CustomerPerformancePage'
@@ -68,8 +66,6 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'sync-log', path: '/sync-log', Component: SyncLog },
   { nav: 'shipping', path: '/shipping', Component: Shipping },
   { nav: 'reports-overview', path: '/reports', Component: OverviewPage },
-  { nav: 'reports-profitability', path: '/reports/profitability', Component: ProfitabilityPage },
-  { nav: 'reports-revenue-by-channel', path: '/reports/revenue-by-channel', Component: RevenueByChannelPage },
   { nav: 'reports-product-performance', path: '/reports/product-performance', Component: ProductPerformancePage },
   { nav: 'reports-product-performance-matrix', path: '/reports/product-performance-matrix', Component: ProductPerformanceMatrixPage },
   { nav: 'reports-customer-performance', path: '/reports/customer-performance', Component: CustomerPerformancePage },

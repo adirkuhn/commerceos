@@ -35,9 +35,9 @@ export function ChangeBadge({ percent }: { percent: number | null }) {
   )
 }
 
-export function ReportCard({ title, description, children, testId }: { title: ReactNode; description?: ReactNode; children: ReactNode; testId?: string }) {
+export function ReportCard({ title, description, children, testId, overflowVisible }: { title: ReactNode; description?: ReactNode; children: ReactNode; testId?: string; overflowVisible?: boolean }) {
   return (
-    <div data-testid={testId} className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 overflow-hidden">
+    <div data-testid={testId} className={clsx('dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200', overflowVisible ? 'overflow-visible' : 'overflow-hidden')}>
       <div className="px-4 py-3 border-b dark:border-[#2D3748] border-gray-200">
         <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{title}</h3>
         {description && <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">{description}</p>}
@@ -66,6 +66,88 @@ export function PeriodSelector({ period, onChange }: { period: ReportsPeriod; on
           )}
         >
           {p}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export type ReportsRangeMode = ReportsPeriod | 'custom'
+
+// DateRangeControl is the merged Reports Overview page's range picker --
+// the usual period presets plus a "Custom" option that reveals two native
+// date inputs. Kept separate from PeriodSelector (which every other report
+// page still uses) so this page's custom-range affordance doesn't ripple
+// into pages that only need presets.
+export function DateRangeControl({
+  mode, onModeChange, customFrom, customTo, onCustomFromChange, onCustomToChange,
+}: {
+  mode: ReportsRangeMode
+  onModeChange: (mode: ReportsRangeMode) => void
+  customFrom: string
+  customTo: string
+  onCustomFromChange: (value: string) => void
+  onCustomToChange: (value: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-0.5 dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-lg p-0.5">
+        {[...REPORT_PERIODS, 'custom' as const].map(p => (
+          <button
+            key={p}
+            onClick={() => onModeChange(p)}
+            className={clsx(
+              'px-3 py-1 rounded-md text-xs font-medium capitalize transition-colors',
+              mode === p
+                ? 'bg-blue-600 text-white'
+                : 'dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700',
+            )}
+          >
+            {p === 'custom' ? 'Custom' : p}
+          </button>
+        ))}
+      </div>
+      {mode === 'custom' && (
+        <div className="flex items-center gap-1.5 text-xs">
+          <input
+            type="date"
+            value={customFrom}
+            max={customTo || undefined}
+            onChange={e => onCustomFromChange(e.target.value)}
+            className="px-2 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white dark:text-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <span className="dark:text-gray-500 text-gray-400">–</span>
+          <input
+            type="date"
+            value={customTo}
+            min={customFrom || undefined}
+            onChange={e => onCustomToChange(e.target.value)}
+            className="px-2 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white dark:text-gray-200 text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ViewToggle is the merged Reports Overview page's "Summary / Daily"
+// switch -- Daily swaps the Profitability and Revenue by Channel cards
+// from whole-period aggregates to a per-day time series.
+export function ViewToggle({ showDaily, onChange }: { showDaily: boolean; onChange: (showDaily: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-0.5 dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 rounded-lg p-0.5">
+      {[{ value: false, label: 'Summary' }, { value: true, label: 'Daily' }].map(opt => (
+        <button
+          key={opt.label}
+          onClick={() => onChange(opt.value)}
+          className={clsx(
+            'px-3 py-1 rounded-md text-xs font-medium transition-colors',
+            showDaily === opt.value
+              ? 'bg-blue-600 text-white'
+              : 'dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-700',
+          )}
+        >
+          {opt.label}
         </button>
       ))}
     </div>

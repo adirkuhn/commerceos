@@ -16,3 +16,15 @@ export function dateRange(period: ReportsPeriod, now: Date): { from: string; to:
   const from = new Date(now.getTime() - PERIOD_DAYS[period] * 24 * 60 * 60 * 1000)
   return { from: from.toISOString(), to: to.toISOString() }
 }
+
+// customDateRange turns a user-picked [fromDate, toDate] calendar-day range
+// (both "yyyy-mm-dd", both inclusive, as produced by <input type="date">)
+// into the [from, to) ISO range every report endpoint expects -- toDate is
+// made exclusive by advancing it one day, so the whole selected end day is
+// included.
+export function customDateRange(fromDate: string, toDate: string): { from: string; to: string } {
+  const from = new Date(`${fromDate}T00:00:00.000Z`)
+  const toExclusive = new Date(`${toDate}T00:00:00.000Z`)
+  toExclusive.setUTCDate(toExclusive.getUTCDate() + 1)
+  return { from: from.toISOString(), to: toExclusive.toISOString() }
+}

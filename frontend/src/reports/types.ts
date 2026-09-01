@@ -116,6 +116,41 @@ export interface ProfitabilityReport {
   summary: ProfitabilitySummary
 }
 
+export interface ProfitabilityPoint {
+  period_start: string
+  revenue_minor_units: number
+  cost_known_revenue_minor_units: number
+  cost_minor_units: number
+  profit_minor_units: number
+  // 0 when cost_known_revenue_minor_units is 0 for this bucket. 1 bp = 0.01%.
+  margin_basis_points: number
+}
+
+export interface ProfitabilityTrendReport {
+  currency_code: string
+  granularity: SalesTrendGranularity
+  points: ProfitabilityPoint[]
+}
+
+export interface ChannelRevenue {
+  // Sales order source -- pos, manual, or woocommerce.
+  source: string
+  total_minor_units: number
+}
+
+export interface ChannelRevenuePoint {
+  period_start: string
+  source: string
+  revenue_minor_units: number
+}
+
+export interface RevenueByChannelReport {
+  currency_code: string
+  channels: ChannelRevenue[]
+  granularity: SalesTrendGranularity
+  points: ChannelRevenuePoint[]
+}
+
 export interface InventorySalesRow {
   sku_id: string
   sku_code: string

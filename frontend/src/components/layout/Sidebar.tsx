@@ -48,8 +48,6 @@ const REPORTS_SUBMENU: NavSubmenu = {
   icon: BarChart3,
   children: [
     { id: 'reports-overview', label: 'Overview', icon: BarChart3 },
-    { id: 'reports-profitability', label: 'Profitability', icon: BarChart3 },
-    { id: 'reports-revenue-by-channel', label: 'Revenue by Channel', icon: BarChart3 },
     { id: 'reports-product-performance', label: 'Product Performance', icon: BarChart3 },
     { id: 'reports-product-performance-matrix', label: 'Performance Matrix', icon: BarChart3 },
     { id: 'reports-customer-performance', label: 'Customer Performance', icon: BarChart3 },

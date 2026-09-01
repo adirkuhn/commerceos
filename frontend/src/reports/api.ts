@@ -1,4 +1,4 @@
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport, ProductRecommendationsReport, APIResponse } from './types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport, ProductRecommendationsReport, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/reports`
@@ -58,6 +58,14 @@ export function getProfitabilityReport(token: string, from: string, to: string):
 
 export function getInventorySalesReport(token: string, from: string, to: string): Promise<InventorySalesReport> {
   return request<InventorySalesReport>(`${base()}/inventory-sales?${rangeParams(from, to)}`, { method: 'GET' }, token)
+}
+
+export function getProfitabilityTrendReport(token: string, from: string, to: string, granularity: SalesTrendGranularity): Promise<ProfitabilityTrendReport> {
+  return request<ProfitabilityTrendReport>(`${base()}/profitability-trend?${rangeParams(from, to)}&granularity=${granularity}`, { method: 'GET' }, token)
+}
+
+export function getRevenueByChannelReport(token: string, from: string, to: string, granularity: SalesTrendGranularity): Promise<RevenueByChannelReport> {
+  return request<RevenueByChannelReport>(`${base()}/revenue-by-channel?${rangeParams(from, to)}&granularity=${granularity}`, { method: 'GET' }, token)
 }
 
 export function getBusinessInsights(token: string, from: string, to: string): Promise<BusinessInsightsReport> {

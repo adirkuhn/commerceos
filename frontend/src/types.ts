@@ -18,8 +18,6 @@ export type NavItem =
   | 'sync-log'
   | 'shipping'
   | 'reports-overview'
-  | 'reports-profitability'
-  | 'reports-revenue-by-channel'
   | 'reports-product-performance'
   | 'reports-product-performance-matrix'
   | 'reports-customer-performance'
