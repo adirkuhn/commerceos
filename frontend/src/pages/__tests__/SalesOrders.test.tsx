@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import SalesOrders from '../SalesOrders'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 
@@ -131,7 +132,7 @@ function shipment(overrides: Partial<import('../../shipping/types').Shipment> = 
 
 describe('Sales orders list', () => {
   it('shows an empty state when there are no sales orders', async () => {
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
 
     expect(await screen.findByText('No sales orders yet')).toBeInTheDocument()
   })
@@ -139,7 +140,7 @@ describe('Sales orders list', () => {
   it('lists sales orders with customer, status, and total', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
@@ -153,7 +154,7 @@ describe('Sales orders list', () => {
       total: 2,
     })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     expect(screen.getByText('Fulfilled')).toBeInTheDocument()
@@ -163,7 +164,7 @@ describe('Sales orders list', () => {
   it('paginates using the server page param', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 25 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
@@ -176,7 +177,7 @@ describe('Sales orders list', () => {
   it('defaults to sorting by date, most recent first', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] })
@@ -185,7 +186,7 @@ describe('Sales orders list', () => {
   it('clicking a column header sorts by that field', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Total/ }))
@@ -196,7 +197,7 @@ describe('Sales orders list', () => {
   it('clicking the active column header again flips the direction', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Order/ }))
@@ -207,7 +208,7 @@ describe('Sales orders list', () => {
   it('changing sort resets back to page 1', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 25 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] }))
@@ -220,7 +221,7 @@ describe('Sales orders list', () => {
   it('clicking a channel filter button narrows to that source and resets to page 1', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 25 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] }))
@@ -233,7 +234,7 @@ describe('Sales orders list', () => {
   it('clicking multiple channel filter buttons combines them, and clicking again removes one', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('button', { name: 'POS' }))
@@ -249,7 +250,7 @@ describe('Sales orders list', () => {
   it('renders all four channel filter buttons, none active by default', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     for (const label of ['POS', 'WOO', 'Bol', 'Internal']) {
@@ -261,7 +262,7 @@ describe('Sales orders list', () => {
   it('clicking a status filter button narrows the list by that status', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('button', { name: 'shipped' }))
@@ -274,7 +275,7 @@ describe('Sales orders list', () => {
   it('picking a fulfillment substatus narrows the list by fulfilled', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     await userEvent.selectOptions(screen.getByLabelText('Filter by fulfilled substatus'), 'true')
@@ -293,7 +294,7 @@ describe('Sales orders list', () => {
   it('status and fulfillment substatus filters combine', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('button', { name: 'processing' }))
@@ -302,6 +303,41 @@ describe('Sales orders list', () => {
     await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
       page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: ['processing'], source: [], fulfilled: false,
     }))
+  })
+
+  it('restores filters/sort/page from the URL on load, so a refresh keeps them', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(
+      <MemoryRouter initialEntries={['/sales-orders?source=pos&status=shipped&fulfilled=true&sort_by=total&sort_dir=asc&page=2']}>
+        <SalesOrders />
+      </MemoryRouter>,
+    )
+    await screen.findByText('#1001')
+
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', {
+      page: 2, perPage: 20, sortBy: 'total', sortDir: 'asc', status: ['shipped'], source: ['pos'], fulfilled: true,
+    })
+    expect(screen.getByRole('button', { name: 'POS' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'shipped' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('Filter by fulfilled substatus')).toHaveValue('true')
+  })
+
+  it('shows a Clear filters button only when a filter is active, and it clears everything', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await screen.findByText('#1001')
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'POS' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear filters' }))
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [],
+    }))
+    expect(screen.getByRole('button', { name: 'POS' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
   })
 })
 
@@ -312,7 +348,7 @@ describe('Sales orders bulk actions', () => {
     })
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
     expect(screen.queryByText('2 selected')).not.toBeInTheDocument()
@@ -333,7 +369,7 @@ describe('Sales orders bulk actions', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change fulfilled' }), 'true')
@@ -345,7 +381,7 @@ describe('Sales orders bulk actions', () => {
   it('selecting a row does not open the order detail page', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '1001' })], total: 1 })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
 
@@ -357,7 +393,7 @@ describe('Sales orders bulk actions', () => {
       salesOrders: [salesOrder({ id: 'so-1', number: '1001' }), salesOrder({ id: 'so-2', number: '1002' })], total: 2,
     })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select all orders on this page' }))
 
@@ -369,7 +405,7 @@ describe('Sales orders bulk actions', () => {
     vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [{ orderId: 'so-1', error: 'sales order not found' }] })
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select order #1001' }))
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Bulk change status' }), 'cancelled')
@@ -384,7 +420,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
@@ -403,7 +439,7 @@ describe('Sales order detail page', () => {
       }],
     })
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Shipment created via MyParcel')).toBeInTheDocument()
@@ -413,7 +449,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -436,7 +472,7 @@ describe('Sales order detail page', () => {
     const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
     vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -460,7 +496,7 @@ describe('Sales order detail page', () => {
       { id: 'evt-1', shipment_id: 'ship-1', status: 3, status_main: 'enroute', status_label: 'Enroute - handed to carrier', source: 'webhook', occurred_at: '2026-08-24T10:00:00Z' },
     ])
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -478,7 +514,7 @@ describe('Sales order detail page', () => {
       shipment({ tracking_url: 'https://postnl.nl/tracktrace/?B=3SMYPA1&P=1251%20SB&D=NL&T=C&L=EN' }),
     ])
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
     await screen.findByText('Shipments')
@@ -493,7 +529,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
     await screen.findByText('Shipments')
@@ -518,7 +554,7 @@ describe('Sales order detail page', () => {
     })
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
     await screen.findByText('Shipments')
@@ -541,7 +577,7 @@ describe('Sales order detail page', () => {
     vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([])
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
     await screen.findByText('Shipments')
@@ -556,7 +592,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -574,7 +610,7 @@ describe('Sales order detail page', () => {
       { id: 'evt-2', shipment_id: 'ship-1', status: 7, status_main: 'delivered', status_label: 'Delivered - at recipient', source: 'manual', occurred_at: '2026-08-24T11:00:00Z' },
     )
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Pending - registered')
 
@@ -591,7 +627,7 @@ describe('Sales order detail page', () => {
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
     vi.mocked(shippingApi.refreshShipmentTracking).mockRejectedValue(new Error('myparcel unreachable'))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('No tracking updates yet.')
 
@@ -631,7 +667,7 @@ describe('Sales order detail page', () => {
     const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
     vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -694,7 +730,7 @@ describe('Sales order detail page', () => {
     const fakeTab = { close: vi.fn(), location: { href: '' } } as unknown as Window
     vi.spyOn(window, 'open').mockReturnValue(fakeTab)
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -714,7 +750,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -727,7 +763,7 @@ describe('Sales order detail page', () => {
     const printSpy = vi.fn()
     vi.stubGlobal('print', printSpy)
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -746,7 +782,7 @@ describe('Sales order detail page', () => {
     const printSpy = vi.fn()
     vi.stubGlobal('print', printSpy)
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -766,7 +802,7 @@ describe('Sales order detail page', () => {
       }],
     }))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Mystery Item')).toBeInTheDocument()
@@ -777,7 +813,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
@@ -790,7 +826,7 @@ describe('Sales order detail page', () => {
       sales_order: salesOrder({ source: 'woocommerce', shipping_method_title: 'Flat rate' }),
     }))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('woocommerce')).toBeInTheDocument()
@@ -803,7 +839,7 @@ describe('Sales order detail page', () => {
       sales_order: salesOrder({ payment_method: 'cod', payment_method_title: 'Cash on delivery' }),
     }))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Cash on delivery')).toBeInTheDocument()
@@ -815,7 +851,7 @@ describe('Sales order detail page', () => {
       sales_order: salesOrder({ source: 'manual', payment_method: 'pos', payment_method_title: '' }),
     }))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('pos', { selector: 'span' })).toBeInTheDocument()
@@ -827,7 +863,7 @@ describe('Sales order detail page', () => {
       sales_order: salesOrder({ payment_method: undefined, payment_method_title: undefined }),
     }))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -838,7 +874,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -852,7 +888,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockRejectedValue(new Error('not found'))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('not found')).toBeInTheDocument()
@@ -863,7 +899,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.mocked(omsApi.updateSalesOrder).mockResolvedValue(salesOrder({ status: 'cancelled' }))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -878,7 +914,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.deleteSalesOrder).mockResolvedValue(null)
     vi.stubGlobal('confirm', vi.fn(() => true))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -893,7 +929,7 @@ describe('Sales order detail page', () => {
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.stubGlobal('confirm', vi.fn(() => false))
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
@@ -905,7 +941,7 @@ describe('Sales order detail page', () => {
 
 describe('Create sales order', () => {
   it('opening New Sales Order shows a blank create form', async () => {
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
 
     expect(screen.getByText('New Sales Order', { selector: 'h1' })).toBeInTheDocument()
@@ -939,7 +975,7 @@ describe('Create sales order', () => {
     })
     vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
     await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
 
@@ -957,7 +993,7 @@ describe('Create sales order', () => {
   })
 
   it('requires at least one line item', async () => {
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
     await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
 
@@ -1004,7 +1040,7 @@ describe('Create sales order', () => {
     })
     vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
 
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
     await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
 
@@ -1028,7 +1064,7 @@ describe('Create sales order', () => {
   })
 
   it('Discard returns to the list without creating', async () => {
-    render(<SalesOrders />)
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New Sales Order' }))
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 

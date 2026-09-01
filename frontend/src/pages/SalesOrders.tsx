@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
@@ -91,16 +92,48 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
 
 export default function SalesOrders() {
   const { token } = useAuth()
-  const [page, setPage] = useState(1)
-  const [sortBy, setSortBy] = useState<SalesOrderSortField>('occurred_at')
-  const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  // Filters/sort/page are seeded from the URL on first render and kept in
+  // sync with it (see the effect below) -- reloading the page, or sharing
+  // the link, reproduces the exact same view instead of resetting it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [page, setPage] = useState(() => {
+    const p = Number(searchParams.get('page'))
+    return p > 0 ? p : 1
+  })
+  const [sortBy, setSortBy] = useState<SalesOrderSortField>(() => (searchParams.get('sort_by') as SalesOrderSortField | null) ?? 'occurred_at')
+  const [sortDir, setSortDir] = useState<SortDirection>(() => (searchParams.get('sort_dir') as SortDirection | null) ?? 'desc')
   const [selectedId, setSelectedId] = useState<string | null | 'new'>(null)
-  const [sourceFilter, setSourceFilter] = useState<SalesOrderSource[]>([])
-  const [statusFilter, setStatusFilter] = useState<SalesOrderStatus[]>([])
+  const [sourceFilter, setSourceFilter] = useState<SalesOrderSource[]>(() => searchParams.getAll('source') as SalesOrderSource[])
+  const [statusFilter, setStatusFilter] = useState<SalesOrderStatus[]>(() => searchParams.getAll('status') as SalesOrderStatus[])
   // fulfilledFilter: '' = don't filter (all substatuses), otherwise
   // "true"/"false" -- a substatus nested under whatever status is selected
   // above (e.g. Processing + not yet fulfilled).
-  const [fulfilledFilter, setFulfilledFilter] = useState<'' | 'true' | 'false'>('')
+  const [fulfilledFilter, setFulfilledFilter] = useState<'' | 'true' | 'false'>(() => {
+    const f = searchParams.get('fulfilled')
+    return f === 'true' || f === 'false' ? f : ''
+  })
+
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (page !== 1) params.set('page', String(page))
+    if (sortBy !== 'occurred_at') params.set('sort_by', sortBy)
+    if (sortDir !== 'desc') params.set('sort_dir', sortDir)
+    sourceFilter.forEach(s => params.append('source', s))
+    statusFilter.forEach(s => params.append('status', s))
+    if (fulfilledFilter) params.set('fulfilled', fulfilledFilter)
+    setSearchParams(params, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, sortBy, sortDir, sourceFilter, statusFilter, fulfilledFilter])
+
+  const hasActiveFilters = sourceFilter.length > 0 || statusFilter.length > 0 || fulfilledFilter !== ''
+
+  function clearFilters() {
+    setSourceFilter([])
+    setStatusFilter([])
+    setFulfilledFilter('')
+    setPage(1)
+  }
+
   const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', {
     page, perPage: PAGE_SIZE, sortBy, sortDir, source: sourceFilter, status: statusFilter,
     fulfilled: fulfilledFilter === '' ? undefined : fulfilledFilter === 'true',
@@ -262,6 +295,14 @@ export default function SalesOrders() {
           <option value="true">Only fulfilled</option>
           <option value="false">Only unfulfilled</option>
         </select>
+        {hasActiveFilters && (
+          <button
+            type="button" onClick={clearFilters}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium dark:text-gray-400 text-gray-500 hover:dark:text-gray-200 hover:text-gray-800 transition-colors ml-auto"
+          >
+            <X size={12} /> Clear filters
+          </button>
+        )}
       </div>
 
       {/* Bulk action bar */}
