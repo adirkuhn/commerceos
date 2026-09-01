@@ -142,6 +142,37 @@ describe('OverviewPage', () => {
     expect(reportsApi.getRevenueByChannelReport).toHaveBeenCalledWith('test-token', expect.any(String), expect.any(String), 'day')
   })
 
+  it('shows a toggle chip per channel in the daily view, and hiding one removes it from the stacked bar', async () => {
+    vi.mocked(reportsApi.getRevenueByChannelReport).mockResolvedValue(revenueByChannel({
+      channels: [{ source: 'woocommerce', total_minor_units: 31500 }, { source: 'pos', total_minor_units: 8000 }],
+      points: [
+        { period_start: '2026-08-01T00:00:00Z', source: 'woocommerce', revenue_minor_units: 31500 },
+        { period_start: '2026-08-01T00:00:00Z', source: 'pos', revenue_minor_units: 8000 },
+      ],
+    }))
+    render(<OverviewPage />)
+    fireEvent.click(await screen.findByText('Daily'))
+    await screen.findByText('Daily revenue per sales channel')
+
+    const wooChip = screen.getByTitle('Hide woocommerce')
+    expect(screen.getByTitle('Hide pos')).toBeInTheDocument()
+
+    fireEvent.click(wooChip)
+
+    expect(screen.getByTitle('Show woocommerce')).toBeInTheDocument()
+    expect(screen.getByTitle('Hide pos')).toBeInTheDocument()
+  })
+
+  it('shows an empty state when every channel is hidden in the daily view', async () => {
+    render(<OverviewPage />)
+    fireEvent.click(await screen.findByText('Daily'))
+    await screen.findByText('Daily revenue per sales channel')
+
+    fireEvent.click(screen.getByTitle('Hide woocommerce'))
+
+    expect(await screen.findByText('Select at least one channel to show')).toBeInTheDocument()
+  })
+
   it('reveals custom date inputs and refetches with the chosen range', async () => {
     render(<OverviewPage />)
     await screen.findByTestId('profitability-summary')

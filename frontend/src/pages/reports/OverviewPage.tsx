@@ -29,6 +29,16 @@ export default function OverviewPage() {
   const [customFrom, setCustomFrom] = useState(() => isoDateDaysAgo(7))
   const [customTo, setCustomTo] = useState(() => isoDateToday())
   const [showDaily, setShowDaily] = useState(false)
+  const [hiddenChannels, setHiddenChannels] = useState<Set<string>>(new Set())
+
+  const toggleChannel = useCallback((source: string) => {
+    setHiddenChannels(prev => {
+      const next = new Set(prev)
+      if (next.has(source)) next.delete(source)
+      else next.add(source)
+      return next
+    })
+  }, [])
 
   const { from, to } = useMemo(() => {
     if (mode === 'custom') return customDateRange(customFrom, customTo)
@@ -64,6 +74,7 @@ export default function OverviewPage() {
   const profitabilityTrendPoints = (profitabilityTrend?.points ?? []).map((p: ProfitabilityPoint) => ({ ...p, label: dayLabel(p.period_start) }))
 
   const channelSources = Array.from(new Set((revenueByChannel?.points ?? []).map(p => p.source)))
+  const visibleChannelSources = channelSources.filter(s => !hiddenChannels.has(s))
   const channelTrendRows = buildChannelTrendRows(revenueByChannel?.points ?? [], channelSources)
 
   return (
@@ -165,18 +176,44 @@ export default function OverviewPage() {
           channelTrendRows.length === 0 ? (
             <EmptyState>No revenue in this period</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={channelTrendRows} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {channelSources.map((source, i) => (
-                  <Line key={source} type="monotone" dataKey={source} name={source} stroke={CHANNEL_COLORS[i % CHANNEL_COLORS.length]} strokeWidth={2} dot={false} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+            <>
+              <div className="flex flex-wrap gap-1.5 px-4 pt-3">
+                {channelSources.map((source, i) => {
+                  const visible = !hiddenChannels.has(source)
+                  const color = CHANNEL_COLORS[i % CHANNEL_COLORS.length]
+                  return (
+                    <button
+                      key={source}
+                      onClick={() => toggleChannel(source)}
+                      className={clsx(
+                        'px-2 py-1 rounded-md text-[10px] font-medium border transition-colors',
+                        visible ? 'text-white border-transparent' : 'dark:border-[#2D3748] border-gray-200 dark:text-gray-500 text-gray-400 opacity-60',
+                      )}
+                      style={visible ? { backgroundColor: color } : undefined}
+                      title={visible ? `Hide ${source}` : `Show ${source}`}
+                    >
+                      {source}
+                    </button>
+                  )
+                })}
+              </div>
+              {visibleChannelSources.length === 0 ? (
+                <EmptyState>Select at least one channel to show</EmptyState>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={channelTrendRows} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    {visibleChannelSources.map(source => (
+                      <Bar key={source} dataKey={source} name={source} stackId="revenue" fill={CHANNEL_COLORS[channelSources.indexOf(source) % CHANNEL_COLORS.length]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </>
           )
         ) : !revenueByChannel || revenueByChannel.channels.length === 0 ? (
           <EmptyState>No revenue in this period</EmptyState>
