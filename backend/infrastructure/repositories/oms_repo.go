@@ -1034,6 +1034,116 @@ func (r *SalesOrderRepo) ListOrderSKUsBetween(ctx context.Context, from, to time
 	return orders, nil
 }
 
+// RevenueByChannelBetween is RevenueByChannelSince's [from, to) counterpart
+// for the Reports "Revenue by Channel" report -- same grouping, bounded
+// window instead of an open-ended "since".
+func (r *SalesOrderRepo) RevenueByChannelBetween(ctx context.Context, from, to time.Time, currencyCode string) ([]omsDomain.ChannelRevenue, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []channelRevenueRow
+	err = tx.Model(&salesOrderModel{}).
+		Where("occurred_at >= ? AND occurred_at < ? AND currency_code = ? AND status IN ?", from, to, currencyCode, revenueCountingStatuses).
+		Select("source, COALESCE(SUM(total_minor_units), 0) AS total_minor_units").
+		Group("source").Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelBetween: %w", err)
+	}
+	out := make([]omsDomain.ChannelRevenue, len(rows))
+	for i, row := range rows {
+		out[i] = omsDomain.ChannelRevenue{Source: omsDomain.SalesOrderSource(row.Source), TotalMinorUnits: row.TotalMinorUnits}
+	}
+	return out, nil
+}
+
+type channelRevenueTrendRow struct {
+	PeriodStart       time.Time
+	Source            string
+	RevenueMinorUnits int64
+}
+
+// RevenueByChannelTrendBetween is the daily/weekly/monthly view of the
+// Reports "Revenue by Channel" report -- same date_trunc bucketing as
+// SalesTrendBetween, additionally grouped by source.
+func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.ChannelRevenuePoint, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []channelRevenueTrendRow
+	err = tx.Raw(`
+		SELECT date_trunc(?, occurred_at) AS period_start,
+			source,
+			COALESCE(SUM(total_minor_units), 0) AS revenue_minor_units
+		FROM sales_orders
+		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND status IN ('on-hold', 'processing', 'completed')
+		GROUP BY period_start, source
+		ORDER BY period_start ASC
+	`, string(granularity), from, to, currencyCode).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelTrendBetween: %w", err)
+	}
+	points := make([]omsDomain.ChannelRevenuePoint, len(rows))
+	for i, row := range rows {
+		points[i] = omsDomain.ChannelRevenuePoint{
+			PeriodStart: row.PeriodStart, Source: omsDomain.SalesOrderSource(row.Source), RevenueMinorUnits: row.RevenueMinorUnits,
+		}
+	}
+	return points, nil
+}
+
+type profitabilityTrendRow struct {
+	PeriodStart                time.Time
+	RevenueMinorUnits          int64
+	CostKnownRevenueMinorUnits int64
+	CostMinorUnits             int64
+}
+
+// ProfitabilityTrendBetween is ProfitabilityBetween's daily/weekly/monthly
+// view -- same revenue/cost join, additionally bucketed by date_trunc.
+func (r *SalesOrderRepo) ProfitabilityTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity omsDomain.SalesTrendGranularity) ([]omsDomain.ProfitabilityPoint, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []profitabilityTrendRow
+	err = tx.Raw(`
+		SELECT
+			date_trunc(?, so.occurred_at) AS period_start,
+			COALESCE(SUM(li.total_minor_units), 0) AS revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.total_minor_units ELSE 0 END), 0) AS cost_known_revenue_minor_units,
+			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN li.quantity * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
+		FROM sales_order_line_items li
+		JOIN sales_orders so ON so.id = li.sales_order_id
+		LEFT JOIN skus sk ON sk.id = li.sku_id
+		WHERE so.occurred_at >= ? AND so.occurred_at < ? AND so.currency_code = ?
+			-- keep in sync with revenueCountingStatuses above
+			AND so.status IN ('on-hold', 'processing', 'completed')
+		GROUP BY period_start
+		ORDER BY period_start ASC
+	`, string(granularity), from, to, currencyCode).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("salesOrderRepo.ProfitabilityTrendBetween: %w", err)
+	}
+	points := make([]omsDomain.ProfitabilityPoint, len(rows))
+	for i, row := range rows {
+		profit := row.CostKnownRevenueMinorUnits - row.CostMinorUnits
+		var marginBP int64
+		if row.CostKnownRevenueMinorUnits > 0 {
+			marginBP = profit * 10000 / row.CostKnownRevenueMinorUnits
+		}
+		points[i] = omsDomain.ProfitabilityPoint{
+			PeriodStart: row.PeriodStart, RevenueMinorUnits: row.RevenueMinorUnits,
+			CostKnownRevenueMinorUnits: row.CostKnownRevenueMinorUnits, CostMinorUnits: row.CostMinorUnits,
+			ProfitMinorUnits: profit, MarginBasisPoints: marginBP,
+		}
+	}
+	return points, nil
+}
+
 // ── SalesOrderLineItemRepo ───────────────────────────────────────────────────
 
 type SalesOrderLineItemRepo struct{ db *gorm.DB }

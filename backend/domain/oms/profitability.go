@@ -30,3 +30,22 @@ type ProfitabilitySummary struct {
 type ProfitabilityReportRepository interface {
 	ProfitabilityBetween(ctx context.Context, from, to time.Time, currencyCode string) (ProfitabilitySummary, error)
 }
+
+// ProfitabilityPoint is one bucket of the Profitability report's daily/
+// weekly/monthly trend view -- same revenue/cost/profit/margin fields as
+// ProfitabilitySummary, computed only over that one period bucket.
+type ProfitabilityPoint struct {
+	PeriodStart                time.Time
+	RevenueMinorUnits          int64
+	CostKnownRevenueMinorUnits int64
+	CostMinorUnits             int64
+	ProfitMinorUnits           int64
+	MarginBasisPoints          int64
+}
+
+// ProfitabilityTrendRepository backs the Profitability report's trend
+// view -- additive to ProfitabilityReportRepository so the existing
+// whole-period summary query/callers are untouched.
+type ProfitabilityTrendRepository interface {
+	ProfitabilityTrendBetween(ctx context.Context, from, to time.Time, currencyCode string, granularity SalesTrendGranularity) ([]ProfitabilityPoint, error)
+}

@@ -317,6 +317,72 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/profitability-trend:
+    get:
+      operationId: getProfitabilityTrendReport
+      summary: Daily/weekly/monthly revenue/COGS/profit/margin time series for [from, to)
+      description: >-
+        Additive to /reports/profitability's whole-period summary --
+        the same figures bucketed at the given granularity, powering the
+        merged Reports Overview page's "daily" view.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: granularity
+          in: query
+          required: false
+          description: Defaults to "day" when omitted.
+          schema: { $ref: '#/components/schemas/SalesTrendGranularity' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfitabilityTrendReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /reports/revenue-by-channel:
+    get:
+      operationId: getRevenueByChannelReport
+      summary: Whole-period revenue per sales channel plus a daily/weekly/monthly per-channel time series for [from, to)
+      description: >-
+        Channels is the whole-period total per source. Points is the same
+        breakdown bucketed at the given granularity, one point per
+        (period, source) pair -- powers the merged Reports Overview page's
+        Revenue by Channel card, replacing the dashboard's "this month
+        only" figure with an arbitrary date range.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: granularity
+          in: query
+          required: false
+          description: Defaults to "day" when omitted.
+          schema: { $ref: '#/components/schemas/SalesTrendGranularity' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueByChannelReportResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /reports/sales-trends:
     get:
       operationId: getSalesTrendsReport
@@ -720,6 +786,74 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ProfitabilityReport' }
+        error: { nullable: true }
+
+    ProfitabilityPoint:
+      type: object
+      required: [period_start, revenue_minor_units, cost_known_revenue_minor_units, cost_minor_units, profit_minor_units, margin_basis_points]
+      properties:
+        period_start: { type: string, format: date-time }
+        revenue_minor_units: { type: integer, format: int64 }
+        cost_known_revenue_minor_units: { type: integer, format: int64 }
+        cost_minor_units: { type: integer, format: int64 }
+        profit_minor_units: { type: integer, format: int64 }
+        margin_basis_points:
+          type: integer
+          format: int64
+          description: 0 when cost_known_revenue_minor_units is 0 for this bucket. 1 bp = 0.01%.
+
+    ProfitabilityTrendReport:
+      type: object
+      required: [currency_code, granularity, points]
+      properties:
+        currency_code: { type: string }
+        granularity: { $ref: '#/components/schemas/SalesTrendGranularity' }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/ProfitabilityPoint' }
+
+    ProfitabilityTrendReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ProfitabilityTrendReport' }
+        error: { nullable: true }
+
+    ChannelRevenue:
+      type: object
+      required: [source, total_minor_units]
+      properties:
+        source:
+          type: string
+          description: Sales order source -- pos, manual, or woocommerce.
+        total_minor_units: { type: integer, format: int64 }
+
+    ChannelRevenuePoint:
+      type: object
+      required: [period_start, source, revenue_minor_units]
+      properties:
+        period_start: { type: string, format: date-time }
+        source:
+          type: string
+          description: Sales order source -- pos, manual, or woocommerce.
+        revenue_minor_units: { type: integer, format: int64 }
+
+    RevenueByChannelReport:
+      type: object
+      required: [currency_code, channels, granularity, points]
+      properties:
+        currency_code: { type: string }
+        channels:
+          type: array
+          items: { $ref: '#/components/schemas/ChannelRevenue' }
+        granularity: { $ref: '#/components/schemas/SalesTrendGranularity' }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/ChannelRevenuePoint' }
+
+    RevenueByChannelReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/RevenueByChannelReport' }
         error: { nullable: true }
 
     InventorySalesRow:

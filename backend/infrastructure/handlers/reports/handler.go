@@ -71,6 +71,12 @@ type getStockoutRiskReportUC interface {
 type getProductRecommendationsUC interface {
 	Execute(ctx context.Context, skuID string, from, to time.Time, minSupport, limit int) (*appreports.ProductRecommendationsReport, error)
 }
+type getProfitabilityTrendReportUC interface {
+	Execute(ctx context.Context, from, to time.Time, granularity omsDomain.SalesTrendGranularity) (*appreports.ProfitabilityTrendReport, error)
+}
+type getRevenueByChannelReportUC interface {
+	Execute(ctx context.Context, from, to time.Time, granularity omsDomain.SalesTrendGranularity) (*appreports.RevenueByChannelReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport         getSalesSummaryReportUC
@@ -90,6 +96,8 @@ type Handler struct {
 	getFrequentlyBoughtTogether   getFrequentlyBoughtTogetherReportUC
 	getStockoutRiskReport         getStockoutRiskReportUC
 	getProductRecommendations     getProductRecommendationsUC
+	getProfitabilityTrendReport   getProfitabilityTrendReportUC
+	getRevenueByChannelReport     getRevenueByChannelReportUC
 }
 
 func NewHandler(
@@ -110,6 +118,8 @@ func NewHandler(
 	getFrequentlyBoughtTogether getFrequentlyBoughtTogetherReportUC,
 	getStockoutRiskReport getStockoutRiskReportUC,
 	getProductRecommendations getProductRecommendationsUC,
+	getProfitabilityTrendReport getProfitabilityTrendReportUC,
+	getRevenueByChannelReport getRevenueByChannelReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -120,7 +130,8 @@ func NewHandler(
 		getProductLifecycleReport: getProductLifecycleReport, getCustomerCohortsReport: getCustomerCohortsReport,
 		getPromotionPerformanceReport: getPromotionPerformanceReport, getCustomerRFMReport: getCustomerRFMReport,
 		getFrequentlyBoughtTogether: getFrequentlyBoughtTogether, getStockoutRiskReport: getStockoutRiskReport,
-		getProductRecommendations: getProductRecommendations,
+		getProductRecommendations:   getProductRecommendations,
+		getProfitabilityTrendReport: getProfitabilityTrendReport, getRevenueByChannelReport: getRevenueByChannelReport,
 	}
 }
 
@@ -162,6 +173,8 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetFrequentlyBoughtTogetherReportUseCase(db, salesRepo, settingsRepo, skuRepo, variantRepo, productRepo),
 		appreports.NewGetStockoutRiskReportUseCase(db, stockLevelsUC, productPerformanceUC, skuRepo, variantRepo, productRepo),
 		appreports.NewGetProductRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, variantRepo, productRepo),
+		appreports.NewGetProfitabilityTrendReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetRevenueByChannelReportUseCase(db, salesRepo, settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }
@@ -274,6 +287,49 @@ func (h *Handler) GetProfitabilityReport(c *gin.Context, params genreports.GetPr
 			RevenueMinorUnits: s.RevenueMinorUnits, CostKnownRevenueMinorUnits: s.CostKnownRevenueMinorUnits,
 			CostMinorUnits: s.CostMinorUnits, ProfitMinorUnits: s.ProfitMinorUnits, MarginBasisPoints: s.MarginBasisPoints,
 		},
+	})
+}
+
+func (h *Handler) GetProfitabilityTrendReport(c *gin.Context, params genreports.GetProfitabilityTrendReportParams) {
+	granularity := omsDomain.SalesTrendGranularityDay
+	if params.Granularity != nil {
+		granularity = omsDomain.SalesTrendGranularity(*params.Granularity)
+	}
+	report, err := h.getProfitabilityTrendReport.Execute(c.Request.Context(), params.From, params.To, granularity)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	points := make([]genreports.ProfitabilityPoint, len(report.Points))
+	for i, p := range report.Points {
+		points[i] = genreports.ProfitabilityPoint{
+			PeriodStart: p.PeriodStart, RevenueMinorUnits: p.RevenueMinorUnits, CostKnownRevenueMinorUnits: p.CostKnownRevenueMinorUnits,
+			CostMinorUnits: p.CostMinorUnits, ProfitMinorUnits: p.ProfitMinorUnits, MarginBasisPoints: p.MarginBasisPoints,
+		}
+	}
+	middleware.OK(c, genreports.ProfitabilityTrendReport{
+		CurrencyCode: report.CurrencyCode, Granularity: genreports.SalesTrendGranularity(report.Granularity), Points: points,
+	})
+}
+
+func (h *Handler) GetRevenueByChannelReport(c *gin.Context, params genreports.GetRevenueByChannelReportParams) {
+	granularity := omsDomain.SalesTrendGranularityDay
+	if params.Granularity != nil {
+		granularity = omsDomain.SalesTrendGranularity(*params.Granularity)
+	}
+	report, err := h.getRevenueByChannelReport.Execute(c.Request.Context(), params.From, params.To, granularity)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	channels := make([]genreports.ChannelRevenue, len(report.Channels))
+	for i, ch := range report.Channels {
+		channels[i] = genreports.ChannelRevenue{Source: string(ch.Source), TotalMinorUnits: ch.TotalMinorUnits}
+	}
+	points := make([]genreports.ChannelRevenuePoint, len(report.Points))
+	for i, p := range report.Points {
+		points[i] = genreports.ChannelRevenuePoint{PeriodStart: p.PeriodStart, Source: string(p.Source), RevenueMinorUnits: p.RevenueMinorUnits}
+	}
+	middleware.OK(c, genreports.RevenueByChannelReport{
+		CurrencyCode: report.CurrencyCode, Channels: channels, Granularity: genreports.SalesTrendGranularity(report.Granularity), Points: points,
 	})
 }
 

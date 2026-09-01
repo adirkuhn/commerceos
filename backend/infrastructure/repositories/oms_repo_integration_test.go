@@ -1174,6 +1174,64 @@ func TestSalesOrderRepo_Integration_RevenueByChannelSince_GroupsBySource(t *test
 	require.Equal(t, int64(700), bySource[omsDomain.SalesOrderSourceWooCommerce])
 }
 
+func TestSalesOrderRepo_Integration_RevenueByChannelBetween_GroupsBySourceWithinBoundedWindow(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	now := time.Now()
+	outside := now.AddDate(0, 0, -30)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rbc-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-A", "A", 1, 1000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rbc-2", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusCompleted, "EUR", now, "SKU-B", "B", 1, 700)
+	// Outside [from, to) -- must not be counted, proving this is a bounded window and not RevenueByChannelSince's open-ended one.
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rbc-3", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", outside, "SKU-C", "C", 1, 9999)
+
+	var rows []omsDomain.ChannelRevenue
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		rows, err = salesOrderRepo.RevenueByChannelBetween(ctx, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1), "EUR")
+		return err
+	})
+	require.NoError(t, err)
+
+	bySource := make(map[omsDomain.SalesOrderSource]int64, len(rows))
+	for _, r := range rows {
+		bySource[r.Source] = r.TotalMinorUnits
+	}
+	require.Equal(t, int64(1000), bySource[omsDomain.SalesOrderSourcePOS])
+	require.Equal(t, int64(700), bySource[omsDomain.SalesOrderSourceWooCommerce])
+}
+
+func TestSalesOrderRepo_Integration_RevenueByChannelTrendBetween_BucketsByDayAndSource(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	newer := time.Now()
+	older := newer.AddDate(0, 0, -3) // far enough apart to land in different UTC day buckets regardless of local timezone
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rbct-1", omsDomain.SalesOrderSourcePOS, omsDomain.SalesOrderStatusCompleted, "EUR", newer, "SKU-A", "A", 1, 1000)
+	seedDashboardOrder(t, db, ctx, salesOrderRepo, lineItemRepo, warehouseID, "rbct-2", omsDomain.SalesOrderSourceWooCommerce, omsDomain.SalesOrderStatusCompleted, "EUR", older, "SKU-B", "B", 1, 500)
+
+	var points []omsDomain.ChannelRevenuePoint
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		points, err = salesOrderRepo.RevenueByChannelTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, points, 2)
+
+	require.True(t, points[0].PeriodStart.Before(points[1].PeriodStart), "points must be ordered oldest first")
+	require.Equal(t, omsDomain.SalesOrderSourceWooCommerce, points[0].Source)
+	require.Equal(t, int64(500), points[0].RevenueMinorUnits)
+	require.Equal(t, omsDomain.SalesOrderSourcePOS, points[1].Source)
+	require.Equal(t, int64(1000), points[1].RevenueMinorUnits)
+}
+
 func TestSalesOrderRepo_Integration_TopProductsSince_RanksByQuantityDescLimited(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
@@ -1610,6 +1668,94 @@ func TestSalesOrderRepo_Integration_ProfitabilityBetween_ZeroKnownCostRevenueGiv
 	})
 	require.NoError(t, err)
 	require.Equal(t, omsDomain.ProfitabilitySummary{}, summary)
+}
+
+func TestSalesOrderRepo_Integration_ProfitabilityTrendBetween_BucketsByDayComputingProfitOnlyOverKnownCostRevenue(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+
+	newer := time.Now()
+	older := newer.AddDate(0, 0, -3) // far enough apart to land in different UTC day buckets regardless of local timezone
+	costKnown := int64(300)
+	var costedSKUID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		product := &pmsDomain.Product{TenantID: tenant.IDFromContext(ctx), Name: "Acai", Slug: "acai-profitability-trend", Status: pmsDomain.ProductStatusActive, CreatedAt: newer, UpdatedAt: newer}
+		if err := productRepo.Create(ctx, product); err != nil {
+			return err
+		}
+		variant := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: product.ID, Name: "Default", CreatedAt: newer, UpdatedAt: newer}
+		if err := variantRepo.Create(ctx, variant); err != nil {
+			return err
+		}
+		sku := &pmsDomain.SKU{
+			TenantID: tenant.IDFromContext(ctx), VariantID: variant.ID, SKUCode: "ACAI-PROFIT-TREND-1", PriceMinorUnits: 999,
+			CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive, CreatedAt: newer, UpdatedAt: newer,
+		}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		costedSKUID = sku.ID
+		return skuRepo.UpdateCostPrice(ctx, sku.ID, costKnown)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		// Newer day, known cost: revenue 1000, qty 2, cost 300*2=600 -> profit 400.
+		orderNew := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-trend-new", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: newer, CreatedAt: newer,
+		}
+		if err := salesOrderRepo.Create(ctx, &orderNew); err != nil {
+			return err
+		}
+		if err := lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderNew.ID, SKUID: &costedSKUID, Name: "Acai", SKUCode: "ACAI-PROFIT-TREND-1",
+			Quantity: 2, TotalMinorUnits: 1000, CreatedAt: newer,
+		}); err != nil {
+			return err
+		}
+
+		// Older day, unknown cost (adhoc): revenue 500, must count toward
+		// revenue but not toward cost-known revenue/profit for that bucket.
+		orderOld := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-trend-old", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: older, CreatedAt: older,
+		}
+		if err := salesOrderRepo.Create(ctx, &orderOld); err != nil {
+			return err
+		}
+		return lineItemRepo.Create(ctx, &omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderOld.ID, Name: "Mystery Item", SKUCode: "UNKNOWN",
+			Quantity: 1, TotalMinorUnits: 500, CreatedAt: older,
+		})
+	})
+	require.NoError(t, err)
+
+	var points []omsDomain.ProfitabilityPoint
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		points, err = salesOrderRepo.ProfitabilityTrendBetween(ctx, older.AddDate(0, 0, -1), newer.AddDate(0, 0, 1), "EUR", omsDomain.SalesTrendGranularityDay)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, points, 2)
+
+	require.True(t, points[0].PeriodStart.Before(points[1].PeriodStart), "points must be ordered oldest first")
+	require.Equal(t, int64(500), points[0].RevenueMinorUnits)
+	require.Equal(t, int64(0), points[0].CostKnownRevenueMinorUnits)
+	require.Equal(t, int64(0), points[0].ProfitMinorUnits)
+	require.Equal(t, int64(0), points[0].MarginBasisPoints)
+	require.Equal(t, int64(1000), points[1].RevenueMinorUnits)
+	require.Equal(t, int64(1000), points[1].CostKnownRevenueMinorUnits)
+	require.Equal(t, int64(600), points[1].CostMinorUnits)
+	require.Equal(t, int64(400), points[1].ProfitMinorUnits)
+	require.Equal(t, int64(4000), points[1].MarginBasisPoints) // 400/1000 = 40.00%
 }
 
 func TestSalesOrderRepo_Integration_SalesTrendBetween_BucketsByDay(t *testing.T) {
