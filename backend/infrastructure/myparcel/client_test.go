@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -596,6 +597,55 @@ func TestClient_DeleteShipment_afterLabelCreated_returnsAPIError(t *testing.T) {
 
 	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
 	err := c.DeleteShipment(context.Background(), 12345)
+
+	require.Error(t, err)
+	var apiErr *myparcel.APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnprocessableEntity, apiErr.StatusCode)
+}
+
+func TestClient_GetDeliveryOptions_sendsExpectedQueryAndAcceptHeader(t *testing.T) {
+	var gotPath, gotQuery, gotAccept string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery, gotAccept = r.URL.Path, r.URL.RawQuery, r.Header.Get("Accept")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"delivery":[{"date":"2026-09-02","time":[
+			{"price":{"currency":"EUR","amount":1000},"price_comment":"standard"},
+			{"price":{"currency":"EUR","amount":1500},"price_comment":"morning"}
+		]}],"pickup":[]}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	options, err := c.GetDeliveryOptions(context.Background(), myparcel.DeliveryOptionsInput{
+		CC: "NL", PostalCode: "1234 AB", Number: "31", Carrier: 1,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "/delivery_options", gotPath)
+	assert.Equal(t, "application/json;charset=utf-8;version=2.0", gotAccept)
+	q, err := url.ParseQuery(gotQuery)
+	require.NoError(t, err)
+	assert.Equal(t, "NL", q.Get("cc"))
+	assert.Equal(t, "1234 AB", q.Get("postal_code"))
+	assert.Equal(t, "31", q.Get("number"))
+	assert.Equal(t, "1", q.Get("carrier"))
+	require.Len(t, options, 2)
+	assert.Equal(t, myparcel.DeliveryPriceOption{PriceComment: "standard", AmountMinorUnits: 1000, Currency: "EUR"}, options[0])
+	assert.Equal(t, myparcel.DeliveryPriceOption{PriceComment: "morning", AmountMinorUnits: 1500, Currency: "EUR"}, options[1])
+}
+
+func TestClient_GetDeliveryOptions_nonOKStatus_returnsAPIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"cc must be NL or BE"}]}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.GetDeliveryOptions(context.Background(), myparcel.DeliveryOptionsInput{
+		CC: "NL", PostalCode: "1234 AB", Number: "31", Carrier: 1,
+	})
 
 	require.Error(t, err)
 	var apiErr *myparcel.APIError

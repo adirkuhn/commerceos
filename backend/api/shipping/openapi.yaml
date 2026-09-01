@@ -50,6 +50,56 @@ paths:
           description: No address matches that postal code and house number.
           $ref: '#/components/responses/Error'
 
+  /shipping/delivery-price-estimate:
+    get:
+      operationId: getDeliveryPriceEstimate
+      summary: >
+        Estimated label cost for an address/carrier, straight from
+        MyParcel's own GET /delivery_options -- AddressConfirmModal's
+        pre-confirm cost preview. This is the ONLY price MyParcel's API
+        exposes before a shipment is actually created; per MyParcel's own
+        docs it only supports cc NL or BE, so any other country returns
+        422 unsupported_country rather than a silently-empty result.
+      parameters:
+        - name: connection_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: cc
+          in: query
+          required: true
+          description: ISO country code -- only NL or BE return a real estimate.
+          schema: { type: string }
+        - name: postal_code
+          in: query
+          required: true
+          schema: { type: string }
+        - name: number
+          in: query
+          required: true
+          description: House number, including any letter suffix (e.g. "31A").
+          schema: { type: string }
+        - name: carrier
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/DeliveryPriceOption' }
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '422':
+          description: cc is neither NL nor BE -- MyParcel has no price estimate for it.
+          $ref: '#/components/responses/Error'
+
   /shipping/myparcel/connect:
     post:
       operationId: connectMyParcel
@@ -450,6 +500,13 @@ components:
         only_recipient: { type: boolean, nullable: true }
         insure_by_default: { type: boolean, nullable: true }
         tracking_url_template: { type: string, nullable: true }
+
+    DeliveryPriceOption:
+      type: object
+      properties:
+        price_comment: { type: string, description: "e.g. \"standard\", \"morning\", \"evening\"" }
+        amount_minor_units: { type: integer }
+        currency: { type: string }
 
     RecipientAddress:
       type: object

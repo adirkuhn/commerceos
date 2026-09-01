@@ -111,6 +111,9 @@ func (f *fakeFullMyParcelClient) CreateShipment(ctx context.Context, in integrat
 func (f *fakeFullMyParcelClient) DeleteShipment(ctx context.Context, myParcelShipmentID int64) error {
 	panic("not used")
 }
+func (f *fakeFullMyParcelClient) GetDeliveryPriceEstimate(ctx context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
+	panic("not used")
+}
 func (f *fakeFullMyParcelClient) CreateOrder(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error) {
 	panic("not used")
 }

@@ -121,6 +121,20 @@ func (a *Adapter) DeleteWebhookSubscription(ctx context.Context, id string) erro
 	return a.client.DeleteWebhookSubscription(ctx, id)
 }
 
+func (a *Adapter) GetDeliveryPriceEstimate(ctx context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
+	options, err := a.client.GetDeliveryOptions(ctx, DeliveryOptionsInput{
+		CC: in.CC, PostalCode: in.PostalCode, Number: in.Number, Carrier: in.Carrier,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]integrationsDomain.DeliveryPriceOption, len(options))
+	for i, o := range options {
+		out[i] = integrationsDomain.DeliveryPriceOption{PriceComment: o.PriceComment, AmountMinorUnits: o.AmountMinorUnits, Currency: o.Currency}
+	}
+	return out, nil
+}
+
 // ClientFactory implements domain/integrations.MyParcelClientFactory.
 type ClientFactory struct{}
 

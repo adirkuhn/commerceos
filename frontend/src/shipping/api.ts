@@ -1,6 +1,6 @@
 import type {
   APIResponse, Shipment, ShippingSettingsResult, ShippingConnectionSettings, ShippingCarrierOverride, CreateShipmentInput,
-  MyParcelFulfilmentOrder, RecipientAddress, ShipmentTrackingEvent,
+  MyParcelFulfilmentOrder, RecipientAddress, ShipmentTrackingEvent, DeliveryPriceOption,
 } from './types'
 
 function base(): string {
@@ -42,6 +42,21 @@ export async function lookupAddress(token: string, postalCode: string, houseNumb
     throw new Error(body.error?.message ?? `HTTP ${res.status}`)
   }
   return body.data
+}
+
+// getDeliveryPriceEstimate is AddressConfirmModal's pre-confirm cost
+// preview -- straight from MyParcel's own GET /delivery_options, only ever
+// populated for NL/BE (see backend's ErrDeliveryEstimateUnsupportedCountry,
+// surfaced here as a 422 the caller should treat as "no estimate available"
+// rather than an error to show).
+export function getDeliveryPriceEstimate(
+  token: string, params: { connection_id: string; cc: string; postal_code: string; number: string; carrier: number },
+): Promise<DeliveryPriceOption[]> {
+  const query = new URLSearchParams({
+    connection_id: params.connection_id, cc: params.cc, postal_code: params.postal_code,
+    number: params.number, carrier: String(params.carrier),
+  })
+  return request(`${base()}/delivery-price-estimate?${query.toString()}`, { method: 'GET' }, token)
 }
 
 export function connectMyParcel(token: string, apiKey: string): Promise<{ connection_id: string; provider: string; status: string }> {

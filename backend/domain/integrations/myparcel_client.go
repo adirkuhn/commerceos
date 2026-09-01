@@ -216,6 +216,34 @@ type MyParcelClient interface {
 	CreateWebhookSubscription(ctx context.Context, hook, deliveryURL string) (WebhookSubscription, error)
 	// DeleteWebhookSubscription removes one subscription by MyParcel's own id.
 	DeleteWebhookSubscription(ctx context.Context, id string) error
+	// GetDeliveryPriceEstimate returns MyParcel's own priced delivery
+	// options for an address, via GET /delivery_options -- the only price
+	// MyParcel's API exposes before a shipment is actually created (every
+	// other price field, e.g. on GET /shipments/{id}, only exists after
+	// creation). Per MyParcel's own docs this endpoint only supports
+	// in.CC "NL" or "BE" -- callers must reject any other country
+	// themselves (see application/shipping.GetDeliveryPriceEstimateUseCase)
+	// rather than call this and get an upstream error back.
+	GetDeliveryPriceEstimate(ctx context.Context, in DeliveryPriceEstimateInput) ([]DeliveryPriceOption, error)
+}
+
+// DeliveryPriceEstimateInput drives MyParcelClient.GetDeliveryPriceEstimate.
+// CC must be NL or BE -- MyParcel's GET /delivery_options endpoint (see that
+// method's doc) doesn't support any other country.
+type DeliveryPriceEstimateInput struct {
+	CC         string
+	PostalCode string
+	Number     string
+	Carrier    int
+}
+
+// DeliveryPriceOption mirrors domain/shipping.DeliveryPriceOption -- kept as
+// its own type here (not imported) for the same reason MyParcelAddress
+// duplicates oms.Address's shape: domain packages never import each other.
+type DeliveryPriceOption struct {
+	PriceComment     string
+	AmountMinorUnits int
+	Currency         string
 }
 
 // MyParcelClientFactory builds a MyParcelClient scoped to one connection's

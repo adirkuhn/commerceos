@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../api', () => ({
   lookupAddress: vi.fn(),
+  getDeliveryPriceEstimate: vi.fn(),
 }))
 
 import { AddressConfirmModal, splitStreetAndNumber, addressToRecipientDraft } from '../AddressConfirmModal'
@@ -14,6 +15,7 @@ import type { Address } from '../../oms/types'
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
+  vi.mocked(shippingApi.getDeliveryPriceEstimate).mockResolvedValue([])
 })
 
 describe('splitStreetAndNumber', () => {
@@ -297,5 +299,60 @@ describe('AddressConfirmModal — submit-time validation gate', () => {
 
     expect(await screen.findByText(/Possible typo/)).toBeInTheDocument()
     expect(onNext).not.toHaveBeenCalled()
+  })
+})
+
+describe('AddressConfirmModal — estimated label cost', () => {
+  const nlAddress: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' }
+
+  it('shows the cheapest estimated cost once postal code + number are known for an NL address', async () => {
+    vi.mocked(shippingApi.getDeliveryPriceEstimate).mockResolvedValue([
+      { price_comment: 'morning', amount_minor_units: 1500, currency: 'EUR' },
+      { price_comment: 'standard', amount_minor_units: 1000, currency: 'EUR' },
+    ])
+    render(<AddressConfirmModal token="test-token" connectionId="conn-1" initialAddress={nlAddress} defaultCarrier={1} onNext={vi.fn()} onClose={vi.fn()} />)
+
+    await waitFor(() => expect(shippingApi.getDeliveryPriceEstimate).toHaveBeenCalledWith('test-token', {
+      connection_id: 'conn-1', cc: 'NL', postal_code: '1012AB', number: '1', carrier: 1,
+    }))
+    expect(await screen.findByText(/standard/)).toBeInTheDocument()
+    expect(screen.getByText(/€\s?10[.,]00/)).toBeInTheDocument()
+    expect(screen.queryByText(/morning/)).not.toBeInTheDocument()
+  })
+
+  it('does not fetch an estimate without a connectionId', async () => {
+    render(<AddressConfirmModal token="test-token" initialAddress={nlAddress} defaultCarrier={1} onNext={vi.fn()} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByLabelText('Postal code'))
+    await userEvent.tab()
+
+    expect(shippingApi.getDeliveryPriceEstimate).not.toHaveBeenCalled()
+  })
+
+  it('does not fetch an estimate for a country other than NL/BE', async () => {
+    render(<AddressConfirmModal token="test-token" connectionId="conn-1" initialAddress={{ ...nlAddress, country: 'DE' }} defaultCarrier={1} onNext={vi.fn()} onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByLabelText('Street'))
+    await userEvent.tab()
+
+    expect(shippingApi.getDeliveryPriceEstimate).not.toHaveBeenCalled()
+  })
+
+  it('re-fetches when the carrier changes', async () => {
+    vi.mocked(shippingApi.getDeliveryPriceEstimate).mockResolvedValue([{ price_comment: 'standard', amount_minor_units: 1000, currency: 'EUR' }])
+    render(<AddressConfirmModal token="test-token" connectionId="conn-1" initialAddress={nlAddress} defaultCarrier={1} onNext={vi.fn()} onClose={vi.fn()} />)
+    await waitFor(() => expect(shippingApi.getDeliveryPriceEstimate).toHaveBeenCalledTimes(1))
+
+    await userEvent.selectOptions(screen.getByLabelText('Carrier'), '4')
+
+    await waitFor(() => expect(shippingApi.getDeliveryPriceEstimate).toHaveBeenLastCalledWith('test-token', expect.objectContaining({ carrier: 4 })))
+  })
+
+  it('silently shows nothing if the estimate call fails', async () => {
+    vi.mocked(shippingApi.getDeliveryPriceEstimate).mockRejectedValue(new Error('network error'))
+    render(<AddressConfirmModal token="test-token" connectionId="conn-1" initialAddress={nlAddress} defaultCarrier={1} onNext={vi.fn()} onClose={vi.fn()} />)
+
+    await waitFor(() => expect(shippingApi.getDeliveryPriceEstimate).toHaveBeenCalled())
+    expect(screen.queryByText(/Estimated cost/)).not.toBeInTheDocument()
   })
 })

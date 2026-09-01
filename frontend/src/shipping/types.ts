@@ -131,6 +131,16 @@ export interface ShippingSettingsResult {
   carrier_overrides: ShippingCarrierOverride[]
 }
 
+// One priced delivery slot from MyParcel's own GET /delivery_options --
+// AddressConfirmModal's pre-confirm cost preview, only ever populated for
+// NL/BE addresses (MyParcel's own API limitation, see backend's
+// domain/shipping.ErrDeliveryEstimateUnsupportedCountry).
+export interface DeliveryPriceOption {
+  price_comment: string
+  amount_minor_units: number
+  currency: string
+}
+
 export interface CreateShipmentInput {
   sales_order_id: string
   connection_id: string

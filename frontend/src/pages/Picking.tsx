@@ -619,6 +619,7 @@ export default function Picking() {
             token={token ?? ''}
             initialAddress={activeOrder.shipping}
             fallbackEmail={activeOrder.billing?.email}
+            connectionId={myParcelConnection?.id}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
             defaultCarrier={guessCarrierFromShippingMethod(activeOrder.shipping_method_title, activeOrder.shipping_method, connectionDefaultCarrier)}

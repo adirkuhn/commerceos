@@ -63,6 +63,9 @@ type refreshTrackingUseCase interface {
 type lookupAddressUseCase interface {
 	Execute(ctx context.Context, postalCode, houseNumber string) (*shippingDomain.AddressLookupResult, error)
 }
+type getDeliveryPriceEstimateUseCase interface {
+	Execute(ctx context.Context, in appshipping.GetDeliveryPriceEstimateInput) ([]shippingDomain.DeliveryPriceOption, error)
+}
 type cancelShipmentUseCase interface {
 	Execute(ctx context.Context, in appshipping.CancelShipmentInput) (*appshipping.CancelShipmentResult, error)
 }
@@ -82,6 +85,7 @@ type Handler struct {
 	refreshTracking     refreshTrackingUseCase
 	lookupAddress       lookupAddressUseCase
 	cancelShipment      cancelShipmentUseCase
+	getDeliveryEstimate getDeliveryPriceEstimateUseCase
 }
 
 func NewHandler(
@@ -98,12 +102,13 @@ func NewHandler(
 	refreshTracking refreshTrackingUseCase,
 	lookupAddress lookupAddressUseCase,
 	cancelShipment cancelShipmentUseCase,
+	getDeliveryEstimate getDeliveryPriceEstimateUseCase,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
 		exportMyParcelOrder: exportMyParcelOrder, listTrackingEvents: listTrackingEvents, refreshTracking: refreshTracking,
-		lookupAddress: lookupAddress, cancelShipment: cancelShipment,
+		lookupAddress: lookupAddress, cancelShipment: cancelShipment, getDeliveryEstimate: getDeliveryEstimate,
 	}
 }
 
@@ -120,6 +125,8 @@ func mapErr(c *gin.Context, err error) {
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 	case errors.Is(err, shippingDomain.ErrWebhookSecretNotSet):
 		writeError(c, http.StatusConflict, "webhook_secret_not_set", err.Error())
+	case errors.Is(err, shippingDomain.ErrDeliveryEstimateUnsupportedCountry):
+		writeError(c, http.StatusUnprocessableEntity, "unsupported_country", err.Error())
 	default:
 		writeError(c, http.StatusBadGateway, "upstream_error", err.Error())
 	}
@@ -401,6 +408,24 @@ func (h *Handler) LookupAddress(c *gin.Context, params genshipping.LookupAddress
 	c.JSON(http.StatusOK, gin.H{"data": gin.H{"street": result.Street, "city": result.City}, "error": nil})
 }
 
+func (h *Handler) GetDeliveryPriceEstimate(c *gin.Context, params genshipping.GetDeliveryPriceEstimateParams) {
+	options, err := h.getDeliveryEstimate.Execute(c.Request.Context(), appshipping.GetDeliveryPriceEstimateInput{
+		ConnectionID: params.ConnectionId.String(), CC: params.Cc, PostalCode: params.PostalCode,
+		Number: params.Number, Carrier: shippingDomain.Carrier(params.Carrier),
+	})
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	out := make([]genshipping.DeliveryPriceOption, len(options))
+	for i := range options {
+		out[i] = genshipping.DeliveryPriceOption{
+			PriceComment: &options[i].PriceComment, AmountMinorUnits: &options[i].AmountMinorUnits, Currency: &options[i].Currency,
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"data": out, "error": nil})
+}
+
 func trackingEventToResponse(e shippingDomain.ShipmentStatusEvent) genshipping.ShipmentTrackingEvent {
 	source := string(e.Source)
 	label := shippingDomain.MyParcelStatusLabel(e.Status)
@@ -497,6 +522,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, myParcelFactory, encryptionSecret),
 		appshipping.NewLookupAddressUseCase(pdok.NewClient(pdok.Config{})),
 		appshipping.NewCancelShipmentUseCase(db, connRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity),
+		appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myParcelFactory, encryptionSecret),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

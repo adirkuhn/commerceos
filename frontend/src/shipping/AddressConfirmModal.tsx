@@ -1,9 +1,24 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import type { Address } from '../oms/types'
-import type { RecipientAddress } from './types'
+import type { RecipientAddress, DeliveryPriceOption } from './types'
 import { CARRIERS } from './types'
 import * as shippingApi from './api'
+
+// ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
+// timing, but this one fires on every keystroke-driven state change (no
+// blur handler), so it needs an actual debounce -- not just coalescing --
+// to avoid a request per keystroke while staff are still typing the postal
+// code/number.
+const ESTIMATE_DEBOUNCE_MS = 300
+
+function formatMoney(minorUnits: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'EUR' }).format(minorUnits / 100)
+  } catch {
+    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
+  }
+}
 
 // splitStreetAndNumber is a best-effort starting point ONLY -- e.g.
 // "Damrak 1A" -> {street:"Damrak", number:"1", suffix:"A"} -- never trusted
@@ -63,6 +78,10 @@ interface AddressConfirmModalProps {
   // used only when initialAddress itself has none.
   fallbackEmail?: string
   defaultCarrier?: number
+  // Needed to fetch the estimated label cost (MyParcel's GET
+  // /delivery_options is scoped to a connection's own API key) -- undefined
+  // simply skips the estimate entirely, same as a non-NL/BE address.
+  connectionId?: string
   // Present when returning here from LabelPreviewModal's "Back to edit" --
   // takes priority over initialAddress so a staff edit already made isn't
   // silently discarded by re-deriving from the order's raw address again.
@@ -91,9 +110,39 @@ function normalize(s: string): string {
 // whatever staff already entered, with a one-click fix. Real MyParcel-side
 // validation still only happens when the create-shipment call itself
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
-export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
+export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, connectionId, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
+
+  // Estimated label cost -- MyParcel's own GET /delivery_options is the
+  // only price MyParcel's API exposes before a shipment exists, and it only
+  // supports NL/BE addresses (see backend's
+  // ErrDeliveryEstimateUnsupportedCountry) -- every other country stays
+  // 'idle' forever, silently showing nothing rather than an "unsupported"
+  // message on what would otherwise be most shipments.
+  const [estimate, setEstimate] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; options: DeliveryPriceOption[] }>({ status: 'idle', options: [] })
+
+  useEffect(() => {
+    const cc = recipient.cc.toUpperCase()
+    if (!connectionId || !token || (cc !== 'NL' && cc !== 'BE') || !recipient.postal_code || !recipient.number) {
+      setEstimate({ status: 'idle', options: [] })
+      return
+    }
+    let cancelled = false
+    setEstimate(prev => ({ ...prev, status: 'loading' }))
+    const timer = setTimeout(() => {
+      shippingApi.getDeliveryPriceEstimate(token, {
+        connection_id: connectionId, cc, postal_code: recipient.postal_code ?? '', number: recipient.number ?? '', carrier,
+      })
+        .then(options => { if (!cancelled) setEstimate({ status: 'ready', options }) })
+        .catch(() => { if (!cancelled) setEstimate({ status: 'error', options: [] }) })
+    }, ESTIMATE_DEBOUNCE_MS)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [connectionId, token, recipient.cc, recipient.postal_code, recipient.number, carrier])
+
+  const cheapestEstimate = estimate.options.length > 0
+    ? estimate.options.reduce((min, o) => (o.amount_minor_units < min.amount_minor_units ? o : min))
+    : null
   type AddressCheckState =
     | { status: 'idle' | 'checking' | 'match' | 'not_found' | 'error' | 'dismissed' }
     | { status: 'mismatch'; suggested: { street: string; city: string } }
@@ -283,6 +332,14 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
               {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </div>
+          {estimate.status === 'loading' && (
+            <p className="text-[11px] dark:text-gray-500 text-gray-400">Estimating label cost…</p>
+          )}
+          {estimate.status === 'ready' && cheapestEstimate && (
+            <p className="text-[11px] dark:text-gray-400 text-gray-600">
+              Estimated cost: <strong>{formatMoney(cheapestEstimate.amount_minor_units, cheapestEstimate.currency)}</strong> ({cheapestEstimate.price_comment})
+            </p>
+          )}
           <button
             type="submit"
             disabled={submitting}

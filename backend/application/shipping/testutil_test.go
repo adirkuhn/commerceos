@@ -55,6 +55,7 @@ type fakeMyParcelClient struct {
 	createWebhookSubscriptionFn func(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error)
 	deleteWebhookSubscriptionFn func(ctx context.Context, id string) error
 	deleteShipmentFn            func(ctx context.Context, myParcelShipmentID int64) error
+	getDeliveryPriceEstimateFn  func(ctx context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error)
 }
 
 func (f *fakeMyParcelClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateShipmentInput) (integrationsDomain.ShipmentResult, error) {
@@ -101,6 +102,12 @@ func (f *fakeMyParcelClient) DeleteShipment(ctx context.Context, myParcelShipmen
 		return nil
 	}
 	return f.deleteShipmentFn(ctx, myParcelShipmentID)
+}
+func (f *fakeMyParcelClient) GetDeliveryPriceEstimate(ctx context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
+	if f.getDeliveryPriceEstimateFn == nil {
+		return nil, nil
+	}
+	return f.getDeliveryPriceEstimateFn(ctx, in)
 }
 
 type fakeMyParcelClientFactory struct {
