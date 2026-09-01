@@ -291,7 +291,7 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 	}
 
 	if existing != nil {
-		uc.routeToExisting(ctx, existing, externalOrderID, status, result)
+		uc.routeToExisting(ctx, existing, wo, externalOrderID, status, result)
 		return
 	}
 
@@ -299,15 +299,40 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 }
 
 // routeToExisting sends an already-known order through UpdateSalesOrderUseCase
-// (an unchanged status is a no-op) rather than duplicate its stock/status
-// transition logic here -- shared by importOne's normal path and createOne's
-// create-race fallback below.
-func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing *omsDomain.SalesOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
-	if existing.Status == status {
+// rather than duplicate its stock/status transition logic here -- shared by
+// importOne's normal path and createOne's create-race fallback below.
+//
+// Beyond Status, it also re-syncs Billing/Shipping/CustomerNote against
+// Woo's current data on every pass (not just the first import): a Woo order
+// can be corrected after the fact (address/name typo fixed, admin edit) with
+// its status never changing, and before this fix that correction was
+// silently discarded forever -- routeToExisting only ever looked at Status,
+// so a same-status re-poll was a pure no-op that left the stale first-import
+// snapshot in place. Only fields that actually differ are included in the
+// UpdateSalesOrderInput (nil otherwise), both to avoid needless writes and,
+// for Status specifically, to avoid re-triggering UpdateSalesOrderUseCase's
+// stock-transition logic when the status itself hasn't moved.
+func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing *omsDomain.SalesOrder, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
+	in := appoms.UpdateSalesOrderInput{}
+	if existing.Status != status {
+		in.Status = &status
+	}
+	if billing := wooAddressToOMS(wo.Billing); existing.Billing != billing {
+		in.Billing = &billing
+	}
+	if shipping := wooAddressToOMS(wo.Shipping); existing.Shipping != shipping {
+		in.Shipping = &shipping
+	}
+	if existing.CustomerNote != wo.CustomerNote {
+		note := wo.CustomerNote
+		in.CustomerNote = &note
+	}
+
+	if in.Status == nil && in.Billing == nil && in.Shipping == nil && in.CustomerNote == nil {
 		result.Unchanged++
 		return
 	}
-	if _, err := uc.updateOrder.Execute(ctx, existing.ID, appoms.UpdateSalesOrderInput{Status: &status}); err != nil {
+	if _, err := uc.updateOrder.Execute(ctx, existing.ID, in); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: update: %v", externalOrderID, err))
 		return
 	}
@@ -447,7 +472,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 				return
 			}
 			if existing != nil {
-				uc.routeToExisting(ctx, existing, externalOrderID, status, result)
+				uc.routeToExisting(ctx, existing, wo, externalOrderID, status, result)
 				return
 			}
 		}

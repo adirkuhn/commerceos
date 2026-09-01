@@ -174,9 +174,21 @@ func TestImportWooOrders_pendingOrderDoesNotDecrementStock(t *testing.T) {
 	assert.False(t, h.salesOrderRepo.created[0].StockDecremented)
 }
 
+// matchingBilling/matchingShipping mirror simpleWooOrder()'s own
+// Billing/Shipping exactly (same shape wooAddressToOMS would produce) --
+// used to seed an "existing" fixture that already reflects a prior import
+// of that same order, so a test can isolate the one field it's actually
+// changing instead of every re-poll also (correctly, since this is the fix)
+// re-syncing address/note drift it didn't intend to exercise.
+var matchingBilling = omsDomain.Address{FirstName: "Jane", LastName: "Doe", Email: "jane@example.com"}
+var matchingShipping = omsDomain.Address{FirstName: "Jane", LastName: "Doe"}
+
 func TestImportWooOrders_isIdempotentWhenStatusUnchanged(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
-	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing}
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
+		Billing: matchingBilling, Shipping: matchingShipping,
+	}
 	uc := h.newImportUseCase(t, 2)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
@@ -193,7 +205,10 @@ func TestImportWooOrders_updatesStatusOnAnExistingOrder(t *testing.T) {
 	order := simpleWooOrder()
 	order.Status = "completed"
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
-	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing}
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
+		Billing: matchingBilling, Shipping: matchingShipping,
+	}
 	uc := h.newImportUseCase(t, 2)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
@@ -206,6 +221,67 @@ func TestImportWooOrders_updatesStatusOnAnExistingOrder(t *testing.T) {
 	assert.Equal(t, "so-1", h.updateOrder.ids[0])
 	require.NotNil(t, h.updateOrder.calls[0].Status)
 	assert.Equal(t, omsDomain.SalesOrderStatusCompleted, *h.updateOrder.calls[0].Status)
+	assert.Nil(t, h.updateOrder.calls[0].Billing, "address unchanged from prior import -- no needless write")
+	assert.Nil(t, h.updateOrder.calls[0].Shipping, "address unchanged from prior import -- no needless write")
+}
+
+// TestImportWooOrders_reconciliationResyncsBillingShippingWhenTheyDriftFromWoo
+// is the direct fix for the reported bug: a customer's name/phone (billing +
+// shipping) got corrected in Woo (e.g. Woo matched the order to an existing
+// customer account by email, but the order itself carries a different
+// name/phone than that customer's stored default) after CommerceOS's first
+// import already snapshotted the order under the old data. Before this fix,
+// routeToExisting only ever compared/updated Status -- a re-poll with an
+// unchanged status silently discarded the corrected address forever.
+func TestImportWooOrders_reconciliationResyncsBillingShippingWhenTheyDriftFromWoo(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}}) // status stays "processing"
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
+		Billing:  omsDomain.Address{FirstName: "Stale", LastName: "Name", Email: "jane@example.com", Phone: "0000000000"},
+		Shipping: omsDomain.Address{FirstName: "Stale", LastName: "Name"},
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated, "address drift counts as a real update, not Unchanged")
+	assert.Equal(t, 0, result.Unchanged)
+	require.Len(t, h.updateOrder.calls, 1)
+	assert.Equal(t, "so-1", h.updateOrder.ids[0])
+	call := h.updateOrder.calls[0]
+	assert.Nil(t, call.Status, "status itself didn't change -- must not re-trigger stock transition logic")
+	require.NotNil(t, call.Billing)
+	assert.Equal(t, matchingBilling, *call.Billing)
+	require.NotNil(t, call.Shipping)
+	assert.Equal(t, matchingShipping, *call.Shipping)
+}
+
+// TestImportWooOrders_reconciliationResyncsCustomerNoteWhenItDrifts covers
+// the same "first-import snapshot never refreshes" bug for the order's
+// customer note (a staff/customer edit made in Woo after the original
+// import).
+func TestImportWooOrders_reconciliationResyncsCustomerNoteWhenItDrifts(t *testing.T) {
+	order := simpleWooOrder()
+	order.CustomerNote = "Please leave at the door"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
+		Billing: matchingBilling, Shipping: matchingShipping, CustomerNote: "",
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated)
+	require.Len(t, h.updateOrder.calls, 1)
+	require.NotNil(t, h.updateOrder.calls[0].CustomerNote)
+	assert.Equal(t, "Please leave at the door", *h.updateOrder.calls[0].CustomerNote)
 }
 
 // A line item whose Woo SKU string never matched a CommerceOS SKU (never
@@ -387,7 +463,7 @@ func TestImportWooOrders_losingTheCreateRaceRoutesToUpdateInsteadOfFailing(t *te
 	// back to looking it up -- the *first* FindByExternalID call (before
 	// Create is attempted) must still see nothing, same as a genuine race.
 	h.salesOrderRepo.winnerAfterCreateFail = map[string]omsDomain.SalesOrder{
-		"501": {ID: "so-winner", Status: omsDomain.SalesOrderStatusProcessing},
+		"501": {ID: "so-winner", Status: omsDomain.SalesOrderStatusProcessing, Billing: matchingBilling, Shipping: matchingShipping},
 	}
 	uc := h.newImportUseCase(t, 4) // connect + importOne's findByExternalID + failed-create header tx + createOne's findExisting fallback lookup
 
