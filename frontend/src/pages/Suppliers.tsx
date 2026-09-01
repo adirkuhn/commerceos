@@ -180,6 +180,23 @@ function SupplierEditPage({ supplier, onCreate, onUpdate, onClose }: SupplierEdi
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // A deep link (Cmd+K search, direct URL, hard refresh) mounts this page
+  // before useSuppliers' list fetch resolves, so the useState initializers
+  // above run with supplier still null. Once the list arrives and `supplier`
+  // is passed in for the first time, re-seed the form from it -- without
+  // this, the fields stay blank forever since useState never re-runs.
+  const [hydrated, setHydrated] = useState(false)
+  if (!hydrated && supplier) {
+    setName(supplier.name ?? '')
+    setEmail(supplier.email ?? '')
+    setPhone(supplier.phone ?? '')
+    setCountry(supplier.country ?? '')
+    setLeadTimeDays(supplier.lead_time_days != null ? String(supplier.lead_time_days) : '')
+    setStatus(supplier.status ?? 'active')
+    setNotes(supplier.notes ?? '')
+    setHydrated(true)
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')

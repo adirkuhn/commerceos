@@ -207,6 +207,26 @@ describe('Supplier edit page', () => {
     expect(screen.getByLabelText('Notes')).toHaveValue('net-30')
   })
 
+  it('prefills fields when deep-linking straight to an existing supplier, before the list has loaded', async () => {
+    // Reproduces the reported bug: navigating directly to
+    // /suppliers?id=<id> (global search, a direct URL, a hard refresh)
+    // mounts SupplierEditPage before useSuppliers' list fetch resolves, so
+    // `supplier` is null on first render. Without a hydration guard the
+    // form's useState initializers never re-run once the real supplier
+    // arrives, leaving every field permanently blank.
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier({
+      email: 'hi@acme.example', phone: '+1 555-0100', country: 'US', lead_time_days: 14, status: 'inactive', notes: 'net-30',
+    })])
+
+    render(<MemoryRouter initialEntries={['/suppliers?id=supplier-1']}><Suppliers /></MemoryRouter>)
+
+    expect(await screen.findByLabelText('Email')).toHaveValue('hi@acme.example')
+    expect(screen.getByLabelText('Phone')).toHaveValue('+1 555-0100')
+    expect(screen.getByLabelText('Country')).toHaveValue('US')
+    expect(screen.getByLabelText('Lead time (days)')).toHaveValue(14)
+    expect(screen.getByLabelText('Status')).toHaveValue('inactive')
+  })
+
   it('Discard returns to the list without saving', async () => {
     vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
 

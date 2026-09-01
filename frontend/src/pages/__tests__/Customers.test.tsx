@@ -212,6 +212,24 @@ describe('Customer edit page', () => {
     expect(screen.getByLabelText('Billing phone')).toHaveValue('+31 6 1234 5678')
   })
 
+  it('prefills fields when deep-linking straight to an existing customer, before the list has loaded', async () => {
+    // Reproduces the reported bug: navigating directly to
+    // /customers?id=<id> (global search, a direct URL, a hard refresh)
+    // mounts CustomerEditPage before useCustomers' list fetch resolves, so
+    // `customer` is null on first render. Without a hydration guard the
+    // form's useState initializers never re-run once the real customer
+    // arrives, leaving every field permanently blank.
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer({
+      billing: { city: 'Rotterdam', country: 'NL', phone: '+31 6 1234 5678' },
+    })])
+
+    render(<MemoryRouter initialEntries={['/customers?id=customer-1']}><Customers /></MemoryRouter>)
+
+    expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
+    expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
+    expect(screen.getByLabelText('Billing country')).toHaveValue('NL')
+  })
+
   it('Discard returns to the list without saving', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 

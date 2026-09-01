@@ -185,6 +185,22 @@ function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEdi
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // A deep link (Cmd+K search, direct URL, hard refresh) mounts this page
+  // before useCustomers' list fetch resolves, so the useState initializers
+  // above run with customer still null. Once the list arrives and `customer`
+  // is passed in for the first time, re-seed the form from it -- without
+  // this, the fields stay blank forever since useState never re-runs.
+  const [hydrated, setHydrated] = useState(false)
+  if (!hydrated && customer) {
+    setFirstName(customer.first_name ?? '')
+    setLastName(customer.last_name ?? '')
+    setEmail(customer.email ?? '')
+    setBilling({ ...emptyAddress(), ...customer.billing })
+    setShipping({ ...emptyAddress(), ...customer.shipping })
+    setIsPayingCustomer(customer.is_paying_customer ?? false)
+    setHydrated(true)
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')
