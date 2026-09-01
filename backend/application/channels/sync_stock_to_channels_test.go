@@ -3,6 +3,7 @@ package channels_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,9 +16,26 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
 
+// stubStockLevelGetterBySKU is stubStockLevelGetter's per-SKU counterpart --
+// needed to prove a per-listing fix actually resolves EACH listing's own
+// SKU rather than reusing one shared value (stubStockLevelGetter's single
+// fixed level can't distinguish that).
+type stubStockLevelGetterBySKU struct {
+	levels map[string]*invapp.StockLevel
+}
+
+func (s *stubStockLevelGetterBySKU) Execute(_ context.Context, skuID string) (*invapp.StockLevel, error) {
+	level, ok := s.levels[skuID]
+	if !ok {
+		return nil, fmt.Errorf("stubStockLevelGetterBySKU: no level stubbed for SKU %s", skuID)
+	}
+	return level, nil
+}
+
 func newStockSyncTestHarness(listings []channelsDomain.ProductChannelListing) *harness {
 	h := newHarness(nil)
 	h.skuRepo.findByIDResult = &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1"}
+	h.skuRepo.byVariant = map[string][]pmsDomain.SKU{"variant-1": {{ID: "sku-1"}}}
 	h.variantRepo.findByIDResult = &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}
 	h.listingRepo.listByProduct = map[string][]channelsDomain.ProductChannelListing{"product-1": listings}
 	return h
@@ -353,6 +371,55 @@ func TestSyncStockToChannels_forceExecuteBypassesTheAlreadySyncedSkip(t *testing
 
 	require.NoError(t, err)
 	require.Len(t, h.wooClient.updateStockCalled, 1, "force must push even though quantity/fields are unchanged from the last successful sync")
+}
+
+// TestSyncStockToChannels_eachVariantListingGetsItsOwnStockLevel is the
+// direct regression test for the reported bug: adjusting one variant's
+// stock (SKU "sku-1", triggering this event) must push ONLY that variant's
+// own quantity to its own Woo listing -- the sibling variant's listing
+// (SKU "sku-2", a different VariantID) must be pushed with ITS OWN current
+// stock level, not sku-1's. Before the fix, stock level was computed once
+// from the triggering SKU and reused for every listing in the fan-out
+// loop, so both variants ended up pushed to the same (wrong, for one of
+// them) quantity/lot/expiry.
+func TestSyncStockToChannels_eachVariantListingGetsItsOwnStockLevel(t *testing.T) {
+	variantA, variantB := "variant-1", "variant-2"
+	listingA := channelsDomain.ProductChannelListing{
+		ID: "listing-a", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555", VariantID: &variantA,
+	}
+	listingB := channelsDomain.ProductChannelListing{
+		ID: "listing-b", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "556", VariantID: &variantB,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listingA, listingB})
+	// sku-1 (the triggering SKU) belongs to variant-1; sku-2 belongs to
+	// variant-2, a sibling variant that was NOT touched by this event.
+	h.skuRepo.byVariant = map[string][]pmsDomain.SKU{
+		"variant-1": {{ID: "sku-1"}},
+		"variant-2": {{ID: "sku-2"}},
+	}
+	stockLevel := &stubStockLevelGetterBySKU{levels: map[string]*invapp.StockLevel{
+		"sku-1": {Syncable: 0, SourceBatch: nil},                                         // just zeroed out
+		"sku-2": {Syncable: 71, SourceBatch: &invapp.BatchSyncInfo{LotNumber: "L61281"}}, // untouched, its own batch
+	}}
+	uc := appchannels.NewSyncStockToChannelsUseCase(
+		newMockGormDB(t, 15), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil,
+	)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 2)
+	byExternalID := map[string]stubStockUpdate{}
+	for _, call := range h.wooClient.updateStockCalled {
+		byExternalID[call.ExternalID] = call
+	}
+	require.Equal(t, 0, byExternalID["555"].Quantity, "variant-1's own listing gets variant-1's own (just-changed) stock")
+	require.Equal(t, "", byExternalID["555"].MetaData[0].Value, "variant-1 has no SourceBatch of its own -- must not inherit variant-2's lot")
+	require.Equal(t, 71, byExternalID["556"].Quantity, "variant-2's listing must keep getting variant-2's OWN stock, not variant-1's")
+	require.Equal(t, "L61281", byExternalID["556"].MetaData[0].Value, "variant-2's own lot must reach its own listing, not get overwritten by variant-1's (nil) batch")
 }
 
 func TestSyncStockToChannels_propagatesSKUNotFound(t *testing.T) {

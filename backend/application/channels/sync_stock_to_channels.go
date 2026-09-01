@@ -55,12 +55,14 @@ func NewSyncStockToChannelsUseCase(
 	}
 }
 
-// Execute resolves the SKU's product, loads its listings, computes the
-// current Syncable stock once, and fans it out to every linked channel.
-// The returned error is reserved for infra-level failures (can't read
-// from the DB) that warrant the caller nacking/retrying the whole event —
-// a single channel being unreachable is recorded on that listing instead,
-// never returned, so one flaky store can't block the whole event.
+// Execute resolves the SKU's product, loads its listings, and fans the
+// current Syncable stock out to every linked channel -- computed
+// separately PER LISTING (see run's own doc comment on why), not once for
+// the whole product. The returned error is reserved for infra-level
+// failures (can't read from the DB) that warrant the caller nacking/
+// retrying the whole event — a single channel being unreachable is
+// recorded on that listing instead, never returned, so one flaky store
+// can't block the whole event.
 func (uc *SyncStockToChannelsUseCase) Execute(ctx context.Context, skuID string) error {
 	return uc.run(ctx, skuID, false)
 }
@@ -101,22 +103,59 @@ func (uc *SyncStockToChannelsUseCase) run(ctx context.Context, skuID string, for
 		return nil
 	}
 
-	level, err := uc.stockLevel.Execute(ctx, skuID)
-	if err != nil {
-		return fmt.Errorf("syncStockToChannels: %w", err)
-	}
-	qty := strconv.FormatInt(level.Syncable, 10)
-	fields := map[string]string{"stock_quantity": qty}
-	metadata := toWooMetaData(level.SourceBatch)
-	for _, md := range metadata {
-		fields[md.Key] = md.Value
-	}
-
 	pushedBolConnections := map[string]bool{}
 	for _, listing := range listings {
+		// Each listing gets its OWN stock level, resolved from its own
+		// SKU -- see resolveListingSKUID's doc comment. This used to be
+		// computed once above the loop from the triggering SKU alone and
+		// reused for every listing, which meant adjusting one variant's
+		// batch silently zeroed every sibling variant in Woo too (they
+		// all received the triggering SKU's own qty/lot/expiry).
+		listingSKUID, err := uc.resolveListingSKUID(ctx, listing, skuID)
+		if err != nil {
+			log.Printf("syncStockToChannels: resolving SKU for listing %s: %v", listing.ID, err)
+			continue
+		}
+		level, err := uc.stockLevel.Execute(ctx, listingSKUID)
+		if err != nil {
+			log.Printf("syncStockToChannels: stock level for SKU %s (listing %s): %v", listingSKUID, listing.ID, err)
+			continue
+		}
+		qty := strconv.FormatInt(level.Syncable, 10)
+		fields := map[string]string{"stock_quantity": qty}
+		metadata := toWooMetaData(level.SourceBatch)
+		for _, md := range metadata {
+			fields[md.Key] = md.Value
+		}
 		uc.syncOne(ctx, productID, listing, parentExternalIDFor(listings, listing), qty, fields, metadata, force, pushedBolConnections)
 	}
 	return nil
+}
+
+// resolveListingSKUID returns the SKU whose stock/lot data this listing's
+// push should carry: the listing's own VariantID (resolved to that
+// variant's first SKU -- the same "one SKU per variant" assumption the
+// rest of channels sync already makes, e.g. push_product_to_woo.go) when
+// set, else triggeringSKUID for the product-level row (VariantID nil --
+// either a legacy single-SKU product, or the parent row in Woo variations
+// mode, which has no stock of its own beyond what its variants report).
+func (uc *SyncStockToChannelsUseCase) resolveListingSKUID(ctx context.Context, listing channelsDomain.ProductChannelListing, triggeringSKUID string) (string, error) {
+	if listing.VariantID == nil {
+		return triggeringSKUID, nil
+	}
+	var skus []pmsDomain.SKU
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		skus, err = uc.skuRepo.ListByVariant(ctx, *listing.VariantID)
+		return err
+	})
+	if err != nil {
+		return "", fmt.Errorf("resolveListingSKUID: %w", err)
+	}
+	if len(skus) == 0 {
+		return "", fmt.Errorf("resolveListingSKUID: no SKU found for variant %s", *listing.VariantID)
+	}
+	return skus[0].ID, nil
 }
 
 // parentExternalIDFor resolves the Woo variation-update endpoint's required
