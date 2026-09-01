@@ -334,6 +334,14 @@ type shipmentSearchEnvelope struct {
 // second MyParcel shipment -- exactly the duplicate-creation bug this fix
 // is for. A missing barcode gets backfilled later by
 // ReconcileShipmentsUseCase's poll (ShipmentRepository.FindStaleNonTerminal).
+// GetShipmentBarcode fetches a shipment's barcode via GET /shipments/{id}.
+// See domain/integrations.MyParcelClient.GetShipmentBarcode's doc for why
+// this exists separately from GetTrackTrace.
+func (c *Client) GetShipmentBarcode(ctx context.Context, myParcelShipmentID int64) (string, error) {
+	barcode, _, err := c.getShipmentByID(ctx, myParcelShipmentID)
+	return barcode, err
+}
+
 func (c *Client) getShipmentByID(ctx context.Context, id int64) (barcode string, status int, err error) {
 	var resp shipmentSearchEnvelope
 	path := "/shipments/" + strconv.FormatInt(id, 10)

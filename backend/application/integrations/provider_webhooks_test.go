@@ -120,6 +120,9 @@ func (f *fakeFullMyParcelClient) GetLabel(ctx context.Context, myParcelShipmentI
 func (f *fakeFullMyParcelClient) GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error) {
 	panic("not used")
 }
+func (f *fakeFullMyParcelClient) GetShipmentBarcode(ctx context.Context, myParcelShipmentID int64) (string, error) {
+	panic("not used")
+}
 func (f *fakeFullMyParcelClient) RegisterWebhook(ctx context.Context, callbackURL string) error {
 	panic("not used")
 }

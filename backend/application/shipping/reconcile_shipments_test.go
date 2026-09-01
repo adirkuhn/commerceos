@@ -47,6 +47,50 @@ func TestReconcileShipments_updatesChangedStatusAndSkipsUnchanged(t *testing.T) 
 	assert.Empty(t, result.Errors)
 }
 
+func TestReconcileShipments_statusUnchangedButBarcodeMissing_backfillsBarcodeOnly(t *testing.T) {
+	stale := []shippingDomain.Shipment{
+		{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 1, Status: 4, StatusMain: "enroute", Barcode: ""},
+	}
+	var updateCalls int
+	var savedBarcode string
+	shipmentRepo := &fakeShipmentRepo{
+		findStaleNonTerminalFn: func(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) { return stale, nil },
+		updateStatusFn: func(_ context.Context, _ string, _ int, _, _, barcode string) error {
+			updateCalls++
+			savedBarcode = barcode
+			return nil
+		},
+	}
+	appendCalled := false
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error {
+		appendCalled = true
+		return nil
+	}}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{
+		getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+			return integrationsDomain.TrackTraceResult{StatusCode: 4, StatusMain: "enroute"}, nil // same as recorded
+		},
+		getShipmentBarcodeFn: func(_ context.Context, id int64) (string, error) {
+			require.Equal(t, int64(1), id)
+			return "3SMYPA447656020", nil
+		},
+	}
+	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
+
+	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+
+	result, err := uc.Execute(context.Background(), "conn-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, updateCalls)
+	assert.Equal(t, "3SMYPA447656020", savedBarcode)
+	assert.False(t, appendCalled, "status genuinely didn't change -- no duplicate timeline entry")
+	assert.Empty(t, result.Errors)
+}
+
 func TestReconcileShipments_perShipmentFailure_doesNotAbortTheBatch(t *testing.T) {
 	stale := []shippingDomain.Shipment{
 		{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 1, StatusMain: "registered"},

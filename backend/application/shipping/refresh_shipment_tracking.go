@@ -79,9 +79,10 @@ func (uc *RefreshShipmentTrackingUseCase) Execute(ctx context.Context, shipmentI
 	if err != nil {
 		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: get tracktrace: %w", err)
 	}
+	barcode := fetchBarcodeIfMissing(ctx, client, shipment)
 
 	event, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceManual, "")
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceManual, barcode)
 	if err != nil {
 		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: %w", err)
 	}

@@ -89,6 +89,10 @@ func (a *Adapter) GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (
 	return integrationsDomain.TrackTraceResult{StatusCode: r.StatusCode, StatusMain: r.StatusMain, TrackingURL: r.TrackingURL}, nil
 }
 
+func (a *Adapter) GetShipmentBarcode(ctx context.Context, myParcelShipmentID int64) (string, error) {
+	return a.client.GetShipmentBarcode(ctx, myParcelShipmentID)
+}
+
 func (a *Adapter) RegisterWebhook(ctx context.Context, callbackURL string) error {
 	return a.client.RegisterWebhook(ctx, callbackURL)
 }

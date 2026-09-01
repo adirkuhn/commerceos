@@ -49,6 +49,7 @@ type fakeMyParcelClient struct {
 	createOrderFn               func(ctx context.Context, in integrationsDomain.CreateOrderInput) (integrationsDomain.OrderResult, error)
 	getLabelFn                  func(ctx context.Context, myParcelShipmentID int64, format, size string) (integrationsDomain.LabelResult, error)
 	getTrackTraceFn             func(ctx context.Context, myParcelShipmentID int64) (integrationsDomain.TrackTraceResult, error)
+	getShipmentBarcodeFn        func(ctx context.Context, myParcelShipmentID int64) (string, error)
 	registerWebhookFn           func(ctx context.Context, callbackURL string) error
 	listWebhookSubscriptionsFn  func(ctx context.Context) ([]integrationsDomain.WebhookSubscription, error)
 	createWebhookSubscriptionFn func(ctx context.Context, hook, deliveryURL string) (integrationsDomain.WebhookSubscription, error)
@@ -67,6 +68,12 @@ func (f *fakeMyParcelClient) GetLabel(ctx context.Context, id int64, format, siz
 }
 func (f *fakeMyParcelClient) GetTrackTrace(ctx context.Context, id int64) (integrationsDomain.TrackTraceResult, error) {
 	return f.getTrackTraceFn(ctx, id)
+}
+func (f *fakeMyParcelClient) GetShipmentBarcode(ctx context.Context, id int64) (string, error) {
+	if f.getShipmentBarcodeFn == nil {
+		return "", nil
+	}
+	return f.getShipmentBarcodeFn(ctx, id)
 }
 func (f *fakeMyParcelClient) RegisterWebhook(ctx context.Context, callbackURL string) error {
 	return f.registerWebhookFn(ctx, callbackURL)

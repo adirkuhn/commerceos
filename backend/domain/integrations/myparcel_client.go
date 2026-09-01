@@ -181,6 +181,16 @@ type MyParcelClient interface {
 	// a retrieval-time choice, re-askable on every print.
 	GetLabel(ctx context.Context, myParcelShipmentID int64, format, size string) (LabelResult, error)
 	GetTrackTrace(ctx context.Context, myParcelShipmentID int64) (TrackTraceResult, error)
+	// GetShipmentBarcode fetches a shipment's barcode via GET /shipments/{id}
+	// -- unlike GetTrackTrace (GET /tracktraces/{id}), which never carries
+	// one (confirmed against developer.myparcel.nl/api-reference/06.shipments.html),
+	// this is the only way to backfill a barcode outside of the
+	// shipment_status_change webhook payload (which does carry one, and is
+	// handled separately -- see application/shipping.applyStatusUpdate's
+	// barcode parameter). Used by the poll/manual-refresh paths
+	// (ReconcileShipmentsUseCase, RefreshShipmentTrackingUseCase) only when
+	// the shipment doesn't already have one, since it's an extra API call.
+	GetShipmentBarcode(ctx context.Context, myParcelShipmentID int64) (string, error)
 	// RegisterWebhook registers (or, per MyParcel's own "adding the same
 	// webhook overwrites any existing one" behavior, re-registers) this
 	// shop's shipment_status_change callback URL. Safe to call more than

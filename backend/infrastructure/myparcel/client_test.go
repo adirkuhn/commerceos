@@ -101,6 +101,40 @@ func TestClient_CreateShipment_barcodeFetchFailureIsNonFatal(t *testing.T) {
 	assert.Equal(t, "", result.Barcode)
 }
 
+// TestClient_GetShipmentBarcode_fetchesFromShipmentsEndpoint proves the
+// dedicated GET /shipments/{id} call this codebase's poll/manual-refresh
+// paths use to backfill a barcode -- GetTrackTrace (GET /tracktraces/{id})
+// never carries one.
+func TestClient_GetShipmentBarcode_fetchesFromShipmentsEndpoint(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"search_results":{"shipments":[{"id":555,"barcode":"3SMYPA447656020","status":4}]}}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	barcode, err := c.GetShipmentBarcode(context.Background(), 555)
+
+	require.NoError(t, err)
+	assert.Equal(t, "3SMYPA447656020", barcode)
+	assert.Equal(t, "/shipments/555", gotPath)
+}
+
+func TestClient_GetShipmentBarcode_emptyResponse_returnsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"search_results":{"shipments":[]}}}`))
+	}))
+	defer srv.Close()
+
+	c := myparcel.NewClient(myparcel.Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.GetShipmentBarcode(context.Background(), 555)
+
+	require.Error(t, err)
+}
+
 func TestClient_CreateShipment_emptyIdsArrayOnSuccessReturnsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

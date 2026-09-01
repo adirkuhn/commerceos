@@ -113,10 +113,23 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 			continue
 		}
 		if tt.StatusMain == s.StatusMain && tt.StatusCode == s.Status {
-			continue // nothing actually changed -- still touch nothing, just confirms it's genuinely stalled, not missed
+			// Status genuinely unchanged -- but the barcode may still be
+			// missing (see fetchBarcodeIfMissing's doc); back it in
+			// directly, without a duplicate ShipmentStatusEvent (that's
+			// still reserved for an actual status change).
+			if barcode := fetchBarcodeIfMissing(ctx, client, s); barcode != "" {
+				err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+					return uc.shipmentRepo.UpdateStatus(ctx, s.ID, tt.StatusCode, tt.StatusMain, tt.TrackingURL, barcode)
+				})
+				if err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: backfill barcode: %v", s.ID, err))
+				}
+			}
+			continue // nothing else changed -- still touch nothing, just confirms it's genuinely stalled, not missed
 		}
+		barcode := fetchBarcodeIfMissing(ctx, client, s)
 		if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-			s.ID, s.SalesOrderID, tt, shippingDomain.StatusEventSourceReconciliation, ""); err != nil {
+			s.ID, s.SalesOrderID, tt, shippingDomain.StatusEventSourceReconciliation, barcode); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: apply update: %v", s.ID, err))
 			continue
 		}
