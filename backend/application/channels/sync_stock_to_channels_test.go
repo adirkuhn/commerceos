@@ -422,6 +422,44 @@ func TestSyncStockToChannels_eachVariantListingGetsItsOwnStockLevel(t *testing.T
 	require.Equal(t, "L61281", byExternalID["556"].MetaData[0].Value, "variant-2's own lot must reach its own listing, not get overwritten by variant-1's (nil) batch")
 }
 
+// TestSyncStockToChannels_resolveListingSKUID_skipsBulkPoolSKUForTheSellableOne
+// is a latent-bug fix found while investigating the eachVariantListingGets-
+// ItsOwnStockLevel regression above: a variant with a bulk pool (UnitType
+// kilo) ledger SKU alongside its actual sellable (portioned) SKU must push
+// the SELLABLE SKU's stock, not whichever ListByVariant happens to return
+// first (oldest by created_at) -- push_product_to_woo.go already excludes
+// bulk-pool SKUs from what it pushes for exactly this reason;
+// resolveListingSKUID didn't, until now.
+func TestSyncStockToChannels_resolveListingSKUID_skipsBulkPoolSKUForTheSellableOne(t *testing.T) {
+	variantID := "variant-2"
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555", VariantID: &variantID,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	// The bulk-pool ledger SKU is listed first (oldest), the sellable
+	// portioned SKU second -- resolveListingSKUID must skip past the pool.
+	h.skuRepo.byVariant = map[string][]pmsDomain.SKU{
+		"variant-2": {
+			{ID: "sku-pool", UnitType: pmsDomain.SKUUnitTypeKilo},
+			{ID: "sku-sellable", UnitType: pmsDomain.SKUUnitTypeUnit},
+		},
+	}
+	stockLevel := &stubStockLevelGetterBySKU{levels: map[string]*invapp.StockLevel{
+		"sku-sellable": {Syncable: 5},
+	}}
+	uc := appchannels.NewSyncStockToChannelsUseCase(
+		newMockGormDB(t, 15), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, stockLevel, testEncryptionSecret, nil,
+	)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateStockCalled, 1)
+	require.Equal(t, 5, h.wooClient.updateStockCalled[0].Quantity, "must use the sellable SKU's stock, not the bulk-pool ledger's")
+}
+
 func TestSyncStockToChannels_propagatesSKUNotFound(t *testing.T) {
 	h := newHarness(nil)
 	stockLevel := &stubStockLevelGetter{}

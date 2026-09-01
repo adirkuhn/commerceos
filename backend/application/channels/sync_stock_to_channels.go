@@ -134,11 +134,10 @@ func (uc *SyncStockToChannelsUseCase) run(ctx context.Context, skuID string, for
 
 // resolveListingSKUID returns the SKU whose stock/lot data this listing's
 // push should carry: the listing's own VariantID (resolved to that
-// variant's first SKU -- the same "one SKU per variant" assumption the
-// rest of channels sync already makes, e.g. push_product_to_woo.go) when
-// set, else triggeringSKUID for the product-level row (VariantID nil --
-// either a legacy single-SKU product, or the parent row in Woo variations
-// mode, which has no stock of its own beyond what its variants report).
+// variant's own sellable SKU) when set, else triggeringSKUID for the
+// product-level row (VariantID nil -- either a legacy single-SKU product,
+// or the parent row in Woo variations mode, which has no stock of its own
+// beyond what its variants report).
 func (uc *SyncStockToChannelsUseCase) resolveListingSKUID(ctx context.Context, listing channelsDomain.ProductChannelListing, triggeringSKUID string) (string, error) {
 	if listing.VariantID == nil {
 		return triggeringSKUID, nil
@@ -152,10 +151,17 @@ func (uc *SyncStockToChannelsUseCase) resolveListingSKUID(ctx context.Context, l
 	if err != nil {
 		return "", fmt.Errorf("resolveListingSKUID: %w", err)
 	}
-	if len(skus) == 0 {
-		return "", fmt.Errorf("resolveListingSKUID: no SKU found for variant %s", *listing.VariantID)
+	// A bulk pool (UnitType=kilo) SKU is an internal weight ledger, never
+	// itself sellable -- excluded here the same way
+	// push_product_to_woo.go's own sellable filter excludes it, so a
+	// variant with both a bulk-pool SKU and a portioned sellable SKU
+	// reports the sellable one's stock, not the ledger's.
+	for _, sku := range skus {
+		if sku.UnitType != pmsDomain.SKUUnitTypeKilo {
+			return sku.ID, nil
+		}
 	}
-	return skus[0].ID, nil
+	return "", fmt.Errorf("resolveListingSKUID: no sellable SKU found for variant %s", *listing.VariantID)
 }
 
 // parentExternalIDFor resolves the Woo variation-update endpoint's required
