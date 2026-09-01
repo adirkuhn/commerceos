@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import MyParcelSyncSettingsPage from '../MyParcelSyncSettingsPage'
@@ -101,7 +101,7 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     vi.mocked(api.upsertCarrierOverride).mockResolvedValue({
       connection_id: 'conn-mp-1', carrier: 1, package_type: null, signature_required: true, only_recipient: null,
-      insure_by_default: null,
+      insure_by_default: null, tracking_url_template: null,
     })
     render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
 
@@ -109,6 +109,41 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     await userEvent.click(screen.getByLabelText('PostNL signature required override'))
 
     expect(api.upsertCarrierOverride).toHaveBeenCalledWith('test-token', 'conn-mp-1', 1, expect.objectContaining({ signature_required: true }))
+  })
+
+  it('saves a per-carrier tracking URL template on blur', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    vi.mocked(api.upsertCarrierOverride).mockResolvedValue({
+      connection_id: 'conn-mp-1', carrier: 1, package_type: null, signature_required: null, only_recipient: null,
+      insure_by_default: null, tracking_url_template: 'https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN',
+    })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+
+    await screen.findByText('Per-carrier overrides')
+    const input = screen.getByLabelText('PostNL tracking URL template')
+    fireEvent.change(input, { target: { value: 'https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN' } })
+    fireEvent.blur(input)
+
+    await waitFor(() => expect(api.upsertCarrierOverride).toHaveBeenCalledWith('test-token', 'conn-mp-1', 1, expect.objectContaining({
+      tracking_url_template: 'https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN',
+    })))
+  })
+
+  it('does not save the tracking URL template on blur if unchanged', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({
+      settings: null,
+      carrier_overrides: [{
+        connection_id: 'conn-mp-1', carrier: 1, package_type: null, signature_required: null, only_recipient: null,
+        insure_by_default: null, tracking_url_template: 'https://postnl.nl/tracktrace/?B={barcode}',
+      }],
+    })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+
+    await screen.findByText('Per-carrier overrides')
+    const input = screen.getByLabelText('PostNL tracking URL template')
+    fireEvent.blur(input)
+
+    expect(api.upsertCarrierOverride).not.toHaveBeenCalled()
   })
 
   it('saves insure-by-default, MyParcel account/shop id, and auto-print together', async () => {
@@ -172,7 +207,7 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     vi.mocked(api.upsertCarrierOverride).mockResolvedValue({
       connection_id: 'conn-mp-1', carrier: 1, package_type: null, signature_required: null, only_recipient: null,
-      insure_by_default: true,
+      insure_by_default: true, tracking_url_template: null,
     })
     render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
 

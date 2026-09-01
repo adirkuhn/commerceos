@@ -78,3 +78,23 @@ func TestUpsertCarrierOverride_persistsAndStampsTenant(t *testing.T) {
 	require.NotNil(t, upserted.SignatureRequired)
 	assert.True(t, *upserted.SignatureRequired)
 }
+
+func TestUpsertCarrierOverride_persistsTrackingURLTemplate(t *testing.T) {
+	var upserted *shippingDomain.ShippingCarrierOverride
+	overrideRepo := &fakeShippingCarrierOverrideRepo{
+		upsertFn: func(_ context.Context, o *shippingDomain.ShippingCarrierOverride) error {
+			upserted = o
+			return nil
+		},
+	}
+	uc := appshipping.NewUpsertCarrierOverrideUseCase(newMockGormDB(t, 1), overrideRepo)
+
+	tmpl := "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN"
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appshipping.UpsertCarrierOverrideInput{
+		ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, TrackingURLTemplate: &tmpl,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, upserted.TrackingURLTemplate)
+	assert.Equal(t, tmpl, *upserted.TrackingURLTemplate)
+}

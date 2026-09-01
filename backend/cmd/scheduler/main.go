@@ -256,7 +256,7 @@ func main() {
 	}
 	defer stockChangedSub.Unsubscribe()
 
-	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	salesOrderStatusChangedSub, err := js.Subscribe(events.SalesOrderStatusChanged{}.EventName(), salesOrderStatusChangedConsumer.Handle,
 		nats.Durable("sales-order-status-changed-scheduler"), nats.ManualAck(),

@@ -456,6 +456,32 @@ func (s *stubShipmentRepo) MarkCancelled(_ context.Context, _ string, _ time.Tim
 	return nil
 }
 
+// stubCarrierOverrideRepo stands in for domain/shipping's
+// ShippingCarrierOverrideRepository -- only FindByConnectionAndCarrier is
+// exercised (PushSalesOrderStatusToChannelsUseCase's tracking-link
+// resolution); ListByConnection/Upsert are unused here.
+type stubCarrierOverrideRepo struct {
+	byConnectionAndCarrier map[string]shippingDomain.ShippingCarrierOverride
+	findErr                error
+}
+
+func (s *stubCarrierOverrideRepo) ListByConnection(_ context.Context, _ string) ([]shippingDomain.ShippingCarrierOverride, error) {
+	return nil, nil
+}
+func (s *stubCarrierOverrideRepo) FindByConnectionAndCarrier(_ context.Context, connectionID string, carrier shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	key := connectionID + "|" + carrier.String()
+	if o, ok := s.byConnectionAndCarrier[key]; ok {
+		return &o, nil
+	}
+	return nil, nil
+}
+func (s *stubCarrierOverrideRepo) Upsert(_ context.Context, _ *shippingDomain.ShippingCarrierOverride) error {
+	return nil
+}
+
 type stubWooClientFactory struct {
 	client integrationsDomain.WooClient
 	err    error

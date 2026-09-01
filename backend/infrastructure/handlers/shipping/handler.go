@@ -219,7 +219,7 @@ func (h *Handler) UpsertCarrierOverride(c *gin.Context, connectionId genshipping
 	override, err := h.upsertOverride.Execute(c.Request.Context(), appshipping.UpsertCarrierOverrideInput{
 		ConnectionID: connectionId.String(), Carrier: shippingDomain.Carrier(carrier),
 		PackageType: packageType, SignatureRequired: req.SignatureRequired, OnlyRecipient: req.OnlyRecipient,
-		InsureByDefault: req.InsureByDefault,
+		InsureByDefault: req.InsureByDefault, TrackingURLTemplate: req.TrackingUrlTemplate,
 	})
 	if err != nil {
 		mapErr(c, err)
@@ -434,7 +434,7 @@ func overrideToResponse(o shippingDomain.ShippingCarrierOverride) genshipping.Sh
 	carrier := int(o.Carrier)
 	resp := genshipping.ShippingCarrierOverride{
 		ConnectionId: &o.ConnectionID, Carrier: &carrier, SignatureRequired: o.SignatureRequired, OnlyRecipient: o.OnlyRecipient,
-		InsureByDefault: o.InsureByDefault,
+		InsureByDefault: o.InsureByDefault, TrackingUrlTemplate: o.TrackingURLTemplate,
 	}
 	if o.PackageType != nil {
 		pt := int(*o.PackageType)
@@ -455,7 +455,7 @@ func shipmentToResponse(s shippingDomain.Shipment) genshipping.Shipment {
 	carrier, status := int(s.Carrier), s.Status
 	resp := genshipping.Shipment{
 		Id: &s.ID, SalesOrderId: &s.SalesOrderID, ConnectionId: &s.ConnectionID, Carrier: &carrier,
-		Barcode: &s.Barcode, Status: &status, StatusMain: &s.StatusMain, LabelFormat: &s.LabelFormat,
+		Barcode: &s.Barcode, Status: &status, StatusMain: &s.StatusMain, TrackingUrl: &s.TrackingURL, LabelFormat: &s.LabelFormat,
 		CreatedAt: &s.CreatedAt, CancelledAt: s.CancelledAt, CancelNote: &s.CancelNote,
 		Recipient: &genshipping.RecipientAddress{
 			Person: s.RecipientPerson, Company: &s.RecipientCompany, Street: s.RecipientStreet,
@@ -491,7 +491,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
 		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, myParcelFactory, encryptionSecret),
-		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo),
+		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo, overrideRepo),
 		exportMyParcelOrderUC,
 		appshipping.NewListShipmentTrackingEventsUseCase(db, statusEventRepo),
 		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, myParcelFactory, encryptionSecret),

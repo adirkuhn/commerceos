@@ -107,12 +107,13 @@ func (uc *UpdateShippingSettingsUseCase) Execute(ctx context.Context, in UpdateS
 // a connection's global defaults -- nil fields mean "no override, fall
 // through to the connection setting" (see domain/shipping.ResolveOptions).
 type UpsertCarrierOverrideInput struct {
-	ConnectionID      string
-	Carrier           shippingDomain.Carrier
-	PackageType       *shippingDomain.PackageType
-	SignatureRequired *bool
-	OnlyRecipient     *bool
-	InsureByDefault   *bool
+	ConnectionID        string
+	Carrier             shippingDomain.Carrier
+	PackageType         *shippingDomain.PackageType
+	SignatureRequired   *bool
+	OnlyRecipient       *bool
+	InsureByDefault     *bool
+	TrackingURLTemplate *string
 }
 
 type UpsertCarrierOverrideUseCase struct {
@@ -128,7 +129,7 @@ func (uc *UpsertCarrierOverrideUseCase) Execute(ctx context.Context, in UpsertCa
 	override := shippingDomain.ShippingCarrierOverride{
 		ConnectionID: in.ConnectionID, Carrier: in.Carrier,
 		PackageType: in.PackageType, SignatureRequired: in.SignatureRequired, OnlyRecipient: in.OnlyRecipient,
-		InsureByDefault: in.InsureByDefault,
+		InsureByDefault: in.InsureByDefault, TrackingURLTemplate: in.TrackingURLTemplate,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		override.TenantID = tenant.IDFromContext(ctx)

@@ -8,6 +8,8 @@ package shipping
 import (
 	"errors"
 	"fmt"
+	neturl "net/url"
+	"strings"
 	"time"
 )
 
@@ -287,6 +289,36 @@ type ShippingCarrierOverride struct {
 	// same convention as PackageType/SignatureRequired/OnlyRecipient. A
 	// non-nil value (true or false) always wins over the connection default.
 	InsureByDefault *bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	// TrackingURLTemplate is a staff-configured carrier tracking-page URL
+	// with {barcode} and {postcode} placeholders -- e.g. DPD's
+	// "https://www.dpdgroup.com/nl/mydpd/my-parcels/search?lang=en&parcelNumber={barcode}"
+	// or PostNL's "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN".
+	// Preferred over MyParcel's own `link_consumer_portal` (Shipment.TrackingURL's
+	// other source, see integrations.TrackTraceResult's doc) when set --
+	// MyParcel's own link isn't always present or correct for every
+	// carrier, this is the reliable override. Nil/empty means "use
+	// MyParcel's own link, if any" (see BuildCarrierTrackingURL).
+	TrackingURLTemplate *string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+// BuildCarrierTrackingURL renders tmpl (a ShippingCarrierOverride's
+// TrackingURLTemplate) by substituting {barcode} and {postcode} --
+// percent-encoded the way PostNL's own link format expects (%20 for a
+// space, not "+", since a Dutch postcode like "1251 SB" contains one).
+// Returns "" when there's no template configured or no barcode yet to link
+// to -- caller falls back to whatever else it has (MyParcel's own
+// link_consumer_portal).
+func BuildCarrierTrackingURL(tmpl *string, barcode, postcode string) string {
+	if tmpl == nil || *tmpl == "" || barcode == "" {
+		return ""
+	}
+	url := strings.ReplaceAll(*tmpl, "{barcode}", urlEncodeForTrackingTemplate(barcode))
+	url = strings.ReplaceAll(url, "{postcode}", urlEncodeForTrackingTemplate(postcode))
+	return url
+}
+
+func urlEncodeForTrackingTemplate(s string) string {
+	return strings.ReplaceAll(neturl.QueryEscape(s), "+", "%20")
 }

@@ -403,6 +403,14 @@ components:
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
         insure_by_default: { type: boolean, nullable: true }
+        tracking_url_template:
+          type: string
+          nullable: true
+          description: >-
+            Carrier tracking-page URL with {barcode}/{postcode} placeholders,
+            e.g. PostNL's "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN".
+            Preferred over MyParcel's own tracking link when set. Null means
+            "use MyParcel's own link, if any".
 
     ShippingSettingsResponse:
       type: object
@@ -441,6 +449,7 @@ components:
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
         insure_by_default: { type: boolean, nullable: true }
+        tracking_url_template: { type: string, nullable: true }
 
     RecipientAddress:
       type: object
@@ -502,6 +511,13 @@ components:
         barcode: { type: string }
         status: { type: integer }
         status_main: { type: string }
+        tracking_url:
+          type: string
+          description: >-
+            Best available carrier tracking link -- the connection's
+            configured tracking_url_template for this carrier if set, else
+            MyParcel's own link_consumer_portal, else empty (no barcode
+            yet / carrier hasn't offered one).
         label_format: { type: string }
         recipient: { $ref: '#/components/schemas/RecipientAddress' }
         created_at: { type: string, format: date-time }

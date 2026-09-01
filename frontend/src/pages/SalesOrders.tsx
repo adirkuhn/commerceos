@@ -1129,7 +1129,20 @@ function ShipmentTrackingSection({ token, shipment, onCancelled }: { token: stri
       <div className="flex items-center justify-between gap-3">
         <div>
           <span className="dark:text-gray-200 text-gray-800 font-medium">{carrierLabel}</span>
-          <span className="dark:text-gray-500 text-gray-400"> · {shipment.barcode || 'no barcode yet'}</span>
+          <span className="dark:text-gray-500 text-gray-400">
+            {' · '}
+            {shipment.barcode ? (
+              shipment.tracking_url ? (
+                <a href={shipment.tracking_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
+                  {shipment.barcode}
+                </a>
+              ) : (
+                shipment.barcode
+              )
+            ) : (
+              'no barcode yet'
+            )}
+          </span>
           {shipment.cancelled_at && (
             <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">Cancelled</span>
           )}

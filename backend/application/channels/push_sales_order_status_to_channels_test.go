@@ -22,7 +22,12 @@ func newPushSalesOrderStatusUseCase(t *testing.T, n int, salesOrderRepo *stubOrd
 
 func newPushSalesOrderStatusUseCaseWithShipments(t *testing.T, n int, salesOrderRepo *stubOrdersSalesOrderRepo, shipmentRepo *stubShipmentRepo, connRepo *stubConnectionRepo, wooFactory *stubWooClientFactory) *appchannels.PushSalesOrderStatusToChannelsUseCase {
 	t.Helper()
-	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, connRepo, wooFactory, testEncryptionSecret)
+	return newPushSalesOrderStatusUseCaseWithOverrides(t, n, salesOrderRepo, shipmentRepo, &stubCarrierOverrideRepo{}, connRepo, wooFactory)
+}
+
+func newPushSalesOrderStatusUseCaseWithOverrides(t *testing.T, n int, salesOrderRepo *stubOrdersSalesOrderRepo, shipmentRepo *stubShipmentRepo, overrideRepo *stubCarrierOverrideRepo, connRepo *stubConnectionRepo, wooFactory *stubWooClientFactory) *appchannels.PushSalesOrderStatusToChannelsUseCase {
+	t.Helper()
+	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory, testEncryptionSecret)
 }
 
 func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T) {
@@ -62,7 +67,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_pushesOnHoldAndAttachesS
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 3, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 4, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -72,6 +77,37 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_pushesOnHoldAndAttachesS
 	require.Len(t, wooClient.addOrderNoteCalls, 1)
 	assert.Equal(t, "501", wooClient.addOrderNoteCalls[0].externalOrderID)
 	assert.Equal(t, "Shipped via PostNL, tracking 3SMYPA1 - https://postnl.nl/tracktrace/?B=3SMYPA1", wooClient.addOrderNoteCalls[0].note)
+}
+
+func TestPushSalesOrderStatusToChannels_shippedWooOrder_configuredTemplateWinsOverMyParcelLink(t *testing.T) {
+	connID := "conn-1"
+	order := &omsDomain.SalesOrder{
+		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
+		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+	}
+	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
+	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
+		"so-1": {{
+			ID: "ship-1", ConnectionID: connID, Carrier: shippingDomain.CarrierPostNL, Barcode: "3SMYPA1",
+			RecipientPostalCode: "1251 SB", TrackingURL: "https://myparcel-default/x",
+		}},
+	}}
+	tmpl := "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN"
+	overrideRepo := &stubCarrierOverrideRepo{byConnectionAndCarrier: map[string]shippingDomain.ShippingCarrierOverride{
+		connID + "|" + shippingDomain.CarrierPostNL.String(): {TrackingURLTemplate: &tmpl},
+	}}
+	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
+	require.NoError(t, err)
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
+	wooClient := &stubWooClient{}
+	wooFactory := &stubWooClientFactory{client: wooClient}
+	uc := newPushSalesOrderStatusUseCaseWithOverrides(t, 4, salesOrderRepo, shipmentRepo, overrideRepo, connRepo, wooFactory)
+
+	err = uc.Execute(context.Background(), "so-1")
+
+	require.NoError(t, err)
+	require.Len(t, wooClient.addOrderNoteCalls, 1)
+	assert.Equal(t, "Shipped via PostNL, tracking 3SMYPA1 - https://postnl.nl/tracktrace/?B=3SMYPA1&P=1251%20SB&D=NL&T=C&L=EN", wooClient.addOrderNoteCalls[0].note)
 }
 
 func TestPushSalesOrderStatusToChannels_shippedWooOrder_noTrackingURLYet_noteOmitsLink(t *testing.T) {
@@ -89,7 +125,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_noTrackingURLYet_noteOmi
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 3, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 4, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 
@@ -136,7 +172,7 @@ func TestPushSalesOrderStatusToChannels_noteFailure_doesNotFailThePush(t *testin
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{addOrderNoteErr: errors.New("woo unreachable")}
 	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 3, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
+	uc := newPushSalesOrderStatusUseCaseWithShipments(t, 4, salesOrderRepo, shipmentRepo, connRepo, wooFactory)
 
 	err = uc.Execute(context.Background(), "so-1")
 

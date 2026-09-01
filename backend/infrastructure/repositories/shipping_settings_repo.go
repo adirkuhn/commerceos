@@ -116,12 +116,13 @@ type shippingCarrierOverrideModel struct {
 	TenantID          string `gorm:"not null;type:uuid"`
 	ConnectionID      string `gorm:"not null;type:uuid"`
 	Carrier           int
-	PackageType       *int
-	SignatureRequired *bool
-	OnlyRecipient     *bool
-	InsureByDefault   *bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	PackageType         *int
+	SignatureRequired   *bool
+	OnlyRecipient       *bool
+	InsureByDefault     *bool
+	TrackingURLTemplate *string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (shippingCarrierOverrideModel) TableName() string { return "shipping_carrier_overrides" }
@@ -181,13 +182,13 @@ func (r *ShippingCarrierOverrideRepo) Upsert(ctx context.Context, o *shippingDom
 	m := shippingCarrierOverrideModel{
 		TenantID: o.TenantID, ConnectionID: o.ConnectionID, Carrier: int(o.Carrier),
 		PackageType: intPtrFromPackageType(o.PackageType), SignatureRequired: o.SignatureRequired, OnlyRecipient: o.OnlyRecipient,
-		InsureByDefault: o.InsureByDefault,
-		CreatedAt:       o.CreatedAt, UpdatedAt: o.UpdatedAt,
+		InsureByDefault: o.InsureByDefault, TrackingURLTemplate: o.TrackingURLTemplate,
+		CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "connection_id"}, {Name: "carrier"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"package_type", "signature_required", "only_recipient", "insure_by_default", "updated_at",
+			"package_type", "signature_required", "only_recipient", "insure_by_default", "tracking_url_template", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -214,7 +215,7 @@ func toCarrierOverrideDomain(m shippingCarrierOverrideModel) shippingDomain.Ship
 	return shippingDomain.ShippingCarrierOverride{
 		ID: m.ID, TenantID: m.TenantID, ConnectionID: m.ConnectionID, Carrier: shippingDomain.Carrier(m.Carrier),
 		PackageType: pt, SignatureRequired: m.SignatureRequired, OnlyRecipient: m.OnlyRecipient,
-		InsureByDefault: m.InsureByDefault,
-		CreatedAt:       m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		InsureByDefault: m.InsureByDefault, TrackingURLTemplate: m.TrackingURLTemplate,
+		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

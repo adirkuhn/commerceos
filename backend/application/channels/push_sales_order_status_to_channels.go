@@ -46,24 +46,27 @@ var wooStatusBySalesOrderStatus = map[omsDomain.SalesOrderStatus]string{
 // consumer -- by the time this runs, the order that triggered the event may
 // have changed again.
 type PushSalesOrderStatusToChannelsUseCase struct {
-	db               *gorm.DB
-	salesOrderRepo   omsDomain.SalesOrderRepository
-	shipmentRepo     shippingDomain.ShipmentRepository
-	connRepo         integrationsDomain.ConnectionRepository
-	wooFactory       integrationsDomain.WooClientFactory
-	encryptionSecret string
+	db                  *gorm.DB
+	salesOrderRepo      omsDomain.SalesOrderRepository
+	shipmentRepo        shippingDomain.ShipmentRepository
+	carrierOverrideRepo shippingDomain.ShippingCarrierOverrideRepository
+	connRepo            integrationsDomain.ConnectionRepository
+	wooFactory          integrationsDomain.WooClientFactory
+	encryptionSecret    string
 }
 
 func NewPushSalesOrderStatusToChannelsUseCase(
 	db *gorm.DB,
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	shipmentRepo shippingDomain.ShipmentRepository,
+	carrierOverrideRepo shippingDomain.ShippingCarrierOverrideRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 ) *PushSalesOrderStatusToChannelsUseCase {
 	return &PushSalesOrderStatusToChannelsUseCase{
-		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
+		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, carrierOverrideRepo: carrierOverrideRepo,
+		connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
 	}
 }
 
@@ -163,10 +166,36 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Con
 	// the one that actually triggered this fulfillment.
 	s := shipments[0]
 	note := fmt.Sprintf("Shipped via %s, tracking %s", s.Carrier, s.Barcode)
-	if s.TrackingURL != "" {
-		note += fmt.Sprintf(" - %s", s.TrackingURL)
+	if link := uc.resolveTrackingLink(ctx, s); link != "" {
+		note += fmt.Sprintf(" - %s", link)
 	}
 	if err := client.AddOrderNote(ctx, order.ExternalOrderID, note); err != nil {
 		log.Printf("pushSalesOrderStatusToChannels: shipment note: order %s: %v", order.ID, err)
 	}
+}
+
+// resolveTrackingLink prefers the connection's configured carrier tracking
+// URL template (see domain/shipping.ShippingCarrierOverride.TrackingURLTemplate's
+// doc) over the shipment's own TrackingURL (MyParcel's link_consumer_portal
+// -- not always present or correct for every carrier). Best-effort: a
+// lookup failure just falls back to the shipment's own value, same as "no
+// override configured."
+func (uc *PushSalesOrderStatusToChannelsUseCase) resolveTrackingLink(ctx context.Context, s shippingDomain.Shipment) string {
+	var override *shippingDomain.ShippingCarrierOverride
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		override, err = uc.carrierOverrideRepo.FindByConnectionAndCarrier(ctx, s.ConnectionID, s.Carrier)
+		return err
+	})
+	if err != nil {
+		log.Printf("pushSalesOrderStatusToChannels: shipment note: resolve carrier override for shipment %s: %v", s.ID, err)
+		return s.TrackingURL
+	}
+	if override == nil {
+		return s.TrackingURL
+	}
+	if link := shippingDomain.BuildCarrierTrackingURL(override.TrackingURLTemplate, s.Barcode, s.RecipientPostalCode); link != "" {
+		return link
+	}
+	return s.TrackingURL
 }

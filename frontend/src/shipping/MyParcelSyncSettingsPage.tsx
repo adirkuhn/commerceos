@@ -210,7 +210,7 @@ export default function MyParcelSyncSettingsPage({
     return overrides.find(o => o.carrier === carrier)
   }
 
-  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient' | 'insure_by_default', value: number | boolean | null) {
+  async function handleOverrideChange(carrier: number, field: 'package_type' | 'signature_required' | 'only_recipient' | 'insure_by_default' | 'tracking_url_template', value: number | boolean | string | null) {
     if (!token || !connectionId) return
     const current = overrideFor(carrier)
     const input = {
@@ -218,6 +218,7 @@ export default function MyParcelSyncSettingsPage({
       signature_required: current?.signature_required ?? null,
       only_recipient: current?.only_recipient ?? null,
       insure_by_default: current?.insure_by_default ?? null,
+      tracking_url_template: current?.tracking_url_template ?? null,
       [field]: value,
     }
     try {
@@ -382,35 +383,52 @@ export default function MyParcelSyncSettingsPage({
                 {CARRIERS.map(c => {
                   const o = overrideFor(c.id)
                   return (
-                    <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-lg border dark:border-[#2D3748] border-gray-200">
-                      <span className="text-xs dark:text-gray-200 text-gray-800 w-40 shrink-0">{c.label}</span>
-                      <select
-                        aria-label={`${c.label} package type override`}
-                        value={o?.package_type ?? ''}
-                        onChange={e => handleOverrideChange(c.id, 'package_type', e.target.value === '' ? null : Number(e.target.value))}
-                        className={selectClass}
-                      >
-                        <option value="">(use default)</option>
-                        {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                      </select>
-                      <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
+                    <div key={c.id} className="flex flex-col gap-2 p-2.5 rounded-lg border dark:border-[#2D3748] border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs dark:text-gray-200 text-gray-800 w-40 shrink-0">{c.label}</span>
+                        <select
+                          aria-label={`${c.label} package type override`}
+                          value={o?.package_type ?? ''}
+                          onChange={e => handleOverrideChange(c.id, 'package_type', e.target.value === '' ? null : Number(e.target.value))}
+                          className={selectClass}
+                        >
+                          <option value="">(use default)</option>
+                          {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                        <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
+                          <input
+                            type="checkbox"
+                            aria-label={`${c.label} signature required override`}
+                            checked={o?.signature_required ?? false}
+                            onChange={e => handleOverrideChange(c.id, 'signature_required', e.target.checked)}
+                          />
+                          Signature
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
+                          <input
+                            type="checkbox"
+                            aria-label={`${c.label} insure by default override`}
+                            checked={o?.insure_by_default ?? false}
+                            onChange={e => handleOverrideChange(c.id, 'insure_by_default', e.target.checked)}
+                          />
+                          Insure
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label className="text-[11px] dark:text-gray-500 text-gray-400 w-40 shrink-0">Tracking URL template</label>
                         <input
-                          type="checkbox"
-                          aria-label={`${c.label} signature required override`}
-                          checked={o?.signature_required ?? false}
-                          onChange={e => handleOverrideChange(c.id, 'signature_required', e.target.checked)}
+                          type="text"
+                          aria-label={`${c.label} tracking URL template`}
+                          defaultValue={o?.tracking_url_template ?? ''}
+                          onBlur={e => {
+                            const value = e.target.value.trim()
+                            if (value === (o?.tracking_url_template ?? '')) return
+                            handleOverrideChange(c.id, 'tracking_url_template', value === '' ? null : value)
+                          }}
+                          placeholder="https://example.com/track?code={barcode}&postcode={postcode}"
+                          className="flex-1 px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900 placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         />
-                        Signature
-                      </label>
-                      <label className="flex items-center gap-1.5 text-[11px] dark:text-gray-400 text-gray-500">
-                        <input
-                          type="checkbox"
-                          aria-label={`${c.label} insure by default override`}
-                          checked={o?.insure_by_default ?? false}
-                          onChange={e => handleOverrideChange(c.id, 'insure_by_default', e.target.checked)}
-                        />
-                        Insure
-                      </label>
+                      </div>
                     </div>
                   )
                 })}

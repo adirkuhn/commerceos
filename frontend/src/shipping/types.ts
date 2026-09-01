@@ -42,6 +42,11 @@ export interface Shipment {
   barcode: string
   status: number
   status_main: string
+  // Best available carrier tracking link -- the connection's configured
+  // tracking_url_template for this carrier if set, else MyParcel's own
+  // link_consumer_portal, else empty (no barcode yet / carrier hasn't
+  // offered one).
+  tracking_url?: string
   label_format: string
   recipient: RecipientAddress
   created_at: string
@@ -113,6 +118,12 @@ export interface ShippingCarrierOverride {
   signature_required: boolean | null
   only_recipient: boolean | null
   insure_by_default: boolean | null
+  // Tracking-page URL template with {barcode}/{postcode} placeholders --
+  // e.g. PostNL's "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN"
+  // or DPD's "https://www.dpdgroup.com/nl/mydpd/my-parcels/search?lang=en&parcelNumber={barcode}".
+  // Preferred over MyParcel's own tracking link when set. Null means "use
+  // MyParcel's own link, if any".
+  tracking_url_template: string | null
 }
 
 export interface ShippingSettingsResult {

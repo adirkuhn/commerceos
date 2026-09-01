@@ -471,6 +471,37 @@ describe('Sales order detail page', () => {
     expect(shippingApi.listShipmentTrackingEvents).toHaveBeenCalledWith('test-token', 'ship-1')
   })
 
+  it('links the barcode to the carrier tracking page when tracking_url is set', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([
+      shipment({ tracking_url: 'https://postnl.nl/tracktrace/?B=3SMYPA1&P=1251%20SB&D=NL&T=C&L=EN' }),
+    ])
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+    await screen.findByText('Shipments')
+
+    const link = screen.getByRole('link', { name: '3SMYPA1' })
+    expect(link).toHaveAttribute('href', 'https://postnl.nl/tracktrace/?B=3SMYPA1&P=1251%20SB&D=NL&T=C&L=EN')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('shows the barcode as plain text (no link) when tracking_url is not set', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
+
+    render(<SalesOrders />)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+    await screen.findByText('Shipments')
+
+    expect(screen.getByText('3SMYPA1', { exact: false })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '3SMYPA1' })).not.toBeInTheDocument()
+  })
+
   it('lets staff delete a wrong-carrier shipment directly from the Shipments section', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
