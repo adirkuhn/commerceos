@@ -96,7 +96,15 @@ export default function SalesOrders() {
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
   const [selectedId, setSelectedId] = useState<string | null | 'new'>(null)
   const [sourceFilter, setSourceFilter] = useState<SalesOrderSource[]>([])
-  const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', { page, perPage: PAGE_SIZE, sortBy, sortDir, source: sourceFilter })
+  const [statusFilter, setStatusFilter] = useState<SalesOrderStatus[]>([])
+  // fulfilledFilter: '' = don't filter (all substatuses), otherwise
+  // "true"/"false" -- a substatus nested under whatever status is selected
+  // above (e.g. Processing + not yet fulfilled).
+  const [fulfilledFilter, setFulfilledFilter] = useState<'' | 'true' | 'false'>('')
+  const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', {
+    page, perPage: PAGE_SIZE, sortBy, sortDir, source: sourceFilter, status: statusFilter,
+    fulfilled: fulfilledFilter === '' ? undefined : fulfilledFilter === 'true',
+  })
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkStatus, setBulkStatus] = useState('')
   const [bulkFulfilled, setBulkFulfilled] = useState('')
@@ -159,6 +167,16 @@ export default function SalesOrders() {
     setPage(1)
   }
 
+  function toggleStatusFilter(status: SalesOrderStatus) {
+    setStatusFilter(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status])
+    setPage(1)
+  }
+
+  function changeFulfilledFilter(value: '' | 'true' | 'false') {
+    setFulfilledFilter(value)
+    setPage(1)
+  }
+
   function toggleSort(field: SalesOrderSortField) {
     if (field === sortBy) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
@@ -214,6 +232,36 @@ export default function SalesOrders() {
           ))}
         </div>
         {error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
+      </div>
+
+      {/* Status + substatus filter strip */}
+      <div className="flex items-center flex-wrap gap-3 px-5 py-2.5 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-white shrink-0">
+        <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label="Filter by status">
+          {STATUS_OPTIONS.map(s => (
+            <button
+              key={s}
+              onClick={() => toggleStatusFilter(s)}
+              aria-pressed={statusFilter.includes(s)}
+              className={clsx(
+                'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
+                statusFilter.includes(s)
+                  ? 'bg-blue-600 text-white'
+                  : 'dark:bg-[#1F2937] bg-gray-50 dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-100',
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Filter by fulfilled substatus" value={fulfilledFilter}
+          onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
+          className="px-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
+        >
+          <option value="">Any fulfillment</option>
+          <option value="true">Only fulfilled</option>
+          <option value="false">Only unfulfilled</option>
+        </select>
       </div>
 
       {/* Bulk action bar */}

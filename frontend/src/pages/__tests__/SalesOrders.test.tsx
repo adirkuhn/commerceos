@@ -143,7 +143,7 @@ describe('Sales orders list', () => {
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
-    expect(screen.getByText('completed')).toBeInTheDocument()
+    expect(screen.getByText('completed', { selector: 'span.rounded-full' })).toBeInTheDocument()
     expect(screen.getByText('$50.00')).toBeInTheDocument()
   })
 
@@ -170,7 +170,7 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] })
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] })
   })
 
   it('defaults to sorting by date, most recent first', async () => {
@@ -179,7 +179,7 @@ describe('Sales orders list', () => {
     render(<SalesOrders />)
     await screen.findByText('#1001')
 
-    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] })
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] })
   })
 
   it('clicking a column header sorts by that field', async () => {
@@ -190,7 +190,7 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Total/ }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'total', sortDir: 'desc', source: [] })
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'total', sortDir: 'desc', status: [], source: [] })
   })
 
   it('clicking the active column header again flips the direction', async () => {
@@ -201,7 +201,7 @@ describe('Sales orders list', () => {
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Order/ }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'asc', source: [] })
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'asc', status: [], source: [] })
   })
 
   it('changing sort resets back to page 1', async () => {
@@ -210,11 +210,11 @@ describe('Sales orders list', () => {
     render(<SalesOrders />)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] }))
 
     await userEvent.click(screen.getByRole('columnheader', { name: /Customer/ }))
 
-    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'customer', sortDir: 'desc', source: [] })
+    expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'customer', sortDir: 'desc', status: [], source: [] })
   })
 
   it('clicking a channel filter button narrows to that source and resets to page 1', async () => {
@@ -223,11 +223,11 @@ describe('Sales orders list', () => {
     render(<SalesOrders />)
     await screen.findByText('#1001')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: [] }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 2, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [] }))
 
     await userEvent.click(screen.getByRole('button', { name: 'WOO' }))
 
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['woocommerce'] }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['woocommerce'] }))
   })
 
   it('clicking multiple channel filter buttons combines them, and clicking again removes one', async () => {
@@ -237,13 +237,13 @@ describe('Sales orders list', () => {
     await screen.findByText('#1001')
 
     await userEvent.click(screen.getByRole('button', { name: 'POS' }))
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['pos'] }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['pos'] }))
 
     await userEvent.click(screen.getByRole('button', { name: 'Internal' }))
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['pos', 'manual'] }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['pos', 'manual'] }))
 
     await userEvent.click(screen.getByRole('button', { name: 'POS' }))
-    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', source: ['manual'] }))
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: ['manual'] }))
   })
 
   it('renders all four channel filter buttons, none active by default', async () => {
@@ -256,6 +256,52 @@ describe('Sales orders list', () => {
       const button = screen.getByRole('button', { name: label })
       expect(button).toHaveAttribute('aria-pressed', 'false')
     }
+  })
+
+  it('clicking a status filter button narrows the list by that status', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    await userEvent.click(screen.getByRole('button', { name: 'shipped' }))
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: ['shipped'], source: [],
+    }))
+  })
+
+  it('picking a fulfillment substatus narrows the list by fulfilled', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    await userEvent.selectOptions(screen.getByLabelText('Filter by fulfilled substatus'), 'true')
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [], fulfilled: true,
+    }))
+
+    await userEvent.selectOptions(screen.getByLabelText('Filter by fulfilled substatus'), 'false')
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [], fulfilled: false,
+    }))
+  })
+
+  it('status and fulfillment substatus filters combine', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<SalesOrders />)
+    await screen.findByText('#1001')
+
+    await userEvent.click(screen.getByRole('button', { name: 'processing' }))
+    await userEvent.selectOptions(screen.getByLabelText('Filter by fulfilled substatus'), 'false')
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: ['processing'], source: [], fulfilled: false,
+    }))
   })
 })
 
