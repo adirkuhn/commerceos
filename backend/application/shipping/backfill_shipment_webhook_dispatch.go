@@ -114,7 +114,7 @@ func (d *shipmentWebhookDispatcher) processEvent(ctx context.Context, event webh
 	for _, hook := range payload.Data.Hooks {
 		outcome, alreadySeenThisRun := cache[hook.ShipmentID]
 		if !alreadySeenThisRun {
-			outcome = d.resolveShipment(ctx, hook.ShipmentID)
+			outcome = d.resolveShipment(ctx, hook.ShipmentID, hook.Barcode)
 			cache[hook.ShipmentID] = outcome
 		}
 		switch {
@@ -144,7 +144,7 @@ func (d *shipmentWebhookDispatcher) processEvent(ctx context.Context, event webh
 	return stats, nil
 }
 
-func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParcelShipmentID int64) *shipmentDispatchOutcome {
+func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParcelShipmentID int64, barcode string) *shipmentDispatchOutcome {
 	var shipment shippingDomain.Shipment
 	var conn integrationsDomain.Connection
 	err := tenant.WithTenant(ctx, d.db, func(ctx context.Context) error {
@@ -180,10 +180,26 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 		return &shipmentDispatchOutcome{err: fmt.Errorf("get tracktrace: %w", err)}
 	}
 	if tt.StatusMain == shipment.StatusMain && tt.StatusCode == shipment.Status {
+		// Status genuinely unchanged -- but this webhook's barcode may still
+		// be new (a shipment stuck at "no barcode yet" despite an already-
+		// recorded later status, e.g. missed on the original delivery of
+		// this same event). Write just the barcode, without going through
+		// applyStatusUpdate -- that always appends a ShipmentStatusEvent,
+		// which here would be a duplicate timeline entry for a status that
+		// didn't actually change.
+		if barcode != "" && barcode != shipment.Barcode {
+			err := tenant.WithTenant(ctx, d.db, func(ctx context.Context) error {
+				return d.shipmentRepo.UpdateStatus(ctx, shipment.ID, tt.StatusCode, tt.StatusMain, tt.TrackingURL, barcode)
+			})
+			if err != nil {
+				return &shipmentDispatchOutcome{err: fmt.Errorf("update barcode: %w", err)}
+			}
+			return &shipmentDispatchOutcome{applied: true}
+		}
 		return &shipmentDispatchOutcome{applied: false}
 	}
 	if _, err := applyStatusUpdate(ctx, d.db, d.shipmentRepo, d.statusEventRepo, d.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill); err != nil {
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill, barcode); err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("apply status update: %w", err)}
 	}
 	if tt.StatusMain == shippingDomain.StatusMainShipped && d.updateSalesOrder != nil {

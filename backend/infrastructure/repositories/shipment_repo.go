@@ -148,13 +148,18 @@ func (r *ShipmentRepo) FindStaleNonTerminal(ctx context.Context, olderThan time.
 	return out, nil
 }
 
-func (r *ShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL string) error {
+func (r *ShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return err
 	}
-	err = tx.Model(&shipmentModel{}).Where("id = ?", id).
-		Updates(map[string]any{"status": status, "status_main": statusMain, "tracking_url": trackingURL, "updated_at": time.Now()}).Error
+	fields := map[string]any{"status": status, "status_main": statusMain, "tracking_url": trackingURL, "updated_at": time.Now()}
+	// Empty means "the caller has no barcode to offer" -- never overwrite an
+	// already-known one with that (see the interface doc).
+	if barcode != "" {
+		fields["barcode"] = barcode
+	}
+	err = tx.Model(&shipmentModel{}).Where("id = ?", id).Updates(fields).Error
 	if err != nil {
 		return fmt.Errorf("shipmentRepo.UpdateStatus: %w", err)
 	}

@@ -127,7 +127,7 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 	}
 
 	if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook); err != nil {
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook, hook.Barcode); err != nil {
 		return err
 	}
 	if tt.StatusMain == shippingDomain.StatusMainShipped && uc.updateSalesOrder != nil {

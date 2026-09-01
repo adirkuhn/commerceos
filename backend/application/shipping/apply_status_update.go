@@ -27,7 +27,12 @@ type SalesOrderStatusUpdater interface {
 // turns into local writes -- shared by HandleShipmentWebhookUseCase
 // (webhook-triggered) and ReconcileShipmentsUseCase (poll-triggered) so the
 // two never drift on what a status change actually does (record history +
-// the one Fulfilled-on-"shipped" order effect).
+// the one Fulfilled-on-"shipped" order effect). barcode is the webhook
+// payload's own `barcode` field (only the shipment_status_change webhook
+// carries it -- MyParcel's tracktrace GET, what the poll/refresh paths use,
+// doesn't) -- empty when the caller has none to offer, in which case the
+// shipment's existing barcode (set at label-creation time, or nothing yet
+// if MyParcel hadn't assigned one) is left untouched, never blanked out.
 func applyStatusUpdate(
 	ctx context.Context, db *gorm.DB,
 	shipmentRepo shippingDomain.ShipmentRepository,
@@ -36,12 +41,13 @@ func applyStatusUpdate(
 	shipmentID, salesOrderID string,
 	tt integrationsDomain.TrackTraceResult,
 	source shippingDomain.StatusEventSource,
+	barcode string,
 ) (shippingDomain.ShipmentStatusEvent, error) {
 	event := shippingDomain.ShipmentStatusEvent{
 		ShipmentID: shipmentID, Status: tt.StatusCode, StatusMain: tt.StatusMain, Source: source, OccurredAt: time.Now(),
 	}
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		if err := shipmentRepo.UpdateStatus(ctx, shipmentID, tt.StatusCode, tt.StatusMain, tt.TrackingURL); err != nil {
+		if err := shipmentRepo.UpdateStatus(ctx, shipmentID, tt.StatusCode, tt.StatusMain, tt.TrackingURL, barcode); err != nil {
 			return err
 		}
 		event.TenantID = tenant.IDFromContext(ctx)

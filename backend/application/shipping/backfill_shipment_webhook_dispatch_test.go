@@ -30,7 +30,7 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(context.Context, string, int, string, string) error { return nil },
+		updateStatusFn:             func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -65,7 +65,7 @@ func TestBackfillShipmentWebhookDispatch_shippedStatus_movesOrderToShipped(t *te
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(context.Context, string, int, string, string) error { return nil },
+		updateStatusFn:             func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -96,7 +96,7 @@ func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testi
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 3),
 	}}
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 3, StatusMain: "shipped"}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 3, StatusMain: "shipped", Barcode: "3SMYPA1"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
 	}
@@ -105,6 +105,8 @@ func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testi
 	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil // already what's recorded
 	}}
+	// Barcode also already matches the payload's -- genuinely nothing new,
+	// not even the barcode-only backfill path below.
 	appendCalled := false
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error {
 		appendCalled = true
@@ -124,6 +126,48 @@ func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testi
 	assert.Equal(t, webhooksDomain.WebhookEventStatusProcessed, eventRepo.markDispatchCalls[0].status, "a duplicate is still a known, successfully-checked outcome")
 }
 
+func TestBackfillShipmentWebhookDispatch_statusUnchangedButBarcodeMissing_backfillsBarcodeOnly(t *testing.T) {
+	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
+		myParcelHookEvent("evt-row-1", "evt-1", 555, 4),
+	}}
+	// A real-world case: the shipment already recorded "enroute" via an
+	// earlier webhook, but never got a barcode (e.g. it was created before
+	// this code tracked one) -- retrying/backfilling this webhook must still
+	// pick up the barcode even though the status itself hasn't changed.
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 4, StatusMain: "enroute", Barcode: ""}
+	var updateCalls int
+	var savedBarcode string
+	shipmentRepo := &fakeShipmentRepo{
+		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		updateStatusFn: func(_ context.Context, _ string, _ int, _ string, _ string, barcode string) error {
+			updateCalls++
+			savedBarcode = barcode
+			return nil
+		},
+	}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+		return integrationsDomain.TrackTraceResult{StatusCode: 4, StatusMain: "enroute"}, nil // same as already recorded
+	}}
+	appendCalled := false
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error {
+		appendCalled = true
+		return nil
+	}}
+
+	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, &fakeSalesOrderRepo{},
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+
+	result, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Applied, "a new barcode counts as applied even though the status itself didn't change")
+	assert.Equal(t, 1, updateCalls)
+	assert.Equal(t, "3SMYPA1", savedBarcode)
+	assert.False(t, appendCalled, "status genuinely didn't change -- no duplicate timeline entry")
+}
+
 func TestBackfillShipmentWebhookDispatch_multipleEventsSameShipment_fetchesTrackTraceOnce(t *testing.T) {
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 2),
@@ -132,7 +176,7 @@ func TestBackfillShipmentWebhookDispatch_multipleEventsSameShipment_fetchesTrack
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(context.Context, string, int, string, string) error { return nil },
+		updateStatusFn:             func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}

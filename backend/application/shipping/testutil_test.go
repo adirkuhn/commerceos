@@ -125,7 +125,7 @@ type fakeShipmentRepo struct {
 	findByMyParcelShipmentIDFn func(ctx context.Context, id int64) (*shippingDomain.Shipment, error)
 	findBySalesOrderIDFn       func(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error)
 	findStaleNonTerminalFn     func(ctx context.Context, olderThan time.Time, limit int) ([]shippingDomain.Shipment, error)
-	updateStatusFn             func(ctx context.Context, id string, status int, statusMain, trackingURL string) error
+	updateStatusFn             func(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error
 	markCancelledFn            func(ctx context.Context, id string, cancelledAt time.Time, note string) error
 }
 
@@ -144,8 +144,8 @@ func (f *fakeShipmentRepo) FindBySalesOrderID(ctx context.Context, salesOrderID 
 func (f *fakeShipmentRepo) FindStaleNonTerminal(ctx context.Context, olderThan time.Time, limit int) ([]shippingDomain.Shipment, error) {
 	return f.findStaleNonTerminalFn(ctx, olderThan, limit)
 }
-func (f *fakeShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL string) error {
-	return f.updateStatusFn(ctx, id, status, statusMain, trackingURL)
+func (f *fakeShipmentRepo) UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error {
+	return f.updateStatusFn(ctx, id, status, statusMain, trackingURL, barcode)
 }
 func (f *fakeShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt time.Time, note string) error {
 	if f.markCancelledFn == nil {

@@ -25,8 +25,16 @@ type ShipmentRepository interface {
 	// trackingURL is MyParcel's `link_consumer_portal` for this status
 	// update -- persisted alongside status so it's available later without
 	// a live MyParcel call (see Shipment.TrackingURL's doc). Empty is a
-	// valid value (MyParcel doesn't always have one yet).
-	UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL string) error
+	// valid value (MyParcel doesn't always have one yet), and overwrites
+	// whatever was there before -- same "latest known value" convention as
+	// status/statusMain.
+	//
+	// barcode is different: an empty barcode here means "the caller has no
+	// barcode to offer" (only the shipment_status_change webhook payload
+	// carries one -- MyParcel's tracktrace GET doesn't), not "MyParcel says
+	// there isn't one" -- so unlike trackingURL, an empty barcode must NOT
+	// overwrite an already-known one. Non-empty always overwrites.
+	UpdateStatus(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error
 	// MarkCancelled soft-cancels a shipment -- see Shipment.CancelledAt's
 	// doc comment. cancelledAt/note are set unconditionally by the caller
 	// (CancelShipmentUseCase), not derived here.

@@ -28,7 +28,7 @@ func TestHandleShipmentWebhook_shippedStatus_marksOrderFulfilled(t *testing.T) {
 			require.Equal(t, int64(555), id)
 			return shipment, nil
 		},
-		updateStatusFn: func(_ context.Context, id string, status int, statusMain, _ string) error {
+		updateStatusFn: func(_ context.Context, id string, status int, statusMain, _, _ string) error {
 			assert.Equal(t, "s-1", id)
 			assert.Equal(t, "shipped", statusMain)
 			return nil
@@ -64,11 +64,39 @@ func TestHandleShipmentWebhook_shippedStatus_marksOrderFulfilled(t *testing.T) {
 	assert.Equal(t, true, fulfilledFields["fulfilled"])
 }
 
+func TestHandleShipmentWebhook_savesBarcodeFromWebhookPayload(t *testing.T) {
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Barcode: ""}
+	var savedBarcode string
+	shipmentRepo := &fakeShipmentRepo{
+		findByMyParcelShipmentIDFn: func(_ context.Context, _ int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		updateStatusFn: func(_ context.Context, _ string, _ int, _ string, _ string, barcode string) error {
+			savedBarcode = barcode
+			return nil
+		},
+	}
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+		return integrationsDomain.TrackTraceResult{StatusCode: 4, StatusMain: "enroute"}, nil
+	}}
+	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
+
+	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+
+	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 4, "3SMYPA447656020")}
+	err := uc.Execute(context.Background(), envelope)
+
+	require.NoError(t, err)
+	assert.Equal(t, "3SMYPA447656020", savedBarcode, "the webhook payload's own barcode must reach the shipment write, not be discarded")
+}
+
 func TestHandleShipmentWebhook_shippedStatus_movesOrderToShipped(t *testing.T) {
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, _ int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
+		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -99,7 +127,7 @@ func TestHandleShipmentWebhook_shippedStatus_wooOrderAlsoMovesToShipped(t *testi
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, _ int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
+		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -129,7 +157,7 @@ func TestHandleShipmentWebhook_shippedStatus_alreadyPastProcessing_doesNotReappl
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, _ int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
+		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -160,7 +188,7 @@ func TestHandleShipmentWebhook_deliveredStatus_completesOrder(t *testing.T) {
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
+		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -187,7 +215,7 @@ func TestHandleShipmentWebhook_nonShippedStatus_doesNotTouchOrder(t *testing.T) 
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
 	shipmentRepo := &fakeShipmentRepo{
 		findByMyParcelShipmentIDFn: func(_ context.Context, _ int64) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string) error { return nil },
+		updateStatusFn:             func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}

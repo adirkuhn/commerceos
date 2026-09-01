@@ -21,7 +21,7 @@ func TestRefreshShipmentTracking_fetchesFromProviderAndSavesTheResult(t *testing
 			require.Equal(t, "s-1", id)
 			return shipment, nil
 		},
-		updateStatusFn: func(_ context.Context, id string, status int, statusMain, _ string) error {
+		updateStatusFn: func(_ context.Context, id string, status int, statusMain, _, _ string) error {
 			assert.Equal(t, "s-1", id)
 			assert.Equal(t, 5, status)
 			assert.Equal(t, "enroute", statusMain)
@@ -58,7 +58,7 @@ func TestRefreshShipmentTracking_shippedStatus_marksOrderFulfilled(t *testing.T)
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
 	shipmentRepo := &fakeShipmentRepo{
 		findByIDFn:     func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn: func(context.Context, string, int, string, string) error { return nil },
+		updateStatusFn: func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}

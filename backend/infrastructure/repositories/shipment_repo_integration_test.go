@@ -111,7 +111,7 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	require.NoError(t, err)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.UpdateStatus(ctx, shipmentID, 2, "shipped", "https://postnl.nl/tracktrace/?B=3SMYPA2")
+		return repo.UpdateStatus(ctx, shipmentID, 2, "shipped", "https://postnl.nl/tracktrace/?B=3SMYPA2", "3SMYPA2")
 	})
 	require.NoError(t, err)
 
@@ -124,6 +124,21 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	require.NoError(t, err)
 	require.Equal(t, "shipped", found.StatusMain)
 	require.Equal(t, "https://postnl.nl/tracktrace/?B=3SMYPA2", found.TrackingURL)
+	require.Equal(t, "3SMYPA2", found.Barcode)
+
+	// An empty barcode on a later update (e.g. the poll/refresh paths, which
+	// have no barcode to offer) must not blank out the one just set.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.UpdateStatus(ctx, shipmentID, 3, "enroute", "https://postnl.nl/tracktrace/?B=3SMYPA2", "")
+	})
+	require.NoError(t, err)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByID(ctx, shipmentID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "3SMYPA2", found.Barcode, "an empty barcode on this update must not overwrite the already-known one")
 
 	// A shipment updated "just now" is not stale against a very old cutoff.
 	var stale []shippingDomain.Shipment
@@ -148,7 +163,7 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	// Mark it delivered (terminal) -- must drop out of the stale scan even
 	// against a far-future cutoff.
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.UpdateStatus(ctx, shipmentID, 99, "delivered", "")
+		return repo.UpdateStatus(ctx, shipmentID, 99, "delivered", "", "")
 	})
 	require.NoError(t, err)
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
