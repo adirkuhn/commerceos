@@ -138,17 +138,19 @@ export default function OverviewPage() {
           profitabilityTrendPoints.length === 0 ? (
             <EmptyState>No cost-known revenue in this period</EmptyState>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={profitabilityTrendPoints} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="revenue_minor_units" name="Revenue" stroke="#2563EB" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="profit_minor_units" name="Profit" stroke="#16A34A" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="px-3 pb-3 pt-1">
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={profitabilityTrendPoints} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickMargin={8} />
+                  <YAxis width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                  <Line type="monotone" dataKey="revenue_minor_units" name="Revenue" stroke="#2563EB" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="profit_minor_units" name="Profit" stroke="#16A34A" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )
         ) : !profitability || profitability.summary.cost_known_revenue_minor_units === 0 ? (
           <EmptyState>No cost-known revenue in this period</EmptyState>
@@ -213,22 +215,27 @@ export default function OverviewPage() {
               {visibleChannelSources.length === 0 ? (
                 <EmptyState>Select at least one channel to show</EmptyState>
               ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={channelTrendRowsWithTotal} margin={{ top: 20, right: 16, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? 'Total' : name]} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    {visibleChannelSources.map((source, i) => (
-                      <Bar key={source} dataKey={source} name={source} stackId="revenue" fill={CHANNEL_COLORS[channelSources.indexOf(source) % CHANNEL_COLORS.length]}>
-                        {i === visibleChannelSources.length - 1 && (
-                          <LabelList dataKey="dayTotal" position="top" formatter={(v: number) => formatMoney(v, currency)} style={{ fontSize: 10, fill: '#6B7280' }} />
-                        )}
-                      </Bar>
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="px-3 pb-3 pt-1">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={channelTrendRowsWithTotal} margin={{ top: 28, right: 16, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickMargin={8} />
+                      <YAxis width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                      <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? 'Total' : name]} />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                      {visibleChannelSources.map((source, i) => (
+                        <Bar
+                          key={source} dataKey={source} name={source} stackId="revenue"
+                          fill={CHANNEL_COLORS[channelSources.indexOf(source) % CHANNEL_COLORS.length]}
+                        >
+                          {i === visibleChannelSources.length - 1 && (
+                            <LabelList dataKey="dayTotal" position="top" formatter={(v: number) => formatMoney(v, currency)} style={{ fontSize: 11, fill: '#9CA3AF' }} />
+                          )}
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </>
           )
@@ -236,15 +243,17 @@ export default function OverviewPage() {
           <EmptyState>No revenue in this period</EmptyState>
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={revenueByChannel.channels} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
-                <XAxis dataKey="source" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
-                <Bar dataKey="total_minor_units" fill="#2563EB" radius={4} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="px-3 pb-3 pt-1">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={revenueByChannel.channels} margin={{ top: 10, right: 10, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
+                  <XAxis dataKey="source" tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickMargin={8} />
+                  <YAxis width={72} tick={{ fontSize: 11, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatMoney(v, currency), 'Revenue']} />
+                  <Bar dataKey="total_minor_units" fill="#2563EB" radius={4} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
             <table className="w-full text-xs border-t dark:border-[#2D3748] border-gray-200">
               <thead>
                 <tr className="dark:bg-[#111827]/50 bg-gray-50">
