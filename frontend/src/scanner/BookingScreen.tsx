@@ -76,6 +76,23 @@ function scannedQuantityBySKU(scans: BookingDetail['scans']): Map<string, number
   return bySKU
 }
 
+// Mirrors PurchaseOrderLineItem.EffectiveUnitsPerPurchasedItem -- almost
+// always 1, set above 1 when the supplier's line is a box/case that isn't
+// itself a catalog SKU (see ScanBookingItemUseCase's scaleByLineItem).
+function effectiveUnitsPerPurchasedItem(li: { units_per_purchased_item?: number }): number {
+  return li.units_per_purchased_item && li.units_per_purchased_item > 0 ? li.units_per_purchased_item : 1
+}
+
+// scans[].quantity is always stock units (ScanBookingItemUseCase scales a
+// tap-to-book/RawSKU-matched entry up by EffectiveUnitsPerPurchasedItem
+// before staging it -- see its own doc comment) -- this converts a SKU's
+// summed stock-unit total back to purchased-item/box units, the same
+// convention PurchaseOrderLineItem.Quantity itself uses, for display
+// against it.
+function scannedPurchasedItems(li: { units_per_purchased_item?: number }, scannedStockQty: number): number {
+  return scannedStockQty / effectiveUnitsPerPurchasedItem(li)
+}
+
 // Mirrors PurchaseOrderLineItem.EffectiveUnitsPerPurchasedItem +
 // CompleteBookingUseCase's missing-items math exactly, computed from data
 // already loaded client-side -- lets Finish show a preview before actually
@@ -85,8 +102,7 @@ function computeMissingItems(detail: BookingDetail): MissingBookingItem[] {
   const missing: MissingBookingItem[] = []
   for (const li of detail.line_items) {
     const scannedQty = li.sku_id ? scannedBySKU.get(li.sku_id) ?? 0 : 0
-    const effectiveUnitsPerPurchasedItem = li.units_per_purchased_item && li.units_per_purchased_item > 0 ? li.units_per_purchased_item : 1
-    const expectedQty = li.quantity * effectiveUnitsPerPurchasedItem
+    const expectedQty = li.quantity * effectiveUnitsPerPurchasedItem(li)
     if (scannedQty < expectedQty) {
       missing.push({ line_item_id: li.id, raw_description: li.raw_description, expected_qty: expectedQty, scanned_qty: scannedQty })
     }
@@ -195,9 +211,15 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     const scannedQty = (detail?.scans ?? []).filter(s => s.sku_id === skuId).reduce((sum, s) => sum + s.quantity, 0)
     const li = detail?.line_items.find(l => l.sku_id === skuId)
     if (li) {
+      // li.quantity is purchased-item/box units -- scannedQty is stock
+      // units (see scannedPurchasedItems) -- convert before comparing so
+      // "expected"/"scannedSoFar"/"remaining" are all the same unit as the
+      // PO line itself, matching what ScanBookingItemUseCase now scales a
+      // typed quantity by on Confirm.
+      const scannedBoxes = scannedPurchasedItems(li, scannedQty)
       setBookingLine({
-        skuId, description: li.raw_description, expected: li.quantity, scannedSoFar: scannedQty,
-        remaining: Math.max(li.quantity - scannedQty, 0),
+        skuId, description: li.raw_description, expected: li.quantity, scannedSoFar: scannedBoxes,
+        remaining: Math.max(li.quantity - scannedBoxes, 0),
         suggestedLotNumber: opts.lotNumber || li.suggested_lot_number, suggestedExpiryDate: opts.expiryDate ?? li.suggested_expiry_date,
       })
       return
@@ -429,7 +451,12 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
         {detail?.line_items.map(li => {
           const scannedQty = li.sku_id ? scannedBySKU.get(li.sku_id) ?? 0 : 0
           const damagedLostQty = li.sku_id ? damagedLostBySKU.get(li.sku_id) ?? 0 : 0
-          const done = scannedQty >= li.quantity
+          // done/the row's count compare in the same units li.quantity is
+          // already in (purchased items/boxes) -- scannedQty itself stays
+          // in stock units for the >= check (exact, no rounding), only the
+          // displayed number is converted.
+          const done = scannedQty >= li.quantity * effectiveUnitsPerPurchasedItem(li)
+          const scannedBoxes = scannedPurchasedItems(li, scannedQty)
           const skuId = li.sku_id
           const content = (
             <>
@@ -441,7 +468,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
                 {damagedLostQty > 0 && <p className="text-xs text-red-400">{damagedLostQty} damaged/lost</p>}
               </div>
               <p className={`text-sm font-medium shrink-0 ${done ? 'text-green-400' : 'text-gray-300'}`}>
-                {scannedQty} / {li.quantity}
+                {scannedBoxes} / {li.quantity}
               </p>
             </>
           )
@@ -457,7 +484,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
               key={li.id}
               type="button"
               onClick={() => setBookingLine({
-                skuId, description: li.raw_description, remaining: Math.max(li.quantity - scannedQty, 0), scannedSoFar: scannedQty, expected: li.quantity,
+                skuId, description: li.raw_description, remaining: Math.max(li.quantity - scannedBoxes, 0), scannedSoFar: scannedBoxes, expected: li.quantity,
                 suggestedLotNumber: li.suggested_lot_number, suggestedExpiryDate: li.suggested_expiry_date,
               })}
               className="w-full flex items-center gap-3 rounded-xl bg-[#1F2937] border border-[#2D3748] px-3.5 py-3 text-left hover:border-blue-500 transition-colors"

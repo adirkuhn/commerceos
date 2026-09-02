@@ -79,6 +79,105 @@ func TestScanBookingItem_booksDirectlyAgainstSKUIDSkippingBarcodeResolution(t *t
 	assert.Equal(t, "sku-direct-1", result.Scan.SKUID)
 }
 
+// Regression: tapping a PO line item row books directly against a known
+// SKU (SKUID set, no Code/barcode) -- the quantity entered on that screen
+// matches the PO's own Quantity column (purchased-item/box units), same
+// convention as PurchaseOrderLineItem.Quantity, NOT stock units. When that
+// line's UnitsPerPurchasedItem is above 1 (a box that isn't its own catalog
+// SKU), the staged BookingScan.Quantity must be scaled up to stock units --
+// otherwise CompleteBookingUseCase's missingBookingItems (which compares
+// against li.Quantity*EffectiveUnitsPerPurchasedItem, already in stock
+// units) undercounts what arrived and the PO stays partially_received
+// forever, even once every box was received.
+func TestScanBookingItem_scalesTapToBookQuantityByUnitsPerPurchasedItem(t *testing.T) {
+	db := newMockGormDB(t)
+	bookingRepo, poRepo := activeBookingFixtures()
+	scanRepo := &stubBookingScanRepo{}
+	skuID := "sku-1"
+	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
+		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, Quantity: 5, UnitsPerPurchasedItem: 10}},
+	}}
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, lineItemRepo)
+
+	// Operator received all 5 boxes and types "5" -- matching what the PO
+	// line item itself says (Quantity: 5) -- not the 50 stock units that
+	// represents.
+	result, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
+		BookingID: "booking-1", SKUID: "sku-1", Quantity: 5, ScannedBy: "user-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, scanRepo.created, 1)
+	assert.Equal(t, int64(50), scanRepo.created[0].Quantity, "5 boxes x 10 units per purchased item")
+	assert.Equal(t, int64(50), result.Scan.Quantity)
+}
+
+// Same scaling, but for a damaged/lost write-off tapped against the line
+// item -- WriteOffQuantity must be scaled too, since it's compared against
+// the same stock-unit expectation as Quantity (see BookingScan's doc
+// comment: damaged/lost still counts toward "arrived").
+func TestScanBookingItem_scalesDamagedWriteOffByUnitsPerPurchasedItem(t *testing.T) {
+	db := newMockGormDB(t)
+	bookingRepo, poRepo := activeBookingFixtures()
+	scanRepo := &stubBookingScanRepo{}
+	skuID := "sku-1"
+	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
+		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, Quantity: 5, UnitsPerPurchasedItem: 10}},
+	}}
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, lineItemRepo)
+
+	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
+		BookingID: "booking-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged,
+		Quantity: 1, ScannedBy: "user-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), scanRepo.created[0].WriteOffQuantity, "1 box x 10 units per purchased item")
+}
+
+// A SKU tapped that doesn't match any of this PO's line items (e.g. a
+// substitute product received instead of what was ordered) has no box
+// convention to scale by -- the typed quantity is already stock units, same
+// as before this fix.
+func TestScanBookingItem_doesNotScaleWhenSKUMatchesNoLineItem(t *testing.T) {
+	db := newMockGormDB(t)
+	bookingRepo, poRepo := activeBookingFixtures()
+	scanRepo := &stubBookingScanRepo{}
+	skuID := "sku-other"
+	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
+		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, Quantity: 5, UnitsPerPurchasedItem: 10}},
+	}}
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, lineItemRepo)
+
+	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
+		BookingID: "booking-1", SKUID: "sku-substitute", Quantity: 4, ScannedBy: "user-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), scanRepo.created[0].Quantity)
+}
+
+// The RawSKU-fallback resolution path (resolveViaLineItem) means the code
+// only matched this PO's own line item, not the catalog -- same "quantity
+// means boxes" convention applies, so it must scale too.
+func TestScanBookingItem_scalesLineItemFallbackResolutionByUnitsPerPurchasedItem(t *testing.T) {
+	db := newMockGormDB(t)
+	bookingRepo, poRepo := activeBookingFixtures()
+	scanRepo := &stubBookingScanRepo{}
+	skuID := "sku-1"
+	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
+		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &skuID, RawSKU: "7897122604154", Quantity: 3, UnitsPerPurchasedItem: 6}},
+	}}
+	uc := appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, scanRepo, &stubSKURepo{}, &stubBarcodeAliasRepo{}, lineItemRepo)
+
+	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{
+		BookingID: "booking-1", Code: "7897122604154", Quantity: 3, ScannedBy: "user-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(18), scanRepo.created[0].Quantity, "3 boxes x 6 units per purchased item")
+}
+
 func TestScanBookingItem_stagesACorrectionWithNegativeNetQuantity(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo := activeBookingFixtures()

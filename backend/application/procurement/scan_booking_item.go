@@ -124,6 +124,18 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 
 		skuID := in.SKUID
 		effectiveQuantity := in.Quantity
+		// True whenever the quantity was entered against this booking's own
+		// PO line item rather than resolved from a barcode/alias/catalog
+		// code -- SKUID set directly (tapping a line item row) or the
+		// RawSKU fallback below. Both mean the operator typed a number in
+		// the same units as PurchaseOrderLineItem.Quantity itself (boxes/
+		// purchased items), not stock units, so it must be scaled by that
+		// line's UnitsPerPurchasedItem before it's comparable to anything
+		// else this package writes as stock units (BookingScan.Quantity/
+		// WriteOffQuantity, see missingBookingItems). A real barcode/alias/
+		// SKU-code scan identifies a physical unit directly -- no PO-line
+		// convention applies there, so those paths are left unscaled.
+		scaleByLineItem := in.SKUID != ""
 		if skuID == "" {
 			sku, err := uc.skuRepo.FindByBarcode(ctx, in.Code)
 			if err == nil {
@@ -147,6 +159,7 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 							return lerr
 						}
 						skuID = liSKUID
+						scaleByLineItem = true
 					} else {
 						return cerr
 					}
@@ -155,6 +168,16 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 				}
 			} else {
 				return err
+			}
+		}
+
+		if scaleByLineItem {
+			li, lerr := uc.findLineItemBySKU(ctx, po.ID, skuID)
+			if lerr != nil {
+				return lerr
+			}
+			if li != nil {
+				effectiveQuantity *= li.EffectiveUnitsPerPurchasedItem()
 			}
 		}
 
@@ -200,4 +223,23 @@ func (uc *ScanBookingItemUseCase) resolveViaLineItem(ctx context.Context, purcha
 		}
 	}
 	return "", pmsDomain.ErrSKUNotFound
+}
+
+// findLineItemBySKU looks up this PO's line item for an already-resolved
+// SKU, for scaleByLineItem's UnitsPerPurchasedItem lookup above. Returns
+// (nil, nil), not an error, when the SKU doesn't match any line item on
+// this PO (e.g. a substitute product received instead of what was
+// ordered) -- there's no box convention to scale by, so the caller leaves
+// the quantity as-is.
+func (uc *ScanBookingItemUseCase) findLineItemBySKU(ctx context.Context, purchaseOrderID, skuID string) (*procurementDomain.PurchaseOrderLineItem, error) {
+	lineItems, err := uc.lineItemRepo.ListByPurchaseOrder(ctx, purchaseOrderID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range lineItems {
+		if lineItems[i].SKUID != nil && *lineItems[i].SKUID == skuID {
+			return &lineItems[i], nil
+		}
+	}
+	return nil, nil
 }

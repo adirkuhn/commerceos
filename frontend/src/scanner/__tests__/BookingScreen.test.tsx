@@ -255,6 +255,69 @@ describe('BookingScreen scan-to-confirm-screen flow', () => {
   })
 })
 
+describe('BookingScreen units_per_purchased_item (box) scaling', () => {
+  // Regression for the "scanned 5 boxes, still shows partially received"
+  // bug: the PO line's Quantity (5) is in purchased-item/box units,
+  // BookingScan.quantity is stock units -- the row list, the confirm
+  // sheet's header, and its default "Quantity to receive" must all display
+  // and default in box units (dividing the stock-unit scan sum by
+  // units_per_purchased_item), matching what ScanBookingItemUseCase now
+  // scales a typed quantity back up by on Confirm.
+  it('shows the row progress and confirm-sheet defaults in box units, not raw stock units', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail({
+      line_items: [{
+        id: 'li-1', sku_id: 'sku-1', raw_description: 'Pão de Queijo (20 GM) 600 GM', quantity: 5,
+        units_per_purchased_item: 10,
+      }],
+      scans: [
+        { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', quantity: 50, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+      ],
+    }))
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+
+    // 50 stock units received / 10 per box = 5 of 5 boxes -- fully received.
+    expect(await screen.findByText('5 / 5')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Pão de Queijo (20 GM) 600 GM'))
+
+    expect(await screen.findByText('Received 5 of 5')).toBeInTheDocument()
+  })
+
+  it('defaults the confirm sheet to the remaining box count, not remaining stock units', async () => {
+    vi.mocked(api.getBooking).mockResolvedValue(bookingDetail({
+      line_items: [{
+        id: 'li-1', sku_id: 'sku-1', raw_description: 'Pão de Queijo (20 GM) 600 GM', quantity: 5,
+        units_per_purchased_item: 10,
+      }],
+      scans: [],
+    }))
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue({ purchase_order: purchaseOrder(), line_items: [], documents: [] })
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
+    vi.mocked(inventoryApi.listBatches).mockResolvedValue([])
+    vi.mocked(api.scanBookingItem).mockResolvedValueOnce({
+      scan: { id: 'scan-1', tenant_id: 't1', booking_id: 'booking-1', sku_id: 'sku-1', action_type: 'receive', quantity: 50, write_off_quantity: 0, scanned_at: '', scanned_by: '' },
+    })
+
+    render(<BookingScreen token={TOKEN} bookingId="booking-1" onExit={vi.fn()} onAuthError={vi.fn()} />)
+    await userEvent.click(await screen.findByText('Pão de Queijo (20 GM) 600 GM'))
+
+    expect(screen.getByText('Received 0 of 5')).toBeInTheDocument()
+    // Confirming the default (5 boxes) is what the operator typed -- the
+    // backend, not the frontend, is what scales this up to 50 stock units.
+    expect(screen.getByLabelText('Quantity to receive')).toHaveValue('5')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => expect(api.scanBookingItem).toHaveBeenCalledWith(TOKEN, 'booking-1', expect.objectContaining({
+      sku_id: 'sku-1', quantity: 5,
+    })))
+  })
+})
+
 describe('BookingScreen damaged/lost visibility and correction', () => {
   it('counts a damaged scan toward the line progress counter and checkmark, and flags it separately', async () => {
     vi.mocked(api.getBooking).mockResolvedValue(bookingDetail({
