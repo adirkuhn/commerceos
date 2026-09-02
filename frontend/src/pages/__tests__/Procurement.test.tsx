@@ -1185,6 +1185,48 @@ describe('Receiving', () => {
     expect(await screen.findByText('Stock received.')).toBeInTheDocument()
   })
 
+  // Regression: the discrepancy's received_qty (and the PO line's own
+  // Quantity it's diffed against) are in purchased-item/box units -- same
+  // as the scanner's "Quantity to receive" bug, submitting the pre-filled
+  // default as-is under-received stock by units_per_purchased_item when a
+  // line's box isn't its own catalog SKU.
+  it('scales the received quantity by the line item\'s units_per_purchased_item before booking stock', async () => {
+    vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({
+      line_items: [lineItem({ sku_id: 'sku-1', quantity: 5, units_per_purchased_item: 10 })],
+    }))
+    vi.mocked(procurementApi.listReceivingRecords).mockResolvedValue([receivingRecord()])
+    vi.mocked(procurementApi.getReceivingRecord).mockResolvedValue(receivingDetail({
+      discrepancies: [{
+        id: 'discrepancy-1', tenant_id: 'tenant-1', receiving_record_id: 'receiving-record-1',
+        line_item_id: 'line-item-1', type: 'missing_item', expected_qty: 5, received_qty: 5,
+        details: 'expected 5, invoice shows 5', status: 'open', created_at: '',
+      }],
+    }))
+    vi.mocked(inventoryApi.receiveStock).mockResolvedValue({
+      batch: null,
+      movement: {
+        id: 'movement-1', tenant_id: 'tenant-1', sku_id: 'sku-1', warehouse_id: 'warehouse-1',
+        batch_id: null, type: 'receipt', quantity_delta: 50, reason: '', occurred_at: '', created_at: '',
+      },
+    })
+
+    render(<Procurement />)
+    await userEvent.click(await screen.findByText('Acme Foods'))
+    await screen.findByText('invoice.csv')
+    await userEvent.click(screen.getByText('invoice.csv'))
+    await userEvent.click(await screen.findByRole('button', { name: /Receive stock/ }))
+
+    // The field still shows/defaults to 5 -- boxes, matching the PO line's
+    // own Quantity -- the multiply happens on submit, not in the field.
+    expect(screen.getByLabelText('Qty')).toHaveValue(5)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save receipt' }))
+
+    await waitFor(() => expect(inventoryApi.receiveStock).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      warehouse_id: 'warehouse-1', quantity: 50,
+    })))
+  })
+
   it('prompts for a warehouse when the PO has none yet, assigns it, then receives stock', async () => {
     vi.mocked(procurementApi.listPurchaseOrders).mockResolvedValue([po({ warehouse_id: null })])
     vi.mocked(procurementApi.getPurchaseOrder).mockResolvedValue(detail({

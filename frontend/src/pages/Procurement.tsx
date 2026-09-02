@@ -1795,6 +1795,7 @@ function DiscrepancyRow({
           warehouses={warehouses}
           onAssignWarehouse={onAssignWarehouse}
           defaultQuantity={discrepancy.received_qty}
+          unitsPerPurchasedItem={lineItem.units_per_purchased_item}
           reason={`Receiving invoice ${invoiceFileName}`}
           onDone={() => setFormOpen(false)}
         />
@@ -1951,11 +1952,20 @@ interface ReceiveDiscrepancyFormProps {
   warehouses: Warehouse[]
   onAssignWarehouse: (warehouseId: string) => Promise<void>
   defaultQuantity: number
+  // Same convention as PurchaseOrderLineItem.UnitsPerPurchasedItem: how many
+  // stock units one purchased item (box/case) represents. defaultQuantity
+  // and the "Qty" field below stay in purchased-item units throughout --
+  // matching received_qty/expected_qty (see diffInvoiceAgainstPurchaseOrder,
+  // which diffs the invoice's own quantity against the PO line's Quantity,
+  // both already in that unit) -- only the actual receive-stock call is
+  // scaled up to stock units, same split as ScanBookingItemUseCase's
+  // scaleByLineItem on the scanner side.
+  unitsPerPurchasedItem: number
   reason: string
   onDone: () => void
 }
 
-function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWarehouse, defaultQuantity, reason, onDone }: ReceiveDiscrepancyFormProps) {
+function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWarehouse, defaultQuantity, unitsPerPurchasedItem, reason, onDone }: ReceiveDiscrepancyFormProps) {
   const { token } = useAuth()
   const [quantity, setQuantity] = useState(String(defaultQuantity))
   const [lotNumber, setLotNumber] = useState('')
@@ -1978,8 +1988,9 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
         await onAssignWarehouse(pickedWarehouseId)
         effectiveWarehouseId = pickedWarehouseId
       }
+      const effectiveMultiplier = unitsPerPurchasedItem > 0 ? unitsPerPurchasedItem : 1
       await inventoryApi.receiveStock(token ?? '', skuId, {
-        warehouse_id: effectiveWarehouseId, quantity: parseInt(quantity, 10),
+        warehouse_id: effectiveWarehouseId, quantity: parseInt(quantity, 10) * effectiveMultiplier,
         lot_number: lotNumber || undefined, expiry_date: expiryDate || null, reason,
       })
       setDone(true)
@@ -2013,6 +2024,9 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
       <div>
         <label htmlFor={`receive-qty-${skuId}`} className="block text-[9px] dark:text-gray-500 text-gray-400 mb-0.5">Qty</label>
         <input id={`receive-qty-${skuId}`} type="number" min="1" required value={quantity} onChange={e => setQuantity(e.target.value)} className={clsx(inputClass, 'w-14')} />
+        {unitsPerPurchasedItem > 1 && Number.isFinite(parseInt(quantity, 10)) && (
+          <p className="text-[9px] dark:text-gray-500 text-gray-400 mt-0.5">= {parseInt(quantity, 10) * unitsPerPurchasedItem} units</p>
+        )}
       </div>
       <div>
         <label htmlFor={`receive-lot-${skuId}`} className="block text-[9px] dark:text-gray-500 text-gray-400 mb-0.5">Lot #</label>
