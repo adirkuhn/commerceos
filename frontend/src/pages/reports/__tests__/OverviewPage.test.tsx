@@ -163,6 +163,22 @@ describe('OverviewPage', () => {
     expect(screen.getByTitle('Hide pos')).toBeInTheDocument()
   })
 
+  it('shows the whole-period total per channel on its chip and the grand total across every channel', async () => {
+    vi.mocked(reportsApi.getRevenueByChannelReport).mockResolvedValue(revenueByChannel({
+      channels: [{ source: 'woocommerce', total_minor_units: 31500 }, { source: 'pos', total_minor_units: 8000 }],
+      points: [
+        { period_start: '2026-08-01T00:00:00Z', source: 'woocommerce', revenue_minor_units: 31500 },
+        { period_start: '2026-08-01T00:00:00Z', source: 'pos', revenue_minor_units: 8000 },
+      ],
+    }))
+    render(<OverviewPage />)
+    fireEvent.click(await screen.findByText('Daily'))
+
+    expect(await screen.findByTitle('Hide woocommerce')).toHaveTextContent('woocommerce · €315.00')
+    expect(screen.getByTitle('Hide pos')).toHaveTextContent('pos · €80.00')
+    expect(screen.getByTestId('channel-total-all')).toHaveTextContent('Total, all channels: €395.00')
+  })
+
   it('shows an empty state when every channel is hidden in the daily view', async () => {
     render(<OverviewPage />)
     fireEvent.click(await screen.findByText('Daily'))

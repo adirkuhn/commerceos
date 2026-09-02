@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
 import clsx from 'clsx'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../../auth/AuthContext'
 import * as reportsApi from '../../reports/api'
 import { useReport } from '../../reports/hooks/useSingleReport'
@@ -76,6 +76,14 @@ export default function OverviewPage() {
   const channelSources = Array.from(new Set((revenueByChannel?.points ?? []).map(p => p.source)))
   const visibleChannelSources = channelSources.filter(s => !hiddenChannels.has(s))
   const channelTrendRows = buildChannelTrendRows(revenueByChannel?.points ?? [], channelSources)
+  // dayTotal sums only the currently visible channels -- it matches the bar
+  // height on screen, not necessarily every channel that exists.
+  const channelTrendRowsWithTotal = channelTrendRows.map(row => ({
+    ...row,
+    dayTotal: visibleChannelSources.reduce((sum, source) => sum + Number(row[source] ?? 0), 0),
+  }))
+  const channelTotalBySource = Object.fromEntries((revenueByChannel?.channels ?? []).map(c => [c.source, c.total_minor_units]))
+  const totalAllChannelsMinorUnits = (revenueByChannel?.channels ?? []).reduce((sum, c) => sum + c.total_minor_units, 0)
 
   return (
     <ReportPageShell
@@ -177,7 +185,12 @@ export default function OverviewPage() {
             <EmptyState>No revenue in this period</EmptyState>
           ) : (
             <>
-              <div className="flex flex-wrap gap-1.5 px-4 pt-3">
+              <div className="flex items-center justify-between px-4 pt-3">
+                <p data-testid="channel-total-all" className="text-xs dark:text-gray-400 text-gray-500">
+                  Total, all channels: <span className="font-semibold dark:text-gray-100 text-gray-900">{formatMoney(totalAllChannelsMinorUnits, currency)}</span>
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 px-4 pt-2">
                 {channelSources.map((source, i) => {
                   const visible = !hiddenChannels.has(source)
                   const color = CHANNEL_COLORS[i % CHANNEL_COLORS.length]
@@ -192,7 +205,7 @@ export default function OverviewPage() {
                       style={visible ? { backgroundColor: color } : undefined}
                       title={visible ? `Hide ${source}` : `Show ${source}`}
                     >
-                      {source}
+                      {source} · {formatMoney(channelTotalBySource[source] ?? 0, currency)}
                     </button>
                   )
                 })}
@@ -201,14 +214,18 @@ export default function OverviewPage() {
                 <EmptyState>Select at least one channel to show</EmptyState>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={channelTrendRows} margin={{ top: 10, right: 16, left: -20, bottom: 0 }}>
+                  <BarChart data={channelTrendRowsWithTotal} margin={{ top: 20, right: 16, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#2D3748" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} axisLine={false} tickLine={false} tickFormatter={v => formatMoney(v, currency)} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name]} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number, name: string) => [formatMoney(v, currency), name === 'dayTotal' ? 'Total' : name]} />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
-                    {visibleChannelSources.map(source => (
-                      <Bar key={source} dataKey={source} name={source} stackId="revenue" fill={CHANNEL_COLORS[channelSources.indexOf(source) % CHANNEL_COLORS.length]} />
+                    {visibleChannelSources.map((source, i) => (
+                      <Bar key={source} dataKey={source} name={source} stackId="revenue" fill={CHANNEL_COLORS[channelSources.indexOf(source) % CHANNEL_COLORS.length]}>
+                        {i === visibleChannelSources.length - 1 && (
+                          <LabelList dataKey="dayTotal" position="top" formatter={(v: number) => formatMoney(v, currency)} style={{ fontSize: 10, fill: '#6B7280' }} />
+                        )}
+                      </Bar>
                     ))}
                   </BarChart>
                 </ResponsiveContainer>
