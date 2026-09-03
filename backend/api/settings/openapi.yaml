@@ -36,25 +36,60 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
-  /settings/storefront-key:
-    post:
-      operationId: setStorefrontKey
-      summary: >
-        (Re)generate the current tenant's storefront key -- the bearer
-        token a connected storefront (e.g. the WooCommerce plugin)
-        presents to call CommerceOS' authenticated public-storefront API
-        (see api/storefront). Tenant-wide, not tied to any one integration
-        connection. Returns the PLAINTEXT key exactly once -- paste it
-        into the storefront's settings right away, it can't be retrieved
-        again after this response. Re-running this rotates the key; the
-        old value stops resolving immediately.
+  /settings/api-keys:
+    get:
+      operationId: listApiKeys
+      summary: List the current tenant's storefront API keys
       responses:
         '200':
           description: ok
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StorefrontKeyResponse'
+                $ref: '#/components/schemas/ApiKeyListResponse'
+    post:
+      operationId: createApiKey
+      summary: >
+        Create a new storefront API key -- the bearer token a connected
+        storefront (e.g. the WooCommerce plugin) presents to call
+        CommerceOS' authenticated public-storefront API (see
+        api/storefront). Returns the PLAINTEXT key exactly once -- paste it
+        into the storefront's settings right away, it can't be retrieved
+        again after this response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreatedResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /settings/api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      summary: Revoke a storefront API key -- it stops resolving immediately.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyRevokedResponse'
+        '404':
+          $ref: '#/components/responses/Error'
 
 components:
   responses:
@@ -118,13 +153,58 @@ components:
         data: { $ref: '#/components/schemas/TenantSettings' }
         error: { nullable: true }
 
-    StorefrontKeyResponse:
+    ApiKey:
+      type: object
+      required: [id, name, description, created_at, revoked_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        created_at: { type: string, format: date-time }
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null for an active key.
+
+    CreateApiKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+
+    ApiKeyCreated:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          required: [key]
+          properties:
+            key:
+              type: string
+              description: Plaintext key, shown exactly once.
+
+    ApiKeyCreatedResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ApiKeyCreated' }
+        error: { nullable: true }
+
+    ApiKeyListResponse:
       type: object
       properties:
         data:
           type: object
           properties:
-            storefront_key: { type: string }
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/ApiKey' }
+        error: { nullable: true }
+
+    ApiKeyRevokedResponse:
+      type: object
+      properties:
+        data: { nullable: true }
         error: { nullable: true }
 
     ErrorResponse:

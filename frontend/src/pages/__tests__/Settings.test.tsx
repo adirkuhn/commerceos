@@ -39,7 +39,9 @@ vi.mock('../../inventory/api', () => ({
 vi.mock('../../settings/api', () => ({
   getTenantSettings: vi.fn(),
   updateTenantSettings: vi.fn(),
-  setStorefrontKey: vi.fn(),
+  listApiKeys: vi.fn(),
+  createApiKey: vi.fn(),
+  revokeApiKey: vi.fn(),
 }))
 
 vi.mock('../../tax/api', () => ({
@@ -77,6 +79,7 @@ beforeEach(() => {
     prices_include_tax: false, default_tax_country: '',
     inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
+  vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([])
   vi.mocked(taxApi.listTaxClasses).mockResolvedValue([])
   vi.mocked(taxApi.listTaxRates).mockResolvedValue([])
   vi.mocked(taxApi.listExternalTaxClassLinks).mockResolvedValue([])
@@ -138,38 +141,73 @@ describe('Settings > Integrations overview', () => {
   })
 })
 
-describe('Settings > Integrations > Storefront key', () => {
+describe('Settings > Integrations > API keys', () => {
   beforeEach(() => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([])
   })
 
-  it('shows no key generated yet by default', async () => {
+  it('shows no keys yet by default', async () => {
     render(<Settings />)
     await openIntegrationsSection()
 
-    expect(await screen.findByText(/No key generated yet/)).toBeInTheDocument()
+    expect(await screen.findByText(/No keys yet/)).toBeInTheDocument()
   })
 
-  it('generating a key calls the endpoint and shows the plaintext value once', async () => {
-    vi.mocked(tenantSettingsApi.setStorefrontKey).mockResolvedValue({ storefront_key: 'top-secret-key' })
+  it('lists existing keys with their status', async () => {
+    vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([
+      { id: 'key-1', name: 'Main storefront', description: 'Prod Woo site', created_at: '2026-01-01T00:00:00Z', revoked_at: null },
+    ])
 
     render(<Settings />)
     await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Generate key' }))
+
+    expect(await screen.findByText('Main storefront')).toBeInTheDocument()
+    expect(screen.getByText('Prod Woo site')).toBeInTheDocument()
+    expect(screen.getByText('active')).toBeInTheDocument()
+  })
+
+  it('creating a key calls the endpoint and shows the plaintext value once', async () => {
+    vi.mocked(tenantSettingsApi.createApiKey).mockResolvedValue({
+      id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, key: 'top-secret-key',
+    })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await screen.findByText(/No keys yet/)
+    await userEvent.type(screen.getByLabelText('Name'), 'Main storefront')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
 
     expect(await screen.findByText('top-secret-key')).toBeInTheDocument()
-    expect(tenantSettingsApi.setStorefrontKey).toHaveBeenCalledWith('test-token')
-    expect(screen.getByRole('button', { name: 'Regenerate key' })).toBeInTheDocument()
+    expect(tenantSettingsApi.createApiKey).toHaveBeenCalledWith('test-token', 'Main storefront', '')
+    expect(await screen.findByText('Main storefront')).toBeInTheDocument()
   })
 
-  it('surfaces an error inline if generating fails', async () => {
-    vi.mocked(tenantSettingsApi.setStorefrontKey).mockRejectedValue(new Error('server error'))
+  it('surfaces an error inline if creating fails', async () => {
+    vi.mocked(tenantSettingsApi.createApiKey).mockRejectedValue(new Error('server error'))
 
     render(<Settings />)
     await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Generate key' }))
+    await screen.findByText(/No keys yet/)
+    await userEvent.type(screen.getByLabelText('Name'), 'Main storefront')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
 
     expect(await screen.findByText('server error')).toBeInTheDocument()
+  })
+
+  it('revoking a key calls the endpoint and marks it revoked', async () => {
+    vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([
+      { id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null },
+    ])
+    vi.mocked(tenantSettingsApi.revokeApiKey).mockResolvedValue(null)
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
+
+    expect(tenantSettingsApi.revokeApiKey).toHaveBeenCalledWith('test-token', 'key-1')
+    expect(await screen.findByText('revoked')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
   })
 })
 

@@ -8,6 +8,7 @@ import (
 	"compress/flate"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -15,7 +16,59 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 )
+
+// ApiKey defines model for ApiKey.
+type ApiKey struct {
+	CreatedAt   time.Time `json:"created_at"`
+	Description string    `json:"description"`
+	Id          string    `json:"id"`
+	Name        string    `json:"name"`
+
+	// RevokedAt Null for an active key.
+	RevokedAt *time.Time `json:"revoked_at"`
+}
+
+// ApiKeyCreated defines model for ApiKeyCreated.
+type ApiKeyCreated struct {
+	CreatedAt   time.Time `json:"created_at"`
+	Description string    `json:"description"`
+	Id          string    `json:"id"`
+
+	// Key Plaintext key, shown exactly once.
+	Key  string `json:"key"`
+	Name string `json:"name"`
+
+	// RevokedAt Null for an active key.
+	RevokedAt *time.Time `json:"revoked_at"`
+}
+
+// ApiKeyCreatedResponse defines model for ApiKeyCreatedResponse.
+type ApiKeyCreatedResponse struct {
+	Data  *ApiKeyCreated `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
+// ApiKeyListResponse defines model for ApiKeyListResponse.
+type ApiKeyListResponse struct {
+	Data *struct {
+		Items *[]ApiKey `json:"items,omitempty"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// ApiKeyRevokedResponse defines model for ApiKeyRevokedResponse.
+type ApiKeyRevokedResponse struct {
+	Data  interface{} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// CreateApiKeyRequest defines model for CreateApiKeyRequest.
+type CreateApiKeyRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
@@ -24,14 +77,6 @@ type ErrorResponse struct {
 		Code    *string `json:"code,omitempty"`
 		Message *string `json:"message,omitempty"`
 	} `json:"error,omitempty"`
-}
-
-// StorefrontKeyResponse defines model for StorefrontKeyResponse.
-type StorefrontKeyResponse struct {
-	Data *struct {
-		StorefrontKey *string `json:"storefront_key,omitempty"`
-	} `json:"data,omitempty"`
-	Error interface{} `json:"error,omitempty"`
 }
 
 // TenantSettings defines model for TenantSettings.
@@ -80,14 +125,23 @@ type UpdateTenantSettingsRequest struct {
 // Error defines model for Error.
 type Error = ErrorResponse
 
+// CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
+type CreateApiKeyJSONRequestBody = CreateApiKeyRequest
+
 // UpdateTenantSettingsJSONRequestBody defines body for UpdateTenantSettings for application/json ContentType.
 type UpdateTenantSettingsJSONRequestBody = UpdateTenantSettingsRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// SetStorefrontKey (Re)generate the current tenant's storefront key -- the bearer token a connected storefront (e.g. the WooCommerce plugin) presents to call CommerceOS' authenticated public-storefront API (see api/storefront). Tenant-wide, not tied to any one integration connection. Returns the PLAINTEXT key exactly once -- paste it into the storefront's settings right away, it can't be retrieved again after this response. Re-running this rotates the key; the old value stops resolving immediately.
-	// (POST /settings/storefront-key)
-	SetStorefrontKey(c *gin.Context)
+	// ListApiKeys List the current tenant's storefront API keys
+	// (GET /settings/api-keys)
+	ListApiKeys(c *gin.Context)
+	// CreateApiKey Create a new storefront API key -- the bearer token a connected storefront (e.g. the WooCommerce plugin) presents to call CommerceOS' authenticated public-storefront API (see api/storefront). Returns the PLAINTEXT key exactly once -- paste it into the storefront's settings right away, it can't be retrieved again after this response.
+	// (POST /settings/api-keys)
+	CreateApiKey(c *gin.Context)
+	// RevokeApiKey Revoke a storefront API key -- it stops resolving immediately.
+	// (DELETE /settings/api-keys/{id})
+	RevokeApiKey(c *gin.Context, id string)
 	// GetTenantSettings Get the current tenant's settings
 	// (GET /settings/tenant)
 	GetTenantSettings(c *gin.Context)
@@ -105,8 +159,8 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
-// SetStorefrontKey operation middleware
-func (siw *ServerInterfaceWrapper) SetStorefrontKey(c *gin.Context) {
+// ListApiKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListApiKeys(c *gin.Context) {
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -115,7 +169,45 @@ func (siw *ServerInterfaceWrapper) SetStorefrontKey(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.SetStorefrontKey(c)
+	siw.Handler.ListApiKeys(c)
+}
+
+// CreateApiKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateApiKey(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateApiKey(c)
+}
+
+// RevokeApiKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeApiKey(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RevokeApiKey(c, id)
 }
 
 // GetTenantSettings operation middleware
@@ -173,7 +265,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/settings/tenant", wrapper.GetTenantSettings)
 	router.PATCH(options.BaseURL+"/settings/tenant", wrapper.UpdateTenantSettings)
-	router.POST(options.BaseURL+"/settings/storefront-key", wrapper.SetStorefrontKey)
+	router.GET(options.BaseURL+"/settings/api-keys", wrapper.ListApiKeys)
+	router.POST(options.BaseURL+"/settings/api-keys", wrapper.CreateApiKey)
+	router.DELETE(options.BaseURL+"/settings/api-keys/:id", wrapper.RevokeApiKey)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -181,29 +275,32 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"zFdvb9tGD/8qxD3PgySAZLvJ88rDXnRbUQQd1qJp0QFtIZwlSr76xFPvKCdq4O8+UCc7dqIkDdBheyff",
-	"kbwfyR//+Frlrm4cIXFQ82vlMTSOAvY/XnjvvHzkjhiJ5VM3jTW5ZuNo+iU4krOQL7HW8vVfj6Waq/9M",
-	"b6xO422Y9tbeDvbVZrNJVIEh96YRY2qusH9OzgeVHYad1vxaNd416NlEiIXm/mFqrdULi2rOvsVNMhi7",
-	"I5+7orfCXYNqrgJ7Q5XaJKrGEHQ1drdJtidu8QVzHjtJ1AU7j6V3xK+wexzv4WnYKWcr7L4Lw56Ht3wf",
-	"k32HpIkvkNlQFe4CWGjOlxleNcZ3GS89hqWzRVboLqI+yNNvugvQ6MCgoVc8ChBVodCMsMDSeQTDYALo",
-	"ll1aWl1VWEQpLCYwg8IEwTwIRPWJ2kE3xFihF+xiMyudrzWPZq7AUreWs7z1HinvHhRi7SvkrNZ+1TbZ",
-	"QgcTssaZgf2HfsagpZemQCi1tQudryAagGgAjhvvSsMwhdwFToActE2DHhaupQLSFHBSTeBsNpvBz3A2",
-	"+9+geAJtwALYgRRKywgaLl69PwrgMXd1jVRgAY03OcLlEgkMB8g1Y+V8B0sd5CW3Ru9NgRJOR6CBcI0+",
-	"DXotpnvwUKOmAJ9USwH5k7onwrvgXGW5a4l9dzcap6lFZvRwfvEaBimQctq5Yp1bQduABtZX4IUKPXZN",
-	"4HyBfnrx6v0Wey0MCQ3mpjT51tweupvMGVojsfNdFjrKM99aDBmSkKe4i/KDPChlkEC+1ERoIbDLVyDK",
-	"gjREyg6MS/Wl9ghfW01suINjQu0x8HAdZcGR7RJwHkJbR5fIDVfijqaB/idgKDDqAlwJvEQorWZRSl2Z",
-	"kqN04H/a62KAIfB7fi+cs6hJHLeaqna8JSWqp0bIDOW2LVAyNxoLXqIXYkUqBRBnkRi9ZExfpb1+MGuE",
-	"YwnaiTgp53i1Oy+1DXgyDjGSLDPFKEY2NX5zNO5A20hdF1ks6m1598WeiuJdKmwS5fFrKwFU8497b4+0",
-	"gL3HDxvIXlhHgzheDI+wMHmwf35X8zkIyOdHO/jjA+ahSXxrGjxxlrzvgd7G87XFwE8eLP9ot68Nmbqt",
-	"1Xz2hKb45P70Qwp7pPTuL66RhaXHWbqHZ5x1ubbmW7/bbVtTgONtpBPYvpnEOR+zlMDWn9gkDAt71K8y",
-	"xXyOry8gvgFbrsDzN+cqUWv0IWJ4NpmJR65B0o1Rc3U2mU3OpD41L/tMTcOgO73ZlNJhU2pc5J2wrod+",
-	"Xqi5ukA+2MhUcrjans5mP2yxHV/9RhZct4rbbVvXWtikjt/iSYWE/ayUgRFjzcP0Pgpw4y+ssJOFQsQW",
-	"MqU8sFvJeIXcEWHOWOyLH/ebh0h/cG6bDWhsWxk6gcZjECf6FURbCzf5OpKVbInEEg3ZQtqFNXm6Z/r5",
-	"m3M4DoigG7OXkZMJ7NFJliEGNnE30NSBI4S+wGKetrCNowm8RW49hR7vm9+fn//x7sWf73qX8UrnbEU7",
-	"R/FfFs+4XBK7Xv4GgQRsyzJvqiWDvtRdItK5piOGBYJH9gZlRdKVNgS6lKWGl0Z2r5g7gZP6lshQNdw4",
-	"1owR3gq7n/oPZwtYa9v2CJpe3dm16Ji6xsJoRttNPlGf9BsKx9wKqSocYe5L5Fv9+W+k7j1T5Xu4+xL5",
-	"HsruzZVG2v9dH8dGiIrjHQP/4oruh3n40LTaHO4Uwz/Hf0mwE/X/09P7TO4wxn/Vt1ITfX4sO70OeunD",
-	"av7xWrXeqrmaSk2vn6nN581fAQAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

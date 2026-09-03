@@ -1,9 +1,9 @@
 // Package storefront wires CommerceOS' authenticated public-storefront API
 // (see api/storefront's doc comment) to its use cases. Every route here
-// authenticates via a per-connection storefront key resolved to a tenant at
-// request time -- there is no JWT, so this handler (not middleware.JWT)
-// owns establishing tenant context, then behaves like any other handler
-// package from there.
+// authenticates via a storefront API key resolved to a tenant at request
+// time -- there is no JWT, so this handler (not middleware.JWT) owns
+// establishing tenant context, then behaves like any other handler package
+// from there.
 package storefront
 
 import (
@@ -17,14 +17,14 @@ import (
 	"gorm.io/gorm"
 
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
-	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
+	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-type resolveStorefrontKeyUC interface {
+type resolveAPIKeyUC interface {
 	Execute(ctx context.Context, plaintextKey string) (string, error)
 }
 
@@ -33,12 +33,12 @@ type getCartRecommendationsUC interface {
 }
 
 type Handler struct {
-	resolveStorefrontKey   resolveStorefrontKeyUC
+	resolveAPIKey          resolveAPIKeyUC
 	getCartRecommendations getCartRecommendationsUC
 }
 
-func NewHandler(resolveStorefrontKey resolveStorefrontKeyUC, getCartRecommendations getCartRecommendationsUC) *Handler {
-	return &Handler{resolveStorefrontKey: resolveStorefrontKey, getCartRecommendations: getCartRecommendations}
+func NewHandler(resolveAPIKey resolveAPIKeyUC, getCartRecommendations getCartRecommendationsUC) *Handler {
+	return &Handler{resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations}
 }
 
 var _ genstorefront.ServerInterface = (*Handler)(nil)
@@ -46,12 +46,13 @@ var _ genstorefront.ServerInterface = (*Handler)(nil)
 func Register(rg gin.IRouter, db *gorm.DB) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
+	apiKeyRepo := repositories.NewAPIKeyRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 
 	h := NewHandler(
-		appintegrations.NewResolveStorefrontKeyUseCase(db, settingsRepo),
+		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
 		appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
@@ -64,11 +65,11 @@ func (h *Handler) GetCartRecommendations(c *gin.Context) {
 		return
 	}
 
-	tenantID, err := h.resolveStorefrontKey.Execute(c.Request.Context(), key)
+	tenantID, err := h.resolveAPIKey.Execute(c.Request.Context(), key)
 	if err != nil {
 		// Deliberately the same message as the missing-header case above --
-		// never lets a caller distinguish "no key" from "wrong key".
-		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid storefront key")
+		// never lets a caller distinguish "no key" from "wrong/revoked key".
+		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid api key")
 		return
 	}
 

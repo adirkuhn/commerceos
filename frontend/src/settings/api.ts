@@ -1,4 +1,4 @@
-import type { TenantSettings, TenantSettingsInput, StorefrontKeyResult, APIResponse } from './types'
+import type { TenantSettings, TenantSettingsInput, ApiKey, ApiKeyCreated, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/settings`
@@ -36,11 +36,24 @@ export function updateTenantSettings(token: string, input: TenantSettingsInput):
   )
 }
 
-// (Re)generates the tenant's storefront key -- the bearer token a
-// connected storefront (e.g. the WooCommerce plugin) presents to call
-// CommerceOS' authenticated public-storefront API. The response carries
-// the PLAINTEXT value exactly once, it can't be retrieved again after this
+export async function listApiKeys(token: string): Promise<ApiKey[]> {
+  const result = await request<{ items: ApiKey[] }>(`${base()}/api-keys`, { method: 'GET' }, token)
+  return result.items
+}
+
+// Creates a new storefront API key -- the bearer token a connected
+// storefront (e.g. the WooCommerce plugin) presents to call CommerceOS'
+// authenticated public-storefront API. The response carries the
+// PLAINTEXT value exactly once, it can't be retrieved again after this
 // call (only the hash persists server-side).
-export function setStorefrontKey(token: string): Promise<StorefrontKeyResult> {
-  return request<StorefrontKeyResult>(`${base()}/storefront-key`, { method: 'POST' }, token)
+export function createApiKey(token: string, name: string, description: string): Promise<ApiKeyCreated> {
+  return request<ApiKeyCreated>(
+    `${base()}/api-keys`,
+    { method: 'POST', body: JSON.stringify({ name, description }) },
+    token,
+  )
+}
+
+export function revokeApiKey(token: string, id: string): Promise<null> {
+  return request<null>(`${base()}/api-keys/${id}`, { method: 'DELETE' }, token)
 }

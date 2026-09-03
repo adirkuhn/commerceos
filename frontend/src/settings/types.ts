@@ -28,8 +28,19 @@ export interface TenantSettingsInput {
   default_target_markup_basis_points?: number
 }
 
-export interface StorefrontKeyResult {
-  storefront_key: string
+export interface ApiKey {
+  id: string
+  name: string
+  description: string
+  created_at: string
+  // Null for an active key.
+  revoked_at: string | null
+}
+
+export interface ApiKeyCreated extends ApiKey {
+  // Plaintext key, present only in the response to createApiKey -- shown
+  // exactly once, never retrievable again.
+  key: string
 }
 
 export interface APIError {

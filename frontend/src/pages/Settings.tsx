@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Building2, Package, Truck, Globe, Zap, Shield, Bell, CreditCard, Plug,
   ChevronRight, Check, AlertTriangle, Bot, X, Percent, Trash2, TrendingUp,
@@ -11,7 +11,7 @@ import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettings
 import type { Connection, AIProvider } from '../integrations/types'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as settingsApi from '../settings/api'
-import type { TenantSettings, TenantSettingsInput } from '../settings/types'
+import type { TenantSettings, TenantSettingsInput, ApiKey } from '../settings/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
@@ -349,7 +349,7 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
 
       <AIIntegrationCard />
 
-      <StorefrontKeyCard />
+      <ApiKeysCard />
 
       {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
       {error && <p className="text-xs text-red-400">{error}</p>}
@@ -390,32 +390,65 @@ function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection
 }
 
 // Tenant-wide, not tied to any one Connection -- a storefront (e.g. the
-// WooCommerce plugin) calls CommerceOS' cart-recommendations API with this,
-// and that call only needs a tenant, not a specific integration connection
-// (a tenant can have several, see the connections list above).
-function StorefrontKeyCard() {
+// WooCommerce plugin) calls CommerceOS' cart-recommendations API with one
+// of these, and that call only needs a tenant, not a specific integration
+// connection (a tenant can have several, see the connections list above).
+// Several named, independently revocable keys, mirroring
+// ProviderWebhooksPanel's list+create+delete shape.
+function ApiKeysCard() {
   const { token } = useAuth()
-  const [key, setKey] = useState('')
-  const [generating, setGenerating] = useState(false)
+  const [keys, setKeys] = useState<ApiKey[]>([])
+  const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
+  const [justCreatedKey, setJustCreatedKey] = useState('')
   const [copied, setCopied] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  async function handleGenerate() {
+  useEffect(() => {
+    let cancelled = false
+    settingsApi.listApiKeys(token ?? '')
+      .then(result => { if (!cancelled) setKeys(result) })
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load API keys') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token])
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
     setError('')
-    setGenerating(true)
+    setCreating(true)
     try {
-      const result = await settingsApi.setStorefrontKey(token ?? '')
-      setKey(result.storefront_key)
+      const created = await settingsApi.createApiKey(token ?? '', name.trim(), description.trim())
+      setKeys(prev => [created, ...prev])
+      setJustCreatedKey(created.key)
+      setName('')
+      setDescription('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate storefront key')
+      setError(err instanceof Error ? err.message : 'Failed to create API key')
     } finally {
-      setGenerating(false)
+      setCreating(false)
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    setBusyId(id)
+    setError('')
+    try {
+      await settingsApi.revokeApiKey(token ?? '', id)
+      setKeys(prev => prev.map(k => (k.id === id ? { ...k, revoked_at: new Date().toISOString() } : k)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to revoke API key')
+    } finally {
+      setBusyId(null)
     }
   }
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(key)
+      await navigator.clipboard.writeText(justCreatedKey)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
@@ -428,22 +461,21 @@ function StorefrontKeyCard() {
   return (
     <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
       <div>
-        <p className="text-xs font-medium dark:text-gray-200 text-gray-800">Storefront key</p>
+        <p className="text-xs font-medium dark:text-gray-200 text-gray-800">API keys</p>
         <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
-          Generate a key, then paste it into the CommerceOS Sync plugin's settings in WordPress so your storefront can call
-          CommerceOS' cart recommendations API. Regenerating replaces the old value immediately -- update the plugin's
-          settings with the new one, or recommendations will start failing to load.
+          Each key lets a storefront (e.g. the CommerceOS Sync WordPress plugin) call CommerceOS' cart recommendations
+          API. Name each key for the storefront it's for, so you can revoke just that one later without affecting others.
         </p>
       </div>
 
-      {key ? (
+      {justCreatedKey && (
         <div>
           <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
-            Key (shown once -- copy it now)
+            New key (shown once -- copy it now)
           </label>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
-              {key}
+              {justCreatedKey}
             </code>
             <button
               type="button"
@@ -454,25 +486,86 @@ function StorefrontKeyCard() {
             </button>
           </div>
           <p className="mt-1.5 text-[10px] text-amber-500">
-            This won't be shown again -- if you lose it, generate a new one and update the plugin.
+            This won't be shown again -- if you lose it, revoke it below and create a new one.
           </p>
         </div>
-      ) : (
-        <p className="text-xs dark:text-gray-500 text-gray-400">
-          No key generated yet -- the storefront can't call the recommendations API until you generate one.
-        </p>
       )}
 
       {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
 
-      <button
-        type="button"
-        onClick={handleGenerate}
-        disabled={generating}
-        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-      >
-        {generating ? 'Generating…' : key ? 'Regenerate key' : 'Generate key'}
-      </button>
+      <form onSubmit={handleCreate} className="flex items-end gap-2">
+        <div className="flex-1">
+          <label htmlFor="api-key-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            Name
+          </label>
+          <input
+            id="api-key-name" required value={name} onChange={e => setName(e.target.value)}
+            placeholder="e.g. Main storefront"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+          />
+        </div>
+        <div className="flex-1">
+          <label htmlFor="api-key-description" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+            Description
+          </label>
+          <input
+            id="api-key-description" value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Optional"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+          />
+        </div>
+        <button
+          type="submit" disabled={creating}
+          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {creating ? 'Creating…' : 'Create key'}
+        </button>
+      </form>
+
+      {loading ? (
+        <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>
+      ) : keys.length === 0 ? (
+        <p className="text-xs dark:text-gray-500 text-gray-400">No keys yet -- create one above.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
+                <th className="py-2 pr-3 font-medium">Name</th>
+                <th className="py-2 pr-3 font-medium">Description</th>
+                <th className="py-2 pr-3 font-medium">Status</th>
+                <th className="py-2 pr-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {keys.map(k => (
+                <tr key={k.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
+                  <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{k.name}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 truncate max-w-[220px]">{k.description}</td>
+                  <td className="py-2 pr-3">
+                    {k.revoked_at ? (
+                      <span className="text-[10px] dark:text-gray-500 text-gray-400">revoked</span>
+                    ) : (
+                      <span className="text-[10px] text-green-400 bg-green-500/15 px-2 py-0.5 rounded-full">active</span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {!k.revoked_at && (
+                      <button
+                        onClick={() => handleRevoke(k.id)}
+                        disabled={busyId === k.id}
+                        className="px-2 py-1 rounded dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

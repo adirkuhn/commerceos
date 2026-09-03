@@ -14,8 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
-	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
+	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
+	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 )
@@ -57,29 +58,58 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Upd
 	}, nil
 }
 
-type stubSetStorefrontKey struct {
-	out *appintegrations.SetStorefrontKeyResult
+type stubListAPIKeys struct {
+	out []apikeysDomain.APIKey
 	err error
 }
 
-func (s *stubSetStorefrontKey) Execute(_ context.Context) (*appintegrations.SetStorefrontKeyResult, error) {
+func (s *stubListAPIKeys) Execute(_ context.Context) ([]apikeysDomain.APIKey, error) {
+	return s.out, s.err
+}
+
+type stubCreateAPIKey struct {
+	out      *appapikeys.CreateAPIKeyResult
+	err      error
+	gotName  string
+	gotDescr string
+}
+
+func (s *stubCreateAPIKey) Execute(_ context.Context, name, description string) (*appapikeys.CreateAPIKeyResult, error) {
+	s.gotName, s.gotDescr = name, description
 	if s.err != nil {
 		return nil, s.err
 	}
 	if s.out != nil {
 		return s.out, nil
 	}
-	return &appintegrations.SetStorefrontKeyResult{}, nil
+	return &appapikeys.CreateAPIKeyResult{Name: name, Description: description}, nil
 }
 
-func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings, setKey ...*stubSetStorefrontKey) *settingshandler.Handler {
-	var key *stubSetStorefrontKey
-	if len(setKey) > 0 {
-		key = setKey[0]
-	} else {
-		key = &stubSetStorefrontKey{}
+type stubRevokeAPIKey struct {
+	err   error
+	gotID string
+}
+
+func (s *stubRevokeAPIKey) Execute(_ context.Context, id string) error {
+	s.gotID = id
+	return s.err
+}
+
+func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings, apiKeyStubs ...any) *settingshandler.Handler {
+	list := &stubListAPIKeys{}
+	create := &stubCreateAPIKey{}
+	revoke := &stubRevokeAPIKey{}
+	for _, s := range apiKeyStubs {
+		switch v := s.(type) {
+		case *stubListAPIKeys:
+			list = v
+		case *stubCreateAPIKey:
+			create = v
+		case *stubRevokeAPIKey:
+			revoke = v
+		}
 	}
-	return settingshandler.NewHandler(get, update, key)
+	return settingshandler.NewHandler(get, update, list, create, revoke)
 }
 
 func newTestRouter(h *settingshandler.Handler) *gin.Engine {
@@ -137,19 +167,46 @@ func TestUpdateTenantSettingsHandler_propagatesError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestSetStorefrontKeyHandler_returnsPlaintextKeyOnce(t *testing.T) {
-	setKey := &stubSetStorefrontKey{out: &appintegrations.SetStorefrontKeyResult{PlaintextKey: "topsecretkey"}}
-	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, setKey)
-	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/settings/storefront-key", nil)
+func TestListApiKeysHandler_returnsKeys(t *testing.T) {
+	list := &stubListAPIKeys{out: []apikeysDomain.APIKey{{ID: "key-1", Name: "My storefront"}}}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, list)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/api-keys", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "My storefront")
+}
+
+func TestCreateApiKeyHandler_returnsPlaintextKeyOnce(t *testing.T) {
+	create := &stubCreateAPIKey{out: &appapikeys.CreateAPIKeyResult{ID: "key-1", Name: "My storefront", PlaintextKey: "topsecretkey"}}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, create)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/settings/api-keys", map[string]string{"name": "My storefront"})
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "topsecretkey")
+	assert.Equal(t, "My storefront", create.gotName)
 }
 
-func TestSetStorefrontKeyHandler_propagatesError(t *testing.T) {
-	setKey := &stubSetStorefrontKey{err: assert.AnError}
-	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, setKey)
-	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/settings/storefront-key", nil)
+func TestCreateApiKeyHandler_propagatesValidationError(t *testing.T) {
+	create := &stubCreateAPIKey{err: apikeysDomain.ErrNameRequired}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, create)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/settings/api-keys", map[string]string{"name": ""})
 
-	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestRevokeApiKeyHandler_revokesById(t *testing.T) {
+	revoke := &stubRevokeAPIKey{}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, revoke)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/settings/api-keys/key-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "key-1", revoke.gotID)
+}
+
+func TestRevokeApiKeyHandler_notFound(t *testing.T) {
+	revoke := &stubRevokeAPIKey{err: apikeysDomain.ErrNotFound}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, revoke)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/settings/api-keys/missing", nil)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
 }
