@@ -11,6 +11,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 )
 
@@ -37,7 +38,7 @@ func TestReconcileShipments_updatesChangedStatusAndSkipsUnchanged(t *testing.T) 
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -80,7 +81,7 @@ func TestReconcileShipments_statusUnchangedButBarcodeMissing_backfillsBarcodeOnl
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -113,7 +114,7 @@ func TestReconcileShipments_perShipmentFailure_doesNotAbortTheBatch(t *testing.T
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -121,6 +122,75 @@ func TestReconcileShipments_perShipmentFailure_doesNotAbortTheBatch(t *testing.T
 	assert.Equal(t, 2, result.Checked)
 	assert.Equal(t, 1, result.Updated, "the second shipment still gets processed despite the first one failing")
 	require.Len(t, result.Errors, 1)
+}
+
+func TestReconcileShipments_fulfilledOrderStillProcessing_movesToShipped(t *testing.T) {
+	// Reproduces the real bug: a reconciliation poll (not the live webhook)
+	// catches a status change for an already-Fulfilled order still stuck on
+	// Processing -- this path used to never call MarkOrderShippedOnFulfillment
+	// at all, so the order stayed Processing forever even after the webhook
+	// path was fixed to no longer depend on a status.main == "shipped" match.
+	stale := []shippingDomain.Shipment{
+		{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 1, Status: 1, StatusMain: "registered"},
+	}
+	shipmentRepo := &fakeShipmentRepo{
+		findStaleNonTerminalFn: func(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) { return stale, nil },
+		updateStatusFn:         func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
+	}
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil // the real string MyParcel sends -- never "shipped"
+	}}
+	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
+	salesOrderRepo := &fakeSalesOrderRepo{
+		updateFn:   func(context.Context, string, map[string]any) error { return nil },
+		findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil },
+	}
+	updater := &fakeSalesOrderStatusUpdater{}
+
+	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+
+	result, err := uc.Execute(context.Background(), "conn-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated)
+	require.Len(t, updater.calls, 1)
+	assert.Equal(t, "order-1", updater.calls[0].id)
+	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[0].status)
+}
+
+func TestReconcileShipments_notYetFulfilled_doesNotMoveOrder(t *testing.T) {
+	stale := []shippingDomain.Shipment{
+		{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 1, Status: 1, StatusMain: "registered"},
+	}
+	shipmentRepo := &fakeShipmentRepo{
+		findStaleNonTerminalFn: func(_ context.Context, _ time.Time, _ int) ([]shippingDomain.Shipment, error) { return stale, nil },
+		updateStatusFn:         func(_ context.Context, _ string, _ int, _ string, _ string, _ string) error { return nil },
+	}
+	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	client := &fakeMyParcelClient{getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
+	}}
+	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false}
+	salesOrderRepo := &fakeSalesOrderRepo{
+		updateFn:   func(context.Context, string, map[string]any) error { return nil },
+		findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil },
+	}
+	updater := &fakeSalesOrderStatusUpdater{}
+
+	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+
+	result, err := uc.Execute(context.Background(), "conn-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated, "the shipment itself still updates -- only the order transition is withheld")
+	assert.Empty(t, updater.calls, "not Fulfilled yet -- must not move Status")
 }
 
 func TestReconcileShipments_noStaleShipments_returnsEmptyResultWithoutBuildingClient(t *testing.T) {
@@ -132,7 +202,7 @@ func TestReconcileShipments_noStaleShipments_returnsEmptyResultWithoutBuildingCl
 	factory := &fakeMyParcelClientFactory{newClientErr: assert.AnError} // must never be called
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 1), shipmentRepo, &fakeShipmentStatusEventRepo{}, connRepo, &fakeSalesOrderRepo{},
-		factory, testEncSecret)
+		factory, testEncSecret, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 

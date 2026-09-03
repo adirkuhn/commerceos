@@ -19,7 +19,7 @@ import (
 func TestRetryWebhookEventDispatch_reprocessesAFailedEventAndReturnsItsUpdatedRow(t *testing.T) {
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		{ID: "evt-row-1", Provider: "myparcel", Topic: "shipment_status_change", EventID: "evt-1",
-			Payload: myParcelHookPayload(555, 2, "3SMYPA1"), Status: webhooksDomain.WebhookEventStatusFailed, DispatchError: "myparcel unreachable"},
+			Payload: myParcelHookPayload(555, 3, "3SMYPA1"), Status: webhooksDomain.WebhookEventStatusFailed, DispatchError: "myparcel unreachable"},
 	}}
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
@@ -30,23 +30,26 @@ func TestRetryWebhookEventDispatch_reprocessesAFailedEventAndReturnsItsUpdatedRo
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
-		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil
+		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
 	}}
-	var fulfilledOrderID string
-	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(_ context.Context, id string, _ map[string]any) error {
-		fulfilledOrderID = id
-		return nil
-	}}
+	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
+	salesOrderRepo := &fakeSalesOrderRepo{
+		updateFn:   func(context.Context, string, map[string]any) error { return nil },
+		findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil },
+	}
+	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, updater)
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, webhooksDomain.WebhookEventStatusProcessed, updated.Status, "the retry succeeded, so the returned row must reflect the new outcome")
 	assert.Empty(t, updated.DispatchError)
-	assert.Equal(t, "order-1", fulfilledOrderID)
+	require.Len(t, updater.calls, 1)
+	assert.Equal(t, "order-1", updater.calls[0].id)
+	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[0].status)
 }
 
 func TestRetryWebhookEventDispatch_stillFailingReturnsTheFailedRowNotAnError(t *testing.T) {

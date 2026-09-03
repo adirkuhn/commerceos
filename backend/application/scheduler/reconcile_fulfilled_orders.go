@@ -55,7 +55,7 @@ func (uc *ReconcileFulfilledOrdersUseCase) Run(ctx context.Context) error {
 
 	for _, o := range stuck {
 		runCtx := tenant.WithTenantID(adminCtx, o.TenantID)
-		if err := appshipping.MarkOrderShippedOnFulfillment(runCtx, uc.db, uc.salesOrderRepo, uc.updater, o.ID); err != nil {
+		if err := appshipping.MarkOrderShippedOnFulfillment(runCtx, uc.db, uc.salesOrderRepo, uc.updater, o.ID, true); err != nil {
 			log.Printf("reconcile fulfilled order %s: %v", o.ID, err)
 		}
 	}

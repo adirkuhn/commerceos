@@ -117,32 +117,16 @@ func TestRefreshShipmentTracking_alreadyHasBarcode_skipsTheExtraCall(t *testing.
 	assert.False(t, barcodeCalled, "already has a barcode -- no need for the extra GET /shipments/{id} call")
 }
 
-func TestRefreshShipmentTracking_shippedStatus_marksOrderFulfilled(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
-	shipmentRepo := &fakeShipmentRepo{
-		findByIDFn:     func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil },
-		updateStatusFn: func(context.Context, string, int, string, string, string) error { return nil },
-	}
-	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
-	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
-	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
-		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil
-	}}
-	var fulfilledOrderID string
-	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(_ context.Context, id string, _ map[string]any) error {
-		fulfilledOrderID = id
-		return nil
-	}}
-
-	uc := appshipping.NewRefreshShipmentTrackingUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
-
-	_, err := uc.Execute(context.Background(), "s-1")
-
-	require.NoError(t, err)
-	assert.Equal(t, "order-1", fulfilledOrderID)
-}
+// Note: RefreshShipmentTrackingUseCase deliberately does not offer the
+// SalesOrder to MarkOrderShippedOnFulfillment/completeOrderOnDelivery --
+// unlike the webhook/backfill/reconcile paths, it has no
+// SalesOrderStatusUpdater wired (see its struct -- no updateSalesOrder
+// field), since this handler's dependency graph doesn't otherwise need
+// application/oms.UpdateSalesOrderUseCase's stock-movement machinery. A
+// staff-triggered "refresh tracking" click therefore only updates the
+// Shipment/ShipmentStatusEvent rows; the order status catches up via the
+// next webhook, the 24h ReconcileShipmentsUseCase poll, or
+// ReconcileFulfilledOrdersUseCase's 24h sweep.
 
 func TestRefreshShipmentTracking_shipmentNotFound_propagatesError(t *testing.T) {
 	shipmentRepo := &fakeShipmentRepo{

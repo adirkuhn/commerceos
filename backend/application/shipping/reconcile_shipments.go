@@ -42,13 +42,14 @@ type ReconcileShipmentsResult struct {
 // partial-failure-tolerant convention as channels' own scheduled runners
 // (see cmd/scheduler/dispatch.go's resultErr).
 type ReconcileShipmentsUseCase struct {
-	db              *gorm.DB
-	shipmentRepo    shippingDomain.ShipmentRepository
-	statusEventRepo shippingDomain.ShipmentStatusEventRepository
-	connRepo        integrationsDomain.ConnectionRepository
-	salesOrderRepo  omsDomain.SalesOrderRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
-	encSecret       string
+	db               *gorm.DB
+	shipmentRepo     shippingDomain.ShipmentRepository
+	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
+	connRepo         integrationsDomain.ConnectionRepository
+	salesOrderRepo   omsDomain.SalesOrderRepository
+	myParcelFactory  integrationsDomain.MyParcelClientFactory
+	encSecret        string
+	updateSalesOrder SalesOrderStatusUpdater
 }
 
 func NewReconcileShipmentsUseCase(
@@ -59,10 +60,12 @@ func NewReconcileShipmentsUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
+	updateSalesOrder SalesOrderStatusUpdater,
 ) *ReconcileShipmentsUseCase {
 	return &ReconcileShipmentsUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
 		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		updateSalesOrder: updateSalesOrder,
 	}
 }
 
@@ -131,6 +134,16 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 		if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
 			s.ID, s.SalesOrderID, tt, shippingDomain.StatusEventSourceReconciliation, barcode); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: apply update: %v", s.ID, err))
+			continue
+		}
+		if uc.updateSalesOrder != nil {
+			if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, s.SalesOrderID, true); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: mark shipped: %v", s.ID, err))
+				continue
+			}
+		}
+		if err := completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, s.SalesOrderID); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: complete on delivery: %v", s.ID, err))
 			continue
 		}
 		result.Updated++

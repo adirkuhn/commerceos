@@ -123,7 +123,7 @@ func (uc *HandleOrderStatusWebhookUseCase) handleOne(ctx context.Context, hook m
 }
 
 func (uc *HandleOrderStatusWebhookUseCase) applyProcessed(ctx context.Context, fulfilment shippingDomain.MyParcelFulfilmentOrder) error {
-	if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, fulfilment.SalesOrderID); err != nil {
+	if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, fulfilment.SalesOrderID, false); err != nil {
 		return fmt.Errorf("update sales order status: %w", err)
 	}
 	return nil

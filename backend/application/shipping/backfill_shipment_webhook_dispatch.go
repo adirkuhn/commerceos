@@ -30,8 +30,8 @@ type BackfillShipmentWebhookDispatchResult struct {
 	Checked int
 	// Applied is a hook that found its shipment, fetched a status different
 	// from what's already recorded, and wrote a new ShipmentStatusEvent
-	// (source=Backfill) -- linking to and, when it's the shipped
-	// transition, marking the SalesOrder fulfilled, same as a live webhook.
+	// (source=Backfill) -- same as a live webhook, including offering the
+	// linked SalesOrder to MarkOrderShippedOnFulfillment/completeOrderOnDelivery.
 	Applied int
 	// SkippedDuplicate is a hook whose shipment's current status already
 	// matches what MyParcel reports right now -- no new event written, the
@@ -202,8 +202,8 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill, barcode); err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("apply status update: %w", err)}
 	}
-	if tt.StatusMain == shippingDomain.StatusMainShipped && d.updateSalesOrder != nil {
-		if err := MarkOrderShippedOnFulfillment(ctx, d.db, d.salesOrderRepo, d.updateSalesOrder, shipment.SalesOrderID); err != nil {
+	if d.updateSalesOrder != nil {
+		if err := MarkOrderShippedOnFulfillment(ctx, d.db, d.salesOrderRepo, d.updateSalesOrder, shipment.SalesOrderID, true); err != nil {
 			return &shipmentDispatchOutcome{err: err}
 		}
 	}

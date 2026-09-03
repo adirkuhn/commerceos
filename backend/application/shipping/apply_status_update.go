@@ -46,14 +46,19 @@ type SalesOrderStatusUpdater interface {
 
 // applyStatusUpdate is the one place a fetched MyParcel TrackTraceResult
 // turns into local writes -- shared by HandleShipmentWebhookUseCase
-// (webhook-triggered) and ReconcileShipmentsUseCase (poll-triggered) so the
-// two never drift on what a status change actually does (record history +
-// the one Fulfilled-on-"shipped" order effect). barcode is the webhook
-// payload's own `barcode` field (only the shipment_status_change webhook
-// carries it -- MyParcel's tracktrace GET, what the poll/refresh paths use,
-// doesn't) -- empty when the caller has none to offer, in which case the
-// shipment's existing barcode (set at label-creation time, or nothing yet
-// if MyParcel hadn't assigned one) is left untouched, never blanked out.
+// (webhook-triggered), ReconcileShipmentsUseCase (poll-triggered),
+// RefreshShipmentTrackingUseCase (staff-triggered) and
+// shipmentWebhookDispatcher (backfill) so none of them ever drift on what a
+// status change actually does: record the new Shipment status + a
+// ShipmentStatusEvent. It does not touch SalesOrder itself -- callers do
+// that afterwards via MarkOrderShippedOnFulfillment/completeOrderOnDelivery
+// (see those docs for why: it's keyed off SalesOrder.Fulfilled, not any
+// particular status.main string). barcode is the webhook payload's own
+// `barcode` field (only the shipment_status_change webhook carries it --
+// MyParcel's tracktrace GET, what the poll/refresh paths use, doesn't) --
+// empty when the caller has none to offer, in which case the shipment's
+// existing barcode (set at label-creation time, or nothing yet if MyParcel
+// hadn't assigned one) is left untouched, never blanked out.
 func applyStatusUpdate(
 	ctx context.Context, db *gorm.DB,
 	shipmentRepo shippingDomain.ShipmentRepository,
@@ -72,15 +77,7 @@ func applyStatusUpdate(
 			return err
 		}
 		event.TenantID = tenant.IDFromContext(ctx)
-		if err := statusEventRepo.Append(ctx, &event); err != nil {
-			return err
-		}
-		if tt.StatusMain == shippingDomain.StatusMainShipped {
-			if err := salesOrderRepo.Update(ctx, salesOrderID, map[string]any{"fulfilled": true, "updated_at": time.Now()}); err != nil {
-				return err
-			}
-		}
-		return nil
+		return statusEventRepo.Append(ctx, &event)
 	})
 	return event, err
 }
@@ -108,25 +105,34 @@ func completeOrderOnDelivery(ctx context.Context, updater SalesOrderStatusUpdate
 
 // MarkOrderShippedOnFulfillment moves a SalesOrder out of Pending/Processing
 // into Shipped once it's known to be fulfilled -- uniformly, regardless of
-// source. WooCommerce has no native "shipped" status of its own, but that's
-// handled entirely at the channel-push boundary (see
-// application/channels.PushSalesOrderStatusToChannelsUseCase's
-// wooStatusBySalesOrderStatus map, which maps Shipped -> Woo's "on-hold" and
-// attaches a shipment-info order note) -- CommerceOS's own record of the
-// order always says Shipped. No-ops (not an error) if the order has already
-// moved past Pending/Processing -- already applied via a different path, or
-// diverged -- never moves status backward or reapplies.
+// source. No-ops (not an error) if the order has already moved past
+// Pending/Processing -- already applied via a different path, or diverged
+// -- never moves status backward or reapplies. WooCommerce has no native
+// "shipped" status of its own, but that's handled entirely at the
+// channel-push boundary (see application/channels.PushSalesOrderStatusToChannelsUseCase's
+// wooStatusBySalesOrderStatus map, which maps Shipped -> Woo's "on-hold"
+// and attaches a shipment-info order note) -- CommerceOS's own record of
+// the order always says Shipped.
 //
-// Shared by HandleOrderStatusWebhookUseCase.applyProcessed (order_status_change
-// webhook), HandleShipmentWebhookUseCase/shipmentWebhookDispatcher's
-// post-applyStatusUpdate call (shipment_status_change webhook), and
-// application/scheduler.ReconcileFulfilledOrdersUseCase (the 24h sweep for
-// orders that missed both webhook paths) so none of them ever drift on this
-// decision. Callers decide for themselves whether/when this should run
-// (e.g. only on StatusMainShipped, only when updater != nil) -- this
-// function itself always attempts the transition for whatever salesOrderID
-// it's given.
-func MarkOrderShippedOnFulfillment(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, updater SalesOrderStatusUpdater, salesOrderID string) error {
+// requireFulfilled additionally gates on SalesOrder.Fulfilled (set
+// independently by application/oms.CompletePickingUseCase at pick/pack
+// time) -- true for every shipment_status_change-family caller
+// (HandleShipmentWebhookUseCase, shipmentWebhookDispatcher,
+// ReconcileShipmentsUseCase), since a live account's shipment_status_events
+// showed status.main never sends "shipped" (real values: "registered",
+// "handed_to_carrier", "sorting", "distribution", "delivered" -- confirmed
+// 2026-09-03) -- rather than re-guess one of those as "the" shipped
+// transition, those callers offer every shipment event unconditionally and
+// let Fulfilled decide. false for HandleOrderStatusWebhookUseCase.applyProcessed
+// (MyParcel's order_status_change "processed" webhook): that's its own
+// unambiguous "MyParcel fulfilled this order" signal, independent of
+// CommerceOS's local pick/pack state -- gating it on local Fulfilled would
+// wrongly block orders exported straight to MyParcel's Order API without
+// ever going through a local picking session. application/scheduler.
+// ReconcileFulfilledOrdersUseCase (the 24h sweep) also passes true, but its
+// own query already filters on Fulfilled=true, so it's a no-op restating
+// what's already guaranteed.
+func MarkOrderShippedOnFulfillment(ctx context.Context, db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, updater SalesOrderStatusUpdater, salesOrderID string, requireFulfilled bool) error {
 	var order omsDomain.SalesOrder
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		o, err := salesOrderRepo.FindByID(ctx, salesOrderID)
@@ -140,6 +146,9 @@ func MarkOrderShippedOnFulfillment(ctx context.Context, db *gorm.DB, salesOrderR
 		return fmt.Errorf("markOrderShippedOnFulfillment: %w", err)
 	}
 
+	if requireFulfilled && !order.Fulfilled {
+		return nil
+	}
 	if order.Status != omsDomain.SalesOrderStatusPending && order.Status != omsDomain.SalesOrderStatusProcessing {
 		return nil
 	}

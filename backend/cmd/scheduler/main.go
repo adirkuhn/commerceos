@@ -298,6 +298,7 @@ func main() {
 	shipmentReconcileUC := shippingapp.NewReconcileShipmentsUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
 		connRepo, salesOrderRepo, myparcelinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+		updateSalesOrderUC,
 	)
 
 	rs := buildRunners(

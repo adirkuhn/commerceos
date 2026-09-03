@@ -23,9 +23,9 @@ func myParcelHookEvent(id, eventID string, shipmentID int64, status int) webhook
 	}
 }
 
-func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *testing.T) {
+func TestBackfillShipmentWebhookDispatch_appliesChangedStatus(t *testing.T) {
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
-		myParcelHookEvent("evt-row-1", "evt-1", 555, 2),
+		myParcelHookEvent("evt-row-1", "evt-1", 555, 3),
 	}}
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
@@ -36,13 +36,9 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
-		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil
+		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
 	}}
-	var fulfilledOrderID string
-	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(_ context.Context, id string, _ map[string]any) error {
-		fulfilledOrderID = id
-		return nil
-	}}
+	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
 		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
@@ -52,15 +48,14 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatusAndLinksToOrder(t *
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.Checked)
 	assert.Equal(t, 1, result.Applied)
-	assert.Equal(t, "order-1", fulfilledOrderID, "the backfilled shipped transition must still link to and fulfill its order")
 	require.Len(t, eventRepo.markDispatchCalls, 1)
 	assert.Equal(t, "evt-row-1", eventRepo.markDispatchCalls[0].id)
 	assert.Equal(t, webhooksDomain.WebhookEventStatusProcessed, eventRepo.markDispatchCalls[0].status)
 }
 
-func TestBackfillShipmentWebhookDispatch_shippedStatus_movesOrderToShipped(t *testing.T) {
+func TestBackfillShipmentWebhookDispatch_fulfilledOrder_movesOrderToShipped(t *testing.T) {
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
-		myParcelHookEvent("evt-row-1", "evt-1", 555, 2),
+		myParcelHookEvent("evt-row-1", "evt-1", 555, 3),
 	}}
 	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
@@ -71,9 +66,9 @@ func TestBackfillShipmentWebhookDispatch_shippedStatus_movesOrderToShipped(t *te
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
-		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil
+		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
 	}}
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending}
+	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
 	salesOrderRepo := &fakeSalesOrderRepo{
 		updateFn:   func(context.Context, string, map[string]any) error { return nil },
 		findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil },

@@ -43,9 +43,10 @@ type myParcelWebhookPayload struct {
 // "prove this event was received" behavior is unchanged for every other
 // provider). For each shipment_id in the payload: look up the local
 // Shipment, fetch its authoritative current status from MyParcel, record
-// it, and -- only for the "handed to carrier" transition -- mark the
-// SalesOrder Fulfilled. Nothing more speculative than that (see the
-// approved design's conservative scope).
+// it, then offer the SalesOrder to MarkOrderShippedOnFulfillment/
+// completeOrderOnDelivery on every event -- both gate themselves (on
+// SalesOrder.Fulfilled / StatusMainDelivered respectively), see their docs
+// for why this no longer filters by status.main here first.
 type HandleShipmentWebhookUseCase struct {
 	db               *gorm.DB
 	shipmentRepo     shippingDomain.ShipmentRepository
@@ -130,8 +131,8 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook, hook.Barcode); err != nil {
 		return err
 	}
-	if tt.StatusMain == shippingDomain.StatusMainShipped && uc.updateSalesOrder != nil {
-		if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, shipment.SalesOrderID); err != nil {
+	if uc.updateSalesOrder != nil {
+		if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, shipment.SalesOrderID, true); err != nil {
 			return err
 		}
 	}

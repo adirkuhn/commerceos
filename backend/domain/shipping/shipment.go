@@ -102,23 +102,22 @@ const (
 	StatusEventSourceBackfill StatusEventSource = "backfill"
 )
 
-// StatusMainShipped is the MyParcel status.main value this codebase treats
-// as "handed to carrier" -- the only shipment-event effect v1 applies to a
-// SalesOrder (Fulfilled=true), per the approved design's conservative
-// scope. MyParcel's exact set of status.main string values wasn't fully
-// enumerated in what was fetched from the docs this session; "shipped" is
-// MyParcel's own terminology for this transition (mirrors "registered" for
-// creation, "delivered" for the final state) -- verify against a real
-// account's webhook payloads and adjust if MyParcel actually sends a
-// different string for this transition.
-const StatusMainShipped = "shipped"
-
-// StatusMainDelivered is MyParcel's status.main value for a shipment's final,
-// actually-delivered-to-customer state -- see StatusMainShipped's doc for
-// the same not-fully-enumerated caveat. Distinct from StatusMainShipped
-// (handed to carrier): this is the transition that completes a SalesOrder
-// (see application/shipping.applyStatusUpdate), StatusMainShipped only
-// marks it Fulfilled.
+// StatusMainDelivered is MyParcel's status.main value for a shipment's
+// final, actually-delivered-to-customer state -- confirmed against a real
+// account's shipment_status_events on 2026-09-03 (codes 7/8/9 all send
+// status_main "delivered"). completeOrderOnDelivery uses it to complete a
+// SalesOrder.
+//
+// There is deliberately no StatusMainShipped constant: MarkOrderShippedOn-
+// Fulfillment used to gate on status_main == "shipped", but the real
+// account never sends that string -- confirmed values in transit are
+// "registered", "handed_to_carrier", "sorting", "distribution" (see the
+// same query). Rather than hardcode one of those as "the" shipped
+// transition, every shipment webhook/poll/backfill/reconcile event now
+// unconditionally offers the order to MarkOrderShippedOnFulfillment, which
+// itself gates on SalesOrder.Fulfilled (set independently by
+// application/oms.CompletePickingUseCase at pick/pack time) -- so this
+// stops depending on enumerating MyParcel's status.main vocabulary at all.
 const StatusMainDelivered = "delivered"
 
 var (
