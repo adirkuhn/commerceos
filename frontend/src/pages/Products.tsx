@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Package, Trash2, Edit3, Copy, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
+  ChevronDown, ChevronRight,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -2257,7 +2258,14 @@ interface VariantRowProps {
 function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const { token } = useAuth()
   const { settings: tenantSettings } = useTenantSettings(token ?? '')
+  // Same "resolve tax class -> country rate" lookup as ProductEditPage's
+  // taxRateForPreview, but scoped to this row's own SKU.tax_class_id
+  // instead of the product-level field -- see SalesOrders.tsx's lineTax
+  // for the same per-entity-override-with-tenant-fallback pattern.
+  const { classes: taxClasses } = useTaxClasses(token ?? '')
+  const { rates: taxRates } = useTaxRates(token ?? '')
   const [addingSKU, setAddingSKU] = useState(false)
+  const [showMargin, setShowMargin] = useState(false)
   const [imageError, setImageError] = useState('')
   const [skuCode, setSkuCode] = useState('')
   const [barcode, setBarcode] = useState('')
@@ -2288,6 +2296,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
     if (tenantSettings.default_currency) setCurrency(tenantSettings.default_currency)
     setCurrencyDefaulted(true)
   }
+
+  const fieldLabelClass = 'block text-[9px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wide mb-0.5'
+  const fieldInputClass = 'w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500'
 
   const handleAddSKU = async () => {
     setError('')
@@ -2322,6 +2333,11 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   }
 
   const sku = variant.skus?.[0]
+  const defaultTaxClassId = taxClasses.find(c => c.is_default)?.id ?? null
+  const effectiveTaxClassId = sku?.tax_class_id ?? defaultTaxClassId
+  const taxRateForSku = effectiveTaxClassId && tenantSettings?.default_tax_country
+    ? taxRates.find(r => r.tax_class_id === effectiveTaxClassId && r.country === tenantSettings.default_tax_country)
+    : undefined
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkError, setBulkError] = useState('')
   const [existingPortionPickerOpen, setExistingPortionPickerOpen] = useState(false)
@@ -2557,78 +2573,116 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           </span>
         )}
         {sku && <StockBadge skuId={sku.id} />}
-        <button
-          type="button"
-          onClick={openEdit}
-          className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors shrink-0"
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={() => detail.removeVariant(variant.id)}
-          className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors shrink-0"
-        >
-          Remove
-        </button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            type="button" onClick={openEdit} title="Edit variant"
+            className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+          >
+            <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm(`Remove variant "${variant.name}"? This also removes its SKU and stock records.`)) {
+                detail.removeVariant(variant.id)
+              }
+            }}
+            title="Remove variant"
+            className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+          >
+            <Trash2 size={12} className="dark:text-gray-400 text-gray-500 hover:text-red-400" />
+          </button>
+        </div>
       </div>
 
       {editing && (
         // Plain div, not <form> -- same nested-<form>-inside-the-page's-
         // outer-form avoidance as the Add Variant/Add SKU panels.
-        <div className="mt-2 space-y-1.5 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
-          <input
-            type="text" required placeholder="Variant name" value={editName} onChange={e => setEditName(e.target.value)}
-            className="w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none"
-          />
+        <div className="mt-2 space-y-3 p-3 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+          <div>
+            <label className={fieldLabelClass}>Variant name</label>
+            <input
+              type="text" required placeholder="Variant name" value={editName} onChange={e => setEditName(e.target.value)}
+              className={fieldInputClass}
+            />
+          </div>
           {sku && (
             <>
-              <div className="grid grid-cols-2 gap-1.5">
-                <input type="text" required placeholder="SKU code" value={editSkuCode} onChange={e => setEditSkuCode(e.target.value)}
-                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)}
-                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
-                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <input type="number" step="0.01" min="0" required placeholder="Price" value={editPrice} onChange={e => setEditPrice(e.target.value)}
-                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                <input type="number" step="0.01" min="0" placeholder="Sale price (optional)" value={editSalePrice} onChange={e => setEditSalePrice(e.target.value)}
-                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                <input type="date" title="Sale ends (optional)" value={editSaleEndDate} onChange={e => setEditSaleEndDate(e.target.value)}
-                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                <select value={editStatus} onChange={e => setEditStatus(e.target.value as SKUStatus)}
-                  className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
-                <input type="checkbox" checked={editIsVirtual} onChange={e => setEditIsVirtual(e.target.checked)} />
-                Virtual (no shipping)
-              </label>
-              {!editIsVirtual && (
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-semibold dark:text-gray-400 text-gray-500 uppercase tracking-wide">Pricing</p>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <input type="number" step="1" min="0" placeholder="Weight (g)" value={editWeightGrams} onChange={e => setEditWeightGrams(e.target.value)}
-                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                  <input type="number" step="1" min="0" placeholder="Length (mm)" value={editLengthMM} onChange={e => setEditLengthMM(e.target.value)}
-                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                  <input type="number" step="1" min="0" placeholder="Width (mm)" value={editWidthMM} onChange={e => setEditWidthMM(e.target.value)}
-                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-                  <input type="number" step="1" min="0" placeholder="Height (mm)" value={editHeightMM} onChange={e => setEditHeightMM(e.target.value)}
-                    className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+                  <div>
+                    <label className={fieldLabelClass}>SKU code</label>
+                    <input type="text" required placeholder="SKU code" value={editSkuCode} onChange={e => setEditSkuCode(e.target.value)} className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Currency</label>
+                    <select value={editCurrency} onChange={e => setEditCurrency(e.target.value)} className={fieldInputClass}>
+                      {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Price</label>
+                    <input type="number" step="0.01" min="0" required placeholder="0.00" value={editPrice} onChange={e => setEditPrice(e.target.value)} className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Sale price</label>
+                    <input type="number" step="0.01" min="0" placeholder="Optional" value={editSalePrice} onChange={e => setEditSalePrice(e.target.value)} className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Sale ends</label>
+                    <input type="date" title="Sale ends (optional)" value={editSaleEndDate} onChange={e => setEditSaleEndDate(e.target.value)} className={fieldInputClass} />
+                  </div>
+                  <div>
+                    <label className={fieldLabelClass}>Status</label>
+                    <select value={editStatus} onChange={e => setEditStatus(e.target.value as SKUStatus)} className={fieldInputClass}>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
-              )}
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-[9px] font-semibold dark:text-gray-400 text-gray-500 uppercase tracking-wide">Shipping</p>
+                <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
+                  <input type="checkbox" checked={editIsVirtual} onChange={e => setEditIsVirtual(e.target.checked)} />
+                  Virtual (no shipping)
+                </label>
+                {!editIsVirtual && (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div>
+                      <label className={fieldLabelClass}>Weight (g)</label>
+                      <input type="number" step="1" min="0" placeholder="0" value={editWeightGrams} onChange={e => setEditWeightGrams(e.target.value)} className={fieldInputClass} />
+                    </div>
+                    <div>
+                      <label className={fieldLabelClass}>Length (mm)</label>
+                      <input type="number" step="1" min="0" placeholder="0" value={editLengthMM} onChange={e => setEditLengthMM(e.target.value)} className={fieldInputClass} />
+                    </div>
+                    <div>
+                      <label className={fieldLabelClass}>Width (mm)</label>
+                      <input type="number" step="1" min="0" placeholder="0" value={editWidthMM} onChange={e => setEditWidthMM(e.target.value)} className={fieldInputClass} />
+                    </div>
+                    <div>
+                      <label className={fieldLabelClass}>Height (mm)</label>
+                      <input type="number" step="1" min="0" placeholder="0" value={editHeightMM} onChange={e => setEditHeightMM(e.target.value)} className={fieldInputClass} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
           {editError && <p className="text-[10px] text-red-400">{editError}</p>}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-1 border-t dark:border-[#2D3748] border-gray-200">
             <button
               type="button" disabled={editSaving || !editName || (!!sku && !editSkuCode)} onClick={saveEdit}
-              className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 rounded bg-blue-600 text-white text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
               {editSaving ? 'Saving…' : 'Save'}
             </button>
-            <button type="button" disabled={editSaving} onClick={() => setEditing(false)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors disabled:opacity-50">
+            <button
+              type="button" disabled={editSaving} onClick={() => setEditing(false)}
+              className="px-2.5 py-1 rounded dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:dark:bg-[#2D3748] hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
               Cancel
             </button>
           </div>
@@ -2713,7 +2767,15 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 </button>
               </div>
             )}
-            <button type="button" onClick={() => detail.removeSKU(sku.id)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`Remove SKU "${sku.sku_code}"? This also removes its stock records.`)) {
+                  detail.removeSKU(sku.id)
+                }
+              }}
+              className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors"
+            >
               Remove SKU
             </button>
           </div>
@@ -2726,6 +2788,20 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
             />
           )}
           {bulkError && <p className="text-[10px] text-red-400">{bulkError}</p>}
+          <button
+            type="button" onClick={() => setShowMargin(v => !v)}
+            className="flex items-center gap-1 text-[10px] font-medium dark:text-gray-400 text-gray-500 hover:dark:text-gray-300 hover:text-gray-700 transition-colors"
+          >
+            {showMargin ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+            Cost &amp; margin insight
+          </button>
+          {showMargin && (
+            <MarginInsightCard
+              skuId={sku.id} currency={sku.currency_code}
+              taxRateBasisPoints={taxRateForSku?.rate_basis_points ?? null}
+              pricesIncludeTax={tenantSettings?.prices_include_tax ?? false}
+            />
+          )}
         </div>
       )}
 
@@ -2738,42 +2814,64 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       {addingSKU && (
         // Plain div, not <form> — same nested-<form>-inside-the-page's-outer-
         // form bug as the Add Variant form above (see comment there).
-        <div className="mt-2 space-y-1.5">
+        <div className="mt-2 space-y-1.5 p-2 rounded-lg dark:bg-[#1F2937]/60 bg-gray-50 border dark:border-[#2D3748] border-gray-200">
           <div className="grid grid-cols-2 gap-1.5">
-            <input type="text" required placeholder="SKU code" value={skuCode} onChange={e => setSkuCode(e.target.value)}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-            <input type="text" placeholder="Barcode" value={barcode} onChange={e => setBarcode(e.target.value)}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-            <input type="number" step="0.01" min="0" required placeholder="Price" value={price} onChange={e => setPrice(e.target.value)}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-            <input type="number" step="0.01" min="0" placeholder="Sale price (optional)" value={salePrice} onChange={e => setSalePrice(e.target.value)}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-            <input type="date" title="Sale ends (optional)" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-            <select value={currency} onChange={e => setCurrency(e.target.value)}
-              className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
-              {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+            <div>
+              <label className={fieldLabelClass}>SKU code</label>
+              <input type="text" required placeholder="SKU code" value={skuCode} onChange={e => setSkuCode(e.target.value)} className={fieldInputClass} />
+            </div>
+            <div>
+              <label className={fieldLabelClass}>Barcode</label>
+              <input type="text" placeholder="Optional" value={barcode} onChange={e => setBarcode(e.target.value)} className={fieldInputClass} />
+            </div>
+            <div>
+              <label className={fieldLabelClass}>Price</label>
+              <input type="number" step="0.01" min="0" required placeholder="0.00" value={price} onChange={e => setPrice(e.target.value)} className={fieldInputClass} />
+            </div>
+            <div>
+              <label className={fieldLabelClass}>Sale price</label>
+              <input type="number" step="0.01" min="0" placeholder="Optional" value={salePrice} onChange={e => setSalePrice(e.target.value)} className={fieldInputClass} />
+            </div>
+            <div>
+              <label className={fieldLabelClass}>Sale ends</label>
+              <input type="date" title="Sale ends (optional)" value={saleEndDate} onChange={e => setSaleEndDate(e.target.value)} className={fieldInputClass} />
+            </div>
+            <div>
+              <label className={fieldLabelClass}>Currency</label>
+              <select value={currency} onChange={e => setCurrency(e.target.value)} className={fieldInputClass}>
+                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className={fieldLabelClass}>Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value as SKUStatus)} className={fieldInputClass}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
-          <select value={status} onChange={e => setStatus(e.target.value as SKUStatus)}
-            className="w-full px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
           <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
             <input type="checkbox" checked={isVirtual} onChange={e => setIsVirtual(e.target.checked)} />
             Virtual (no shipping)
           </label>
           {!isVirtual && (
             <div className="grid grid-cols-2 gap-1.5">
-              <input type="number" step="1" min="0" placeholder="Weight (g)" value={weightGrams} onChange={e => setWeightGrams(e.target.value)}
-                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-              <input type="number" step="1" min="0" placeholder="Length (mm)" value={lengthMM} onChange={e => setLengthMM(e.target.value)}
-                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-              <input type="number" step="1" min="0" placeholder="Width (mm)" value={widthMM} onChange={e => setWidthMM(e.target.value)}
-                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
-              <input type="number" step="1" min="0" placeholder="Height (mm)" value={heightMM} onChange={e => setHeightMM(e.target.value)}
-                className="px-2 py-1 text-[10px] rounded dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none" />
+              <div>
+                <label className={fieldLabelClass}>Weight (g)</label>
+                <input type="number" step="1" min="0" placeholder="0" value={weightGrams} onChange={e => setWeightGrams(e.target.value)} className={fieldInputClass} />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Length (mm)</label>
+                <input type="number" step="1" min="0" placeholder="0" value={lengthMM} onChange={e => setLengthMM(e.target.value)} className={fieldInputClass} />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Width (mm)</label>
+                <input type="number" step="1" min="0" placeholder="0" value={widthMM} onChange={e => setWidthMM(e.target.value)} className={fieldInputClass} />
+              </div>
+              <div>
+                <label className={fieldLabelClass}>Height (mm)</label>
+                <input type="number" step="1" min="0" placeholder="0" value={heightMM} onChange={e => setHeightMM(e.target.value)} className={fieldInputClass} />
+              </div>
             </div>
           )}
           <label className="flex items-center gap-1.5 text-[10px] dark:text-gray-400 text-gray-500">
