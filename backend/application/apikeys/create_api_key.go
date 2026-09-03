@@ -47,6 +47,7 @@ func (uc *CreateAPIKeyUseCase) Execute(ctx context.Context, name, description st
 
 	k := &apikeysDomain.APIKey{Name: name, Description: description, KeyHash: hashKey(plaintext)}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		k.TenantID = tenant.IDFromContext(ctx)
 		return uc.repo.Create(ctx, k)
 	})
 	if err != nil {

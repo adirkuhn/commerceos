@@ -9,6 +9,7 @@ import (
 
 	appapikeys "github.com/adirkuhn/commerceos/application/apikeys"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 type stubAPIKeyRepo struct {
@@ -52,8 +53,9 @@ func (s *stubAPIKeyRepo) FindActiveTenantIDByHash(_ context.Context, hash string
 func TestCreateAPIKey_generatesAndHashesKey(t *testing.T) {
 	repo := &stubAPIKeyRepo{}
 	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 
-	result, err := uc.Execute(context.Background(), "My storefront", "WooCommerce prod")
+	result, err := uc.Execute(ctx, "My storefront", "WooCommerce prod")
 
 	require.NoError(t, err)
 	require.Equal(t, "key-1", result.ID)
@@ -62,6 +64,10 @@ func TestCreateAPIKey_generatesAndHashesKey(t *testing.T) {
 	require.NotEmpty(t, result.PlaintextKey)
 	require.NotEqual(t, result.PlaintextKey, repo.createdKey.KeyHash)
 	require.NotEmpty(t, repo.createdKey.KeyHash)
+	// Regression check: Create must be called with the tenant ID set --
+	// this was missing once already, and the DB rejected an empty
+	// tenant_id ("" is not a valid uuid), a failure sqlmock can't catch.
+	require.Equal(t, "tenant-1", repo.createdKey.TenantID)
 }
 
 func TestCreateAPIKey_rejectsEmptyName(t *testing.T) {
