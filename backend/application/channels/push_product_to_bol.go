@@ -74,6 +74,35 @@ func NewPushProductToBolUseCase(
 	}
 }
 
+// SetOnHold toggles one existing Bol offer's onHoldByRetailer flag via a
+// minimal PATCH -- unlike Execute, it never touches price/stock/content, so
+// it's safe to call without recomputing any of pushOne's inputs. Used by
+// SyncProductToChannelsUseCase to gate/ungate a Bol listing when the local
+// product's status crosses the Active boundary.
+func (uc *PushProductToBolUseCase) SetOnHold(ctx context.Context, connectionID, externalID string, onHold bool) error {
+	var conn integrationsDomain.Connection
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		c, err := uc.connRepo.FindByID(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		conn = *c
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("pushProductToBol.SetOnHold: %w", err)
+	}
+	secret, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	if err != nil {
+		return fmt.Errorf("pushProductToBol.SetOnHold: decrypt secret: %w", err)
+	}
+	client, err := uc.bolFactory.NewClient(conn.ConsumerKey, secret)
+	if err != nil {
+		return fmt.Errorf("pushProductToBol.SetOnHold: build client: %w", err)
+	}
+	return client.SetOfferOnHold(ctx, externalID, onHold)
+}
+
 func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error) {
 	var conn integrationsDomain.Connection
 	var product pmsDomain.Product
@@ -94,6 +123,9 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 			return err
 		}
 		product = *p
+		if !product.IsSyncableToChannels() {
+			return channelsDomain.ErrProductNotSyncable
+		}
 
 		variants, err := uc.variantRepo.ListByProduct(ctx, in.ProductID)
 		if err != nil {

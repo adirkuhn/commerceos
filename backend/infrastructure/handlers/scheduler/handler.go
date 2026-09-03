@@ -103,11 +103,11 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
 		appnotifications.NewCreateNotificationUseCase(db, notificationRepo),
 	)
-	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC,
-	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC,
+	)
+	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC, pushProductToBolUC, syncStockToChannelsUC,
 	)
 	enrollProductInChannelsUC := appchannels.NewEnrollProductInChannelsUseCase(
 		db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushProductToWooUC, pushProductToBolUC,

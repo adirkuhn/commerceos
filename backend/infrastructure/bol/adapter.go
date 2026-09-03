@@ -109,6 +109,10 @@ func (a *Adapter) UpdateOffer(ctx context.Context, offerID string, in integratio
 	return a.client.UpdateOffer(ctx, offerID, toPatchOfferRequest(in))
 }
 
+func (a *Adapter) SetOfferOnHold(ctx context.Context, offerID string, onHold bool) error {
+	return a.client.SetOfferOnHold(ctx, offerID, onHold)
+}
+
 func (a *Adapter) FindOfferByEAN(ctx context.Context, ean string) (string, bool, error) {
 	return a.client.FindOfferByEAN(ctx, ean)
 }

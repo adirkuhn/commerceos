@@ -57,6 +57,20 @@ type ProductChannelListing struct {
 	// only reports here, not as a push failure. Bol-specific today; empty
 	// for every other provider.
 	NotForSaleNote string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// GatedAt is set the moment the product's status left Active while this
+	// listing existed -- at that instant its current fields (and, for Woo,
+	// the new draft/archived status) were pushed one last time, and every
+	// further field or stock sync is skipped entirely (no channel API call
+	// at all) until the product returns to Active, which clears this and
+	// triggers one full catch-up push. nil means normal: sync freely. See
+	// application/channels.SyncProductToChannelsUseCase.
+	GatedAt   *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// IsGated reports whether this listing is currently blocked from any
+// further channel sync -- see GatedAt's doc comment.
+func (l ProductChannelListing) IsGated() bool {
+	return l.GatedAt != nil
 }

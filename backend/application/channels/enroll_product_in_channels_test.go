@@ -14,7 +14,7 @@ import (
 
 func TestEnrollProductInChannels_allMode_pushesToTheChannel(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
@@ -31,7 +31,7 @@ func TestEnrollProductInChannels_allMode_pushesToTheChannel(t *testing.T) {
 
 func TestEnrollProductInChannels_bolChannel_pushesViaBolPusher(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
@@ -50,7 +50,7 @@ func TestEnrollProductInChannels_bolChannel_pushesViaBolPusher(t *testing.T) {
 
 func TestEnrollProductInChannels_bolChannel_withNoBolPusherWired_doesNotPanic(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeBol, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
@@ -63,7 +63,7 @@ func TestEnrollProductInChannels_bolChannel_withNoBolPusherWired_doesNotPanic(t 
 
 func TestEnrollProductInChannels_manualMode_doesNotPush(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true},
 	}}
@@ -78,7 +78,7 @@ func TestEnrollProductInChannels_manualMode_doesNotPush(t *testing.T) {
 
 func TestEnrollProductInChannels_categoryMode_matchesOnlySameCategory(t *testing.T) {
 	connID, catID := "conn-1", "cat-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", CategoryID: &catID}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", CategoryID: &catID, Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeCategory, EnrollmentCategoryID: &catID, Active: true},
 	}}
@@ -93,7 +93,7 @@ func TestEnrollProductInChannels_categoryMode_matchesOnlySameCategory(t *testing
 
 func TestEnrollProductInChannels_tagMode_matchesOnlyTaggedProduct(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Tags: []string{"summer"}}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Tags: []string{"summer"}, Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeTag, EnrollmentTag: "summer", Active: true},
 	}}
@@ -108,7 +108,7 @@ func TestEnrollProductInChannels_tagMode_matchesOnlyTaggedProduct(t *testing.T) 
 
 func TestEnrollProductInChannels_excludeOverride_winsOverAllMode(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
@@ -124,7 +124,7 @@ func TestEnrollProductInChannels_excludeOverride_winsOverAllMode(t *testing.T) {
 
 func TestEnrollProductInChannels_includeOverride_winsOverManualMode(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true},
 	}}
@@ -140,7 +140,7 @@ func TestEnrollProductInChannels_includeOverride_winsOverManualMode(t *testing.T
 
 func TestEnrollProductInChannels_skipsInactiveChannels(t *testing.T) {
 	connID := "conn-1"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: false},
 	}}
@@ -153,8 +153,32 @@ func TestEnrollProductInChannels_skipsInactiveChannels(t *testing.T) {
 	assert.Empty(t, pusher.calls)
 }
 
+// TestEnrollProductInChannels_skipsDraftOrArchivedProducts proves a product
+// that isn't Active never gets enrolled/pushed to any channel, even one it
+// would otherwise match (EnrollmentModeAll here) -- "avoid create or update
+// products in woo, bol or any other channel if the product is in draft or
+// archived status."
+func TestEnrollProductInChannels_skipsDraftOrArchivedProducts(t *testing.T) {
+	for _, status := range []pmsDomain.ProductStatus{pmsDomain.ProductStatusDraft, pmsDomain.ProductStatusArchived} {
+		connID := "conn-1"
+		productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: status}}}
+		channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
+			{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
+		}}
+		pusher := &stubProductPusher{}
+		bolPusher := &stubBolProductPusher{}
+		uc := appchannels.NewEnrollProductInChannelsUseCase(newMockGormDB(t, 1), productRepo, channelRepo, &stubSalesChannelProductOverrideRepo{}, pusher, bolPusher)
+
+		err := uc.Execute(context.Background(), "product-1")
+
+		require.NoError(t, err)
+		assert.Empty(t, pusher.calls, "status %s must not be pushed to woo", status)
+		assert.Empty(t, bolPusher.calls, "status %s must not be pushed to bol", status)
+	}
+}
+
 func TestEnrollProductInChannels_skipsChannelsWithNoConnection(t *testing.T) {
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeInternal, ConnectionID: nil, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 	}}
@@ -169,7 +193,7 @@ func TestEnrollProductInChannels_skipsChannelsWithNoConnection(t *testing.T) {
 
 func TestEnrollProductInChannels_onePushFailureDoesNotBlockOthers(t *testing.T) {
 	conn1, conn2 := "conn-1", "conn-2"
-	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1"}}}
+	productRepo := &stubChannelsProductRepo{byID: map[string]pmsDomain.Product{"product-1": {ID: "product-1", Status: pmsDomain.ProductStatusActive}}}
 	channelRepo := &stubSalesChannelRepo{list: []channelsDomain.SalesChannel{
 		{ID: "channel-1", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &conn1, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},
 		{ID: "channel-2", Type: channelsDomain.ChannelTypeWooCommerce, ConnectionID: &conn2, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true},

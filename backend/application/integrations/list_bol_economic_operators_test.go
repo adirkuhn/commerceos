@@ -28,6 +28,9 @@ func (s *stubBolClient) CreateOffer(context.Context, integrationsDomain.BolOffer
 func (s *stubBolClient) UpdateOffer(context.Context, string, integrationsDomain.BolOfferInput) error {
 	panic("not used by ListBolEconomicOperatorsUseCase")
 }
+func (s *stubBolClient) SetOfferOnHold(context.Context, string, bool) error {
+	panic("not used by ListBolEconomicOperatorsUseCase")
+}
 func (s *stubBolClient) IsUnknownEAN(error) bool {
 	panic("not used by ListBolEconomicOperatorsUseCase")
 }

@@ -27,7 +27,8 @@ type productChannelListingModel struct {
 	SyncStatus     string  `gorm:"not null"`
 	LastSyncedAt   *time.Time
 	LastSyncError  string
-	NotForSaleNote string `gorm:"column:not_for_sale_note"`
+	NotForSaleNote string     `gorm:"column:not_for_sale_note"`
+	GatedAt        *time.Time `gorm:"column:gated_at"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -65,6 +66,7 @@ func (r *ProductChannelListingRepo) Create(ctx context.Context, l *channelsDomai
 		LastSyncedAt:   l.LastSyncedAt,
 		LastSyncError:  l.LastSyncError,
 		NotForSaleNote: l.NotForSaleNote,
+		GatedAt:        l.GatedAt,
 		CreatedAt:      l.CreatedAt,
 		UpdatedAt:      l.UpdatedAt,
 	}
@@ -207,6 +209,7 @@ func (r *ProductChannelListingRepo) Update(ctx context.Context, l *channelsDomai
 			"last_synced_at":    l.LastSyncedAt,
 			"last_sync_error":   l.LastSyncError,
 			"not_for_sale_note": l.NotForSaleNote,
+			"gated_at":          l.GatedAt,
 			"updated_at":        l.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("productChannelListingRepo.Update: %w", err)
@@ -1045,6 +1048,7 @@ func toListingDomain(m productChannelListingModel) *channelsDomain.ProductChanne
 		LastSyncedAt:   m.LastSyncedAt,
 		LastSyncError:  m.LastSyncError,
 		NotForSaleNote: m.NotForSaleNote,
+		GatedAt:        m.GatedAt,
 		CreatedAt:      m.CreatedAt,
 		UpdatedAt:      m.UpdatedAt,
 	}

@@ -55,6 +55,9 @@ func (uc *EnrollProductInChannelsUseCase) Execute(ctx context.Context, productID
 			return err
 		}
 		product = *p
+		if !product.IsSyncableToChannels() {
+			return nil
+		}
 
 		channels, err := uc.channelRepo.ListByTenant(ctx)
 		if err != nil {

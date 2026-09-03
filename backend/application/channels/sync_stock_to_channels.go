@@ -105,6 +105,13 @@ func (uc *SyncStockToChannelsUseCase) run(ctx context.Context, skuID string, for
 
 	pushedBolConnections := map[string]bool{}
 	for _, listing := range listings {
+		// A gated listing (its product left Active) gets no further sync at
+		// all, stock included, until SyncProductToChannelsUseCase clears the
+		// gate on reactivation -- see ProductChannelListing.GatedAt's doc
+		// comment.
+		if listing.IsGated() {
+			continue
+		}
 		// Each listing gets its OWN stock level, resolved from its own
 		// SKU -- see resolveListingSKUID's doc comment. This used to be
 		// computed once above the loop from the triggering SKU alone and

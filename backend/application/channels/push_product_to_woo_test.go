@@ -91,6 +91,30 @@ func TestPushProductToWoo_pushesNewPhysicalSimpleProduct(t *testing.T) {
 	require.Equal(t, 4, *pushed.StockQuantity)
 }
 
+// TestPushProductToWoo_draftProduct_neverPushed proves a Draft/Archived
+// product is never created on Woo -- the initial-push counterpart to
+// SyncProductToChannelsUseCase's gating of an already-linked product.
+func TestPushProductToWoo_draftProduct_neverPushed(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.Status = pmsDomain.ProductStatusDraft
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 4}}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 1), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{},
+	)
+
+	listings, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.ErrorIs(t, err, channelsDomain.ErrProductNotSyncable)
+	require.Empty(t, listings)
+	require.Empty(t, h.wooClient.createCalled)
+	require.Empty(t, h.listingRepo.created)
+}
+
 // TestPushProductToWoo_setsWooCategoryWhenLinkResolves proves a product's
 // category is resolved via categoryLinkResolver and set on the pushed Woo
 // product -- the fix for products always landing "Uncategorized" on Woo.

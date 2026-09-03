@@ -30,6 +30,13 @@ type fakeBolClient struct {
 	listEconomicOperatorsFn func(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error)
 	findOfferByEANFn        func(ctx context.Context, ean string) (string, bool, error)
 	notForSaleReasonsFn     func(ctx context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error)
+	setOnHoldCalls          []fakeSetOnHoldCall
+	setOnHoldErr            error
+}
+
+type fakeSetOnHoldCall struct {
+	OfferID string
+	OnHold  bool
 }
 
 func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
@@ -38,6 +45,10 @@ func (f *fakeBolClient) CreateOffer(_ context.Context, in integrationsDomain.Bol
 func (f *fakeBolClient) UpdateOffer(_ context.Context, _ string, in integrationsDomain.BolOfferInput) error {
 	f.updateOfferCalls = append(f.updateOfferCalls, in)
 	return nil
+}
+func (f *fakeBolClient) SetOfferOnHold(_ context.Context, offerID string, onHold bool) error {
+	f.setOnHoldCalls = append(f.setOnHoldCalls, fakeSetOnHoldCall{OfferID: offerID, OnHold: onHold})
+	return f.setOnHoldErr
 }
 func (f *fakeBolClient) IsUnknownEAN(err error) bool {
 	return f.unknownEANErr != nil && errors.Is(err, f.unknownEANErr)
@@ -204,8 +215,28 @@ func newBolUseCaseWithNotifier(t *testing.T, h *pushHarness, client integrations
 	)
 }
 
+// TestPushProductToBol_draftProduct_neverPushed mirrors
+// TestPushProductToWoo_draftProduct_neverPushed -- a Draft/Archived product
+// must never create an offer on Bol either.
+func TestPushProductToBol_draftProduct_neverPushed(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusArchived}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
+		t.Fatal("must never call CreateOffer for a non-active product")
+		return "", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 1)
+	result, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.ErrorIs(t, err, channelsDomain.ErrProductNotSyncable)
+	require.Empty(t, result)
+}
+
 func TestPushProductToBol_createsOfferForSingleSKUProduct(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -231,7 +262,7 @@ func TestPushProductToBol_createsOfferForSingleSKUProduct(t *testing.T) {
 }
 
 func TestPushProductToBol_usesConnectionDeliveryCodeOverDefault(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -249,7 +280,7 @@ func TestPushProductToBol_usesConnectionDeliveryCodeOverDefault(t *testing.T) {
 }
 
 func TestPushProductToBol_createsOfferPerVariantForVariableProduct(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: true}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: true, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}, {ID: "var-2", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{
 		"var-1": {{ID: "sku-1", Barcode: "1111111111111", PriceMinorUnits: 1000}},
@@ -275,7 +306,7 @@ func TestPushProductToBol_createsOfferPerVariantForVariableProduct(t *testing.T)
 }
 
 func TestPushProductToBol_updatesExistingOfferInsteadOfCreating(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -306,7 +337,7 @@ func TestPushProductToBol_updatesExistingOfferInsteadOfCreating(t *testing.T) {
 // Filling in those fields and clicking Save/Push looked like it worked
 // (the offer update succeeded) but Bol's catalog data never changed.
 func TestPushProductToBol_updatingExistingOffer_alsoSubmitsProductContent(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -335,7 +366,7 @@ func TestPushProductToBol_updatingExistingOffer_alsoSubmitsProductContent(t *tes
 // before this integration, or orphaned by a lost listing row). Now it
 // checks FindOfferByEAN first and links+updates the existing offer.
 func TestPushProductToBol_matchesExistingBolOfferByEAN_updatesInsteadOfCreating(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -361,7 +392,7 @@ func TestPushProductToBol_matchesExistingBolOfferByEAN_updatesInsteadOfCreating(
 }
 
 func TestPushProductToBol_findOfferByEANFailure_recordsFailedSyncLog(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -381,7 +412,7 @@ func TestPushProductToBol_findOfferByEANFailure_recordsFailedSyncLog(t *testing.
 }
 
 func TestPushProductToBol_onUnknownEAN_submitsProductContentThenRetriesCreate(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -413,7 +444,7 @@ func TestPushProductToBol_onUnknownEAN_submitsProductContentThenRetriesCreate(t 
 // the fields exist in the database and the UI but never make it into the
 // payload Bol actually receives.
 func TestPushProductToBol_onUnknownEAN_includesProductContentAttributes(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -446,7 +477,7 @@ func TestPushProductToBol_onUnknownEAN_includesProductContentAttributes(t *testi
 // (productdatamodel.s-bol.com/v10/datamodel_v10_en.json) that the real ids
 // are the English strings asserted below.
 func TestPushProductToBol_manufacturerFields_useBolsRealAttributeIds(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -489,7 +520,7 @@ func TestPushProductToBol_manufacturerFields_useBolsRealAttributeIds(t *testing.
 // unitId; package width (always millimeters in this domain, no user-typed
 // unit to translate) gets a fixed unitId.
 func TestPushProductToBol_numberAttributes_carryBolsUnitId(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -525,7 +556,7 @@ func TestPushProductToBol_numberAttributes_carryBolsUnitId(t *testing.T) {
 }
 
 func TestPushProductToBol_missingEAN_returnsError(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -545,7 +576,7 @@ func TestPushProductToBol_missingEAN_returnsError(t *testing.T) {
 }
 
 func TestPushProductToBol_usesCustomPriceOverSKUDefaultPrice(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -565,7 +596,7 @@ func TestPushProductToBol_usesCustomPriceOverSKUDefaultPrice(t *testing.T) {
 }
 
 func TestPushProductToBol_recordsSyncLog(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -597,7 +628,7 @@ func TestPushProductToBol_recordsSyncLog(t *testing.T) {
 // never happened (caught 2026-08-25: content fixes deployed and pushed
 // with no error, /sync-log showed nothing new).
 func TestPushProductToBol_contentOnlyChange_stillWritesASyncLogEntry(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -627,7 +658,7 @@ func TestPushProductToBol_contentOnlyChange_stillWritesASyncLogEntry(t *testing.
 // push simply never happened. This is the failure-path counterpart to
 // TestPushProductToBol_recordsSyncLog above.
 func TestPushProductToBol_createOfferFailure_recordsFailedSyncLog(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -652,7 +683,7 @@ func TestPushProductToBol_createOfferFailure_recordsFailedSyncLog(t *testing.T) 
 }
 
 func TestPushProductToBol_skipsBulkPoolSKU(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", UnitType: pmsDomain.SKUUnitTypeKilo}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -666,7 +697,7 @@ func TestPushProductToBol_skipsBulkPoolSKU(t *testing.T) {
 }
 
 func TestPushProductToBol_appliesOverrideEANAndFields(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0000000000000", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -692,7 +723,7 @@ func TestPushProductToBol_appliesOverrideEANAndFields(t *testing.T) {
 // else in this codebase reads Title from BolProductOverride), so Woo and
 // every other channel keep syncing the real product name.
 func TestPushProductToBol_nameOverride_winsOverProductNameForBolTitleOnly(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Real Product Name", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Real Product Name", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -727,7 +758,7 @@ func TestPushProductToBol_nameOverride_winsOverProductNameForBolTitleOnly(t *tes
 // persisted on the listing (so the Bol tab can show it) and raises a
 // notification linking back to the product.
 func TestPushProductToBol_notForSale_savesNoteAndNotifies(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)
@@ -765,7 +796,7 @@ func TestPushProductToBol_notForSale_savesNoteAndNotifies(t *testing.T) {
 // action) doesn't spam a notification every cycle for a problem the
 // merchant already knows about -- only a change in the reason re-notifies.
 func TestPushProductToBol_notForSale_doesNotRenotifyOnUnchangedReason(t *testing.T) {
-	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false}
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 1999}}}
 	h := newBolPushHarness(product, variants, skus)

@@ -85,6 +85,14 @@ type bolProductPusher interface {
 	Execute(ctx context.Context, in PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
 }
 
+// bolOfferGater is the one method this use case needs from
+// PushProductToBolUseCase to gate/ungate a Bol listing (ISP) -- a minimal
+// on-hold toggle, never a full offer push. Optional: nil when the caller
+// hasn't wired Bol support, same convention as bolPusher.
+type bolOfferGater interface {
+	SetOnHold(ctx context.Context, connectionID, externalID string, onHold bool) error
+}
+
 type SyncProductToChannelsUseCase struct {
 	db           *gorm.DB
 	productRepo  pmsDomain.ProductRepository
@@ -97,6 +105,8 @@ type SyncProductToChannelsUseCase struct {
 	encSecret    string
 	pusher       productPusher
 	bolPusher    bolProductPusher
+	bolGater     bolOfferGater
+	stockCatchUp productStockForceSyncer
 	mediaRepo    productMediaLister
 	categoryLink categoryLinkResolver
 }
@@ -115,12 +125,15 @@ func NewSyncProductToChannelsUseCase(
 	mediaRepo productMediaLister,
 	categoryLink categoryLinkResolver,
 	bolPusher bolProductPusher,
+	bolGater bolOfferGater,
+	stockCatchUp productStockForceSyncer,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
 		db: db, productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, pusher: pusher,
 		mediaRepo: mediaRepo, categoryLink: categoryLink, bolPusher: bolPusher,
+		bolGater: bolGater, stockCatchUp: stockCatchUp,
 	}
 }
 
@@ -200,7 +213,50 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 	return nil
 }
 
+// syncConnection is gated by the product's own Active/Draft/Archived status
+// before any of the existing shape logic runs -- see
+// pms.Product.IsSyncableToChannels and ProductChannelListing.GatedAt's doc
+// comments for the full contract this enforces:
+//
+//   - Active, never gated: falls straight through to the shape logic below,
+//     unchanged from before gating existed.
+//   - Just left Active (GatedAt nil, product not Active): gateConnection
+//     pushes every existing row's current fields one last time (Woo: full
+//     field payload including the new draft/archived status; Bol: an
+//     onHoldByRetailer=true toggle), creates/deletes nothing, then marks
+//     every row gated.
+//   - Still not Active, already gated: return immediately, zero API calls --
+//     "avoid create or update ... if the product is in draft or archived
+//     status."
+//   - Returned to Active from gated: ungateConnection clears the gate (Woo:
+//     nothing extra needed, the shape logic below already re-pushes full
+//     fields including the new Active status; Bol: onHoldByRetailer=false),
+//     forces a stock catch-up for every SKU, then falls through to the
+//     normal shape logic so anything that changed while gated (including a
+//     variant added or removed) is reconciled immediately.
 func (uc *SyncProductToChannelsUseCase) syncConnection(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
+	active := product.IsSyncableToChannels()
+	wasGated := listings[0].IsGated()
+
+	if !active {
+		if !wasGated {
+			uc.gateConnection(ctx, product, variants, skuByVariant, connectionID, listings, images)
+		}
+		return
+	}
+
+	if wasGated {
+		uc.ungateConnection(ctx, connectionID, listings)
+		// Clear the in-memory copies too -- the shape logic below reads and
+		// re-persists these same listing structs (recordSyncResult etc.),
+		// and without this it would write the stale non-nil GatedAt right
+		// back over the clear ungateConnection just persisted.
+		for i := range listings {
+			listings[i].GatedAt = nil
+		}
+		uc.forceStockCatchUp(ctx, skuByVariant)
+	}
+
 	switch integrationsDomain.Provider(listings[0].Provider) {
 	case integrationsDomain.ProviderWooCommerce:
 		// falls through to the existing shape-based logic below
@@ -229,6 +285,151 @@ func (uc *SyncProductToChannelsUseCase) syncConnection(ctx context.Context, prod
 		uc.syncSeparateProducts(ctx, product, variants, skuByVariant, connectionID, listings, images)
 	case shapeVariations:
 		uc.syncVariations(ctx, product, variants, skuByVariant, connectionID, listings, images)
+	}
+}
+
+// gateConnection pushes each EXISTING listing row's current fields (Woo:
+// full field payload including the product's new draft/archived status;
+// Bol: an onHoldByRetailer=true toggle) one last time, then marks every row
+// gated so nothing further -- not even a shape migration or a newly added
+// variant's create -- reaches this channel until the product is Active
+// again. Deliberately never creates or deletes a row: a variant added while
+// the product is already Draft/Archived must not be pushed to the channel
+// either, only reconciled once ungateConnection's shape-logic fallthrough
+// runs on reactivation.
+func (uc *SyncProductToChannelsUseCase) gateConnection(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
+	switch integrationsDomain.Provider(listings[0].Provider) {
+	case integrationsDomain.ProviderWooCommerce:
+		uc.gateWoo(ctx, product, variants, skuByVariant, connectionID, listings, images)
+	case integrationsDomain.ProviderBol:
+		uc.gateBol(ctx, connectionID, listings)
+	default:
+		now := time.Now()
+		uc.setGatedAt(ctx, listings, &now)
+	}
+}
+
+func (uc *SyncProductToChannelsUseCase) gateWoo(ctx context.Context, product pmsDomain.Product, variants []pmsDomain.Variant, skuByVariant map[string]pmsDomain.SKU, connectionID string, listings []channelsDomain.ProductChannelListing, images []integrationsDomain.WooProductImage) {
+	client, err := uc.wooClientFor(ctx, connectionID)
+	if err != nil {
+		log.Printf("syncProductToChannels: gating product %s on connection %s: %v", product.ID, connectionID, err)
+		return
+	}
+	variantByID := map[string]pmsDomain.Variant{}
+	for _, v := range variants {
+		variantByID[v.ID] = v
+	}
+	shape := actualShape(listings)
+
+	for _, l := range listings {
+		switch {
+		case l.VariantID != nil && l.IsVariation:
+			// A variation row has no independent Woo status -- it rides on
+			// the parent product row's update below.
+			continue
+		case l.VariantID == nil && shape == shapeVariations:
+			parentProduct := integrationsDomain.WooProduct{
+				Name: product.Name, Description: product.Description,
+				Status:     MapCommerceStatusToWoo(product.Status),
+				Images:     images,
+				Categories: uc.resolveCategoryForWoo(ctx, client, connectionID, product.CategoryID),
+			}
+			if _, err := client.UpdateProduct(ctx, l.ExternalID, parentProduct); err != nil {
+				log.Printf("syncProductToChannels: gating parent product %s: %v", l.ExternalID, err)
+				continue
+			}
+			uc.recordSyncResult(ctx, l, nil, wooProductToFields(parentProduct))
+		default:
+			var name string
+			var sku pmsDomain.SKU
+			var ok bool
+			if l.VariantID == nil {
+				name = product.Name
+				if len(variants) > 0 {
+					sku, ok = skuByVariant[variants[0].ID]
+				}
+			} else {
+				name = fmt.Sprintf("%s - %s", product.Name, variantByID[*l.VariantID].Name)
+				sku, ok = skuByVariant[*l.VariantID]
+			}
+			if !ok {
+				continue
+			}
+			wooProduct := uc.buildWooProduct(ctx, client, connectionID, product, sku, name, images)
+			if _, err := client.UpdateProduct(ctx, l.ExternalID, wooProduct); err != nil {
+				log.Printf("syncProductToChannels: gating product %s external %s: %v", product.ID, l.ExternalID, err)
+				continue
+			}
+			uc.recordSyncResult(ctx, l, nil, wooProductToFields(wooProduct))
+		}
+	}
+
+	now := time.Now()
+	uc.setGatedAt(ctx, listings, &now)
+}
+
+func (uc *SyncProductToChannelsUseCase) gateBol(ctx context.Context, connectionID string, listings []channelsDomain.ProductChannelListing) {
+	if uc.bolGater != nil {
+		for _, l := range listings {
+			if l.ExternalID == "" {
+				continue
+			}
+			if err := uc.bolGater.SetOnHold(ctx, connectionID, l.ExternalID, true); err != nil {
+				log.Printf("syncProductToChannels: gating bol offer %s: %v", l.ExternalID, err)
+			}
+		}
+	}
+	now := time.Now()
+	uc.setGatedAt(ctx, listings, &now)
+}
+
+// ungateConnection clears every listing's gate. For Bol it also flips
+// onHoldByRetailer back off (Woo needs no equivalent call -- syncConnection's
+// normal shape logic, which runs immediately after this returns, already
+// re-pushes full fields including the product's now-Active status).
+func (uc *SyncProductToChannelsUseCase) ungateConnection(ctx context.Context, connectionID string, listings []channelsDomain.ProductChannelListing) {
+	if integrationsDomain.Provider(listings[0].Provider) == integrationsDomain.ProviderBol && uc.bolGater != nil {
+		for _, l := range listings {
+			if l.ExternalID == "" {
+				continue
+			}
+			if err := uc.bolGater.SetOnHold(ctx, connectionID, l.ExternalID, false); err != nil {
+				log.Printf("syncProductToChannels: ungating bol offer %s: %v", l.ExternalID, err)
+			}
+		}
+	}
+	uc.setGatedAt(ctx, listings, nil)
+}
+
+func (uc *SyncProductToChannelsUseCase) setGatedAt(ctx context.Context, listings []channelsDomain.ProductChannelListing, gatedAt *time.Time) {
+	if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		for _, l := range listings {
+			l.GatedAt = gatedAt
+			l.UpdatedAt = time.Now()
+			if err := uc.listingRepo.Update(ctx, &l); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Printf("syncProductToChannels: updating gate state: %v", err)
+	}
+}
+
+// forceStockCatchUp re-pushes current stock for every SKU on this product
+// after a reactivation -- stock changes that happened while gated never
+// reached the channel (SyncStockToChannelsUseCase skips a gated listing
+// entirely), so the first sync back to Active must force it rather than
+// wait for the next incidental stock movement. stockCatchUp is optional/nil
+// -- same convention as bolPusher -- for a caller that hasn't wired it.
+func (uc *SyncProductToChannelsUseCase) forceStockCatchUp(ctx context.Context, skuByVariant map[string]pmsDomain.SKU) {
+	if uc.stockCatchUp == nil {
+		return
+	}
+	for _, sku := range skuByVariant {
+		if err := uc.stockCatchUp.ForceExecute(ctx, sku.ID); err != nil {
+			log.Printf("syncProductToChannels: stock catch-up for sku %s: %v", sku.ID, err)
+		}
 	}
 }
 

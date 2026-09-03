@@ -104,6 +104,9 @@ func (uc *PushProductToWooUseCase) Execute(ctx context.Context, in PushProductTo
 			return err
 		}
 		product = *p
+		if !product.IsSyncableToChannels() {
+			return channelsDomain.ErrProductNotSyncable
+		}
 
 		media, err = uc.mediaRepo.ListByProduct(ctx, in.ProductID)
 		if err != nil {

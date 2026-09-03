@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -12,6 +13,39 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 )
+
+// stubBolOfferGater backs bolOfferGater (the narrow SetOnHold-only
+// interface SyncProductToChannelsUseCase uses to gate/ungate a Bol
+// listing) -- distinct from stubBolProductPusher, which is the full offer
+// push interface used for everything else Bol.
+type stubBolOfferGater struct {
+	calls []stubOnHoldCall
+	err   error
+}
+
+type stubOnHoldCall struct {
+	ConnectionID string
+	ExternalID   string
+	OnHold       bool
+}
+
+func (s *stubBolOfferGater) SetOnHold(_ context.Context, connectionID, externalID string, onHold bool) error {
+	s.calls = append(s.calls, stubOnHoldCall{ConnectionID: connectionID, ExternalID: externalID, OnHold: onHold})
+	return s.err
+}
+
+// stubStockForceSyncer backs productStockForceSyncer -- the stock catch-up
+// dependency SyncProductToChannelsUseCase calls once per SKU when a
+// connection ungates.
+type stubStockForceSyncer struct {
+	calls []string
+	err   error
+}
+
+func (s *stubStockForceSyncer) ForceExecute(_ context.Context, skuID string) error {
+	s.calls = append(s.calls, skuID)
+	return s.err
+}
 
 func newSyncHarness(product pmsDomain.Product, variant pmsDomain.Variant, sku pmsDomain.SKU, listings []channelsDomain.ProductChannelListing) *harness {
 	h := newPushHarness(product, variant, sku)
@@ -28,7 +62,7 @@ func (h *harness) newSyncUseCaseWithPusher(t *testing.T, n int, pusher *stubProd
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{}, nil,
+		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{}, nil, nil, nil,
 	)
 }
 
@@ -151,7 +185,7 @@ func TestSyncProductToChannels_setsWooCategoryWhenLinkResolves(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 4), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{externalID: "20"}, nil,
+		&stubCategoryLinkResolver{externalID: "20"}, nil, nil, nil,
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -556,7 +590,7 @@ func TestSyncProductToChannels_dispatchesBolListingsToBolPusher(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 1), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, bolPusher,
+		&stubCategoryLinkResolver{}, bolPusher, nil, nil,
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -737,4 +771,185 @@ func TestSyncProductToChannels_writesASyncLogEntryOnFailureToo(t *testing.T) {
 	entry := h.syncLogRepo.created[0]
 	require.Equal(t, channelsDomain.SyncLogStatusError, entry.Status)
 	require.Contains(t, entry.ErrorMessage, "woo unreachable")
+}
+
+// ── gating: product leaves/returns to Active ────────────────────────────────
+
+// TestSyncProductToChannels_gatesWooListingOnFirstNonActiveSync proves the
+// active->draft/archived transition: the listing's current fields (plus the
+// new draft status) are pushed to Woo exactly once, then the row is marked
+// gated -- "change the status in the destination channel, e.g. change woo
+// product to draft."
+func TestSyncProductToChannels_gatesWooListingOnFirstNonActiveSync(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.Status = pmsDomain.ProductStatusDraft
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{}, nil, nil, nil,
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1, "current fields pushed one last time")
+	call := h.wooClient.updateProductCalled[0]
+	require.Equal(t, "555", call.ExternalID)
+	require.Equal(t, "draft", call.Product.Status)
+	require.Equal(t, product.Name, call.Product.Name, "full fields, not a status-only payload -- per the merchant's choice")
+
+	got := h.listingRepo.listByProduct[product.ID][0]
+	require.NotNil(t, got.GatedAt, "listing must be marked gated")
+}
+
+// TestSyncProductToChannels_skipsAlreadyGatedWooListing proves the second
+// (and every further) sync while still non-active makes zero calls at all --
+// "any future updates is ignored until the product goes back to active."
+func TestSyncProductToChannels_skipsAlreadyGatedWooListing(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.Status = pmsDomain.ProductStatusArchived
+	gatedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced, GatedAt: &gatedAt,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	uc := h.newSyncUseCase(t, 1)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Empty(t, h.wooClient.updateProductCalled, "already gated -- zero channel calls")
+	require.Empty(t, h.listingRepo.updated, "no write at all, not even a no-op one")
+	require.Empty(t, h.syncLogRepo.created)
+}
+
+// TestSyncProductToChannels_ungatesWooListingOnReactivation proves the
+// draft/archived->active transition: the gate clears, a full field sync
+// (including the new Active status) runs immediately, and stock is force
+// -caught-up for every SKU -- "any future updates is ignored until the
+// product in commerceos goes back to active, including inventory sync."
+func TestSyncProductToChannels_ungatesWooListingOnReactivation(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct() // Active
+	gatedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		SyncStatus: channelsDomain.SyncStatusSynced, GatedAt: &gatedAt,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	stockCatchUp := &stubStockForceSyncer{}
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{}, nil, nil, stockCatchUp,
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.updateProductCalled, 1)
+	require.Equal(t, "publish", h.wooClient.updateProductCalled[0].Product.Status)
+
+	got := h.listingRepo.listByProduct[product.ID][0]
+	require.Nil(t, got.GatedAt, "gate cleared")
+
+	require.Equal(t, []string{sku.ID}, stockCatchUp.calls, "stock force-synced for every SKU on reactivation")
+}
+
+// TestSyncProductToChannels_gatesBolListingViaOnHold proves the Bol
+// equivalent of gating: an onHoldByRetailer=true toggle (not a full offer
+// push -- Bol has no "draft" concept, only on-hold) rather than dispatching
+// through the full bolPusher.
+func TestSyncProductToChannels_gatesBolListingViaOnHold(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.Status = pmsDomain.ProductStatusDraft
+	_ = sku
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "offer-1",
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	bolPusher := &stubBolProductPusher{}
+	bolGater := &stubBolOfferGater{}
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{}, bolPusher, bolGater, nil,
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Empty(t, bolPusher.calls, "a gated bol listing must never go through the full offer push")
+	require.Equal(t, []stubOnHoldCall{{ConnectionID: "conn-1", ExternalID: "offer-1", OnHold: true}}, bolGater.calls)
+
+	got := h.listingRepo.listByProduct[product.ID][0]
+	require.NotNil(t, got.GatedAt)
+}
+
+// TestSyncProductToChannels_skipsAlreadyGatedBolListing mirrors the Woo
+// already-gated test: zero calls of any kind on a second sync while still
+// non-active.
+func TestSyncProductToChannels_skipsAlreadyGatedBolListing(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	product.Status = pmsDomain.ProductStatusDraft
+	gatedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "offer-1", GatedAt: &gatedAt,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	bolPusher := &stubBolProductPusher{}
+	bolGater := &stubBolOfferGater{}
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 1), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{}, bolPusher, bolGater, nil,
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Empty(t, bolPusher.calls)
+	require.Empty(t, bolGater.calls)
+}
+
+// TestSyncProductToChannels_ungatesBolListingOnReactivation proves the Bol
+// reactivation path: onHoldByRetailer flips back off, the gate clears, the
+// full offer push runs (via bolPusher, same as a normal sync), and stock is
+// force-caught-up.
+func TestSyncProductToChannels_ungatesBolListingOnReactivation(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct() // Active
+	gatedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderBol), ExternalID: "offer-1", GatedAt: &gatedAt,
+	}
+	h := newSyncHarness(product, variant, sku, []channelsDomain.ProductChannelListing{listing})
+	bolPusher := &stubBolProductPusher{}
+	bolGater := &stubBolOfferGater{}
+	stockCatchUp := &stubStockForceSyncer{}
+	uc := appchannels.NewSyncProductToChannelsUseCase(
+		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
+		&stubCategoryLinkResolver{}, bolPusher, bolGater, stockCatchUp,
+	)
+
+	err := uc.Execute(context.Background(), product.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, []stubOnHoldCall{{ConnectionID: "conn-1", ExternalID: "offer-1", OnHold: false}}, bolGater.calls)
+	require.Len(t, bolPusher.calls, 1, "full offer push runs immediately on reactivation")
+	require.Equal(t, []string{sku.ID}, stockCatchUp.calls)
+
+	got := h.listingRepo.listByProduct[product.ID][0]
+	require.Nil(t, got.GatedAt)
 }

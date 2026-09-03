@@ -89,4 +89,11 @@ var (
 	// actually unique at the DB level -- app logic is what prevents two
 	// rows for the same product+connection otherwise).
 	ErrProductAlreadyLinkedToConnection = errors.New("this product already has a listing for this connection")
+	// ErrProductNotSyncable guards every initial channel push (Woo and Bol):
+	// a Draft/Archived product must never be created on an external store.
+	// An already-linked product leaving Active is handled differently -- see
+	// pms.Product.IsSyncableToChannels and
+	// application/channels.SyncProductToChannelsUseCase's gating, not this
+	// error.
+	ErrProductNotSyncable = errors.New("product is not active, cannot push to a sales channel")
 )

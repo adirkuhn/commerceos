@@ -39,3 +39,12 @@ type Product struct {
 	CreatedAt                   time.Time
 	UpdatedAt                   time.Time
 }
+
+// IsSyncableToChannels is false for Draft/Archived -- a channel push (create
+// or update, any provider) must never reach an external store unless the
+// product is Active. See application/channels.SyncProductToChannelsUseCase,
+// which also gates a listing that was already pushed while Active and then
+// left it, blocking every further sync until the product returns here.
+func (p Product) IsSyncableToChannels() bool {
+	return p.Status == ProductStatusActive
+}

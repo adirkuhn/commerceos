@@ -299,6 +299,12 @@ type PatchOfferRequest struct {
 	Pricing            *Pricing    `json:"pricing,omitempty"`
 	Fulfilment         *Fulfilment `json:"fulfilment,omitempty"`
 	Stock              *Stock      `json:"stock,omitempty"`
+	// OnHoldByRetailer is a pointer so a call that only wants to flip this
+	// flag (SetOfferOnHold) can omit every other field -- omitempty on a nil
+	// pointer drops it from the wire payload, matching Bol's real PATCH
+	// semantics of "field absent = leave unchanged" (same convention as
+	// Pricing/Fulfilment/Stock above).
+	OnHoldByRetailer *bool `json:"onHoldByRetailer,omitempty"`
 }
 
 // UpdateOffer patches an existing offer's price/stock/etc -- PATCH, not
@@ -306,6 +312,15 @@ type PatchOfferRequest struct {
 // Synchronous (204 No Content).
 func (c *Client) UpdateOffer(ctx context.Context, offerID string, req PatchOfferRequest) error {
 	return c.doJSON(ctx, http.MethodPatch, "/offers/"+url.PathEscape(offerID), offerAccept, req, nil)
+}
+
+// SetOfferOnHold PATCHes only onHoldByRetailer, leaving price/stock/
+// fulfilment untouched -- a minimal sibling to UpdateOffer for a caller that
+// wants to toggle visibility alone (e.g. gating a listing when the local
+// product leaves Active) without recomputing or risking clobbering the
+// offer's other fields.
+func (c *Client) SetOfferOnHold(ctx context.Context, offerID string, onHold bool) error {
+	return c.doJSON(ctx, http.MethodPatch, "/offers/"+url.PathEscape(offerID), offerAccept, PatchOfferRequest{OnHoldByRetailer: &onHold}, nil)
 }
 
 type offerListResponse struct {

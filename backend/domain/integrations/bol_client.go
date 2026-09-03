@@ -145,6 +145,11 @@ type BolNotForSaleReason struct {
 type BolClient interface {
 	CreateOffer(ctx context.Context, in BolOfferInput) (offerID string, err error)
 	UpdateOffer(ctx context.Context, offerID string, in BolOfferInput) error
+	// SetOfferOnHold toggles onHoldByRetailer alone via a minimal PATCH,
+	// never touching price/stock/fulfilment -- used to gate/ungate a
+	// listing when the local product's status crosses the Active boundary,
+	// see application/channels.SyncProductToChannelsUseCase.
+	SetOfferOnHold(ctx context.Context, offerID string, onHold bool) error
 	// IsUnknownEAN classifies an error CreateOffer/UpdateOffer returned --
 	// true means "this EAN isn't in Bol's catalog yet, submit product
 	// content first," false means some other failure.

@@ -134,6 +134,28 @@ func TestSyncStockToChannels_pushesAgainWhenQuantityDiffers(t *testing.T) {
 	require.Equal(t, 12, h.wooClient.updateStockCalled[0].Quantity)
 }
 
+// TestSyncStockToChannels_skipsGatedListing proves a listing whose product
+// left Active (GatedAt set by SyncProductToChannelsUseCase) gets no stock
+// push at all -- not even the "quantity differs, worth a call" path above --
+// until SyncProductToChannelsUseCase clears the gate on reactivation.
+func TestSyncStockToChannels_skipsGatedListing(t *testing.T) {
+	gatedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "555",
+		GatedAt: &gatedAt,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	stockLevel := &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 12}}
+	uc := h.newSyncStockUseCase(t, 1, stockLevel)
+
+	err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	require.Empty(t, h.wooClient.updateStockCalled, "gated listing must receive no channel writes at all")
+	require.Empty(t, h.syncLogRepo.created)
+}
+
 func TestSyncStockToChannels_includesLotMetadataWhenStockLevelHasASourceBatch(t *testing.T) {
 	listing := channelsDomain.ProductChannelListing{
 		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",

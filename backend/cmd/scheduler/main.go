@@ -211,8 +211,15 @@ func main() {
 	pushBolUC := channelsapp.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC, notifyUC,
 	)
+	// syncStockUC is built here (moved up from its stockChangedConsumer
+	// wiring further below) so syncProductUC can use it as its stock
+	// catch-up dependency for reactivation after a gated period -- see
+	// SyncProductToChannelsUseCase's doc comment.
+	syncStockUC := channelsapp.NewSyncStockToChannelsUseCase(
+		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret, pushBolUC,
+	)
 	syncProductUC := channelsapp.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC, pushBolUC,
+		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, pushUC, mediaRepo, resolveCategoryLinkUC, pushBolUC, pushBolUC, syncStockUC,
 	)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
@@ -244,9 +251,6 @@ func main() {
 	}
 	defer productDeletedSub.Unsubscribe()
 
-	syncStockUC := channelsapp.NewSyncStockToChannelsUseCase(
-		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, cfg.IntegrationsEncryptionSecret, pushBolUC,
-	)
 	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)
 	stockChangedSub, err := js.Subscribe(events.InventoryStockChanged{}.EventName(), stockChangedConsumer.Handle,
 		nats.Durable("inventory-stock-changed-scheduler"), nats.ManualAck(),
