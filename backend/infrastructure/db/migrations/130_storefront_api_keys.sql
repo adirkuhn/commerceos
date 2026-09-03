@@ -25,12 +25,14 @@ CREATE POLICY tenant_isolation ON storefront_api_keys
         OR tenant_id = NULLIF(current_setting('app.current_tenant', true), 'bypass_rls')::uuid);
 
 -- Superseded by the table above -- multiple named keys per tenant instead
--- of one anonymous rotate-only key (see migration 129).
-DROP INDEX tenant_settings_storefront_key_hash_idx;
-ALTER TABLE tenant_settings DROP COLUMN storefront_key_hash;
+-- of one anonymous rotate-only key (see migration 129). IF EXISTS on both:
+-- 129 was only ever applied on one dev environment, never in production,
+-- so a fresh database here never had this column/index to begin with.
+DROP INDEX IF EXISTS tenant_settings_storefront_key_hash_idx;
+ALTER TABLE tenant_settings DROP COLUMN IF EXISTS storefront_key_hash;
 
 -- +goose Down
-ALTER TABLE tenant_settings ADD COLUMN storefront_key_hash TEXT NULL;
-CREATE UNIQUE INDEX tenant_settings_storefront_key_hash_idx ON tenant_settings (storefront_key_hash)
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS storefront_key_hash TEXT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS tenant_settings_storefront_key_hash_idx ON tenant_settings (storefront_key_hash)
     WHERE storefront_key_hash IS NOT NULL;
-DROP TABLE storefront_api_keys;
+DROP TABLE IF EXISTS storefront_api_keys;
