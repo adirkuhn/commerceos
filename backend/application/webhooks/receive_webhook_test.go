@@ -54,6 +54,9 @@ func (f *fakeConnRepo) Create(ctx context.Context, c *integrationsDomain.Connect
 func (f *fakeConnRepo) FindByID(ctx context.Context, id string) (*integrationsDomain.Connection, error) {
 	return nil, nil
 }
+func (f *fakeConnRepo) FindByStorefrontKeyHash(ctx context.Context, hash string) (*integrationsDomain.Connection, error) {
+	return nil, nil
+}
 func (f *fakeConnRepo) ListByTenant(ctx context.Context) ([]integrationsDomain.Connection, error) {
 	return f.conns, nil
 }

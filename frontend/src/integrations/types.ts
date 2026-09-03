@@ -275,6 +275,11 @@ export interface WebhookSecretResult {
   webhook_secret: string
 }
 
+export interface StorefrontKeyResult {
+  connection_id: string
+  storefront_key: string
+}
+
 // A tenant-configured fan-out rule -- "also POST every provider/topic
 // webhook to target_url". Topic '' matches every event for provider. See
 // backend/domain/webhooks.ForwardRule.

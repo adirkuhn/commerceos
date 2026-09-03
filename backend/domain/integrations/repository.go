@@ -5,6 +5,12 @@ import "context"
 type ConnectionRepository interface {
 	Create(ctx context.Context, c *Connection) error
 	FindByID(ctx context.Context, id string) (*Connection, error)
+	// FindByStorefrontKeyHash looks up a connection by its
+	// StorefrontKeyHash, across every tenant -- the caller (see
+	// application/integrations.ResolveStorefrontKeyUseCase) has no tenant
+	// to scope by yet, that's exactly what this resolves. Returns
+	// ErrConnectionNotFound on no match, same as FindByID.
+	FindByStorefrontKeyHash(ctx context.Context, hash string) (*Connection, error)
 	ListByTenant(ctx context.Context) ([]Connection, error)
 	Update(ctx context.Context, c *Connection) error
 	Delete(ctx context.Context, id string) error

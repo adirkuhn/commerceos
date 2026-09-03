@@ -26,11 +26,12 @@ func (m *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 // ConnectionRepo mock
 
 type ConnectionRepo struct {
-	CreateFn       func(ctx context.Context, c *integrations.Connection) error
-	FindByIDFn     func(ctx context.Context, id string) (*integrations.Connection, error)
-	ListByTenantFn func(ctx context.Context) ([]integrations.Connection, error)
-	UpdateFn       func(ctx context.Context, c *integrations.Connection) error
-	DeleteFn       func(ctx context.Context, id string) error
+	CreateFn                  func(ctx context.Context, c *integrations.Connection) error
+	FindByIDFn                func(ctx context.Context, id string) (*integrations.Connection, error)
+	FindByStorefrontKeyHashFn func(ctx context.Context, hash string) (*integrations.Connection, error)
+	ListByTenantFn            func(ctx context.Context) ([]integrations.Connection, error)
+	UpdateFn                  func(ctx context.Context, c *integrations.Connection) error
+	DeleteFn                  func(ctx context.Context, id string) error
 }
 
 func (m *ConnectionRepo) Create(ctx context.Context, c *integrations.Connection) error {
@@ -38,6 +39,9 @@ func (m *ConnectionRepo) Create(ctx context.Context, c *integrations.Connection)
 }
 func (m *ConnectionRepo) FindByID(ctx context.Context, id string) (*integrations.Connection, error) {
 	return m.FindByIDFn(ctx, id)
+}
+func (m *ConnectionRepo) FindByStorefrontKeyHash(ctx context.Context, hash string) (*integrations.Connection, error) {
+	return m.FindByStorefrontKeyHashFn(ctx, hash)
 }
 func (m *ConnectionRepo) ListByTenant(ctx context.Context) ([]integrations.Connection, error) {
 	return m.ListByTenantFn(ctx)

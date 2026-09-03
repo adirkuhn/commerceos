@@ -1,0 +1,115 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Storefront API
+  version: "1.0"
+  description: >
+    Authenticated endpoints a connected storefront (e.g. the WooCommerce
+    plugin) calls directly at runtime -- distinct from the admin Reports API
+    (JWT/session-gated) this reuses its FP-Growth mining from. Every route
+    here authenticates with a per-connection storefront key (see
+    application/integrations.SetStorefrontKeyUseCase/
+    ResolveStorefrontKeyUseCase), not a JWT: the shopper's browser never has
+    a CommerceOS session. Mounted outside the JWT-protected /api/v1 group in
+    cmd/api/main.go, same reasoning as api/scannerauth.
+servers:
+  - url: /api/v1
+
+paths:
+  /storefront/v1/recommendations/cart:
+    post:
+      operationId: getCartRecommendations
+      summary: Cross-sell candidates for the shopper's whole cart, ranked by quantity-weighted co-purchase support
+      description: >
+        Mines the last 180 days of completed orders (fixed window, unlike
+        the admin report's caller-supplied from/to) for items frequently
+        bought alongside the cart's SKUs, weighting each cart line by its
+        quantity. Excludes SKUs already in the cart. is_bundle_candidate
+        flags a confidence strong enough to be worth a bundle discount --
+        CommerceOS only signals this; the storefront owns discount policy.
+      security:
+        - StorefrontKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartRecommendationsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartRecommendationsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    StorefrontKeyAuth:
+      type: http
+      scheme: bearer
+      description: The per-connection storefront key from SetStorefrontKeyUseCase.
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    CartLine:
+      type: object
+      required: [sku_code, quantity]
+      properties:
+        sku_code: { type: string }
+        quantity: { type: integer, minimum: 1 }
+
+    CartRecommendationsRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartLine' }
+
+    RecommendedProduct:
+      type: object
+      required: [sku_code, product_name, confidence, is_bundle_candidate]
+      properties:
+        sku_code: { type: string }
+        product_name: { type: string }
+        confidence:
+          type: number
+          format: double
+          description: Fraction (0..1) of qualifying orders containing this SKU alongside the triggering cart line.
+        is_bundle_candidate: { type: boolean }
+
+    CartRecommendationsReport:
+      type: object
+      required: [recommendations, total_orders]
+      properties:
+        recommendations:
+          type: array
+          items: { $ref: '#/components/schemas/RecommendedProduct' }
+        total_orders: { type: integer, format: int64 }
+
+    CartRecommendationsResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CartRecommendationsReport' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

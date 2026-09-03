@@ -24,15 +24,16 @@ import (
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	genpos "github.com/adirkuhn/commerceos/api/pos"
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
+	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
+	genreports "github.com/adirkuhn/commerceos/api/reports"
 	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
 	genscanning "github.com/adirkuhn/commerceos/api/scanning"
 	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
+	gensearch "github.com/adirkuhn/commerceos/api/search"
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
+	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
-	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
-	genreports "github.com/adirkuhn/commerceos/api/reports"
-	gensearch "github.com/adirkuhn/commerceos/api/search"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
@@ -53,6 +54,7 @@ import (
 	searchhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/search"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
+	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
@@ -387,6 +389,21 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	scannerauthhandler.Register(scannerauthGroup, db, []byte(cfg.JWTSecret))
+
+	// Storefront API (cart recommendations first) -- authenticated by a
+	// per-connection storefront key, not the human JWT (the shopper's
+	// browser never has a CommerceOS session), so it's its own /api/v1
+	// group with no JWT middleware, same reasoning as scannerauthGroup
+	// above. See api/storefront/generate.go's doc comment.
+	storefrontSpec, err := genstorefront.GetSpec()
+	if err != nil {
+		log.Fatalf("storefront: load openapi spec: %v", err)
+	}
+	storefrontGroup := r.Group("/api/v1")
+	storefrontGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(storefrontSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	storefronthandler.Register(storefrontGroup, db)
 
 	// POS desktop integration -- authenticated by the caller's lm2 license
 	// directly (middleware.POSLicense), never the human JWT, so it's its

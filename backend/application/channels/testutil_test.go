@@ -70,6 +70,9 @@ func (s *stubConnectionRepo) Create(_ context.Context, _ *integrationsDomain.Con
 func (s *stubConnectionRepo) FindByID(_ context.Context, _ string) (*integrationsDomain.Connection, error) {
 	return s.conn, s.findErr
 }
+func (s *stubConnectionRepo) FindByStorefrontKeyHash(_ context.Context, _ string) (*integrationsDomain.Connection, error) {
+	return s.conn, s.findErr
+}
 func (s *stubConnectionRepo) ListByTenant(_ context.Context) ([]integrationsDomain.Connection, error) {
 	if s.listErr != nil {
 		return nil, s.listErr

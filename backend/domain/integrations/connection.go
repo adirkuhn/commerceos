@@ -53,7 +53,16 @@ type Connection struct {
 	// our OUTBOUND REST calls to it. Empty until the tenant enables
 	// webhooks for this connection (see application/webhooks package).
 	WebhookSecretEncrypted string
-	Status                 Status
+	// StorefrontKeyHash is the SHA-256 hex digest of the bearer key a
+	// storefront (the WooCommerce plugin) presents to call the
+	// authenticated public-storefront API -- see
+	// application/integrations.SetStorefrontKeyUseCase and
+	// application/integrations.ResolveStorefrontKeyUseCase. Hash-only,
+	// unlike ConsumerSecretEncrypted/WebhookSecretEncrypted: this value is
+	// only ever compared, never decrypted back to plaintext. Empty until
+	// the merchant generates one.
+	StorefrontKeyHash string
+	Status            Status
 	// DefaultCurrency is the store-level default used for product import
 	// (WooCommerce's product endpoint doesn't return a currency — it's a
 	// store-level setting the merchant configures here once, reused by

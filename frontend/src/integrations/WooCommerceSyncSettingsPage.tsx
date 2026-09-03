@@ -74,7 +74,7 @@ function defaultCell(seedCurrency = ''): CellState {
   return { enabled: false, intervalMinutes: 60, defaultWarehouseId: '', defaultCurrency: seedCurrency, lastRunStatus: '', lastRunError: '' }
 }
 
-type Tab = 'sync' | 'taxes' | 'categories' | 'webhooks'
+type Tab = 'sync' | 'taxes' | 'categories' | 'webhooks' | 'storefront'
 
 // Webhook secret provisioning is a security-sensitive credential, not a
 // day-to-day sync setting -- gated to the same tier as tenant-management-
@@ -279,6 +279,9 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
           { id: 'taxes', label: 'Taxes' },
           { id: 'categories', label: 'Categories' },
           ...(canManageWebhooks(user?.role) ? [{ id: 'webhooks', label: 'Webhooks' }] as { id: Tab; label: string }[] : []),
+          // Same permission tier as the webhooks tab above -- both hand out
+          // credentials another system authenticates with.
+          ...(canManageWebhooks(user?.role) ? [{ id: 'storefront', label: 'Storefront' }] as { id: Tab; label: string }[] : []),
         ] as { id: Tab; label: string }[]).map(t => (
           <button
             key={t.id}
@@ -300,6 +303,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
       {tab === 'categories' && <WooCategoriesTab token={token ?? ''} connectionId={connection.id} />}
 
       {tab === 'webhooks' && canManageWebhooks(user?.role) && <WebhooksTab token={token ?? ''} connectionId={connection.id} tenantId={user?.tenant_id ?? ''} provider={connection.provider} />}
+
+      {tab === 'storefront' && canManageWebhooks(user?.role) && <StorefrontKeyTab token={token ?? ''} connectionId={connection.id} />}
 
       {tab === 'sync' && (
       <div className="flex-1 overflow-y-auto p-6">
@@ -1011,6 +1016,93 @@ function WebhooksTab({ token, connectionId, tenantId, provider }: { token: strin
         </div>
 
         <ProviderWebhooksPanel token={token} connectionId={connectionId} />
+      </div>
+    </div>
+  )
+}
+
+function StorefrontKeyTab({ token, connectionId }: { token: string; connectionId: string }) {
+  const [key, setKey] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  async function handleGenerate() {
+    setError('')
+    setGenerating(true)
+    try {
+      const result = await api.setStorefrontKey(token, connectionId)
+      setKey(result.storefront_key)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate storefront key')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(key)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard access can be denied (permissions, insecure context) --
+      // the value is already shown selectable on screen, so this is a
+      // convenience failure, not a blocker; no error surfaced for it.
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-3xl space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-1">Storefront key</h2>
+          <p className="text-xs dark:text-gray-500 text-gray-400">
+            Generate a key, then paste it into the CommerceOS Sync plugin's settings in WordPress so your storefront can call
+            CommerceOS' cart recommendations API. Regenerating replaces the old value immediately -- update the plugin's
+            settings with the new one, or recommendations will start failing to load.
+          </p>
+        </div>
+
+        <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+          {key ? (
+            <div>
+              <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                Key (shown once -- copy it now)
+              </label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 px-3 py-2 text-[11px] font-mono rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 overflow-x-auto whitespace-nowrap">
+                  {key}
+                </code>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="px-2.5 py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[10px] text-amber-500">
+                This won't be shown again -- if you lose it, generate a new one and update the plugin.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs dark:text-gray-500 text-gray-400">
+              No key generated yet -- the storefront can't call the recommendations API until you generate one.
+            </p>
+          )}
+
+          {error && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
+
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {generating ? 'Generating…' : key ? 'Regenerate key' : 'Generate key'}
+          </button>
+        </div>
       </div>
     </div>
   )
