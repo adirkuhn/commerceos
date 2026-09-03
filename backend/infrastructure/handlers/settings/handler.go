@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -22,14 +23,18 @@ type getTenantSettingsUC interface {
 type updateTenantSettingsUC interface {
 	Execute(ctx context.Context, in appsettings.UpdateTenantSettingsInput) (*settingsDomain.TenantSettings, error)
 }
+type setStorefrontKeyUC interface {
+	Execute(ctx context.Context) (*appintegrations.SetStorefrontKeyResult, error)
+}
 
 type Handler struct {
 	getTenantSettings    getTenantSettingsUC
 	updateTenantSettings updateTenantSettingsUC
+	setStorefrontKey     setStorefrontKeyUC
 }
 
-func NewHandler(getTenantSettings getTenantSettingsUC, updateTenantSettings updateTenantSettingsUC) *Handler {
-	return &Handler{getTenantSettings: getTenantSettings, updateTenantSettings: updateTenantSettings}
+func NewHandler(getTenantSettings getTenantSettingsUC, updateTenantSettings updateTenantSettingsUC, setStorefrontKey setStorefrontKeyUC) *Handler {
+	return &Handler{getTenantSettings: getTenantSettings, updateTenantSettings: updateTenantSettings, setStorefrontKey: setStorefrontKey}
 }
 
 var _ gensettings.ServerInterface = (*Handler)(nil)
@@ -39,6 +44,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	h := NewHandler(
 		appsettings.NewGetTenantSettingsUseCase(db, repo),
 		appsettings.NewUpdateTenantSettingsUseCase(db, repo),
+		appintegrations.NewSetStorefrontKeyUseCase(db, repo),
 	)
 	gensettings.RegisterHandlers(rg, h)
 }
@@ -74,6 +80,16 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 	}
 	resp := toGenTenantSettings(*s)
 	c.JSON(http.StatusOK, gensettings.TenantSettingsResponse{Data: &resp})
+}
+
+func (h *Handler) SetStorefrontKey(c *gin.Context) {
+	result, err := h.setStorefrontKey.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, gensettings.StorefrontKeyResponse{Data: &struct {
+		StorefrontKey *string `json:"storefront_key,omitempty"`
+	}{StorefrontKey: &result.PlaintextKey}})
 }
 
 func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSettings {

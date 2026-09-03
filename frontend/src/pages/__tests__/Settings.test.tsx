@@ -39,6 +39,7 @@ vi.mock('../../inventory/api', () => ({
 vi.mock('../../settings/api', () => ({
   getTenantSettings: vi.fn(),
   updateTenantSettings: vi.fn(),
+  setStorefrontKey: vi.fn(),
 }))
 
 vi.mock('../../tax/api', () => ({
@@ -134,6 +135,41 @@ describe('Settings > Integrations overview', () => {
 
     expect(await screen.findByText('Sync schedule')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'https://mystore.com' })).toBeInTheDocument()
+  })
+})
+
+describe('Settings > Integrations > Storefront key', () => {
+  beforeEach(() => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+  })
+
+  it('shows no key generated yet by default', async () => {
+    render(<Settings />)
+    await openIntegrationsSection()
+
+    expect(await screen.findByText(/No key generated yet/)).toBeInTheDocument()
+  })
+
+  it('generating a key calls the endpoint and shows the plaintext value once', async () => {
+    vi.mocked(tenantSettingsApi.setStorefrontKey).mockResolvedValue({ storefront_key: 'top-secret-key' })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Generate key' }))
+
+    expect(await screen.findByText('top-secret-key')).toBeInTheDocument()
+    expect(tenantSettingsApi.setStorefrontKey).toHaveBeenCalledWith('test-token')
+    expect(screen.getByRole('button', { name: 'Regenerate key' })).toBeInTheDocument()
+  })
+
+  it('surfaces an error inline if generating fails', async () => {
+    vi.mocked(tenantSettingsApi.setStorefrontKey).mockRejectedValue(new Error('server error'))
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Generate key' }))
+
+    expect(await screen.findByText('server error')).toBeInTheDocument()
   })
 })
 

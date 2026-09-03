@@ -377,6 +377,15 @@ func (f *fakeTenantSettingsRepo) Get(ctx context.Context) (*settingsDomain.Tenan
 func (f *fakeTenantSettingsRepo) Upsert(context.Context, *settingsDomain.TenantSettings) error {
 	return nil
 }
+func (f *fakeTenantSettingsRepo) GetStorefrontKeyHash(context.Context) (string, error) {
+	return "", nil
+}
+func (f *fakeTenantSettingsRepo) SetStorefrontKeyHash(context.Context, string) error {
+	return nil
+}
+func (f *fakeTenantSettingsRepo) FindTenantIDByStorefrontKeyHash(context.Context, string) (string, error) {
+	return "", settingsDomain.ErrStorefrontKeyNotFound
+}
 
 // tenantSettingsRepoWithCurrency is the terse default most CreateShipment
 // tests reach for -- they only care that some currency reaches

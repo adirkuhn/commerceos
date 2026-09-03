@@ -58,3 +58,13 @@ func (s *stubSettingsRepo) Upsert(_ context.Context, ts *settingsDomain.TenantSe
 	s.upserted = append(s.upserted, *ts)
 	return nil
 }
+
+func (s *stubSettingsRepo) GetStorefrontKeyHash(_ context.Context) (string, error) {
+	return "", nil
+}
+func (s *stubSettingsRepo) SetStorefrontKeyHash(_ context.Context, _ string) error {
+	return nil
+}
+func (s *stubSettingsRepo) FindTenantIDByStorefrontKeyHash(_ context.Context, _ string) (string, error) {
+	return "", settingsDomain.ErrStorefrontKeyNotFound
+}

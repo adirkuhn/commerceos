@@ -13,14 +13,13 @@ import (
 )
 
 type integrationConnectionModel struct {
-	ID                      string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID                string `gorm:"not null;type:uuid"`
-	Provider                string `gorm:"not null"`
-	StoreURL                string `gorm:"not null"`
-	ConsumerKey             string `gorm:"not null"`
-	ConsumerSecretEncrypted string `gorm:"not null"`
-	WebhookSecretEncrypted  string `gorm:"not null"`
-	StorefrontKeyHash       *string
+	ID                      string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                string  `gorm:"not null;type:uuid"`
+	Provider                string  `gorm:"not null"`
+	StoreURL                string  `gorm:"not null"`
+	ConsumerKey             string  `gorm:"not null"`
+	ConsumerSecretEncrypted string  `gorm:"not null"`
+	WebhookSecretEncrypted  string  `gorm:"not null"`
 	Status                  string  `gorm:"not null"`
 	DefaultCurrency         string  `gorm:"not null"`
 	DefaultWarehouseID      *string `gorm:"type:uuid"`
@@ -113,7 +112,6 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 			"default_currency":         c.DefaultCurrency,
 			"default_warehouse_id":     c.DefaultWarehouseID,
 			"webhook_secret_encrypted": c.WebhookSecretEncrypted,
-			"storefront_key_hash":      stringPtrOrNil(c.StorefrontKeyHash),
 			"bol_economic_operator_id": c.BolEconomicOperatorID,
 			"bol_delivery_code":        c.BolDeliveryCode,
 			"updated_at":               c.UpdatedAt,
@@ -121,21 +119,6 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 		return fmt.Errorf("connectionRepo.Update: %w", err)
 	}
 	return nil
-}
-
-func (r *ConnectionRepo) FindByStorefrontKeyHash(ctx context.Context, hash string) (*integrationsDomain.Connection, error) {
-	tx, err := r.tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var m integrationConnectionModel
-	if err := tx.Where("storefront_key_hash = ?", hash).First(&m).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, integrationsDomain.ErrConnectionNotFound
-		}
-		return nil, fmt.Errorf("connectionRepo.FindByStorefrontKeyHash: %w", err)
-	}
-	return toConnectionDomain(m), nil
 }
 
 func (r *ConnectionRepo) Delete(ctx context.Context, id string) error {
@@ -158,7 +141,6 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		ConsumerKey:             m.ConsumerKey,
 		ConsumerSecretEncrypted: m.ConsumerSecretEncrypted,
 		WebhookSecretEncrypted:  m.WebhookSecretEncrypted,
-		StorefrontKeyHash:       stringFromPtr(m.StorefrontKeyHash),
 		Status:                  integrationsDomain.Status(m.Status),
 		DefaultCurrency:         m.DefaultCurrency,
 		DefaultWarehouseID:      m.DefaultWarehouseID,
@@ -167,22 +149,4 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		CreatedAt:               m.CreatedAt,
 		UpdatedAt:               m.UpdatedAt,
 	}
-}
-
-// stringPtrOrNil/stringFromPtr convert between the domain's "" -> unset
-// convention and the model's nullable TEXT column -- StorefrontKeyHash is
-// the only field needing this so far (every other nullable string field on
-// this model is already a *string in the domain type).
-func stringPtrOrNil(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-func stringFromPtr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }

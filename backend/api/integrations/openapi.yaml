@@ -249,29 +249,6 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
-  /integrations/connections/{id}/storefront-key:
-    post:
-      operationId: setStorefrontKey
-      summary: >
-        (Re)generate this connection's storefront key -- the bearer token a
-        connected storefront (e.g. the WooCommerce plugin) presents to call
-        CommerceOS' authenticated public-storefront API (see
-        api/storefront). Returns the PLAINTEXT key exactly once -- paste it
-        into the storefront's settings right away, it can't be retrieved
-        again after this response. Re-running this rotates the key; the old
-        value stops resolving immediately.
-      parameters:
-        - $ref: '#/components/parameters/id'
-      responses:
-        '200':
-          description: ok
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StorefrontKeyResponse'
-        '404':
-          $ref: '#/components/responses/Error'
-
   /integrations/webhook-fallback-events:
     get:
       operationId: listWebhookFallbackEvents
@@ -1977,16 +1954,6 @@ components:
           properties:
             connection_id: { type: string }
             webhook_secret: { type: string }
-        error: { nullable: true }
-
-    StorefrontKeyResponse:
-      type: object
-      properties:
-        data:
-          type: object
-          properties:
-            connection_id: { type: string }
-            storefront_key: { type: string }
         error: { nullable: true }
 
     WebhookFallbackEvent:

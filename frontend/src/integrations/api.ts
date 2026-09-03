@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, StorefrontKeyResult, WebhookForwardRule, WebhookForwardDelivery, WebhookEvent, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, WebhookEvent, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -405,15 +405,6 @@ export function setSalesChannelProductOverride(token: string, channelId: string,
 // after this call (only the encrypted form persists server-side).
 export function setWebhookSecret(token: string, connectionId: string): Promise<WebhookSecretResult> {
   return request<WebhookSecretResult>(`${base()}/connections/${connectionId}/webhook-secret`, { method: 'POST' }, token)
-}
-
-// (Re)generates this connection's storefront key -- the bearer token a
-// connected storefront (e.g. the WooCommerce plugin) presents to call
-// CommerceOS' authenticated public-storefront API. The response carries the
-// PLAINTEXT value exactly once, same "shown once" contract as
-// setWebhookSecret above.
-export function setStorefrontKey(token: string, connectionId: string): Promise<StorefrontKeyResult> {
-  return request<StorefrontKeyResult>(`${base()}/connections/${connectionId}/storefront-key`, { method: 'POST' }, token)
 }
 
 // Defaults to pending_republish server-side when status is omitted --

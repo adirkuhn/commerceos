@@ -70,6 +70,15 @@ func (s *stubSettingsRepo) Get(_ context.Context) (*settingsDomain.TenantSetting
 func (s *stubSettingsRepo) Upsert(_ context.Context, _ *settingsDomain.TenantSettings) error {
 	return nil
 }
+func (s *stubSettingsRepo) GetStorefrontKeyHash(_ context.Context) (string, error) {
+	return "", nil
+}
+func (s *stubSettingsRepo) SetStorefrontKeyHash(_ context.Context, _ string) error {
+	return nil
+}
+func (s *stubSettingsRepo) FindTenantIDByStorefrontKeyHash(_ context.Context, _ string) (string, error) {
+	return "", settingsDomain.ErrStorefrontKeyNotFound
+}
 
 func fixedNow() time.Time { return time.Date(2026, 8, 22, 15, 4, 5, 0, time.UTC) }
 

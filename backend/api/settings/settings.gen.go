@@ -26,6 +26,14 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// StorefrontKeyResponse defines model for StorefrontKeyResponse.
+type StorefrontKeyResponse struct {
+	Data *struct {
+		StorefrontKey *string `json:"storefront_key,omitempty"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // TenantSettings defines model for TenantSettings.
 type TenantSettings struct {
 	// BatchExpiryThresholdDays Days past a batch's expiry date before it is auto-flagged expired. 0 disables auto-expiry.
@@ -77,6 +85,9 @@ type UpdateTenantSettingsJSONRequestBody = UpdateTenantSettingsRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// SetStorefrontKey (Re)generate the current tenant's storefront key -- the bearer token a connected storefront (e.g. the WooCommerce plugin) presents to call CommerceOS' authenticated public-storefront API (see api/storefront). Tenant-wide, not tied to any one integration connection. Returns the PLAINTEXT key exactly once -- paste it into the storefront's settings right away, it can't be retrieved again after this response. Re-running this rotates the key; the old value stops resolving immediately.
+	// (POST /settings/storefront-key)
+	SetStorefrontKey(c *gin.Context)
 	// GetTenantSettings Get the current tenant's settings
 	// (GET /settings/tenant)
 	GetTenantSettings(c *gin.Context)
@@ -93,6 +104,19 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// SetStorefrontKey operation middleware
+func (siw *ServerInterfaceWrapper) SetStorefrontKey(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetStorefrontKey(c)
+}
 
 // GetTenantSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetTenantSettings(c *gin.Context) {
@@ -149,6 +173,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/settings/tenant", wrapper.GetTenantSettings)
 	router.PATCH(options.BaseURL+"/settings/tenant", wrapper.UpdateTenantSettings)
+	router.POST(options.BaseURL+"/settings/storefront-key", wrapper.SetStorefrontKey)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -156,24 +181,29 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"av7xWrXeqrmaSk2vn6nN581fAQAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

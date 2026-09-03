@@ -44,7 +44,6 @@ func NewHandler(resolveStorefrontKey resolveStorefrontKeyUC, getCartRecommendati
 var _ genstorefront.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB) {
-	connRepo := repositories.NewConnectionRepo(db)
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
@@ -52,7 +51,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	productRepo := repositories.NewProductRepo(db)
 
 	h := NewHandler(
-		appintegrations.NewResolveStorefrontKeyUseCase(db, connRepo),
+		appintegrations.NewResolveStorefrontKeyUseCase(db, settingsRepo),
 		appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)

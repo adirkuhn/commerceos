@@ -26,8 +26,16 @@ paths:
         quantity. Excludes SKUs already in the cart. is_bundle_candidate
         flags a confidence strong enough to be worth a bundle discount --
         CommerceOS only signals this; the storefront owns discount policy.
-      security:
-        - StorefrontKeyAuth: []
+
+        Requires `Authorization: Bearer <storefront key>` (see
+        application/integrations.SetStorefrontKeyUseCase/
+        ResolveStorefrontKeyUseCase) -- enforced by the handler itself
+        (infrastructure/handlers/storefront), not declared as an OpenAPI
+        `security` scheme: doing that would require registering an
+        AuthenticationFunc with the oapi-codegen request validator (see
+        cmd/api/main.go), which every other authenticated endpoint in this
+        codebase also skips in favor of Gin middleware (see
+        middleware.JWT) -- this endpoint follows that same convention.
       requestBody:
         required: true
         content:
@@ -47,12 +55,6 @@ paths:
           $ref: '#/components/responses/Error'
 
 components:
-  securitySchemes:
-    StorefrontKeyAuth:
-      type: http
-      scheme: bearer
-      description: The per-connection storefront key from SetStorefrontKeyUseCase.
-
   responses:
     Error:
       description: error

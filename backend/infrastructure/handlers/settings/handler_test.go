@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	gensettings "github.com/adirkuhn/commerceos/api/settings"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appsettings "github.com/adirkuhn/commerceos/application/settings"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	settingshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/settings"
@@ -56,8 +57,29 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Upd
 	}, nil
 }
 
-func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings) *settingshandler.Handler {
-	return settingshandler.NewHandler(get, update)
+type stubSetStorefrontKey struct {
+	out *appintegrations.SetStorefrontKeyResult
+	err error
+}
+
+func (s *stubSetStorefrontKey) Execute(_ context.Context) (*appintegrations.SetStorefrontKeyResult, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appintegrations.SetStorefrontKeyResult{}, nil
+}
+
+func newTestHandler(get *stubGetTenantSettings, update *stubUpdateTenantSettings, setKey ...*stubSetStorefrontKey) *settingshandler.Handler {
+	var key *stubSetStorefrontKey
+	if len(setKey) > 0 {
+		key = setKey[0]
+	} else {
+		key = &stubSetStorefrontKey{}
+	}
+	return settingshandler.NewHandler(get, update, key)
 }
 
 func newTestRouter(h *settingshandler.Handler) *gin.Engine {
@@ -111,6 +133,23 @@ func TestUpdateTenantSettingsHandler_propagatesError(t *testing.T) {
 	update := &stubUpdateTenantSettings{err: assert.AnError}
 	h := newTestHandler(&stubGetTenantSettings{}, update)
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]string{"default_currency": "EUR"})
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestSetStorefrontKeyHandler_returnsPlaintextKeyOnce(t *testing.T) {
+	setKey := &stubSetStorefrontKey{out: &appintegrations.SetStorefrontKeyResult{PlaintextKey: "topsecretkey"}}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, setKey)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/settings/storefront-key", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "topsecretkey")
+}
+
+func TestSetStorefrontKeyHandler_propagatesError(t *testing.T) {
+	setKey := &stubSetStorefrontKey{err: assert.AnError}
+	h := newTestHandler(&stubGetTenantSettings{}, &stubUpdateTenantSettings{}, setKey)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/settings/storefront-key", nil)
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }

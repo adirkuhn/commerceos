@@ -28,6 +28,10 @@ export interface TenantSettingsInput {
   default_target_markup_basis_points?: number
 }
 
+export interface StorefrontKeyResult {
+  storefront_key: string
+}
+
 export interface APIError {
   code: string
   message: string

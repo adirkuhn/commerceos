@@ -6,9 +6,15 @@ import (
 
 	"gorm.io/gorm"
 
-	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
+
+// storefrontKeyResolver is domain/settings.Repository narrowed to the one
+// method this use case needs (ISP).
+type storefrontKeyResolver interface {
+	FindTenantIDByStorefrontKeyHash(ctx context.Context, hash string) (string, error)
+}
 
 // ResolveStorefrontKeyUseCase turns a storefront's bearer key into the
 // tenant it belongs to. The caller (infrastructure/handlers/storefront) has
@@ -18,31 +24,31 @@ import (
 // application/iam.ClaimPairingCodeUseCase uses to resolve a scanner pairing
 // code before any tenant/session exists.
 type ResolveStorefrontKeyUseCase struct {
-	db       *gorm.DB
-	connRepo integrationsDomain.ConnectionRepository
+	db           *gorm.DB
+	settingsRepo storefrontKeyResolver
 }
 
-func NewResolveStorefrontKeyUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository) *ResolveStorefrontKeyUseCase {
-	return &ResolveStorefrontKeyUseCase{db: db, connRepo: connRepo}
+func NewResolveStorefrontKeyUseCase(db *gorm.DB, settingsRepo storefrontKeyResolver) *ResolveStorefrontKeyUseCase {
+	return &ResolveStorefrontKeyUseCase{db: db, settingsRepo: settingsRepo}
 }
 
 // Execute returns the TenantID the plaintext key belongs to, or
-// integrationsDomain.ErrConnectionNotFound if it matches no connection --
-// the handler maps that to a 401, never leaking which part of the key was
+// settingsDomain.ErrStorefrontKeyNotFound if it matches no tenant -- the
+// handler maps that to a 401, never leaking which part of the key was
 // wrong.
 func (uc *ResolveStorefrontKeyUseCase) Execute(ctx context.Context, plaintextKey string) (string, error) {
 	if plaintextKey == "" {
-		return "", integrationsDomain.ErrConnectionNotFound
+		return "", settingsDomain.ErrStorefrontKeyNotFound
 	}
 
 	adminCtx := tenant.WithSuperAdmin(ctx)
 	var tenantID string
 	err := tenant.WithTenant(adminCtx, uc.db, func(ctx context.Context) error {
-		conn, err := uc.connRepo.FindByStorefrontKeyHash(ctx, hashStorefrontKey(plaintextKey))
+		found, err := uc.settingsRepo.FindTenantIDByStorefrontKeyHash(ctx, hashStorefrontKey(plaintextKey))
 		if err != nil {
 			return err
 		}
-		tenantID = conn.TenantID
+		tenantID = found
 		return nil
 	})
 	if err != nil {

@@ -59,9 +59,6 @@ type updateConnectionSettingsUC interface {
 type setWebhookSecretUC interface {
 	Execute(ctx context.Context, connectionID string) (*appintegrations.SetWebhookSecretResult, error)
 }
-type setStorefrontKeyUC interface {
-	Execute(ctx context.Context, connectionID string) (*appintegrations.SetStorefrontKeyResult, error)
-}
 type listWebhookFallbackEventsUC interface {
 	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) ([]webhooksDomain.FallbackEvent, error)
 }
@@ -253,7 +250,6 @@ type Handler struct {
 	upsertExternalCategoryLink   upsertExternalCategoryLinkUC
 	deleteExternalCategoryLink   deleteExternalCategoryLinkUC
 	setWebhookSecret             setWebhookSecretUC
-	setStorefrontKey             setStorefrontKeyUC
 	listWebhookFallbackEvents    listWebhookFallbackEventsUC
 	retryWebhookFallbackEvent    retryWebhookFallbackEventUC
 	abandonWebhookFallbackEvent  abandonWebhookFallbackEventUC
@@ -316,7 +312,6 @@ func NewHandler(
 	upsertExternalCategoryLink upsertExternalCategoryLinkUC,
 	deleteExternalCategoryLink deleteExternalCategoryLinkUC,
 	setWebhookSecret setWebhookSecretUC,
-	setStorefrontKey setStorefrontKeyUC,
 	listWebhookFallbackEvents listWebhookFallbackEventsUC,
 	retryWebhookFallbackEvent retryWebhookFallbackEventUC,
 	abandonWebhookFallbackEvent abandonWebhookFallbackEventUC,
@@ -378,7 +373,6 @@ func NewHandler(
 		upsertExternalCategoryLink:   upsertExternalCategoryLink,
 		deleteExternalCategoryLink:   deleteExternalCategoryLink,
 		setWebhookSecret:             setWebhookSecret,
-		setStorefrontKey:             setStorefrontKey,
 		listWebhookFallbackEvents:    listWebhookFallbackEvents,
 		retryWebhookFallbackEvent:    retryWebhookFallbackEvent,
 		abandonWebhookFallbackEvent:  abandonWebhookFallbackEvent,
@@ -544,7 +538,6 @@ func Register(
 		appchannels.NewUpsertExternalCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo),
 		appchannels.NewDeleteExternalCategoryLinkUseCase(db, categoryLinkRepo),
 		appintegrations.NewSetWebhookSecretUseCase(db, connRepo, encryptionSecret),
-		appintegrations.NewSetStorefrontKeyUseCase(db, connRepo),
 		appwebhooks.NewListWebhookFallbackEventsUseCase(db, webhookFallbackRepo),
 		appwebhooks.NewRetryWebhookFallbackEventUseCase(db, webhookFallbackRepo, webhookPublisher),
 		appwebhooks.NewAbandonWebhookFallbackEventUseCase(db, webhookFallbackRepo),
@@ -780,14 +773,6 @@ func (h *Handler) SetWebhookSecret(c *gin.Context, id genintegrations.Id) {
 		return
 	}
 	middleware.OK(c, gin.H{"connection_id": result.ConnectionID, "webhook_secret": result.PlaintextSecret})
-}
-
-func (h *Handler) SetStorefrontKey(c *gin.Context, id genintegrations.Id) {
-	result, err := h.setStorefrontKey.Execute(c.Request.Context(), id)
-	if err := mapError(c, err); err != nil {
-		return
-	}
-	middleware.OK(c, gin.H{"connection_id": result.ConnectionID, "storefront_key": result.PlaintextKey})
 }
 
 func (h *Handler) ListWebhookFallbackEvents(c *gin.Context, params genintegrations.ListWebhookFallbackEventsParams) {

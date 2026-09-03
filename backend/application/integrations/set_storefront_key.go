@@ -5,64 +5,60 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
-	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
+// storefrontKeyHashSetter is domain/settings.Repository narrowed to the one
+// method this use case needs (ISP).
+type storefrontKeyHashSetter interface {
+	SetStorefrontKeyHash(ctx context.Context, hash string) error
+}
+
 // SetStorefrontKeyResult carries the PLAINTEXT key back to the caller
-// exactly once, at generation time -- only its hash persists
-// (Connection.StorefrontKeyHash), so the merchant must paste it into the
-// storefront's (e.g. the WooCommerce plugin's) settings right away.
+// exactly once, at generation time -- only its hash persists, so the
+// merchant must paste it into the storefront's (e.g. the WooCommerce
+// plugin's) settings right away.
 type SetStorefrontKeyResult struct {
-	ConnectionID string
 	PlaintextKey string
 }
 
-// SetStorefrontKeyUseCase (re)generates the per-connection key a storefront
-// presents as a bearer token to call the authenticated public-storefront
-// API (see application/integrations.ResolveStorefrontKeyUseCase). Re-running
-// it rotates the key -- the old value stops resolving immediately, so the
+// SetStorefrontKeyUseCase (re)generates the current tenant's storefront
+// key -- the bearer token a storefront presents to call the authenticated
+// public-storefront API (see application/integrations.
+// ResolveStorefrontKeyUseCase). Tenant-wide, not tied to any one
+// integration connection: a tenant's storefront calls aren't scoped to a
+// specific connection, and a tenant can have several (see
+// domain/integrations.ConnectionRepository.ListByTenant). Re-running this
+// rotates the key -- the old value stops resolving immediately, so the
 // merchant must update the storefront's configuration with the new one.
-// Mirrors SetWebhookSecretUseCase, but stores a hash instead of an
-// encrypted-and-reversible secret: a storefront key is only ever compared,
-// never displayed back to the merchant after generation.
+// Stores a hash instead of an encrypted-and-reversible secret: a
+// storefront key is only ever compared, never displayed back to the
+// merchant after generation.
 type SetStorefrontKeyUseCase struct {
-	db       *gorm.DB
-	connRepo integrationsDomain.ConnectionRepository
+	db           *gorm.DB
+	settingsRepo storefrontKeyHashSetter
 }
 
-func NewSetStorefrontKeyUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository) *SetStorefrontKeyUseCase {
-	return &SetStorefrontKeyUseCase{db: db, connRepo: connRepo}
+func NewSetStorefrontKeyUseCase(db *gorm.DB, settingsRepo storefrontKeyHashSetter) *SetStorefrontKeyUseCase {
+	return &SetStorefrontKeyUseCase{db: db, settingsRepo: settingsRepo}
 }
 
-func (uc *SetStorefrontKeyUseCase) Execute(ctx context.Context, connectionID string) (*SetStorefrontKeyResult, error) {
+func (uc *SetStorefrontKeyUseCase) Execute(ctx context.Context) (*SetStorefrontKeyResult, error) {
 	plaintext, err := generateSecret()
 	if err != nil {
 		return nil, fmt.Errorf("setStorefrontKey: generate: %w", err)
 	}
 
-	var result SetStorefrontKeyResult
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		existing, err := uc.connRepo.FindByID(ctx, connectionID)
-		if err != nil {
-			return err
-		}
-		existing.StorefrontKeyHash = hashStorefrontKey(plaintext)
-		existing.UpdatedAt = time.Now()
-		if err := uc.connRepo.Update(ctx, existing); err != nil {
-			return err
-		}
-		result = SetStorefrontKeyResult{ConnectionID: existing.ID, PlaintextKey: plaintext}
-		return nil
+		return uc.settingsRepo.SetStorefrontKeyHash(ctx, hashStorefrontKey(plaintext))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("setStorefrontKey: %w", err)
 	}
-	return &result, nil
+	return &SetStorefrontKeyResult{PlaintextKey: plaintext}, nil
 }
 
 // hashStorefrontKey is the one hashing function both SetStorefrontKeyUseCase
