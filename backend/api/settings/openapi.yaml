@@ -103,7 +103,7 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -143,6 +143,17 @@ components:
             0 on a never-saved tenant means "unset"; GetCartRecommendationsUseCase
             falls back to a documented default in that case, the same
             zero-value convention as every other field here.
+        recommendations_min_support:
+          type: integer
+          description: >-
+            Minimum number of orders an itemset must appear in before it
+            counts as a real cross-sell pattern rather than coincidence
+            (FP-Growth's own minSupport threshold) -- a quality lever, not
+            a speed one: Apriori and FP-Growth mine identical itemsets for
+            the same minSupport. 0 on a never-saved tenant means "unset";
+            GetCartRecommendationsUseCase falls back to a documented
+            default in that case, the same zero-value convention as every
+            other field here.
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -158,6 +169,7 @@ components:
         batch_expiry_threshold_days: { type: integer }
         default_target_markup_basis_points: { type: integer, minimum: 0 }
         bundle_confidence_threshold: { type: number, minimum: 0, maximum: 1 }
+        recommendations_min_support: { type: integer, minimum: 0 }
 
     TenantSettingsResponse:
       type: object

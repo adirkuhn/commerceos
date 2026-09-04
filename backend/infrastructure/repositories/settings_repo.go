@@ -25,6 +25,7 @@ type tenantSettingsModel struct {
 	BatchExpiryThresholdDays       int    `gorm:"not null;default:0"`
 	DefaultTargetMarkupBasisPoints int     `gorm:"column:default_target_markup_basis_points;not null;default:0"`
 	BundleConfidenceThreshold      float64 `gorm:"column:bundle_confidence_threshold;not null;default:0.30"`
+	RecommendationsMinSupport      int     `gorm:"column:recommendations_min_support;not null;default:2"`
 	UpdatedAt                      time.Time
 }
 
@@ -67,7 +68,8 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 		DefaultTaxCountry: s.DefaultTaxCountry, InventorySyncRulesEnabled: s.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       s.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
-		BundleConfidenceThreshold:      s.BundleConfidenceThreshold, UpdatedAt: s.UpdatedAt,
+		BundleConfidenceThreshold: s.BundleConfidenceThreshold,
+		RecommendationsMinSupport: s.RecommendationsMinSupport, UpdatedAt: s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}},
@@ -75,7 +77,8 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 			"default_currency", "timezone", "date_format", "language",
 			"prices_include_tax", "default_tax_country",
 			"inventory_sync_rules_enabled", "batch_expiry_threshold_days",
-			"default_target_markup_basis_points", "bundle_confidence_threshold", "updated_at",
+			"default_target_markup_basis_points", "bundle_confidence_threshold",
+			"recommendations_min_support", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -91,6 +94,7 @@ func toTenantSettingsDomain(m tenantSettingsModel) *settingsDomain.TenantSetting
 		DefaultTaxCountry: m.DefaultTaxCountry, InventorySyncRulesEnabled: m.InventorySyncRulesEnabled,
 		BatchExpiryThresholdDays:       m.BatchExpiryThresholdDays,
 		DefaultTargetMarkupBasisPoints: m.DefaultTargetMarkupBasisPoints,
-		BundleConfidenceThreshold:      m.BundleConfidenceThreshold, UpdatedAt: m.UpdatedAt,
+		BundleConfidenceThreshold:      m.BundleConfidenceThreshold,
+		RecommendationsMinSupport:      m.RecommendationsMinSupport, UpdatedAt: m.UpdatedAt,
 	}
 }

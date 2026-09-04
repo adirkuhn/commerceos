@@ -22,11 +22,13 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 		InventorySyncRulesEnabled: true, BatchExpiryThresholdDays: 30,
 		DefaultTargetMarkupBasisPoints: 3000,
 		BundleConfidenceThreshold:      0.25,
+		RecommendationsMinSupport:      3,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, 3000, result.DefaultTargetMarkupBasisPoints)
 	require.InDelta(t, 0.25, result.BundleConfidenceThreshold, 0.0001)
+	require.Equal(t, 3, result.RecommendationsMinSupport)
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
 	require.Equal(t, "DD/MM/YYYY", result.DateFormat)
@@ -43,6 +45,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	require.True(t, repo.upserted[0].InventorySyncRulesEnabled)
 	require.Equal(t, 30, repo.upserted[0].BatchExpiryThresholdDays)
 	require.InDelta(t, 0.25, repo.upserted[0].BundleConfidenceThreshold, 0.0001)
+	require.Equal(t, 3, repo.upserted[0].RecommendationsMinSupport)
 }
 
 func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
@@ -99,6 +102,25 @@ func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfOne(t *testing.T)
 
 	require.NoError(t, err)
 	require.Equal(t, 1.0, result.BundleConfidenceThreshold)
+}
+
+func TestUpdateTenantSettings_rejectsNegativeRecommendationsMinSupport(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsMinSupport: -1})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidRecommendationsMinSupport)
+}
+
+func TestUpdateTenantSettings_allowsRecommendationsMinSupportOfZero(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsMinSupport: 0})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.RecommendationsMinSupport)
 }
 
 func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {

@@ -47,5 +47,18 @@ type TenantSettings struct {
 	// falls back to its own documented default rather than treating an
 	// explicit 0 (flag every candidate) as a real merchant choice.
 	BundleConfidenceThreshold float64
+	// RecommendationsMinSupport is the minimum number of orders an itemset
+	// must appear in before application/reports.GetCartRecommendationsUseCase
+	// treats it as a real pattern rather than coincidence -- FP-Growth's
+	// own minSupport threshold. Quality lever, not a speed one: Apriori and
+	// FP-Growth mine identical itemsets for the same minSupport, this is
+	// what actually separates a real cross-sell signal from two unrelated
+	// shoppers who happened to buy the same two things once. Same zero-
+	// value-means-unset convention as every other field here: 0 on a
+	// never-saved tenant means "unset", and GetCartRecommendationsUseCase
+	// falls back to its own documented default rather than treating an
+	// explicit 0 (every itemset counts, however rare) as a real merchant
+	// choice -- FP-Growth itself also floors any value below 1 to 1.
+	RecommendationsMinSupport int
 	UpdatedAt                 time.Time
 }

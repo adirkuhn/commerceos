@@ -17,15 +17,15 @@ var ErrCartEmpty = errors.New("cart is empty")
 
 const (
 	cartRecommendationsLookbackDays   = 180
-	cartRecommendationsMinSupport     = 2
 	cartRecommendationsMaxItemsetSize = 5
 	cartRecommendationsDefaultLimit   = 10
-	// defaultBundleConfidenceThreshold is used only when the tenant has
-	// never saved a TenantSettings row (settingsDomain.TenantSettings.
-	// BundleConfidenceThreshold's zero-value-means-unset convention) --
-	// every configured tenant uses their own settings.BundleConfidenceThreshold
-	// instead. Not a hard limit on what a merchant can configure.
+	// defaultBundleConfidenceThreshold and defaultRecommendationsMinSupport
+	// are used only when the tenant has never saved a TenantSettings row
+	// (settingsDomain.TenantSettings' zero-value-means-unset convention) --
+	// every configured tenant uses their own settings value instead. Not a
+	// hard limit on what a merchant can configure.
 	defaultBundleConfidenceThreshold = 0.30
+	defaultRecommendationsMinSupport = 2
 )
 
 // skuLookupByCode resolves the WooCommerce-facing SKU code the storefront
@@ -120,15 +120,18 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		currency := "USD"
 		bundleThreshold := defaultBundleConfidenceThreshold
+		minSupport := defaultRecommendationsMinSupport
 		if settings, err := uc.settingsRepo.Get(ctx); err == nil {
 			if settings.DefaultCurrency != "" {
 				currency = settings.DefaultCurrency
 			}
 			// Zero-value-means-unset (see TenantSettings.BundleConfidenceThreshold's
-			// doc comment) -- only trust an explicit 0 from a tenant that
-			// has actually saved settings before.
+			// and .RecommendationsMinSupport's doc comments) -- only trust
+			// an explicit 0 from a tenant that has actually saved settings
+			// before.
 			if !settings.UpdatedAt.IsZero() {
 				bundleThreshold = settings.BundleConfidenceThreshold
+				minSupport = settings.RecommendationsMinSupport
 			}
 		}
 
@@ -160,7 +163,7 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 		for i, o := range orders {
 			transactions[i] = o.SKUIDs
 		}
-		itemsets := fpGrowth(transactions, cartRecommendationsMinSupport, cartRecommendationsMaxItemsetSize)
+		itemsets := fpGrowth(transactions, minSupport, cartRecommendationsMaxItemsetSize)
 
 		// Singleton (size-1) itemsets are how many orders contained that
 		// SKU alone -- fpGrowth mines every itemset size >= 1, so this is

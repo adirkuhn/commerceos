@@ -152,6 +152,49 @@ func TestGetCartRecommendations_ignoresExplicitZeroThresholdOnAnUnsavedTenant(t 
 	require.False(t, report.Recommendations[0].IsBundleCandidate)
 }
 
+func TestGetCartRecommendations_minSupportIsTenantConfigurable(t *testing.T) {
+	// SKU-X co-occurs with SKU-A in exactly 2 orders -- meets the package
+	// default minSupport (2), but a tenant that's raised their own
+	// threshold to 3 (to cut down on low-volume noise, see
+	// RecommendationsMinSupport's own doc comment) must not see it as a
+	// candidate at all.
+	basket := &stubBasketLister{out: []omsDomain.OrderSKUs{
+		{OrderID: "o1", SKUIDs: []string{"sku-a", "sku-x"}},
+		{OrderID: "o2", SKUIDs: []string{"sku-a", "sku-x"}},
+		{OrderID: "o3", SKUIDs: []string{"sku-a"}},
+	}}
+	skuCodeLookup := &stubSKUCodeLookup{byCode: map[string]*pmsDomain.SKU{"SKU-A": {ID: "sku-a"}}}
+	settingsRepo := &stubSettingsRepo{settings: &settingsDomain.TenantSettings{
+		RecommendationsMinSupport: 3,
+		UpdatedAt:                 time.Now(),
+	}}
+	uc := appreports.NewGetCartRecommendationsUseCase(newMockGormDB(t), basket, settingsRepo, &stubSKUCostPriceLookup{}, skuCodeLookup, &stubVariantLookupForSlowMoving{}, &stubProductLookupForSlowMoving{})
+
+	report, err := uc.Execute(context.Background(), []appreports.CartLine{{SKUCode: "SKU-A", Quantity: 1}})
+
+	require.NoError(t, err)
+	require.Empty(t, report.Recommendations)
+}
+
+func TestGetCartRecommendations_fallsBackToDefaultMinSupportOnAnUnsavedTenant(t *testing.T) {
+	// SKU-X co-occurs with SKU-A in exactly 1 order -- support 1. The
+	// package default minSupport is 2, so this must NOT qualify. If the
+	// zero-value-means-unset fallback were buggy (passing the raw zero
+	// through instead of the documented default), fpGrowth's own
+	// floor-to-1 behavior would let a single co-occurrence through
+	// unnoticed -- this is what would catch that.
+	basket := &stubBasketLister{out: []omsDomain.OrderSKUs{
+		{OrderID: "o1", SKUIDs: []string{"sku-a", "sku-x"}},
+	}}
+	skuCodeLookup := &stubSKUCodeLookup{byCode: map[string]*pmsDomain.SKU{"SKU-A": {ID: "sku-a"}}}
+	uc := appreports.NewGetCartRecommendationsUseCase(newMockGormDB(t), basket, &stubSettingsRepo{}, &stubSKUCostPriceLookup{}, skuCodeLookup, &stubVariantLookupForSlowMoving{}, &stubProductLookupForSlowMoving{})
+
+	report, err := uc.Execute(context.Background(), []appreports.CartLine{{SKUCode: "SKU-A", Quantity: 1}})
+
+	require.NoError(t, err)
+	require.Empty(t, report.Recommendations)
+}
+
 func TestGetCartRecommendations_excludesSKUsAlreadyInCart(t *testing.T) {
 	basket := &stubBasketLister{out: []omsDomain.OrderSKUs{
 		{OrderID: "o1", SKUIDs: []string{"sku-a", "sku-b"}},

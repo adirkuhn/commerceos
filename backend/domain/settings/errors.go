@@ -11,3 +11,8 @@ var ErrInvalidTargetMarkupBasisPoints = errors.New("target markup basis points m
 // TenantSettings.BundleConfidenceThreshold: it's a fraction, must be within
 // 0-1 inclusive.
 var ErrInvalidBundleConfidenceThreshold = errors.New("bundle confidence threshold must be between 0 and 1")
+
+// ErrInvalidRecommendationsMinSupport guards
+// TenantSettings.RecommendationsMinSupport: must be >= 0 (0 means "unset,
+// use the default" -- see the field's own doc comment).
+var ErrInvalidRecommendationsMinSupport = errors.New("recommendations min support must be at least 0")
