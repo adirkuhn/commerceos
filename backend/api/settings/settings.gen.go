@@ -82,9 +82,12 @@ type ErrorResponse struct {
 // TenantSettings defines model for TenantSettings.
 type TenantSettings struct {
 	// BatchExpiryThresholdDays Days past a batch's expiry date before it is auto-flagged expired. 0 disables auto-expiry.
-	BatchExpiryThresholdDays int    `json:"batch_expiry_threshold_days"`
-	DateFormat               string `json:"date_format"`
-	DefaultCurrency          string `json:"default_currency"`
+	BatchExpiryThresholdDays int `json:"batch_expiry_threshold_days"`
+
+	// BundleConfidenceThreshold Minimum confidence (0-1, the fraction of orders containing a cart item that also contain the candidate) a cross-sell recommendation must clear before storefronts see it flagged as bundle-worthy (CartRecommendation.IsBundleCandidate) -- discount policy itself stays entirely the storefront's own. 0 on a never-saved tenant means "unset"; GetCartRecommendationsUseCase falls back to a documented default in that case, the same zero-value convention as every other field here.
+	BundleConfidenceThreshold float32 `json:"bundle_confidence_threshold"`
+	DateFormat                string  `json:"date_format"`
+	DefaultCurrency           string  `json:"default_currency"`
 
 	// DefaultTargetMarkupBasisPoints Tenant-wide fallback target markup (profit / cost, no upper bound -- e.g. 3000 = 30% markup) used to compute a SKU's recommended price when its category has no override. 0 on a never-saved tenant means "unset".
 	DefaultTargetMarkupBasisPoints int `json:"default_target_markup_basis_points"`
@@ -111,15 +114,16 @@ type TenantSettingsResponse struct {
 
 // UpdateTenantSettingsRequest defines model for UpdateTenantSettingsRequest.
 type UpdateTenantSettingsRequest struct {
-	BatchExpiryThresholdDays       *int    `json:"batch_expiry_threshold_days,omitempty"`
-	DateFormat                     *string `json:"date_format,omitempty"`
-	DefaultCurrency                *string `json:"default_currency,omitempty"`
-	DefaultTargetMarkupBasisPoints *int    `json:"default_target_markup_basis_points,omitempty"`
-	DefaultTaxCountry              *string `json:"default_tax_country,omitempty"`
-	InventorySyncRulesEnabled      *bool   `json:"inventory_sync_rules_enabled,omitempty"`
-	Language                       *string `json:"language,omitempty"`
-	PricesIncludeTax               *bool   `json:"prices_include_tax,omitempty"`
-	Timezone                       *string `json:"timezone,omitempty"`
+	BatchExpiryThresholdDays       *int     `json:"batch_expiry_threshold_days,omitempty"`
+	BundleConfidenceThreshold      *float32 `json:"bundle_confidence_threshold,omitempty"`
+	DateFormat                     *string  `json:"date_format,omitempty"`
+	DefaultCurrency                *string  `json:"default_currency,omitempty"`
+	DefaultTargetMarkupBasisPoints *int     `json:"default_target_markup_basis_points,omitempty"`
+	DefaultTaxCountry              *string  `json:"default_tax_country,omitempty"`
+	InventorySyncRulesEnabled      *bool    `json:"inventory_sync_rules_enabled,omitempty"`
+	Language                       *string  `json:"language,omitempty"`
+	PricesIncludeTax               *bool    `json:"prices_include_tax,omitempty"`
+	Timezone                       *string  `json:"timezone,omitempty"`
 }
 
 // Error defines model for Error.
@@ -275,32 +279,37 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -60,12 +60,3 @@ func (s *stubSettingsRepoForPMS) Get(_ context.Context) (*settingsDomain.TenantS
 func (s *stubSettingsRepoForPMS) Upsert(_ context.Context, _ *settingsDomain.TenantSettings) error {
 	return nil
 }
-func (s *stubSettingsRepoForPMS) GetStorefrontKeyHash(_ context.Context) (string, error) {
-	return "", nil
-}
-func (s *stubSettingsRepoForPMS) SetStorefrontKeyHash(_ context.Context, _ string) error {
-	return nil
-}
-func (s *stubSettingsRepoForPMS) FindTenantIDByStorefrontKeyHash(_ context.Context, _ string) (string, error) {
-	return "", settingsDomain.ErrStorefrontKeyNotFound
-}

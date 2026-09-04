@@ -103,7 +103,7 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -132,6 +132,17 @@ components:
             bound -- e.g. 3000 = 30% markup) used to compute a SKU's
             recommended price when its category has no override. 0 on a
             never-saved tenant means "unset".
+        bundle_confidence_threshold:
+          type: number
+          description: >-
+            Minimum confidence (0-1, the fraction of orders containing a
+            cart item that also contain the candidate) a cross-sell
+            recommendation must clear before storefronts see it flagged as
+            bundle-worthy (CartRecommendation.IsBundleCandidate) --
+            discount policy itself stays entirely the storefront's own.
+            0 on a never-saved tenant means "unset"; GetCartRecommendationsUseCase
+            falls back to a documented default in that case, the same
+            zero-value convention as every other field here.
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -146,6 +157,7 @@ components:
         inventory_sync_rules_enabled: { type: boolean }
         batch_expiry_threshold_days: { type: integer }
         default_target_markup_basis_points: { type: integer, minimum: 0 }
+        bundle_confidence_threshold: { type: number, minimum: 0, maximum: 1 }
 
     TenantSettingsResponse:
       type: object

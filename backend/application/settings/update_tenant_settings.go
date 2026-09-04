@@ -20,6 +20,7 @@ type UpdateTenantSettingsInput struct {
 	InventorySyncRulesEnabled      bool
 	BatchExpiryThresholdDays       int
 	DefaultTargetMarkupBasisPoints int
+	BundleConfidenceThreshold      float64
 }
 
 type UpdateTenantSettingsUseCase struct {
@@ -35,6 +36,9 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 	if in.DefaultTargetMarkupBasisPoints < 0 {
 		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidTargetMarkupBasisPoints)
 	}
+	if in.BundleConfidenceThreshold < 0 || in.BundleConfidenceThreshold > 1 {
+		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidBundleConfidenceThreshold)
+	}
 
 	var result settingsDomain.TenantSettings
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -49,6 +53,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			InventorySyncRulesEnabled:      in.InventorySyncRulesEnabled,
 			BatchExpiryThresholdDays:       in.BatchExpiryThresholdDays,
 			DefaultTargetMarkupBasisPoints: in.DefaultTargetMarkupBasisPoints,
+			BundleConfidenceThreshold:      in.BundleConfidenceThreshold,
 			UpdatedAt:                      time.Now(),
 		}
 		return uc.repo.Upsert(ctx, &result)

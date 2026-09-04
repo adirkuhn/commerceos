@@ -36,5 +36,16 @@ type TenantSettings struct {
 	// other field here -- callers needing a real default before any
 	// settings are ever saved check UpdatedAt.IsZero().
 	DefaultTargetMarkupBasisPoints int
-	UpdatedAt                      time.Time
+	// BundleConfidenceThreshold is the minimum confidence (0-1, the
+	// fraction of orders containing a cart item that also contain the
+	// candidate) a cross-sell recommendation must clear before
+	// application/reports.GetCartRecommendationsUseCase flags it
+	// IsBundleCandidate for a storefront -- CommerceOS only signals the
+	// flag; the discount policy itself stays the storefront's own. Same
+	// zero-value-means-unset convention as every other field here: on a
+	// never-saved tenant this is 0, and GetCartRecommendationsUseCase
+	// falls back to its own documented default rather than treating an
+	// explicit 0 (flag every candidate) as a real merchant choice.
+	BundleConfidenceThreshold float64
+	UpdatedAt                 time.Time
 }

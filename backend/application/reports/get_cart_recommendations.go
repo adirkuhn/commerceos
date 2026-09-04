@@ -16,11 +16,16 @@ import (
 var ErrCartEmpty = errors.New("cart is empty")
 
 const (
-	cartRecommendationsLookbackDays              = 180
-	cartRecommendationsMinSupport                = 2
-	cartRecommendationsMaxItemsetSize            = 5
-	cartRecommendationsDefaultLimit              = 10
-	cartRecommendationsBundleConfidenceThreshold = 0.30
+	cartRecommendationsLookbackDays   = 180
+	cartRecommendationsMinSupport     = 2
+	cartRecommendationsMaxItemsetSize = 5
+	cartRecommendationsDefaultLimit   = 10
+	// defaultBundleConfidenceThreshold is used only when the tenant has
+	// never saved a TenantSettings row (settingsDomain.TenantSettings.
+	// BundleConfidenceThreshold's zero-value-means-unset convention) --
+	// every configured tenant uses their own settings.BundleConfidenceThreshold
+	// instead. Not a hard limit on what a merchant can configure.
+	defaultBundleConfidenceThreshold = 0.30
 )
 
 // skuLookupByCode resolves the WooCommerce-facing SKU code the storefront
@@ -39,13 +44,17 @@ type CartLine struct {
 }
 
 // CartRecommendation is one candidate to cross-sell alongside the cart.
-// Confidence is the strongest single itemset's support as a fraction of
-// TotalOrders (0..1) among the cart lines that produced it -- an honest,
-// single number a storefront can show ("bought together in 42% of
-// orders"), not inflated by quantity weighting (that only affects ranking,
-// see Execute). IsBundleCandidate flags confidence crossing
-// cartRecommendationsBundleConfidenceThreshold -- CommerceOS only signals
-// this; the discount policy itself is the storefront's to own.
+// Confidence is the classic association-rule definition: of the orders
+// containing this candidate's best-supported trigger (the cart line it was
+// most strongly co-purchased with), what fraction also contained the
+// candidate -- support(trigger, candidate) / support(trigger alone), NOT a
+// fraction of TotalOrders (that would make confidence collapse toward 0 for
+// any store with many distinct SKUs, since it's diluted by every unrelated
+// order in the lookback window regardless of whether it could ever have
+// contained the trigger). Not inflated by quantity weighting either (that
+// only affects ranking, see Execute). IsBundleCandidate flags confidence
+// crossing the tenant's own settings.BundleConfidenceThreshold -- CommerceOS
+// only signals this; the discount policy itself is the storefront's to own.
 type CartRecommendation struct {
 	SKUCode           string
 	ProductName       string
@@ -86,7 +95,12 @@ func NewGetCartRecommendationsUseCase(
 
 type cartCandidateStat struct {
 	bestRawSupport int
-	weightedScore  int
+	// bestTriggerSKUID is which cart line's itemset produced bestRawSupport
+	// -- confidence divides by THIS trigger's own singleton support, not
+	// some other cart line's, since a multi-line cart can link the same
+	// candidate to several lines at different support levels.
+	bestTriggerSKUID string
+	weightedScore    int
 }
 
 // Execute mines cross-sell candidates for the whole cart at once (not one
@@ -105,8 +119,17 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 	report := &CartRecommendationsReport{}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		currency := "USD"
-		if settings, err := uc.settingsRepo.Get(ctx); err == nil && settings.DefaultCurrency != "" {
-			currency = settings.DefaultCurrency
+		bundleThreshold := defaultBundleConfidenceThreshold
+		if settings, err := uc.settingsRepo.Get(ctx); err == nil {
+			if settings.DefaultCurrency != "" {
+				currency = settings.DefaultCurrency
+			}
+			// Zero-value-means-unset (see TenantSettings.BundleConfidenceThreshold's
+			// doc comment) -- only trust an explicit 0 from a tenant that
+			// has actually saved settings before.
+			if !settings.UpdatedAt.IsZero() {
+				bundleThreshold = settings.BundleConfidenceThreshold
+			}
 		}
 
 		to := time.Now()
@@ -139,6 +162,21 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 		}
 		itemsets := fpGrowth(transactions, cartRecommendationsMinSupport, cartRecommendationsMaxItemsetSize)
 
+		// Singleton (size-1) itemsets are how many orders contained that
+		// SKU alone -- fpGrowth mines every itemset size >= 1, so this is
+		// already in the same output rather than needing a separate pass
+		// over transactions. Confidence below divides by this: it's always
+		// present for any SKU that appears in a size-2+ itemset too, since
+		// an item's own support can only be >= any pair support it's part
+		// of, and mineFPTree emits every header-table item that clears
+		// minSupport on its own.
+		singletonSupport := make(map[string]int, len(itemsets))
+		for _, is := range itemsets {
+			if len(is.Items) == 1 {
+				singletonSupport[is.Items[0]] = is.Support
+			}
+		}
+
 		stats := make(map[string]*cartCandidateStat)
 		for cartSKUID, qty := range cartQuantities {
 			for _, is := range itemsets {
@@ -169,6 +207,7 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 					}
 					if is.Support > st.bestRawSupport {
 						st.bestRawSupport = is.Support
+						st.bestTriggerSKUID = cartSKUID
 					}
 					st.weightedScore += is.Support * qty
 				}
@@ -198,14 +237,18 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 			if err != nil {
 				continue
 			}
+			// support(trigger, candidate) / support(trigger alone) -- the
+			// classic association-rule confidence, not diluted by every
+			// unrelated order in the lookback window (see
+			// CartRecommendation's doc comment for why that matters).
 			confidence := 0.0
-			if report.TotalOrders > 0 {
-				confidence = float64(stats[candidateID].bestRawSupport) / float64(report.TotalOrders)
+			if triggerSupport := singletonSupport[stats[candidateID].bestTriggerSKUID]; triggerSupport > 0 {
+				confidence = float64(stats[candidateID].bestRawSupport) / float64(triggerSupport)
 			}
 			row := CartRecommendation{
 				SKUCode:           sku.SKUCode,
 				Confidence:        confidence,
-				IsBundleCandidate: confidence >= cartRecommendationsBundleConfidenceThreshold,
+				IsBundleCandidate: confidence >= bundleThreshold,
 			}
 			if variant, err := uc.variantLookup.FindByID(ctx, sku.VariantID); err == nil {
 				if product, err := uc.productLookup.FindByID(ctx, variant.ProductID); err == nil {

@@ -21,10 +21,12 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 		PricesIncludeTax: true, DefaultTaxCountry: "NL",
 		InventorySyncRulesEnabled: true, BatchExpiryThresholdDays: 30,
 		DefaultTargetMarkupBasisPoints: 3000,
+		BundleConfidenceThreshold:      0.25,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, 3000, result.DefaultTargetMarkupBasisPoints)
+	require.InDelta(t, 0.25, result.BundleConfidenceThreshold, 0.0001)
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
 	require.Equal(t, "DD/MM/YYYY", result.DateFormat)
@@ -40,6 +42,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	require.Equal(t, "NL", repo.upserted[0].DefaultTaxCountry)
 	require.True(t, repo.upserted[0].InventorySyncRulesEnabled)
 	require.Equal(t, 30, repo.upserted[0].BatchExpiryThresholdDays)
+	require.InDelta(t, 0.25, repo.upserted[0].BundleConfidenceThreshold, 0.0001)
 }
 
 func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
@@ -58,6 +61,44 @@ func TestUpdateTenantSettings_rejectsNegativeTargetMarkup(t *testing.T) {
 	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", DefaultTargetMarkupBasisPoints: -1})
 
 	require.ErrorIs(t, err, settingsDomain.ErrInvalidTargetMarkupBasisPoints)
+}
+
+func TestUpdateTenantSettings_rejectsBundleConfidenceThresholdBelowZero(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: -0.01})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidBundleConfidenceThreshold)
+}
+
+func TestUpdateTenantSettings_rejectsBundleConfidenceThresholdAboveOne(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: 1.01})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidBundleConfidenceThreshold)
+}
+
+func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfZero(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: 0})
+
+	require.NoError(t, err)
+	require.Equal(t, 0.0, result.BundleConfidenceThreshold)
+}
+
+func TestUpdateTenantSettings_allowsBundleConfidenceThresholdOfOne(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", BundleConfidenceThreshold: 1})
+
+	require.NoError(t, err)
+	require.Equal(t, 1.0, result.BundleConfidenceThreshold)
 }
 
 func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {
