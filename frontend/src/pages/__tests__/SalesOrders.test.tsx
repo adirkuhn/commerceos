@@ -437,6 +437,77 @@ describe('Sales order detail page', () => {
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
   })
 
+  it('links the customer name to their customer page when the order has a customer_id', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({ customer_id: 'cust-1', billing: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com' } }),
+    }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByRole('link', { name: 'Jane Doe' })).toHaveAttribute('href', '/customers/cust-1')
+  })
+
+  it('shows the customer name as plain text for a guest order with no customer_id', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({
+      sales_order: salesOrder({ customer_id: null, billing: { first_name: 'Jane', last_name: 'Doe', email: 'jane@example.com' } }),
+    }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    await screen.findByText('Blue Widget')
+    expect(screen.queryByRole('link', { name: 'Jane Doe' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Jane Doe').length).toBeGreaterThan(0)
+  })
+
+  it('shows "No notes" when the order has no customer note', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({ customer_note: '' }) }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+
+    expect(await screen.findByText('No notes')).toBeInTheDocument()
+  })
+
+  it('editing the note saves it via update and shows the new text', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValueOnce(detail({ sales_order: salesOrder({ customer_note: '' }) }))
+    vi.mocked(omsApi.updateSalesOrder).mockResolvedValue(salesOrder({ customer_note: 'Call before delivery' }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('No notes')
+
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValueOnce(detail({ sales_order: salesOrder({ customer_note: 'Call before delivery' }) }))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit notes' }))
+    await userEvent.type(screen.getByLabelText('Notes'), 'Call before delivery')
+    await userEvent.click(screen.getByRole('button', { name: 'Save note' }))
+
+    await waitFor(() => expect(omsApi.updateSalesOrder).toHaveBeenCalledWith('test-token', 'so-1', { customer_note: 'Call before delivery' }))
+    expect(await screen.findByText('Call before delivery')).toBeInTheDocument()
+  })
+
+  it('Cancel discards the note draft without saving', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({ customer_note: 'Original note' }) }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Original note')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit notes' }))
+    await userEvent.clear(screen.getByLabelText('Notes'))
+    await userEvent.type(screen.getByLabelText('Notes'), 'Discarded draft')
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(omsApi.updateSalesOrder).not.toHaveBeenCalled()
+    expect(screen.getByText('Original note')).toBeInTheDocument()
+  })
+
   // Reported bug: clicking a sales-order result in global search did
   // nothing when already on the Sales Orders page. Root cause: selectedId
   // was `useState(() => searchParams.get('id'))` -- a lazy initializer that
@@ -476,6 +547,7 @@ describe('Sales order detail page', () => {
     await userEvent.click(await screen.findByText('#1001'))
 
     expect(await screen.findByText('Shipment created via MyParcel')).toBeInTheDocument()
+    expect(screen.getByText('Timeline')).toBeInTheDocument()
   })
 
   it('does not show Create label when no MyParcel connection exists', async () => {
@@ -779,7 +851,7 @@ describe('Sales order detail page', () => {
     expect(await screen.findByRole('button', { name: 'Retry print' })).toBeInTheDocument()
   })
 
-  it('shows no activity section when the log is empty', async () => {
+  it('shows no timeline section when the activity log is empty', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
@@ -787,7 +859,7 @@ describe('Sales order detail page', () => {
     await userEvent.click(await screen.findByText('#1001'))
     await screen.findByText('Blue Widget')
 
-    expect(screen.queryByText('Activity')).not.toBeInTheDocument()
+    expect(screen.queryByText('Timeline')).not.toBeInTheDocument()
   })
 
   it('Picking list opens the printable view and triggers the browser print dialog', async () => {

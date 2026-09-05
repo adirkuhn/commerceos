@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { idFromPath } from '../routes'
-import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer, X } from 'lucide-react'
+import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer, X, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
@@ -62,6 +62,16 @@ function formatMoney(minorUnits: number, currencyCode: string): string {
 function customerName(order: SalesOrder): string {
   const name = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(' ')
   return name || order.billing?.email || '—'
+}
+
+// Billing shown as "Same as shipping address" when the two addresses match
+// on every field a customer would actually check -- not e.g. phone, which
+// legitimately differs (billing contact vs. delivery contact) without the
+// addresses being different.
+function addressesEqual(a?: Address, b?: Address): boolean {
+  if (!a || !b) return false
+  const fields: (keyof Address)[] = ['first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'state', 'postcode', 'country']
+  return fields.every(f => (a[f] ?? '') === (b[f] ?? ''))
 }
 
 function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
@@ -757,6 +767,27 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [savingStatus, setSavingStatus] = useState(false)
   const [actionError, setActionError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
+  function startEditingNote() {
+    setNoteDraft(detail?.sales_order.customer_note ?? '')
+    setEditingNote(true)
+  }
+
+  async function saveNote() {
+    setSavingNote(true)
+    setActionError('')
+    try {
+      await update({ customer_note: noteDraft })
+      setEditingNote(false)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to save note')
+    } finally {
+      setSavingNote(false)
+    }
+  }
   // Full-screen overlay in place of the normal detail chrome, same pattern
   // as this page's own list<->detail<->create switch -- this app has no
   // router, so a one-off view is just a conditional render, not a route.
@@ -978,113 +1009,188 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-6 space-y-5">
+        <div className="max-w-5xl mx-auto p-6 space-y-5">
           {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
           {(error || actionError) && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error || actionError}</p>}
 
           {detail && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1">
-                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 mb-2">Billing</h3>
-                  <AddressLines address={detail.sales_order.billing} />
-                </div>
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1">
-                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 mb-2">Shipping</h3>
-                  <AddressLines address={detail.sales_order.shipping} />
-                </div>
-              </div>
-
-              <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
-                <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Line items</h3>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b dark:border-[#2D3748] border-gray-200">
-                      <th className="text-left py-1.5 font-medium dark:text-gray-500 text-gray-400">Product</th>
-                      <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Qty</th>
-                      <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Price</th>
-                      <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
-                    {detail.line_items.map(li => (
-                      <tr key={li.id}>
-                        <td className="py-1.5">
-                          <p className="dark:text-gray-200 text-gray-800">{li.name}</p>
-                          {li.sku_code && (
-                            <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.sku_code}</p>
-                          )}
-                          {li.barcode && (
-                            <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.barcode}</p>
-                          )}
-                          {!li.sku_id && (
-                            <p className="text-[10px] text-amber-500">Not linked to a product yet</p>
-                          )}
-                        </td>
-                        <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">{li.quantity}</td>
-                        <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">
-                          {formatMoney(li.price_minor_units, detail.sales_order.currency_code)}
-                        </td>
-                        <td className="py-1.5 text-right font-medium dark:text-gray-100 text-gray-900">
-                          {formatMoney(li.total_minor_units, detail.sales_order.currency_code)}
-                        </td>
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
+              {/* Main column */}
+              <div className="space-y-5 min-w-0">
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Line items</h3>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b dark:border-[#2D3748] border-gray-200">
+                        <th className="text-left py-1.5 font-medium dark:text-gray-500 text-gray-400">Product</th>
+                        <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Qty</th>
+                        <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Price</th>
+                        <th className="text-right py-1.5 font-medium dark:text-gray-500 text-gray-400">Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y dark:divide-[#2D3748]/60 divide-gray-100">
+                      {detail.line_items.map(li => (
+                        <tr key={li.id}>
+                          <td className="py-1.5">
+                            <p className="dark:text-gray-200 text-gray-800">{li.name}</p>
+                            {li.sku_code && (
+                              <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.sku_code}</p>
+                            )}
+                            {li.barcode && (
+                              <p className="text-[10px] dark:text-gray-500 text-gray-400">{li.barcode}</p>
+                            )}
+                            {!li.sku_id && (
+                              <p className="text-[10px] text-amber-500">Not linked to a product yet</p>
+                            )}
+                          </td>
+                          <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">{li.quantity}</td>
+                          <td className="py-1.5 text-right dark:text-gray-300 text-gray-700">
+                            {formatMoney(li.price_minor_units, detail.sales_order.currency_code)}
+                          </td>
+                          <td className="py-1.5 text-right font-medium dark:text-gray-100 text-gray-900">
+                            {formatMoney(li.total_minor_units, detail.sales_order.currency_code)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-                <div className="pt-2 border-t dark:border-[#2D3748] border-gray-200 space-y-1 text-xs">
-                  <div className="flex justify-between dark:text-gray-400 text-gray-500">
-                    <span>Discount</span>
-                    <span>{formatMoney(detail.sales_order.discount_total_minor_units, detail.sales_order.currency_code)}</span>
-                  </div>
-                  <div className="flex justify-between dark:text-gray-400 text-gray-500">
-                    <span>Shipping</span>
-                    <span>{formatMoney(detail.sales_order.shipping_total_minor_units, detail.sales_order.currency_code)}</span>
-                  </div>
-                  <div className="flex justify-between dark:text-gray-400 text-gray-500">
-                    <span>Tax</span>
-                    <span>{formatMoney(detail.sales_order.tax_total_minor_units, detail.sales_order.currency_code)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold dark:text-gray-100 text-gray-900 pt-1">
-                    <span>Total</span>
-                    <span>{formatMoney(detail.sales_order.total_minor_units, detail.sales_order.currency_code)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1 text-xs">
-                <p className="dark:text-gray-400 text-gray-500">Source: <span className="dark:text-gray-200 text-gray-800 capitalize">{detail.sales_order.source}</span></p>
-                {(detail.sales_order.payment_method_title || detail.sales_order.payment_method) && (
-                  <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
-                )}
-                {detail.sales_order.shipping_method_title && (
-                  <p className="dark:text-gray-400 text-gray-500">Shipping method: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.shipping_method_title}</span></p>
-                )}
-                {detail.sales_order.customer_note && (
-                  <p className="dark:text-gray-400 text-gray-500">Note: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.customer_note}</span></p>
-                )}
-              </div>
-
-              {shipments.length > 0 && token && (
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
-                  <p className="font-medium dark:text-gray-300 text-gray-700">Shipments</p>
-                  {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
-                </div>
-              )}
-
-              {activities.length > 0 && (
-                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
-                  <p className="font-medium dark:text-gray-300 text-gray-700">Activity</p>
-                  {activities.map(a => (
-                    <div key={a.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
-                      <span className="dark:text-gray-200 text-gray-800">{a.summary}</span>
-                      <span className="shrink-0">{new Date(a.created_at).toLocaleString()}</span>
+                  <div className="pt-2 border-t dark:border-[#2D3748] border-gray-200 space-y-1 text-xs">
+                    <div className="flex justify-between dark:text-gray-400 text-gray-500">
+                      <span>Discount</span>
+                      <span>{formatMoney(detail.sales_order.discount_total_minor_units, detail.sales_order.currency_code)}</span>
                     </div>
-                  ))}
+                    <div className="flex justify-between dark:text-gray-400 text-gray-500">
+                      <span>Shipping</span>
+                      <span>{formatMoney(detail.sales_order.shipping_total_minor_units, detail.sales_order.currency_code)}</span>
+                    </div>
+                    <div className="flex justify-between dark:text-gray-400 text-gray-500">
+                      <span>Tax</span>
+                      <span>{formatMoney(detail.sales_order.tax_total_minor_units, detail.sales_order.currency_code)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold dark:text-gray-100 text-gray-900 pt-1">
+                      <span>Total</span>
+                      <span>{formatMoney(detail.sales_order.total_minor_units, detail.sales_order.currency_code)}</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </>
+
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-1 text-xs">
+                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 mb-2">Payment</h3>
+                  <p className="dark:text-gray-400 text-gray-500">Source: <span className="dark:text-gray-200 text-gray-800 capitalize">{detail.sales_order.source}</span></p>
+                  {(detail.sales_order.payment_method_title || detail.sales_order.payment_method) && (
+                    <p className="dark:text-gray-400 text-gray-500">Payment: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.payment_method_title || detail.sales_order.payment_method}</span></p>
+                  )}
+                  {detail.sales_order.shipping_method_title && (
+                    <p className="dark:text-gray-400 text-gray-500">Shipping method: <span className="dark:text-gray-200 text-gray-800">{detail.sales_order.shipping_method_title}</span></p>
+                  )}
+                </div>
+
+                {shipments.length > 0 && token && (
+                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
+                    <p className="font-medium dark:text-gray-300 text-gray-700">Shipments</p>
+                    {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
+                  </div>
+                )}
+
+                {activities.length > 0 && (
+                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
+                    <p className="font-medium dark:text-gray-300 text-gray-700">Timeline</p>
+                    {activities.map(a => (
+                      <div key={a.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
+                        <span className="dark:text-gray-200 text-gray-800">{a.summary}</span>
+                        <span className="shrink-0">{new Date(a.created_at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Aside column */}
+              <div className="space-y-5 min-w-0">
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Notes</h3>
+                    {!editingNote && (
+                      <button
+                        onClick={startEditingNote}
+                        title="Edit notes"
+                        aria-label="Edit notes"
+                        className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      >
+                        <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                      </button>
+                    )}
+                  </div>
+                  {editingNote ? (
+                    <div className="space-y-2">
+                      <label htmlFor="sales-order-note" className="sr-only">Notes</label>
+                      <textarea
+                        id="sales-order-note"
+                        value={noteDraft}
+                        onChange={e => setNoteDraft(e.target.value)}
+                        rows={3}
+                        className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={saveNote}
+                          disabled={savingNote}
+                          className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          Save note
+                        </button>
+                        <button
+                          onClick={() => setEditingNote(false)}
+                          disabled={savingNote}
+                          className="px-2.5 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : detail.sales_order.customer_note ? (
+                    <p className="dark:text-gray-200 text-gray-800 whitespace-pre-wrap">{detail.sales_order.customer_note}</p>
+                  ) : (
+                    <p className="dark:text-gray-500 text-gray-400">No notes</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
+                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Customer</h3>
+                  <p>
+                    {detail.sales_order.customer_id ? (
+                      <Link to={`/customers/${detail.sales_order.customer_id}`} className="text-blue-500 hover:underline">
+                        {customerName(detail.sales_order)}
+                      </Link>
+                    ) : (
+                      <span className="dark:text-gray-200 text-gray-800">{customerName(detail.sales_order)}</span>
+                    )}
+                  </p>
+
+                  {detail.sales_order.billing?.email && (
+                    <div>
+                      <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Contact information</h4>
+                      <p className="dark:text-gray-200 text-gray-800">{detail.sales_order.billing.email}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Shipping address</h4>
+                    <AddressLines address={detail.sales_order.shipping} />
+                  </div>
+
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Billing address</h4>
+                    {addressesEqual(detail.sales_order.billing, detail.sales_order.shipping) ? (
+                      <p className="dark:text-gray-500 text-gray-400">Same as shipping address</p>
+                    ) : (
+                      <AddressLines address={detail.sales_order.billing} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
