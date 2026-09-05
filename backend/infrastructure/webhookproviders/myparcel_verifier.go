@@ -9,11 +9,12 @@ import (
 // ProviderMyParcel is the registry key + URL path segment for MyParcel.
 const ProviderMyParcel = "myparcel"
 
-// myParcelQueryTokenKey is the headers-map key
-// infrastructure/handlers/webhooks.Handler injects the `?token=` query
-// parameter under, since MyParcel's webhook has nothing in the request
-// body or headers to verify against -- see this file's own doc comment.
-const myParcelQueryTokenKey = "__query_token"
+// queryTokenKey is the headers-map key infrastructure/handlers/webhooks.Handler
+// injects the `?token=`/path-segment token under, for any provider that
+// signs nothing and instead relies on a shared secret embedded in its own
+// callback URL -- MyParcel and (see evolutionapi_verifier.go) WhatsApp/
+// Evolution API both verify against this same key.
+const queryTokenKey = "__query_token"
 
 // MyParcelVerifier implements domain/webhooks.ProviderVerifier for
 // MyParcel. Unlike WooCommerce (HMAC-SHA256 over the body), MyParcel signs
@@ -36,7 +37,7 @@ type MyParcelVerifier struct{}
 func NewMyParcelVerifier() *MyParcelVerifier { return &MyParcelVerifier{} }
 
 func (MyParcelVerifier) Verify(rawBody []byte, headers map[string]string, secret string) error {
-	got := headers[myParcelQueryTokenKey]
+	got := headers[queryTokenKey]
 	if got == "" || secret == "" {
 		return webhooks.ErrInvalidSignature
 	}

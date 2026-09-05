@@ -16,6 +16,7 @@ func NewRegistry() map[string]webhooks.ProviderVerifier {
 	reg := map[string]webhooks.ProviderVerifier{
 		ProviderWooCommerce: NewWooCommerceVerifier(),
 		ProviderMyParcel:    NewMyParcelVerifier(),
+		ProviderWhatsApp:    NewEvolutionAPIVerifier(),
 	}
 	for _, name := range stubProviders {
 		reg[name] = NewStubVerifier()
