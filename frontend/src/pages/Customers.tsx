@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search, User, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -33,6 +33,23 @@ function formatMoney(minorUnits: number, currencyCode: string): string {
   } catch {
     return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
   }
+}
+
+// "3 days ago" style formatting for the "Last order placed" stat -- no
+// shared relative-time utility exists elsewhere in the app to reuse.
+function formatRelativeTime(date: Date): string {
+  const diffSec = Math.round((Date.now() - date.getTime()) / 1000)
+  const diffMin = Math.round(diffSec / 60)
+  const diffHour = Math.round(diffMin / 60)
+  const diffDay = Math.round(diffHour / 24)
+  if (diffSec < 60) return 'Just now'
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`
+  if (diffHour < 24) return `${diffHour} hour${diffHour === 1 ? '' : 's'} ago`
+  if (diffDay < 30) return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`
+  const diffMonth = Math.round(diffDay / 30)
+  if (diffMonth < 12) return `${diffMonth} month${diffMonth === 1 ? '' : 's'} ago`
+  const diffYear = Math.round(diffMonth / 12)
+  return `${diffYear} year${diffYear === 1 ? '' : 's'} ago`
 }
 
 // Billing shown as "Same as shipping address" when the two addresses match
@@ -364,14 +381,23 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
               {/* Main column */}
               <div className="space-y-5 min-w-0">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Amount spent</p>
                     <p className="text-lg font-semibold dark:text-gray-100 text-gray-900">{formatMoney(amountSpentMinorUnits, currency)}</p>
                   </div>
-                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+                  <Link
+                    to={`/sales-orders?customer_id=${customer.id}`}
+                    className="block rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors"
+                  >
                     <p className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Orders</p>
-                    <p className="text-lg font-semibold dark:text-gray-100 text-gray-900">{ordersTotal}</p>
+                    <p className="text-lg font-semibold text-blue-500">{ordersTotal}</p>
+                  </Link>
+                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Last order placed</p>
+                    <p className="text-sm font-medium dark:text-gray-100 text-gray-900">
+                      {orders[0] ? formatRelativeTime(new Date(orders[0].occurred_at)) : 'No orders yet'}
+                    </p>
                   </div>
                 </div>
 

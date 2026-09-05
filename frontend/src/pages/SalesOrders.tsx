@@ -122,6 +122,10 @@ export default function SalesOrders() {
     const f = searchParams.get('fulfilled')
     return f === 'true' || f === 'false' ? f : ''
   })
+  // customerId: not a filter button -- arrives via a link from the Customer
+  // detail page's "Orders" stat (see Customers.tsx), same URL-seeding
+  // convention as the other filters so page/sort changes don't drop it.
+  const [customerId, setCustomerId] = useState<string | null>(() => searchParams.get('customer_id'))
 
   // The open order lives in the URL (/sales-orders/<uuid>, or
   // /sales-orders/new) -- read via location.pathname (not useParams) so it
@@ -143,8 +147,9 @@ export default function SalesOrders() {
     sourceFilter.forEach(s => params.append('source', s))
     statusFilter.forEach(s => params.append('status', s))
     if (fulfilledFilter) params.set('fulfilled', fulfilledFilter)
+    if (customerId) params.set('customer_id', customerId)
     return params
-  }, [page, sortBy, sortDir, sourceFilter, statusFilter, fulfilledFilter])
+  }, [page, sortBy, sortDir, sourceFilter, statusFilter, fulfilledFilter, customerId])
 
   useEffect(() => {
     // Don't touch the query string while viewing a record -- it now lives
@@ -161,18 +166,20 @@ export default function SalesOrders() {
     navigate(`/sales-orders${qs ? `?${qs}` : ''}`)
   }
 
-  const hasActiveFilters = sourceFilter.length > 0 || statusFilter.length > 0 || fulfilledFilter !== ''
+  const hasActiveFilters = sourceFilter.length > 0 || statusFilter.length > 0 || fulfilledFilter !== '' || customerId !== null
 
   function clearFilters() {
     setSourceFilter([])
     setStatusFilter([])
     setFulfilledFilter('')
+    setCustomerId(null)
     setPage(1)
   }
 
   const { salesOrders, total, loading, error, create, refresh, bulkUpdate } = useSalesOrders(token ?? '', {
     page, perPage: PAGE_SIZE, sortBy, sortDir, source: sourceFilter, status: statusFilter,
     fulfilled: fulfilledFilter === '' ? undefined : fulfilledFilter === 'true',
+    customerId: customerId ?? undefined,
   })
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const [bulkStatus, setBulkStatus] = useState('')
@@ -331,6 +338,14 @@ export default function SalesOrders() {
           <option value="true">Only fulfilled</option>
           <option value="false">Only unfulfilled</option>
         </select>
+        {customerId && (
+          <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-blue-500/15 text-blue-500">
+            Filtered to one customer
+            <button type="button" onClick={() => setCustomerId(null)} aria-label="Clear customer filter" className="hover:opacity-70">
+              <X size={12} />
+            </button>
+          </span>
+        )}
         {hasActiveFilters && (
           <button
             type="button" onClick={clearFilters}

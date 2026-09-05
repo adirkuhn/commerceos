@@ -168,6 +168,42 @@ describe('Customer detail page', () => {
     expect(screen.getByText(/Placed order #1001/)).toBeInTheDocument()
   })
 
+  // Reported: clicking the Orders stat should take you to that customer's
+  // own orders, not be a dead number.
+  it('links the Orders stat to that customer\'s filtered sales orders', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    await screen.findByText('Orders')
+    expect(screen.getByRole('link', { name: /Orders/ })).toHaveAttribute('href', '/sales-orders?customer_id=customer-1')
+  })
+
+  it('shows "No orders yet" for Last order placed when the customer has none', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    expect(await screen.findByText('No orders yet')).toBeInTheDocument()
+  })
+
+  it('shows a relative time for Last order placed when an order exists', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({ occurred_at: twoHoursAgo })], total: 1,
+    })
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    expect(await screen.findByText('2 hours ago')).toBeInTheDocument()
+  })
+
   // Reported bug: the customer page showed no order count, no amount
   // spent, and no timeline at all in production. Root cause: this fetch
   // requested perPage: 250, but ListSalesOrders' documented per_page

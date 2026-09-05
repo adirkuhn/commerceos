@@ -331,6 +331,42 @@ describe('Sales orders list', () => {
     expect(screen.getByLabelText('Filter by fulfilled substatus')).toHaveValue('true')
   })
 
+  // Reported: the Customer detail page's "Orders" stat should link here and
+  // show that customer's own orders, newest first -- not a manual filter
+  // button, arrives purely via ?customer_id= on the URL (see Customers.tsx).
+  it('filters to one customer via ?customer_id= and shows a clearable chip for it', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(
+      <MemoryRouter initialEntries={['/sales-orders?customer_id=cust-1']}>
+        <SalesOrders />
+      </MemoryRouter>,
+    )
+    await screen.findByText('#1001')
+
+    expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [], customerId: 'cust-1',
+    })
+    expect(screen.getByText('Filtered to one customer')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear customer filter' }))
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', {
+      page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'desc', status: [], source: [],
+    }))
+    expect(screen.queryByText('Filtered to one customer')).not.toBeInTheDocument()
+  })
+
+  it('does not show the customer chip or Clear filters when no customer filter is active', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await screen.findByText('#1001')
+
+    expect(screen.queryByText('Filtered to one customer')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
   it('shows a Clear filters button only when a filter is active, and it clears everything', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
 
