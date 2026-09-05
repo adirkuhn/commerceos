@@ -110,7 +110,7 @@ export default function CommandPalette() {
   }
 
   function openRecord(nav: NavItem, id: string) {
-    navigate(`${navItemToPath(nav)}?id=${id}`)
+    navigate(`${navItemToPath(nav)}/${id}`)
     setCommandOpen(false)
   }
 

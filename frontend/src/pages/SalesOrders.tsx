@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { idFromPath } from '../routes'
 import { ArrowLeft, ShoppingCart, Plus, Trash2, ChevronUp, ChevronDown, Printer, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -102,12 +103,6 @@ export default function SalesOrders() {
   })
   const [sortBy, setSortBy] = useState<SalesOrderSortField>(() => (searchParams.get('sort_by') as SalesOrderSortField | null) ?? 'occurred_at')
   const [sortDir, setSortDir] = useState<SortDirection>(() => (searchParams.get('sort_dir') as SortDirection | null) ?? 'desc')
-  // Seeded from the URL so a deep link (global search / Cmd+K) opens
-  // straight to that order -- unlike page/sort/filters below, selectedId
-  // isn't kept in sync back to the URL on every change (opening/closing an
-  // order from the list is frequent and shouldn't spam history), so this
-  // is read once, not round-tripped.
-  const [selectedId, setSelectedId] = useState<string | null | 'new'>(() => searchParams.get('id'))
   const [sourceFilter, setSourceFilter] = useState<SalesOrderSource[]>(() => searchParams.getAll('source') as SalesOrderSource[])
   const [statusFilter, setStatusFilter] = useState<SalesOrderStatus[]>(() => searchParams.getAll('status') as SalesOrderStatus[])
   // fulfilledFilter: '' = don't filter (all substatuses), otherwise
@@ -118,7 +113,19 @@ export default function SalesOrders() {
     return f === 'true' || f === 'false' ? f : ''
   })
 
-  useEffect(() => {
+  // The open order lives in the URL (/sales-orders/<uuid>, or
+  // /sales-orders/new) -- read via location.pathname (not useParams) so it
+  // reflects the URL on every render even when navigating here doesn't
+  // remount the page. This used to be `useState(() => searchParams.get('id'))`,
+  // a lazy initializer that only ran on mount: global search's
+  // CommandPalette navigating straight to this order while already on this
+  // page changed the URL but never re-ran the initializer, so the click
+  // silently did nothing. See routes.ts's idFromPath doc comment.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const selectedId = idFromPath(location.pathname, '/sales-orders')
+
+  const buildListParams = useCallback(() => {
     const params = new URLSearchParams()
     if (page !== 1) params.set('page', String(page))
     if (sortBy !== 'occurred_at') params.set('sort_by', sortBy)
@@ -126,9 +133,23 @@ export default function SalesOrders() {
     sourceFilter.forEach(s => params.append('source', s))
     statusFilter.forEach(s => params.append('status', s))
     if (fulfilledFilter) params.set('fulfilled', fulfilledFilter)
-    setSearchParams(params, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return params
   }, [page, sortBy, sortDir, sourceFilter, statusFilter, fulfilledFilter])
+
+  useEffect(() => {
+    // Don't touch the query string while viewing a record -- it now lives
+    // on its own path (/sales-orders/<id>), not here.
+    if (selectedId !== null) return
+    setSearchParams(buildListParams(), { replace: true })
+  }, [selectedId, buildListParams, setSearchParams])
+
+  // Returns to the list, restoring whatever page/sort/filters were active
+  // before opening the record -- captured here from current state rather
+  // than relying on it having survived the route change.
+  function closeDetail() {
+    const qs = buildListParams().toString()
+    navigate(`/sales-orders${qs ? `?${qs}` : ''}`)
+  }
 
   const hasActiveFilters = sourceFilter.length > 0 || statusFilter.length > 0 || fulfilledFilter !== ''
 
@@ -229,12 +250,12 @@ export default function SalesOrders() {
     return (
       <CreateSalesOrderPage
         onCreate={create}
-        onClose={() => setSelectedId(null)}
+        onClose={closeDetail}
       />
     )
   }
   if (selectedId !== null) {
-    return <SalesOrderDetailPage salesOrderId={selectedId} onClose={() => { setSelectedId(null); refresh() }} />
+    return <SalesOrderDetailPage salesOrderId={selectedId} onClose={() => { closeDetail(); refresh() }} />
   }
 
   return (
@@ -242,7 +263,7 @@ export default function SalesOrders() {
       {/* Toolbar */}
       <div className="flex items-center justify-end gap-3 px-5 py-3 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
         <button
-          onClick={() => setSelectedId('new')}
+          onClick={() => navigate('/sales-orders/new')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
         >
           <Plus size={13} /> New Sales Order
@@ -377,7 +398,7 @@ export default function SalesOrders() {
             {salesOrders.map(o => (
               <tr
                 key={o.id}
-                onClick={() => setSelectedId(o.id)}
+                onClick={() => navigate(`/sales-orders/${o.id}`)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>

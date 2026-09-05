@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import SalesOrders from '../SalesOrders'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 
@@ -119,6 +119,14 @@ beforeEach(() => {
   // openLabel.ts's blob->new-tab flow -- jsdom has no real implementation.
   URL.createObjectURL = vi.fn(() => 'blob:mock-url')
 })
+
+// Stands in for CommandPalette's openRecord: a `navigate()` call to a
+// per-record URL fired while SalesOrders is already mounted, without
+// SalesOrders itself remounting -- exactly the reported bug's trigger.
+function NavigateToOrderButton({ id }: { id: string }) {
+  const navigate = useNavigate()
+  return <button onClick={() => navigate(`/sales-orders/${id}`)}>simulate search result click</button>
+}
 
 function shipment(overrides: Partial<import('../../shipping/types').Shipment> = {}): import('../../shipping/types').Shipment {
   return {
@@ -426,6 +434,31 @@ describe('Sales order detail page', () => {
     expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
     expect(screen.getByText('WID-BLU')).toBeInTheDocument()
     expect(screen.getByText('5601049213991')).toBeInTheDocument()
+    expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
+  })
+
+  // Reported bug: clicking a sales-order result in global search did
+  // nothing when already on the Sales Orders page. Root cause: selectedId
+  // was `useState(() => searchParams.get('id'))` -- a lazy initializer that
+  // only runs on mount. CommandPalette's navigate('/sales-orders?id=...')
+  // doesn't remount this page (same route, just a query-string change), so
+  // the initializer never re-ran and the detail view never opened. Fixed by
+  // reading the id from location.pathname on every render instead.
+  it('opens order detail when navigated to its URL while already mounted on the list (search result click)', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ id: 'so-1', number: '22455' })], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({ id: 'so-1', number: '22455' }) }))
+
+    render(
+      <MemoryRouter initialEntries={['/sales-orders']}>
+        <NavigateToOrderButton id="so-1" />
+        <SalesOrders />
+      </MemoryRouter>,
+    )
+    await screen.findByText('#22455')
+
+    await userEvent.click(screen.getByText('simulate search result click'))
+
+    expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
     expect(omsApi.getSalesOrder).toHaveBeenCalledWith('test-token', 'so-1')
   })
 

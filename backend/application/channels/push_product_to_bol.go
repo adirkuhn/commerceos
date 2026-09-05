@@ -615,7 +615,7 @@ func (uc *PushProductToBolUseCase) notifyNotForSale(ctx context.Context, product
 		Type:    notificationsDomain.TypeBolNotForSale,
 		Title:   "Bol: \"" + product.Name + "\" is not for sale",
 		Message: note,
-		Link:    "/products?id=" + product.ID,
+		Link:    "/products/" + product.ID,
 	}); err != nil {
 		log.Printf("pushProductToBol: notify not-for-sale for product %s: %v", product.ID, err)
 	}

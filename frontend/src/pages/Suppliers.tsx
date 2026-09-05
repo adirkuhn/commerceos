@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Search, Truck, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useSuppliers } from '../suppliers/hooks/useSuppliers'
 import type { Supplier, SupplierInput, SupplierStatus } from '../suppliers/types'
+import { idFromPath } from '../routes'
 
 const PAGE_SIZE = 20
 
@@ -20,12 +21,16 @@ export default function Suppliers() {
 
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  // The URL is the source of truth for "which supplier is open" (?id=<uuid>,
-  // or ?id=new) -- survives a refresh, and is how global search (Cmd+K)
-  // deep-links straight to a specific supplier. Same convention as
-  // Products.tsx's editingId.
-  const [searchParams, setSearchParams] = useSearchParams()
-  const editingId = searchParams.get('id')
+  // The URL is the source of truth for "which supplier is open"
+  // (/suppliers/<uuid>, or /suppliers/new) -- survives a refresh, and is how
+  // global search (Cmd+K) deep-links straight to a specific supplier. Same
+  // convention as Products.tsx's editingId (see its comment for why this
+  // reads location.pathname on every render instead of useParams).
+  const location = useLocation()
+  const navigate = useNavigate()
+  const editingId = idFromPath(location.pathname, '/suppliers')
+  const openEditor = (id: string) => navigate(`/suppliers/${id}`)
+  const closeEditor = () => navigate('/suppliers')
   const [deleteError, setDeleteError] = useState('')
 
   function handleSearchChange(value: string) {
@@ -55,7 +60,7 @@ export default function Suppliers() {
         supplier={existing}
         onCreate={create}
         onUpdate={update}
-        onClose={() => setSearchParams({})}
+        onClose={closeEditor}
       />
     )
   }
@@ -75,7 +80,7 @@ export default function Suppliers() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => setSearchParams({ id: 'new' })}
+            onClick={() => openEditor('new')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Supplier
@@ -112,7 +117,7 @@ export default function Suppliers() {
             {paged.map(s => (
               <tr
                 key={s.id}
-                onClick={() => setSearchParams({ id: s.id })}
+                onClick={() => openEditor(s.id)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
@@ -134,7 +139,7 @@ export default function Suppliers() {
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={e => { e.stopPropagation(); setSearchParams({ id: s.id }) }}
+                      onClick={e => { e.stopPropagation(); openEditor(s.id) }}
                       className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
                       title="Edit"
                     >

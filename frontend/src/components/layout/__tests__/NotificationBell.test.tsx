@@ -98,7 +98,7 @@ describe('NotificationBell', () => {
 
   it('clicking a linked notification marks it read and navigates to its link', async () => {
     vi.mocked(notificationsApi.listNotifications).mockResolvedValue([
-      notification({ type: 'bol.offer.not_for_sale', title: 'Bol: "Widget" is not for sale', link: '/products?id=prod-1' }),
+      notification({ type: 'bol.offer.not_for_sale', title: 'Bol: "Widget" is not for sale', link: '/products/prod-1' }),
     ])
     vi.mocked(notificationsApi.markNotificationRead).mockResolvedValue(null)
 

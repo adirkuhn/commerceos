@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Products from '../Products'
 import { AppProvider, useApp } from '../../context/AppContext'
@@ -137,6 +137,15 @@ function NavReselectButton() {
   return <button onClick={() => setActiveNav('products')}>Reselect Products</button>
 }
 
+// Stands in for CommandPalette's openRecord: a `navigate()` call to a
+// per-record URL fired while Products is already mounted, without Products
+// itself remounting (it's a static sibling here, same as in the real app --
+// only the matched <Route> element changes, not this component's position).
+function NavigateToProductButton({ id }: { id: string }) {
+  const navigate = useNavigate()
+  return <button onClick={() => navigate(`/products/${id}`)}>simulate search result click</button>
+}
+
 describe('re-clicking the active "Products" nav item', () => {
   // Regression: Sidebar sets activeNav to the same value it already has when
   // re-clicking the current page, so React bails out of re-rendering and
@@ -164,15 +173,15 @@ describe('re-clicking the active "Products" nav item', () => {
 })
 
 describe('which product is open survives a page refresh', () => {
-  // The open product lives in the URL (?id=...), not local component state
-  // -- rendering straight at that URL (what a refresh does, since the SPA
-  // remounts from scratch) must land directly on the edit page, with no
+  // The open product lives in the URL (/products/<id>), not local component
+  // state -- rendering straight at that URL (what a refresh does, since the
+  // SPA remounts from scratch) must land directly on the edit page, with no
   // click required to get there.
-  it('opens straight into the edit page when the URL already has ?id=', async () => {
+  it('opens straight into the edit page when the URL already points at a product', async () => {
     vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
 
     render(
-      <MemoryRouter initialEntries={['/products?id=prod-1']}>
+      <MemoryRouter initialEntries={['/products/prod-1']}>
         <AppProvider><Products /></AppProvider>
       </MemoryRouter>,
     )
@@ -181,15 +190,38 @@ describe('which product is open survives a page refresh', () => {
     expect(await screen.findByDisplayValue('T-Shirt')).toBeInTheDocument()
   })
 
-  it('opens straight into the "new product" form when the URL already has ?id=new', async () => {
+  it('opens straight into the "new product" form when the URL is /products/new', async () => {
     render(
-      <MemoryRouter initialEntries={['/products?id=new']}>
+      <MemoryRouter initialEntries={['/products/new']}>
         <AppProvider><Products /></AppProvider>
       </MemoryRouter>,
     )
 
     expect(await screen.findByRole('button', { name: 'Create Product' })).toBeInTheDocument()
     expect(pmsApi.getProduct).not.toHaveBeenCalled()
+  })
+
+  // Regression: global search's CommandPalette navigates to "/products/<id>"
+  // without unmounting whatever page is currently showing. The old ?id=
+  // scheme read the query param into a useState initializer that only ran
+  // on mount, so this navigation silently did nothing while already on
+  // Products. Reading the id straight from the URL on every render fixes it.
+  it('opens the product when navigated to its URL while already mounted on the list (search result click)', async () => {
+    vi.mocked(pmsApi.getProduct).mockResolvedValue({ product: product(), variants: [] })
+
+    render(
+      <MemoryRouter initialEntries={['/products']}>
+        <AppProvider>
+          <NavigateToProductButton id="prod-1" />
+          <Products />
+        </AppProvider>
+      </MemoryRouter>,
+    )
+    await screen.findByText('T-Shirt')
+
+    await userEvent.click(screen.getByText('simulate search result click'))
+
+    expect(await screen.findByDisplayValue('T-Shirt')).toBeInTheDocument()
   })
 })
 

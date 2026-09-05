@@ -3,8 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Suppliers from '../Suppliers'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import type { Supplier } from '../../suppliers/types'
+
+// Stands in for CommandPalette's openRecord: a `navigate()` call to a
+// per-record URL fired while Suppliers is already mounted, without
+// Suppliers itself remounting.
+function NavigateToSupplierButton({ id }: { id: string }) {
+  const navigate = useNavigate()
+  return <button onClick={() => navigate(`/suppliers/${id}`)}>simulate search result click</button>
+}
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -209,8 +217,8 @@ describe('Supplier edit page', () => {
 
   it('prefills fields when deep-linking straight to an existing supplier, before the list has loaded', async () => {
     // Reproduces the reported bug: navigating directly to
-    // /suppliers?id=<id> (global search, a direct URL, a hard refresh)
-    // mounts SupplierEditPage before useSuppliers' list fetch resolves, so
+    // /suppliers/<id> (global search, a direct URL, a hard refresh) mounts
+    // SupplierEditPage before useSuppliers' list fetch resolves, so
     // `supplier` is null on first render. Without a hydration guard the
     // form's useState initializers never re-run once the real supplier
     // arrives, leaving every field permanently blank.
@@ -218,13 +226,35 @@ describe('Supplier edit page', () => {
       email: 'hi@acme.example', phone: '+1 555-0100', country: 'US', lead_time_days: 14, status: 'inactive', notes: 'net-30',
     })])
 
-    render(<MemoryRouter initialEntries={['/suppliers?id=supplier-1']}><Suppliers /></MemoryRouter>)
+    render(<MemoryRouter initialEntries={['/suppliers/supplier-1']}><Suppliers /></MemoryRouter>)
 
     expect(await screen.findByLabelText('Email')).toHaveValue('hi@acme.example')
     expect(screen.getByLabelText('Phone')).toHaveValue('+1 555-0100')
     expect(screen.getByLabelText('Country')).toHaveValue('US')
     expect(screen.getByLabelText('Lead time (days)')).toHaveValue(14)
     expect(screen.getByLabelText('Status')).toHaveValue('inactive')
+  })
+
+  // Regression: global search's CommandPalette navigates to
+  // "/suppliers/<id>" without unmounting whatever page is currently
+  // showing. The old ?id= scheme read the query param straight off
+  // searchParams (which does update live), so Suppliers/Customers never
+  // actually had this bug -- this guards against a future regression back
+  // toward local state.
+  it('opens the supplier when navigated to its URL while already mounted on the list (search result click)', async () => {
+    vi.mocked(suppliersApi.listSuppliers).mockResolvedValue([supplier()])
+
+    render(
+      <MemoryRouter initialEntries={['/suppliers']}>
+        <NavigateToSupplierButton id="supplier-1" />
+        <Suppliers />
+      </MemoryRouter>,
+    )
+    await screen.findByText('Acme Foods')
+
+    await userEvent.click(screen.getByText('simulate search result click'))
+
+    expect(await screen.findByLabelText('Email')).toBeInTheDocument()
   })
 
   it('Discard returns to the list without saving', async () => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { idFromPath } from '../routes'
 import {
   Plus, Search, Package, Trash2, Edit3, Copy, ArrowLeft, Plug, X, ImagePlus, Boxes, RefreshCw,
   ChevronDown, ChevronRight,
@@ -68,16 +69,24 @@ export default function Products() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
-  // The URL is the source of truth for "which product is open" (?id=<uuid>,
-  // or ?id=new for the create flow) -- survives a refresh, and doubles as
-  // the "re-clicking Products in the sidebar returns to the list" fix:
-  // Sidebar's setActiveNav navigates to the plain "/products" path (see
-  // AppContext), which has no id param, so editingId below goes back to
-  // null on its own -- no separate reset-on-reclick mechanism needed.
-  const [searchParams, setSearchParams] = useSearchParams()
-  const editingId = searchParams.get('id')
-  const openEditor = (id: string) => setSearchParams({ id })
-  const closeEditor = () => setSearchParams({})
+  // The URL is the source of truth for "which product is open"
+  // (/products/<uuid>, or /products/new for the create flow) -- survives a
+  // refresh, is a real shareable per-record link, and doubles as the
+  // "re-clicking Products in the sidebar returns to the list" fix: Sidebar's
+  // setActiveNav navigates to the plain "/products" path (see AppContext),
+  // which has no id segment, so editingId below goes back to null on its
+  // own -- no separate reset-on-reclick mechanism needed.
+  //
+  // Read via useLocation (not useParams) so this reflects the URL on every
+  // render even when navigating here doesn't remount the page -- e.g.
+  // global search's CommandPalette navigating straight to "/products/<id>"
+  // while Products is already mounted. A param captured once into local
+  // state would not.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const editingId = idFromPath(location.pathname, '/products')
+  const openEditor = (id: string) => navigate(`/products/${id}`)
+  const closeEditor = () => navigate('/products')
 
   // Debounce the search box so it doesn't fire a server request on every
   // keystroke — the list is now fetched server-side, unlike the old

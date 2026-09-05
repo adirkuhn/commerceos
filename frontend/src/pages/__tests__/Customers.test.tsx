@@ -3,8 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Customers from '../Customers'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import type { Customer } from '../../customers/types'
+
+// Stands in for CommandPalette's openRecord: a `navigate()` call to a
+// per-record URL fired while Customers is already mounted, without
+// Customers itself remounting.
+function NavigateToCustomerButton({ id }: { id: string }) {
+  const navigate = useNavigate()
+  return <button onClick={() => navigate(`/customers/${id}`)}>simulate search result click</button>
+}
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -213,21 +221,41 @@ describe('Customer edit page', () => {
   })
 
   it('prefills fields when deep-linking straight to an existing customer, before the list has loaded', async () => {
-    // Reproduces the reported bug: navigating directly to
-    // /customers?id=<id> (global search, a direct URL, a hard refresh)
-    // mounts CustomerEditPage before useCustomers' list fetch resolves, so
-    // `customer` is null on first render. Without a hydration guard the
-    // form's useState initializers never re-run once the real customer
-    // arrives, leaving every field permanently blank.
+    // Reproduces the reported bug: navigating directly to /customers/<id>
+    // (global search, a direct URL, a hard refresh) mounts CustomerEditPage
+    // before useCustomers' list fetch resolves, so `customer` is null on
+    // first render. Without a hydration guard the form's useState
+    // initializers never re-run once the real customer arrives, leaving
+    // every field permanently blank.
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer({
       billing: { city: 'Rotterdam', country: 'NL', phone: '+31 6 1234 5678' },
     })])
 
-    render(<MemoryRouter initialEntries={['/customers?id=customer-1']}><Customers /></MemoryRouter>)
+    render(<MemoryRouter initialEntries={['/customers/customer-1']}><Customers /></MemoryRouter>)
 
     expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
     expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
     expect(screen.getByLabelText('Billing country')).toHaveValue('NL')
+  })
+
+  // Regression: global search's CommandPalette navigates to
+  // "/customers/<id>" without unmounting whatever page is currently
+  // showing. Guards against a future regression back toward local state
+  // (see the identical Products.tsx bug this refactor fixed).
+  it('opens the customer when navigated to its URL while already mounted on the list (search result click)', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+
+    render(
+      <MemoryRouter initialEntries={['/customers']}>
+        <NavigateToCustomerButton id="customer-1" />
+        <Customers />
+      </MemoryRouter>,
+    )
+    await screen.findByText('Jane Doe')
+
+    await userEvent.click(screen.getByText('simulate search result click'))
+
+    expect(await screen.findByLabelText('Email')).toBeInTheDocument()
   })
 
   it('Discard returns to the list without saving', async () => {

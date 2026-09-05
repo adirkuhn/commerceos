@@ -787,7 +787,7 @@ func TestPushProductToBol_notForSale_savesNoteAndNotifies(t *testing.T) {
 
 	require.Len(t, notifier.calls, 1)
 	assert.Equal(t, notificationsDomain.TypeBolNotForSale, notifier.calls[0].Type)
-	assert.Equal(t, "/products?id=prod-1", notifier.calls[0].Link)
+	assert.Equal(t, "/products/prod-1", notifier.calls[0].Link)
 	assert.Contains(t, notifier.calls[0].Message, "Manufacturer Name")
 }
 

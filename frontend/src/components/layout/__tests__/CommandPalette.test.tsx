@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import CommandPalette from '../CommandPalette'
 import { AppProvider, useApp } from '../../../context/AppContext'
+
+// Exposes the router's current pathname as text so tests can assert on
+// where a click navigated to, without needing a full <Routes> tree.
+function LocationDisplay() {
+  return <span data-testid="location">{useLocation().pathname}</span>
+}
 
 vi.mock('../../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
@@ -31,6 +37,7 @@ function renderPalette() {
     <MemoryRouter>
       <AppProvider>
         <OpenerButton />
+        <LocationDisplay />
         <CommandPalette />
       </AppProvider>
     </MemoryRouter>,
@@ -105,7 +112,7 @@ describe('CommandPalette', () => {
     expect(searchApi.globalSearch).not.toHaveBeenCalled()
   })
 
-  it('clicking a product result navigates to its edit page and closes the palette', async () => {
+  it('clicking a product result navigates to its edit page (a real per-record URL, not a query param) and closes the palette', async () => {
     vi.mocked(searchApi.globalSearch).mockResolvedValue({
       products: [{ id: 'prod-1', name: 'Açaí Bowl', slug: 'acai-bowl' }],
       suppliers: [], customers: [], sales_orders: [],
@@ -118,6 +125,22 @@ describe('CommandPalette', () => {
     await userEvent.click(screen.getByText('Açaí Bowl'))
 
     expect(screen.queryByPlaceholderText('Search everything...')).not.toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/products/prod-1')
+  })
+
+  it('clicking a sales-order result navigates to its own URL, same as the other entities', async () => {
+    vi.mocked(searchApi.globalSearch).mockResolvedValue({
+      products: [], suppliers: [], customers: [],
+      sales_orders: [{ id: 'so-42', number: '22455', billing_first_name: '', billing_last_name: '', status: 'completed' }],
+    })
+    renderPalette()
+    await openPalette()
+    await userEvent.type(screen.getByPlaceholderText('Search everything...'), '22455')
+    await screen.findByText('#22455')
+
+    await userEvent.click(screen.getByText('#22455'))
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/sales-orders/so-42')
   })
 
   it('shows a search-failed message without crashing', async () => {

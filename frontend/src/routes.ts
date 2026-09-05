@@ -95,6 +95,40 @@ export function navItemToPath(nav: NavItem): string {
   return NAV_TO_PATH[nav]
 }
 
+// A page not found here falls through to the "/*" catch-all, so it only
+// needs to resolve exact base paths -- pathToNavItem below handles the
+// "/products/<id>" case separately, without this map knowing about ids.
 export function pathToNavItem(pathname: string): NavItem {
-  return PATH_TO_NAV[pathname] ?? 'dashboard'
+  if (PATH_TO_NAV[pathname]) return PATH_TO_NAV[pathname]
+  // Strip one path segment (e.g. "/products/<id>" -> "/products") so a
+  // per-record detail URL still highlights its owning nav item in the
+  // sidebar instead of falling back to "dashboard".
+  const base = '/' + pathname.split('/')[1]
+  return PATH_TO_NAV[base] ?? 'dashboard'
+}
+
+// Entities that get a real per-record URL ("/products/<id>") in addition to
+// their list route -- see DETAIL_PAGE_ROUTES.
+const DETAIL_NAV_ITEMS: NavItem[] = ['products', 'suppliers', 'customers', 'sales-orders']
+
+// One extra <Route> per detail-capable entity, same Component, path suffixed
+// with "/:id" purely so react-router matches it instead of falling through
+// to the "/*" catch-all -- the page itself reads the id back out of the URL
+// with idFromPath, not useParams (see idFromPath's doc comment for why).
+export const DETAIL_PAGE_ROUTES: PageRoute[] = PAGE_ROUTES
+  .filter(r => DETAIL_NAV_ITEMS.includes(r.nav))
+  .map(r => ({ ...r, path: `${r.path}/:id` }))
+
+// Reads the record id out of a URL like "/products/<id>" given the entity's
+// base path ("/products"). Deliberately NOT useParams: these pages are also
+// rendered directly in tests without a wrapping <Route>, and more
+// importantly this must reflect the current URL on every render even when
+// navigating between the list and detail paths doesn't remount the page --
+// useLocation (via useSearchParams/pathname) always does; a param captured
+// once into local state does not, which was the root cause of search
+// results silently failing to open when clicked while already on the page.
+export function idFromPath(pathname: string, basePath: string): string | null {
+  const prefix = `${basePath}/`
+  if (!pathname.startsWith(prefix)) return null
+  return decodeURIComponent(pathname.slice(prefix.length))
 }

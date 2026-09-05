@@ -9,7 +9,7 @@ import { AppProvider } from './context/AppContext'
 import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
-import { PAGE_ROUTES } from './routes'
+import { PAGE_ROUTES, DETAIL_PAGE_ROUTES } from './routes'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_PATH = '/scanner'
@@ -36,6 +36,9 @@ function AppContent() {
         <main className="flex-1 overflow-y-auto dark:bg-[#0B1220] bg-[#F9FAFB]">
           <Routes>
             {PAGE_ROUTES.map(({ path, Component }) => (
+              <Route key={path} path={path} element={<Component />} />
+            ))}
+            {DETAIL_PAGE_ROUTES.map(({ path, Component }) => (
               <Route key={path} path={path} element={<Component />} />
             ))}
             <Route path="*" element={<NotFoundPage />} />
