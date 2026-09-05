@@ -27,11 +27,17 @@ var topicHeaderByProvider = map[string]string{
 	"myparcel":    "X-Myparcel-Hook",
 }
 
-// shipmentStatusWebhookHandler is application/shipping.HandleShipmentWebhookUseCase
-// narrowed to point of use (ISP) -- lets this package stay decoupled from
-// shipping's own dependencies (MyParcel client, oms repo, etc) and keeps
-// this use case unit-testable without them.
-type shipmentStatusWebhookHandler interface {
+// DispatchHandler is one provider's per-topic business-rule dispatch,
+// invoked after ProcessWebhookEventUseCase's own persist+forward step has
+// durably landed the envelope. Exported (unlike a narrowed
+// point-of-use interface) because the composition root (cmd/webhook-processor)
+// needs to name this type to build the provider->handler map it hands to
+// NewProcessWebhookEventUseCase -- e.g.
+// application/shipping.HandleShipmentWebhookUseCase for "myparcel",
+// application/whatsapp.HandleInboundMessageUseCase for "whatsapp". Adding a
+// new provider's dispatch is a new map entry, never a new
+// `if envelope.Provider == "x"` branch here (Open/Closed).
+type DispatchHandler interface {
 	Execute(ctx context.Context, envelope webhooks.Envelope) error
 }
 
@@ -41,30 +47,29 @@ type shipmentStatusWebhookHandler interface {
 // ForwardRule matching this provider/topic (the tenant's own configured
 // fan-out -- see domain/webhooks.ForwardRule's doc comment) in the SAME
 // transaction, so an event once durably received can never silently fail
-// to be queued for forwarding. Per-topic business-rule dispatch is
-// deliberately out of scope for this pass for every provider EXCEPT
-// "myparcel" -- see shipmentHandler below, the one exception, added when
-// the MyParcel shipping integration needed webhook-driven order updates.
+// to be queued for forwarding. Per-topic business-rule dispatch beyond
+// that is opt-in per provider -- see dispatchHandlers/DispatchHandler.
 type ProcessWebhookEventUseCase struct {
-	db              *gorm.DB
-	eventRepo       webhooks.WebhookEventRepository
-	shipmentHandler shipmentStatusWebhookHandler
-	forwardRuleRepo webhooks.ForwardRuleRepository
-	forwardRepo     webhooks.ForwardDeliveryRepository
+	db               *gorm.DB
+	eventRepo        webhooks.WebhookEventRepository
+	dispatchHandlers map[string]DispatchHandler
+	forwardRuleRepo  webhooks.ForwardRuleRepository
+	forwardRepo      webhooks.ForwardDeliveryRepository
 }
 
-// NewProcessWebhookEventUseCase's shipmentHandler may be nil -- when it is,
-// "myparcel" events are persisted like any other provider's, with no
-// further dispatch (e.g. a deployment that hasn't wired shipping yet).
-// forwardRuleRepo/forwardRepo may also both be nil -- when they are, no
-// fan-out is attempted (a deployment that hasn't wired the forwarding
-// feature yet); either both are nil or both are set, never one alone.
+// NewProcessWebhookEventUseCase's dispatchHandlers may be nil, or missing
+// an entry for a given provider -- either way that provider's events are
+// persisted like any other's, with no further dispatch (e.g. a deployment
+// that hasn't wired that concern yet). forwardRuleRepo/forwardRepo may also
+// both be nil -- when they are, no fan-out is attempted (a deployment that
+// hasn't wired the forwarding feature yet); either both are nil or both are
+// set, never one alone.
 func NewProcessWebhookEventUseCase(
-	db *gorm.DB, eventRepo webhooks.WebhookEventRepository, shipmentHandler shipmentStatusWebhookHandler,
+	db *gorm.DB, eventRepo webhooks.WebhookEventRepository, dispatchHandlers map[string]DispatchHandler,
 	forwardRuleRepo webhooks.ForwardRuleRepository, forwardRepo webhooks.ForwardDeliveryRepository,
 ) *ProcessWebhookEventUseCase {
 	return &ProcessWebhookEventUseCase{
-		db: db, eventRepo: eventRepo, shipmentHandler: shipmentHandler,
+		db: db, eventRepo: eventRepo, dispatchHandlers: dispatchHandlers,
 		forwardRuleRepo: forwardRuleRepo, forwardRepo: forwardRepo,
 	}
 }
@@ -103,11 +108,12 @@ func (uc *ProcessWebhookEventUseCase) Execute(ctx context.Context, envelope webh
 		return fmt.Errorf("processWebhookEvent: %w", err)
 	}
 
-	if envelope.Provider != "myparcel" || uc.shipmentHandler == nil {
+	handler, ok := uc.dispatchHandlers[envelope.Provider]
+	if !ok || handler == nil {
 		return nil
 	}
 
-	if dispatchErr := uc.shipmentHandler.Execute(ctx, envelope); dispatchErr != nil {
+	if dispatchErr := handler.Execute(ctx, envelope); dispatchErr != nil {
 		// Best-effort: the dispatch failure is what actually needs the
 		// caller to nack/retry (Save above is idempotent, so redelivery is
 		// safe) -- a failure recording that fact must not hide or replace

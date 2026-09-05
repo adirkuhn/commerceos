@@ -139,7 +139,7 @@ func (f *fakeShipmentHandler) Execute(_ context.Context, e webhooks.Envelope) er
 func TestProcessWebhookEventUseCase_myParcelProvider_dispatchesToShipmentHandler(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
 	handler := &fakeShipmentHandler{}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, map[string]appwebhooks.DispatchHandler{"myparcel": handler}, nil, nil)
 
 	envelope := webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel", RawPayload: []byte(`{}`)}
 	err := uc.Execute(context.Background(), envelope)
@@ -156,28 +156,43 @@ func TestProcessWebhookEventUseCase_myParcelProvider_dispatchesToShipmentHandler
 func TestProcessWebhookEventUseCase_markDispatchResultError_onSuccessPath_propagates(t *testing.T) {
 	repo := &fakeWebhookEventRepo{markDispatchErr: errors.New("db down")}
 	handler := &fakeShipmentHandler{}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, map[string]appwebhooks.DispatchHandler{"myparcel": handler}, nil, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
 
 	require.Error(t, err, "a successful dispatch whose own status write fails must still surface an error, not silently look fine")
 }
 
+func TestProcessWebhookEventUseCase_multipleProviders_eachDispatchesToItsOwnHandlerOnly(t *testing.T) {
+	repo := &fakeWebhookEventRepo{}
+	myParcelHandler := &fakeShipmentHandler{}
+	whatsappHandler := &fakeShipmentHandler{}
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, map[string]appwebhooks.DispatchHandler{
+		"myparcel": myParcelHandler, "whatsapp": whatsappHandler,
+	}, nil, nil)
+
+	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "whatsapp"})
+
+	require.NoError(t, err)
+	assert.True(t, whatsappHandler.called, "the whatsapp event must reach the handler registered for it")
+	assert.False(t, myParcelHandler.called, "a provider's own event must never reach a different provider's handler")
+}
+
 func TestProcessWebhookEventUseCase_otherProviders_neverDispatchToShipmentHandler(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
 	handler := &fakeShipmentHandler{}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 1), repo, map[string]appwebhooks.DispatchHandler{"myparcel": handler}, nil, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "woocommerce"})
 
 	require.NoError(t, err)
-	assert.False(t, handler.called, "the shipment handler is myparcel-only -- every other provider's event still just gets persisted")
+	assert.False(t, handler.called, "the shipment handler is registered for myparcel only -- every other provider's event still just gets persisted")
 }
 
 func TestProcessWebhookEventUseCase_shipmentHandlerError_propagates(t *testing.T) {
 	repo := &fakeWebhookEventRepo{}
 	handler := &fakeShipmentHandler{err: errors.New("myparcel lookup failed")}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, map[string]appwebhooks.DispatchHandler{"myparcel": handler}, nil, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
 
@@ -191,7 +206,7 @@ func TestProcessWebhookEventUseCase_shipmentHandlerError_propagates(t *testing.T
 func TestProcessWebhookEventUseCase_markDispatchResultError_onFailurePath_stillSurfacesTheDispatchError(t *testing.T) {
 	repo := &fakeWebhookEventRepo{markDispatchErr: errors.New("db down")}
 	handler := &fakeShipmentHandler{err: errors.New("myparcel lookup failed")}
-	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, handler, nil, nil)
+	uc := appwebhooks.NewProcessWebhookEventUseCase(newMockGormDB(t, 2), repo, map[string]appwebhooks.DispatchHandler{"myparcel": handler}, nil, nil)
 
 	err := uc.Execute(context.Background(), webhooks.Envelope{EventID: "evt-1", TenantID: "tenant-1", Provider: "myparcel"})
 

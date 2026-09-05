@@ -89,7 +89,10 @@ func main() {
 	myParcelRouter := appshipping.NewMyParcelWebhookRouter(shipmentHandler, orderStatusHandler)
 	forwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
 	forwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
-	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, myParcelRouter, forwardRuleRepo, forwardDeliveryRepo)
+	dispatchHandlers := map[string]appwebhooks.DispatchHandler{
+		"myparcel": myParcelRouter,
+	}
+	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, dispatchHandlers, forwardRuleRepo, forwardDeliveryRepo)
 	webhookConsumer := consumers.NewWebhookConsumer(processedRepo, processWebhookEventUC, js)
 
 	// "webhooks.received.*" -- one subscription covers every provider
