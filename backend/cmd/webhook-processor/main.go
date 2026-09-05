@@ -20,7 +20,9 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
+	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -89,8 +91,20 @@ func main() {
 	myParcelRouter := appshipping.NewMyParcelWebhookRouter(shipmentHandler, orderStatusHandler)
 	forwardRuleRepo := repositories.NewWebhookForwardRuleRepo(db)
 	forwardDeliveryRepo := repositories.NewWebhookForwardDeliveryRepo(db)
+
+	lookupProductInfo := appwhatsapp.NewLookupProductInfoUseCase(
+		db, repositories.NewSKURepo(db), repositories.NewVariantRepo(db), repositories.NewProductRepo(db),
+		repositories.NewSalesChannelRepo(db), repositories.NewSalesChannelProductOverrideRepo(db),
+		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, repositories.NewTenantSettingsRepo(db)),
+	)
+	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(
+		db, repositories.NewConnectionRepo(db), evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+		lookupProductInfo, repositories.NewCustomerRepo(db),
+	)
+
 	dispatchHandlers := map[string]appwebhooks.DispatchHandler{
 		"myparcel": myParcelRouter,
+		"whatsapp": whatsappHandler,
 	}
 	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, dispatchHandlers, forwardRuleRepo, forwardDeliveryRepo)
 	webhookConsumer := consumers.NewWebhookConsumer(processedRepo, processWebhookEventUC, js)
