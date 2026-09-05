@@ -16,16 +16,17 @@ import (
 var ErrCartEmpty = errors.New("cart is empty")
 
 const (
-	cartRecommendationsLookbackDays   = 180
 	cartRecommendationsMaxItemsetSize = 5
 	cartRecommendationsDefaultLimit   = 10
-	// defaultBundleConfidenceThreshold and defaultRecommendationsMinSupport
-	// are used only when the tenant has never saved a TenantSettings row
-	// (settingsDomain.TenantSettings' zero-value-means-unset convention) --
-	// every configured tenant uses their own settings value instead. Not a
-	// hard limit on what a merchant can configure.
-	defaultBundleConfidenceThreshold = 0.30
-	defaultRecommendationsMinSupport = 2
+	// defaultBundleConfidenceThreshold, defaultRecommendationsMinSupport,
+	// and defaultRecommendationsLookbackDays are used only when the tenant
+	// has never saved a TenantSettings row (settingsDomain.TenantSettings'
+	// zero-value-means-unset convention) -- every configured tenant uses
+	// their own settings value instead. Not a hard limit on what a
+	// merchant can configure.
+	defaultBundleConfidenceThreshold   = 0.30
+	defaultRecommendationsMinSupport   = 2
+	defaultRecommendationsLookbackDays = 180
 )
 
 // skuLookupByCode resolves the WooCommerce-facing SKU code the storefront
@@ -121,22 +122,24 @@ func (uc *GetCartRecommendationsUseCase) Execute(ctx context.Context, lines []Ca
 		currency := "USD"
 		bundleThreshold := defaultBundleConfidenceThreshold
 		minSupport := defaultRecommendationsMinSupport
+		lookbackDays := defaultRecommendationsLookbackDays
 		if settings, err := uc.settingsRepo.Get(ctx); err == nil {
 			if settings.DefaultCurrency != "" {
 				currency = settings.DefaultCurrency
 			}
-			// Zero-value-means-unset (see TenantSettings.BundleConfidenceThreshold's
-			// and .RecommendationsMinSupport's doc comments) -- only trust
-			// an explicit 0 from a tenant that has actually saved settings
-			// before.
+			// Zero-value-means-unset (see TenantSettings.BundleConfidenceThreshold's,
+			// .RecommendationsMinSupport's, and .RecommendationsLookbackDays'
+			// doc comments) -- only trust an explicit 0 from a tenant that
+			// has actually saved settings before.
 			if !settings.UpdatedAt.IsZero() {
 				bundleThreshold = settings.BundleConfidenceThreshold
 				minSupport = settings.RecommendationsMinSupport
+				lookbackDays = settings.RecommendationsLookbackDays
 			}
 		}
 
 		to := time.Now()
-		from := to.AddDate(0, 0, -cartRecommendationsLookbackDays)
+		from := to.AddDate(0, 0, -lookbackDays)
 		orders, err := uc.basket.ListOrderSKUsBetween(ctx, from, to, currency)
 		if err != nil {
 			return err

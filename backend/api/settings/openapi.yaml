@@ -103,7 +103,7 @@ components:
   schemas:
     TenantSettings:
       type: object
-      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, updated_at]
+      required: [tenant_id, default_currency, timezone, date_format, language, prices_include_tax, default_tax_country, inventory_sync_rules_enabled, batch_expiry_threshold_days, default_target_markup_basis_points, bundle_confidence_threshold, recommendations_min_support, recommendations_lookback_days, updated_at]
       properties:
         tenant_id: { type: string }
         default_currency: { type: string }
@@ -154,6 +154,14 @@ components:
             GetCartRecommendationsUseCase falls back to a documented
             default in that case, the same zero-value convention as every
             other field here.
+        recommendations_lookback_days:
+          type: integer
+          description: >-
+            How far back GetCartRecommendationsUseCase looks for order
+            history when mining cross-sell itemsets. 0 on a never-saved
+            tenant means "unset"; GetCartRecommendationsUseCase falls back
+            to a documented default (180) in that case, the same
+            zero-value convention as every other field here.
         updated_at: { type: string, format: date-time }
 
     UpdateTenantSettingsRequest:
@@ -170,6 +178,7 @@ components:
         default_target_markup_basis_points: { type: integer, minimum: 0 }
         bundle_confidence_threshold: { type: number, minimum: 0, maximum: 1 }
         recommendations_min_support: { type: integer, minimum: 0 }
+        recommendations_lookback_days: { type: integer, minimum: 0 }
 
     TenantSettingsResponse:
       type: object

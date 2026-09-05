@@ -13,6 +13,27 @@ export interface TenantSettings {
   // category has no override (see pms.Category.target_markup_basis_points).
   // 0 on a never-saved tenant means "unset".
   default_target_markup_basis_points: number
+  // Minimum confidence (0-1, the fraction of orders containing a cart item
+  // that also contain the candidate) a cross-sell recommendation must
+  // clear before storefronts see it flagged as bundle-worthy. 0 on a
+  // never-saved tenant means "unset" -- the backend falls back to a
+  // documented default (0.30) in that case. Optional here (rather than
+  // matching the backend's `required`) so existing test fixtures across
+  // the frontend that predate this field don't all need updating just to
+  // keep constructing a valid TenantSettings literal -- a real API
+  // response always includes it.
+  bundle_confidence_threshold?: number
+  // Minimum number of orders an itemset must appear in before it counts as
+  // a real cross-sell pattern rather than coincidence (FP-Growth's own
+  // minSupport). 0 on a never-saved tenant means "unset" -- falls back to
+  // a documented default (2). Optional here for the same reason as
+  // bundle_confidence_threshold above.
+  recommendations_min_support?: number
+  // How far back (days) the backend looks for order history when mining
+  // cross-sell itemsets. 0 on a never-saved tenant means "unset" -- falls
+  // back to a documented default (180). Optional here for the same reason
+  // as bundle_confidence_threshold above.
+  recommendations_lookback_days?: number
   updated_at: string
 }
 
@@ -26,6 +47,9 @@ export interface TenantSettingsInput {
   inventory_sync_rules_enabled?: boolean
   batch_expiry_threshold_days?: number
   default_target_markup_basis_points?: number
+  bundle_confidence_threshold?: number
+  recommendations_min_support?: number
+  recommendations_lookback_days?: number
 }
 
 export interface ApiKey {

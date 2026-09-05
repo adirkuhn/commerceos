@@ -15,9 +15,16 @@ import (
 type stubBasketLister struct {
 	out []omsDomain.OrderSKUs
 	err error
+	// gotFrom/gotTo capture the window Execute actually queried with --
+	// used by tests asserting a tenant-configured lookback window (or its
+	// zero-value-means-unset fallback) reaches the query. Unused (left
+	// zero) by tests that don't care.
+	gotFrom time.Time
+	gotTo   time.Time
 }
 
-func (s *stubBasketLister) ListOrderSKUsBetween(_ context.Context, _, _ time.Time, _ string) ([]omsDomain.OrderSKUs, error) {
+func (s *stubBasketLister) ListOrderSKUsBetween(_ context.Context, from, to time.Time, _ string) ([]omsDomain.OrderSKUs, error) {
+	s.gotFrom, s.gotTo = from, to
 	return s.out, s.err
 }
 

@@ -195,6 +195,36 @@ func TestGetCartRecommendations_fallsBackToDefaultMinSupportOnAnUnsavedTenant(t 
 	require.Empty(t, report.Recommendations)
 }
 
+func TestGetCartRecommendations_lookbackDaysIsTenantConfigurable(t *testing.T) {
+	basket := &stubBasketLister{}
+	skuCodeLookup := &stubSKUCodeLookup{byCode: map[string]*pmsDomain.SKU{"SKU-A": {ID: "sku-a"}}}
+	settingsRepo := &stubSettingsRepo{settings: &settingsDomain.TenantSettings{
+		RecommendationsLookbackDays: 30,
+		UpdatedAt:                   time.Now(),
+	}}
+	uc := appreports.NewGetCartRecommendationsUseCase(newMockGormDB(t), basket, settingsRepo, &stubSKUCostPriceLookup{}, skuCodeLookup, &stubVariantLookupForSlowMoving{}, &stubProductLookupForSlowMoving{})
+
+	before := time.Now()
+	_, err := uc.Execute(context.Background(), []appreports.CartLine{{SKUCode: "SKU-A", Quantity: 1}})
+
+	require.NoError(t, err)
+	gotDays := before.Sub(basket.gotFrom).Hours() / 24
+	require.InDelta(t, 30, gotDays, 1, "expected the queried window to span ~30 days, got %v", basket.gotFrom)
+}
+
+func TestGetCartRecommendations_fallsBackToDefaultLookbackDaysOnAnUnsavedTenant(t *testing.T) {
+	basket := &stubBasketLister{}
+	skuCodeLookup := &stubSKUCodeLookup{byCode: map[string]*pmsDomain.SKU{"SKU-A": {ID: "sku-a"}}}
+	uc := appreports.NewGetCartRecommendationsUseCase(newMockGormDB(t), basket, &stubSettingsRepo{}, &stubSKUCostPriceLookup{}, skuCodeLookup, &stubVariantLookupForSlowMoving{}, &stubProductLookupForSlowMoving{})
+
+	before := time.Now()
+	_, err := uc.Execute(context.Background(), []appreports.CartLine{{SKUCode: "SKU-A", Quantity: 1}})
+
+	require.NoError(t, err)
+	gotDays := before.Sub(basket.gotFrom).Hours() / 24
+	require.InDelta(t, 180, gotDays, 1, "expected the queried window to fall back to the 180-day default, got %v", basket.gotFrom)
+}
+
 func TestGetCartRecommendations_excludesSKUsAlreadyInCart(t *testing.T) {
 	basket := &stubBasketLister{out: []omsDomain.OrderSKUs{
 		{OrderID: "o1", SKUIDs: []string{"sku-a", "sku-b"}},

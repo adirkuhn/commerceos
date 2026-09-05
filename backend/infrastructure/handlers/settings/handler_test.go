@@ -131,13 +131,14 @@ func doRequest(rg *gin.Engine, method, path string, body any) *httptest.Response
 }
 
 func TestGetTenantSettingsHandler_returnsSettings(t *testing.T) {
-	h := newTestHandler(&stubGetTenantSettings{out: &settingsDomain.TenantSettings{DefaultCurrency: "USD", BundleConfidenceThreshold: 0.4, RecommendationsMinSupport: 3, UpdatedAt: time.Now()}}, &stubUpdateTenantSettings{})
+	h := newTestHandler(&stubGetTenantSettings{out: &settingsDomain.TenantSettings{DefaultCurrency: "USD", BundleConfidenceThreshold: 0.4, RecommendationsMinSupport: 3, RecommendationsLookbackDays: 90, UpdatedAt: time.Now()}}, &stubUpdateTenantSettings{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/tenant", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "USD")
 	assert.Contains(t, w.Body.String(), "bundle_confidence_threshold")
 	assert.Contains(t, w.Body.String(), "recommendations_min_support")
+	assert.Contains(t, w.Body.String(), "recommendations_lookback_days")
 }
 
 func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
@@ -148,6 +149,7 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 		"prices_include_tax": true, "default_tax_country": "NL",
 		"inventory_sync_rules_enabled": true, "batch_expiry_threshold_days": 30,
 		"bundle_confidence_threshold": 0.25, "recommendations_min_support": 3,
+		"recommendations_lookback_days": 90,
 	}
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", body)
 
@@ -162,6 +164,7 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	require.Equal(t, 30, update.gotInput.BatchExpiryThresholdDays)
 	require.InDelta(t, 0.25, update.gotInput.BundleConfidenceThreshold, 0.0001)
 	require.Equal(t, 3, update.gotInput.RecommendationsMinSupport)
+	require.Equal(t, 90, update.gotInput.RecommendationsLookbackDays)
 }
 
 func TestUpdateTenantSettingsHandler_propagatesError(t *testing.T) {

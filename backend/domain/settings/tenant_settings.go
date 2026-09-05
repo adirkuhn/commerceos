@@ -60,5 +60,16 @@ type TenantSettings struct {
 	// explicit 0 (every itemset counts, however rare) as a real merchant
 	// choice -- FP-Growth itself also floors any value below 1 to 1.
 	RecommendationsMinSupport int
-	UpdatedAt                 time.Time
+	// RecommendationsLookbackDays is how far back
+	// application/reports.GetCartRecommendationsUseCase looks for order
+	// history when mining cross-sell itemsets -- a seasonal or slow-moving
+	// catalog benefits from a longer window (more data to find real
+	// patterns in), a fast-moving one from a shorter window (recent
+	// behavior, not stale patterns from a since-discontinued line). Same
+	// zero-value-means-unset convention as every other field here: 0 on a
+	// never-saved tenant means "unset", and GetCartRecommendationsUseCase
+	// falls back to its own documented default rather than treating an
+	// explicit 0 (no history at all) as a real merchant choice.
+	RecommendationsLookbackDays int
+	UpdatedAt                   time.Time
 }

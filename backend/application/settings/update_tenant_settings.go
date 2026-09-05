@@ -22,6 +22,7 @@ type UpdateTenantSettingsInput struct {
 	DefaultTargetMarkupBasisPoints int
 	BundleConfidenceThreshold      float64
 	RecommendationsMinSupport      int
+	RecommendationsLookbackDays    int
 }
 
 type UpdateTenantSettingsUseCase struct {
@@ -43,6 +44,9 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 	if in.RecommendationsMinSupport < 0 {
 		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidRecommendationsMinSupport)
 	}
+	if in.RecommendationsLookbackDays < 0 {
+		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidRecommendationsLookbackDays)
+	}
 
 	var result settingsDomain.TenantSettings
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -59,6 +63,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			DefaultTargetMarkupBasisPoints: in.DefaultTargetMarkupBasisPoints,
 			BundleConfidenceThreshold:      in.BundleConfidenceThreshold,
 			RecommendationsMinSupport:      in.RecommendationsMinSupport,
+			RecommendationsLookbackDays:    in.RecommendationsLookbackDays,
 			UpdatedAt:                      time.Now(),
 		}
 		return uc.repo.Upsert(ctx, &result)

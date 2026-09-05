@@ -23,12 +23,14 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 		DefaultTargetMarkupBasisPoints: 3000,
 		BundleConfidenceThreshold:      0.25,
 		RecommendationsMinSupport:      3,
+		RecommendationsLookbackDays:    90,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, 3000, result.DefaultTargetMarkupBasisPoints)
 	require.InDelta(t, 0.25, result.BundleConfidenceThreshold, 0.0001)
 	require.Equal(t, 3, result.RecommendationsMinSupport)
+	require.Equal(t, 90, result.RecommendationsLookbackDays)
 	require.Equal(t, "USD", result.DefaultCurrency)
 	require.Equal(t, "Europe/Amsterdam", result.Timezone)
 	require.Equal(t, "DD/MM/YYYY", result.DateFormat)
@@ -46,6 +48,7 @@ func TestUpdateTenantSettings_upsertsAllFields(t *testing.T) {
 	require.Equal(t, 30, repo.upserted[0].BatchExpiryThresholdDays)
 	require.InDelta(t, 0.25, repo.upserted[0].BundleConfidenceThreshold, 0.0001)
 	require.Equal(t, 3, repo.upserted[0].RecommendationsMinSupport)
+	require.Equal(t, 90, repo.upserted[0].RecommendationsLookbackDays)
 }
 
 func TestUpdateTenantSettings_propagatesRepoError(t *testing.T) {
@@ -121,6 +124,25 @@ func TestUpdateTenantSettings_allowsRecommendationsMinSupportOfZero(t *testing.T
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.RecommendationsMinSupport)
+}
+
+func TestUpdateTenantSettings_rejectsNegativeRecommendationsLookbackDays(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsLookbackDays: -1})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidRecommendationsLookbackDays)
+}
+
+func TestUpdateTenantSettings_allowsRecommendationsLookbackDaysOfZero(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo)
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", RecommendationsLookbackDays: 0})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.RecommendationsLookbackDays)
 }
 
 func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {

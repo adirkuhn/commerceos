@@ -97,6 +97,7 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		DefaultTargetMarkupBasisPoints: intPtrOr(req.DefaultTargetMarkupBasisPoints),
 		BundleConfidenceThreshold:      float64PtrOr(req.BundleConfidenceThreshold),
 		RecommendationsMinSupport:      intPtrOr(req.RecommendationsMinSupport),
+		RecommendationsLookbackDays:    intPtrOr(req.RecommendationsLookbackDays),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -167,6 +168,7 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		DefaultTargetMarkupBasisPoints: s.DefaultTargetMarkupBasisPoints,
 		BundleConfidenceThreshold:      float32(s.BundleConfidenceThreshold),
 		RecommendationsMinSupport:      s.RecommendationsMinSupport,
+		RecommendationsLookbackDays:    s.RecommendationsLookbackDays,
 		UpdatedAt:                      s.UpdatedAt,
 	}
 }
@@ -196,7 +198,7 @@ func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, apikeysDomain.ErrNameRequired) {
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, apikeysDomain.ErrNameRequired) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 		return err
 	}
