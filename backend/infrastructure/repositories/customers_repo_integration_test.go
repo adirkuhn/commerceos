@@ -208,6 +208,47 @@ func TestCustomerRepo_Integration_FindByWooCustomerID(t *testing.T) {
 	require.Equal(t, "woo@example.com", found.Email)
 }
 
+func TestCustomerRepo_Integration_FindByEmailIsCaseInsensitive(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		c := customersDomain.Customer{
+			TenantID: tenant.IDFromContext(ctx), Email: "Jane@Example.com",
+			FirstName: "Jane", LastName: "Doe", DateCreated: now, DateModified: now,
+		}
+		return customerRepo.Create(ctx, &c)
+	})
+	require.NoError(t, err)
+
+	var found *customersDomain.Customer
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = customerRepo.FindByEmail(ctx, "jane@example.com")
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	require.Equal(t, "Jane", found.FirstName)
+}
+
+func TestCustomerRepo_Integration_FindByEmailReturnsNilNotErrorWhenMissing(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	var found *customersDomain.Customer
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = customerRepo.FindByEmail(ctx, "nobody@example.com")
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, found)
+}
+
 func TestCustomerRepo_Integration_FindByWooCustomerIDReturnsNilNotErrorWhenMissing(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

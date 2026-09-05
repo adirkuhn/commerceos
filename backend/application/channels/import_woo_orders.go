@@ -280,9 +280,22 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 	status := omsDomain.SalesOrderStatus(wo.Status)
 
 	var existing *omsDomain.SalesOrder
+	var customerID *string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		existing, err = uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, externalOrderID)
+		if err != nil {
+			return err
+		}
+		// Only resolve/create a customer when there's actually a link to
+		// attach -- a brand new order, or an existing one that was never
+		// linked on first import (backfilled here on re-poll, see
+		// resolveOrCreateCustomer's doc). An already-linked existing order
+		// needs no lookup at all, so a routine re-poll of a fully-synced
+		// store doesn't pay for one on every single order every time.
+		if existing == nil || existing.CustomerID == nil {
+			customerID, err = uc.resolveOrCreateCustomer(ctx, wo)
+		}
 		return err
 	})
 	if err != nil {
@@ -291,11 +304,60 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 	}
 
 	if existing != nil {
-		uc.routeToExisting(ctx, existing, wo, externalOrderID, status, result)
+		uc.routeToExisting(ctx, existing, wo, externalOrderID, status, customerID, result)
 		return
 	}
 
-	uc.createOne(ctx, in, wo, externalOrderID, status, result)
+	uc.createOne(ctx, in, wo, externalOrderID, status, customerID, result)
+}
+
+// resolveOrCreateCustomer finds the customer behind a Woo order -- by their
+// linked Woo account when there is one, otherwise by billing email (Woo
+// requires a billing email even for guest checkout) -- creating one from
+// the order's own billing details when no match exists at all. Without
+// this, a named guest-checkout buyer (the overwhelming majority of orders
+// on stores that don't require an account) never gets attached to a real
+// Customer: no link on the order, no order history or lifetime-spend on
+// the Customer page. Must be called with a context already bound to an
+// open transaction (see tenant.WithTenant) -- it never opens its own.
+func (uc *ImportWooOrdersUseCase) resolveOrCreateCustomer(ctx context.Context, wo integrationsDomain.WooOrder) (*string, error) {
+	var wooCustomerID *int64
+	switch {
+	case wo.CustomerID != 0:
+		id := int64(wo.CustomerID)
+		wooCustomerID = &id
+		c, err := uc.customerRepo.FindByWooCustomerID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if c != nil {
+			return &c.ID, nil
+		}
+	case wo.Billing.Email != "":
+		c, err := uc.customerRepo.FindByEmail(ctx, wo.Billing.Email)
+		if err != nil {
+			return nil, err
+		}
+		if c != nil {
+			return &c.ID, nil
+		}
+	default:
+		// No Woo account and no billing email -- nothing to key a customer
+		// off of. Leave the order unlinked, same as before this fix.
+		return nil, nil
+	}
+
+	now := time.Now()
+	customer := customersDomain.Customer{
+		TenantID: tenant.IDFromContext(ctx), WooCustomerID: wooCustomerID,
+		Email: wo.Billing.Email, FirstName: wo.Billing.FirstName, LastName: wo.Billing.LastName,
+		Billing: wooAddressToCustomerAddress(wo.Billing), Shipping: wooAddressToCustomerAddress(wo.Shipping),
+		DateCreated: now, DateModified: now,
+	}
+	if err := uc.customerRepo.Create(ctx, &customer); err != nil {
+		return nil, err
+	}
+	return &customer.ID, nil
 }
 
 // routeToExisting sends an already-known order through UpdateSalesOrderUseCase
@@ -312,7 +374,7 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 // UpdateSalesOrderInput (nil otherwise), both to avoid needless writes and,
 // for Status specifically, to avoid re-triggering UpdateSalesOrderUseCase's
 // stock-transition logic when the status itself hasn't moved.
-func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing *omsDomain.SalesOrder, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
+func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing *omsDomain.SalesOrder, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, customerID *string, result *ImportOrdersResult) {
 	in := appoms.UpdateSalesOrderInput{}
 	if existing.Status != status {
 		in.Status = &status
@@ -327,8 +389,13 @@ func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing 
 		note := wo.CustomerNote
 		in.CustomerNote = &note
 	}
+	// Backfill a link this order never got on first import (see
+	// resolveOrCreateCustomer's doc) -- never overwrites an existing link.
+	if existing.CustomerID == nil && customerID != nil {
+		in.CustomerID = customerID
+	}
 
-	if in.Status == nil && in.Billing == nil && in.Shipping == nil && in.CustomerNote == nil {
+	if in.Status == nil && in.Billing == nil && in.Shipping == nil && in.CustomerNote == nil && in.CustomerID == nil {
 		result.Unchanged++
 		return
 	}
@@ -339,7 +406,7 @@ func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing 
 	result.Updated++
 }
 
-func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrdersInput, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, result *ImportOrdersResult) {
+func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrdersInput, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, customerID *string, result *ImportOrdersResult) {
 	occurredAt, err := parseWooGMTTime(wo.DateCreated)
 	if err != nil {
 		occurredAt = time.Now()
@@ -363,17 +430,6 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	skippedLines := 0
 	unlinkedLines := 0
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		var customerID *string
-		if wo.CustomerID != 0 {
-			c, err := uc.customerRepo.FindByWooCustomerID(ctx, int64(wo.CustomerID))
-			if err != nil {
-				return err
-			}
-			if c != nil {
-				customerID = &c.ID
-			}
-		}
-
 		now := time.Now()
 		order = omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
@@ -472,7 +528,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 				return
 			}
 			if existing != nil {
-				uc.routeToExisting(ctx, existing, wo, externalOrderID, status, result)
+				uc.routeToExisting(ctx, existing, wo, externalOrderID, status, customerID, result)
 				return
 			}
 		}

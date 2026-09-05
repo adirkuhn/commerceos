@@ -33,7 +33,7 @@ func newCustomersHarness(customers map[int][]integrationsDomain.WooCustomer) *cu
 		}},
 		wooFactory:   &stubWooClientFactory{client: wooClient},
 		wooClient:    wooClient,
-		customerRepo: &stubOrdersCustomerRepo{byWooID: map[int64]customersDomain.Customer{}},
+		customerRepo: &stubOrdersCustomerRepo{byWooID: map[int64]customersDomain.Customer{}, byEmail: map[string]customersDomain.Customer{}},
 	}
 }
 

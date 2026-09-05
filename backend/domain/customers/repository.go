@@ -10,6 +10,13 @@ type CustomerRepository interface {
 	// creating a duplicate. Nil (not an error) when none exists, same
 	// convention as oms.SalesOrderRepository.FindByExternalID.
 	FindByWooCustomerID(ctx context.Context, wooCustomerID int64) (*Customer, error)
+	// FindByEmail looks up a customer by exact email match (case-insensitive)
+	// -- used by WooCommerce order import to find-or-create the buyer
+	// behind a guest checkout (no linked Woo account) by their billing
+	// email, so a named guest order still attaches to a real Customer
+	// instead of staying an unlinked billing snapshot forever. Nil (not an
+	// error) when none exists, same convention as FindByWooCustomerID.
+	FindByEmail(ctx context.Context, email string) (*Customer, error)
 	List(ctx context.Context) ([]Customer, error)
 	// Search returns up to limit customers whose name or email matches
 	// query -- name matching is accent-insensitive + typo-tolerant

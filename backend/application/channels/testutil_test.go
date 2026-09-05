@@ -1281,6 +1281,7 @@ func (s *stubOrdersLinkRepo) ListByLineItem(_ context.Context, lineItemID string
 
 type stubOrdersCustomerRepo struct {
 	byWooID   map[int64]customersDomain.Customer
+	byEmail   map[string]customersDomain.Customer
 	created   []customersDomain.Customer
 	createErr error
 	findErr   error
@@ -1302,6 +1303,15 @@ func (s *stubOrdersCustomerRepo) FindByWooCustomerID(_ context.Context, wooCusto
 		return nil, s.findErr
 	}
 	if c, ok := s.byWooID[wooCustomerID]; ok {
+		return &c, nil
+	}
+	return nil, nil
+}
+func (s *stubOrdersCustomerRepo) FindByEmail(_ context.Context, email string) (*customersDomain.Customer, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if c, ok := s.byEmail[email]; ok {
 		return &c, nil
 	}
 	return nil, nil

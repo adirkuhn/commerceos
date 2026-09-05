@@ -161,6 +161,22 @@ func (r *CustomerRepo) FindByWooCustomerID(ctx context.Context, wooCustomerID in
 	return toCustomerDomain(m), nil
 }
 
+func (r *CustomerRepo) FindByEmail(ctx context.Context, email string) (*customersDomain.Customer, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m customerModel
+	err = tx.Where("LOWER(email) = LOWER(?)", email).First(&m).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("customerRepo.FindByEmail: %w", err)
+	}
+	return toCustomerDomain(m), nil
+}
+
 func (r *CustomerRepo) List(ctx context.Context) ([]customersDomain.Customer, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {

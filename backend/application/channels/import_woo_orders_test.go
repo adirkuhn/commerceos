@@ -48,7 +48,7 @@ func newOrdersHarness(orders map[int][]integrationsDomain.WooOrder) *ordersHarne
 		lineItemRepo:   &stubOrdersLineItemRepo{},
 		linkRepo:       &stubOrdersLinkRepo{},
 		skuRepo:        &stubChannelsSKURepo{byCode: map[string]pmsDomain.SKU{}},
-		customerRepo:   &stubOrdersCustomerRepo{byWooID: map[int64]customersDomain.Customer{}},
+		customerRepo:   &stubOrdersCustomerRepo{byWooID: map[int64]customersDomain.Customer{}, byEmail: map[string]customersDomain.Customer{}},
 		stock:          &stubSaleStockAllocator{},
 		updateOrder:    &stubUpdateSalesOrderUC{},
 	}
@@ -188,6 +188,10 @@ func TestImportWooOrders_isIdempotentWhenStatusUnchanged(t *testing.T) {
 	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
 		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
 		Billing: matchingBilling, Shipping: matchingShipping,
+		// Already linked -- otherwise this order's real billing email would
+		// trigger the customer-link backfill below and this wouldn't be a
+		// true no-op any more (see the dedicated backfill test for that).
+		CustomerID: strPtr("customer-1"),
 	}
 	uc := h.newImportUseCase(t, 2)
 
@@ -463,7 +467,10 @@ func TestImportWooOrders_losingTheCreateRaceRoutesToUpdateInsteadOfFailing(t *te
 	// back to looking it up -- the *first* FindByExternalID call (before
 	// Create is attempted) must still see nothing, same as a genuine race.
 	h.salesOrderRepo.winnerAfterCreateFail = map[string]omsDomain.SalesOrder{
-		"501": {ID: "so-winner", Status: omsDomain.SalesOrderStatusProcessing, Billing: matchingBilling, Shipping: matchingShipping},
+		// Already linked -- otherwise this order's real billing email would
+		// trigger the customer-link backfill and this wouldn't be a true
+		// no-op any more (see the dedicated backfill test for that).
+		"501": {ID: "so-winner", Status: omsDomain.SalesOrderStatusProcessing, Billing: matchingBilling, Shipping: matchingShipping, CustomerID: strPtr("customer-1")},
 	}
 	uc := h.newImportUseCase(t, 4) // connect + importOne's findByExternalID + failed-create header tx + createOne's findExisting fallback lookup
 
@@ -494,6 +501,143 @@ func TestImportWooOrders_linksToAnExistingCustomerByWooCustomerID(t *testing.T) 
 	require.Len(t, h.salesOrderRepo.created, 1)
 	require.NotNil(t, h.salesOrderRepo.created[0].CustomerID)
 	assert.Equal(t, "customer-1", *h.salesOrderRepo.created[0].CustomerID)
+}
+
+// Reported bug: a guest checkout (no Woo account, wo.CustomerID == 0) with
+// a real name+email never got linked to any customers.Customer -- the order
+// showed a name but the frontend had no customer_id to link it, and no
+// Customer record existed to show that buyer's order history/amount spent
+// at all. Woo requires a billing email even for guest checkout, so
+// find-or-create by that email fixes it.
+func TestImportWooOrders_guestCheckoutCreatesACustomerFromBillingWhenNoneMatchesByEmail(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.customerRepo.created, 1)
+	created := h.customerRepo.created[0]
+	assert.Equal(t, "jane@example.com", created.Email)
+	assert.Equal(t, "Jane", created.FirstName)
+	assert.Equal(t, "Doe", created.LastName)
+	assert.Nil(t, created.WooCustomerID, "guest checkout has no Woo account to link")
+
+	require.Len(t, h.salesOrderRepo.created, 1)
+	require.NotNil(t, h.salesOrderRepo.created[0].CustomerID)
+	assert.Equal(t, created.ID, *h.salesOrderRepo.created[0].CustomerID)
+}
+
+func TestImportWooOrders_guestCheckoutLinksToAnExistingCustomerByEmailInsteadOfDuplicating(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	h.customerRepo.byEmail["jane@example.com"] = customersDomain.Customer{ID: "customer-9", Email: "jane@example.com"}
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, h.customerRepo.created, "must reuse the existing customer, not duplicate it")
+	require.Len(t, h.salesOrderRepo.created, 1)
+	require.NotNil(t, h.salesOrderRepo.created[0].CustomerID)
+	assert.Equal(t, "customer-9", *h.salesOrderRepo.created[0].CustomerID)
+}
+
+func TestImportWooOrders_guestCheckoutWithNoBillingEmailStaysUnlinked(t *testing.T) {
+	order := simpleWooOrder()
+	order.Billing.Email = ""
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, h.customerRepo.created, "nothing to key a customer off of")
+	require.Len(t, h.salesOrderRepo.created, 1)
+	assert.Nil(t, h.salesOrderRepo.created[0].CustomerID)
+}
+
+// A registered Woo account not yet imported into CommerceOS (e.g. the
+// one-time customer import hasn't run, or the account was created after
+// it) previously left the order permanently unlinked. Now it's created
+// from the order's own billing details instead, same as a guest.
+func TestImportWooOrders_registeredWooCustomerNotYetImported_createsOneFromBillingDetails(t *testing.T) {
+	order := simpleWooOrder()
+	order.CustomerID = 77
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
+	uc := h.newImportUseCase(t, 4)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.customerRepo.created, 1)
+	created := h.customerRepo.created[0]
+	require.NotNil(t, created.WooCustomerID)
+	assert.Equal(t, int64(77), *created.WooCustomerID)
+	assert.Equal(t, "jane@example.com", created.Email)
+	require.Len(t, h.salesOrderRepo.created, 1)
+	require.NotNil(t, h.salesOrderRepo.created[0].CustomerID)
+	assert.Equal(t, created.ID, *h.salesOrderRepo.created[0].CustomerID)
+}
+
+// The production bug this fix targets: an order imported before this fix
+// existed has CustomerID nil forever, with no code path that would ever
+// revisit it -- until now. Every re-poll of an unlinked existing order is a
+// free chance to backfill it, so a store doesn't need a one-off migration
+// to fix orders that already went through the old, gap-having import.
+func TestImportWooOrders_backfillsCustomerLinkOnResyncOfAPreviouslyUnlinkedOrder(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
+		Billing: matchingBilling, Shipping: matchingShipping,
+		CustomerID: nil, // never linked on first import
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated)
+	require.Len(t, h.updateOrder.calls, 1)
+	require.NotNil(t, h.updateOrder.calls[0].CustomerID)
+	require.Len(t, h.customerRepo.created, 1, "no existing customer matched this email, so one is created")
+	assert.Equal(t, h.customerRepo.created[0].ID, *h.updateOrder.calls[0].CustomerID)
+}
+
+// An existing order that's already linked must never be re-resolved or
+// re-created on every routine re-poll -- both a pointless customer lookup
+// on every single already-correct order, and (worse) a risk of ever
+// clobbering a real link with a different match.
+func TestImportWooOrders_neverTouchesCustomerIDOnAnAlreadyLinkedExistingOrder(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
+		Billing: matchingBilling, Shipping: matchingShipping,
+		CustomerID: strPtr("customer-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Unchanged)
+	assert.Empty(t, h.customerRepo.created)
+	assert.Empty(t, h.updateOrder.calls)
 }
 
 func TestImportWooOrders_incrementalPassesModifiedAfterThrough(t *testing.T) {
