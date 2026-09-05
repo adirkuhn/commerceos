@@ -1029,6 +1029,26 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /integrations/whatsapp/connect:
+    post:
+      operationId: connectWhatsapp
+      summary: Connect WhatsApp by pasting a self-hosted Evolution API instance's base URL/instance name/API key -- no OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectWhatsAppRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectWhatsAppResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/push-product-bol:
     post:
       operationId: pushProductToBol
@@ -1448,6 +1468,36 @@ components:
         economic_operator_id:
           type: string
           description: Bol's required EU-operator identifier, sent on every offer this connection pushes.
+
+    ConnectWhatsAppRequest:
+      type: object
+      required: [base_url, instance_name, api_key]
+      properties:
+        base_url:
+          type: string
+          description: Base URL of the tenant's self-hosted Evolution API instance, e.g. https://evolution.example.com.
+        instance_name:
+          type: string
+          description: The Evolution API instance name this connection sends/receives through.
+        api_key:
+          type: string
+          description: The Evolution API instance's own API key.
+
+    ConnectWhatsAppResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            connection: { $ref: '#/components/schemas/Connection' }
+            webhook_url:
+              type: string
+              description: >
+                Paste this URL into the Evolution API instance's own webhook
+                settings (messages.upsert event) -- Evolution API has no
+                confirmed API to register it remotely, so this is a manual
+                one-time step, same as MyParcel's callback-URL setup.
+        error: { nullable: true }
 
     BolProductOverride:
       type: object

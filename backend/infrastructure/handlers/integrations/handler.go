@@ -188,6 +188,9 @@ type deleteExternalCategoryLinkUC interface {
 type connectBolUC interface {
 	Execute(ctx context.Context, in appintegrations.ConnectBolInput) (*integrationsDomain.Connection, error)
 }
+type connectWhatsappUC interface {
+	Execute(ctx context.Context, in appintegrations.ConnectWhatsAppInput) (*appintegrations.ConnectWhatsAppResult, error)
+}
 type pushProductToBolUC interface {
 	Execute(ctx context.Context, in appchannels.PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
 }
@@ -263,6 +266,7 @@ type Handler struct {
 	createProviderWebhook        createProviderWebhookUC
 	deleteProviderWebhook        deleteProviderWebhookUC
 	connectBol                   connectBolUC
+	connectWhatsapp              connectWhatsappUC
 	pushProductToBol             pushProductToBolUC
 	getBolProductOverride        getBolProductOverrideUC
 	upsertBolProductOverride     upsertBolProductOverrideUC
@@ -325,6 +329,7 @@ func NewHandler(
 	createProviderWebhook createProviderWebhookUC,
 	deleteProviderWebhook deleteProviderWebhookUC,
 	connectBol connectBolUC,
+	connectWhatsapp connectWhatsappUC,
 	pushProductToBol pushProductToBolUC,
 	getBolProductOverride getBolProductOverrideUC,
 	upsertBolProductOverride upsertBolProductOverrideUC,
@@ -386,6 +391,7 @@ func NewHandler(
 		createProviderWebhook:        createProviderWebhook,
 		deleteProviderWebhook:        deleteProviderWebhook,
 		connectBol:                   connectBol,
+		connectWhatsapp:              connectWhatsapp,
 		pushProductToBol:             pushProductToBol,
 		getBolProductOverride:        getBolProductOverride,
 		upsertBolProductOverride:     upsertBolProductOverride,
@@ -551,6 +557,7 @@ func Register(
 		appintegrations.NewCreateProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret, publicAPIBaseURL),
 		appintegrations.NewDeleteProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
+		appintegrations.NewConnectWhatsAppUseCase(db, connRepo, outboxRepo, encryptionSecret, publicAPIBaseURL),
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
 		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo, outboxRepo),
@@ -1120,6 +1127,28 @@ func (h *Handler) ConnectBol(c *gin.Context) {
 		return
 	}
 	middleware.OK(c, toGenConnection(*conn))
+}
+
+func (h *Handler) ConnectWhatsapp(c *gin.Context) {
+	var req genintegrations.ConnectWhatsAppRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.BaseUrl == "" || req.InstanceName == "" || req.ApiKey == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "base_url, instance_name, and api_key are required")
+		return
+	}
+	result, err := h.connectWhatsapp.Execute(c.Request.Context(), appintegrations.ConnectWhatsAppInput{
+		BaseURL: req.BaseUrl, InstanceName: req.InstanceName, APIKey: req.ApiKey,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, struct {
+		Connection genintegrations.Connection `json:"connection"`
+		WebhookURL string                     `json:"webhook_url"`
+	}{Connection: toGenConnection(result.Connection), WebhookURL: result.WebhookURL})
 }
 
 func (h *Handler) PushProductToBol(c *gin.Context, id genintegrations.Id) {
