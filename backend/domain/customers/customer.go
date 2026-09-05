@@ -45,6 +45,10 @@ type Customer struct {
 	// this customer has completed at least one paid order.
 	IsPayingCustomer bool
 	AvatarURL        string
+	// CustomerNote is a freeform staff note, editable from the customer
+	// detail page -- not part of Woo's customer object (unlike every other
+	// field on this struct), purely a CommerceOS addition.
+	CustomerNote string
 
 	DateCreated  time.Time
 	DateModified time.Time

@@ -87,7 +87,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 	cust, err := h.createCustomer.Execute(c.Request.Context(), appcustomers.CreateCustomerInput{
 		WooCustomerID: req.WooCustomerId, Email: req.Email, FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
-		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl),
+		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -109,7 +109,7 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 	cust, err := h.updateCustomer.Execute(c.Request.Context(), appcustomers.UpdateCustomerInput{
 		ID: id, WooCustomerID: req.WooCustomerId, Email: req.Email, FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
-		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl),
+		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -170,7 +170,7 @@ func toGenCustomer(cust customersDomain.Customer) gencustomers.Customer {
 		Id: cust.ID, TenantId: cust.TenantID, WooCustomerId: cust.WooCustomerID,
 		Email: cust.Email, FirstName: cust.FirstName, LastName: cust.LastName,
 		Username: &cust.Username, Role: &cust.Role, Billing: &billing, Shipping: &shipping,
-		IsPayingCustomer: cust.IsPayingCustomer, AvatarUrl: &cust.AvatarURL,
+		IsPayingCustomer: cust.IsPayingCustomer, AvatarUrl: &cust.AvatarURL, CustomerNote: &cust.CustomerNote,
 		DateCreated: cust.DateCreated, DateModified: cust.DateModified,
 	}
 }

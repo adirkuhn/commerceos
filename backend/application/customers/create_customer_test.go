@@ -30,6 +30,18 @@ func TestCreateCustomer_setsFields(t *testing.T) {
 	require.True(t, repo.createCalled)
 }
 
+func TestCreateCustomer_setsCustomerNote(t *testing.T) {
+	repo := &stubCustomerRepo{}
+	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo)
+
+	c, err := uc.Execute(context.Background(), appcustomers.CreateCustomerInput{
+		Email: "jane@example.com", CustomerNote: "VIP, call before delivery",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "VIP, call before delivery", c.CustomerNote)
+}
+
 func TestCreateCustomer_propagatesRepoError(t *testing.T) {
 	repo := &stubCustomerRepo{createErr: customersDomain.ErrCustomerNotFound}
 	uc := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo)

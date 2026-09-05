@@ -1084,6 +1084,68 @@ func TestSalesOrderRepo_Integration_ListFiltersBySource(t *testing.T) {
 	assert.ElementsMatch(t, []string{posID, wooID}, gotIDs)
 }
 
+func TestSalesOrderRepo_Integration_ListFiltersByCustomerID(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+
+	var customerAID, customerBID string
+	var matchingIDs []string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		customerA := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "a@example.com", DateCreated: now, DateModified: now}
+		if err := customerRepo.Create(ctx, &customerA); err != nil {
+			return err
+		}
+		customerB := customersDomain.Customer{TenantID: tenant.IDFromContext(ctx), Email: "b@example.com", DateCreated: now, DateModified: now}
+		if err := customerRepo.Create(ctx, &customerB); err != nil {
+			return err
+		}
+		customerAID, customerBID = customerA.ID, customerB.ID
+
+		for _, spec := range []struct {
+			extID      string
+			customerID *string
+		}{
+			{"customer-filter-a-1", &customerAID},
+			{"customer-filter-a-2", &customerAID},
+			{"customer-filter-b-1", &customerBID},
+			{"customer-filter-guest-1", nil},
+		} {
+			order := omsDomain.SalesOrder{
+				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
+				ExternalOrderID: spec.extID, WarehouseID: warehouseID, CustomerID: spec.customerID, CurrencyCode: "USD",
+				Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now,
+			}
+			if err := salesOrderRepo.Create(ctx, &order); err != nil {
+				return err
+			}
+			if spec.customerID != nil && *spec.customerID == customerAID {
+				matchingIDs = append(matchingIDs, order.ID)
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var matched []omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		matched, _, err = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50, CustomerID: &customerAID})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, matched, 2)
+	gotIDs := []string{matched[0].ID, matched[1].ID}
+	assert.ElementsMatch(t, matchingIDs, gotIDs)
+	for _, o := range matched {
+		require.NotNil(t, o.CustomerID)
+		assert.Equal(t, customerAID, *o.CustomerID)
+	}
+}
+
 // seedDashboardOrder creates one sales order (+ one line item, if qty > 0)
 // with the given source/status/currency/occurred_at -- the shared fixture
 // for the dashboard report queries below, which all care about exactly

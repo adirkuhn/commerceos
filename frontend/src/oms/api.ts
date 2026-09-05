@@ -37,6 +37,10 @@ export interface ListSalesOrdersParams {
   // source: narrows to the given channels (Sales Orders page's own filter).
   // Omit (or empty) for every channel.
   source?: SalesOrderSource[]
+  // customerId: narrows to one customer's orders -- the Customer detail
+  // page's order history and lifetime-spend figures. Omit for the normal
+  // unfiltered sales orders list.
+  customerId?: string
 }
 
 export interface ListSalesOrdersResult {
@@ -55,6 +59,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   if (params.fulfilled !== undefined) qs.set('fulfilled', String(params.fulfilled))
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
+  if (params.customerId) qs.set('customer_id', params.customerId)
   const query = qs.toString()
 
   const result = await request<{ sales_orders: SalesOrder[]; total: number }>(

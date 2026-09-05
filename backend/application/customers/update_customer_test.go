@@ -24,6 +24,20 @@ func TestUpdateCustomer_updatesFields(t *testing.T) {
 	require.Equal(t, "new@example.com", repo.updated[0].Email)
 }
 
+func TestUpdateCustomer_updatesCustomerNote(t *testing.T) {
+	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c1", Email: "jane@example.com", CustomerNote: "old note"}}
+	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo)
+
+	c, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{
+		ID: "c1", Email: "jane@example.com", CustomerNote: "Call before delivery",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "Call before delivery", c.CustomerNote)
+	require.Len(t, repo.updated, 1)
+	require.Equal(t, "Call before delivery", repo.updated[0].CustomerNote)
+}
+
 func TestUpdateCustomer_propagatesNotFound(t *testing.T) {
 	repo := &stubCustomerRepo{findErr: customersDomain.ErrCustomerNotFound}
 	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo)

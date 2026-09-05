@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search, User, Trash2, Edit3, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
@@ -7,11 +7,87 @@ import Pagination from '../components/common/Pagination'
 import { useCustomers } from '../customers/hooks/useCustomers'
 import type { Customer, CustomerInput, Address } from '../customers/types'
 import { idFromPath } from '../routes'
+import * as omsApi from '../oms/api'
+import type { SalesOrder } from '../oms/types'
 
 const PAGE_SIZE = 20
 
 function fullName(c: Customer): string {
   return [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email
+}
+
+// The Notes editor on the detail view only changes customer_note, but
+// update() is a full replace (see UpdateCustomerUseCase) -- round-trip every
+// other field unchanged rather than adding a second, note-only update path.
+function customerToInput(c: Customer): CustomerInput {
+  return {
+    email: c.email, first_name: c.first_name, last_name: c.last_name, username: c.username, role: c.role,
+    billing: c.billing, shipping: c.shipping, is_paying_customer: c.is_paying_customer, avatar_url: c.avatar_url,
+    customer_note: c.customer_note,
+  }
+}
+
+function formatMoney(minorUnits: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'USD' }).format(minorUnits / 100)
+  } catch {
+    return `${(minorUnits / 100).toFixed(2)} ${currencyCode}`
+  }
+}
+
+// Billing shown as "Same as shipping address" when the two addresses match
+// on every field a customer would actually check.
+function addressesEqual(a?: Address, b?: Address): boolean {
+  if (!a || !b) return false
+  const fields: (keyof Address)[] = ['first_name', 'last_name', 'company', 'address_1', 'address_2', 'city', 'state', 'postcode', 'country']
+  return fields.every(f => (a[f] ?? '') === (b[f] ?? ''))
+}
+
+function AddressLines({ address }: { address?: Address }) {
+  if (!address) return <p className="text-xs dark:text-gray-500 text-gray-400">—</p>
+  const name = [address.first_name, address.last_name].filter(Boolean).join(' ')
+  const lines = [
+    name,
+    address.company,
+    address.address_1,
+    address.address_2,
+    [address.city, address.state, address.postcode].filter(Boolean).join(', '),
+    address.country,
+    address.email,
+    address.phone,
+  ].filter(Boolean)
+
+  if (lines.length === 0) return <p className="text-xs dark:text-gray-500 text-gray-400">—</p>
+
+  return (
+    <>
+      {lines.map((line, i) => (
+        <p key={i} className="text-xs dark:text-gray-300 text-gray-600">{line}</p>
+      ))}
+    </>
+  )
+}
+
+interface CustomerTimelineEntry {
+  id: string
+  label: string
+  date: Date
+}
+
+// Customers have no structured activity log of their own (unlike sales
+// orders' SalesOrderActivity) -- this derives a reasonable timeline from
+// data already on hand: each order placed, plus the customer's own creation.
+function buildCustomerTimeline(customer: Customer, orders: SalesOrder[]): CustomerTimelineEntry[] {
+  const entries: CustomerTimelineEntry[] = orders.map(o => ({
+    id: `order-${o.id}`,
+    label: `Placed order #${o.number || o.external_order_id} (${formatMoney(o.total_minor_units, o.currency_code)})`,
+    date: new Date(o.occurred_at),
+  }))
+  const createdDate = new Date(customer.date_created)
+  if (!Number.isNaN(createdDate.getTime())) {
+    entries.push({ id: 'customer-created', label: 'Customer created', date: createdDate })
+  }
+  return entries.sort((a, b) => b.date.getTime() - a.date.getTime())
 }
 
 export default function Customers() {
@@ -25,10 +101,18 @@ export default function Customers() {
   // global search (Cmd+K) deep-links straight to a specific customer. Same
   // convention as Products.tsx's editingId (see its comment for why this
   // reads location.pathname on every render instead of useParams).
+  //
+  // /customers/<id> alone opens the read-only detail view (Amount
+  // spent/Orders, Timeline, Notes, addresses); ?edit=1 on top of that opens
+  // the edit form -- a separate flag rather than a separate path segment so
+  // the existing /customers/:id route (see routes.ts's DETAIL_PAGE_ROUTES)
+  // still matches without adding another registered route.
   const location = useLocation()
   const navigate = useNavigate()
-  const editingId = idFromPath(location.pathname, '/customers')
-  const openEditor = (id: string) => navigate(`/customers/${id}`)
+  const [searchParams] = useSearchParams()
+  const openId = idFromPath(location.pathname, '/customers')
+  const isEditing = searchParams.get('edit') === '1'
+  const openEditor = (id: string) => navigate(`/customers/${id}?edit=1`)
   const closeEditor = () => navigate('/customers')
   const [deleteError, setDeleteError] = useState('')
 
@@ -52,14 +136,29 @@ export default function Customers() {
     }
   }
 
-  if (editingId !== null) {
-    const existing = editingId === 'new' ? null : customers.find(c => c.id === editingId) ?? null
+  if (openId === 'new') {
+    return <CustomerEditPage customer={null} onCreate={create} onUpdate={update} onClose={closeEditor} />
+  }
+  if (openId !== null) {
+    const existing = customers.find(c => c.id === openId) ?? null
+    if (isEditing) {
+      return (
+        <CustomerEditPage
+          customer={existing}
+          onCreate={create}
+          onUpdate={update}
+          onClose={() => navigate(`/customers/${openId}`)}
+        />
+      )
+    }
     return (
-      <CustomerEditPage
+      <CustomerDetailPage
         customer={existing}
-        onCreate={create}
-        onUpdate={update}
+        loading={loading}
+        token={token ?? ''}
+        onEdit={() => openEditor(openId)}
         onClose={closeEditor}
+        onSaveNote={note => update(openId, { ...customerToInput(existing!), customer_note: note })}
       />
     )
   }
@@ -79,7 +178,7 @@ export default function Customers() {
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => openEditor('new')}
+            onClick={() => navigate('/customers/new')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 transition-colors font-medium"
           >
             <Plus size={13} /> Add Customer
@@ -115,7 +214,7 @@ export default function Customers() {
             {paged.map(c => (
               <tr
                 key={c.id}
-                onClick={() => openEditor(c.id)}
+                onClick={() => navigate(`/customers/${c.id}`)}
                 className="group hover:dark:bg-[#1F2937]/60 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
@@ -163,6 +262,195 @@ export default function Customers() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+    </div>
+  )
+}
+
+// ── Customer Detail Page ─────────────────────────────────────────────────────
+
+function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveNote }: {
+  customer: Customer | null
+  loading: boolean
+  token: string
+  onEdit: () => void
+  onClose: () => void
+  onSaveNote: (note: string) => Promise<Customer>
+}) {
+  const [orders, setOrders] = useState<SalesOrder[]>([])
+  const [ordersTotal, setOrdersTotal] = useState(0)
+
+  // Fetched directly (not via useSalesOrders) so this can wait for
+  // `customer` to actually be loaded -- a deep link (search/refresh) mounts
+  // this before useCustomers' list resolves, and firing an unfiltered
+  // "list every order" call in that gap would be wrong AND wasteful.
+  useEffect(() => {
+    if (!token || !customer) return
+    omsApi.listSalesOrders(token, { customerId: customer.id, perPage: 250, sortBy: 'occurred_at', sortDir: 'desc' })
+      .then(result => { setOrders(result.salesOrders); setOrdersTotal(result.total) })
+      .catch(() => { setOrders([]); setOrdersTotal(0) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, customer?.id])
+
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteError, setNoteError] = useState('')
+
+  function startEditingNote() {
+    setNoteDraft(customer?.customer_note ?? '')
+    setEditingNote(true)
+  }
+
+  async function saveNote() {
+    setSavingNote(true)
+    setNoteError('')
+    try {
+      await onSaveNote(noteDraft)
+      setEditingNote(false)
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : 'Failed to save note')
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  // Amount spent sums only the orders actually fetched (capped at 250) --
+  // accurate for the overwhelming majority of customers; ordersTotal (the
+  // server's real count) is used for the Orders stat itself, which stays
+  // correct regardless.
+  const currency = orders[0]?.currency_code ?? 'USD'
+  const amountSpentMinorUnits = orders.reduce((sum, o) => sum + o.total_minor_units, 0)
+  const timeline = customer ? buildCustomerTimeline(customer, orders) : []
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b dark:border-[#2D3748] border-gray-200 dark:bg-[#111827] bg-gray-50 shrink-0">
+        <div>
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-[11px] font-medium dark:text-gray-500 text-gray-400 hover:dark:text-gray-300 hover:text-gray-600 transition-colors mb-1"
+          >
+            <ArrowLeft size={11} /> Customers
+          </button>
+          <h1 className="text-xl font-semibold dark:text-gray-100 text-gray-900 leading-tight">
+            {customer ? fullName(customer) : 'Customer'}
+          </h1>
+        </div>
+        {customer && (
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors"
+          >
+            <Edit3 size={13} /> Edit
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto p-6 space-y-5">
+          {loading && !customer && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+          {!loading && !customer && <p className="text-xs dark:text-gray-500 text-gray-400">Customer not found</p>}
+          {noteError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{noteError}</p>}
+
+          {customer && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
+              {/* Main column */}
+              <div className="space-y-5 min-w-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Amount spent</p>
+                    <p className="text-lg font-semibold dark:text-gray-100 text-gray-900">{formatMoney(amountSpentMinorUnits, currency)}</p>
+                  </div>
+                  <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Orders</p>
+                    <p className="text-lg font-semibold dark:text-gray-100 text-gray-900">{ordersTotal}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
+                  <p className="font-medium dark:text-gray-300 text-gray-700">Timeline</p>
+                  {timeline.length === 0 ? (
+                    <p className="dark:text-gray-500 text-gray-400">No activity yet</p>
+                  ) : timeline.map(entry => (
+                    <div key={entry.id} className="flex justify-between gap-3 dark:text-gray-400 text-gray-500">
+                      <span className="dark:text-gray-200 text-gray-800">{entry.label}</span>
+                      <span className="shrink-0">{entry.date.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Aside column */}
+              <div className="space-y-5 min-w-0">
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Notes</h3>
+                    {!editingNote && (
+                      <button
+                        onClick={startEditingNote}
+                        title="Edit notes"
+                        aria-label="Edit notes"
+                        className="w-6 h-6 flex items-center justify-center rounded dark:hover:bg-[#2D3748] hover:bg-gray-200 transition-colors"
+                      >
+                        <Edit3 size={12} className="dark:text-gray-400 text-gray-500" />
+                      </button>
+                    )}
+                  </div>
+                  {editingNote ? (
+                    <div className="space-y-2">
+                      <label htmlFor="customer-note" className="sr-only">Notes</label>
+                      <textarea
+                        id="customer-note"
+                        value={noteDraft}
+                        onChange={e => setNoteDraft(e.target.value)}
+                        rows={3}
+                        className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-200 text-gray-800 outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={saveNote}
+                          disabled={savingNote}
+                          className="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          Save note
+                        </button>
+                        <button
+                          onClick={() => setEditingNote(false)}
+                          disabled={savingNote}
+                          className="px-2.5 py-1 rounded-lg border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-700 dark:hover:bg-[#2D3748] hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : customer.customer_note ? (
+                    <p className="dark:text-gray-200 text-gray-800 whitespace-pre-wrap">{customer.customer_note}</p>
+                  ) : (
+                    <p className="dark:text-gray-500 text-gray-400">No notes</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3 text-xs">
+                  <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Contact information</h3>
+                  <p className="dark:text-gray-200 text-gray-800">{customer.email}</p>
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Shipping address</h4>
+                    <AddressLines address={customer.shipping} />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-wider dark:text-gray-500 text-gray-400 mb-1">Billing address</h4>
+                    {addressesEqual(customer.billing, customer.shipping) ? (
+                      <p className="dark:text-gray-500 text-gray-400">Same as shipping address</p>
+                    ) : (
+                      <AddressLines address={customer.billing} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

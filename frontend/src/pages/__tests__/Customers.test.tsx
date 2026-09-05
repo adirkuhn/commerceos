@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Customers from '../Customers'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import type { Customer } from '../../customers/types'
+import type { SalesOrder } from '../../oms/types'
 
 // Stands in for CommandPalette's openRecord: a `navigate()` call to a
 // per-record URL fired while Customers is already mounted, without
@@ -25,7 +26,22 @@ vi.mock('../../customers/api', () => ({
   deleteCustomer: vi.fn(),
 }))
 
+vi.mock('../../oms/api', () => ({
+  listSalesOrders: vi.fn(),
+}))
+
 import * as customersApi from '../../customers/api'
+import * as omsApi from '../../oms/api'
+
+function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
+  return {
+    id: 'so-1', tenant_id: 'tenant-1', source: 'pos', external_order_id: 'ext-1',
+    number: '1001', order_key: '', status: 'completed', currency_code: 'USD',
+    discount_total_minor_units: 0, shipping_total_minor_units: 0, tax_total_minor_units: 0,
+    total_minor_units: 5000, occurred_at: '2026-08-10T12:00:00Z', created_at: '2026-08-10T12:00:00Z',
+    ...overrides,
+  }
+}
 
 function customer(overrides: Partial<Customer> = {}): Customer {
   return {
@@ -39,6 +55,7 @@ function customer(overrides: Partial<Customer> = {}): Customer {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(customersApi.listCustomers).mockResolvedValue([])
+  vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
 })
 
 describe('Customers list', () => {
@@ -120,16 +137,56 @@ describe('Customers list', () => {
   })
 })
 
-describe('Customer edit page', () => {
-  it('opens the edit page when clicking anywhere on a row, not just the Edit button', async () => {
+describe('Customer detail page', () => {
+  it('opens the detail view when clicking a row, and the edit form via its Edit button', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
 
+    expect(screen.getByText('jane@example.com')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
     expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })
+
+  it('shows amount spent, order count, and a timeline entry per order', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
+      salesOrders: [salesOrder({ id: 'so-1', number: '1001', total_minor_units: 5000, currency_code: 'USD' })],
+      total: 1,
+    })
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    expect(await screen.findByText('$50.00')).toBeInTheDocument()
+    expect(screen.getByText('1')).toBeInTheDocument()
+    expect(screen.getByText(/Placed order #1001/)).toBeInTheDocument()
+  })
+
+  it('editing the note saves it via update, preserving the rest of the profile', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(customersApi.updateCustomer).mockResolvedValue(customer({ customer_note: 'VIP' }))
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+    await screen.findByText('No notes')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit notes' }))
+    await userEvent.type(screen.getByLabelText('Notes'), 'VIP')
+    await userEvent.click(screen.getByRole('button', { name: 'Save note' }))
+
+    await waitFor(() => expect(customersApi.updateCustomer).toHaveBeenCalledWith('test-token', 'customer-1', expect.objectContaining({
+      email: 'jane@example.com', first_name: 'Jane', last_name: 'Doe', customer_note: 'VIP',
+    })))
+  })
+})
+
+describe('Customer edit page', () => {
 
   it('opening Add Customer shows a blank create form', async () => {
     render(<MemoryRouter><Customers /></MemoryRouter>)
@@ -188,12 +245,13 @@ describe('Customer edit page', () => {
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
   })
 
-  it('renames a customer and returns to the list', async () => {
+  it('renames a customer and returns to the detail view', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     vi.mocked(customersApi.updateCustomer).mockResolvedValue(customer({ last_name: 'Doelist' }))
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     const input = screen.getByLabelText('Last name')
     await userEvent.clear(input)
@@ -203,7 +261,7 @@ describe('Customer edit page', () => {
     await waitFor(() => expect(customersApi.updateCustomer).toHaveBeenCalledWith(
       'test-token', 'customer-1', expect.objectContaining({ last_name: 'Doelist' }),
     ))
-    expect(await screen.findByText('Jane Doelist')).toBeInTheDocument()
+    expect(await screen.findByText('Jane Doelist', { selector: 'h1' })).toBeInTheDocument()
   })
 
   it('prefills fields when editing an existing customer', async () => {
@@ -213,6 +271,7 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com')
     expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
@@ -220,18 +279,18 @@ describe('Customer edit page', () => {
     expect(screen.getByLabelText('Billing phone')).toHaveValue('+31 6 1234 5678')
   })
 
-  it('prefills fields when deep-linking straight to an existing customer, before the list has loaded', async () => {
-    // Reproduces the reported bug: navigating directly to /customers/<id>
-    // (global search, a direct URL, a hard refresh) mounts CustomerEditPage
-    // before useCustomers' list fetch resolves, so `customer` is null on
-    // first render. Without a hydration guard the form's useState
-    // initializers never re-run once the real customer arrives, leaving
-    // every field permanently blank.
+  it('prefills fields when deep-linking straight to an existing customer\'s edit form, before the list has loaded', async () => {
+    // Reproduces the reported bug: navigating directly to
+    // /customers/<id>?edit=1 (global search, a direct URL, a hard refresh)
+    // mounts CustomerEditPage before useCustomers' list fetch resolves, so
+    // `customer` is null on first render. Without a hydration guard the
+    // form's useState initializers never re-run once the real customer
+    // arrives, leaving every field permanently blank.
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer({
       billing: { city: 'Rotterdam', country: 'NL', phone: '+31 6 1234 5678' },
     })])
 
-    render(<MemoryRouter initialEntries={['/customers/customer-1']}><Customers /></MemoryRouter>)
+    render(<MemoryRouter initialEntries={['/customers/customer-1?edit=1']}><Customers /></MemoryRouter>)
 
     expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
     expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
@@ -241,8 +300,9 @@ describe('Customer edit page', () => {
   // Regression: global search's CommandPalette navigates to
   // "/customers/<id>" without unmounting whatever page is currently
   // showing. Guards against a future regression back toward local state
-  // (see the identical Products.tsx bug this refactor fixed).
-  it('opens the customer when navigated to its URL while already mounted on the list (search result click)', async () => {
+  // (see the identical Products.tsx bug this refactor fixed). It opens the
+  // read-only detail view (same as any other row click), not the edit form.
+  it('opens the customer detail view when navigated to its URL while already mounted on the list (search result click)', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
     render(
@@ -255,18 +315,20 @@ describe('Customer edit page', () => {
 
     await userEvent.click(screen.getByText('simulate search result click'))
 
-    expect(await screen.findByLabelText('Email')).toBeInTheDocument()
+    expect(await screen.findByText('jane@example.com')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
   })
 
-  it('Discard returns to the list without saving', async () => {
+  it('Discard returns to the detail view without saving', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByText('Jane Doe'))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
     await userEvent.type(screen.getByLabelText('Last name'), ' extra')
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
 
     expect(customersApi.updateCustomer).not.toHaveBeenCalled()
-    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(await screen.findByText('Jane Doe', { selector: 'h1' })).toBeInTheDocument()
   })
 })

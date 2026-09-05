@@ -209,7 +209,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
-		Fulfilled: params.Fulfilled, Status: statuses, Source: sources,
+		Fulfilled: params.Fulfilled, Status: statuses, Source: sources, CustomerID: params.CustomerId,
 	})
 	if err := mapError(c, err); err != nil {
 		return

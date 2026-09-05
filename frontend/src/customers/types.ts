@@ -28,6 +28,7 @@ export interface Customer {
   shipping?: Address
   is_paying_customer: boolean
   avatar_url?: string
+  customer_note?: string
   date_created: string
   date_modified: string
 }
@@ -43,6 +44,7 @@ export interface CustomerInput {
   shipping?: Address
   is_paying_customer?: boolean
   avatar_url?: string
+  customer_note?: string
 }
 
 export interface APIError {

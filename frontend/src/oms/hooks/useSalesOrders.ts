@@ -34,9 +34,12 @@ export function useSalesOrders(
     // status/source: the Sales Orders page's own filters.
     status?: SalesOrderStatus[]
     source?: SalesOrderSource[]
+    // customerId: narrows to one customer's orders -- the Customer detail
+    // page's order history and lifetime-spend figures.
+    customerId?: string
   } = {},
 ): UseSalesOrdersState & UseSalesOrdersActions {
-  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source } = params
+  const { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId } = params
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -47,7 +50,7 @@ export function useSalesOrders(
     setLoading(true)
     setError(null)
     try {
-      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source })
+      const result = await api.listSalesOrders(token, { page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId })
       setSalesOrders(result.salesOrders)
       setTotal(result.total)
     } catch (e) {
@@ -55,7 +58,7 @@ export function useSalesOrders(
     } finally {
       setLoading(false)
     }
-  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source])
+  }, [token, page, perPage, sortBy, sortDir, needsStockReview, needsSkuReview, fulfilled, status, source, customerId])
 
   useEffect(() => { load() }, [load])
 

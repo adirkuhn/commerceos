@@ -89,6 +89,18 @@ func TestListSalesOrders_passesSourceFilterThrough(t *testing.T) {
 	assert.Equal(t, sources, repo.gotListFilter.Source)
 }
 
+func TestListSalesOrders_passesCustomerIDFilterThrough(t *testing.T) {
+	repo := &stubSalesOrderRepo{}
+	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)
+	customerID := "cust-1"
+
+	_, err := uc.Execute(context.Background(), appoms.ListSalesOrdersInput{CustomerID: &customerID})
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.gotListFilter.CustomerID)
+	assert.Equal(t, "cust-1", *repo.gotListFilter.CustomerID)
+}
+
 func TestListSalesOrders_propagatesRepoError(t *testing.T) {
 	repo := &stubSalesOrderRepo{listErr: assert.AnError}
 	uc := appoms.NewListSalesOrdersUseCase(newMockGormDB(t), repo)

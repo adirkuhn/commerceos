@@ -51,6 +51,7 @@ type customerModel struct {
 
 	IsPayingCustomer bool
 	AvatarURL        string `gorm:"column:avatar_url"`
+	CustomerNote     string `gorm:"column:customer_note"`
 
 	DateCreated  time.Time
 	DateModified time.Time
@@ -70,7 +71,7 @@ func customerModelFromDomain(c *customersDomain.Customer) customerModel {
 		ShippingFirstName: sFirst, ShippingLastName: sLast, ShippingCompany: sCompany,
 		ShippingAddress1: sAddr1, ShippingAddress2: sAddr2, ShippingCity: sCity, ShippingState: sState,
 		ShippingPostcode: sPostcode, ShippingCountry: sCountry, ShippingPhone: sPhone,
-		IsPayingCustomer: c.IsPayingCustomer, AvatarURL: c.AvatarURL,
+		IsPayingCustomer: c.IsPayingCustomer, AvatarURL: c.AvatarURL, CustomerNote: c.CustomerNote,
 		DateCreated: c.DateCreated, DateModified: c.DateModified,
 	}
 }
@@ -93,7 +94,7 @@ func toCustomerDomain(m customerModel) *customersDomain.Customer {
 			Address1: m.ShippingAddress1, Address2: m.ShippingAddress2, City: m.ShippingCity, State: m.ShippingState,
 			Postcode: m.ShippingPostcode, Country: m.ShippingCountry, Phone: m.ShippingPhone,
 		},
-		IsPayingCustomer: m.IsPayingCustomer, AvatarURL: m.AvatarURL,
+		IsPayingCustomer: m.IsPayingCustomer, AvatarURL: m.AvatarURL, CustomerNote: m.CustomerNote,
 		DateCreated: m.DateCreated, DateModified: m.DateModified,
 	}
 }
@@ -231,7 +232,7 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 		"shipping_address_1": m.ShippingAddress1, "shipping_address_2": m.ShippingAddress2, "shipping_city": m.ShippingCity,
 		"shipping_state": m.ShippingState, "shipping_postcode": m.ShippingPostcode, "shipping_country": m.ShippingCountry,
 		"shipping_phone":     m.ShippingPhone,
-		"is_paying_customer": m.IsPayingCustomer, "avatar_url": m.AvatarURL, "date_modified": m.DateModified,
+		"is_paying_customer": m.IsPayingCustomer, "avatar_url": m.AvatarURL, "customer_note": m.CustomerNote, "date_modified": m.DateModified,
 	}
 	if err := tx.Model(&customerModel{}).Where("id = ?", c.ID).Updates(values).Error; err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)

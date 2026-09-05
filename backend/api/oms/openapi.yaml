@@ -71,6 +71,12 @@ paths:
           schema:
             type: array
             items: { $ref: '#/components/schemas/SalesOrderSource' }
+        - name: customer_id
+          in: query
+          description: >
+            Filter to orders placed by this customer -- the Customer detail
+            page's order history and lifetime-spend figures.
+          schema: { type: string }
       responses:
         '200':
           description: ok

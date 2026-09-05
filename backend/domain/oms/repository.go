@@ -51,6 +51,11 @@ type ListSalesOrdersFilter struct {
 	// completed/cancelled/refunded/failed orders (a terminal-status order
 	// must never be offered for picking, regardless of its Fulfilled flag).
 	Status []SalesOrderStatus
+	// CustomerID nil means "don't filter on this" -- set to narrow to one
+	// customer's orders, e.g. the Customer detail page's order history and
+	// lifetime-spend figures. Guest orders (SalesOrder.CustomerID nil) never
+	// match a non-nil filter value.
+	CustomerID *string
 }
 
 type SalesOrderRepository interface {

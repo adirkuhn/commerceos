@@ -22,6 +22,7 @@ type UpdateCustomerInput struct {
 	Shipping         customersDomain.Address
 	IsPayingCustomer bool
 	AvatarURL        string
+	CustomerNote     string
 }
 
 type UpdateCustomerUseCase struct {
@@ -50,6 +51,7 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 		existing.Shipping = in.Shipping
 		existing.IsPayingCustomer = in.IsPayingCustomer
 		existing.AvatarURL = in.AvatarURL
+		existing.CustomerNote = in.CustomerNote
 		existing.DateModified = time.Now()
 		if err := uc.customerRepo.Update(ctx, existing); err != nil {
 			return err

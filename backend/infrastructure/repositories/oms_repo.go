@@ -267,6 +267,9 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 		}
 		q = q.Where("status IN ?", statuses)
 	}
+	if filter.CustomerID != nil {
+		q = q.Where("customer_id = ?", *filter.CustomerID)
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

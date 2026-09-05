@@ -38,6 +38,16 @@ describe('listSalesOrders', () => {
     expect(calledUrl).not.toContain('status=')
     expect(calledUrl).not.toContain('fulfilled=')
   })
+
+  it('includes customer_id when passed, omits it otherwise', async () => {
+    const fetchMock = mockFetch({ sales_orders: [], total: 0 })
+
+    await api.listSalesOrders(TOKEN, { customerId: 'cust-1' })
+    expect(fetchMock.mock.calls[0][0] as string).toContain('customer_id=cust-1')
+
+    await api.listSalesOrders(TOKEN, {})
+    expect(fetchMock.mock.calls[1][0] as string).not.toContain('customer_id')
+  })
 })
 
 describe('bulkUpdateSalesOrders', () => {

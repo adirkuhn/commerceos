@@ -21,6 +21,7 @@ type CreateCustomerInput struct {
 	Shipping         customersDomain.Address
 	IsPayingCustomer bool
 	AvatarURL        string
+	CustomerNote     string
 }
 
 type CreateCustomerUseCase struct {
@@ -40,7 +41,7 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 			TenantID: tenant.IDFromContext(ctx), WooCustomerID: in.WooCustomerID,
 			Email: in.Email, FirstName: in.FirstName, LastName: in.LastName,
 			Username: in.Username, Role: in.Role, Billing: in.Billing, Shipping: in.Shipping,
-			IsPayingCustomer: in.IsPayingCustomer, AvatarURL: in.AvatarURL,
+			IsPayingCustomer: in.IsPayingCustomer, AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
 			DateCreated: now, DateModified: now,
 		}
 		return uc.customerRepo.Create(ctx, &customer)

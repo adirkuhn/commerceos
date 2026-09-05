@@ -125,6 +125,7 @@ components:
         shipping: { $ref: '#/components/schemas/Address' }
         is_paying_customer: { type: boolean }
         avatar_url: { type: string }
+        customer_note: { type: string, description: Freeform staff note, editable from the customer detail page. }
         date_created: { type: string, format: date-time }
         date_modified: { type: string, format: date-time }
 
@@ -142,6 +143,7 @@ components:
         shipping: { $ref: '#/components/schemas/Address' }
         is_paying_customer: { type: boolean }
         avatar_url: { type: string }
+        customer_note: { type: string }
 
     UpdateCustomerRequest:
       type: object
@@ -157,6 +159,7 @@ components:
         shipping: { $ref: '#/components/schemas/Address' }
         is_paying_customer: { type: boolean }
         avatar_url: { type: string }
+        customer_note: { type: string }
 
     CustomerResponse:
       type: object
