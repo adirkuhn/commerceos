@@ -168,6 +168,36 @@ describe('Customer detail page', () => {
     expect(screen.getByText(/Placed order #1001/)).toBeInTheDocument()
   })
 
+  // Reported bug: the customer page showed no order count, no amount
+  // spent, and no timeline at all in production. Root cause: this fetch
+  // requested perPage: 250, but ListSalesOrders' documented per_page
+  // maximum is 200 -- the request 400'd, and the failure was silently
+  // swallowed (empty stats, no error), which is why it took a devtools
+  // Network-tab check to find. Pinning the exact param prevents a silent
+  // regression back past the documented max.
+  it('requests orders with a per_page within the documented maximum', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    await waitFor(() => expect(omsApi.listSalesOrders).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      customerId: 'customer-1',
+    })))
+    const perPage = vi.mocked(omsApi.listSalesOrders).mock.calls[0][1]?.perPage
+    expect(perPage).toBeLessThanOrEqual(200)
+  })
+
+  it('surfaces an error instead of silently showing empty stats when the orders fetch fails', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    vi.mocked(omsApi.listSalesOrders).mockRejectedValue(new Error('per_page too large'))
+
+    render(<MemoryRouter><Customers /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('Jane Doe'))
+
+    expect(await screen.findByText('per_page too large')).toBeInTheDocument()
+  })
+
   it('editing the note saves it via update, preserving the rest of the profile', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
     vi.mocked(customersApi.updateCustomer).mockResolvedValue(customer({ customer_note: 'VIP' }))

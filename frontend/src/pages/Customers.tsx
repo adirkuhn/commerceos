@@ -278,6 +278,7 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
 }) {
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersTotal, setOrdersTotal] = useState(0)
+  const [ordersError, setOrdersError] = useState('')
 
   // Fetched directly (not via useSalesOrders) so this can wait for
   // `customer` to actually be loaded -- a deep link (search/refresh) mounts
@@ -285,9 +286,14 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
   // "list every order" call in that gap would be wrong AND wasteful.
   useEffect(() => {
     if (!token || !customer) return
-    omsApi.listSalesOrders(token, { customerId: customer.id, perPage: 250, sortBy: 'occurred_at', sortDir: 'desc' })
+    setOrdersError('')
+    omsApi.listSalesOrders(token, { customerId: customer.id, perPage: 200, sortBy: 'occurred_at', sortDir: 'desc' })
       .then(result => { setOrders(result.salesOrders); setOrdersTotal(result.total) })
-      .catch(() => { setOrders([]); setOrdersTotal(0) })
+      .catch(err => {
+        setOrders([])
+        setOrdersTotal(0)
+        setOrdersError(err instanceof Error ? err.message : 'Failed to load orders')
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, customer?.id])
 
@@ -314,7 +320,8 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
     }
   }
 
-  // Amount spent sums only the orders actually fetched (capped at 250) --
+  // Amount spent sums only the orders actually fetched (capped at 200,
+  // ListSalesOrders' documented per_page maximum) --
   // accurate for the overwhelming majority of customers; ordersTotal (the
   // server's real count) is used for the Orders stat itself, which stays
   // correct regardless.
@@ -351,6 +358,7 @@ function CustomerDetailPage({ customer, loading, token, onEdit, onClose, onSaveN
           {loading && !customer && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
           {!loading && !customer && <p className="text-xs dark:text-gray-500 text-gray-400">Customer not found</p>}
           {noteError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{noteError}</p>}
+          {ordersError && <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{ordersError}</p>}
 
           {customer && (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
