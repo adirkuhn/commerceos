@@ -12,6 +12,7 @@ import (
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy
@@ -50,6 +51,7 @@ func (f *fakeConnectionRepo) ListByTenant(_ context.Context) ([]integrationsDoma
 type fakeCustomerRepo struct {
 	customersDomain.CustomerRepository
 	byPhone map[string]customersDomain.Customer
+	byID    map[string]customersDomain.Customer
 }
 
 func (f *fakeCustomerRepo) FindByPhoneE164(_ context.Context, phone string) (*customersDomain.Customer, error) {
@@ -57,6 +59,27 @@ func (f *fakeCustomerRepo) FindByPhoneE164(_ context.Context, phone string) (*cu
 		return &c, nil
 	}
 	return nil, nil
+}
+
+func (f *fakeCustomerRepo) FindByID(_ context.Context, id string) (*customersDomain.Customer, error) {
+	if f.byID != nil {
+		if c, ok := f.byID[id]; ok {
+			return &c, nil
+		}
+	}
+	return nil, customersDomain.ErrCustomerNotFound
+}
+
+type fakeSalesOrderRepo struct {
+	omsDomain.SalesOrderRepository
+	byID map[string]omsDomain.SalesOrder
+}
+
+func (f *fakeSalesOrderRepo) FindByID(_ context.Context, id string) (*omsDomain.SalesOrder, error) {
+	if o, ok := f.byID[id]; ok {
+		return &o, nil
+	}
+	return nil, omsDomain.ErrSalesOrderNotFound
 }
 
 type fakeEvolutionAPIClient struct {

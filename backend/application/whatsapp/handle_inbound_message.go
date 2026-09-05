@@ -18,7 +18,6 @@ import (
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -115,12 +114,7 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 		if err != nil {
 			return err
 		}
-		for i := range conns {
-			if conns[i].Provider == integrationsDomain.ProviderWhatsApp {
-				conn = &conns[i]
-				break
-			}
-		}
+		conn = findWhatsAppConnection(conns)
 		if conn == nil {
 			return nil
 		}
@@ -139,13 +133,9 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 		return nil
 	}
 
-	apiKey, err := crypto.Decrypt(uc.encryptionSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildEvolutionClient(uc.evolutionFactory, uc.encryptionSecret, *conn)
 	if err != nil {
-		return fmt.Errorf("handleInboundMessage: decrypt connection secret: %w", err)
-	}
-	client, err := uc.evolutionFactory.NewClient(conn.StoreURL.String(), conn.ConsumerKey, apiKey)
-	if err != nil {
-		return fmt.Errorf("handleInboundMessage: build evolution api client: %w", err)
+		return fmt.Errorf("handleInboundMessage: %w", err)
 	}
 
 	reply, err := uc.buildReply(ctx, customer, payload.text())

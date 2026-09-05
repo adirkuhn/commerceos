@@ -23,6 +23,7 @@ import (
 	apppromotions "github.com/adirkuhn/commerceos/application/promotions"
 	schedulerapp "github.com/adirkuhn/commerceos/application/scheduler"
 	shippingapp "github.com/adirkuhn/commerceos/application/shipping"
+	whatsappapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	"github.com/adirkuhn/commerceos/domain/events"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
@@ -32,6 +33,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	myparcelinfra "github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
@@ -286,6 +288,16 @@ func main() {
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC, outboxRepo,
 	)
 	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
+
+	notifyOrderStatusUC := whatsappapp.NewNotifyOrderStatusUseCase(db, salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret)
+	whatsAppOrderStatusConsumer := consumers.NewWhatsAppOrderStatusConsumer(processedEventRepo, notifyOrderStatusUC, js)
+	whatsAppOrderStatusSub, err := js.Subscribe(events.SalesOrderStatusChanged{}.EventName(), whatsAppOrderStatusConsumer.Handle,
+		nats.Durable("whatsapp-order-status-scheduler"), nats.ManualAck(),
+		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
+	if err != nil {
+		log.Fatalf("subscribe oms.sales_order.status_changed (whatsapp): %v", err)
+	}
+	defer whatsAppOrderStatusSub.Unsubscribe()
 
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
