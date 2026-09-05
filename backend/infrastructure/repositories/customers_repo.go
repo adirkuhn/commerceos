@@ -24,6 +24,7 @@ type customerModel struct {
 	Email     string
 	FirstName string
 	LastName  string
+	PhoneE164 string `gorm:"column:phone_e164"`
 	Username  string
 	Role      string
 
@@ -64,7 +65,7 @@ func customerModelFromDomain(c *customersDomain.Customer) customerModel {
 	sFirst, sLast, sCompany, sAddr1, sAddr2, sCity, sState, sPostcode, sCountry, _, sPhone := customerAddressFields(c.Shipping)
 	return customerModel{
 		ID: c.ID, TenantID: c.TenantID, WooCustomerID: c.WooCustomerID,
-		Email: c.Email, FirstName: c.FirstName, LastName: c.LastName, Username: c.Username, Role: c.Role,
+		Email: c.Email, FirstName: c.FirstName, LastName: c.LastName, PhoneE164: c.PhoneE164, Username: c.Username, Role: c.Role,
 		BillingFirstName: bFirst, BillingLastName: bLast, BillingCompany: bCompany,
 		BillingAddress1: bAddr1, BillingAddress2: bAddr2, BillingCity: bCity, BillingState: bState,
 		BillingPostcode: bPostcode, BillingCountry: bCountry, BillingEmail: bEmail, BillingPhone: bPhone,
@@ -83,7 +84,7 @@ func customerAddressFields(a customersDomain.Address) (firstName, lastName, comp
 func toCustomerDomain(m customerModel) *customersDomain.Customer {
 	return &customersDomain.Customer{
 		ID: m.ID, TenantID: m.TenantID, WooCustomerID: m.WooCustomerID,
-		Email: m.Email, FirstName: m.FirstName, LastName: m.LastName, Username: m.Username, Role: m.Role,
+		Email: m.Email, FirstName: m.FirstName, LastName: m.LastName, PhoneE164: m.PhoneE164, Username: m.Username, Role: m.Role,
 		Billing: customersDomain.Address{
 			FirstName: m.BillingFirstName, LastName: m.BillingLastName, Company: m.BillingCompany,
 			Address1: m.BillingAddress1, Address2: m.BillingAddress2, City: m.BillingCity, State: m.BillingState,
@@ -177,6 +178,25 @@ func (r *CustomerRepo) FindByEmail(ctx context.Context, email string) (*customer
 	return toCustomerDomain(m), nil
 }
 
+func (r *CustomerRepo) FindByPhoneE164(ctx context.Context, phoneE164 string) (*customersDomain.Customer, error) {
+	if phoneE164 == "" {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m customerModel
+	err = tx.Where("phone_e164 = ?", phoneE164).First(&m).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("customerRepo.FindByPhoneE164: %w", err)
+	}
+	return toCustomerDomain(m), nil
+}
+
 func (r *CustomerRepo) List(ctx context.Context) ([]customersDomain.Customer, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -239,7 +259,7 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 	// an address field.
 	values := map[string]any{
 		"woo_customer_id": m.WooCustomerID, "email": m.Email, "first_name": m.FirstName, "last_name": m.LastName,
-		"username": m.Username, "role": m.Role,
+		"phone_e164": m.PhoneE164, "username": m.Username, "role": m.Role,
 		"billing_first_name": m.BillingFirstName, "billing_last_name": m.BillingLastName, "billing_company": m.BillingCompany,
 		"billing_address_1": m.BillingAddress1, "billing_address_2": m.BillingAddress2, "billing_city": m.BillingCity,
 		"billing_state": m.BillingState, "billing_postcode": m.BillingPostcode, "billing_country": m.BillingCountry,

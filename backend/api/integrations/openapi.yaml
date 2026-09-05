@@ -1329,7 +1329,7 @@ components:
 
     ChannelType:
       type: string
-      enum: [woocommerce, bol, internal]
+      enum: [woocommerce, bol, internal, whatsapp]
 
     EnrollmentMode:
       type: string

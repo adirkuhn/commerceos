@@ -13,11 +13,17 @@ const (
 	// storefront -- no push adapter exists for it yet, but the type is
 	// defined now so adding it later doesn't need a SalesChannel redesign.
 	ChannelTypeInternal ChannelType = "internal"
+	// ChannelTypeWhatsApp gates which products a customer can query
+	// (stock/price/expiry) or order over the WhatsApp integration --
+	// enrollment here reuses the exact same EnrollmentMode/override
+	// mechanism as every other channel, see
+	// application/whatsapp.LookupProductInfoUseCase.
+	ChannelTypeWhatsApp ChannelType = "whatsapp"
 )
 
 func (t ChannelType) Valid() bool {
 	switch t {
-	case ChannelTypeWooCommerce, ChannelTypeBol, ChannelTypeInternal:
+	case ChannelTypeWooCommerce, ChannelTypeBol, ChannelTypeInternal, ChannelTypeWhatsApp:
 		return true
 	default:
 		return false

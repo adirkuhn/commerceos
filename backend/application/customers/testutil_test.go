@@ -60,6 +60,9 @@ func (s *stubCustomerRepo) FindByWooCustomerID(_ context.Context, _ int64) (*cus
 func (s *stubCustomerRepo) FindByEmail(_ context.Context, _ string) (*customersDomain.Customer, error) {
 	return s.findResult, s.findErr
 }
+func (s *stubCustomerRepo) FindByPhoneE164(_ context.Context, _ string) (*customersDomain.Customer, error) {
+	return s.findResult, s.findErr
+}
 func (s *stubCustomerRepo) List(_ context.Context) ([]customersDomain.Customer, error) {
 	return s.customers, nil
 }

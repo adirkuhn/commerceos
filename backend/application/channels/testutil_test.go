@@ -1316,6 +1316,9 @@ func (s *stubOrdersCustomerRepo) FindByEmail(_ context.Context, email string) (*
 	}
 	return nil, nil
 }
+func (s *stubOrdersCustomerRepo) FindByPhoneE164(_ context.Context, _ string) (*customersDomain.Customer, error) {
+	return nil, nil
+}
 func (s *stubOrdersCustomerRepo) List(_ context.Context) ([]customersDomain.Customer, error) {
 	return nil, nil
 }

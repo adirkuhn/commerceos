@@ -12,6 +12,13 @@ const (
 	ProviderWooCommerce Provider = "woocommerce"
 	ProviderBol         Provider = "bol"
 	ProviderMyParcel    Provider = "myparcel"
+	// ProviderWhatsApp is a self-hosted Evolution API instance (unofficial,
+	// Baileys-based WhatsApp Web gateway) -- StoreURL is the Evolution API
+	// base URL, ConsumerKey its instance name, ConsumerSecretEncrypted its
+	// instance API key. WebhookSecretEncrypted is the shared-secret path
+	// token verified by infrastructure/webhookproviders' whatsapp verifier,
+	// same convention as MyParcel (Evolution API signs nothing either).
+	ProviderWhatsApp Provider = "whatsapp"
 )
 
 type Status string

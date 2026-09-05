@@ -33,6 +33,13 @@ type Customer struct {
 	Email     string
 	FirstName string
 	LastName  string
+	// PhoneE164 is a normalized E.164 number (no leading '+'), distinct
+	// from Billing/Shipping.Phone (free-text, WooCommerce-shaped) --
+	// blank until set explicitly (manual edit, or the WhatsApp
+	// new-customer capture flow, see application/whatsapp). This is the
+	// field an inbound WhatsApp message's sender number is matched
+	// against to resolve an existing customer.
+	PhoneE164 string
 	// Username/Role mirror Woo's fields of the same name -- Role is Woo's
 	// WordPress user role (e.g. "customer"), not a CommerceOS RBAC role.
 	Username string
