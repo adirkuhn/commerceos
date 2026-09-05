@@ -52,7 +52,7 @@ func TestHandleShipmentWebhook_recordsRealStatusMainVerbatim(t *testing.T) {
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(_ context.Context, _ string, _ map[string]any) error { return nil }}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 3, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -82,7 +82,7 @@ func TestHandleShipmentWebhook_savesBarcodeFromWebhookPayload(t *testing.T) {
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 4, "3SMYPA447656020")}
 	err := uc.Execute(context.Background(), envelope)
@@ -114,7 +114,7 @@ func TestHandleShipmentWebhook_fulfilledOrder_movesToShipped_regardlessOfStatusM
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 3, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -149,7 +149,7 @@ func TestHandleShipmentWebhook_notYetFulfilled_doesNotMoveOrder(t *testing.T) {
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 3, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -178,7 +178,7 @@ func TestHandleShipmentWebhook_fulfilledOrder_wooOrderAlsoMovesToShipped(t *test
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 3, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -211,7 +211,7 @@ func TestHandleShipmentWebhook_fulfilledOrder_alreadyPastProcessing_doesNotReapp
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 3, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -243,7 +243,7 @@ func TestHandleShipmentWebhook_deliveredStatus_completesOrder(t *testing.T) {
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 7, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -273,7 +273,7 @@ func TestHandleShipmentWebhook_updateSalesOrderNotWired_doesNotTouchOrder(t *tes
 	}}
 
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(555, 1, "3SMYPA1")}
 	err := uc.Execute(context.Background(), envelope)
@@ -289,7 +289,7 @@ func TestHandleShipmentWebhook_unknownShipmentID_isSkippedNotAnError(t *testing.
 		},
 	}
 	uc := appshipping.NewHandleShipmentWebhookUseCase(newMockGormDB(t, 1), shipmentRepo, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil, nil)
 
 	envelope := webhooks.Envelope{TenantID: "tenant-1", Provider: "myparcel", RawPayload: myParcelHookPayload(999, 2, "x")}
 	err := uc.Execute(context.Background(), envelope)

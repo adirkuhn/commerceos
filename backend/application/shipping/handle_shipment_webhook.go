@@ -56,6 +56,9 @@ type HandleShipmentWebhookUseCase struct {
 	myParcelFactory  integrationsDomain.MyParcelClientFactory
 	encSecret        string
 	updateSalesOrder SalesOrderStatusUpdater
+	// whatsappNotifier may be nil (deployment hasn't wired WhatsApp yet) --
+	// see notifyWhatsAppOnDelivery.
+	whatsappNotifier ShipmentDeliveryNotifier
 }
 
 func NewHandleShipmentWebhookUseCase(
@@ -67,11 +70,12 @@ func NewHandleShipmentWebhookUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	updateSalesOrder SalesOrderStatusUpdater,
+	whatsappNotifier ShipmentDeliveryNotifier,
 ) *HandleShipmentWebhookUseCase {
 	return &HandleShipmentWebhookUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
 		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-		updateSalesOrder: updateSalesOrder,
+		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}
 }
 
@@ -136,5 +140,8 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 			return err
 		}
 	}
-	return completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID)
+	if err := completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID); err != nil {
+		return err
+	}
+	return notifyWhatsAppOnDelivery(ctx, uc.whatsappNotifier, tt.StatusMain, tt.StatusCode, shipment.SalesOrderID)
 }

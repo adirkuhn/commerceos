@@ -307,10 +307,13 @@ func main() {
 	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo)
 	runManualWooImportUC := channelsapp.NewRunManualWooImportUseCase(importUC, customersImportUC, ordersImportUC)
 
+	notifyShipmentDeliveryUC := whatsappapp.NewNotifyShipmentDeliveryUseCase(
+		db, salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+	)
 	shipmentReconcileUC := shippingapp.NewReconcileShipmentsUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
 		connRepo, salesOrderRepo, myparcelinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
-		updateSalesOrderUC,
+		updateSalesOrderUC, notifyShipmentDeliveryUC,
 	)
 
 	rs := buildRunners(

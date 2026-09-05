@@ -50,6 +50,7 @@ type ReconcileShipmentsUseCase struct {
 	myParcelFactory  integrationsDomain.MyParcelClientFactory
 	encSecret        string
 	updateSalesOrder SalesOrderStatusUpdater
+	whatsappNotifier ShipmentDeliveryNotifier
 }
 
 func NewReconcileShipmentsUseCase(
@@ -61,11 +62,12 @@ func NewReconcileShipmentsUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	updateSalesOrder SalesOrderStatusUpdater,
+	whatsappNotifier ShipmentDeliveryNotifier,
 ) *ReconcileShipmentsUseCase {
 	return &ReconcileShipmentsUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
 		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-		updateSalesOrder: updateSalesOrder,
+		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}
 }
 
@@ -144,6 +146,10 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 		}
 		if err := completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, s.SalesOrderID); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: complete on delivery: %v", s.ID, err))
+			continue
+		}
+		if err := notifyWhatsAppOnDelivery(ctx, uc.whatsappNotifier, tt.StatusMain, tt.StatusCode, s.SalesOrderID); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: notify whatsapp: %v", s.ID, err))
 			continue
 		}
 		result.Updated++

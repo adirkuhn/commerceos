@@ -36,11 +36,12 @@ func NewRetryWebhookEventDispatchUseCase(
 	encryptionSecret string,
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository,
 	updateSalesOrder SalesOrderStatusUpdater,
+	whatsappNotifier ShipmentDeliveryNotifier,
 ) *RetryWebhookEventDispatchUseCase {
 	uc := &RetryWebhookEventDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,
 		connRepo: connRepo, salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-		updateSalesOrder: updateSalesOrder,
+		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}}
 	// fulfilmentOrderRepo may be nil (a deployment that hasn't wired
 	// order_status_change dispatch yet) -- order_status_change retries then

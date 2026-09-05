@@ -19,12 +19,14 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
+	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
+	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -505,6 +507,7 @@ func Register(
 		db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC, enrollProductInChannelsUC,
 	)
 	listAllProviderWebhooksUC := appintegrations.NewListAllProviderWebhooksUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret)
+	notifyShipmentDeliveryUC := appwhatsapp.NewNotifyShipmentDeliveryUseCase(db, salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), encryptionSecret)
 
 	h := NewHandler(
 		appintegrations.NewListConnectionsUseCase(db, connRepo),
@@ -566,7 +569,7 @@ func Register(
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
-		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC),
+		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC),
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 	)

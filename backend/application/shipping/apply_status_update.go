@@ -103,6 +103,39 @@ func completeOrderOnDelivery(ctx context.Context, updater SalesOrderStatusUpdate
 	return nil
 }
 
+// ShipmentDeliveryNotifier is *application/whatsapp.NotifyShipmentDeliveryUseCase
+// narrowed to point of use (ISP) -- lets this package stay decoupled from
+// whatsapp's own dependencies (Evolution API client, customer/connection
+// repos, etc).
+type ShipmentDeliveryNotifier interface {
+	Execute(ctx context.Context, salesOrderID string, statusCode int) error
+}
+
+// notifyWhatsAppOnDelivery fires at the same trigger point as
+// completeOrderOnDelivery (StatusMainDelivered) but, unlike that function,
+// needs the raw numeric status code -- not just status_main -- to
+// distinguish "delivered to recipient" from "left at a collect point"
+// (MyParcel codes 7/9 vs 8/19 all report status_main "delivered", see
+// shipping.MyParcelStatusLabel). notifier may be nil (deployment hasn't
+// wired WhatsApp yet) -- then this is a no-op, same convention as
+// completeOrderOnDelivery's updater. Deliberately a separate call the
+// caller makes alongside completeOrderOnDelivery, not folded into it --
+// completing the order and notifying the customer are two independent
+// side effects of the same status transition. An error here (e.g. the
+// WhatsApp send failing) does propagate up like any other dispatch error,
+// which means the whole webhook redelivers -- completeOrderOnDelivery's own
+// write is idempotent against that, and an occasional duplicate WhatsApp
+// message on retry is preferable to silently dropping the notification.
+func notifyWhatsAppOnDelivery(ctx context.Context, notifier ShipmentDeliveryNotifier, statusMain string, statusCode int, salesOrderID string) error {
+	if notifier == nil || statusMain != shippingDomain.StatusMainDelivered {
+		return nil
+	}
+	if err := notifier.Execute(ctx, salesOrderID, statusCode); err != nil {
+		return fmt.Errorf("notifyWhatsAppOnDelivery: %w", err)
+	}
+	return nil
+}
+
 // MarkOrderShippedOnFulfillment moves a SalesOrder out of Pending/Processing
 // into Shipped once it's known to be fulfilled -- uniformly, regardless of
 // source. No-ops (not an error) if the order has already moved past

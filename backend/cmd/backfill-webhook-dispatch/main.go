@@ -45,14 +45,16 @@ func main() {
 	}
 
 	connRepo := repositories.NewConnectionRepo(db)
-	// updateSalesOrder is nil here -- this is a one-time reprocessing of the
-	// pre-dispatch-tracking backlog (see this file's own doc comment), out
-	// of scope for wiring the full OMS/inventory stack just to complete an
-	// order on a "delivered" shipment discovered mid-backfill; that path
-	// stays a no-op for this tool (see completeOrderOnDelivery's doc).
+	// updateSalesOrder/whatsappNotifier are both nil here -- this is a
+	// one-time reprocessing of the pre-dispatch-tracking backlog (see this
+	// file's own doc comment), out of scope for wiring the full OMS/
+	// inventory/WhatsApp stack just to complete an order or send a
+	// notification on a "delivered" shipment discovered mid-backfill; both
+	// paths stay a no-op for this tool (see completeOrderOnDelivery/
+	// notifyWhatsAppOnDelivery's docs).
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(
 		db, repositories.NewWebhookEventRepo(db), repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
-		connRepo, repositories.NewSalesOrderRepo(db), myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret, nil,
+		connRepo, repositories.NewSalesOrderRepo(db), myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret, nil, nil,
 	)
 
 	// ListByTenant has no WHERE tenant_id clause of its own -- under

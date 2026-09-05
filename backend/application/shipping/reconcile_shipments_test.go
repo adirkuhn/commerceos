@@ -38,7 +38,7 @@ func TestReconcileShipments_updatesChangedStatusAndSkipsUnchanged(t *testing.T) 
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -81,7 +81,7 @@ func TestReconcileShipments_statusUnchangedButBarcodeMissing_backfillsBarcodeOnl
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -114,7 +114,7 @@ func TestReconcileShipments_perShipmentFailure_doesNotAbortTheBatch(t *testing.T
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -151,7 +151,7 @@ func TestReconcileShipments_fulfilledOrderStillProcessing_movesToShipped(t *test
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -184,7 +184,7 @@ func TestReconcileShipments_notYetFulfilled_doesNotMoveOrder(t *testing.T) {
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 3), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater)
+		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 
@@ -202,7 +202,7 @@ func TestReconcileShipments_noStaleShipments_returnsEmptyResultWithoutBuildingCl
 	factory := &fakeMyParcelClientFactory{newClientErr: assert.AnError} // must never be called
 
 	uc := appshipping.NewReconcileShipmentsUseCase(newMockGormDB(t, 1), shipmentRepo, &fakeShipmentStatusEventRepo{}, connRepo, &fakeSalesOrderRepo{},
-		factory, testEncSecret, nil)
+		factory, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background(), "conn-1")
 

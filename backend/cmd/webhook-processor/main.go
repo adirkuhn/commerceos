@@ -80,10 +80,15 @@ func main() {
 	allocateStock := appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement, outboxRepo)
 
+	notifyShipmentDeliveryUC := appwhatsapp.NewNotifyShipmentDeliveryUseCase(
+		db, salesOrderRepo, repositories.NewCustomerRepo(db), repositories.NewConnectionRepo(db),
+		evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+	)
 	shipmentHandler := appshipping.NewHandleShipmentWebhookUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
 		repositories.NewConnectionRepo(db), salesOrderRepo,
 		myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret, updateSalesOrder,
+		notifyShipmentDeliveryUC,
 	)
 	orderStatusHandler := appshipping.NewHandleOrderStatusWebhookUseCase(
 		db, repositories.NewMyParcelFulfilmentOrderRepo(db), salesOrderRepo, updateSalesOrder,

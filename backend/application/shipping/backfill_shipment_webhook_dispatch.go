@@ -90,6 +90,9 @@ type shipmentWebhookDispatcher struct {
 	// "optional dependency" convention as ProcessWebhookEventUseCase's
 	// shipmentHandler.
 	updateSalesOrder SalesOrderStatusUpdater
+	// whatsappNotifier may be nil, same optional convention as
+	// updateSalesOrder -- see notifyWhatsAppOnDelivery.
+	whatsappNotifier ShipmentDeliveryNotifier
 }
 
 // processEvent parses one webhook_events row's payload and resolves each
@@ -210,6 +213,9 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 	if err := completeOrderOnDelivery(ctx, d.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID); err != nil {
 		return &shipmentDispatchOutcome{err: err}
 	}
+	if err := notifyWhatsAppOnDelivery(ctx, d.whatsappNotifier, tt.StatusMain, tt.StatusCode, shipment.SalesOrderID); err != nil {
+		return &shipmentDispatchOutcome{err: err}
+	}
 	return &shipmentDispatchOutcome{applied: true}
 }
 
@@ -238,11 +244,12 @@ func NewBackfillShipmentWebhookDispatchUseCase(
 	myParcelFactory integrationsDomain.MyParcelClientFactory,
 	encryptionSecret string,
 	updateSalesOrder SalesOrderStatusUpdater,
+	whatsappNotifier ShipmentDeliveryNotifier,
 ) *BackfillShipmentWebhookDispatchUseCase {
 	return &BackfillShipmentWebhookDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,
 		connRepo: connRepo, salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
-		updateSalesOrder: updateSalesOrder,
+		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}}
 }
 
