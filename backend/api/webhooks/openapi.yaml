@@ -27,7 +27,8 @@ paths:
           in: path
           required: true
           description: >
-            woocommerce, myparcel and whatsapp are fully implemented. bol,
+            woocommerce, myparcel, whatsapp, stripe and revolut are fully
+            implemented. bol,
             moneybird, shopify, lightspeed, sendcloud are registered but
             return 501 until their signature scheme is implemented for real.
           schema: { type: string }
