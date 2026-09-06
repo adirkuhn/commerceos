@@ -31,10 +31,10 @@ func TestConnectStripe_createsConnectionAndEnqueuesEvent(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewConnectStripeUseCase(newMockGormDB(t), connRepo, outboxRepo, testEncryptionSecret)
+	uc := appintegrations.NewConnectStripeUseCase(newMockGormDB(t), connRepo, outboxRepo, testEncryptionSecret, "https://api.example.com")
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
-	conn, err := uc.Execute(ctx, appintegrations.ConnectStripeInput{SecretKey: "sk_test_secret"})
+	result, err := uc.Execute(ctx, appintegrations.ConnectStripeInput{SecretKey: "sk_test_secret"})
 
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -46,12 +46,13 @@ func TestConnectStripe_createsConnectionAndEnqueuesEvent(t *testing.T) {
 	assert.Equal(t, "sk_test_secret", decrypted)
 
 	assert.Equal(t, "integrations.connection.connected", enqueuedSubject)
-	require.NotNil(t, conn)
-	assert.Equal(t, "conn-stripe-1", conn.ID)
+	require.NotNil(t, result)
+	assert.Equal(t, "conn-stripe-1", result.Connection.ID)
+	assert.Equal(t, "https://api.example.com/api/v1/webhooks/v1/tenant-1/stripe", result.WebhookURL)
 }
 
 func TestConnectStripe_noTenantInContext_rejects(t *testing.T) {
-	uc := appintegrations.NewConnectStripeUseCase(newMockGormDB(t), &mocks.ConnectionRepo{}, &mocks.OutboxRepo{}, testEncryptionSecret)
+	uc := appintegrations.NewConnectStripeUseCase(newMockGormDB(t), &mocks.ConnectionRepo{}, &mocks.OutboxRepo{}, testEncryptionSecret, "https://api.example.com")
 
 	_, err := uc.Execute(context.Background(), appintegrations.ConnectStripeInput{SecretKey: "sk_test_secret"})
 

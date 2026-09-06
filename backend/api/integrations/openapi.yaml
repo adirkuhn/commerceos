@@ -1085,7 +1085,11 @@ paths:
   /integrations/stripe/connect:
     post:
       operationId: connectStripe
-      summary: Connect Stripe by pasting a secret API key -- no OAuth
+      summary: >
+        Connect Stripe by pasting a secret API key -- no OAuth. Response
+        includes the webhook ingest URL to register in Stripe's own
+        Dashboard (Developers → Webhooks) -- Stripe generates its own
+        signing secret when you do, paste that back via setWebhookSecret.
       requestBody:
         required: true
         content:
@@ -1098,14 +1102,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConnectionResponse'
+                $ref: '#/components/schemas/ConnectPaymentProviderResponse'
         '422':
           $ref: '#/components/responses/Error'
 
   /integrations/revolut/connect:
     post:
       operationId: connectRevolut
-      summary: Connect Revolut Business by pasting a Merchant API secret key -- no OAuth
+      summary: >
+        Connect Revolut Business by pasting a Merchant API secret key -- no
+        OAuth. Response includes the webhook ingest URL to register in
+        Revolut's Merchant API webhook settings -- Revolut generates its
+        own signing secret when you do, paste that back via
+        setWebhookSecret.
       requestBody:
         required: true
         content:
@@ -1118,7 +1127,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConnectionResponse'
+                $ref: '#/components/schemas/ConnectPaymentProviderResponse'
         '422':
           $ref: '#/components/responses/Error'
 
@@ -1600,6 +1609,23 @@ components:
         api_key:
           type: string
           description: Revolut Business Merchant API secret key. No OAuth -- direct-account integration.
+
+    ConnectPaymentProviderResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            connection: { $ref: '#/components/schemas/Connection' }
+            webhook_url:
+              type: string
+              description: >
+                Register this URL as a webhook endpoint in the provider's
+                own dashboard (Stripe: Developers → Webhooks; Revolut:
+                Merchant API → Webhooks) -- the provider then generates its
+                own signing secret; paste that back via setWebhookSecret's
+                `secret` field, the reverse of MyParcel/WhatsApp's flow.
+        error: { nullable: true }
 
     ConnectWhatsAppResponse:
       type: object

@@ -244,20 +244,20 @@ func (s *stubConnectWhatsapp) Execute(_ context.Context, _ appintegrations.Conne
 }
 
 type stubConnectStripe struct {
-	out *integrationsDomain.Connection
+	out *appintegrations.ConnectStripeResult
 	err error
 }
 
-func (s *stubConnectStripe) Execute(_ context.Context, _ appintegrations.ConnectStripeInput) (*integrationsDomain.Connection, error) {
+func (s *stubConnectStripe) Execute(_ context.Context, _ appintegrations.ConnectStripeInput) (*appintegrations.ConnectStripeResult, error) {
 	return s.out, s.err
 }
 
 type stubConnectRevolut struct {
-	out *integrationsDomain.Connection
+	out *appintegrations.ConnectRevolutResult
 	err error
 }
 
-func (s *stubConnectRevolut) Execute(_ context.Context, _ appintegrations.ConnectRevolutInput) (*integrationsDomain.Connection, error) {
+func (s *stubConnectRevolut) Execute(_ context.Context, _ appintegrations.ConnectRevolutInput) (*appintegrations.ConnectRevolutResult, error) {
 	return s.out, s.err
 }
 
@@ -2574,7 +2574,8 @@ func TestConnectWhatsappHandler_rejectsMissingFields(t *testing.T) {
 
 func TestConnectStripeHandler_success(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-stripe-1", Provider: integrationsDomain.ProviderStripe, Status: integrationsDomain.StatusConnected}
-	h := newPaymentTestHandler(&stubConnectStripe{out: conn}, &stubConnectRevolut{}, &stubListPaymentConnections{})
+	result := &appintegrations.ConnectStripeResult{Connection: conn, WebhookURL: "https://api.example.com/api/v1/webhooks/v1/tenant-1/stripe"}
+	h := newPaymentTestHandler(&stubConnectStripe{out: result}, &stubConnectRevolut{}, &stubListPaymentConnections{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2582,6 +2583,7 @@ func TestConnectStripeHandler_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "stripe")
+	assert.Contains(t, w.Body.String(), "webhooks/v1/tenant-1/stripe")
 	assert.NotContains(t, w.Body.String(), "sk_test_secret")
 }
 
@@ -2597,7 +2599,8 @@ func TestConnectStripeHandler_rejectsMissingFields(t *testing.T) {
 
 func TestConnectRevolutHandler_success(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-revolut-1", Provider: integrationsDomain.ProviderRevolut, Status: integrationsDomain.StatusConnected}
-	h := newPaymentTestHandler(&stubConnectStripe{}, &stubConnectRevolut{out: conn}, &stubListPaymentConnections{})
+	result := &appintegrations.ConnectRevolutResult{Connection: conn, WebhookURL: "https://api.example.com/api/v1/webhooks/v1/tenant-1/revolut"}
+	h := newPaymentTestHandler(&stubConnectStripe{}, &stubConnectRevolut{out: result}, &stubListPaymentConnections{})
 	r := gin.New()
 	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
 
@@ -2605,6 +2608,7 @@ func TestConnectRevolutHandler_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "revolut")
+	assert.Contains(t, w.Body.String(), "webhooks/v1/tenant-1/revolut")
 	assert.NotContains(t, w.Body.String(), "revolut-secret")
 }
 

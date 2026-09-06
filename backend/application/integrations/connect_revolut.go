@@ -22,6 +22,12 @@ type ConnectRevolutInput struct {
 	APIKey string
 }
 
+// ConnectRevolutResult mirrors ConnectStripeResult -- see its doc comment.
+type ConnectRevolutResult struct {
+	Connection *integrationsDomain.Connection
+	WebhookURL string
+}
+
 // ConnectRevolutUseCase saves a Revolut Merchant API key encrypted -- see
 // ConnectStripeUseCase's doc comment, same shape/reasoning.
 type ConnectRevolutUseCase struct {
@@ -29,13 +35,14 @@ type ConnectRevolutUseCase struct {
 	connRepo         integrationsDomain.ConnectionRepository
 	outboxRepo       outbox.Repository
 	encryptionSecret string
+	publicAPIBaseURL string
 }
 
-func NewConnectRevolutUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, outboxRepo outbox.Repository, encryptionSecret string) *ConnectRevolutUseCase {
-	return &ConnectRevolutUseCase{db: db, connRepo: connRepo, outboxRepo: outboxRepo, encryptionSecret: encryptionSecret}
+func NewConnectRevolutUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, outboxRepo outbox.Repository, encryptionSecret, publicAPIBaseURL string) *ConnectRevolutUseCase {
+	return &ConnectRevolutUseCase{db: db, connRepo: connRepo, outboxRepo: outboxRepo, encryptionSecret: encryptionSecret, publicAPIBaseURL: publicAPIBaseURL}
 }
 
-func (uc *ConnectRevolutUseCase) Execute(ctx context.Context, in ConnectRevolutInput) (*integrationsDomain.Connection, error) {
+func (uc *ConnectRevolutUseCase) Execute(ctx context.Context, in ConnectRevolutInput) (*ConnectRevolutResult, error) {
 	tenantID := tenant.IDFromContext(ctx)
 	if tenantID == "" {
 		return nil, fmt.Errorf("connectRevolut: %w", integrationsDomain.ErrNoTenantContext)
@@ -74,5 +81,8 @@ func (uc *ConnectRevolutUseCase) Execute(ctx context.Context, in ConnectRevolutI
 	if err != nil {
 		return nil, fmt.Errorf("connectRevolut: %w", err)
 	}
-	return &conn, nil
+	return &ConnectRevolutResult{
+		Connection: &conn,
+		WebhookURL: providerWebhookIngestURL(uc.publicAPIBaseURL, tenantID, integrationsDomain.ProviderRevolut),
+	}, nil
 }

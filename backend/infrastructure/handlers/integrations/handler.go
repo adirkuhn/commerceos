@@ -198,10 +198,10 @@ type connectWhatsappUC interface {
 	Execute(ctx context.Context, in appintegrations.ConnectWhatsAppInput) (*appintegrations.ConnectWhatsAppResult, error)
 }
 type connectStripeUC interface {
-	Execute(ctx context.Context, in appintegrations.ConnectStripeInput) (*integrationsDomain.Connection, error)
+	Execute(ctx context.Context, in appintegrations.ConnectStripeInput) (*appintegrations.ConnectStripeResult, error)
 }
 type connectRevolutUC interface {
-	Execute(ctx context.Context, in appintegrations.ConnectRevolutInput) (*integrationsDomain.Connection, error)
+	Execute(ctx context.Context, in appintegrations.ConnectRevolutInput) (*appintegrations.ConnectRevolutResult, error)
 }
 type listPaymentConnectionsUC interface {
 	Execute(ctx context.Context) ([]integrationsDomain.Connection, error)
@@ -591,8 +591,8 @@ func Register(
 		appintegrations.NewDeleteProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		appintegrations.NewConnectWhatsAppUseCase(db, connRepo, outboxRepo, encryptionSecret, publicAPIBaseURL),
-		appintegrations.NewConnectStripeUseCase(db, connRepo, outboxRepo, encryptionSecret),
-		appintegrations.NewConnectRevolutUseCase(db, connRepo, outboxRepo, encryptionSecret),
+		appintegrations.NewConnectStripeUseCase(db, connRepo, outboxRepo, encryptionSecret, publicAPIBaseURL),
+		appintegrations.NewConnectRevolutUseCase(db, connRepo, outboxRepo, encryptionSecret, publicAPIBaseURL),
 		appintegrations.NewListPaymentConnectionsUseCase(db, connRepo),
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
@@ -1210,11 +1210,14 @@ func (h *Handler) ConnectStripe(c *gin.Context) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "secret_key is required")
 		return
 	}
-	conn, err := h.connectStripe.Execute(c.Request.Context(), appintegrations.ConnectStripeInput{SecretKey: req.SecretKey})
+	result, err := h.connectStripe.Execute(c.Request.Context(), appintegrations.ConnectStripeInput{SecretKey: req.SecretKey})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenConnection(*conn))
+	middleware.OK(c, struct {
+		Connection genintegrations.Connection `json:"connection"`
+		WebhookURL string                     `json:"webhook_url"`
+	}{Connection: toGenConnection(*result.Connection), WebhookURL: result.WebhookURL})
 }
 
 func (h *Handler) ConnectRevolut(c *gin.Context) {
@@ -1227,11 +1230,14 @@ func (h *Handler) ConnectRevolut(c *gin.Context) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "api_key is required")
 		return
 	}
-	conn, err := h.connectRevolut.Execute(c.Request.Context(), appintegrations.ConnectRevolutInput{APIKey: req.ApiKey})
+	result, err := h.connectRevolut.Execute(c.Request.Context(), appintegrations.ConnectRevolutInput{APIKey: req.ApiKey})
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenConnection(*conn))
+	middleware.OK(c, struct {
+		Connection genintegrations.Connection `json:"connection"`
+		WebhookURL string                     `json:"webhook_url"`
+	}{Connection: toGenConnection(*result.Connection), WebhookURL: result.WebhookURL})
 }
 
 func (h *Handler) ListPaymentConnections(c *gin.Context) {

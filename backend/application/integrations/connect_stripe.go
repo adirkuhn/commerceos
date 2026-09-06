@@ -23,23 +23,33 @@ type ConnectStripeInput struct {
 	SecretKey string
 }
 
+// ConnectStripeResult carries the webhook ingest URL alongside the new
+// Connection -- reversed from WhatsApp's ConnectWhatsAppResult (there we
+// generate the secret and the merchant pastes our URL+secret into Evolution
+// API; here Stripe generates ITS OWN signing secret when the merchant
+// registers this URL in their own Dashboard, so no secret is generated or
+// returned here -- see SetWebhookSecretUseCase's providedSecret param for
+// where the merchant's own secret gets stored).
+type ConnectStripeResult struct {
+	Connection *integrationsDomain.Connection
+	WebhookURL string
+}
+
 // ConnectStripeUseCase saves a Stripe secret key encrypted, same
 // paste-a-key-no-OAuth pattern as ConnectBolUseCase/ConnectWhatsAppUseCase.
-// No webhook secret generated -- unlike WhatsApp, nothing in this codebase
-// listens for Stripe webhooks yet (payment-link reconciliation is a future
-// piece, see domain/integrations.PaymentLink.ExternalID's doc comment).
 type ConnectStripeUseCase struct {
 	db               *gorm.DB
 	connRepo         integrationsDomain.ConnectionRepository
 	outboxRepo       outbox.Repository
 	encryptionSecret string
+	publicAPIBaseURL string
 }
 
-func NewConnectStripeUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, outboxRepo outbox.Repository, encryptionSecret string) *ConnectStripeUseCase {
-	return &ConnectStripeUseCase{db: db, connRepo: connRepo, outboxRepo: outboxRepo, encryptionSecret: encryptionSecret}
+func NewConnectStripeUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, outboxRepo outbox.Repository, encryptionSecret, publicAPIBaseURL string) *ConnectStripeUseCase {
+	return &ConnectStripeUseCase{db: db, connRepo: connRepo, outboxRepo: outboxRepo, encryptionSecret: encryptionSecret, publicAPIBaseURL: publicAPIBaseURL}
 }
 
-func (uc *ConnectStripeUseCase) Execute(ctx context.Context, in ConnectStripeInput) (*integrationsDomain.Connection, error) {
+func (uc *ConnectStripeUseCase) Execute(ctx context.Context, in ConnectStripeInput) (*ConnectStripeResult, error) {
 	tenantID := tenant.IDFromContext(ctx)
 	if tenantID == "" {
 		return nil, fmt.Errorf("connectStripe: %w", integrationsDomain.ErrNoTenantContext)
@@ -78,5 +88,8 @@ func (uc *ConnectStripeUseCase) Execute(ctx context.Context, in ConnectStripeInp
 	if err != nil {
 		return nil, fmt.Errorf("connectStripe: %w", err)
 	}
-	return &conn, nil
+	return &ConnectStripeResult{
+		Connection: &conn,
+		WebhookURL: providerWebhookIngestURL(uc.publicAPIBaseURL, tenantID, integrationsDomain.ProviderStripe),
+	}, nil
 }

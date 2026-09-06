@@ -31,10 +31,10 @@ func TestConnectRevolut_createsConnectionAndEnqueuesEvent(t *testing.T) {
 			return nil
 		},
 	}
-	uc := appintegrations.NewConnectRevolutUseCase(newMockGormDB(t), connRepo, outboxRepo, testEncryptionSecret)
+	uc := appintegrations.NewConnectRevolutUseCase(newMockGormDB(t), connRepo, outboxRepo, testEncryptionSecret, "https://api.example.com")
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
-	conn, err := uc.Execute(ctx, appintegrations.ConnectRevolutInput{APIKey: "revolut-secret"})
+	result, err := uc.Execute(ctx, appintegrations.ConnectRevolutInput{APIKey: "revolut-secret"})
 
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -46,12 +46,13 @@ func TestConnectRevolut_createsConnectionAndEnqueuesEvent(t *testing.T) {
 	assert.Equal(t, "revolut-secret", decrypted)
 
 	assert.Equal(t, "integrations.connection.connected", enqueuedSubject)
-	require.NotNil(t, conn)
-	assert.Equal(t, "conn-revolut-1", conn.ID)
+	require.NotNil(t, result)
+	assert.Equal(t, "conn-revolut-1", result.Connection.ID)
+	assert.Equal(t, "https://api.example.com/api/v1/webhooks/v1/tenant-1/revolut", result.WebhookURL)
 }
 
 func TestConnectRevolut_noTenantInContext_rejects(t *testing.T) {
-	uc := appintegrations.NewConnectRevolutUseCase(newMockGormDB(t), &mocks.ConnectionRepo{}, &mocks.OutboxRepo{}, testEncryptionSecret)
+	uc := appintegrations.NewConnectRevolutUseCase(newMockGormDB(t), &mocks.ConnectionRepo{}, &mocks.OutboxRepo{}, testEncryptionSecret, "https://api.example.com")
 
 	_, err := uc.Execute(context.Background(), appintegrations.ConnectRevolutInput{APIKey: "revolut-secret"})
 
