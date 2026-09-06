@@ -30,7 +30,7 @@ func TestSetWebhookSecret_generatesAndEncryptsSecret(t *testing.T) {
 	}
 	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
 
-	result, err := uc.Execute(context.Background(), "conn-1")
+	result, err := uc.Execute(context.Background(), "conn-1", "")
 
 	require.NoError(t, err)
 	require.Equal(t, "conn-1", result.ConnectionID)
@@ -55,10 +55,31 @@ func TestSetWebhookSecret_rotatesExistingSecret(t *testing.T) {
 	}
 	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
 
-	_, err := uc.Execute(context.Background(), "conn-1")
+	_, err := uc.Execute(context.Background(), "conn-1", "")
 
 	require.NoError(t, err)
 	require.NotEqual(t, "old-encrypted-value", updated.WebhookSecretEncrypted)
+}
+
+func TestSetWebhookSecret_storesAProvidedSecretVerbatim(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1"}
+	var updated *integrationsDomain.Connection
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
+
+	result, err := uc.Execute(context.Background(), "conn-1", "whsec_from_stripe_dashboard")
+
+	require.NoError(t, err)
+	require.Equal(t, "whsec_from_stripe_dashboard", result.PlaintextSecret)
+	decrypted, err := crypto.Decrypt(testWebhookEncryptionSecret, updated.WebhookSecretEncrypted)
+	require.NoError(t, err)
+	require.Equal(t, "whsec_from_stripe_dashboard", decrypted)
 }
 
 func TestSetWebhookSecret_propagatesNotFound(t *testing.T) {
@@ -69,7 +90,7 @@ func TestSetWebhookSecret_propagatesNotFound(t *testing.T) {
 	}
 	uc := appintegrations.NewSetWebhookSecretUseCase(newMockGormDB(t), repo, testWebhookEncryptionSecret)
 
-	_, err := uc.Execute(context.Background(), "missing")
+	_, err := uc.Execute(context.Background(), "missing", "")
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, integrationsDomain.ErrConnectionNotFound))

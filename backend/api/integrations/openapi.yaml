@@ -256,13 +256,22 @@ paths:
     post:
       operationId: setWebhookSecret
       summary: >
-        (Re)generate this connection's webhook-signature secret. Returns the
-        PLAINTEXT secret exactly once -- paste it into the provider's
-        webhook admin UI right away, it can't be retrieved again after
-        this response. Re-running this rotates the secret; the old value
-        stops verifying immediately.
+        (Re)generate this connection's webhook-signature secret, or store
+        one the provider itself generated (Stripe/Revolut hand you a
+        signing secret when you register a webhook endpoint in their own
+        dashboard -- pass it as `secret` instead of leaving the body empty).
+        Returns the PLAINTEXT secret exactly once -- paste it into the
+        provider's webhook admin UI right away, it can't be retrieved again
+        after this response. Re-running this rotates the secret; the old
+        value stops verifying immediately.
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetWebhookSecretRequest'
       responses:
         '200':
           description: ok
@@ -2104,6 +2113,16 @@ components:
       properties:
         data: { $ref: '#/components/schemas/Connection' }
         error: { nullable: true }
+
+    SetWebhookSecretRequest:
+      type: object
+      properties:
+        secret:
+          type: string
+          description: >
+            Optional -- a signing secret the provider itself generated
+            (Stripe/Revolut). Omit to have one generated here instead
+            (MyParcel/WooCommerce/WhatsApp's flow).
 
     WebhookSecretResponse:
       type: object

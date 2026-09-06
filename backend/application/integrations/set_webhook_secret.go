@@ -28,6 +28,13 @@ type SetWebhookSecretResult struct {
 // signatures against. Re-running it rotates the secret -- the old value
 // stops verifying immediately, so the merchant must update the provider's
 // webhook config with the new one.
+//
+// providedSecret in Execute lets a caller supply the value instead of
+// generating one -- the reverse of MyParcel/WhatsApp's flow (we generate,
+// merchant pastes it into the provider), Stripe/Revolut generate their own
+// signing secret when the merchant registers a webhook endpoint in their
+// dashboard, so the merchant pastes THEIR value in here instead. Empty
+// string keeps the original generate-a-random-value behavior.
 type SetWebhookSecretUseCase struct {
 	db               *gorm.DB
 	connRepo         integrationsDomain.ConnectionRepository
@@ -38,14 +45,18 @@ func NewSetWebhookSecretUseCase(db *gorm.DB, connRepo integrationsDomain.Connect
 	return &SetWebhookSecretUseCase{db: db, connRepo: connRepo, encryptionSecret: encryptionSecret}
 }
 
-func (uc *SetWebhookSecretUseCase) Execute(ctx context.Context, connectionID string) (*SetWebhookSecretResult, error) {
-	plaintext, err := generateSecret()
-	if err != nil {
-		return nil, fmt.Errorf("setWebhookSecret: generate: %w", err)
+func (uc *SetWebhookSecretUseCase) Execute(ctx context.Context, connectionID string, providedSecret string) (*SetWebhookSecretResult, error) {
+	plaintext := providedSecret
+	if plaintext == "" {
+		generated, err := generateSecret()
+		if err != nil {
+			return nil, fmt.Errorf("setWebhookSecret: generate: %w", err)
+		}
+		plaintext = generated
 	}
 
 	var result SetWebhookSecretResult
-	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.connRepo.FindByID(ctx, connectionID)
 		if err != nil {
 			return err

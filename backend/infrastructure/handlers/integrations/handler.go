@@ -60,7 +60,7 @@ type updateConnectionSettingsUC interface {
 	Execute(ctx context.Context, in appintegrations.UpdateConnectionSettingsInput) (*integrationsDomain.Connection, error)
 }
 type setWebhookSecretUC interface {
-	Execute(ctx context.Context, connectionID string) (*appintegrations.SetWebhookSecretResult, error)
+	Execute(ctx context.Context, connectionID string, providedSecret string) (*appintegrations.SetWebhookSecretResult, error)
 }
 type listWebhookFallbackEventsUC interface {
 	Execute(ctx context.Context, status webhooksDomain.FallbackStatus) ([]webhooksDomain.FallbackEvent, error)
@@ -811,7 +811,20 @@ func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id
 }
 
 func (h *Handler) SetWebhookSecret(c *gin.Context, id genintegrations.Id) {
-	result, err := h.setWebhookSecret.Execute(c.Request.Context(), id)
+	// Body is optional (backward compatible with the generate-only flow) --
+	// a missing/empty body just means "generate one," not a bind error.
+	var req genintegrations.SetWebhookSecretRequest
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+			return
+		}
+	}
+	providedSecret := ""
+	if req.Secret != nil {
+		providedSecret = *req.Secret
+	}
+	result, err := h.setWebhookSecret.Execute(c.Request.Context(), id, providedSecret)
 	if err := mapError(c, err); err != nil {
 		return
 	}

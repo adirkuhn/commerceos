@@ -530,11 +530,13 @@ func (s *stubDeleteExternalCategoryLink) Execute(_ context.Context, id string) e
 }
 
 type stubSetWebhookSecret struct {
-	out *appintegrations.SetWebhookSecretResult
-	err error
+	out            *appintegrations.SetWebhookSecretResult
+	err            error
+	providedSecret string
 }
 
-func (s *stubSetWebhookSecret) Execute(_ context.Context, _ string) (*appintegrations.SetWebhookSecretResult, error) {
+func (s *stubSetWebhookSecret) Execute(_ context.Context, _ string, providedSecret string) (*appintegrations.SetWebhookSecretResult, error) {
+	s.providedSecret = providedSecret
 	return s.out, s.err
 }
 
@@ -2433,6 +2435,18 @@ func TestSetWebhookSecretHandler_returnsPlaintextSecretOnce(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "topsecret")
+}
+
+func TestSetWebhookSecretHandler_passesThroughAProvidedSecret(t *testing.T) {
+	stub := &stubSetWebhookSecret{out: &appintegrations.SetWebhookSecretResult{ConnectionID: "conn-1", PlaintextSecret: "whsec_from_dashboard"}}
+	h := newWebhookAdminTestHandler(stub, &stubListWebhookFallbackEvents{}, &stubRetryWebhookFallbackEvent{}, &stubAbandonWebhookFallbackEvent{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/webhook-secret", map[string]string{"secret": "whsec_from_dashboard"})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "whsec_from_dashboard", stub.providedSecret)
 }
 
 func TestSetWebhookSecretHandler_notFound(t *testing.T) {
