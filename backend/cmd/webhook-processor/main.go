@@ -19,6 +19,7 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	apppayments "github.com/adirkuhn/commerceos/application/payments"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
@@ -122,9 +123,14 @@ func main() {
 		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC,
 	)
 
+	stripePaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrder)
+	revolutPaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrder)
+
 	dispatchHandlers := map[string]appwebhooks.DispatchHandler{
 		"myparcel": myParcelRouter,
 		"whatsapp": whatsappHandler,
+		"stripe":   stripePaymentHandler,
+		"revolut":  revolutPaymentHandler,
 	}
 	processWebhookEventUC := appwebhooks.NewProcessWebhookEventUseCase(db, eventRepo, dispatchHandlers, forwardRuleRepo, forwardDeliveryRepo)
 	webhookConsumer := consumers.NewWebhookConsumer(processedRepo, processWebhookEventUC, js)

@@ -17,6 +17,7 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	apppayments "github.com/adirkuhn/commerceos/application/payments"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
@@ -491,6 +492,10 @@ func Register(
 	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo)
 	allocateStockUC := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
 	updateSalesOrderForWebhooksUC := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC, outboxRepo)
+	retryablePaymentHandlers := map[string]appshipping.RetryableWebhookHandler{
+		"stripe":  apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrderForWebhooksUC),
+		"revolut": apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrderForWebhooksUC),
+	}
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC,
@@ -597,7 +602,7 @@ func Register(
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
-		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC),
+		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, retryablePaymentHandlers),
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 	)
