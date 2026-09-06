@@ -33,6 +33,11 @@ type CreateSalesOrderLineItemInput struct {
 // (tenant_id, source, external_order_id) uniqueness constraint every
 // SalesOrder shares regardless of source.
 type CreateSalesOrderInput struct {
+	// Source defaults to SalesOrderSourceManual when empty -- the original
+	// (and still most common) caller of this use case, the admin UI's
+	// manual-order form. application/whatsapp's chat checkout is the one
+	// other caller, passing SalesOrderSourceWhatsApp explicitly.
+	Source       omsDomain.SalesOrderSource
 	Number       string
 	OrderKey     string
 	Status       omsDomain.SalesOrderStatus // defaults to Pending -- unlike a POS push, a manual order is not necessarily already paid/fulfilled
@@ -92,6 +97,10 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 	if status == "" {
 		status = omsDomain.SalesOrderStatusPending
 	}
+	source := in.Source
+	if source == "" {
+		source = omsDomain.SalesOrderSourceManual
+	}
 	stockReducing := status.ReducesStock()
 
 	var order *omsDomain.SalesOrder
@@ -99,7 +108,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		newOrder := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
+			TenantID: tenant.IDFromContext(ctx), Source: source,
 			ExternalOrderID: uuid.NewString(), Number: in.Number, OrderKey: in.OrderKey, Status: status,
 			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,

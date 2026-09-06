@@ -11,10 +11,14 @@ import (
 )
 
 type CreateCustomerInput struct {
-	WooCustomerID    *int64
-	Email            string
-	FirstName        string
-	LastName         string
+	WooCustomerID *int64
+	Email         string
+	FirstName     string
+	LastName      string
+	// PhoneE164 is optional -- set by application/whatsapp's new-customer
+	// capture flow (the inbound sender's own number), blank for every
+	// other caller today.
+	PhoneE164        string
 	Username         string
 	Role             string
 	Billing          customersDomain.Address
@@ -39,7 +43,7 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 		now := time.Now()
 		customer = customersDomain.Customer{
 			TenantID: tenant.IDFromContext(ctx), WooCustomerID: in.WooCustomerID,
-			Email: in.Email, FirstName: in.FirstName, LastName: in.LastName,
+			Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164,
 			Username: in.Username, Role: in.Role, Billing: in.Billing, Shipping: in.Shipping,
 			IsPayingCustomer: in.IsPayingCustomer, AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
 			DateCreated: now, DateModified: now,

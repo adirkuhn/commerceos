@@ -13,6 +13,10 @@ const (
 	SalesOrderSourceManual      SalesOrderSource = "manual"
 	SalesOrderSourceWooCommerce SalesOrderSource = "woocommerce"
 	SalesOrderSourceBol         SalesOrderSource = "bol"
+	// SalesOrderSourceWhatsApp is an order placed through the WhatsApp
+	// integration's chat-based checkout (see application/whatsapp) --
+	// always created Pending, never already paid.
+	SalesOrderSourceWhatsApp SalesOrderSource = "whatsapp"
 )
 
 // SalesOrderStatus mirrors WooCommerce's order status set exactly (same

@@ -507,7 +507,7 @@ components:
 
     SalesOrderSource:
       type: string
-      enum: [pos, manual, woocommerce, bol]
+      enum: [pos, manual, woocommerce, bol, whatsapp]
 
     SalesOrder:
       type: object
