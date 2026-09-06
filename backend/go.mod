@@ -21,6 +21,7 @@ require (
 	github.com/openai/openai-go v1.12.0
 	github.com/pressly/goose/v3 v3.24.3
 	github.com/stretchr/testify v1.11.1
+	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
 	github.com/xuri/excelize/v2 v2.11.0
@@ -130,7 +131,6 @@ require (
 	github.com/speakeasy-api/jsonpath v0.6.3 // indirect
 	github.com/speakeasy-api/openapi v1.24.0 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
-	github.com/stripe/stripe-go/v82 v82.5.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
