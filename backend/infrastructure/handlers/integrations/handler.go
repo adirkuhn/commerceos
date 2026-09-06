@@ -166,6 +166,9 @@ type createSalesChannelUC interface {
 type updateSalesChannelUC interface {
 	Execute(ctx context.Context, in appchannels.UpdateSalesChannelInput) (*channelsDomain.SalesChannel, error)
 }
+type setSalesChannelPaymentMethodUC interface {
+	Execute(ctx context.Context, channelID string, paymentConnectionID *string) (*channelsDomain.SalesChannel, error)
+}
 type deleteSalesChannelUC interface {
 	Execute(ctx context.Context, id string) error
 }
@@ -255,6 +258,7 @@ type Handler struct {
 	listSalesChannels            listSalesChannelsUC
 	createSalesChannel           createSalesChannelUC
 	updateSalesChannel           updateSalesChannelUC
+	setSalesChannelPaymentMethod setSalesChannelPaymentMethodUC
 	deleteSalesChannel           deleteSalesChannelUC
 	listSalesChannelProducts     listSalesChannelProductsUC
 	setProductChannelOverride    setProductChannelOverrideUC
@@ -321,6 +325,7 @@ func NewHandler(
 	listSalesChannels listSalesChannelsUC,
 	createSalesChannel createSalesChannelUC,
 	updateSalesChannel updateSalesChannelUC,
+	setSalesChannelPaymentMethod setSalesChannelPaymentMethodUC,
 	deleteSalesChannel deleteSalesChannelUC,
 	listSalesChannelProducts listSalesChannelProductsUC,
 	setProductChannelOverride setProductChannelOverrideUC,
@@ -386,6 +391,7 @@ func NewHandler(
 		listSalesChannels:            listSalesChannels,
 		createSalesChannel:           createSalesChannel,
 		updateSalesChannel:           updateSalesChannel,
+		setSalesChannelPaymentMethod: setSalesChannelPaymentMethod,
 		deleteSalesChannel:           deleteSalesChannel,
 		listSalesChannelProducts:     listSalesChannelProducts,
 		setProductChannelOverride:    setProductChannelOverride,
@@ -556,6 +562,7 @@ func Register(
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
 		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo),
 		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo),
+		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo),
 		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),
 		appchannels.NewListProductsWithChannelEnrollmentUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo),
 		appchannels.NewSetProductChannelOverrideUseCase(db, salesChannelOverrideRepo, salesChannelRepo, productRepo),
@@ -1585,6 +1592,19 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 	middleware.OK(c, toGenSalesChannel(*channel))
 }
 
+func (h *Handler) SetSalesChannelPaymentMethod(c *gin.Context, id genintegrations.Id) {
+	var req genintegrations.SetSalesChannelPaymentMethodRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	channel, err := h.setSalesChannelPaymentMethod.Execute(c.Request.Context(), id, req.PaymentConnectionId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenSalesChannel(*channel))
+}
+
 func (h *Handler) DeleteSalesChannel(c *gin.Context, id genintegrations.Id) {
 	err := h.deleteSalesChannel.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
@@ -1811,6 +1831,7 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		Id: c.ID, Name: c.Name, Type: genintegrations.ChannelType(c.Type),
 		ConnectionId: c.ConnectionID, EnrollmentMode: genintegrations.EnrollmentMode(c.EnrollmentMode),
 		EnrollmentCategoryId: c.EnrollmentCategoryID,
+		PaymentConnectionId:  c.PaymentConnectionID,
 		Active:               c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {
@@ -1881,6 +1902,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrConnectionRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentCategoryRequired),
 		errors.Is(err, channelsDomain.ErrEnrollmentTagRequired),
+		errors.Is(err, channelsDomain.ErrInvalidPaymentConnection),
 		errors.Is(err, channelsDomain.ErrChannelTypeConnectionMismatch),
 		errors.Is(err, channelsDomain.ErrProductAlreadyLinkedToConnection):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())

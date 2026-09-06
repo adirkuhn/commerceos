@@ -142,6 +142,30 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /integrations/sales-channels/{id}/payment-method:
+    patch:
+      operationId: setSalesChannelPaymentMethod
+      summary: Enable (payment_connection_id set) or disable (null) this channel's payment method -- must reference a connected Stripe/Revolut integration
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSalesChannelPaymentMethodRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesChannelResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /integrations/sales-channels/{id}/products:
     get:
       operationId: listSalesChannelProducts
@@ -1423,9 +1447,21 @@ components:
         enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
         enrollment_category_id: { type: string, nullable: true }
         enrollment_tag: { type: string }
+        payment_connection_id:
+          type: string
+          nullable: true
+          description: Which connected payment integration (Stripe/Revolut) this channel generates a payment link through. Null means no payment method enabled.
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    SetSalesChannelPaymentMethodRequest:
+      type: object
+      properties:
+        payment_connection_id:
+          type: string
+          nullable: true
+          description: Set to a connected payment integration's connection id to enable it, or null to disable.
 
     CreateSalesChannelRequest:
       type: object

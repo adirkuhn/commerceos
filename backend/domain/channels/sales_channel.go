@@ -80,9 +80,21 @@ type SalesChannel struct {
 	// EnrollmentModeTag. Single tag by design -- anything more specific
 	// than "one tag" goes through a manual per-product override instead.
 	EnrollmentTag string
-	Active        bool
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// PaymentConnectionID references an integrations.Connection whose
+	// Provider is a payment integration (Stripe/Revolut -- see
+	// integrations.Provider.IsPaymentProvider) -- which one this channel
+	// generates a payment link through when an order is placed on it (see
+	// application/whatsapp's order-placement flow). nil means "no payment
+	// method enabled" -- "disabling" the
+	// payment method is exactly this field going back to nil, "enabling"
+	// is setting it to one of the tenant's connected payment integrations.
+	// Meaningful only for ChannelTypeWhatsApp today, but kept generic on
+	// SalesChannel rather than WhatsApp-specific, same convention as
+	// Connection's Bol-only fields.
+	PaymentConnectionID *string
+	Active              bool
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // SalesChannelProductOverride force-includes or force-excludes one product

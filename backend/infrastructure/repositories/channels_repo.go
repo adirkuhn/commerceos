@@ -838,7 +838,8 @@ type salesChannelModel struct {
 	EnrollmentMode       string `gorm:"column:enrollment_mode;not null"`
 	EnrollmentCategoryID *string
 	EnrollmentTag        string `gorm:"not null;default:''"`
-	Active               bool   `gorm:"not null;default:true"`
+	PaymentConnectionID  *string
+	Active               bool `gorm:"not null;default:true"`
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
@@ -865,7 +866,8 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 	m := salesChannelModel{
 		TenantID: c.TenantID, Name: c.Name, Type: string(c.Type), ConnectionID: c.ConnectionID,
 		EnrollmentMode: string(c.EnrollmentMode), EnrollmentCategoryID: c.EnrollmentCategoryID, EnrollmentTag: c.EnrollmentTag,
-		Active: c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+		PaymentConnectionID: c.PaymentConnectionID,
+		Active:              c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Create: %w", err)
@@ -914,7 +916,8 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 		Updates(map[string]any{
 			"name": c.Name, "connection_id": c.ConnectionID,
 			"enrollment_mode": string(c.EnrollmentMode), "enrollment_category_id": c.EnrollmentCategoryID, "enrollment_tag": c.EnrollmentTag,
-			"active": c.Active, "updated_at": c.UpdatedAt,
+			"payment_connection_id": c.PaymentConnectionID,
+			"active":                c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
 	}
@@ -936,7 +939,8 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 	return &channelsDomain.SalesChannel{
 		ID: m.ID, TenantID: m.TenantID, Name: m.Name, Type: channelsDomain.ChannelType(m.Type), ConnectionID: m.ConnectionID,
 		EnrollmentMode: channelsDomain.EnrollmentMode(m.EnrollmentMode), EnrollmentCategoryID: m.EnrollmentCategoryID, EnrollmentTag: m.EnrollmentTag,
-		Active: m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		PaymentConnectionID: m.PaymentConnectionID,
+		Active:              m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
 

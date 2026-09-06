@@ -4,6 +4,11 @@ import "errors"
 
 var (
 	ErrListingNotFound = errors.New("product channel listing not found")
+	// ErrInvalidPaymentConnection guards SetSalesChannelPaymentMethodUseCase:
+	// a channel's PaymentConnectionID must reference a connection whose
+	// Provider is a payment integration (Stripe/Revolut) and whose Status
+	// is Connected -- never a disconnected or non-payment connection.
+	ErrInvalidPaymentConnection = errors.New("payment_connection_id must reference a connected payment integration")
 	// ErrCannotPushVariableProduct guards push/sync: every Variant being
 	// pushed (the product's only Variant, for a single-SKU product, or
 	// each one, for a multi-variant product in either Woo push mode) must
