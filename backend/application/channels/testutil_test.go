@@ -1170,6 +1170,9 @@ func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDo
 	}
 	return s.findByIDResult, s.findByIDErr
 }
+func (s *stubOrdersSalesOrderRepo) FindByNumber(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
+	return nil, nil
+}
 func (s *stubOrdersSalesOrderRepo) FindByExternalID(_ context.Context, _ omsDomain.SalesOrderSource, externalOrderID string) (*omsDomain.SalesOrder, error) {
 	if s.findByExternalIDErr != nil {
 		return nil, s.findByExternalIDErr

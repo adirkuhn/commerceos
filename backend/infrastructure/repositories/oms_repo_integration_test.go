@@ -427,6 +427,49 @@ func TestSalesOrderRepo_Integration_FindByExternalIDReturnsNilNotErrorWhenMissin
 	require.Nil(t, found)
 }
 
+func TestSalesOrderRepo_Integration_FindByNumberReturnsNilNotErrorWhenMissing(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var found *omsDomain.SalesOrder
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = salesOrderRepo.FindByNumber(ctx, "does-not-exist")
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, found)
+}
+
+func TestSalesOrderRepo_Integration_FindByNumberFindsTheOrder(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWhatsApp,
+			Number: "WA-1A2B3C4D", ExternalOrderID: "wa-order-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			OccurredAt: now, CreatedAt: now,
+		}
+		return salesOrderRepo.Create(ctx, &order)
+	})
+	require.NoError(t, err)
+
+	var found *omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = salesOrderRepo.FindByNumber(ctx, "WA-1A2B3C4D")
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, "wa-order-1", found.ExternalOrderID)
+}
+
 func TestSalesOrderRepo_Integration_ExternalOrderIDIsUniquePerTenantAndSource(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

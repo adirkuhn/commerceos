@@ -214,6 +214,22 @@ func (r *SalesOrderRepo) FindByExternalID(ctx context.Context, source omsDomain.
 	return toSalesOrderDomain(m), nil
 }
 
+func (r *SalesOrderRepo) FindByNumber(ctx context.Context, number string) (*omsDomain.SalesOrder, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var m salesOrderModel
+	err = tx.Where("number = ?", number).First(&m).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("salesOrderRepo.FindByNumber: %w", err)
+	}
+	return toSalesOrderDomain(m), nil
+}
+
 // salesOrderOrderClause maps a filter's SortBy/SortDir to a safe ORDER BY
 // clause via a closed switch over omsDomain.SalesOrderSortField -- never
 // interpolates either value directly, so an invalid/unknown field or

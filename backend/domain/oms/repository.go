@@ -65,6 +65,11 @@ type SalesOrderRepository interface {
 	// own reference -- the idempotency check ReceivePOSSalesOrderUseCase
 	// runs before creating anything. Nil (not an error) when none exists.
 	FindByExternalID(ctx context.Context, source SalesOrderSource, externalOrderID string) (*SalesOrder, error)
+	// FindByNumber looks up a sale by its human-facing Number -- a payment
+	// webhook's own reference back to the order it paid for (Stripe's
+	// client_reference_id, Revolut's merchant_order_ext_ref) is always this
+	// Number, never the internal ID. Nil (not an error) when none exists.
+	FindByNumber(ctx context.Context, number string) (*SalesOrder, error)
 	// List returns every sales order for the current tenant (RLS-scoped),
 	// newest first, paginated.
 	List(ctx context.Context, filter ListSalesOrdersFilter) ([]SalesOrder, int64, error)

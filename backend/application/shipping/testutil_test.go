@@ -402,6 +402,9 @@ func (f *fakeSalesOrderRepo) FindByID(ctx context.Context, id string) (*omsDomai
 	}
 	return f.findByIDFn(ctx, id)
 }
+func (f *fakeSalesOrderRepo) FindByNumber(context.Context, string) (*omsDomain.SalesOrder, error) {
+	return nil, nil
+}
 func (f *fakeSalesOrderRepo) FindByExternalID(context.Context, omsDomain.SalesOrderSource, string) (*omsDomain.SalesOrder, error) {
 	return nil, nil
 }
