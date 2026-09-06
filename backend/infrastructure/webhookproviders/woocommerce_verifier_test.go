@@ -56,14 +56,14 @@ func TestStubVerifier_alwaysNotImplemented(t *testing.T) {
 func TestNewRegistry_containsWooCommerceAndAllStubProviders(t *testing.T) {
 	reg := webhookproviders.NewRegistry()
 
-	for _, name := range []string{"woocommerce", "bol", "moneybird", "shopify", "lightspeed", "myparcel", "sendcloud"} {
+	for _, name := range []string{"woocommerce", "bol", "moneybird", "shopify", "lightspeed", "myparcel", "sendcloud", "whatsapp", "stripe", "revolut"} {
 		if _, ok := reg[name]; !ok {
 			t.Errorf("expected registry to contain provider %q", name)
 		}
 	}
 
-	// woocommerce and myparcel are real verifiers, not stubs -- the rest
-	// still return ErrProviderNotImplemented until built.
+	// woocommerce/myparcel/whatsapp/stripe/revolut are real verifiers, not
+	// stubs -- the rest still return ErrProviderNotImplemented until built.
 	for _, name := range []string{"bol", "moneybird", "shopify", "lightspeed", "sendcloud"} {
 		if err := reg[name].Verify(nil, nil, "s"); err == nil {
 			t.Errorf("expected provider %q to still be a stub (unimplemented)", name)
@@ -71,5 +71,11 @@ func TestNewRegistry_containsWooCommerceAndAllStubProviders(t *testing.T) {
 	}
 	if _, ok := reg["myparcel"].(*webhookproviders.MyParcelVerifier); !ok {
 		t.Errorf("expected myparcel to resolve to the real MyParcelVerifier, not a stub")
+	}
+	if _, ok := reg["stripe"].(*webhookproviders.StripeVerifier); !ok {
+		t.Errorf("expected stripe to resolve to the real StripeVerifier, not a stub")
+	}
+	if _, ok := reg["revolut"].(*webhookproviders.RevolutVerifier); !ok {
+		t.Errorf("expected revolut to resolve to the real RevolutVerifier, not a stub")
 	}
 }
