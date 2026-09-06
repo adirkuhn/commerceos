@@ -159,7 +159,7 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 	return nil
 }
 
-const helpText = "Commands:\nSTOCK <code> - check stock\nPRICE <code> - check price\nEXPIRY <code> - check nearest expiry\nINFO <code> - stock, price and expiry"
+const helpText = "Commands:\nSTOCK <code> - check stock\nPRICE <code> - check price\nEXPIRY <code> - check nearest expiry\nINFO <code> - stock, price and expiry\nORDER <code> <quantity> - add to cart\nCART - view your cart\nCHECKOUT - place your order\nCANCEL - clear your cart"
 
 // buildReply's only error return is an infra failure from the product
 // lookup (DB down, etc) -- an expected "business" outcome (unknown
