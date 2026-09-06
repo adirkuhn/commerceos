@@ -400,11 +400,18 @@ export function setSalesChannelProductOverride(token: string, channelId: string,
   )
 }
 
-// (Re)generates this connection's webhook-signature secret -- the response
-// carries the PLAINTEXT value exactly once, it can't be retrieved again
-// after this call (only the encrypted form persists server-side).
-export function setWebhookSecret(token: string, connectionId: string): Promise<WebhookSecretResult> {
-  return request<WebhookSecretResult>(`${base()}/connections/${connectionId}/webhook-secret`, { method: 'POST' }, token)
+// (Re)generates this connection's webhook-signature secret, or stores one
+// the provider itself generated (Stripe/Revolut -- pass `secret`) instead
+// of generating one here (MyParcel/WooCommerce/WhatsApp's flow, omit
+// `secret`). The response carries the PLAINTEXT value exactly once, it
+// can't be retrieved again after this call (only the encrypted form
+// persists server-side).
+export function setWebhookSecret(token: string, connectionId: string, secret?: string): Promise<WebhookSecretResult> {
+  return request<WebhookSecretResult>(
+    `${base()}/connections/${connectionId}/webhook-secret`,
+    { method: 'POST', body: secret ? JSON.stringify({ secret }) : undefined },
+    token,
+  )
 }
 
 // Defaults to pending_republish server-side when status is omitted --
@@ -539,14 +546,22 @@ export function connectWhatsapp(token: string, payload: ConnectWhatsAppPayload):
   )
 }
 
-// Stripe/Revolut both take a single secret API key -- no OAuth, same
-// paste-a-key pattern as connectBol.
-export function connectStripe(token: string, secretKey: string): Promise<Connection> {
-  return request<Connection>(`${base()}/stripe/connect`, { method: 'POST', body: JSON.stringify({ secret_key: secretKey }) }, token)
+export interface ConnectPaymentProviderResult {
+  connection: Connection
+  webhook_url: string
 }
 
-export function connectRevolut(token: string, apiKey: string): Promise<Connection> {
-  return request<Connection>(`${base()}/revolut/connect`, { method: 'POST', body: JSON.stringify({ api_key: apiKey }) }, token)
+// Stripe/Revolut both take a single secret API key -- no OAuth, same
+// paste-a-key pattern as connectBol. webhook_url is where to register a
+// webhook endpoint in the provider's OWN dashboard -- reversed from
+// connectWhatsapp, the provider generates its own signing secret when you
+// do, paste it back via setWebhookSecret's optional secret param.
+export function connectStripe(token: string, secretKey: string): Promise<ConnectPaymentProviderResult> {
+  return request<ConnectPaymentProviderResult>(`${base()}/stripe/connect`, { method: 'POST', body: JSON.stringify({ secret_key: secretKey }) }, token)
+}
+
+export function connectRevolut(token: string, apiKey: string): Promise<ConnectPaymentProviderResult> {
+  return request<ConnectPaymentProviderResult>(`${base()}/revolut/connect`, { method: 'POST', body: JSON.stringify({ api_key: apiKey }) }, token)
 }
 
 // Connected Stripe/Revolut integrations -- powers the WhatsApp sales

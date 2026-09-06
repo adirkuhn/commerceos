@@ -51,6 +51,86 @@ const STATUS_COLOR = {
   error: 'text-red-400',
 }
 
+interface PaymentWebhookSetupStepProps {
+  providerLabel: string
+  dashboardHint: string
+  webhookUrl: string
+  secret: string
+  onSecretChange: (value: string) => void
+  onSubmit: (e: React.FormEvent) => void
+  saving: boolean
+  error: string
+  saved: boolean
+  onDone: () => void
+}
+
+// Reversed from WhatsApp's connect step (there we generate a secret and
+// the merchant pastes our URL+secret into Evolution API) -- Stripe/Revolut
+// generate their OWN signing secret when the merchant registers this URL
+// as a webhook endpoint in their own dashboard, so this step shows the URL
+// to register there, then collects THEIR secret to paste back into us.
+function PaymentWebhookSetupStep({
+  providerLabel, dashboardHint, webhookUrl, secret, onSecretChange, onSubmit, saving, error, saved, onDone,
+}: PaymentWebhookSetupStepProps) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs dark:text-gray-300 text-gray-700">
+        Connected! Register this URL as a webhook endpoint in {dashboardHint}, then paste the signing secret it gives you below.
+      </p>
+      <p className="text-[11px] font-mono break-all dark:bg-[#111827] bg-gray-100 rounded-lg px-2 py-1.5 dark:text-gray-300 text-gray-700">
+        {webhookUrl}
+      </p>
+      {saved ? (
+        <>
+          <p className="text-xs text-green-400 bg-green-50 dark:bg-green-500/10 rounded-lg px-2 py-1.5">Webhook secret saved.</p>
+          <button
+            onClick={onDone}
+            className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+          >
+            Done
+          </button>
+        </>
+      ) : (
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div>
+            <label htmlFor="payment-webhook-secret" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+              {providerLabel} webhook signing secret
+            </label>
+            <input
+              id="payment-webhook-secret"
+              type="password"
+              required
+              autoFocus
+              value={secret}
+              onChange={e => onSecretChange(e.target.value)}
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          {error && (
+            <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onDone}
+              className="py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
+            >
+              Skip for now
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}
+
 export default function Integrations() {
   const { token, user } = useAuth()
   const { connections, loading, error, refresh, disconnect } = useConnections(token ?? '')
@@ -84,6 +164,16 @@ export default function Integrations() {
   const [stripeSecretKey, setStripeSecretKey] = useState('')
   const [connectingRevolut, setConnectingRevolut] = useState(false)
   const [revolutApiKey, setRevolutApiKey] = useState('')
+  // Set once connectStripe/connectRevolut succeeds -- switches the form to
+  // the "register this URL, then paste back the secret it gives you" step.
+  // Reversed from WhatsApp's flow (there we generate the secret) since
+  // Stripe/Revolut generate their own when a webhook endpoint is registered
+  // in their dashboard.
+  const [paymentWebhook, setPaymentWebhook] = useState<{ connectionId: string; url: string } | null>(null)
+  const [paymentWebhookSecret, setPaymentWebhookSecret] = useState('')
+  const [savingPaymentWebhookSecret, setSavingPaymentWebhookSecret] = useState(false)
+  const [paymentWebhookSecretError, setPaymentWebhookSecretError] = useState('')
+  const [paymentWebhookSecretSaved, setPaymentWebhookSecretSaved] = useState(false)
 
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; message: string } | null>(null)
@@ -187,6 +277,11 @@ export default function Integrations() {
     setStripeSecretKey('')
     setConnectingRevolut(false)
     setRevolutApiKey('')
+    setPaymentWebhook(null)
+    setPaymentWebhookSecret('')
+    setSavingPaymentWebhookSecret(false)
+    setPaymentWebhookSecretError('')
+    setPaymentWebhookSecretSaved(false)
   }
 
   const handleConnectWhatsapp = async (e: React.FormEvent) => {
@@ -211,11 +306,12 @@ export default function Integrations() {
     setConnectError('')
     setStarting(true)
     try {
-      await api.connectStripe(token, stripeSecretKey)
+      const { connection, webhook_url } = await api.connectStripe(token, stripeSecretKey)
+      setPaymentWebhook({ connectionId: connection.id, url: webhook_url })
       refresh()
-      closeBrowse()
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
       setStarting(false)
     }
   }
@@ -226,12 +322,28 @@ export default function Integrations() {
     setConnectError('')
     setStarting(true)
     try {
-      await api.connectRevolut(token, revolutApiKey)
+      const { connection, webhook_url } = await api.connectRevolut(token, revolutApiKey)
+      setPaymentWebhook({ connectionId: connection.id, url: webhook_url })
       refresh()
-      closeBrowse()
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
       setStarting(false)
+    }
+  }
+
+  const handleSavePaymentWebhookSecret = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token || !paymentWebhook) return
+    setPaymentWebhookSecretError('')
+    setSavingPaymentWebhookSecret(true)
+    try {
+      await api.setWebhookSecret(token, paymentWebhook.connectionId, paymentWebhookSecret)
+      setPaymentWebhookSecretSaved(true)
+    } catch (err) {
+      setPaymentWebhookSecretError(err instanceof Error ? err.message : 'Failed to save webhook secret')
+    } finally {
+      setSavingPaymentWebhookSecret(false)
     }
   }
 
@@ -590,6 +702,20 @@ export default function Integrations() {
                 </form>
               )
             ) : connectingStripe ? (
+              paymentWebhook ? (
+                <PaymentWebhookSetupStep
+                  providerLabel="Stripe"
+                  dashboardHint="Stripe Dashboard → Developers → Webhooks"
+                  webhookUrl={paymentWebhook.url}
+                  secret={paymentWebhookSecret}
+                  onSecretChange={setPaymentWebhookSecret}
+                  onSubmit={handleSavePaymentWebhookSecret}
+                  saving={savingPaymentWebhookSecret}
+                  error={paymentWebhookSecretError}
+                  saved={paymentWebhookSecretSaved}
+                  onDone={closeBrowse}
+                />
+              ) : (
               <form onSubmit={handleConnectStripe} className="space-y-3">
                 <div>
                   <label htmlFor="stripe-secret-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
@@ -620,7 +746,22 @@ export default function Integrations() {
                   {starting ? 'Connecting…' : 'Connect'}
                 </button>
               </form>
+              )
             ) : connectingRevolut ? (
+              paymentWebhook ? (
+                <PaymentWebhookSetupStep
+                  providerLabel="Revolut"
+                  dashboardHint="Revolut Business → Merchant API → Webhooks"
+                  webhookUrl={paymentWebhook.url}
+                  secret={paymentWebhookSecret}
+                  onSecretChange={setPaymentWebhookSecret}
+                  onSubmit={handleSavePaymentWebhookSecret}
+                  saving={savingPaymentWebhookSecret}
+                  error={paymentWebhookSecretError}
+                  saved={paymentWebhookSecretSaved}
+                  onDone={closeBrowse}
+                />
+              ) : (
               <form onSubmit={handleConnectRevolut} className="space-y-3">
                 <div>
                   <label htmlFor="revolut-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
@@ -650,6 +791,7 @@ export default function Integrations() {
                   {starting ? 'Connecting…' : 'Connect'}
                 </button>
               </form>
+              )
             ) : (
               <>
                 <div className="flex gap-1 mb-4 p-0.5 rounded-lg dark:bg-[#111827] bg-gray-100">

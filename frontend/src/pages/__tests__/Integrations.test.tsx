@@ -27,6 +27,7 @@ vi.mock('../../integrations/api', () => ({
   connectWhatsapp: vi.fn(),
   connectStripe: vi.fn(),
   connectRevolut: vi.fn(),
+  setWebhookSecret: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -432,8 +433,11 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after connect
   })
 
-  it('connecting Stripe submits the secret key and closes the modal', async () => {
-    vi.mocked(integrationsApi.connectStripe).mockResolvedValue({ id: 'conn-stripe-1', provider: 'stripe', store_url: '', status: 'connected', created_at: '' })
+  it('connecting Stripe submits the secret key and shows the webhook setup step', async () => {
+    vi.mocked(integrationsApi.connectStripe).mockResolvedValue({
+      connection: { id: 'conn-stripe-1', provider: 'stripe', store_url: '', status: 'connected', created_at: '' },
+      webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/stripe',
+    })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
     await userEvent.click(screen.getByText('Stripe'))
@@ -443,10 +447,34 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
 
     await waitFor(() => expect(integrationsApi.connectStripe).toHaveBeenCalledWith('test-token', 'sk_test_secret'))
     expect(screen.queryByLabelText('Secret key')).not.toBeInTheDocument()
+    expect(await screen.findByText(/tenant-1\/stripe/)).toBeInTheDocument()
   })
 
-  it('connecting Revolut submits the API key and closes the modal', async () => {
-    vi.mocked(integrationsApi.connectRevolut).mockResolvedValue({ id: 'conn-revolut-1', provider: 'revolut', store_url: '', status: 'connected', created_at: '' })
+  it('saving the Stripe webhook secret calls setWebhookSecret and shows a confirmation', async () => {
+    vi.mocked(integrationsApi.connectStripe).mockResolvedValue({
+      connection: { id: 'conn-stripe-1', provider: 'stripe', store_url: '', status: 'connected', created_at: '' },
+      webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/stripe',
+    })
+    vi.mocked(integrationsApi.setWebhookSecret).mockResolvedValue({ connection_id: 'conn-stripe-1', webhook_secret: 'whsec_from_dashboard' })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Stripe'))
+    await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_test_secret')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    await screen.findByLabelText('Stripe webhook signing secret')
+
+    await userEvent.type(screen.getByLabelText('Stripe webhook signing secret'), 'whsec_from_dashboard')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.setWebhookSecret).toHaveBeenCalledWith('test-token', 'conn-stripe-1', 'whsec_from_dashboard'))
+    expect(await screen.findByText('Webhook secret saved.')).toBeInTheDocument()
+  })
+
+  it('connecting Revolut submits the API key and shows the webhook setup step', async () => {
+    vi.mocked(integrationsApi.connectRevolut).mockResolvedValue({
+      connection: { id: 'conn-revolut-1', provider: 'revolut', store_url: '', status: 'connected', created_at: '' },
+      webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/revolut',
+    })
     render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
     await userEvent.click(screen.getByText('Revolut'))
@@ -456,6 +484,25 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
 
     await waitFor(() => expect(integrationsApi.connectRevolut).toHaveBeenCalledWith('test-token', 'revolut-secret'))
     expect(screen.queryByLabelText(/merchant api secret key/i)).not.toBeInTheDocument()
+    expect(await screen.findByText(/tenant-1\/revolut/)).toBeInTheDocument()
+  })
+
+  it('skipping the webhook setup step closes the modal without saving a secret', async () => {
+    vi.mocked(integrationsApi.connectRevolut).mockResolvedValue({
+      connection: { id: 'conn-revolut-1', provider: 'revolut', store_url: '', status: 'connected', created_at: '' },
+      webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/revolut',
+    })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Revolut'))
+    await userEvent.type(screen.getByLabelText(/merchant api secret key/i), 'revolut-secret')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    await screen.findByRole('button', { name: 'Skip for now' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }))
+
+    expect(screen.queryByLabelText('Revolut webhook signing secret')).not.toBeInTheDocument()
+    expect(integrationsApi.setWebhookSecret).not.toHaveBeenCalled()
   })
 
   it('shows an error if connecting Stripe fails', async () => {
