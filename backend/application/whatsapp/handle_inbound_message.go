@@ -62,6 +62,14 @@ type productInfoLookup interface {
 	Execute(ctx context.Context, skuCode string) (*ProductInfo, error)
 }
 
+// orderFlowHandler is *OrderFlowUseCase narrowed to point of use (ISP).
+// handled=false means text wasn't part of an order flow (an Idle
+// conversation given a command OrderFlowUseCase doesn't own) -- buildReply
+// then falls through to its own STOCK/PRICE/EXPIRY/INFO/HELP handling.
+type orderFlowHandler interface {
+	Execute(ctx context.Context, phone string, customer *customersDomain.Customer, text string) (reply string, handled bool, err error)
+}
+
 // HandleInboundMessageUseCase is the WhatsApp branch of the webhook cold
 // path's per-topic dispatch (see application/webhooks.ProcessWebhookEventUseCase,
 // registered under provider key "whatsapp"). A message that doesn't parse
@@ -76,6 +84,7 @@ type HandleInboundMessageUseCase struct {
 	encryptionSecret string
 	lookupProduct    productInfoLookup
 	customerRepo     customersDomain.CustomerRepository
+	orderFlow        orderFlowHandler
 }
 
 func NewHandleInboundMessageUseCase(
@@ -85,10 +94,11 @@ func NewHandleInboundMessageUseCase(
 	encryptionSecret string,
 	lookupProduct productInfoLookup,
 	customerRepo customersDomain.CustomerRepository,
+	orderFlow orderFlowHandler,
 ) *HandleInboundMessageUseCase {
 	return &HandleInboundMessageUseCase{
 		db: db, connRepo: connRepo, evolutionFactory: evolutionFactory, encryptionSecret: encryptionSecret,
-		lookupProduct: lookupProduct, customerRepo: customerRepo,
+		lookupProduct: lookupProduct, customerRepo: customerRepo, orderFlow: orderFlow,
 	}
 }
 
@@ -138,7 +148,7 @@ func (uc *HandleInboundMessageUseCase) Execute(ctx context.Context, envelope web
 		return fmt.Errorf("handleInboundMessage: %w", err)
 	}
 
-	reply, err := uc.buildReply(ctx, customer, payload.text())
+	reply, err := uc.buildReply(ctx, customer, phone, payload.text())
 	if err != nil {
 		return fmt.Errorf("handleInboundMessage: build reply: %w", err)
 	}
@@ -157,10 +167,20 @@ const helpText = "Commands:\nSTOCK <code> - check stock\nPRICE <code> - check pr
 // always produces a reply string instead, never an error, since those must
 // reach the customer as a normal message, not trigger the webhook
 // consumer's nack/retry loop.
-func (uc *HandleInboundMessageUseCase) buildReply(ctx context.Context, customer *customersDomain.Customer, text string) (string, error) {
+func (uc *HandleInboundMessageUseCase) buildReply(ctx context.Context, customer *customersDomain.Customer, phone, text string) (string, error) {
+	if uc.orderFlow != nil {
+		reply, handled, err := uc.orderFlow.Execute(ctx, phone, customer, text)
+		if err != nil {
+			return "", err
+		}
+		if handled {
+			return greet(customer, reply), nil
+		}
+	}
+
 	fields := strings.Fields(text)
 	if len(fields) < 2 {
-		return helpText, nil
+		return greet(customer, helpText), nil
 	}
 	command := strings.ToUpper(fields[0])
 	skuCode := fields[1]
@@ -182,14 +202,18 @@ func (uc *HandleInboundMessageUseCase) buildReply(ctx context.Context, customer 
 	default:
 		reply = helpText
 	}
-	// Only known customers (matched by PhoneE164, see
-	// HandleInboundMessageUseCase.Execute) get greeted by name -- an
-	// unrecognized number gets the same reply with no personalization,
-	// never a hint about whether that number is a customer or not.
+	return greet(customer, reply), nil
+}
+
+// greet prefixes reply with the customer's name -- only for a known
+// customer (matched by PhoneE164, see HandleInboundMessageUseCase.Execute);
+// an unrecognized number gets the same reply with no personalization,
+// never a hint about whether that number is a customer or not.
+func greet(customer *customersDomain.Customer, reply string) string {
 	if customer != nil && customer.FirstName != "" {
-		reply = fmt.Sprintf("Hi %s! %s", customer.FirstName, reply)
+		return fmt.Sprintf("Hi %s! %s", customer.FirstName, reply)
 	}
-	return reply, nil
+	return reply
 }
 
 func formatProductInfo(command string, info ProductInfo) string {

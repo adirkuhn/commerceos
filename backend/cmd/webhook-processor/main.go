@@ -16,6 +16,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
@@ -102,9 +103,16 @@ func main() {
 		repositories.NewSalesChannelRepo(db), repositories.NewSalesChannelProductOverrideRepo(db),
 		appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, repositories.NewTenantSettingsRepo(db)),
 	)
+	createSalesOrderUC := appoms.NewCreateSalesOrderUseCase(
+		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock,
+	)
+	createCustomerUC := appcustomers.NewCreateCustomerUseCase(db, repositories.NewCustomerRepo(db))
+	orderFlowUC := appwhatsapp.NewOrderFlowUseCase(
+		db, repositories.NewWhatsAppConversationRepo(db), lookupProductInfo, createSalesOrderUC, createCustomerUC,
+	)
 	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(
 		db, repositories.NewConnectionRepo(db), evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
-		lookupProductInfo, repositories.NewCustomerRepo(db),
+		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC,
 	)
 
 	dispatchHandlers := map[string]appwebhooks.DispatchHandler{

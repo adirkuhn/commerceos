@@ -35,8 +35,11 @@ type stockLevelGetter interface {
 
 // ProductInfo is the reply-formatting shape LookupProductInfoUseCase
 // returns -- HandleInboundMessageUseCase's formatProductInfo renders it as
-// text, never exposing internal ids.
+// text, never exposing internal ids. SKUID is the one exception -- carried
+// through for OrderFlowUseCase's cart (a CartItem needs the real SKUID to
+// eventually create a SalesOrderLineItem), never rendered into reply text.
 type ProductInfo struct {
+	SKUID               string
 	ProductName         string
 	SKUCode             string
 	StockQuantity       int64
@@ -122,7 +125,7 @@ func (uc *LookupProductInfoUseCase) Execute(ctx context.Context, skuCode string)
 
 		skuID = sku.ID
 		info = ProductInfo{
-			ProductName: product.Name, SKUCode: sku.SKUCode,
+			SKUID: sku.ID, ProductName: product.Name, SKUCode: sku.SKUCode,
 			PriceMinorUnits: sku.PriceMinorUnits, SalePriceMinorUnits: sku.SalePriceMinorUnits,
 			CurrencyCode: sku.CurrencyCode,
 		}
