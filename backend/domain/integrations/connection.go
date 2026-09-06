@@ -19,7 +19,21 @@ const (
 	// token verified by infrastructure/webhookproviders' whatsapp verifier,
 	// same convention as MyParcel (Evolution API signs nothing either).
 	ProviderWhatsApp Provider = "whatsapp"
+	// ProviderStripe/ProviderRevolut are payment integrations -- StoreURL
+	// unused (blank, same as Bol/MyParcel), ConsumerSecretEncrypted holds
+	// the provider's secret/API key. See PaymentLinkClientFactory for the
+	// payment integration contract both implement.
+	ProviderStripe  Provider = "stripe"
+	ProviderRevolut Provider = "revolut"
 )
+
+// IsPaymentProvider reports whether p is one of the payment integrations
+// (Stripe/Revolut) -- used to filter which connections a SalesChannel's
+// PaymentConnectionID may reference (see channels.SalesChannel's doc
+// comment) and which are offered in the payment-method picker.
+func (p Provider) IsPaymentProvider() bool {
+	return p == ProviderStripe || p == ProviderRevolut
+}
 
 type Status string
 
