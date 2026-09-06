@@ -27,6 +27,9 @@ const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
   bol: 'from-blue-500 to-cyan-600',
   myparcel: 'from-orange-500 to-red-600',
+  whatsapp: 'from-green-500 to-emerald-600',
+  stripe: 'from-indigo-500 to-purple-600',
+  revolut: 'from-slate-700 to-black',
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
@@ -70,6 +73,17 @@ export default function Integrations() {
   const [consumerSecret, setConsumerSecret] = useState('')
   const [connectError, setConnectError] = useState('')
   const [starting, setStarting] = useState(false)
+
+  const [connectingWhatsapp, setConnectingWhatsapp] = useState(false)
+  const [waBaseUrl, setWaBaseUrl] = useState('')
+  const [waInstanceName, setWaInstanceName] = useState('')
+  const [waApiKey, setWaApiKey] = useState('')
+  const [waWebhookUrl, setWaWebhookUrl] = useState('')
+
+  const [connectingStripe, setConnectingStripe] = useState(false)
+  const [stripeSecretKey, setStripeSecretKey] = useState('')
+  const [connectingRevolut, setConnectingRevolut] = useState(false)
+  const [revolutApiKey, setRevolutApiKey] = useState('')
 
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; message: string } | null>(null)
@@ -164,6 +178,61 @@ export default function Integrations() {
     setConsumerKey('')
     setConsumerSecret('')
     setConnectError('')
+    setConnectingWhatsapp(false)
+    setWaBaseUrl('')
+    setWaInstanceName('')
+    setWaApiKey('')
+    setWaWebhookUrl('')
+    setConnectingStripe(false)
+    setStripeSecretKey('')
+    setConnectingRevolut(false)
+    setRevolutApiKey('')
+  }
+
+  const handleConnectWhatsapp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setStarting(true)
+    try {
+      const { webhook_url } = await api.connectWhatsapp(token, { baseUrl: waBaseUrl, instanceName: waInstanceName, apiKey: waApiKey })
+      setWaWebhookUrl(webhook_url)
+      refresh()
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const handleConnectStripe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setStarting(true)
+    try {
+      await api.connectStripe(token, stripeSecretKey)
+      refresh()
+      closeBrowse()
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+      setStarting(false)
+    }
+  }
+
+  const handleConnectRevolut = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!token) return
+    setConnectError('')
+    setStarting(true)
+    try {
+      await api.connectRevolut(token, revolutApiKey)
+      refresh()
+      closeBrowse()
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Failed to connect')
+      setStarting(false)
+    }
   }
 
   const handleStartConnect = async (e: React.FormEvent) => {
@@ -390,7 +459,7 @@ export default function Integrations() {
               </button>
             </div>
 
-            {!connectingWoo ? (
+            {!connectingWoo && !connectingWhatsapp && !connectingStripe && !connectingRevolut ? (
               <div className="space-y-2">
                 <button
                   onClick={() => setConnectingWoo(true)}
@@ -419,7 +488,168 @@ export default function Integrations() {
                   </div>
                   <span className="text-sm dark:text-gray-200 text-gray-800">MyParcel</span>
                 </button>
+                <button
+                  onClick={() => setConnectingWhatsapp(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    WA
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">WhatsApp</span>
+                </button>
+                <button
+                  onClick={() => setConnectingStripe(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    S
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">Stripe</span>
+                </button>
+                <button
+                  onClick={() => setConnectingRevolut(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg border dark:border-[#2D3748] border-gray-200 hover:dark:bg-[#2D3748] hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-black flex items-center justify-center text-white font-bold text-xs shrink-0">
+                    R
+                  </div>
+                  <span className="text-sm dark:text-gray-200 text-gray-800">Revolut</span>
+                </button>
               </div>
+            ) : connectingWhatsapp ? (
+              waWebhookUrl ? (
+                <div className="space-y-3">
+                  <p className="text-xs dark:text-gray-300 text-gray-700">
+                    Connected! Paste this URL into Evolution API's own webhook settings (messages.upsert event) — it's shown only once.
+                  </p>
+                  <p className="text-[11px] font-mono break-all dark:bg-[#111827] bg-gray-100 rounded-lg px-2 py-1.5 dark:text-gray-300 text-gray-700">
+                    {waWebhookUrl}
+                  </p>
+                  <button
+                    onClick={closeBrowse}
+                    className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleConnectWhatsapp} className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      Evolution API base URL
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      autoFocus
+                      value={waBaseUrl}
+                      onChange={e => setWaBaseUrl(e.target.value)}
+                      placeholder="https://evolution.example.com"
+                      className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                      Your own self-hosted Evolution API instance (unofficial WhatsApp gateway) — not an official WhatsApp Business API.
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="wa-instance-name" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      Instance name
+                    </label>
+                    <input
+                      id="wa-instance-name"
+                      type="text"
+                      required
+                      value={waInstanceName}
+                      onChange={e => setWaInstanceName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="wa-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                      API key
+                    </label>
+                    <input
+                      id="wa-api-key"
+                      type="password"
+                      required
+                      value={waApiKey}
+                      onChange={e => setWaApiKey(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  {connectError && (
+                    <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={starting}
+                    className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {starting ? 'Connecting…' : 'Connect'}
+                  </button>
+                </form>
+              )
+            ) : connectingStripe ? (
+              <form onSubmit={handleConnectStripe} className="space-y-3">
+                <div>
+                  <label htmlFor="stripe-secret-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Secret key
+                  </label>
+                  <input
+                    id="stripe-secret-key"
+                    type="password"
+                    required
+                    autoFocus
+                    value={stripeSecretKey}
+                    onChange={e => setStripeSecretKey(e.target.value)}
+                    placeholder="sk_live_..."
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    From your Stripe Dashboard → Developers → API keys.
+                  </p>
+                </div>
+                {connectError && (
+                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={starting}
+                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {starting ? 'Connecting…' : 'Connect'}
+                </button>
+              </form>
+            ) : connectingRevolut ? (
+              <form onSubmit={handleConnectRevolut} className="space-y-3">
+                <div>
+                  <label htmlFor="revolut-api-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Merchant API secret key
+                  </label>
+                  <input
+                    id="revolut-api-key"
+                    type="password"
+                    required
+                    autoFocus
+                    value={revolutApiKey}
+                    onChange={e => setRevolutApiKey(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    From your Revolut Business account → Merchant API settings.
+                  </p>
+                </div>
+                {connectError && (
+                  <p className="text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{connectError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={starting}
+                  className="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {starting ? 'Connecting…' : 'Connect'}
+                </button>
+              </form>
             ) : (
               <>
                 <div className="flex gap-1 mb-4 p-0.5 rounded-lg dark:bg-[#111827] bg-gray-100">

@@ -24,6 +24,9 @@ vi.mock('../../integrations/api', () => ({
   upsertSyncSchedules: vi.fn(),
   updateConnectionSettings: vi.fn(),
   listWooTaxes: vi.fn(),
+  connectWhatsapp: vi.fn(),
+  connectStripe: vi.fn(),
+  connectRevolut: vi.fn(),
 }))
 
 vi.mock('../../inventory/api', () => ({
@@ -404,5 +407,65 @@ describe('Delete imported products', () => {
 
     expect(screen.queryByText('Delete imported products')).not.toBeInTheDocument()
     expect(integrationsApi.deleteAllImportedProducts).not.toHaveBeenCalled()
+  })
+})
+
+describe('Connect WhatsApp/Stripe/Revolut', () => {
+  it('connecting WhatsApp shows the one-time webhook URL and refreshes connections', async () => {
+    vi.mocked(integrationsApi.connectWhatsapp).mockResolvedValue({
+      connection: { id: 'conn-wa-1', provider: 'whatsapp', store_url: 'https://evolution.example.com', status: 'connected', created_at: '' },
+      webhook_url: 'https://api.example.com/api/v1/webhooks/v1/tenant-1/whatsapp/secret-token',
+    })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('WhatsApp'))
+
+    await userEvent.type(screen.getByPlaceholderText('https://evolution.example.com'), 'https://evolution.example.com')
+    await userEvent.type(screen.getByLabelText('Instance name'), 'tenant-1-instance')
+    await userEvent.type(screen.getByLabelText('API key'), 'api-key-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    expect(await screen.findByText(/secret-token/)).toBeInTheDocument()
+    expect(integrationsApi.connectWhatsapp).toHaveBeenCalledWith('test-token', {
+      baseUrl: 'https://evolution.example.com', instanceName: 'tenant-1-instance', apiKey: 'api-key-1',
+    })
+    expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after connect
+  })
+
+  it('connecting Stripe submits the secret key and closes the modal', async () => {
+    vi.mocked(integrationsApi.connectStripe).mockResolvedValue({ id: 'conn-stripe-1', provider: 'stripe', store_url: '', status: 'connected', created_at: '' })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Stripe'))
+
+    await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_test_secret')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() => expect(integrationsApi.connectStripe).toHaveBeenCalledWith('test-token', 'sk_test_secret'))
+    expect(screen.queryByLabelText('Secret key')).not.toBeInTheDocument()
+  })
+
+  it('connecting Revolut submits the API key and closes the modal', async () => {
+    vi.mocked(integrationsApi.connectRevolut).mockResolvedValue({ id: 'conn-revolut-1', provider: 'revolut', store_url: '', status: 'connected', created_at: '' })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Revolut'))
+
+    await userEvent.type(screen.getByLabelText(/merchant api secret key/i), 'revolut-secret')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() => expect(integrationsApi.connectRevolut).toHaveBeenCalledWith('test-token', 'revolut-secret'))
+    expect(screen.queryByLabelText(/merchant api secret key/i)).not.toBeInTheDocument()
+  })
+
+  it('shows an error if connecting Stripe fails', async () => {
+    vi.mocked(integrationsApi.connectStripe).mockRejectedValue(new Error('invalid key'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse Integrations' }))
+    await userEvent.click(screen.getByText('Stripe'))
+    await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_bad')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    expect(await screen.findByText('invalid key')).toBeInTheDocument()
   })
 })

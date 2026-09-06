@@ -228,7 +228,7 @@ export interface AIConnection {
   created_at: string
 }
 
-export type ChannelType = 'woocommerce' | 'bol' | 'internal'
+export type ChannelType = 'woocommerce' | 'bol' | 'internal' | 'whatsapp'
 export type EnrollmentMode = 'all' | 'category' | 'tag' | 'manual'
 
 export interface SalesChannel {
@@ -239,6 +239,10 @@ export interface SalesChannel {
   enrollment_mode: EnrollmentMode
   enrollment_category_id?: string | null
   enrollment_tag?: string | null
+  // Which connected payment integration (Stripe/Revolut) this channel
+  // generates a payment link through -- null means disabled. Only
+  // meaningful for type 'whatsapp' today.
+  payment_connection_id?: string | null
   active: boolean
   created_at: string
   updated_at: string

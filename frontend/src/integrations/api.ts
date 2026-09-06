@@ -513,6 +513,57 @@ export function connectBol(token: string, payload: ConnectBolPayload): Promise<C
   )
 }
 
+export interface ConnectWhatsAppPayload {
+  baseUrl: string
+  instanceName: string
+  apiKey: string
+}
+
+export interface ConnectWhatsAppResult {
+  connection: Connection
+  webhook_url: string
+}
+
+// No OAuth -- paste a self-hosted Evolution API instance's base URL/
+// instance name/API key. webhook_url is returned once, plaintext -- paste
+// it into Evolution API's own webhook settings (messages.upsert event)
+// right away, it's never shown again.
+export function connectWhatsapp(token: string, payload: ConnectWhatsAppPayload): Promise<ConnectWhatsAppResult> {
+  return request<ConnectWhatsAppResult>(
+    `${base()}/whatsapp/connect`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ base_url: payload.baseUrl, instance_name: payload.instanceName, api_key: payload.apiKey }),
+    },
+    token,
+  )
+}
+
+// Stripe/Revolut both take a single secret API key -- no OAuth, same
+// paste-a-key pattern as connectBol.
+export function connectStripe(token: string, secretKey: string): Promise<Connection> {
+  return request<Connection>(`${base()}/stripe/connect`, { method: 'POST', body: JSON.stringify({ secret_key: secretKey }) }, token)
+}
+
+export function connectRevolut(token: string, apiKey: string): Promise<Connection> {
+  return request<Connection>(`${base()}/revolut/connect`, { method: 'POST', body: JSON.stringify({ api_key: apiKey }) }, token)
+}
+
+// Connected Stripe/Revolut integrations -- powers the WhatsApp sales
+// channel's payment-method picker.
+export function listPaymentConnections(token: string): Promise<Connection[]> {
+  return request<Connection[]>(`${base()}/payment-connections`, { method: 'GET' }, token)
+}
+
+// paymentConnectionId null disables the channel's payment method.
+export function setSalesChannelPaymentMethod(token: string, channelId: string, paymentConnectionId: string | null): Promise<SalesChannel> {
+  return request<SalesChannel>(
+    `${base()}/sales-channels/${channelId}/payment-method`,
+    { method: 'PATCH', body: JSON.stringify({ payment_connection_id: paymentConnectionId }) },
+    token,
+  )
+}
+
 export function pushProductToBol(token: string, connectionId: string, productId: string): Promise<ProductChannelListing[]> {
   return request<ProductChannelListing[]>(
     `${base()}/connections/${connectionId}/push-product-bol`,

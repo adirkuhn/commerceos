@@ -29,10 +29,11 @@ interface ChannelFormState {
   enrollmentTag: string
   active: boolean
   defaultWarehouseId: string
+  paymentConnectionId: string
 }
 
 function emptyForm(): ChannelFormState {
-  return { name: '', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '', enrollmentTag: '', active: true, defaultWarehouseId: '' }
+  return { name: '', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '', enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '' }
 }
 
 function capitalize(s: string): string {
@@ -46,7 +47,9 @@ function capitalize(s: string): string {
 // -- 'myparcel' connections shouldn't be picked here at all, though this
 // form doesn't yet filter the connection dropdown to exclude them).
 function channelTypeForConnection(provider: string | undefined): ChannelType {
-  return provider === 'bol' ? 'bol' : 'woocommerce'
+  if (provider === 'bol') return 'bol'
+  if (provider === 'whatsapp') return 'whatsapp'
+  return 'woocommerce'
 }
 
 // defaultWarehouseId lives on the linked Connection, not on the channel
@@ -63,6 +66,7 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
     enrollmentTag: channel.enrollment_tag ?? '',
     active: channel.active,
     defaultWarehouseId: connection?.default_warehouse_id ?? '',
+    paymentConnectionId: channel.payment_connection_id ?? '',
   }
 }
 
@@ -115,16 +119,21 @@ export default function SalesChannels() {
         enrollmentCategoryId: form.enrollmentMode === 'category' ? form.enrollmentCategoryId || null : null,
         enrollmentTag: form.enrollmentMode === 'tag' ? form.enrollmentTag || null : null,
       }
+      let channelType: ChannelType
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
+        channelType = editingChannel.type
       } else {
-        const type = channelTypeForConnection(connections.find(c => c.id === form.connectionId)?.provider)
-        await create({ ...shared, type } satisfies SalesChannelPayload)
+        channelType = channelTypeForConnection(connections.find(c => c.id === form.connectionId)?.provider)
+        await create({ ...shared, type: channelType } satisfies SalesChannelPayload)
       }
       if (form.connectionId) {
         const connection = connections.find(c => c.id === form.connectionId)
         await integrationsApi.updateConnectionSettings(token ?? '', form.connectionId, connection?.default_currency ?? '', form.defaultWarehouseId || null)
         refreshConnections()
+      }
+      if (editingChannel && channelType === 'whatsapp') {
+        await integrationsApi.setSalesChannelPaymentMethod(token ?? '', editingChannel.id, form.paymentConnectionId || null)
       }
       closeForm()
     } catch (err) {
@@ -347,6 +356,27 @@ export default function SalesChannels() {
                     placeholder="summer"
                     className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
                   />
+                </div>
+              )}
+              {editingChannel && editingChannel.type === 'whatsapp' && (
+                <div>
+                  <label htmlFor="channel-payment-method" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Payment method
+                  </label>
+                  <select
+                    id="channel-payment-method"
+                    value={form.paymentConnectionId}
+                    onChange={e => setForm(f => ({ ...f, paymentConnectionId: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Disabled — no payment link sent</option>
+                    {connections
+                      .filter(c => (c.provider === 'stripe' || c.provider === 'revolut') && c.status === 'connected')
+                      .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)}</option>)}
+                  </select>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Which connected payment integration a WhatsApp order's payment link is generated through. Connect Stripe or Revolut from the Integrations page first.
+                  </p>
                 </div>
               )}
               {editingChannel && (

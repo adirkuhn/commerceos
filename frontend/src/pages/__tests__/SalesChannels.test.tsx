@@ -19,6 +19,7 @@ vi.mock('../../integrations/api', () => ({
   listSalesChannelProducts: vi.fn(),
   setSalesChannelProductOverride: vi.fn(),
   updateConnectionSettings: vi.fn(),
+  setSalesChannelPaymentMethod: vi.fn(),
 }))
 
 vi.mock('../../pms/api', () => ({
@@ -39,6 +40,18 @@ const wooConnection: Connection = {
 
 const bolConnection: Connection = {
   id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '',
+}
+
+const stripeConnection: Connection = {
+  id: 'conn-stripe-1', provider: 'stripe', store_url: '', status: 'connected', created_at: '',
+}
+
+const revolutConnection: Connection = {
+  id: 'conn-revolut-1', provider: 'revolut', store_url: '', status: 'error', created_at: '',
+}
+
+const whatsappConnection: Connection = {
+  id: 'conn-wa-1', provider: 'whatsapp', store_url: '', status: 'connected', created_at: '',
 }
 
 function warehouse(overrides: Partial<{ id: string; name: string }> = {}) {
@@ -321,6 +334,79 @@ describe('Sales channel default location', () => {
 
     await waitFor(() => {
       expect(integrationsApi.updateConnectionSettings).toHaveBeenCalledWith('test-token', 'conn-1', 'USD', 'wh-1')
+    })
+  })
+})
+
+describe('WhatsApp payment method', () => {
+  function whatsappChannel(overrides: Partial<SalesChannel> = {}): SalesChannel {
+    return sampleChannel({ id: 'chan-wa', name: 'WA Channel', type: 'whatsapp', connection_id: 'conn-wa-1', ...overrides })
+  }
+
+  it('does not show a payment method field for a non-WhatsApp channel', async () => {
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.queryByLabelText('Payment method')).not.toBeInTheDocument()
+  })
+
+  it('lists only connected Stripe/Revolut connections as payment method options', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, whatsappConnection, stripeConnection, revolutConnection])
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel()])
+    render(<SalesChannels />)
+    await screen.findByText('WA Channel')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    const select = screen.getByLabelText('Payment method')
+    expect(within(select).getByText('Stripe')).toBeInTheDocument()
+    expect(within(select).queryByText('Revolut')).not.toBeInTheDocument()
+  })
+
+  it('prefills the current payment connection when editing', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, whatsappConnection, stripeConnection])
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel({ payment_connection_id: 'conn-stripe-1' })])
+    render(<SalesChannels />)
+    await screen.findByText('WA Channel')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Payment method')).toHaveValue('conn-stripe-1')
+  })
+
+  it('saves the selected payment connection alongside other channel edits', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, whatsappConnection, stripeConnection])
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel()])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(whatsappChannel())
+    vi.mocked(integrationsApi.setSalesChannelPaymentMethod).mockResolvedValue(whatsappChannel({ payment_connection_id: 'conn-stripe-1' }))
+    render(<SalesChannels />)
+    await screen.findByText('WA Channel')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.selectOptions(screen.getByLabelText('Payment method'), 'conn-stripe-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.setSalesChannelPaymentMethod).toHaveBeenCalledWith('test-token', 'chan-wa', 'conn-stripe-1')
+    })
+  })
+
+  it('disabling payment method sends null', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, whatsappConnection, stripeConnection])
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel({ payment_connection_id: 'conn-stripe-1' })])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(whatsappChannel({ payment_connection_id: 'conn-stripe-1' }))
+    vi.mocked(integrationsApi.setSalesChannelPaymentMethod).mockResolvedValue(whatsappChannel())
+    render(<SalesChannels />)
+    await screen.findByText('WA Channel')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.selectOptions(screen.getByLabelText('Payment method'), '')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.setSalesChannelPaymentMethod).toHaveBeenCalledWith('test-token', 'chan-wa', null)
     })
   })
 })
