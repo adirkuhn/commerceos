@@ -193,6 +193,15 @@ type connectBolUC interface {
 type connectWhatsappUC interface {
 	Execute(ctx context.Context, in appintegrations.ConnectWhatsAppInput) (*appintegrations.ConnectWhatsAppResult, error)
 }
+type connectStripeUC interface {
+	Execute(ctx context.Context, in appintegrations.ConnectStripeInput) (*integrationsDomain.Connection, error)
+}
+type connectRevolutUC interface {
+	Execute(ctx context.Context, in appintegrations.ConnectRevolutInput) (*integrationsDomain.Connection, error)
+}
+type listPaymentConnectionsUC interface {
+	Execute(ctx context.Context) ([]integrationsDomain.Connection, error)
+}
 type pushProductToBolUC interface {
 	Execute(ctx context.Context, in appchannels.PushProductToBolInput) ([]channelsDomain.ProductChannelListing, error)
 }
@@ -269,6 +278,9 @@ type Handler struct {
 	deleteProviderWebhook        deleteProviderWebhookUC
 	connectBol                   connectBolUC
 	connectWhatsapp              connectWhatsappUC
+	connectStripe                connectStripeUC
+	connectRevolut               connectRevolutUC
+	listPaymentConnections       listPaymentConnectionsUC
 	pushProductToBol             pushProductToBolUC
 	getBolProductOverride        getBolProductOverrideUC
 	upsertBolProductOverride     upsertBolProductOverrideUC
@@ -332,6 +344,9 @@ func NewHandler(
 	deleteProviderWebhook deleteProviderWebhookUC,
 	connectBol connectBolUC,
 	connectWhatsapp connectWhatsappUC,
+	connectStripe connectStripeUC,
+	connectRevolut connectRevolutUC,
+	listPaymentConnections listPaymentConnectionsUC,
 	pushProductToBol pushProductToBolUC,
 	getBolProductOverride getBolProductOverrideUC,
 	upsertBolProductOverride upsertBolProductOverrideUC,
@@ -394,6 +409,9 @@ func NewHandler(
 		deleteProviderWebhook:        deleteProviderWebhook,
 		connectBol:                   connectBol,
 		connectWhatsapp:              connectWhatsapp,
+		connectStripe:                connectStripe,
+		connectRevolut:               connectRevolut,
+		listPaymentConnections:       listPaymentConnections,
 		pushProductToBol:             pushProductToBol,
 		getBolProductOverride:        getBolProductOverride,
 		upsertBolProductOverride:     upsertBolProductOverride,
@@ -561,6 +579,9 @@ func Register(
 		appintegrations.NewDeleteProviderWebhookUseCase(db, connRepo, wooFactory, myparcel.NewClientFactory(), encryptionSecret),
 		appintegrations.NewConnectBolUseCase(db, connRepo, outboxRepo, encryptionSecret),
 		appintegrations.NewConnectWhatsAppUseCase(db, connRepo, outboxRepo, encryptionSecret, publicAPIBaseURL),
+		appintegrations.NewConnectStripeUseCase(db, connRepo, outboxRepo, encryptionSecret),
+		appintegrations.NewConnectRevolutUseCase(db, connRepo, outboxRepo, encryptionSecret),
+		appintegrations.NewListPaymentConnectionsUseCase(db, connRepo),
 		pushProductToBolUC,
 		appchannels.NewGetBolProductOverrideUseCase(db, bolOverrideRepo),
 		appchannels.NewUpsertBolProductOverrideUseCase(db, bolOverrideRepo, outboxRepo),
@@ -1152,6 +1173,52 @@ func (h *Handler) ConnectWhatsapp(c *gin.Context) {
 		Connection genintegrations.Connection `json:"connection"`
 		WebhookURL string                     `json:"webhook_url"`
 	}{Connection: toGenConnection(result.Connection), WebhookURL: result.WebhookURL})
+}
+
+func (h *Handler) ConnectStripe(c *gin.Context) {
+	var req genintegrations.ConnectStripeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.SecretKey == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "secret_key is required")
+		return
+	}
+	conn, err := h.connectStripe.Execute(c.Request.Context(), appintegrations.ConnectStripeInput{SecretKey: req.SecretKey})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
+}
+
+func (h *Handler) ConnectRevolut(c *gin.Context) {
+	var req genintegrations.ConnectRevolutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	if req.ApiKey == "" {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "api_key is required")
+		return
+	}
+	conn, err := h.connectRevolut.Execute(c.Request.Context(), appintegrations.ConnectRevolutInput{APIKey: req.ApiKey})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenConnection(*conn))
+}
+
+func (h *Handler) ListPaymentConnections(c *gin.Context) {
+	conns, err := h.listPaymentConnections.Execute(c.Request.Context())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genintegrations.Connection, len(conns))
+	for i, conn := range conns {
+		out[i] = toGenConnection(conn)
+	}
+	middleware.OK(c, out)
 }
 
 func (h *Handler) PushProductToBol(c *gin.Context, id genintegrations.Id) {
