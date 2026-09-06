@@ -10,6 +10,7 @@ import (
 
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 )
@@ -30,7 +31,7 @@ func newOrderFlowUseCase(t *testing.T, n int, convRepo *fakeConversationRepo, lo
 	if customerCreator == nil {
 		customerCreator = &fakeCustomerCreator{}
 	}
-	return appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, n), convRepo, lookup, orderCreator, customerCreator)
+	return appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, n), convRepo, lookup, orderCreator, customerCreator, nil)
 }
 
 func widgetInfo() appwhatsapp.ProductInfo {
@@ -433,3 +434,46 @@ func TestOrderFlow_idleUnrecognizedCommand_returnsUnhandled(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// ── payment link generation on order placement ──────────────────────────────
+
+func TestOrderFlow_confirmation_yes_paymentMethodConfigured_includesLinkInReply(t *testing.T) {
+	convRepo := awaitingConfirmationConv(false)
+	paymentGen := &fakePaymentLinkGenerator{ok: true, link: &integrationsDomain.PaymentLink{URL: "https://checkout.stripe.com/pay/cs_1"}}
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
+
+	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
+
+	require.NoError(t, err)
+	assert.True(t, handled)
+	assert.Contains(t, reply, "placed")
+	assert.Contains(t, reply, "https://checkout.stripe.com/pay/cs_1")
+}
+
+func TestOrderFlow_confirmation_yes_noPaymentMethodConfigured_omitsLink(t *testing.T) {
+	convRepo := awaitingConfirmationConv(false)
+	paymentGen := &fakePaymentLinkGenerator{ok: false}
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
+
+	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
+
+	require.NoError(t, err)
+	assert.True(t, handled)
+	assert.Contains(t, reply, "placed")
+	assert.NotContains(t, reply, "http")
+}
+
+func TestOrderFlow_confirmation_yes_paymentLinkGenerationFails_stillSucceedsWithoutLink(t *testing.T) {
+	convRepo := awaitingConfirmationConv(false)
+	paymentGen := &fakePaymentLinkGenerator{err: errors.New("stripe unreachable")}
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
+
+	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
+
+	require.NoError(t, err, "a payment-link failure must never fail order placement -- retrying this handler would place a duplicate order")
+	assert.True(t, handled)
+	assert.Contains(t, reply, "placed")
+}

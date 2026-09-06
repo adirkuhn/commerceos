@@ -35,3 +35,19 @@ func buildEvolutionClient(factory integrationsDomain.EvolutionAPIClientFactory, 
 	}
 	return client, nil
 }
+
+// buildPaymentClient decrypts conn's stored API key and builds a payment
+// client scoped to it -- same pattern as buildEvolutionClient, for
+// GeneratePaymentLinkUseCase's Stripe/Revolut factories (both take just an
+// API key, unlike Evolution API's base-url+instance+key).
+func buildPaymentClient(factory integrationsDomain.PaymentLinkClientFactory, encryptionSecret string, conn integrationsDomain.Connection) (integrationsDomain.PaymentLinkClient, error) {
+	apiKey, err := crypto.Decrypt(encryptionSecret, conn.ConsumerSecretEncrypted)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt connection secret: %w", err)
+	}
+	client, err := factory.NewClient(apiKey)
+	if err != nil {
+		return nil, fmt.Errorf("build payment client: %w", err)
+	}
+	return client, nil
+}

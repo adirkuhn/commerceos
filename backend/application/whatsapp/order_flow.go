@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
 	"github.com/adirkuhn/commerceos/internal/idgen"
@@ -31,6 +33,14 @@ type customerCreator interface {
 	Execute(ctx context.Context, in appcustomers.CreateCustomerInput) (*customersDomain.Customer, error)
 }
 
+// paymentLinkGenerator is *GeneratePaymentLinkUseCase narrowed to point of
+// use (ISP) -- may be nil (a deployment that hasn't wired payment yet),
+// same optional-dependency convention as application/shipping's
+// ShipmentDeliveryNotifier.
+type paymentLinkGenerator interface {
+	Execute(ctx context.Context, amountMinorUnits int64, currencyCode, description, reference string) (*integrationsDomain.PaymentLink, bool, error)
+}
+
 // OrderFlowUseCase is HandleInboundMessageUseCase's order-placement branch:
 // ORDER/CART/CHECKOUT and everything a Conversation's in-progress state
 // implies about how to interpret the next message (a capture answer, or a
@@ -42,11 +52,12 @@ type customerCreator interface {
 // because this is the first place two independent command sets need to
 // share one inbound message.
 type OrderFlowUseCase struct {
-	db               *gorm.DB
-	conversationRepo whatsappDomain.ConversationRepository
-	lookupProduct    productInfoLookup
-	createSalesOrder salesOrderCreator
-	createCustomer   customerCreator
+	db                  *gorm.DB
+	conversationRepo    whatsappDomain.ConversationRepository
+	lookupProduct       productInfoLookup
+	createSalesOrder    salesOrderCreator
+	createCustomer      customerCreator
+	generatePaymentLink paymentLinkGenerator
 }
 
 func NewOrderFlowUseCase(
@@ -55,10 +66,12 @@ func NewOrderFlowUseCase(
 	lookupProduct productInfoLookup,
 	createSalesOrder salesOrderCreator,
 	createCustomer customerCreator,
+	generatePaymentLink paymentLinkGenerator,
 ) *OrderFlowUseCase {
 	return &OrderFlowUseCase{
 		db: db, conversationRepo: conversationRepo, lookupProduct: lookupProduct,
 		createSalesOrder: createSalesOrder, createCustomer: createCustomer,
+		generatePaymentLink: generatePaymentLink,
 	}
 }
 
@@ -331,6 +344,23 @@ func (uc *OrderFlowUseCase) placeOrder(ctx context.Context, conv *whatsappDomain
 		return "", false, fmt.Errorf("orderFlow: save conversation: %w", err)
 	}
 
-	return fmt.Sprintf("Order #%s placed! Total: %s. We'll be in touch shortly about payment.",
-		result.SalesOrder.Number, formatMoney(total, currency)), true, nil
+	// Payment link generation is deliberately best-effort and happens only
+	// after the order is placed and the conversation is already cleared+
+	// saved above: an error here must never propagate (which would make the
+	// whole inbound message dispatch fail and redeliver -- CreateSalesOrderUseCase
+	// has no idempotency key of its own, so replaying this handler would
+	// place a SECOND order for the same YES). No payment method configured
+	// is the normal, expected case for a tenant that hasn't set one up --
+	// not an error.
+	reply := fmt.Sprintf("Order #%s placed! Total: %s. We'll be in touch shortly about payment.",
+		result.SalesOrder.Number, formatMoney(total, currency))
+	if uc.generatePaymentLink != nil {
+		link, ok, linkErr := uc.generatePaymentLink.Execute(ctx, total, currency, "Order #"+result.SalesOrder.Number, result.SalesOrder.Number)
+		if linkErr != nil {
+			log.Printf("orderFlow: generate payment link for order %s: %v", result.SalesOrder.Number, linkErr)
+		} else if ok {
+			reply = fmt.Sprintf("Order #%s placed! Total: %s.\nPay here: %s", result.SalesOrder.Number, formatMoney(total, currency), link.URL)
+		}
+	}
+	return reply, true, nil
 }

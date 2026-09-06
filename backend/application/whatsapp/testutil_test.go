@@ -51,6 +51,15 @@ func (f *fakeConnectionRepo) ListByTenant(_ context.Context) ([]integrationsDoma
 	return f.conns, nil
 }
 
+func (f *fakeConnectionRepo) FindByID(_ context.Context, id string) (*integrationsDomain.Connection, error) {
+	for i := range f.conns {
+		if f.conns[i].ID == id {
+			return &f.conns[i], nil
+		}
+	}
+	return nil, integrationsDomain.ErrConnectionNotFound
+}
+
 type fakeCustomerRepo struct {
 	customersDomain.CustomerRepository
 	byPhone map[string]customersDomain.Customer
@@ -182,4 +191,14 @@ func (f *fakeCustomerCreator) Execute(_ context.Context, in appcustomers.CreateC
 		return f.out, nil
 	}
 	return &customersDomain.Customer{ID: "new-cust-1", FirstName: in.FirstName, LastName: in.LastName, Email: in.Email, PhoneE164: in.PhoneE164}, nil
+}
+
+type fakePaymentLinkGenerator struct {
+	link *integrationsDomain.PaymentLink
+	ok   bool
+	err  error
+}
+
+func (f *fakePaymentLinkGenerator) Execute(_ context.Context, _ int64, _, _, _ string) (*integrationsDomain.PaymentLink, bool, error) {
+	return f.link, f.ok, f.err
 }

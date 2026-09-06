@@ -27,6 +27,8 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
+	"github.com/adirkuhn/commerceos/infrastructure/revolut"
+	"github.com/adirkuhn/commerceos/infrastructure/stripe"
 	"github.com/adirkuhn/commerceos/internal/config"
 )
 
@@ -107,8 +109,13 @@ func main() {
 		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock,
 	)
 	createCustomerUC := appcustomers.NewCreateCustomerUseCase(db, repositories.NewCustomerRepo(db))
+	generatePaymentLinkUC := appwhatsapp.NewGeneratePaymentLinkUseCase(
+		db, repositories.NewSalesChannelRepo(db), repositories.NewConnectionRepo(db),
+		stripe.NewClientFactory(), revolut.NewClientFactory(), cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL,
+	)
 	orderFlowUC := appwhatsapp.NewOrderFlowUseCase(
 		db, repositories.NewWhatsAppConversationRepo(db), lookupProductInfo, createSalesOrderUC, createCustomerUC,
+		generatePaymentLinkUC,
 	)
 	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(
 		db, repositories.NewConnectionRepo(db), evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
