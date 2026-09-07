@@ -109,6 +109,58 @@ func (c *Client) CreatePaymentLink(ctx context.Context, req integrations.Payment
 	return integrations.PaymentLink{URL: checkoutURL, ExternalID: order.ID}, nil
 }
 
+type refundOrderRequest struct {
+	Amount int64  `json:"amount"`
+	Reason string `json:"reason,omitempty"`
+}
+
+type refundOrderResponse struct {
+	ID string `json:"id"`
+}
+
+// Refund implements domain/integrations.PaymentLinkClient.Refund against
+// Revolut's documented POST /orders/{id}/refund endpoint -- same
+// not-confirmed-against-a-real-account caveat as CreatePaymentLink (see
+// this package's doc comment); externalPaymentID is the order id
+// CreatePaymentLink returned as PaymentLink.ExternalID. Unlike Stripe's
+// refund call, this doesn't send a currency -- Revolut's docs describe the
+// refund as always in the original order's own currency, needing no
+// override, but that's unverified here same as everything else in this
+// package.
+func (c *Client) Refund(ctx context.Context, externalPaymentID string, amountMinorUnits int64, reason string) (string, error) {
+	reqBody, err := json.Marshal(refundOrderRequest{Amount: amountMinorUnits, Reason: reason})
+	if err != nil {
+		return "", fmt.Errorf("revolut: encode refund request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/orders/"+externalPaymentID+"/refund", bytes.NewReader(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("revolut: build refund request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
+
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("revolut: refund order: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("revolut: read refund response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("revolut: refund order: status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var refund refundOrderResponse
+	if err := json.Unmarshal(respBody, &refund); err != nil {
+		return "", fmt.Errorf("revolut: decode refund response: %w", err)
+	}
+	return refund.ID, nil
+}
+
 // ClientFactory implements domain/integrations.PaymentLinkClientFactory.
 type ClientFactory struct{}
 

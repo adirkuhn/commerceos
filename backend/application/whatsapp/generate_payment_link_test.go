@@ -48,6 +48,10 @@ func (f *fakePaymentLinkClient) CreatePaymentLink(_ context.Context, _ integrati
 	return f.link, f.err
 }
 
+func (f *fakePaymentLinkClient) Refund(_ context.Context, _ string, _ int64, _ string) (string, error) {
+	return "", nil
+}
+
 type fakeEvolutionAPIClientFactoryForPayment struct {
 	client *fakePaymentLinkClient
 	err    error

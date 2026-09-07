@@ -76,6 +76,37 @@ func (c *Client) CreatePaymentLink(ctx context.Context, req integrations.Payment
 	return integrations.PaymentLink{URL: session.URL, ExternalID: session.ID}, nil
 }
 
+// Refund implements domain/integrations.PaymentLinkClient.Refund. Stripe's
+// refund API needs a PaymentIntent (or Charge) id, not a Checkout Session
+// id -- but externalPaymentID is the SESSION id (session.ID, see
+// StripeEventParser and PaymentLink.ExternalID's doc), so this retrieves
+// the session first to resolve its PaymentIntent. reason is stored as
+// refund metadata rather than Stripe's own Reason param, whose values are
+// a fixed enum (duplicate/fraudulent/requested_by_customer) that a picking
+// staff's free-text note doesn't fit.
+func (c *Client) Refund(ctx context.Context, externalPaymentID string, amountMinorUnits int64, reason string) (string, error) {
+	session, err := c.sc.V1CheckoutSessions.Retrieve(ctx, externalPaymentID, nil)
+	if err != nil {
+		return "", fmt.Errorf("stripe: retrieve checkout session: %w", err)
+	}
+	if session.PaymentIntent == nil || session.PaymentIntent.ID == "" {
+		return "", fmt.Errorf("stripe: checkout session %s has no payment intent to refund", externalPaymentID)
+	}
+
+	params := &stripe.RefundCreateParams{
+		PaymentIntent: stripe.String(session.PaymentIntent.ID),
+		Amount:        stripe.Int64(amountMinorUnits),
+	}
+	if reason != "" {
+		params.Metadata = map[string]string{"reason": reason}
+	}
+	refund, err := c.sc.V1Refunds.Create(ctx, params)
+	if err != nil {
+		return "", fmt.Errorf("stripe: create refund: %w", err)
+	}
+	return refund.ID, nil
+}
+
 // ClientFactory implements domain/integrations.PaymentLinkClientFactory.
 type ClientFactory struct{}
 

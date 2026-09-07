@@ -40,11 +40,19 @@ type PaymentLink struct {
 // PaymentLinkClient is the payment integration contract -- Stripe
 // (infrastructure/stripe) and Revolut (infrastructure/revolut) both
 // implement it, and any future payment provider slots in as a third
-// implementation with no change to a caller. Deliberately one method:
-// generating a one-off checkout link is the only capability any caller in
-// this codebase needs today (see application/payments).
+// implementation with no change to a caller.
 type PaymentLinkClient interface {
 	CreatePaymentLink(ctx context.Context, req PaymentLinkRequest) (PaymentLink, error)
+	// Refund issues a refund against externalPaymentID -- the same id
+	// PaymentLink.ExternalID captured at checkout time (persisted as
+	// SalesOrder.PaymentExternalID once a payment webhook confirms it, see
+	// application/payments.WebhookDispatchHandler). amountMinorUnits is the
+	// amount to refund, in the same minor-unit currency the original charge
+	// was made in. Returns the provider's own refund reference on success.
+	// Called by application/oms.CompletePickingUseCase's PickScanActionRefund
+	// replay -- see that type's doc comment for what happens when this
+	// errors (never blocks picking completion).
+	Refund(ctx context.Context, externalPaymentID string, amountMinorUnits int64, reason string) (refundReference string, err error)
 }
 
 // PaymentLinkClientFactory builds a PaymentLinkClient scoped to one
