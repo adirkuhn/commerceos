@@ -134,9 +134,13 @@ type skuFinderForShortfallNames interface {
 // Per action type:
 //   - Pick: no stock effect (stock already left the ledger the moment the
 //     order's Status entered a stock-reducing state) -- markReplayed only.
-//   - Substitute: reverses the ORIGINAL line item's own decrement
-//     movements batch-by-batch (same shape as restockLineItems), then --
-//     unless resolved StockShortfallWithoutItem -- decrements the
+//   - Substitute: one original line item can have several unreplayed
+//     Substitute rows at once (see SubstituteLineItemUseCase); the first
+//     one hit in ScannedAt order for a given line triggers
+//     replaySubstituteGroup, which reverses that line's original stock
+//     ONCE -- summing OriginalQtyCovered across only the group's
+//     ReturnToStock rows -- then, for every row in the group (unless
+//     resolved StockShortfallWithoutItem), decrements that row's own
 //     substitute SKU for real, linking the new movements to the ORIGINAL
 //     line item's ID (documents "this line shipped via a substitute"). The
 //     original line item row is never mutated.
@@ -304,10 +308,14 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 		lineItemsByID[li.ID] = li
 	}
 
+	handledSubstituteLines := make(map[string]bool)
+	handledScanIDs := make(map[string]bool)
+
 	for _, s := range scans {
-		// Already applied by an earlier Finish attempt on this session --
-		// skip re-applying it.
-		if s.ReplayedAt != nil {
+		// Already applied by an earlier Finish attempt on this session, or
+		// by replaySubstituteGroup earlier in this same pass -- skip
+		// re-applying it.
+		if s.ReplayedAt != nil || handledScanIDs[s.ID] {
 			continue
 		}
 
@@ -318,46 +326,16 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 			}
 
 		case omsDomain.PickScanActionSubstitute:
-			li, ok := lineItemsByID[derefOrEmpty(s.LineItemID)]
+			lineItemID := derefOrEmpty(s.LineItemID)
+			li, ok := lineItemsByID[lineItemID]
 			if !ok {
 				return omsDomain.ErrLineItemNotOnOrder
 			}
-			// A line item with no SKUID (an unmatched Woo import line)
-			// never had a decrement to reverse in the first place --
-			// decrementLineItems skips it.
-			if li.SKUID != nil {
-				links, err := listLineItemMovements(ctx, uc.db, uc.linkRepo, li.ID)
-				if err != nil {
-					return err
-				}
-				for _, l := range links {
-					if l.QuantityDelta >= 0 {
-						continue
-					}
-					if _, err := uc.reverseMovement.Execute(ctx, invapp.RecordStockMovementInput{
-						SKUID: *li.SKUID, WarehouseID: warehouseID, BatchID: l.BatchID, Type: invDomain.MovementTypeAdjustment,
-						QuantityDelta: -l.QuantityDelta, Reason: fmt.Sprintf("picking session %s substitute", sessionID), OccurredAt: s.ScannedAt,
-					}); err != nil {
-						return err
-					}
-				}
+			if handledSubstituteLines[lineItemID] {
+				continue
 			}
-			if resolutions[s.ID] != StockShortfallWithoutItem {
-				movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
-					SKUID: s.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
-					Quantity: s.Quantity, Reason: fmt.Sprintf("picking session %s substitute", sessionID), OccurredAt: s.ScannedAt,
-					ReconcileShortfall: resolutions[s.ID] == StockShortfallWithItem,
-				})
-				if err != nil {
-					return err
-				}
-				for _, m := range movements {
-					if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, m); err != nil {
-						return err
-					}
-				}
-			}
-			if err := uc.markReplayed(ctx, s.ID); err != nil {
+			handledSubstituteLines[lineItemID] = true
+			if err := uc.replaySubstituteGroup(ctx, sessionID, warehouseID, li, scans, resolutions, handledScanIDs); err != nil {
 				return err
 			}
 
@@ -401,6 +379,91 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 	return nil
 }
 
+// replaySubstituteGroup handles every unreplayed Substitute row for one
+// original line item together, exactly once per replay call -- see
+// replay's call site, guarded by handledSubstituteLines so a line with N
+// Substitute rows never has its original stock reversed more than once.
+// Reverses the original line's stock ONCE, summing OriginalQtyCovered only
+// across rows in the group whose own ReturnToStock is true, then applies
+// each row's own substitute-SKU decrement independently.
+func (uc *CompletePickingUseCase) replaySubstituteGroup(ctx context.Context, sessionID, warehouseID string, li omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan, resolutions map[string]StockShortfallResolution, handledScanIDs map[string]bool) error {
+	var group []omsDomain.PickScan
+	for _, s := range scans {
+		if s.ActionType == omsDomain.PickScanActionSubstitute && s.ReplayedAt == nil && derefOrEmpty(s.LineItemID) == li.ID {
+			group = append(group, s)
+		}
+	}
+
+	var reverseQty int64
+	for _, s := range group {
+		if s.ReturnToStock {
+			reverseQty += derefInt64(s.OriginalQtyCovered)
+		}
+	}
+	if li.SKUID != nil && reverseQty > 0 {
+		if err := uc.reverseOriginalStock(ctx, sessionID, warehouseID, li, reverseQty, group[0].ScannedAt); err != nil {
+			return err
+		}
+	}
+
+	for _, s := range group {
+		if resolutions[s.ID] != StockShortfallWithoutItem {
+			movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
+				SKUID: s.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
+				Quantity: s.Quantity, Reason: fmt.Sprintf("picking session %s substitute", sessionID), OccurredAt: s.ScannedAt,
+				ReconcileShortfall: resolutions[s.ID] == StockShortfallWithItem,
+			})
+			if err != nil {
+				return err
+			}
+			for _, m := range movements {
+				if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, m); err != nil {
+					return err
+				}
+			}
+		}
+		if err := uc.markReplayed(ctx, s.ID); err != nil {
+			return err
+		}
+		handledScanIDs[s.ID] = true
+	}
+	return nil
+}
+
+// reverseOriginalStock adds qty back to the original line's SKU, walking
+// its existing decrement movements batch-by-batch (same shape as
+// restockLineItems) and reversing only up to qty in total -- a partial
+// reversal primitive, unlike the old whole-line-only version, since not
+// every Substitute row covering this line necessarily opts into
+// ReturnToStock.
+func (uc *CompletePickingUseCase) reverseOriginalStock(ctx context.Context, sessionID, warehouseID string, li omsDomain.SalesOrderLineItem, qty int64, occurredAt time.Time) error {
+	links, err := listLineItemMovements(ctx, uc.db, uc.linkRepo, li.ID)
+	if err != nil {
+		return err
+	}
+	remaining := qty
+	for _, l := range links {
+		if remaining <= 0 {
+			break
+		}
+		if l.QuantityDelta >= 0 {
+			continue
+		}
+		take := -l.QuantityDelta
+		if take > remaining {
+			take = remaining
+		}
+		if _, err := uc.reverseMovement.Execute(ctx, invapp.RecordStockMovementInput{
+			SKUID: *li.SKUID, WarehouseID: warehouseID, BatchID: l.BatchID, Type: invDomain.MovementTypeAdjustment,
+			QuantityDelta: take, Reason: fmt.Sprintf("picking session %s substitute", sessionID), OccurredAt: occurredAt,
+		}); err != nil {
+			return err
+		}
+		remaining -= take
+	}
+	return nil
+}
+
 // markReplayed persists that a row's effect already committed -- its own
 // transaction, separate from the effect itself (tenant.WithTenant must
 // never nest), so this is the one small window a crash can still land in:
@@ -426,6 +489,14 @@ func missingPickItems(lineItems []omsDomain.SalesOrderLineItem, scans []omsDomai
 		if s.ActionType == omsDomain.PickScanActionSubstitute && resolutions[s.ID] == StockShortfallWithoutItem {
 			continue
 		}
+		if s.ActionType == omsDomain.PickScanActionSubstitute {
+			// OriginalQtyCovered, not Quantity -- Quantity is the
+			// substitute SKU's own quantity, which needn't match how much
+			// of the original line it covers (e.g. 4 cheap units covering
+			// 1 original unit).
+			pickedByLineItem[*s.LineItemID] += derefInt64(s.OriginalQtyCovered)
+			continue
+		}
 		pickedByLineItem[*s.LineItemID] += s.Quantity
 	}
 
@@ -444,4 +515,11 @@ func derefOrEmpty(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func derefInt64(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }

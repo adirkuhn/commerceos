@@ -93,8 +93,9 @@ func TestCompletePicking_substituteReversesOriginalAndDecrementsSubstitute(t *te
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
 		"li-1": {{SalesOrderLineItemID: "li-1", BatchID: &batchID, QuantityDelta: -5}},
 	}}
+	qtyCovered := int64(5)
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
-		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 5},
+		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 5, OriginalQtyCovered: &qtyCovered, ReturnToStock: true},
 	}}
 	recordMovement := &stubRecordMovement{}
 	reverseMovement := &stubReverseMovement{}
@@ -137,6 +138,66 @@ func TestCompletePicking_substituteSkipsReversalWhenOriginalLineHasNoSKU(t *test
 	require.NoError(t, err)
 	assert.Empty(t, reverseMovement.calls, "nothing was ever decremented for a SKU-less line, so nothing to reverse")
 	require.Len(t, recordMovement.calls, 1)
+}
+
+func TestCompletePicking_substituteWithReturnToStockFalseDoesNotReverseButStillCoversMissingItems(t *testing.T) {
+	db := newMockGormDBN(t, 4) // read + linkLineItemMovement(1) + mark-replayed + mark-completed (no listLineItemMovements -- ReturnToStock is false)
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-orig"), Name: "Widget", Quantity: 5}}}
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{}
+	qtyCovered := int64(5)
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 5, OriginalQtyCovered: &qtyCovered, ReturnToStock: false},
+	}}
+	recordMovement := &stubRecordMovement{}
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	require.NoError(t, err)
+	assert.Empty(t, reverseMovement.calls, "return_to_stock false means the original stock is never given back -- the substitution happened because the stock figure was wrong in the first place")
+	require.Len(t, recordMovement.calls, 1, "the substitute SKU is still decremented for real")
+	assert.Equal(t, "sku-sub", recordMovement.calls[0].SKUID)
+	assert.Empty(t, result.MissingItems, "the original line's expected quantity is still fully covered by the substitute")
+}
+
+// One original line, quantity 2, split across two Substitute rows -- one
+// per unit, one opted into return_to_stock and one not. Must reverse only
+// the opted-in row's share, decrement both substitute SKUs independently,
+// and never double-reverse the original line's stock.
+func TestCompletePicking_multipleSubstituteRowsOnSameLine_reversesOnlyOptedInShare(t *testing.T) {
+	db := newMockGormDBN(t, 7) // read + listLineItemMovements + linkLineItemMovement(2) + mark-replayed(2) + mark-completed
+	sessionRepo, salesOrderRepo := completablePickingFixtures()
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-orig"), Name: "Widget", Quantity: 2}}}
+	batchID := "batch-1"
+	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
+		"li-1": {{SalesOrderLineItemID: "li-1", BatchID: &batchID, QuantityDelta: -2}},
+	}}
+	qtyOne := int64(1)
+	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
+		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub-a", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 3, OriginalQtyCovered: &qtyOne, ReturnToStock: true},
+		{ID: "scan-2", LineItemID: strPtr("li-1"), SKUID: "sku-sub-b", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 4, OriginalQtyCovered: &qtyOne, ReturnToStock: false},
+	}}
+	recordMovement := &stubRecordMovement{}
+	reverseMovement := &stubReverseMovement{}
+	uc := appoms.NewCompletePickingUseCase(db, sessionRepo, salesOrderRepo, lineItemRepo, linkRepo, scanRepo, &stubAddLineItemForPickCompletion{}, recordMovement, reverseMovement, &stubStockAvailabilityChecker{}, &stubSKUFinderForShortfall{})
+
+	result, err := uc.Execute(context.Background(), appoms.CompletePickingInput{SessionID: "session-1", CompletedBy: "user-1"})
+
+	require.NoError(t, err)
+	require.Len(t, reverseMovement.calls, 1, "reversal fires exactly once for the line, not once per substitute row")
+	assert.Equal(t, int64(1), reverseMovement.calls[0].QuantityDelta, "only scan-1's covered qty (1) is reversed -- scan-2 opted out")
+
+	require.Len(t, recordMovement.calls, 2)
+	assert.Equal(t, "sku-sub-a", recordMovement.calls[0].SKUID)
+	assert.Equal(t, int64(3), recordMovement.calls[0].Quantity)
+	assert.Equal(t, "sku-sub-b", recordMovement.calls[1].SKUID)
+	assert.Equal(t, int64(4), recordMovement.calls[1].Quantity)
+
+	require.Len(t, scanRepo.markReplayed, 2)
+	assert.ElementsMatch(t, []string{"scan-1", "scan-2"}, scanRepo.markReplayed)
+	assert.Empty(t, result.MissingItems, "both rows together cover the original line's full quantity (1+1=2)")
 }
 
 func TestCompletePicking_freebieCreatesZeroPricedLineItemAndDecrementsStock(t *testing.T) {
@@ -313,8 +374,9 @@ func TestCompletePicking_resolutionWithoutItem_substituteShipsWithoutReplacement
 	linkRepo := &stubSalesOrderLineItemStockMovementRepo{byLineItem: map[string][]omsDomain.SalesOrderLineItemStockMovement{
 		"li-1": {{SalesOrderLineItemID: "li-1", BatchID: &batchID, QuantityDelta: -5}},
 	}}
+	qtyCovered := int64(5)
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
-		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 5},
+		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-sub", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 5, OriginalQtyCovered: &qtyCovered, ReturnToStock: true},
 	}}
 	recordMovement := &stubRecordMovement{}
 	reverseMovement := &stubReverseMovement{}
