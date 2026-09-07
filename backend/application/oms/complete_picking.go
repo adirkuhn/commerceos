@@ -6,8 +6,10 @@ import (
 	"time"
 
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -101,6 +103,13 @@ type skuFinderForShortfallNames interface {
 	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
 }
 
+// paymentRefundClientResolver narrows *PaymentRefundClientResolver to point
+// of use (ISP) -- CompletePickingUseCase's refund replay only ever needs to
+// resolve one live client for one provider name.
+type paymentRefundClientResolver interface {
+	Resolve(ctx context.Context, provider string) (integrationsDomain.PaymentLinkClient, bool, error)
+}
+
 // CompletePickingUseCase is the scanner app's "Finish" action -- and the
 // ONLY place staged PickScan rows (see that type's doc comment) ever become
 // real. Finishing with every line fully picked is a clean complete
@@ -149,6 +158,14 @@ type skuFinderForShortfallNames interface {
 //     forced to price 0, NewItem picker-entered), decrements its SKU for
 //     real, links the new movements to the NEW line item's ID. Resolved
 //     StockShortfallWithoutItem: the line item is never created at all.
+//   - Refund: attempts a real refund (Quantity * the line's own
+//     PriceMinorUnits) through the order's own PaymentProvider/
+//     PaymentExternalID when both are set; on success the order's Status
+//     becomes PartiallyRefunded. No provider info, or the API call itself
+//     failing, instead sets SalesOrder.NeedsManualRefundReview -- a refund
+//     never blocks completion. Either way the line item's RefundedQuantity/
+//     RefundedAmountMinorUnits accumulate (see replayRefund) and the line
+//     item row is never otherwise mutated.
 //
 // A replay failure that ISN'T a pre-flight-checked shortfall (some other
 // error) is still a hard stop -- the session stays incomplete, the error
@@ -157,17 +174,19 @@ type skuFinderForShortfallNames interface {
 // StockShortfallWithoutItem) are soft-reported via MissingItems, which
 // never blocks completion.
 type CompletePickingUseCase struct {
-	db              *gorm.DB
-	sessionRepo     omsDomain.PickingSessionRepository
-	salesOrderRepo  omsDomain.SalesOrderRepository
-	lineItemRepo    omsDomain.SalesOrderLineItemRepository
-	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
-	scanRepo        omsDomain.PickScanRepository
-	addLineItem     addLineItemForPickCompletionUC
-	recordMovement  recordSaleMovementUC
-	reverseMovement movementReverser
-	stockChecker    stockAvailabilityChecker
-	skuRepo         skuFinderForShortfallNames
+	db                   *gorm.DB
+	sessionRepo          omsDomain.PickingSessionRepository
+	salesOrderRepo       omsDomain.SalesOrderRepository
+	lineItemRepo         omsDomain.SalesOrderLineItemRepository
+	linkRepo             omsDomain.SalesOrderLineItemStockMovementRepository
+	scanRepo             omsDomain.PickScanRepository
+	addLineItem          addLineItemForPickCompletionUC
+	recordMovement       recordSaleMovementUC
+	reverseMovement      movementReverser
+	stockChecker         stockAvailabilityChecker
+	skuRepo              skuFinderForShortfallNames
+	outboxRepo           outbox.Repository
+	refundClientResolver paymentRefundClientResolver
 }
 
 func NewCompletePickingUseCase(
@@ -182,12 +201,15 @@ func NewCompletePickingUseCase(
 	reverseMovement movementReverser,
 	stockChecker stockAvailabilityChecker,
 	skuRepo skuFinderForShortfallNames,
+	outboxRepo outbox.Repository,
+	refundClientResolver paymentRefundClientResolver,
 ) *CompletePickingUseCase {
 	return &CompletePickingUseCase{
 		db: db, sessionRepo: sessionRepo, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo,
 		linkRepo: linkRepo, scanRepo: scanRepo, addLineItem: addLineItem,
 		recordMovement: recordMovement, reverseMovement: reverseMovement,
 		stockChecker: stockChecker, skuRepo: skuRepo,
+		outboxRepo: outboxRepo, refundClientResolver: refundClientResolver,
 	}
 }
 
@@ -231,7 +253,7 @@ func (uc *CompletePickingUseCase) Execute(ctx context.Context, in CompletePickin
 		return &CompletePickingResult{StockShortfalls: shortfalls}, nil
 	}
 
-	if err := uc.replay(ctx, in.SessionID, order.ID, order.WarehouseID, lineItems, scans, in.Resolutions); err != nil {
+	if err := uc.replay(ctx, in.SessionID, order, lineItems, scans, in.Resolutions); err != nil {
 		return nil, fmt.Errorf("completePicking: %w", err)
 	}
 
@@ -302,7 +324,8 @@ func (uc *CompletePickingUseCase) shortfallName(ctx context.Context, s omsDomain
 	return sku.SKUCode
 }
 
-func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOrderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan, resolutions map[string]StockShortfallResolution) error {
+func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID string, order *omsDomain.SalesOrder, lineItems []omsDomain.SalesOrderLineItem, scans []omsDomain.PickScan, resolutions map[string]StockShortfallResolution) error {
+	salesOrderID, warehouseID := order.ID, order.WarehouseID
 	lineItemsByID := make(map[string]omsDomain.SalesOrderLineItem, len(lineItems))
 	for _, li := range lineItems {
 		lineItemsByID[li.ID] = li
@@ -310,6 +333,11 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 
 	handledSubstituteLines := make(map[string]bool)
 	handledScanIDs := make(map[string]bool)
+	// refundTotals seeds lazily from each line item's own already-persisted
+	// RefundedQuantity/RefundedAmountMinorUnits on first touch, then
+	// accumulates in memory across however many Refund scans land on the
+	// same line within this one replay call -- see replayRefund's doc.
+	refundTotals := make(map[string]refundTotal)
 
 	for _, s := range scans {
 		// Already applied by an earlier Finish attempt on this session, or
@@ -336,6 +364,16 @@ func (uc *CompletePickingUseCase) replay(ctx context.Context, sessionID, salesOr
 			}
 			handledSubstituteLines[lineItemID] = true
 			if err := uc.replaySubstituteGroup(ctx, sessionID, warehouseID, li, scans, resolutions, handledScanIDs); err != nil {
+				return err
+			}
+
+		case omsDomain.PickScanActionRefund:
+			lineItemID := derefOrEmpty(s.LineItemID)
+			li, ok := lineItemsByID[lineItemID]
+			if !ok {
+				return omsDomain.ErrLineItemNotOnOrder
+			}
+			if err := uc.replayRefund(ctx, order, li, s, refundTotals); err != nil {
 				return err
 			}
 
@@ -464,6 +502,64 @@ func (uc *CompletePickingUseCase) reverseOriginalStock(ctx context.Context, sess
 	return nil
 }
 
+// refundTotal is replayRefund's running in-memory accumulator for one line
+// item across however many Refund scans land on it within a single replay
+// call -- see replay's refundTotals doc.
+type refundTotal struct {
+	Quantity         int64
+	AmountMinorUnits int64
+}
+
+// replayRefund applies one PickScanActionRefund row: attempts a real refund
+// through the order's own payment provider when known, otherwise (or on any
+// API failure) falls back to flagging the order for manual review -- either
+// way the line item's refunded totals accumulate and picking completion is
+// never blocked by a payment-provider problem. See PickScanActionRefund's
+// domain doc comment for the full policy.
+func (uc *CompletePickingUseCase) replayRefund(ctx context.Context, order *omsDomain.SalesOrder, li omsDomain.SalesOrderLineItem, s omsDomain.PickScan, totals map[string]refundTotal) error {
+	amount := li.PriceMinorUnits * s.Quantity
+
+	issued := false
+	if order.PaymentProvider != "" && order.PaymentExternalID != "" {
+		client, ok, err := uc.refundClientResolver.Resolve(ctx, order.PaymentProvider)
+		if err == nil && ok {
+			if _, rerr := client.Refund(ctx, order.PaymentExternalID, amount, s.Reason); rerr == nil {
+				issued = true
+			}
+		}
+	}
+
+	total, ok := totals[li.ID]
+	if !ok {
+		total = refundTotal{Quantity: li.RefundedQuantity, AmountMinorUnits: li.RefundedAmountMinorUnits}
+	}
+	total.Quantity += s.Quantity
+	total.AmountMinorUnits += amount
+	totals[li.ID] = total
+
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if err := uc.lineItemRepo.Update(ctx, li.ID, map[string]any{
+			"refunded_quantity": total.Quantity, "refunded_amount_minor_units": total.AmountMinorUnits,
+		}); err != nil {
+			return err
+		}
+		if issued {
+			if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"status": string(omsDomain.SalesOrderStatusPartiallyRefunded)}); err != nil {
+				return err
+			}
+			return enqueuePaymentRefundIssued(ctx, uc.outboxRepo, order.ID, li.ID, s.SKUID, s.Quantity, amount)
+		}
+		if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{"needs_manual_refund_review": true}); err != nil {
+			return err
+		}
+		return enqueuePaymentRefundManualReviewRequired(ctx, uc.outboxRepo, order.ID, li.ID, s.SKUID, s.Quantity, amount)
+	})
+	if err != nil {
+		return err
+	}
+	return uc.markReplayed(ctx, s.ID)
+}
+
 // markReplayed persists that a row's effect already committed -- its own
 // transaction, separate from the effect itself (tenant.WithTenant must
 // never nest), so this is the one small window a crash can still land in:
@@ -480,7 +576,7 @@ func missingPickItems(lineItems []omsDomain.SalesOrderLineItem, scans []omsDomai
 		if s.LineItemID == nil {
 			continue
 		}
-		if s.ActionType != omsDomain.PickScanActionPick && s.ActionType != omsDomain.PickScanActionSubstitute {
+		if s.ActionType != omsDomain.PickScanActionPick && s.ActionType != omsDomain.PickScanActionSubstitute && s.ActionType != omsDomain.PickScanActionRefund {
 			continue
 		}
 		// A substitute staff chose to ship without (StockShortfallWithoutItem)
@@ -497,6 +593,9 @@ func missingPickItems(lineItems []omsDomain.SalesOrderLineItem, scans []omsDomai
 			pickedByLineItem[*s.LineItemID] += derefInt64(s.OriginalQtyCovered)
 			continue
 		}
+		// A Refund's Quantity IS the original line's own quantity being
+		// resolved (no substitute-style split) -- refunded counts as
+		// "resolved", same reasoning as a fulfilled Pick/Substitute.
 		pickedByLineItem[*s.LineItemID] += s.Quantity
 	}
 
