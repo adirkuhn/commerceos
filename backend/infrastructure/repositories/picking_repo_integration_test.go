@@ -189,6 +189,48 @@ func TestPickScanRepo_Integration_CreateListBySessionOrdersByScannedAt(t *testin
 	require.Nil(t, scans[0].ReplayedAt, "a freshly-staged scan is not replayed yet")
 }
 
+func TestPickScanRepo_Integration_SubstituteRoundTripsOriginalQtyCoveredAndReturnToStock(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	sessionRepo := repositories.NewPickingSessionRepo(db)
+	scanRepo := repositories.NewPickScanRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+
+	var sessionID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		session := omsDomain.PickingSession{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID,
+			Status: omsDomain.PickingSessionStatusInProgress, StartedAt: time.Now(),
+		}
+		if err := sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		sessionID = session.ID
+
+		covered := int64(1)
+		scan := omsDomain.PickScan{
+			TenantID: tenant.IDFromContext(ctx), SessionID: sessionID, SKUID: skuID,
+			ActionType: omsDomain.PickScanActionSubstitute, Quantity: 3, OriginalQtyCovered: &covered, ReturnToStock: true,
+			ScannedAt: time.Now(), ScannedBy: "user-1",
+		}
+		return scanRepo.Create(ctx, &scan)
+	})
+	require.NoError(t, err)
+
+	var scans []omsDomain.PickScan
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		scans, err = scanRepo.ListBySession(ctx, sessionID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, scans, 1)
+	require.NotNil(t, scans[0].OriginalQtyCovered)
+	require.Equal(t, int64(1), *scans[0].OriginalQtyCovered)
+	require.True(t, scans[0].ReturnToStock)
+}
+
 func TestPickScanRepo_Integration_MarkReplayed(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

@@ -26,18 +26,20 @@ type pickingSessionModel struct {
 func (pickingSessionModel) TableName() string { return "picking_sessions" }
 
 type pickScanModel struct {
-	ID              string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID        string  `gorm:"not null;type:uuid"`
-	SessionID       string  `gorm:"column:session_id;not null;type:uuid"`
-	LineItemID      *string `gorm:"column:line_item_id;type:uuid"`
-	SKUID           string  `gorm:"column:sku_id;not null;type:uuid"`
-	ActionType      string  `gorm:"not null;default:pick"`
-	Quantity        int64
-	PriceMinorUnits *int64 `gorm:"column:price_minor_units"`
-	Reason          string
-	ScannedAt       time.Time
-	ScannedBy       string
-	ReplayedAt      *time.Time
+	ID                 string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID           string  `gorm:"not null;type:uuid"`
+	SessionID          string  `gorm:"column:session_id;not null;type:uuid"`
+	LineItemID         *string `gorm:"column:line_item_id;type:uuid"`
+	SKUID              string  `gorm:"column:sku_id;not null;type:uuid"`
+	ActionType         string  `gorm:"not null;default:pick"`
+	Quantity           int64
+	OriginalQtyCovered *int64 `gorm:"column:original_qty_covered"`
+	ReturnToStock      bool   `gorm:"column:return_to_stock;not null;default:false"`
+	PriceMinorUnits    *int64 `gorm:"column:price_minor_units"`
+	Reason             string
+	ScannedAt          time.Time
+	ScannedBy          string
+	ReplayedAt         *time.Time
 }
 
 func (pickScanModel) TableName() string { return "pick_scans" }
@@ -148,8 +150,8 @@ func (r *PickScanRepo) Create(ctx context.Context, s *omsDomain.PickScan) error 
 	}
 	m := pickScanModel{
 		ID: s.ID, TenantID: s.TenantID, SessionID: s.SessionID, LineItemID: s.LineItemID, SKUID: s.SKUID,
-		ActionType: string(s.ActionType), Quantity: s.Quantity, PriceMinorUnits: s.PriceMinorUnits,
-		Reason: s.Reason, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
+		ActionType: string(s.ActionType), Quantity: s.Quantity, OriginalQtyCovered: s.OriginalQtyCovered, ReturnToStock: s.ReturnToStock,
+		PriceMinorUnits: s.PriceMinorUnits, Reason: s.Reason, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("pickScanRepo.Create: %w", err)
@@ -171,8 +173,8 @@ func (r *PickScanRepo) ListBySession(ctx context.Context, sessionID string) ([]o
 	for i, m := range rows {
 		scans[i] = omsDomain.PickScan{
 			ID: m.ID, TenantID: m.TenantID, SessionID: m.SessionID, LineItemID: m.LineItemID, SKUID: m.SKUID,
-			ActionType: omsDomain.PickScanActionType(m.ActionType), Quantity: m.Quantity, PriceMinorUnits: m.PriceMinorUnits,
-			Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
+			ActionType: omsDomain.PickScanActionType(m.ActionType), Quantity: m.Quantity, OriginalQtyCovered: m.OriginalQtyCovered, ReturnToStock: m.ReturnToStock,
+			PriceMinorUnits: m.PriceMinorUnits, Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
 		}
 	}
 	return scans, nil
