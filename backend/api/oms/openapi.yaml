@@ -404,6 +404,39 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /picking-sessions/{id}/refund:
+    post:
+      operationId: refundLineItem
+      summary: >
+        Scanner app -- stage refunding part or all of an existing line
+        item's own quantity, when staff choose not to substitute it. Real
+        money only moves at session completion (see PickScan's doc and
+        CompletePickingUseCase); if the order has no known payment provider
+        or the refund API call fails, the order is instead flagged for
+        manual review rather than blocking completion. A customer_user
+        caller needs the oms.line_item.refund permission (403 otherwise).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundLineItemResultResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /picking-sessions/{id}/resolve-scan:
     post:
       operationId: resolvePickScanCode
@@ -536,7 +569,7 @@ components:
 
     SalesOrderStatus:
       type: string
-      enum: [pending, processing, on-hold, shipped, completed, cancelled, refunded, failed]
+      enum: [pending, processing, on-hold, shipped, completed, cancelled, refunded, failed, partially_refunded]
 
     SalesOrderSource:
       type: string
@@ -567,6 +600,18 @@ components:
         shipping_method: { type: string }
         shipping_method_title: { type: string }
         transaction_id: { type: string }
+        payment_provider:
+          type: string
+          description: >-
+            The payment provider ("stripe"/"revolut") whose webhook
+            confirmed this order paid, if any -- empty for POS/manual
+            orders and most imported orders. See payment_external_id.
+        payment_external_id:
+          type: string
+          description: >-
+            That provider's own checkout-session/order id -- what a refund
+            (see RefundLineItemRequest) is issued against. Empty whenever
+            payment_provider is.
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }
@@ -577,6 +622,13 @@ components:
         needs_sku_review:
           type: boolean
           description: At least one line item was never matched to a catalog SKU. See GET's needs_sku_review filter.
+        needs_manual_refund_review:
+          type: boolean
+          description: >-
+            A PickScanActionRefund replayed against this order without a
+            known payment_provider/payment_external_id, or its refund API
+            call failed -- the line item is still marked refunded, but
+            staff must action the actual money movement by hand.
         fulfilled:
           type: boolean
           description: >-
@@ -609,6 +661,14 @@ components:
         subtotal_tax_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
         total_tax_minor_units: { type: integer, format: int64 }
+        refunded_quantity:
+          type: integer
+          format: int64
+          description: How much of this line's quantity has been refunded (accumulates across possibly more than one refund). Zero means never refunded.
+        refunded_amount_minor_units:
+          type: integer
+          format: int64
+          description: Total amount refunded against this line so far.
         product_id:
           type: string
           nullable: true
@@ -874,7 +934,7 @@ components:
 
     PickScanActionType:
       type: string
-      enum: [pick, substitute, freebie, new_item]
+      enum: [pick, substitute, freebie, new_item, refund]
 
     PickScan:
       type: object
@@ -899,6 +959,8 @@ components:
           description: >-
             Always a positive magnitude -- for substitute, this is the
             SUBSTITUTE sku's own quantity, not the original line's quantity.
+            For refund, this is the quantity of the ORIGINAL line item being
+            refunded (at most that line's own quantity).
         original_quantity_covered:
           type: integer
           format: int64
@@ -1055,6 +1117,34 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SubstituteLineItemResult' }
+        error: { nullable: true }
+
+    RefundLineItemRequest:
+      type: object
+      required: [line_item_id, quantity]
+      properties:
+        line_item_id:
+          type: string
+          description: The line item being (partly or fully) refunded.
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          description: How much of the line item's own quantity to refund -- at most that line's own quantity.
+        reason:
+          type: string
+          description: Optional comment, e.g. why the item couldn't be substituted.
+
+    RefundLineItemResult:
+      type: object
+      required: [scan]
+      properties:
+        scan: { $ref: '#/components/schemas/PickScan' }
+
+    RefundLineItemResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/RefundLineItemResult' }
         error: { nullable: true }
 
     ResolvePickScanCodeRequest:
