@@ -31,7 +31,7 @@ type UpdateCartItemsUseCase struct {
 	variantRepo  pmsDomain.VariantRepository
 	productRepo  pmsDomain.ProductRepository
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
-	stockLevel   stockLevelGetter
+	stockLevel   StockLevelGetter
 }
 
 func NewUpdateCartItemsUseCase(
@@ -42,7 +42,7 @@ func NewUpdateCartItemsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	productRepo pmsDomain.ProductRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
-	stockLevel stockLevelGetter,
+	stockLevel StockLevelGetter,
 ) *UpdateCartItemsUseCase {
 	return &UpdateCartItemsUseCase{
 		db: db, cartRepo: cartRepo, channelRepo: channelRepo, skuRepo: skuRepo,
@@ -50,14 +50,22 @@ func NewUpdateCartItemsUseCase(
 	}
 }
 
+type resolvedLine struct {
+	line  UpdateCartItemLineInput
+	entry catalogEntry
+}
+
 // Execute replaces token's cart's whole item set -- there is no
 // incremental add/remove, same "rewrite wholesale" convention as
 // application/promotions.UpdatePromotionUseCase. Each line's quantity must
 // not exceed current stock; a request that would leave the cart over-stock
 // on any line fails entirely (no partial apply) rather than silently
-// clamping.
+// clamping. Stock is checked in a separate step after the catalog lookup's
+// own transaction closes -- StockLevelGetter opens its own (see its doc
+// comment), and this codebase never nests tenant.WithTenant calls.
 func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lines []UpdateCartItemLineInput) (*storefrontDomain.Cart, error) {
 	var cart *storefrontDomain.Cart
+	var resolved []resolvedLine
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		found, err := uc.cartRepo.FindByToken(ctx, token)
 		if err != nil {
@@ -74,29 +82,41 @@ func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lin
 			return err
 		}
 
-		items := make([]storefrontDomain.CartItem, 0, len(lines))
+		resolved = make([]resolvedLine, 0, len(lines))
 		for _, line := range lines {
-			entry, err := lookupCatalogEntry(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, uc.overrideRepo, uc.stockLevel, *channel, line.SKUCode)
+			entry, err := lookupCatalogEntry(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, uc.overrideRepo, *channel, line.SKUCode)
 			if err != nil {
 				return err
 			}
-			if line.Quantity > entry.StockQuantity {
-				return storefrontDomain.ErrInsufficientStock
-			}
-			items = append(items, storefrontDomain.CartItem{
-				SKUID: entry.SKUID, SKUCode: line.SKUCode, ProductName: entry.ProductName,
-				Quantity: line.Quantity, PriceMinorUnits: entry.EffectivePriceMinorUnits(),
-				CurrencyCode: entry.CurrencyCode, TaxClassID: entry.TaxClassID,
-			})
-		}
-
-		found.Items = items
-		found.UpdatedAt = time.Now()
-		if err := uc.cartRepo.Update(ctx, found); err != nil {
-			return err
+			resolved = append(resolved, resolvedLine{line: line, entry: *entry})
 		}
 		cart = found
 		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("updateCartItems: %w", err)
+	}
+
+	items := make([]storefrontDomain.CartItem, len(resolved))
+	for i, r := range resolved {
+		level, err := uc.stockLevel.Execute(ctx, r.entry.SKUID)
+		if err != nil {
+			return nil, fmt.Errorf("updateCartItems: %w", err)
+		}
+		if r.line.Quantity > level.Syncable {
+			return nil, fmt.Errorf("updateCartItems: %w", storefrontDomain.ErrInsufficientStock)
+		}
+		items[i] = storefrontDomain.CartItem{
+			SKUID: r.entry.SKUID, SKUCode: r.line.SKUCode, ProductName: r.entry.ProductName,
+			Quantity: r.line.Quantity, PriceMinorUnits: r.entry.EffectivePriceMinorUnits(),
+			CurrencyCode: r.entry.CurrencyCode, TaxClassID: r.entry.TaxClassID,
+		}
+	}
+
+	cart.Items = items
+	cart.UpdatedAt = time.Now()
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return uc.cartRepo.Update(ctx, cart)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateCartItems: %w", err)

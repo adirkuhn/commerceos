@@ -121,6 +121,95 @@ type RecommendedProduct struct {
 	SkuCode           string  `json:"sku_code"`
 }
 
+// StorefrontCategory defines model for StorefrontCategory.
+type StorefrontCategory struct {
+	Id       string  `json:"id"`
+	Name     string  `json:"name"`
+	ParentId *string `json:"parent_id"`
+	Position int     `json:"position"`
+	Slug     string  `json:"slug"`
+}
+
+// StorefrontCategoryListResponse defines model for StorefrontCategoryListResponse.
+type StorefrontCategoryListResponse struct {
+	Data  *[]StorefrontCategory `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
+// StorefrontOrderStatus defines model for StorefrontOrderStatus.
+type StorefrontOrderStatus struct {
+	CurrencyCode    string `json:"currency_code"`
+	Fulfilled       bool   `json:"fulfilled"`
+	OrderNumber     string `json:"order_number"`
+	Status          string `json:"status"`
+	TotalMinorUnits int64  `json:"total_minor_units"`
+}
+
+// StorefrontOrderStatusResponse defines model for StorefrontOrderStatusResponse.
+type StorefrontOrderStatusResponse struct {
+	Data  *StorefrontOrderStatus `json:"data,omitempty"`
+	Error interface{}            `json:"error,omitempty"`
+}
+
+// StorefrontProduct defines model for StorefrontProduct.
+type StorefrontProduct struct {
+	CategoryId  *string             `json:"category_id"`
+	Description string              `json:"description"`
+	Id          string              `json:"id"`
+	Images      []string            `json:"images"`
+	Name        string              `json:"name"`
+	Slug        string              `json:"slug"`
+	Tags        []string            `json:"tags"`
+	Variants    []StorefrontVariant `json:"variants"`
+}
+
+// StorefrontProductListResponse defines model for StorefrontProductListResponse.
+type StorefrontProductListResponse struct {
+	Data *struct {
+		Items *[]StorefrontProductSummary `json:"items,omitempty"`
+		Total *int64                      `json:"total,omitempty"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// StorefrontProductResponse defines model for StorefrontProductResponse.
+type StorefrontProductResponse struct {
+	Data  *StorefrontProduct `json:"data,omitempty"`
+	Error interface{}        `json:"error,omitempty"`
+}
+
+// StorefrontProductSummary defines model for StorefrontProductSummary.
+type StorefrontProductSummary struct {
+	CategoryId   *string `json:"category_id"`
+	CurrencyCode *string `json:"currency_code,omitempty"`
+	Id           string  `json:"id"`
+	ImageUrl     *string `json:"image_url"`
+	Name         string  `json:"name"`
+
+	// PriceMinorUnits Null when the product has no SKU yet.
+	PriceMinorUnits     *int64   `json:"price_minor_units,omitempty"`
+	SalePriceMinorUnits *int64   `json:"sale_price_minor_units,omitempty"`
+	Slug                string   `json:"slug"`
+	Tags                []string `json:"tags"`
+}
+
+// StorefrontSKU defines model for StorefrontSKU.
+type StorefrontSKU struct {
+	CurrencyCode        string `json:"currency_code"`
+	Id                  string `json:"id"`
+	PriceMinorUnits     int64  `json:"price_minor_units"`
+	SalePriceMinorUnits *int64 `json:"sale_price_minor_units,omitempty"`
+	SkuCode             string `json:"sku_code"`
+	StockQuantity       int64  `json:"stock_quantity"`
+}
+
+// StorefrontVariant defines model for StorefrontVariant.
+type StorefrontVariant struct {
+	Id   string          `json:"id"`
+	Name string          `json:"name"`
+	Skus []StorefrontSKU `json:"skus"`
+}
+
 // UpdateCartItemLine defines model for UpdateCartItemLine.
 type UpdateCartItemLine struct {
 	Quantity int    `json:"quantity"`
@@ -137,6 +226,20 @@ type CartToken = string
 
 // Error defines model for Error.
 type Error = ErrorResponse
+
+// LookupStorefrontOrderParams defines parameters for LookupStorefrontOrder.
+type LookupStorefrontOrderParams struct {
+	OrderNumber string              `form:"order_number" json:"order_number"`
+	Email       openapi_types.Email `form:"email" json:"email"`
+}
+
+// ListStorefrontProductsParams defines parameters for ListStorefrontProducts.
+type ListStorefrontProductsParams struct {
+	CategoryId *string `form:"category_id,omitempty" json:"category_id,omitempty"`
+	Search     *string `form:"search,omitempty" json:"search,omitempty"`
+	Page       *int    `form:"page,omitempty" json:"page,omitempty"`
+	PerPage    *int    `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
 
 // CheckoutCartJSONRequestBody defines body for CheckoutCart for application/json ContentType.
 type CheckoutCartJSONRequestBody = CheckoutRequest
@@ -161,6 +264,18 @@ type ServerInterface interface {
 	// UpdateCartItems Replace a cart's whole line set
 	// (PUT /storefront/v1/carts/{token}/items)
 	UpdateCartItems(c *gin.Context, token CartToken)
+	// ListStorefrontCategories The tenant's whole category tree, flat with parent_id
+	// (GET /storefront/v1/categories)
+	ListStorefrontCategories(c *gin.Context)
+	// LookupStorefrontOrder Guest order-status lookup by order number + billing email
+	// (GET /storefront/v1/orders/lookup)
+	LookupStorefrontOrder(c *gin.Context, params LookupStorefrontOrderParams)
+	// ListStorefrontProducts List the calling channel's enrolled catalog
+	// (GET /storefront/v1/products)
+	ListStorefrontProducts(c *gin.Context, params ListStorefrontProductsParams)
+	// GetStorefrontProduct Fetch one enrolled product's full variant/SKU/image detail
+	// (GET /storefront/v1/products/{id})
+	GetStorefrontProduct(c *gin.Context, id string)
 	// GetCartRecommendations Cross-sell candidates for the shopper's whole cart, ranked by quantity-weighted co-purchase support
 	// (POST /storefront/v1/recommendations/cart)
 	GetCartRecommendations(c *gin.Context)
@@ -263,6 +378,130 @@ func (siw *ServerInterfaceWrapper) UpdateCartItems(c *gin.Context) {
 	siw.Handler.UpdateCartItems(c, token)
 }
 
+// ListStorefrontCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListStorefrontCategories(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListStorefrontCategories(c)
+}
+
+// LookupStorefrontOrder operation middleware
+func (siw *ServerInterfaceWrapper) LookupStorefrontOrder(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LookupStorefrontOrderParams
+
+	// ------------- Required query parameter "order_number" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "order_number", c.Request.URL.Query(), &params.OrderNumber, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter order_number: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "email" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "email", c.Request.URL.Query(), &params.Email, runtime.BindQueryParameterOptions{Type: "string", Format: "email"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter email: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LookupStorefrontOrder(c, params)
+}
+
+// ListStorefrontProducts operation middleware
+func (siw *ServerInterfaceWrapper) ListStorefrontProducts(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStorefrontProductsParams
+
+	// ------------- Optional query parameter "category_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category_id", c.Request.URL.Query(), &params.CategoryId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter category_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", c.Request.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter search: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", c.Request.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", c.Request.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter per_page: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListStorefrontProducts(c, params)
+}
+
+// GetStorefrontProduct operation middleware
+func (siw *ServerInterfaceWrapper) GetStorefrontProduct(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetStorefrontProduct(c, id)
+}
+
 // GetCartRecommendations operation middleware
 func (siw *ServerInterfaceWrapper) GetCartRecommendations(c *gin.Context) {
 
@@ -308,6 +547,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/storefront/v1/carts/:token", wrapper.GetCart)
 	router.PUT(options.BaseURL+"/storefront/v1/carts/:token/items", wrapper.UpdateCartItems)
 	router.POST(options.BaseURL+"/storefront/v1/carts/:token/checkout", wrapper.CheckoutCart)
+	router.GET(options.BaseURL+"/storefront/v1/products", wrapper.ListStorefrontProducts)
+	router.GET(options.BaseURL+"/storefront/v1/products/:id", wrapper.GetStorefrontProduct)
+	router.GET(options.BaseURL+"/storefront/v1/categories", wrapper.ListStorefrontCategories)
+	router.GET(options.BaseURL+"/storefront/v1/orders/lookup", wrapper.LookupStorefrontOrder)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -315,47 +558,63 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"zFlrb9y20v4rA70vEBvYi50Exen2UxokQZLTk8BOkA9t4XCpWYk1xVGG1G73BPvfD4bU3rRax3Wcpl8M",
-	"r0hxLnzmmYs+Z5qqmhy64LPJ56xWrCoMyPHXU8XhHV2jkx/GZZOsVqHMBplTFWaTLMS1Qcb4qTGMeTYJ",
-	"3OAg87rESslLYVnLRh/YuCJbrVay2dfkPEYJz5iJ5R9NLqAL8q+qa2u0Cobc+A9PUfj2xP9nnGWT7P/G",
-	"W8XHadWP42kX7flJWo5es6nlsGySYRQnz9tX1lZG25lq5GCSZiZgtf/PTZLljJcBq2w1WNusmNVSfvtm",
-	"Gigoe1UZR3zVOJN8PSOuVMgmmXHhh8fZ5kXjAhbI8ai187t+3PX5r5t7SKoekfj7RgBN/0Ad5PyN2gfm",
-	"64YZnV5eacqxR4NBVrPReAebaqa80eEqYajn4E+NcsGEpSxWxpmqqbLJed9R/ro5pl/HQ5udHfk70vos",
-	"GnT8cMyH/zYOD334jQ3ZHH9MqwvUVFXo8hhL/gJr6kM672+7NeY3x2P+Nvm0D/0JiMR5yylfREjH4K52",
-	"nRNvbfunBv29hHm86wNDO1qn026tXMtYB9rlKqjb6NR/06tBS3iTz5lrrFVTi4miV6ujmn2tKn9Zaon6",
-	"mppwFwqKGLhyTTVF7ucotazQhauGbbRhLxn8p7EWFiU6CCWCLpVzaKFUHhxB+yZUGErKQZObmaJhzEeS",
-	"/vbMGhzKvRvfdzC0Z13fmbdip9a9T/Kc0ftDL6u0cN7rv3bxYe+ibqntcIGqWrlja40LvDy8jZeXb+DR",
-	"+Q8/DM9B2bpUw4dZj2Nnhv0NqcOqm1brktyRFfLhKMp8UOEWzLyj2q4ig62HW5ftiNv646a7O0peU2Ot",
-	"qPKlsOxgQCK0UsbugTI96XG5L01d30VKxz9rAWuld06+2fivYqQ1u/xFVtqvJI+K7py0I6NDZcewVaH3",
-	"qjiCro5WfXr25OAe4W5mcnQaD6PuOSst/8LJ2Wh0fgo0g0+Nsma2NK6AlGOF/IIyTp6E0ni4fP0elCVX",
-	"eJNjJM/ApihQFAetOIA1DoUoN+jKqRE3bSxoWW01yIy/mjYut3illctNvh9rUyKLyt2qbryPanDHV/2q",
-	"9UH1fS1L61r6n1cL7ut3X7VQj9V3rYpkn3EzOsTnkyaU6IK0g5gDurwm44IHJaB0qOWpD8Q4Y3IBTnBU",
-	"jCIiPxA9lchgjVDbpjDuFLSy1kNuGHWwS1ABuHHBVAjDIeTGB+N0gBlTFY9QeWUcpFrKw5O3L+Hk1Yd3",
-	"Y4/eG3LDQlQ6TRHB2Hj0YIKH52+HL5gWoYQqhYycN4Jnc+QlMDUBoURGUDuWeViYUIKCGnnYGiZBuWPZ",
-	"NS7hxCPCbnccUcOp5htdYrjc7H+Ny/cenyqPY7hAT3aOfYunA3AUQMGrD+8m0WhfUl0jP/AwZVp4ZHA4",
-	"R45lkYK1S99cQuuGEfwiGQxzoCZs+ODVh3fDmimkCxqr2ozn51AwNTUYB7rK47NKGTcqaABeVQiMylN0",
-	"mciqzdhrKclYPDX6TfrbYIJwbbajxtYquaFskM2RfcLO+egsFok1OlWbbJI9Gp2NHknMq1BGeI+3Dh7P",
-	"z8dCXalCohQe+1i8SEj28FFQSWz+Gz0/gZ9RMTL81pydPdL7dxaf4ccBKJdDKFW6yKrxAaYIXlONOQQC",
-	"cgjCxHMEuVR2ysLJ01SSvlvW+LJ9eApeWfSbanU4BAHFk9q8xuUorl21a1cmF1/LdVxiCMYVEcQjuMDQ",
-	"sPOgHFCtPjUIcX6Qrn+rffyLLk/a1oxe6uET5RPkxVkPPIgvwWMhxfIpkAOMQPfN1AvNuBA3jnWbh2MM",
-	"/iSiGMHESpvkByzUUvzQ1koS34pDunWhqOjpl7ncPWNLO1lnlvTw7PzeJkl7vVDPIElHLXLB1+Mktu+0",
-	"jXppMhV3P3x4691xdlRVSsrl7DJIYlXgcAGF8HfKtNR2LyoWVYKuB34fI/GcPqSPP8d7X4k+BUaH7bv6",
-	"BYbWz7tjwV/7td9uGW/HhqvfD+7o7G+7I7q+w/WcPb7b9TzHoMsWtg88pMYsFUIQ015kgPVg7ot3sgmY",
-	"43T0IoFgHVjk7FLowNFuEOvGB6qQwVJhHOCfxgcPSwwjeG5c7oEYEpYjva93T5cQy3U4icysyc0lV5Hb",
-	"y6sRhsONBqaSTAnKMqp8CZIRTwc7p79FlwtGLwWdb6S0HECl+Nq3CObWmpRL4ESBR00uj+AGVSjjfEgs",
-	"FZWSF2bK2DZ7Pj77cdAmq9oqHUW2B8Q69jSRMK/Zb9PiW+Ou++cA6oYxQB81tZ64l6CJNdrPlC/vL146",
-	"7eRqvzxrO5hvF67dhu47hKzs/vHvYOu3gsCYYQV6MCM+5IbWq/7LZLCpx+umhwhSaRmDhLGFviBZIpYT",
-	"+4A1Pgg77CZe4zSjoFtZybtjxormOIJnSpctcUllO5wrG3uffC8GW2No4Tolycm6ukHHZK3UyBJ3a6t9",
-	"IH39E8RZ+1i6LlCM4J2qfUlBpMwYfbktw7UKylKxrS3E0nWkB258eocqCVc2xLC+mr4Y7fRC/8AwPdKt",
-	"/d3R+p2T61fE3kUKgm3ALUqymBDtMfSFW+cjQwy/45n3F+PaELPKBzj/1xnkaumBZiBKWoztUJqdnMzM",
-	"n5jDwricFgNonDXXuNNecmwvhRWUtchD38iVtYgeBzqN3JEqiBmnktouYUpNUYbOFKY19/L1ez+ABZqi",
-	"lKofUOJ5M5aR3C596npiMIJnf2rb5Jhe3KRv4zZnjqBnEgIzq4q2EW9HJuADkwh0op2U81OEBXFsbdP7",
-	"0mbHkaeQ0U4bF6sXbwqnbOovfuq2I7Rwfvt2Tdbo5eg39xVN2bfop8UsdDNijbl4WowolVgul+jRzuDE",
-	"uBkrH7jRoWEct8t+B5JtW56jtoqFd2Oz9qZG9+TtS/joUTdswvIjxGjFCeSUhnMqwIIaK1VOdAswFsaH",
-	"NJlTDnbGKYbc88bpVDuJmqRqM9SUY4EOWmKDlvuJk7M6jfvpABal0WVLzKmTU70jm4Qn6Rspx6nyCMp6",
-	"An9tai9rMzUnlgh6YRxUJs8tLiQxRLHb36NXH96dpkRm/PbwGVlLC5880ClZ+7JA29lcHHxb/CZ11/HP",
-	"kd+F1Pu/Pd4Xx9+VtZ8yeT/0aC1sOMZH8tsfSyUyF1oaACt3neJszWbDRHsopfqwbliXAjUh1fhBNIpE",
-	"nq+TffwumLXzqWz1++p/AQAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

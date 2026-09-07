@@ -162,6 +162,112 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/products:
+    get:
+      operationId: listStorefrontProducts
+      summary: List the calling channel's enrolled catalog
+      description: >
+        Only products actually enrolled on the calling key's sales channel
+        (see channels.SalesChannel's enrollment rule) -- an excluded or
+        never-enrolled product never appears here, and is never
+        distinguishable from one that simply doesn't exist (see
+        getStorefrontProduct's 404 for the same rule on a single product).
+      parameters:
+        - name: category_id
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProductListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/products/{id}:
+    get:
+      operationId: getStorefrontProduct
+      summary: Fetch one enrolled product's full variant/SKU/image detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProductResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/categories:
+    get:
+      operationId: listStorefrontCategories
+      summary: The tenant's whole category tree, flat with parent_id
+      description: >
+        Not channel-scoped -- a category with zero enrolled products for
+        this channel is still a legitimate (if empty) branch to show, same
+        as the admin PMS API's own category listing.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontCategoryListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/orders/lookup:
+    get:
+      operationId: lookupStorefrontOrder
+      summary: Guest order-status lookup by order number + billing email
+      description: >
+        Both order_number and email must match -- an order number alone is
+        not proof of ownership. Also scoped to the calling channel: a B2C
+        key can never surface a B2B order's status, or vice versa. Returns
+        404 for every failure reason (wrong number, wrong email, wrong
+        channel) alike, so this can never be used to enumerate order
+        numbers or guess billing emails.
+      parameters:
+        - name: order_number
+          in: query
+          required: true
+          schema: { type: string }
+        - name: email
+          in: query
+          required: true
+          schema: { type: string, format: email }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontOrderStatusResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     CartToken:
@@ -311,4 +417,116 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/Checkout' }
+        error: { nullable: true }
+
+    StorefrontProductSummary:
+      type: object
+      required: [id, name, slug, category_id, tags, image_url]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        category_id: { type: string, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+        image_url: { type: string, nullable: true }
+        price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null when the product has no SKU yet.
+        sale_price_minor_units: { type: integer, format: int64, nullable: true }
+        currency_code: { type: string, nullable: true }
+
+    StorefrontProductListResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/StorefrontProductSummary' }
+            total: { type: integer, format: int64 }
+        error: { nullable: true }
+
+    StorefrontSKU:
+      type: object
+      required: [id, sku_code, price_minor_units, currency_code, stock_quantity]
+      properties:
+        id: { type: string }
+        sku_code: { type: string }
+        price_minor_units: { type: integer, format: int64 }
+        sale_price_minor_units: { type: integer, format: int64, nullable: true }
+        currency_code: { type: string }
+        stock_quantity: { type: integer, format: int64 }
+
+    StorefrontVariant:
+      type: object
+      required: [id, name, skus]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        skus:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontSKU' }
+
+    StorefrontProduct:
+      type: object
+      required: [id, name, slug, description, category_id, tags, images, variants]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        category_id: { type: string, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontVariant' }
+
+    StorefrontProductResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontProduct' }
+        error: { nullable: true }
+
+    StorefrontCategory:
+      type: object
+      required: [id, parent_id, name, slug, position]
+      properties:
+        id: { type: string }
+        parent_id: { type: string, nullable: true }
+        name: { type: string }
+        slug: { type: string }
+        position: { type: integer }
+
+    StorefrontCategoryListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontCategory' }
+        error: { nullable: true }
+
+    StorefrontOrderStatus:
+      type: object
+      required: [order_number, status, fulfilled, total_minor_units, currency_code]
+      properties:
+        order_number: { type: string }
+        status: { type: string }
+        fulfilled: { type: boolean }
+        total_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+
+    StorefrontOrderStatusResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontOrderStatus' }
         error: { nullable: true }

@@ -139,6 +139,15 @@ type SalesOrder struct {
 	// 063's backfill). Lets "delete all imported products" for a
 	// connection find and remove that connection's own orders first.
 	ConnectionID *string
+	// SalesChannelID is set only for SalesOrderSourceInternal orders --
+	// which specific channels.SalesChannel the checkout happened on. Unlike
+	// ConnectionID (an integration's own connection, shared across however
+	// many channels use it), this exists because a tenant can run more than
+	// one internal storefront (e.g. B2C and B2B) with no other way to tell
+	// which one a given order came from -- WhatsApp/Woo/Bol don't need this
+	// since each has at most one active channel per tenant today. See
+	// application/storefront.CheckoutCartUseCase, the only writer.
+	SalesChannelID *string
 	// Number is the human-facing order number (Woo distinguishes this from
 	// ID -- number can be customized, ID can't).
 	Number   string

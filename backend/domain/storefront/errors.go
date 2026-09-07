@@ -27,4 +27,10 @@ var (
 	// always resolve to one (see the migration adding
 	// storefront_api_keys.sales_channel_id).
 	ErrNoInternalChannel = errors.New("storefront: no active internal sales channel for this key")
+	// ErrOrderNotFound covers "no order with this number", "order exists
+	// but the email doesn't match", and "order exists but was placed on a
+	// different sales channel" -- deliberately the same error for all
+	// three (see LookupOrderUseCase), so a guest order-status lookup can
+	// never be used to enumerate order numbers or guess billing emails.
+	ErrOrderNotFound = errors.New("order not found")
 )

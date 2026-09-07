@@ -22,9 +22,11 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -57,6 +59,22 @@ type checkoutCartUC interface {
 	Execute(ctx context.Context, token string, in appstorefront.CheckoutInput) (*appstorefront.CheckoutResult, error)
 }
 
+type listProductsUC interface {
+	Execute(ctx context.Context, salesChannelID string, in appstorefront.ListProductsInput) (*appstorefront.ListProductsResult, error)
+}
+
+type getProductUC interface {
+	Execute(ctx context.Context, salesChannelID, productID string) (*appstorefront.ProductDetail, error)
+}
+
+type listCategoriesUC interface {
+	Execute(ctx context.Context) ([]pmsDomain.Category, error)
+}
+
+type lookupOrderUC interface {
+	Execute(ctx context.Context, salesChannelID, orderNumber, email string) (*appstorefront.OrderStatus, error)
+}
+
 type Handler struct {
 	resolveAPIKey          resolveAPIKeyUC
 	getCartRecommendations getCartRecommendationsUC
@@ -64,6 +82,10 @@ type Handler struct {
 	getCart                getCartUC
 	updateCartItems        updateCartItemsUC
 	checkoutCart           checkoutCartUC
+	listProducts           listProductsUC
+	getProduct             getProductUC
+	listCategories         listCategoriesUC
+	lookupOrder            lookupOrderUC
 }
 
 func NewHandler(
@@ -73,10 +95,15 @@ func NewHandler(
 	getCart getCartUC,
 	updateCartItems updateCartItemsUC,
 	checkoutCart checkoutCartUC,
+	listProducts listProductsUC,
+	getProduct getProductUC,
+	listCategories listCategoriesUC,
+	lookupOrder lookupOrderUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
 		createCart: createCart, getCart: getCart, updateCartItems: updateCartItems, checkoutCart: checkoutCart,
+		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
 	}
 }
 
@@ -101,6 +128,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	stockMovementLinkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
 	stockMovementRepo := repositories.NewStockMovementRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
+	categoryRepo := repositories.NewCategoryRepo(db)
+	mediaRepo := repositories.NewMediaRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -110,6 +139,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		db, channelRepo, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(),
 		encryptionSecret, publicBaseURL,
 	)
+	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo)
 
 	h := NewHandler(
 		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
@@ -118,6 +148,10 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetCartUseCase(db, cartRepo),
 		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel),
 		appstorefront.NewCheckoutCartUseCase(db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink),
+		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog),
+		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
+		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
+		appstorefront.NewLookupOrderUseCase(db, salesRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -230,6 +264,92 @@ func (h *Handler) CheckoutCart(c *gin.Context, token genstorefront.CartToken) {
 	})
 }
 
+func (h *Handler) ListStorefrontProducts(c *gin.Context, params genstorefront.ListStorefrontProductsParams) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	in := appstorefront.ListProductsInput{CategoryID: params.CategoryId}
+	if params.Search != nil {
+		in.Search = *params.Search
+	}
+	if params.Page != nil {
+		in.Page = *params.Page
+	}
+	if params.PerPage != nil {
+		in.PerPage = *params.PerPage
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	result, err := h.listProducts.Execute(ctx, *resolved.SalesChannelID, in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	items := make([]genstorefront.StorefrontProductSummary, len(result.Products))
+	for i, p := range result.Products {
+		items[i] = toGenProductSummary(p)
+	}
+	total := result.Total
+	middleware.OK(c, struct {
+		Items []genstorefront.StorefrontProductSummary `json:"items"`
+		Total int64                                    `json:"total"`
+	}{Items: items, Total: total})
+}
+
+func (h *Handler) GetStorefrontProduct(c *gin.Context, id string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	detail, err := h.getProduct.Execute(ctx, *resolved.SalesChannelID, id)
+	if errors.Is(err, storefrontDomain.ErrProductNotAvailable) {
+		// A GET-by-id 404s for "doesn't exist" -- unlike a cart line's SKU
+		// code (a request-body field, so the same error is a 422 there),
+		// this is a plain resource lookup.
+		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		return
+	}
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenProductDetail(*detail))
+}
+
+func (h *Handler) ListStorefrontCategories(c *gin.Context) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	categories, err := h.listCategories.Execute(ctx)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	genCategories := make([]genstorefront.StorefrontCategory, len(categories))
+	for i, cat := range categories {
+		genCategories[i] = genstorefront.StorefrontCategory{
+			Id: cat.ID, ParentId: cat.ParentID, Name: cat.Name, Slug: cat.Slug, Position: cat.Position,
+		}
+	}
+	middleware.OK(c, genCategories)
+}
+
+func (h *Handler) LookupStorefrontOrder(c *gin.Context, params genstorefront.LookupStorefrontOrderParams) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	status, err := h.lookupOrder.Execute(ctx, *resolved.SalesChannelID, params.OrderNumber, string(params.Email))
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genstorefront.StorefrontOrderStatus{
+		OrderNumber: status.OrderNumber, Status: string(status.Status), Fulfilled: status.Fulfilled,
+		TotalMinorUnits: status.TotalMinorUnits, CurrencyCode: status.CurrencyCode,
+	})
+}
+
 // authenticate resolves the bearer key to a tenant only -- used by routes
 // (GetCartRecommendations) that don't need a specific sales channel.
 func (h *Handler) authenticate(c *gin.Context) (apikeysDomain.ResolvedAPIKey, bool) {
@@ -292,6 +412,32 @@ func toAddressInput(a genstorefront.CheckoutAddress) appstorefront.CheckoutAddre
 	}
 }
 
+func toGenProductSummary(p appstorefront.ProductSummary) genstorefront.StorefrontProductSummary {
+	return genstorefront.StorefrontProductSummary{
+		Id: p.ID, Name: p.Name, Slug: p.Slug, CategoryId: p.CategoryID, Tags: p.Tags,
+		ImageUrl: p.ImageURL, PriceMinorUnits: p.PriceMinorUnits, SalePriceMinorUnits: p.SalePriceMinorUnits,
+		CurrencyCode: p.CurrencyCode,
+	}
+}
+
+func toGenProductDetail(d appstorefront.ProductDetail) genstorefront.StorefrontProduct {
+	variants := make([]genstorefront.StorefrontVariant, len(d.Variants))
+	for i, v := range d.Variants {
+		skus := make([]genstorefront.StorefrontSKU, len(v.SKUs))
+		for j, s := range v.SKUs {
+			skus[j] = genstorefront.StorefrontSKU{
+				Id: s.ID, SkuCode: s.SKUCode, PriceMinorUnits: s.PriceMinorUnits,
+				SalePriceMinorUnits: s.SalePriceMinorUnits, CurrencyCode: s.CurrencyCode, StockQuantity: s.StockQuantity,
+			}
+		}
+		variants[i] = genstorefront.StorefrontVariant{Id: v.ID, Name: v.Name, Skus: skus}
+	}
+	return genstorefront.StorefrontProduct{
+		Id: d.ID, Name: d.Name, Slug: d.Slug, Description: d.Description, CategoryId: d.CategoryID,
+		Tags: d.Tags, Images: d.Images, Variants: variants,
+	}
+}
+
 func strPtrOr(s *string) string {
 	if s == nil {
 		return ""
@@ -310,7 +456,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, storefrontDomain.ErrProductNotAvailable),
 		errors.Is(err, storefrontDomain.ErrNoInternalChannel):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
-	case errors.Is(err, storefrontDomain.ErrCartNotFound):
+	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartAlreadyCheckedOut):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())

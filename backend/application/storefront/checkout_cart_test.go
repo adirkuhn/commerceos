@@ -98,6 +98,8 @@ func TestCheckoutCart_placesAPendingOrderForAnExistingCustomer(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "sku-1", createOrder.got.LineItems[0].SKUID)
+	require.NotNil(t, createOrder.got.SalesChannelID)
+	require.Equal(t, "channel-1", *createOrder.got.SalesChannelID)
 	require.Equal(t, omsDomain.SalesOrderSourceInternal, createOrder.got.Source)
 	require.Equal(t, omsDomain.SalesOrderStatusPending, createOrder.got.Status)
 	require.Equal(t, "existing-customer-1", *createOrder.got.CustomerID)

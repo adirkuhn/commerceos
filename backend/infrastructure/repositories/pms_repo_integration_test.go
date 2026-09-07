@@ -1230,3 +1230,120 @@ func TestProductHistoryRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, historyFromOtherTenant, "tenant B must not see tenant A's product history")
 }
+
+// seedProductForFilterTest creates one active product with the given
+// category/tags, returning its id.
+func seedProductForFilterTest(t *testing.T, ctx context.Context, repo *repositories.ProductRepo, name string, categoryID *string, tags []string) string {
+	t.Helper()
+	now := time.Now()
+	p := &pmsDomain.Product{
+		TenantID: tenant.IDFromContext(ctx), Name: name, Slug: name, CategoryID: categoryID,
+		Tags: tags, Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+	}
+	require.NoError(t, repo.Create(ctx, p))
+	return p.ID
+}
+
+// TestProductRepo_Integration_ListByTagUsesJSONBContainment proves the
+// tags @> ?::jsonb clause actually matches real Postgres JSONB rows, not
+// just parses -- sqlmock can't catch a wrong containment operator/cast.
+func TestProductRepo_Integration_ListByTagUsesJSONBContainment(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+
+	var summerID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		summerID = seedProductForFilterTest(t, ctx, productRepo, "Sunhat", nil, []string{"summer", "sale"})
+		seedProductForFilterTest(t, ctx, productRepo, "Scarf", nil, []string{"winter"})
+		return nil
+	})
+	require.NoError(t, err)
+
+	var results []pmsDomain.Product
+	tag := "summer"
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Tag: &tag})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, summerID, results[0].ID)
+}
+
+// TestProductRepo_Integration_ListCombinesCategoryOrIncludeIDsThenExcludes
+// proves the OR-group-then-AND-NOT-exclude SQL this filter builds actually
+// behaves as documented on ProductFilter -- exactly the "category X's
+// products, plus these manually-included ones, minus these excluded ones"
+// shape application/storefront's enrollment-aware listing depends on for
+// exact pagination.
+func TestProductRepo_Integration_ListCombinesCategoryOrIncludeIDsThenExcludes(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	categoryRepo := repositories.NewCategoryRepo(db)
+
+	var categoryID string
+	var inCategoryID, manuallyIncludedID, excludedID, unrelatedID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		cat := &pmsDomain.Category{TenantID: tenant.IDFromContext(ctx), Name: "Shoes", Slug: "shoes-filter-test", CreatedAt: now, UpdatedAt: now}
+		if err := categoryRepo.Create(ctx, cat); err != nil {
+			return err
+		}
+		categoryID = cat.ID
+		inCategoryID = seedProductForFilterTest(t, ctx, productRepo, "In category", &categoryID, nil)
+		manuallyIncludedID = seedProductForFilterTest(t, ctx, productRepo, "Manually included", nil, nil)
+		excludedID = seedProductForFilterTest(t, ctx, productRepo, "In category but excluded", &categoryID, nil)
+		unrelatedID = seedProductForFilterTest(t, ctx, productRepo, "Unrelated", nil, nil)
+		return nil
+	})
+	require.NoError(t, err)
+	_ = unrelatedID
+
+	includeIDs := []string{manuallyIncludedID}
+	var results []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{
+			CategoryID: &categoryID, IncludeIDs: &includeIDs, ExcludeIDs: []string{excludedID},
+		})
+		return err
+	})
+	require.NoError(t, err)
+
+	gotIDs := make([]string, len(results))
+	for i, p := range results {
+		gotIDs[i] = p.ID
+	}
+	require.ElementsMatch(t, []string{inCategoryID, manuallyIncludedID}, gotIDs)
+}
+
+// TestProductRepo_Integration_ListManualModeWithNoIncludesMatchesNothing
+// proves a non-nil-but-empty IncludeIDs (CategoryID/Tag both nil) matches
+// zero rows rather than silently falling through to "no constraint" --
+// this is the empty-manual-enrollment case application/storefront's
+// listing hits for a channel with EnrollmentModeManual and no products
+// added to it yet.
+func TestProductRepo_Integration_ListManualModeWithNoIncludesMatchesNothing(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		seedProductForFilterTest(t, ctx, productRepo, "Anything", nil, nil)
+		return nil
+	})
+	require.NoError(t, err)
+
+	emptyIncludes := []string{}
+	var results []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{IncludeIDs: &emptyIncludes})
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, results)
+}

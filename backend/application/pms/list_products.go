@@ -20,6 +20,23 @@ type ListProductsInput struct {
 	PerPage      int
 	Search       string
 	UpdatedAfter *time.Time
+	// AndCategoryID/CategoryID/Tag/IncludeIDs/ExcludeIDs pass straight
+	// through to pmsDomain.ProductFilter's fields of the same name --
+	// application/storefront is the caller that populates these (see that
+	// package's own doc comment for why: this use case stays enrollment-
+	// agnostic, storefront translates a channel's actual rule into these
+	// generic filter primitives).
+	AndCategoryID *string
+	CategoryID    *string
+	Tag           *string
+	IncludeIDs    *[]string
+	ExcludeIDs    []string
+	// Status restricts to one product status -- nil (the admin catalog's
+	// default) means every status. application/storefront always passes
+	// ProductStatusActive: a Draft/Archived product must never render on a
+	// live storefront, same rule pms.Product.IsSyncableToChannels enforces
+	// for external channel pushes.
+	Status *pmsDomain.ProductStatus
 }
 
 type ListProductsResult struct {
@@ -49,7 +66,11 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, in ListProductsInput
 		perPage = maxProductsPerPage
 	}
 
-	filter := pmsDomain.ProductFilter{Limit: perPage, Offset: (page - 1) * perPage}
+	filter := pmsDomain.ProductFilter{
+		Limit: perPage, Offset: (page - 1) * perPage,
+		AndCategoryID: in.AndCategoryID, CategoryID: in.CategoryID, Tag: in.Tag,
+		IncludeIDs: in.IncludeIDs, ExcludeIDs: in.ExcludeIDs, Status: in.Status,
+	}
 	if in.Search != "" {
 		filter.Search = &in.Search
 	}

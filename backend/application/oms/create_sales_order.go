@@ -37,15 +37,19 @@ type CreateSalesOrderInput struct {
 	// (and still most common) caller of this use case, the admin UI's
 	// manual-order form. application/whatsapp's chat checkout is the one
 	// other caller, passing SalesOrderSourceWhatsApp explicitly.
-	Source       omsDomain.SalesOrderSource
-	Number       string
-	OrderKey     string
-	Status       omsDomain.SalesOrderStatus // defaults to Pending -- unlike a POS push, a manual order is not necessarily already paid/fulfilled
-	WarehouseID  string
-	CustomerID   *string
-	Billing      omsDomain.Address
-	Shipping     omsDomain.Address
-	CustomerNote string
+	Source      omsDomain.SalesOrderSource
+	Number      string
+	OrderKey    string
+	Status      omsDomain.SalesOrderStatus // defaults to Pending -- unlike a POS push, a manual order is not necessarily already paid/fulfilled
+	WarehouseID string
+	CustomerID  *string
+	// SalesChannelID is set only by application/storefront's checkout
+	// (SalesOrderSourceInternal) -- see SalesOrder.SalesChannelID's doc
+	// comment. Nil for every other caller of this use case.
+	SalesChannelID *string
+	Billing        omsDomain.Address
+	Shipping       omsDomain.Address
+	CustomerNote   string
 
 	CurrencyCode            string
 	DiscountTotalMinorUnits int64
@@ -110,7 +114,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 		newOrder := omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: source,
 			ExternalOrderID: uuid.NewString(), Number: in.Number, OrderKey: in.OrderKey, Status: status,
-			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, Billing: in.Billing, Shipping: in.Shipping,
+			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, SalesChannelID: in.SalesChannelID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,

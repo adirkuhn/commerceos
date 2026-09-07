@@ -34,12 +34,40 @@ type ProductRepository interface {
 
 type ProductFilter struct {
 	CategoryID *string
-	Status     *ProductStatus
+	// Tag matches products whose Tags array contains this value exactly
+	// (JSONB containment, not a substring match) -- same field
+	// SalesChannel's "by tag" enrollment rule matches against.
+	Tag    *string
+	Status *ProductStatus
 	// Search matches against name or slug (case- and accent-insensitively,
 	// e.g. "acai" matches "Açaí"), or any of the product's SKUs' sku_code
 	// or barcode (case-insensitive, exact substring -- these are codes, not
 	// natural-language text, so no accent-folding needed there).
 	Search *string
+	// IncludeIDs, CategoryID and Tag combine with OR into one group (a
+	// product matches the group if it satisfies ANY of the ones that are
+	// set), which then ANDs with every other filter below -- this is what
+	// lets application/storefront express "category X's products, PLUS
+	// these specific manually-included ones" (or tag/manual-only) as a
+	// single, exactly-paginated query instead of over-fetching and
+	// filtering in Go. nil means "not constrained by an explicit id list"
+	// (omitted from the group entirely) -- a non-nil pointer, even to an
+	// empty slice, means "constrained to exactly this list", so when
+	// CategoryID and Tag are both nil too, an empty IncludeIDs correctly
+	// matches nothing rather than silently matching everything.
+	IncludeIDs *[]string
+	// ExcludeIDs removes these product ids from the result regardless of
+	// every other filter -- applied last, unconditionally.
+	ExcludeIDs []string
+	// AndCategoryID is a plain, independent "AND category_id = ?" filter --
+	// unlike CategoryID (which is part of the enrollment OR-group above),
+	// this narrows the result regardless of IncludeIDs/Tag. Lets
+	// application/storefront support "browse this category" on top of
+	// "products enrolled on this channel" as one exact query, without the
+	// two concepts interfering (a manually-included product from a
+	// different category correctly stays hidden while browsing a specific
+	// category, but still shows up when browsing "all").
+	AndCategoryID *string
 	// UpdatedAfter restricts to products modified after this time --
 	// incremental-sync filter for external integrations pulling the
 	// catalog (e.g. a POS desktop), same idea as WooCommerce's own

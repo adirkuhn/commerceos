@@ -11,8 +11,10 @@ import (
 	"gorm.io/gorm"
 
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -102,7 +104,8 @@ func (f *fakeCartRepo) Update(_ context.Context, c *storefrontDomain.Cart) error
 
 type fakeSKURepo struct {
 	pmsDomain.SKURepository
-	byCode map[string]pmsDomain.SKU
+	byCode    map[string]pmsDomain.SKU
+	byVariant map[string][]pmsDomain.SKU
 }
 
 func (f *fakeSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU, error) {
@@ -112,9 +115,14 @@ func (f *fakeSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU
 	return nil, pmsDomain.ErrSKUNotFound
 }
 
+func (f *fakeSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
+	return f.byVariant[variantID], nil
+}
+
 type fakeVariantRepo struct {
 	pmsDomain.VariantRepository
-	byID map[string]pmsDomain.Variant
+	byID      map[string]pmsDomain.Variant
+	byProduct map[string][]pmsDomain.Variant
 }
 
 func (f *fakeVariantRepo) FindByID(_ context.Context, id string) (*pmsDomain.Variant, error) {
@@ -122,6 +130,10 @@ func (f *fakeVariantRepo) FindByID(_ context.Context, id string) (*pmsDomain.Var
 		return &v, nil
 	}
 	return nil, pmsDomain.ErrVariantNotFound
+}
+
+func (f *fakeVariantRepo) ListByProduct(_ context.Context, productID string) ([]pmsDomain.Variant, error) {
+	return f.byProduct[productID], nil
 }
 
 type fakeProductRepo struct {
@@ -138,10 +150,15 @@ func (f *fakeProductRepo) FindByID(_ context.Context, id string) (*pmsDomain.Pro
 
 type fakeOverrideRepo struct {
 	channelsDomain.SalesChannelProductOverrideRepository
+	byChannel map[string][]channelsDomain.SalesChannelProductOverride
 }
 
 func (f *fakeOverrideRepo) FindByChannelAndProduct(_ context.Context, _, _ string) (*channelsDomain.SalesChannelProductOverride, error) {
 	return nil, nil
+}
+
+func (f *fakeOverrideRepo) ListByChannel(_ context.Context, channelID string) ([]channelsDomain.SalesChannelProductOverride, error) {
+	return f.byChannel[channelID], nil
 }
 
 type fakeStockLevel struct {
@@ -167,6 +184,58 @@ func seedCatalogOneSKU(skuCode, skuID string, priceMinorUnits, stock int64) (*fa
 	override := &fakeOverrideRepo{}
 	stockLevel := &fakeStockLevel{byID: map[string]int64{skuID: stock}}
 	return sku, variant, product, override, stockLevel
+}
+
+type fakeMediaRepo struct {
+	pmsDomain.MediaRepository
+	byProduct map[string][]pmsDomain.Media
+}
+
+func (f *fakeMediaRepo) ListByProduct(_ context.Context, productID string) ([]pmsDomain.Media, error) {
+	return f.byProduct[productID], nil
+}
+
+type fakeCategoryRepo struct {
+	pmsDomain.CategoryRepository
+	out []pmsDomain.Category
+	err error
+}
+
+func (f *fakeCategoryRepo) List(_ context.Context) ([]pmsDomain.Category, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.out, nil
+}
+
+type fakeListPOSProductCatalog struct {
+	out    *apppms.ListPOSProductCatalogResult
+	err    error
+	gotIn  apppms.ListProductsInput
+	gotCtx context.Context
+}
+
+func (f *fakeListPOSProductCatalog) Execute(ctx context.Context, in apppms.ListProductsInput) (*apppms.ListPOSProductCatalogResult, error) {
+	f.gotIn, f.gotCtx = in, ctx
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.out != nil {
+		return f.out, nil
+	}
+	return &apppms.ListPOSProductCatalogResult{}, nil
+}
+
+type fakeSalesOrderRepo struct {
+	omsDomain.SalesOrderRepository
+	byNumber map[string]omsDomain.SalesOrder
+}
+
+func (f *fakeSalesOrderRepo) FindByNumber(_ context.Context, number string) (*omsDomain.SalesOrder, error) {
+	if o, ok := f.byNumber[number]; ok {
+		return &o, nil
+	}
+	return nil, nil
 }
 
 // ── customers ────────────────────────────────────────────────────────────

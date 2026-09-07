@@ -147,7 +147,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	orderNumber := "WEB-" + strings.ToUpper(idgen.NewV4()[:8])
 	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
 		Source: omsDomain.SalesOrderSourceInternal, Number: orderNumber, OrderKey: orderNumber,
-		Status: omsDomain.SalesOrderStatusPending, CustomerID: &customerID,
+		Status: omsDomain.SalesOrderStatusPending, CustomerID: &customerID, SalesChannelID: &cart.SalesChannelID,
 		Billing:            toOMSAddress(in.Billing, in.Email),
 		Shipping:           toOMSAddress(in.Shipping, ""),
 		CurrencyCode:       currency,

@@ -103,6 +103,22 @@ func TestCreateSalesOrder_pendingOrderDoesNotDecrementStock(t *testing.T) {
 	assert.Empty(t, recordMovement.calls, "pending order has not been paid for yet -- no stock impact")
 }
 
+func TestCreateSalesOrder_persistsSalesChannelIDWhenGiven(t *testing.T) {
+	db := newMockGormDB(t)
+	salesOrderRepo := &stubSalesOrderRepo{}
+	uc := appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{})
+	channelID := "channel-1"
+
+	order, err := uc.Execute(context.Background(), appoms.CreateSalesOrderInput{
+		WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(), SalesChannelID: &channelID,
+		LineItems: []appoms.CreateSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 1, PriceMinorUnits: 500}},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, order.SalesOrder.SalesChannelID)
+	assert.Equal(t, channelID, *order.SalesOrder.SalesChannelID)
+}
+
 func TestCreateSalesOrder_defaultsStatusToPending(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{}

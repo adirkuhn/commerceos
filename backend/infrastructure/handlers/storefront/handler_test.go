@@ -16,6 +16,7 @@ import (
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 )
@@ -113,8 +114,63 @@ func (s *stubCheckoutCart) Execute(_ context.Context, token string, in appstoref
 	return s.out, nil
 }
 
-func newTestHandler(resolve *stubResolveStorefrontKey, get *stubGetCartRecommendations, create *stubCreateCart, getCart *stubGetCart, update *stubUpdateCartItems, checkout *stubCheckoutCart) *storefronthandler.Handler {
-	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout)
+type stubListProducts struct {
+	out *appstorefront.ListProductsResult
+	err error
+}
+
+func (s *stubListProducts) Execute(_ context.Context, _ string, _ appstorefront.ListProductsInput) (*appstorefront.ListProductsResult, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appstorefront.ListProductsResult{}, nil
+}
+
+type stubGetProduct struct {
+	out     *appstorefront.ProductDetail
+	err     error
+	gotID   string
+	gotChan string
+}
+
+func (s *stubGetProduct) Execute(_ context.Context, salesChannelID, productID string) (*appstorefront.ProductDetail, error) {
+	s.gotChan, s.gotID = salesChannelID, productID
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
+type stubListCategories struct {
+	out []pmsDomain.Category
+	err error
+}
+
+func (s *stubListCategories) Execute(_ context.Context) ([]pmsDomain.Category, error) {
+	return s.out, s.err
+}
+
+type stubLookupOrder struct {
+	out *appstorefront.OrderStatus
+	err error
+}
+
+func (s *stubLookupOrder) Execute(_ context.Context, _, _, _ string) (*appstorefront.OrderStatus, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
+func newTestHandler(
+	resolve *stubResolveStorefrontKey, get *stubGetCartRecommendations, create *stubCreateCart, getCart *stubGetCart,
+	update *stubUpdateCartItems, checkout *stubCheckoutCart, listProducts *stubListProducts, getProduct *stubGetProduct,
+	listCategories *stubListCategories, lookupOrder *stubLookupOrder,
+) *storefronthandler.Handler {
+	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder)
 }
 
 func newTestRouter(h *storefronthandler.Handler) *gin.Engine {
@@ -144,7 +200,7 @@ func TestGetCartRecommendationsHandler_success(t *testing.T) {
 			{SKUCode: "SKU-B", ProductName: "Widget B", Confidence: 0.6, IsBundleCandidate: true},
 		},
 	}}
-	h := newTestHandler(resolve, get, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(resolve, get, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPost, cartRecommendationsPath, `{"items":[{"sku_code":"SKU-A","quantity":2}]}`, "test-key")
 
@@ -158,7 +214,7 @@ func TestGetCartRecommendationsHandler_success(t *testing.T) {
 }
 
 func TestGetCartRecommendationsHandler_missingBearerToken(t *testing.T) {
-	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPost, cartRecommendationsPath, `{"items":[]}`, "")
 
@@ -167,7 +223,7 @@ func TestGetCartRecommendationsHandler_missingBearerToken(t *testing.T) {
 
 func TestGetCartRecommendationsHandler_invalidKey(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{err: errors.New("invalid key")}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPost, cartRecommendationsPath, `{"items":[]}`, "wrong-key")
 
@@ -177,7 +233,7 @@ func TestGetCartRecommendationsHandler_invalidKey(t *testing.T) {
 func TestGetCartRecommendationsHandler_propagatesValidationError(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
 	get := &stubGetCartRecommendations{err: appreports.ErrCartEmpty}
-	h := newTestHandler(resolve, get, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(resolve, get, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPost, cartRecommendationsPath, `{"items":[]}`, "test-key")
 
@@ -191,7 +247,7 @@ func channelScopedKey(tenantID, channelID string) apikeysDomain.ResolvedAPIKey {
 func TestCreateCartHandler_success(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
 	create := &stubCreateCart{out: &storefrontDomain.Cart{Token: "cart-token-1"}}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, create, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, create, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts", `{}`, "test-key")
 
@@ -202,7 +258,7 @@ func TestCreateCartHandler_success(t *testing.T) {
 
 func TestCreateCartHandler_rejectsTenantWideKey(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts", `{}`, "test-key")
 
@@ -212,7 +268,7 @@ func TestCreateCartHandler_rejectsTenantWideKey(t *testing.T) {
 func TestGetCartHandler_notFound(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
 	get := &stubGetCart{err: storefrontDomain.ErrCartNotFound}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, get, &stubUpdateCartItems{}, &stubCheckoutCart{})
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, get, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/carts/unknown-token", "", "test-key")
 
@@ -225,7 +281,7 @@ func TestUpdateCartItemsHandler_success(t *testing.T) {
 	update := &stubUpdateCartItems{out: &storefrontDomain.Cart{Token: "cart-token-1", Items: []storefrontDomain.CartItem{
 		{SKUCode: "SKU-A", Quantity: 2, PriceMinorUnits: 500, CurrencyCode: "EUR"},
 	}}}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, update, &stubCheckoutCart{})
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, update, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/carts/cart-token-1/items", `{"items":[{"sku_code":"SKU-A","quantity":2}]}`, "test-key")
 
@@ -239,7 +295,7 @@ func TestUpdateCartItemsHandler_success(t *testing.T) {
 func TestUpdateCartItemsHandler_insufficientStock(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
 	update := &stubUpdateCartItems{err: storefrontDomain.ErrInsufficientStock}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, update, &stubCheckoutCart{})
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, update, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/carts/cart-token-1/items", `{"items":[{"sku_code":"SKU-A","quantity":999}]}`, "test-key")
 
@@ -251,7 +307,7 @@ func TestCheckoutCartHandler_success(t *testing.T) {
 	checkout := &stubCheckoutCart{out: &appstorefront.CheckoutResult{
 		OrderNumber: "WEB-ABCD1234", TotalMinorUnits: 1000, CurrencyCode: "EUR", PaymentURL: strPtr("https://pay.example/abc"),
 	}}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout)
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	body := `{"email":"shopper@example.com","billing":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"}}`
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/checkout", body, "test-key")
@@ -267,10 +323,92 @@ func TestCheckoutCartHandler_success(t *testing.T) {
 func TestCheckoutCartHandler_alreadyCheckedOut(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
 	checkout := &stubCheckoutCart{err: storefrontDomain.ErrCartAlreadyCheckedOut}
-	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout)
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	body := `{"email":"shopper@example.com","billing":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"}}`
 	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/checkout", body, "test-key")
 
 	require.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestListStorefrontProductsHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	price := int64(500)
+	list := &stubListProducts{out: &appstorefront.ListProductsResult{
+		Total: 1,
+		Products: []appstorefront.ProductSummary{{
+			Product: pmsDomain.Product{ID: "product-1", Name: "Widget", Slug: "widget"}, PriceMinorUnits: &price,
+		}},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, list, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"name":"Widget"`)
+	assert.Contains(t, w.Body.String(), `"total":1`)
+}
+
+func TestListStorefrontProductsHandler_rejectsTenantWideKey(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products", "", "test-key")
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetStorefrontProductHandler_notAvailableIs404(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	get := &stubGetProduct{err: storefrontDomain.ErrProductNotAvailable}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, get, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products/unknown-id", "", "test-key")
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, "channel-1", get.gotChan)
+	assert.Equal(t, "unknown-id", get.gotID)
+}
+
+func TestGetStorefrontProductHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	get := &stubGetProduct{out: &appstorefront.ProductDetail{Product: pmsDomain.Product{ID: "product-1", Name: "Widget"}}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, get, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products/product-1", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"name":"Widget"`)
+}
+
+func TestListStorefrontCategoriesHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	list := &stubListCategories{out: []pmsDomain.Category{{ID: "cat-1", Name: "Shoes", Slug: "shoes"}}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, list, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/categories", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"name":"Shoes"`)
+}
+
+func TestLookupStorefrontOrderHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	lookup := &stubLookupOrder{out: &appstorefront.OrderStatus{OrderNumber: "WEB-ABCD1234", Status: "processing", TotalMinorUnits: 1000, CurrencyCode: "EUR"}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, lookup)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/orders/lookup?order_number=WEB-ABCD1234&email=shopper@example.com", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"order_number":"WEB-ABCD1234"`)
+}
+
+func TestLookupStorefrontOrderHandler_notFoundIs404(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	lookup := &stubLookupOrder{err: storefrontDomain.ErrOrderNotFound}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, lookup)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/orders/lookup?order_number=WEB-NOPE0000&email=shopper@example.com", "", "test-key")
+
+	require.Equal(t, http.StatusNotFound, w.Code)
 }

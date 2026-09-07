@@ -21,6 +21,12 @@ import (
 
 // catalogEntry is one SKU code's current, checkout-relevant catalog state
 // -- what UpdateCartItemsUseCase needs to build a fresh CartItem snapshot.
+// Deliberately carries no stock figure: StockLevelGetter.Execute opens its
+// own transaction (see its doc comment), so callers fetch stock as a
+// separate step after the transaction lookupCatalogEntry runs in has
+// closed -- same "compose across transactions, never nest tenant.WithTenant
+// calls" convention application/whatsapp's placeOrder already follows for
+// this exact use case.
 type catalogEntry struct {
 	SKUID               string
 	ProductName         string
@@ -28,13 +34,14 @@ type catalogEntry struct {
 	SalePriceMinorUnits *int64
 	CurrencyCode        string
 	TaxClassID          *string
-	StockQuantity       int64
 }
 
-// stockLevelGetter is *application/inventory.GetSKUStockLevelUseCase
+// StockLevelGetter is *application/inventory.GetSKUStockLevelUseCase
 // narrowed to point of use (ISP), same convention as
-// application/whatsapp.stockLevelGetter.
-type stockLevelGetter interface {
+// application/whatsapp.stockLevelGetter. Exported (unlike that one) because
+// every use case in this package needing stock is a distinct caller of it,
+// not a single shared field.
+type StockLevelGetter interface {
 	Execute(ctx context.Context, skuID string) (*appinventory.StockLevel, error)
 }
 
@@ -43,14 +50,15 @@ type stockLevelGetter interface {
 // "SKU exists but isn't enrolled in this channel" -- same reasoning as
 // application/whatsapp.ErrProductNotFound: a storefront request must never
 // be able to use this to probe which SKU codes exist beyond what's
-// actually enrolled here.
+// actually enrolled here. Must be called from inside a tenant.WithTenant
+// block (it takes no db of its own) -- callers fetch stock separately,
+// once that block has closed.
 func lookupCatalogEntry(
 	ctx context.Context,
 	skuRepo pmsDomain.SKURepository,
 	variantRepo pmsDomain.VariantRepository,
 	productRepo pmsDomain.ProductRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
-	stockLevel stockLevelGetter,
 	channel channelsDomain.SalesChannel,
 	skuCode string,
 ) (*catalogEntry, error) {
@@ -82,14 +90,9 @@ func lookupCatalogEntry(
 	if !channel.IsProductEnrolled(product.CategoryID, product.Tags, override) {
 		return nil, storefrontDomain.ErrProductNotAvailable
 	}
-	level, err := stockLevel.Execute(ctx, sku.ID)
-	if err != nil {
-		return nil, err
-	}
 	return &catalogEntry{
 		SKUID: sku.ID, ProductName: product.Name, PriceMinorUnits: sku.PriceMinorUnits,
 		SalePriceMinorUnits: sku.SalePriceMinorUnits, CurrencyCode: sku.CurrencyCode, TaxClassID: sku.TaxClassID,
-		StockQuantity: level.Syncable,
 	}, nil
 }
 

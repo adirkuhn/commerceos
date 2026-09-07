@@ -333,8 +333,39 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		return nil, 0, err
 	}
 	q := tx.Model(&productModel{})
-	if filter.CategoryID != nil {
-		q = q.Where("category_id = ?", *filter.CategoryID)
+	if filter.CategoryID != nil || filter.Tag != nil || filter.IncludeIDs != nil {
+		var ors []string
+		var args []any
+		if filter.CategoryID != nil {
+			ors = append(ors, "category_id = ?")
+			args = append(args, *filter.CategoryID)
+		}
+		if filter.Tag != nil {
+			tagJSON, err := json.Marshal([]string{*filter.Tag})
+			if err != nil {
+				return nil, 0, fmt.Errorf("productRepo.List: marshal tag: %w", err)
+			}
+			ors = append(ors, "tags @> ?::jsonb")
+			args = append(args, string(tagJSON))
+		}
+		if filter.IncludeIDs != nil && len(*filter.IncludeIDs) > 0 {
+			ors = append(ors, "id IN ?")
+			args = append(args, *filter.IncludeIDs)
+		}
+		if len(ors) == 0 {
+			// CategoryID/Tag both nil and IncludeIDs a non-nil empty slice
+			// -- see ProductFilter.IncludeIDs' doc comment: this must match
+			// nothing, not fall through to "no constraint at all".
+			q = q.Where("1 = 0")
+		} else {
+			q = q.Where(strings.Join(ors, " OR "), args...)
+		}
+	}
+	if len(filter.ExcludeIDs) > 0 {
+		q = q.Where("id NOT IN ?", filter.ExcludeIDs)
+	}
+	if filter.AndCategoryID != nil {
+		q = q.Where("category_id = ?", *filter.AndCategoryID)
 	}
 	if filter.Status != nil {
 		q = q.Where("status = ?", string(*filter.Status))

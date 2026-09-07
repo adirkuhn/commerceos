@@ -21,7 +21,7 @@ func TestUpdateCartItems_replacesTheWholeLineSetWithFreshCatalogSnapshot(t *test
 		"token-1": {ID: "cart-1", Token: "token-1", SalesChannelID: "channel-1"},
 	}}
 	sku, variant, product, override, stockLevel := seedCatalogOneSKU("SKU-A", "sku-1", 500, 10)
-	uc := newUpdateCartItemsUseCase(t, 1, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
+	uc := newUpdateCartItemsUseCase(t, 2, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
 
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 3}})
 
@@ -41,7 +41,7 @@ func TestUpdateCartItems_usesSalePriceWhenActive(t *testing.T) {
 	entry := sku.byCode["SKU-A"]
 	entry.SalePriceMinorUnits = &sale
 	sku.byCode["SKU-A"] = entry
-	uc := newUpdateCartItemsUseCase(t, 1, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
+	uc := newUpdateCartItemsUseCase(t, 2, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
 
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 1}})
 
