@@ -28,7 +28,7 @@ type listAPIKeysUC interface {
 	Execute(ctx context.Context) ([]apikeysDomain.APIKey, error)
 }
 type createAPIKeyUC interface {
-	Execute(ctx context.Context, name, description string) (*appapikeys.CreateAPIKeyResult, error)
+	Execute(ctx context.Context, name, description string, salesChannelID *string) (*appapikeys.CreateAPIKeyResult, error)
 }
 type revokeAPIKeyUC interface {
 	Execute(ctx context.Context, id string) error
@@ -130,12 +130,12 @@ func (h *Handler) CreateApiKey(c *gin.Context) {
 	if req.Description != nil {
 		description = *req.Description
 	}
-	result, err := h.createAPIKey.Execute(c.Request.Context(), req.Name, description)
+	result, err := h.createAPIKey.Execute(c.Request.Context(), req.Name, description, req.SalesChannelId)
 	if err := mapError(c, err); err != nil {
 		return
 	}
 	middleware.OK(c, gensettings.ApiKeyCreated{
-		Id: result.ID, Name: result.Name, Description: result.Description,
+		Id: result.ID, Name: result.Name, Description: result.Description, SalesChannelId: result.SalesChannelID,
 		CreatedAt: result.CreatedAt, Key: result.PlaintextKey,
 	})
 }
@@ -151,6 +151,7 @@ func (h *Handler) RevokeApiKey(c *gin.Context, id string) {
 func toGenAPIKey(k apikeysDomain.APIKey) gensettings.ApiKey {
 	return gensettings.ApiKey{
 		Id: k.ID, Name: k.Name, Description: k.Description, CreatedAt: k.CreatedAt, RevokedAt: k.RevokedAt,
+		SalesChannelId: k.SalesChannelID,
 	}
 }
 

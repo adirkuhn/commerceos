@@ -26,26 +26,27 @@ func NewResolveAPIKeyUseCase(db *gorm.DB, repo apikeysDomain.Repository) *Resolv
 	return &ResolveAPIKeyUseCase{db: db, repo: repo}
 }
 
-// Execute returns the TenantID the plaintext key belongs to, or
-// apikeysDomain.ErrNotFound if it matches no active key -- the handler
-// maps that to a 401, never leaking whether the key was wrong or revoked.
-func (uc *ResolveAPIKeyUseCase) Execute(ctx context.Context, plaintextKey string) (string, error) {
+// Execute returns the ResolvedAPIKey (tenant, and sales channel if the key
+// is scoped) the plaintext key belongs to, or apikeysDomain.ErrNotFound if
+// it matches no active key -- the handler maps that to a 401, never
+// leaking whether the key was wrong or revoked.
+func (uc *ResolveAPIKeyUseCase) Execute(ctx context.Context, plaintextKey string) (apikeysDomain.ResolvedAPIKey, error) {
 	if plaintextKey == "" {
-		return "", apikeysDomain.ErrNotFound
+		return apikeysDomain.ResolvedAPIKey{}, apikeysDomain.ErrNotFound
 	}
 
 	adminCtx := tenant.WithSuperAdmin(ctx)
-	var tenantID string
+	var resolved apikeysDomain.ResolvedAPIKey
 	err := tenant.WithTenant(adminCtx, uc.db, func(ctx context.Context) error {
 		found, err := uc.repo.FindActiveTenantIDByHash(ctx, hashKey(plaintextKey))
 		if err != nil {
 			return err
 		}
-		tenantID = found
+		resolved = found
 		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("resolveApiKey: %w", err)
+		return apikeysDomain.ResolvedAPIKey{}, fmt.Errorf("resolveApiKey: %w", err)
 	}
-	return tenantID, nil
+	return resolved, nil
 }

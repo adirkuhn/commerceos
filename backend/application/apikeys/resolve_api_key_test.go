@@ -15,17 +15,17 @@ func TestResolveAPIKey_returnsTenantIDForAMatchingHash(t *testing.T) {
 	// Generate a real key + hash through CreateAPIKeyUseCase so this test
 	// exercises the exact same hashing both use cases share, rather than
 	// assuming they agree.
-	repo := &stubAPIKeyRepo{resolveOut: "tenant-1"}
+	repo := &stubAPIKeyRepo{resolveOut: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
 	createUC := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
-	created, err := createUC.Execute(context.Background(), "Key A", "")
+	created, err := createUC.Execute(context.Background(), "Key A", "", nil)
 	require.NoError(t, err)
 
 	resolveUC := appapikeys.NewResolveAPIKeyUseCase(newMockGormDB(t), repo)
 
-	tenantID, err := resolveUC.Execute(context.Background(), created.PlaintextKey)
+	resolved, err := resolveUC.Execute(context.Background(), created.PlaintextKey)
 
 	require.NoError(t, err)
-	require.Equal(t, "tenant-1", tenantID)
+	require.Equal(t, "tenant-1", resolved.TenantID)
 	require.Equal(t, repo.createdKey.KeyHash, repo.gotHash)
 }
 

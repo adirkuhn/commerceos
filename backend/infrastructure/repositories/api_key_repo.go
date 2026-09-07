@@ -13,13 +13,14 @@ import (
 )
 
 type apiKeyModel struct {
-	ID          string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID    string `gorm:"not null;type:uuid"`
-	Name        string `gorm:"not null"`
-	Description string `gorm:"not null;default:''"`
-	KeyHash     string `gorm:"column:key_hash;not null"`
-	CreatedAt   time.Time
-	RevokedAt   *time.Time
+	ID             string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID       string  `gorm:"not null;type:uuid"`
+	Name           string  `gorm:"not null"`
+	Description    string  `gorm:"not null;default:''"`
+	KeyHash        string  `gorm:"column:key_hash;not null"`
+	SalesChannelID *string `gorm:"column:sales_channel_id;type:uuid"`
+	CreatedAt      time.Time
+	RevokedAt      *time.Time
 }
 
 func (apiKeyModel) TableName() string { return "storefront_api_keys" }
@@ -43,6 +44,7 @@ func (r *APIKeyRepo) Create(ctx context.Context, k *apikeysDomain.APIKey) error 
 	}
 	m := apiKeyModel{
 		TenantID: k.TenantID, Name: k.Name, Description: k.Description, KeyHash: k.KeyHash,
+		SalesChannelID: k.SalesChannelID,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("apiKeyRepo.Create: %w", err)
@@ -82,24 +84,24 @@ func (r *APIKeyRepo) Revoke(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r *APIKeyRepo) FindActiveTenantIDByHash(ctx context.Context, hash string) (string, error) {
+func (r *APIKeyRepo) FindActiveTenantIDByHash(ctx context.Context, hash string) (apikeysDomain.ResolvedAPIKey, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
-		return "", err
+		return apikeysDomain.ResolvedAPIKey{}, err
 	}
 	var m apiKeyModel
 	if err := tx.Where("key_hash = ? AND revoked_at IS NULL", hash).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", apikeysDomain.ErrNotFound
+			return apikeysDomain.ResolvedAPIKey{}, apikeysDomain.ErrNotFound
 		}
-		return "", fmt.Errorf("apiKeyRepo.FindActiveTenantIDByHash: %w", err)
+		return apikeysDomain.ResolvedAPIKey{}, fmt.Errorf("apiKeyRepo.FindActiveTenantIDByHash: %w", err)
 	}
-	return m.TenantID, nil
+	return apikeysDomain.ResolvedAPIKey{TenantID: m.TenantID, SalesChannelID: m.SalesChannelID}, nil
 }
 
 func toAPIKeyDomain(m apiKeyModel) apikeysDomain.APIKey {
 	return apikeysDomain.APIKey{
 		ID: m.ID, TenantID: m.TenantID, Name: m.Name, Description: m.Description,
-		KeyHash: m.KeyHash, CreatedAt: m.CreatedAt, RevokedAt: m.RevokedAt,
+		KeyHash: m.KeyHash, SalesChannelID: m.SalesChannelID, CreatedAt: m.CreatedAt, RevokedAt: m.RevokedAt,
 	}
 }

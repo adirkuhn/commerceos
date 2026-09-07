@@ -74,7 +74,7 @@ type stubCreateAPIKey struct {
 	gotDescr string
 }
 
-func (s *stubCreateAPIKey) Execute(_ context.Context, name, description string) (*appapikeys.CreateAPIKeyResult, error) {
+func (s *stubCreateAPIKey) Execute(_ context.Context, name, description string, _ *string) (*appapikeys.CreateAPIKeyResult, error) {
 	s.gotName, s.gotDescr = name, description
 	if s.err != nil {
 		return nil, s.err

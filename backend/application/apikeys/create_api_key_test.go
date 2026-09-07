@@ -19,7 +19,7 @@ type stubAPIKeyRepo struct {
 	listErr    error
 	revokeErr  error
 	revokedID  string
-	resolveOut string
+	resolveOut apikeysDomain.ResolvedAPIKey
 	resolveErr error
 	gotHash    string
 }
@@ -42,10 +42,10 @@ func (s *stubAPIKeyRepo) Revoke(_ context.Context, id string) error {
 	return s.revokeErr
 }
 
-func (s *stubAPIKeyRepo) FindActiveTenantIDByHash(_ context.Context, hash string) (string, error) {
+func (s *stubAPIKeyRepo) FindActiveTenantIDByHash(_ context.Context, hash string) (apikeysDomain.ResolvedAPIKey, error) {
 	s.gotHash = hash
 	if s.resolveErr != nil {
-		return "", s.resolveErr
+		return apikeysDomain.ResolvedAPIKey{}, s.resolveErr
 	}
 	return s.resolveOut, nil
 }
@@ -55,7 +55,7 @@ func TestCreateAPIKey_generatesAndHashesKey(t *testing.T) {
 	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 
-	result, err := uc.Execute(ctx, "My storefront", "WooCommerce prod")
+	result, err := uc.Execute(ctx, "My storefront", "WooCommerce prod", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, "key-1", result.ID)
@@ -70,10 +70,22 @@ func TestCreateAPIKey_generatesAndHashesKey(t *testing.T) {
 	require.Equal(t, "tenant-1", repo.createdKey.TenantID)
 }
 
+func TestCreateAPIKey_scopesToSalesChannelWhenGiven(t *testing.T) {
+	repo := &stubAPIKeyRepo{}
+	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
+	channelID := "channel-1"
+
+	result, err := uc.Execute(context.Background(), "B2B storefront", "", &channelID)
+
+	require.NoError(t, err)
+	require.Equal(t, &channelID, result.SalesChannelID)
+	require.Equal(t, &channelID, repo.createdKey.SalesChannelID)
+}
+
 func TestCreateAPIKey_rejectsEmptyName(t *testing.T) {
 	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), &stubAPIKeyRepo{})
 
-	_, err := uc.Execute(context.Background(), "", "")
+	_, err := uc.Execute(context.Background(), "", "", nil)
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, apikeysDomain.ErrNameRequired))
@@ -82,11 +94,11 @@ func TestCreateAPIKey_rejectsEmptyName(t *testing.T) {
 func TestCreateAPIKey_generatesADifferentKeyEachCall(t *testing.T) {
 	repo := &stubAPIKeyRepo{}
 	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
-	first, err := uc.Execute(context.Background(), "Key A", "")
+	first, err := uc.Execute(context.Background(), "Key A", "", nil)
 	require.NoError(t, err)
 
 	uc2 := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
-	second, err := uc2.Execute(context.Background(), "Key B", "")
+	second, err := uc2.Execute(context.Background(), "Key B", "", nil)
 	require.NoError(t, err)
 
 	require.NotEqual(t, first.PlaintextKey, second.PlaintextKey)
@@ -96,7 +108,7 @@ func TestCreateAPIKey_propagatesRepoError(t *testing.T) {
 	repo := &stubAPIKeyRepo{createErr: errors.New("db down")}
 	uc := appapikeys.NewCreateAPIKeyUseCase(newMockGormDB(t), repo)
 
-	_, err := uc.Execute(context.Background(), "Key A", "")
+	_, err := uc.Execute(context.Background(), "Key A", "", nil)
 
 	require.Error(t, err)
 }

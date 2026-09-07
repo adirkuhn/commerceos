@@ -403,7 +403,7 @@ func main() {
 	storefrontGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(storefrontSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	storefronthandler.Register(storefrontGroup, db)
+	storefronthandler.Register(storefrontGroup, db, cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL)
 
 	// POS desktop integration -- authenticated by the caller's lm2 license
 	// directly (middleware.POSLicense), never the human JWT, so it's its

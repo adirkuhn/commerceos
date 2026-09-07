@@ -19,11 +19,12 @@ import (
 // merchant must paste it into the storefront's (e.g. the WooCommerce
 // plugin's) settings right away.
 type CreateAPIKeyResult struct {
-	ID           string
-	Name         string
-	Description  string
-	CreatedAt    time.Time
-	PlaintextKey string
+	ID             string
+	Name           string
+	Description    string
+	SalesChannelID *string
+	CreatedAt      time.Time
+	PlaintextKey   string
 }
 
 type CreateAPIKeyUseCase struct {
@@ -35,7 +36,10 @@ func NewCreateAPIKeyUseCase(db *gorm.DB, repo apikeysDomain.Repository) *CreateA
 	return &CreateAPIKeyUseCase{db: db, repo: repo}
 }
 
-func (uc *CreateAPIKeyUseCase) Execute(ctx context.Context, name, description string) (*CreateAPIKeyResult, error) {
+// Execute mints a new key. salesChannelID is nil for a tenant-wide key
+// (the historical/default case, e.g. the WooCommerce plugin's) -- see
+// apikeysDomain.APIKey.SalesChannelID.
+func (uc *CreateAPIKeyUseCase) Execute(ctx context.Context, name, description string, salesChannelID *string) (*CreateAPIKeyResult, error) {
 	if name == "" {
 		return nil, fmt.Errorf("createApiKey: %w", apikeysDomain.ErrNameRequired)
 	}
@@ -45,7 +49,7 @@ func (uc *CreateAPIKeyUseCase) Execute(ctx context.Context, name, description st
 		return nil, fmt.Errorf("createApiKey: generate: %w", err)
 	}
 
-	k := &apikeysDomain.APIKey{Name: name, Description: description, KeyHash: hashKey(plaintext)}
+	k := &apikeysDomain.APIKey{Name: name, Description: description, KeyHash: hashKey(plaintext), SalesChannelID: salesChannelID}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		k.TenantID = tenant.IDFromContext(ctx)
 		return uc.repo.Create(ctx, k)
@@ -55,7 +59,8 @@ func (uc *CreateAPIKeyUseCase) Execute(ctx context.Context, name, description st
 	}
 
 	return &CreateAPIKeyResult{
-		ID: k.ID, Name: k.Name, Description: k.Description, CreatedAt: k.CreatedAt, PlaintextKey: plaintext,
+		ID: k.ID, Name: k.Name, Description: k.Description, SalesChannelID: k.SalesChannelID,
+		CreatedAt: k.CreatedAt, PlaintextKey: plaintext,
 	}, nil
 }
 

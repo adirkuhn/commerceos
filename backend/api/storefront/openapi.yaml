@@ -54,7 +54,122 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/carts:
+    post:
+      operationId: createCart
+      summary: Start a new guest cart on the calling key's sales channel
+      description: >
+        Requires `Authorization: Bearer <storefront key>`, and that key must
+        be scoped to one active internal (ChannelTypeInternal) sales
+        channel -- see ApiKey.sales_channel_id in the Settings API. Returns
+        an opaque token the storefront frontend must present (as this
+        cart's path segment) on every subsequent cart/checkout call; there
+        is no other way to address a cart.
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/carts/{token}:
+    get:
+      operationId: getCart
+      summary: Fetch a cart's current line items and subtotal
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/carts/{token}/items:
+    put:
+      operationId: updateCartItems
+      summary: Replace a cart's whole line set
+      description: >
+        Every call replaces the entire item list -- there is no
+        incremental add/remove. Each line is re-validated against the
+        cart's own sales channel (must be enrolled) and current stock;
+        price/name are snapshotted fresh from the catalog on every call,
+        never trusted from a prior response.
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemsRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/carts/{token}/checkout:
+    post:
+      operationId: checkoutCart
+      summary: Place an order for a cart's current contents
+      description: >
+        Guest checkout only -- no storefront customer login exists yet.
+        Finds or creates a Customer by email (same convention WooCommerce
+        guest-checkout import already uses), creates a Pending SalesOrder,
+        marks the cart checked out (a second call against the same cart
+        fails with 409, never places a second order), and returns a
+        payment link when the channel has a payment method configured.
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
+  parameters:
+    CartToken:
+      name: token
+      in: path
+      required: true
+      schema: { type: string }
+
   responses:
     Error:
       description: error
@@ -115,3 +230,85 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+
+    CartItem:
+      type: object
+      required: [sku_code, product_name, quantity, price_minor_units, currency_code]
+      properties:
+        sku_code: { type: string }
+        product_name: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        price_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+
+    Cart:
+      type: object
+      required: [token, items, subtotal_minor_units]
+      properties:
+        token: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartItem' }
+        subtotal_minor_units: { type: integer, format: int64 }
+
+    CartResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Cart' }
+        error: { nullable: true }
+
+    UpdateCartItemLine:
+      type: object
+      required: [sku_code, quantity]
+      properties:
+        sku_code: { type: string }
+        quantity: { type: integer, minimum: 1 }
+
+    UpdateCartItemsRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/UpdateCartItemLine' }
+
+    CheckoutAddress:
+      type: object
+      required: [first_name, last_name, address1, city, postcode, country]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        company: { type: string }
+        address1: { type: string }
+        address2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postcode: { type: string }
+        country: { type: string, description: ISO 3166-1 alpha-2 }
+        phone: { type: string }
+
+    CheckoutRequest:
+      type: object
+      required: [email, billing, shipping]
+      properties:
+        email: { type: string, format: email }
+        billing: { $ref: '#/components/schemas/CheckoutAddress' }
+        shipping: { $ref: '#/components/schemas/CheckoutAddress' }
+
+    Checkout:
+      type: object
+      required: [order_number, total_minor_units, currency_code]
+      properties:
+        order_number: { type: string }
+        total_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+        payment_url:
+          type: string
+          nullable: true
+          description: Null when the channel has no payment method configured.
+
+    CheckoutResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Checkout' }
+        error: { nullable: true }

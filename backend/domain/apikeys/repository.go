@@ -15,9 +15,9 @@ type Repository interface {
 	// already-revoked key is left to the caller to avoid, not silently
 	// accepted here.
 	Revoke(ctx context.Context, id string) error
-	// FindActiveTenantIDByHash resolves a key hash to its tenant, across
-	// every tenant, only when the key exists and isn't revoked -- the
-	// caller has no tenant to scope by yet, that's exactly what a
-	// successful resolution establishes.
-	FindActiveTenantIDByHash(ctx context.Context, hash string) (string, error)
+	// FindActiveTenantIDByHash resolves a key hash to its tenant (and, if
+	// scoped, its sales channel), across every tenant, only when the key
+	// exists and isn't revoked -- the caller has no tenant to scope by
+	// yet, that's exactly what a successful resolution establishes.
+	FindActiveTenantIDByHash(ctx context.Context, hash string) (ResolvedAPIKey, error)
 }

@@ -17,6 +17,11 @@ const (
 	// integration's chat-based checkout (see application/whatsapp) --
 	// always created Pending, never already paid.
 	SalesOrderSourceWhatsApp SalesOrderSource = "whatsapp"
+	// SalesOrderSourceInternal is an order placed through a built-in
+	// CommerceOS storefront's own checkout (see application/storefront,
+	// ChannelTypeInternal) -- always created Pending, never already paid,
+	// same convention as SalesOrderSourceWhatsApp.
+	SalesOrderSourceInternal SalesOrderSource = "internal"
 )
 
 // SalesOrderStatus mirrors WooCommerce's order status set exactly (same

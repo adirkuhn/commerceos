@@ -8,13 +8,32 @@ import (
 	"compress/flate"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Cart defines model for Cart.
+type Cart struct {
+	Items              []CartItem `json:"items"`
+	SubtotalMinorUnits int64      `json:"subtotal_minor_units"`
+	Token              string     `json:"token"`
+}
+
+// CartItem defines model for CartItem.
+type CartItem struct {
+	CurrencyCode    string `json:"currency_code"`
+	PriceMinorUnits int64  `json:"price_minor_units"`
+	ProductName     string `json:"product_name"`
+	Quantity        int    `json:"quantity"`
+	SkuCode         string `json:"sku_code"`
+}
 
 // CartLine defines model for CartLine.
 type CartLine struct {
@@ -39,6 +58,51 @@ type CartRecommendationsResponse struct {
 	Error interface{}                `json:"error,omitempty"`
 }
 
+// CartResponse defines model for CartResponse.
+type CartResponse struct {
+	Data  *Cart       `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
+// Checkout defines model for Checkout.
+type Checkout struct {
+	CurrencyCode string `json:"currency_code"`
+	OrderNumber  string `json:"order_number"`
+
+	// PaymentUrl Null when the channel has no payment method configured.
+	PaymentUrl      *string `json:"payment_url,omitempty"`
+	TotalMinorUnits int64   `json:"total_minor_units"`
+}
+
+// CheckoutAddress defines model for CheckoutAddress.
+type CheckoutAddress struct {
+	Address1 string  `json:"address1"`
+	Address2 *string `json:"address2,omitempty"`
+	City     string  `json:"city"`
+	Company  *string `json:"company,omitempty"`
+
+	// Country ISO 3166-1 alpha-2
+	Country   string  `json:"country"`
+	FirstName string  `json:"first_name"`
+	LastName  string  `json:"last_name"`
+	Phone     *string `json:"phone,omitempty"`
+	Postcode  string  `json:"postcode"`
+	State     *string `json:"state,omitempty"`
+}
+
+// CheckoutRequest defines model for CheckoutRequest.
+type CheckoutRequest struct {
+	Billing  CheckoutAddress     `json:"billing"`
+	Email    openapi_types.Email `json:"email"`
+	Shipping CheckoutAddress     `json:"shipping"`
+}
+
+// CheckoutResponse defines model for CheckoutResponse.
+type CheckoutResponse struct {
+	Data  *Checkout   `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -57,14 +121,46 @@ type RecommendedProduct struct {
 	SkuCode           string  `json:"sku_code"`
 }
 
+// UpdateCartItemLine defines model for UpdateCartItemLine.
+type UpdateCartItemLine struct {
+	Quantity int    `json:"quantity"`
+	SkuCode  string `json:"sku_code"`
+}
+
+// UpdateCartItemsRequest defines model for UpdateCartItemsRequest.
+type UpdateCartItemsRequest struct {
+	Items []UpdateCartItemLine `json:"items"`
+}
+
+// CartToken defines model for CartToken.
+type CartToken = string
+
 // Error defines model for Error.
 type Error = ErrorResponse
+
+// CheckoutCartJSONRequestBody defines body for CheckoutCart for application/json ContentType.
+type CheckoutCartJSONRequestBody = CheckoutRequest
+
+// UpdateCartItemsJSONRequestBody defines body for UpdateCartItems for application/json ContentType.
+type UpdateCartItemsJSONRequestBody = UpdateCartItemsRequest
 
 // GetCartRecommendationsJSONRequestBody defines body for GetCartRecommendations for application/json ContentType.
 type GetCartRecommendationsJSONRequestBody = CartRecommendationsRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// CreateCart Start a new guest cart on the calling key's sales channel
+	// (POST /storefront/v1/carts)
+	CreateCart(c *gin.Context)
+	// GetCart Fetch a cart's current line items and subtotal
+	// (GET /storefront/v1/carts/{token})
+	GetCart(c *gin.Context, token CartToken)
+	// CheckoutCart Place an order for a cart's current contents
+	// (POST /storefront/v1/carts/{token}/checkout)
+	CheckoutCart(c *gin.Context, token CartToken)
+	// UpdateCartItems Replace a cart's whole line set
+	// (PUT /storefront/v1/carts/{token}/items)
+	UpdateCartItems(c *gin.Context, token CartToken)
 	// GetCartRecommendations Cross-sell candidates for the shopper's whole cart, ranked by quantity-weighted co-purchase support
 	// (POST /storefront/v1/recommendations/cart)
 	GetCartRecommendations(c *gin.Context)
@@ -78,6 +174,94 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// CreateCart operation middleware
+func (siw *ServerInterfaceWrapper) CreateCart(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateCart(c)
+}
+
+// GetCart operation middleware
+func (siw *ServerInterfaceWrapper) GetCart(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token CartToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", c.Param("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter token: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetCart(c, token)
+}
+
+// CheckoutCart operation middleware
+func (siw *ServerInterfaceWrapper) CheckoutCart(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token CartToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", c.Param("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter token: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CheckoutCart(c, token)
+}
+
+// UpdateCartItems operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCartItems(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token CartToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", c.Param("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter token: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateCartItems(c, token)
+}
 
 // GetCartRecommendations operation middleware
 func (siw *ServerInterfaceWrapper) GetCartRecommendations(c *gin.Context) {
@@ -120,6 +304,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/storefront/v1/recommendations/cart", wrapper.GetCartRecommendations)
+	router.POST(options.BaseURL+"/storefront/v1/carts", wrapper.CreateCart)
+	router.GET(options.BaseURL+"/storefront/v1/carts/:token", wrapper.GetCart)
+	router.PUT(options.BaseURL+"/storefront/v1/carts/:token/items", wrapper.UpdateCartItems)
+	router.POST(options.BaseURL+"/storefront/v1/carts/:token/checkout", wrapper.CheckoutCart)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -127,30 +315,47 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"tFfvj9vGEf1XBmwB3wESdWcHRaF+SgzbiNMgxtnBfYiD84o7JDe3nKFnllJUQ/97MUtZv07XHor6G7lc",
-	"vn0z8+YN+aWouOuZkJIW8y+FoPZMivnmlQiLXVRMCSnZpev7GCqXAtPsD2WyNa1a7Jxd/VWwLubFX2Z7",
-	"1Nn4VGcZ7WaLX2w2m0nhUSsJvYEV8wLzcba+fcUQXzpJ/wyEdt0L9ygpjOw+D45SSGu77gKFbuiK+fWk",
-	"SOsei3kRKGGDUhjc/XBXsc8Y26eaJFCTDxP8PARBX8x/2++c7OF/30Hy4g+skiEaqxusuOuQfE6G3mDP",
-	"kh7SlONtthQSdvrf0rWDR/9O2A/jwVsmTsSt8z0nF+9YPEpGrFk6l8bw//Zd8TAbJwGfsjtBfHLsnwfU",
-	"M8HvIn1SyLtaPwj0hPWI9mRyW8k9YOddck/hdL7Sm8lWsfMvBQ0xukXEYp5kwM3mDLNj+T/K5QTp4Izj",
-	"/Y/oeVJ0qOqaR7R+wuoczzO6O3M41cEjVfmY4y5+La6yS7i4KsvrS+AaPg8uhnodqIFRV2CG4gLZSmqD",
-	"wvuffgUXmRoNHiG1CElC06ARh8pJghgIy2KyF7jnwdK0i4CGbjG2e9C7xUA+4l3lyAfv0mE2FswRHdnG",
-	"fozvjlx3Ppf/k3EcoU4Oc3We2kMZG3igmh8m9/shtUjJDBg9IPmeAyUFZxklrGxVEwvWwpTgAsumzOm8",
-	"ZX5pZZUKoY9DE+gSKhejgg+CVYprcAlkoBQ6hOkUfNAUqEpQC3cZwvkuEIziV/j+3Y9w8fb2w0xRNTBN",
-	"G6N0OZZTcFBUCEnh9bvpG+FVaqEb6214JbxaoqxBeEgILQqCO4hMYRVSCw56lOk2MFPUQWT3uIYLRYTD",
-	"eZRNTsYmLd9jer/b/xOuf1V86RRncIPKcYnnHl5OgDiBg7e3H+Y5aG2571GeKSyEV4oChEsUaJ0l/WtK",
-	"f3kP2zSU8DMPZGXgIe3E/Pb2w7QXTmOBZq4Ps+U1NMJDD4Gg6nxe61ygsuEJqOsQBJ1yTpmd1YeZVo4I",
-	"xTJVfiRTfkhmFMUBjX1UVqFiUixRdNTOdXllmuYeyfWhmBcvyqvyhQnWpTa39Wyf4NnyenYyG2bWh9kL",
-	"eLT6Y2n+HAg1RxudJrj++xV4t1brf7PViDkpY/tf1OFP9LAK5Hk1gYFiuMcDkUkW2TPNEkWZ6mBVRp/F",
-	"M0t8CTUL5CkAtbUhkil4wUPTphMjMdbPssPoBFYYmjZZTtFV7d5ZYLHOav069Et49WcVB4/ji+CioPNr",
-	"K9ZXzBLONDPU0TXbdtx2PWgStgPJ2EFiWCCsWLLAx/et2SqTjTXeQTGZ4ho0NOSi5sb6x6jJfY15Rbp/",
-	"u+cYqnX5kW5GZ1L4ZIbBEv6VSziHH9AJCnwcrq5eVMftlNfw07foKgsLqWap0FumLYjWWeRWRMVYw0Wg",
-	"WpwmGao0CM62j/VAktvm9FhFJ+hzVxD80iOZF31SrAYJaf0J8ujGOXge54tLsOIhetgaNgg2QdM4XBzB",
-	"gakGptcDVaP/GE12fZiasTdI+X3UBEsXrdosY7JO2vdyAqs2VC1g9jhOLcqRve2Ne9RTsHnoceEUwUVl",
-	"0PvQqz2r3ZLFOuhNIOiC9xFXTnA8dn9fvr39kJOcsXbgNcfIKx0zkC2lYloaC6bRQGym56B/9MW8eIPp",
-	"zNdOMQ461PQD+/X/7W/gP3xFbo6H6/Y76OjP5PnV1bdl8vhfCt+bi353df0Y7o7o+MeTdz9//uTd9tkx",
-	"dJ2TtTm7sOpUMUbYeYxm8zseTquW42hLExBH92OffXWz6Wh76KHiaT9I1ZrUzFTzd2w+EmWZfyF++1IM",
-	"Eot5sZ1Sxeb3zb8DAAD//w==",
+	"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",
+	"nq+TffwumLXzqWz1++p/AQAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
