@@ -168,9 +168,17 @@ export interface PickScan {
   // SKU being added (freebie/new_item).
   sku_id: string
   action_type: PickScanActionType
-  // Always a positive magnitude -- for substitute, always the original
-  // line item's own quantity (whole-line swap only, never partial).
+  // Always a positive magnitude -- for substitute, this is the SUBSTITUTE
+  // sku's own quantity, not the original line's quantity.
   quantity: number
+  // Substitute only -- how much of the original line item's own quantity
+  // this row covers. Every substitute row for a given original line,
+  // summed, equals that line's quantity exactly. Null for every other
+  // action type.
+  original_quantity_covered?: number | null
+  // Substitute only -- whether this row's own original_quantity_covered
+  // was added back to the original SKU's stock at replay. Defaults false.
+  return_to_stock?: boolean
   // Null for pick/substitute, 0 for freebie, picker-entered for new_item.
   price_minor_units?: number | null
   // Optional comment on a pick/substitute row -- doubles as the new line
@@ -208,23 +216,48 @@ export interface ScanPickItemInput {
   // Exactly one of code/sku_id is required.
   code?: string
   sku_id?: string
-  // Defaults to 'pick' server-side when omitted.
+  // Defaults to 'pick' server-side when omitted. 'substitute' is rejected
+  // (422) -- use substituteLineItem instead.
   action_type?: PickScanActionType
-  // Required for substitute (the ORIGINAL line being replaced). Ignored
-  // for every other action type.
+  // Unused -- substitute (the only action type that ever needed this) is
+  // rejected here.
   line_item_id?: string
-  // Ignored for substitute, which always uses the original line item's own
-  // quantity.
   quantity?: number
   // Required for new_item, ignored (forced to 0) for freebie.
   price_minor_units?: number
-  // Optional comment (pick/substitute), or the new line item's name
-  // (freebie/new_item).
+  // Optional comment (pick), or the new line item's name (freebie/new_item).
   reason?: string
 }
 
 export interface ScanPickItemResult {
   scan: PickScan
+}
+
+// One row of a substitute batch -- see SubstituteLineItemInput.
+export interface SubstituteLine {
+  sku_id: string
+  substitute_quantity: number
+  // How much of the original line item's own quantity this row covers.
+  original_quantity_covered: number
+  // Defaults false server-side when omitted -- a substitution normally
+  // means the original stock figure was wrong, so nothing is added back
+  // unless staff explicitly opt in.
+  return_to_stock?: boolean
+}
+
+// Stages one or more Substitute PickScan rows for the same original line
+// item in a single call, one per substitute SKU -- lets a single original
+// unit be replaced by several different (typically cheaper) substitutes at
+// once. lines' original_quantity_covered must sum to the original line
+// item's own quantity exactly.
+export interface SubstituteLineItemInput {
+  line_item_id: string
+  lines: SubstituteLine[]
+  reason?: string
+}
+
+export interface SubstituteLineItemResult {
+  scans: PickScan[]
 }
 
 // Result of resolving a scanned code to a SKU WITHOUT staging anything yet

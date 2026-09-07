@@ -237,8 +237,45 @@ describe('scanPickItem', () => {
   })
 
   it('throws on validation error', async () => {
-    mockFetchError('VALIDATION_ERROR', 'a line item is required for this action')
-    await expect(api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-2', action_type: 'substitute', quantity: 1 })).rejects.toThrow('a line item is required for this action')
+    mockFetchError('VALIDATION_ERROR', 'quantity must be positive')
+    await expect(api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-2', action_type: 'pick', quantity: 0 })).rejects.toThrow('quantity must be positive')
+  })
+
+  it('substitute is rejected -- use substituteLineItem instead', async () => {
+    mockFetchError('VALIDATION_ERROR', 'substitute action must use the substitute-batch endpoint')
+    await expect(api.scanPickItem(TOKEN, 'session-1', { sku_id: 'sku-2', action_type: 'substitute' })).rejects.toThrow('substitute action must use the substitute-batch endpoint')
+  })
+})
+
+describe('substituteLineItem', () => {
+  it('sends the batch of substitute lines to the correct endpoint', async () => {
+    const result = {
+      scans: [
+        { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-a', action_type: 'substitute', quantity: 3, original_quantity_covered: 1, return_to_stock: false, scanned_at: '', scanned_by: '' },
+        { id: 'scan-2', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-b', action_type: 'substitute', quantity: 4, original_quantity_covered: 1, return_to_stock: true, scanned_at: '', scanned_by: '' },
+      ],
+    }
+    mockFetch(result, 201)
+    const input = {
+      line_item_id: 'li-1',
+      lines: [
+        { sku_id: 'sku-a', substitute_quantity: 3, original_quantity_covered: 1, return_to_stock: false },
+        { sku_id: 'sku-b', substitute_quantity: 4, original_quantity_covered: 1, return_to_stock: true },
+      ],
+    }
+    const got = await api.substituteLineItem(TOKEN, 'session-1', input)
+
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/substitute-batch')
+    expect(JSON.parse(opts.body as string)).toEqual(input)
+  })
+
+  it('throws on coverage mismatch validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', "substitute lines must cover exactly the original line item's quantity")
+    await expect(api.substituteLineItem(TOKEN, 'session-1', {
+      line_item_id: 'li-1', lines: [{ sku_id: 'sku-a', substitute_quantity: 1, original_quantity_covered: 1 }],
+    })).rejects.toThrow("substitute lines must cover exactly the original line item's quantity")
   })
 })
 

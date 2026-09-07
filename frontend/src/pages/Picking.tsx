@@ -64,6 +64,24 @@ const ACTION_LABEL: Record<PickScan['action_type'], string> = {
   pick: 'Picked', substitute: 'Substituted', freebie: 'Freebie', new_item: 'New item',
 }
 
+// One row of a substitute batch -- each row scans/types its own
+// replacement code, how many of it is being added, how much of the
+// original line it covers, and whether that covered share goes back to
+// stock. Rows' coveredQty must sum to the original line's own quantity
+// exactly before submitting (see SubstituteLineItemUseCase).
+interface SubstituteRowState {
+  key: number
+  code: string
+  substituteQty: string
+  coveredQty: string
+  returnToStock: boolean
+}
+
+let substituteRowKeySeq = 0
+function newSubstituteRow(): SubstituteRowState {
+  return { key: ++substituteRowKeySeq, code: '', substituteQty: '1', coveredQty: '', returnToStock: false }
+}
+
 export default function Picking() {
   const { token } = useAuth()
 
@@ -85,7 +103,7 @@ export default function Picking() {
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
   const [pickQty, setPickQty] = useState(1)
   const [substituteMode, setSubstituteMode] = useState(false)
-  const [substituteCode, setSubstituteCode] = useState('')
+  const [substituteRows, setSubstituteRows] = useState<SubstituteRowState[]>([])
 
   const [addItemOpen, setAddItemOpen] = useState<{ skuId: string; productName: string } | null>(null)
   const [addItemQty, setAddItemQty] = useState(1)
@@ -308,6 +326,7 @@ export default function Picking() {
     setPickLine({ lineItem: li, pickedSoFar })
     setPickQty(Math.max(1, li.quantity - pickedSoFar))
     setSubstituteMode(false)
+    setSubstituteRows([newSubstituteRow()])
   }
 
   async function confirmPick() {
@@ -328,20 +347,31 @@ export default function Picking() {
     }
   }
 
+  function updateSubstituteRow(key: number, patch: Partial<SubstituteRowState>) {
+    setSubstituteRows(rows => rows.map(r => (r.key === key ? { ...r, ...patch } : r)))
+  }
+
+  const substituteCoveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
+  const substituteReady = !!pickLine && substituteRows.length > 0
+    && substituteRows.every(r => r.code.trim() && Number(r.substituteQty) > 0 && Number(r.coveredQty) > 0)
+    && substituteCoveredTotal === pickLine.lineItem.quantity
+
   async function confirmSubstitute() {
-    if (!pickLine || !session || !token) return
-    const scannedCode = substituteCode.trim()
-    if (!scannedCode) { setError('Scan or enter the substitute SKU/barcode'); return }
+    if (!pickLine || !session || !token || !substituteReady) return
     setBusy(true)
     setError('')
     try {
-      const resolved = await pickingApi.resolvePickScanCode(token, session.session.id, scannedCode)
-      await pickingApi.scanPickItem(token, session.session.id, {
-        sku_id: resolved.sku_id, line_item_id: pickLine.lineItem.id, action_type: 'substitute',
-      })
+      const lines = await Promise.all(substituteRows.map(async r => {
+        const resolved = await pickingApi.resolvePickScanCode(token, session.session.id, r.code.trim())
+        return {
+          sku_id: resolved.sku_id, substitute_quantity: Number(r.substituteQty),
+          original_quantity_covered: Number(r.coveredQty), return_to_stock: r.returnToStock,
+        }
+      }))
+      await pickingApi.substituteLineItem(token, session.session.id, { line_item_id: pickLine.lineItem.id, lines })
       setPickLine(null)
       setSubstituteMode(false)
-      setSubstituteCode('')
+      setSubstituteRows([])
       await loadSession(session.session.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record substitute')
@@ -895,7 +925,7 @@ export default function Picking() {
                 Pick
               </button>
               <button
-                type="button" onClick={() => setSubstituteMode(true)}
+                type="button" onClick={() => { setSubstituteMode(true); setSubstituteRows([newSubstituteRow()]) }}
                 className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', substituteMode ? 'bg-blue-600 text-white' : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500')}
               >
                 <Repeat size={11} /> Substitute
@@ -922,16 +952,62 @@ export default function Picking() {
             ) : (
               <>
                 <p className="text-[11px] dark:text-gray-400 text-gray-500">
-                  Scan the replacement product. The full remaining quantity ({pickLine.lineItem.quantity - pickLine.pickedSoFar}) will be substituted.
+                  Replace with one or more products -- each row's "covers" quantity must add up to this line's own
+                  quantity ({pickLine.lineItem.quantity}) before you can confirm.
                 </p>
-                <input
-                  type="text" value={substituteCode} onChange={e => setSubstituteCode(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && confirmSubstitute()}
-                  placeholder="Scan or type replacement SKU/barcode"
-                  className={inputClass} autoFocus
-                />
+                {substituteRows.map((row, i) => (
+                  <div key={row.key} className="space-y-2 rounded-lg border dark:border-[#2D3748] border-gray-200 p-2.5">
+                    <input
+                      type="text" value={row.code} onChange={e => updateSubstituteRow(row.key, { code: e.target.value })}
+                      placeholder="Scan or type replacement SKU/barcode"
+                      className={inputClass} autoFocus={i === 0}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block">
+                        <span className="block text-[10px] dark:text-gray-500 text-gray-400 mb-1">Qty added</span>
+                        <input
+                          type="number" min={1} value={row.substituteQty}
+                          onChange={e => updateSubstituteRow(row.key, { substituteQty: e.target.value })}
+                          className={inputClass}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="block text-[10px] dark:text-gray-500 text-gray-400 mb-1">Covers (of original)</span>
+                        <input
+                          type="number" min={1} value={row.coveredQty}
+                          onChange={e => updateSubstituteRow(row.key, { coveredQty: e.target.value })}
+                          className={inputClass}
+                        />
+                      </label>
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] dark:text-gray-400 text-gray-500">
+                      <input
+                        type="checkbox" checked={row.returnToStock}
+                        onChange={e => updateSubstituteRow(row.key, { returnToStock: e.target.checked })}
+                      />
+                      Return original quantity to stock
+                    </label>
+                    {substituteRows.length > 1 && (
+                      <button
+                        type="button" onClick={() => setSubstituteRows(rows => rows.filter((_, idx) => idx !== i))}
+                        className="text-[11px] dark:text-gray-500 text-gray-400 hover:text-red-500"
+                      >
+                        Remove this row
+                      </button>
+                    )}
+                  </div>
+                ))}
                 <button
-                  type="button" onClick={confirmSubstitute} disabled={busy}
+                  type="button" onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
+                  className="w-full py-2 rounded-lg border border-dashed dark:border-[#2D3748] border-gray-300 text-[11px] dark:text-gray-400 text-gray-500"
+                >
+                  + Add another substitute
+                </button>
+                <p className="text-[11px] text-center dark:text-gray-500 text-gray-400">
+                  Covers {substituteCoveredTotal} of {pickLine.lineItem.quantity}
+                </p>
+                <button
+                  type="button" onClick={confirmSubstitute} disabled={busy || !substituteReady}
                   className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                 >
                   Confirm substitute

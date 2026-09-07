@@ -18,6 +18,7 @@ vi.mock('../../scanner/api', () => ({
   startOrResumePicking: vi.fn(),
   getPickingSession: vi.fn(),
   scanPickItem: vi.fn(),
+  substituteLineItem: vi.fn(),
   resolvePickScanCode: vi.fn(),
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
@@ -229,11 +230,13 @@ describe('Picking page', () => {
     expect(screen.getByText('Damrak 1, 1012AB Amsterdam, NL')).toBeInTheDocument()
   })
 
-  it('substitute mode records a substitute scan for the original line item, using the replacement SKU', async () => {
+  it('substitute mode records a substitute batch for the original line item, using the replacement SKU', async () => {
     vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
     vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
     vi.mocked(pickingApi.resolvePickScanCode).mockResolvedValue({ sku_id: 'sku-2', product_name: 'Widget Replacement' })
-    vi.mocked(pickingApi.scanPickItem).mockResolvedValue({ scan: { id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 2, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' } })
+    vi.mocked(pickingApi.substituteLineItem).mockResolvedValue({
+      scans: [{ id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 1, original_quantity_covered: 2, return_to_stock: false, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' }],
+    })
 
     const user = userEvent.setup()
     render(<Picking />)
@@ -245,11 +248,39 @@ describe('Picking page', () => {
     await user.click(screen.getByText('Widget'))
     await screen.findByText('Confirm pick')
     await user.click(screen.getByRole('button', { name: 'Substitute' }))
-    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code{Enter}')
+    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
+    await user.clear(screen.getByLabelText('Covers (of original)'))
+    await user.type(screen.getByLabelText('Covers (of original)'), '2')
+    await user.click(screen.getByRole('button', { name: 'Confirm substitute' }))
 
-    await waitFor(() => expect(pickingApi.scanPickItem).toHaveBeenCalledWith('test-token', 'ps-1', {
-      sku_id: 'sku-2', line_item_id: 'li-1', action_type: 'substitute',
+    await waitFor(() => expect(pickingApi.substituteLineItem).toHaveBeenCalledWith('test-token', 'ps-1', {
+      line_item_id: 'li-1',
+      lines: [{ sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 2, return_to_stock: false }],
     }))
+  })
+
+  it('substitute confirm button is disabled until covered quantities sum to the original line quantity', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+    await user.click(screen.getByText('Widget'))
+    await screen.findByText('Confirm pick')
+    await user.click(screen.getByRole('button', { name: 'Substitute' }))
+
+    // No code/covered qty filled in yet.
+    expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeDisabled()
+
+    await user.type(screen.getByPlaceholderText('Scan or type replacement SKU/barcode'), 'sub-code')
+    await user.clear(screen.getByLabelText('Covers (of original)'))
+    await user.type(screen.getByLabelText('Covers (of original)'), '1')
+
+    // Line quantity is 2 -- covering only 1 leaves the button disabled.
+    expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeDisabled()
+    expect(pickingApi.substituteLineItem).not.toHaveBeenCalled()
   })
 
   it('pausing returns to the order list', async () => {

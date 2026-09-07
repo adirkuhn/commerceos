@@ -23,6 +23,7 @@ vi.mock('../api', () => ({
   startOrResumePicking: vi.fn(),
   getPickingSession: vi.fn(),
   scanPickItem: vi.fn(),
+  substituteLineItem: vi.fn(),
   resolvePickScanCode: vi.fn(),
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
@@ -845,8 +846,8 @@ describe('ScannerApp picking screen', () => {
       product: { id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active', has_variants: false, tags: [], created_at: '', updated_at: '' },
       variants: [{ id: 'v-2', tenant_id: 't1', product_id: 'product-2', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-2', tenant_id: 't1', variant_id: 'v-2', sku_code: 'WID-B', price_minor_units: 100, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
     })
-    vi.mocked(api.scanPickItem).mockResolvedValue({
-      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 10, scanned_at: '', scanned_by: '' },
+    vi.mocked(api.substituteLineItem).mockResolvedValue({
+      scans: [{ id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 1, original_quantity_covered: 10, return_to_stock: false, scanned_at: '', scanned_by: '' }],
     })
 
     await enterPickingScreen()
@@ -855,10 +856,74 @@ describe('ScannerApp picking screen', () => {
     await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget B')
     await userEvent.click(screen.getByRole('button', { name: 'Find' }))
     await userEvent.click(await screen.findByText('Widget B'))
+    await userEvent.clear(screen.getByLabelText('Covers (of original)'))
+    await userEvent.type(screen.getByLabelText('Covers (of original)'), '10')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm substitute' }))
 
-    await waitFor(() => expect(api.scanPickItem).toHaveBeenCalledWith(expect.any(String), 'session-1', expect.objectContaining({
-      line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute',
-    })))
+    await waitFor(() => expect(api.substituteLineItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
+      line_item_id: 'li-1',
+      lines: [{ sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 10, return_to_stock: false }],
+    }))
+  })
+
+  it('Substitute mode allows splitting one line across two different cheaper substitutes', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    const productB = { id: 'product-2', tenant_id: 't1', name: 'Widget B', slug: 'widget-b', description: '', status: 'active' as const, has_variants: false, tags: [], created_at: '', updated_at: '' }
+    const productC = { id: 'product-3', tenant_id: 't1', name: 'Widget C', slug: 'widget-c', description: '', status: 'active' as const, has_variants: false, tags: [], created_at: '', updated_at: '' }
+    vi.mocked(pmsApi.listProducts)
+      .mockResolvedValueOnce({ products: [productB], total: 1 })
+      .mockResolvedValueOnce({ products: [productC], total: 1 })
+    vi.mocked(pmsApi.getProduct)
+      .mockResolvedValueOnce({
+        product: productB,
+        variants: [{ id: 'v-2', tenant_id: 't1', product_id: 'product-2', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-2', tenant_id: 't1', variant_id: 'v-2', sku_code: 'WID-B', price_minor_units: 100, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
+      })
+      .mockResolvedValueOnce({
+        product: productC,
+        variants: [{ id: 'v-3', tenant_id: 't1', product_id: 'product-3', name: 'Default', position: 0, created_at: '', updated_at: '', skus: [{ id: 'sku-3', tenant_id: 't1', variant_id: 'v-3', sku_code: 'WID-C', price_minor_units: 50, currency_code: 'USD', is_virtual: false, status: 'active', created_at: '', updated_at: '' }] }],
+      })
+    vi.mocked(api.substituteLineItem).mockResolvedValue({
+      scans: [
+        { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-2', action_type: 'substitute', quantity: 3, original_quantity_covered: 5, return_to_stock: false, scanned_at: '', scanned_by: '' },
+        { id: 'scan-2', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-3', action_type: 'substitute', quantity: 4, original_quantity_covered: 5, return_to_stock: true, scanned_at: '', scanned_by: '' },
+      ],
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+    await userEvent.click(screen.getByRole('button', { name: /Substitute/ }))
+
+    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget B')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    await userEvent.click(await screen.findByText('Widget B'))
+    await userEvent.clear(screen.getByLabelText('Covers (of original)'))
+    await userEvent.type(screen.getByLabelText('Covers (of original)'), '5')
+
+    // Return to stock defaults unchecked.
+    expect(screen.getByRole('checkbox')).not.toBeChecked()
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add another substitute' }))
+    // Only the new row's search form is visible -- the first row already
+    // has a selected candidate and hides its own search UI.
+    await userEvent.type(screen.getByPlaceholderText('Search or scan barcode…'), 'Widget C')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    await userEvent.click(await screen.findByText('Widget C'))
+    const coverInputs = screen.getAllByLabelText('Covers (of original)')
+    await userEvent.clear(coverInputs[coverInputs.length - 1])
+    await userEvent.type(coverInputs[coverInputs.length - 1], '5')
+    await userEvent.click(screen.getAllByRole('checkbox')[1])
+    await userEvent.clear(screen.getAllByLabelText('Qty added')[1])
+    await userEvent.type(screen.getAllByLabelText('Qty added')[1], '4')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm substitute' }))
+
+    await waitFor(() => expect(api.substituteLineItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
+      line_item_id: 'li-1',
+      lines: [
+        { sku_id: 'sku-2', substitute_quantity: 1, original_quantity_covered: 5, return_to_stock: false },
+        { sku_id: 'sku-3', substitute_quantity: 4, original_quantity_covered: 5, return_to_stock: true },
+      ],
+    }))
   })
 
   it('adds a freebie via the search flow, forcing no price input', async () => {

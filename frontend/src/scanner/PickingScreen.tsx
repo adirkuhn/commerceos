@@ -21,7 +21,7 @@ import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLab
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
 import type {
   PickingSessionDetail, PickingSessionLineItem, PickScan, CompletePickingResult,
-  StockShortfall, StockShortfallResolution, PickScanActionType,
+  StockShortfall, StockShortfallResolution, PickScanActionType, SubstituteLine,
 } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder, Address } from '../oms/types'
@@ -189,6 +189,26 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         return false
       }
       setError(err instanceof Error ? err.message : 'Scan failed')
+      return false
+    } finally {
+      setScanning(false)
+      codeInputRef.current?.focus()
+    }
+  }
+
+  async function stageSubstitute(input: Parameters<typeof api.substituteLineItem>[2]): Promise<boolean> {
+    setError('')
+    setScanning(true)
+    try {
+      await api.substituteLineItem(token, sessionId, input)
+      await load()
+      return true
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError()
+        return false
+      }
+      setError(err instanceof Error ? err.message : 'Substitute failed')
       return false
     } finally {
       setScanning(false)
@@ -677,9 +697,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             setPickLine(null)
             stage({ line_item_id: pickLine.lineItem.id, sku_id: pickLine.lineItem.sku_id ?? undefined, action_type: 'pick', quantity, reason })
           }}
-          onSubstitute={substituteSkuId => {
+          onSubstitute={lines => {
             setPickLine(null)
-            stage({ line_item_id: pickLine.lineItem.id, sku_id: substituteSkuId, action_type: 'substitute' })
+            stageSubstitute({ line_item_id: pickLine.lineItem.id, lines })
           }}
         />
       )}
@@ -713,11 +733,32 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
 }
 
 // Tap a line item row (or scan/confirm its own barcode) to either confirm
-// it was picked, or -- when it's out of stock -- swap it for a different
-// product entirely. Substitute always uses the ORIGINAL line's own
-// quantity (whole-line swap only, never partial -- see
-// CompletePickingUseCase's doc for why).
+// it was picked, or -- when it's out of stock -- swap it for one or more
+// replacement products. A single original unit can be split across
+// several substitute SKUs (e.g. 1 unit for 3 of one cheaper item + 4 of
+// another) -- each row picks its own SKU, how many of it is being added,
+// how much of the original line it covers, and whether that covered share
+// goes back to stock. The rows' covered quantities must sum to the
+// original line's own quantity exactly before submitting.
 type PickSheetMode = 'pick' | 'substitute'
+
+let substituteRowKeySeq = 0
+function nextSubstituteRowKey(): string { return `sub-row-${++substituteRowKeySeq}` }
+
+interface SubstituteRowState {
+  key: string
+  query: string
+  candidates: SKUCandidate[]
+  searching: boolean
+  selected?: SKUCandidate
+  substituteQty: string
+  coveredQty: string
+  returnToStock: boolean
+}
+
+function newSubstituteRow(): SubstituteRowState {
+  return { key: nextSubstituteRowKey(), query: '', candidates: [], searching: false, substituteQty: '1', coveredQty: '', returnToStock: false }
+}
 
 function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCancel, onPick, onSubstitute }: {
   token: string
@@ -727,26 +768,45 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
   onDeleteScan: (scanId: string) => void
   onCancel: () => void
   onPick: (quantity: number, reason?: string) => void
-  onSubstitute: (substituteSkuId: string) => void
+  onSubstitute: (lines: SubstituteLine[]) => void
 }) {
   const [mode, setMode] = useState<PickSheetMode>('pick')
   const [qty, setQty] = useState(String(Math.max(lineItem.quantity - pickedSoFar, 0)))
   const [reason, setReason] = useState('')
-  const [substituteQuery, setSubstituteQuery] = useState('')
-  const [substituteCandidates, setSubstituteCandidates] = useState<SKUCandidate[]>([])
-  const [searchingSubstitute, setSearchingSubstitute] = useState(false)
+  const [substituteRows, setSubstituteRows] = useState<SubstituteRowState[]>([newSubstituteRow()])
   const n = Number(qty) || 0
   const remaining = Math.max(lineItem.quantity - pickedSoFar, 0)
 
-  async function handleSubstituteSearch(e: React.FormEvent) {
+  const coveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
+  const substituteReady = substituteRows.length > 0
+    && substituteRows.every(r => r.selected && Number(r.substituteQty) > 0 && Number(r.coveredQty) > 0)
+    && coveredTotal === lineItem.quantity
+
+  function updateRow(key: string, patch: Partial<SubstituteRowState>) {
+    setSubstituteRows(rows => rows.map(r => (r.key === key ? { ...r, ...patch } : r)))
+  }
+
+  async function handleRowSearch(key: string, e: React.FormEvent) {
     e.preventDefault()
-    if (!substituteQuery.trim()) return
-    setSearchingSubstitute(true)
+    const row = substituteRows.find(r => r.key === key)
+    if (!row || !row.query.trim()) return
+    updateRow(key, { searching: true })
     try {
-      setSubstituteCandidates(await searchSKUCandidates(token, substituteQuery.trim()))
-    } finally {
-      setSearchingSubstitute(false)
+      const candidates = await searchSKUCandidates(token, row.query.trim())
+      updateRow(key, { candidates, searching: false })
+    } catch {
+      updateRow(key, { searching: false })
     }
+  }
+
+  function handleSubmitSubstitute() {
+    if (!substituteReady) return
+    onSubstitute(substituteRows.map(r => ({
+      sku_id: r.selected!.sku.id,
+      substitute_quantity: Number(r.substituteQty),
+      original_quantity_covered: Number(r.coveredQty),
+      return_to_stock: r.returnToStock,
+    })))
   }
 
   return (
@@ -769,7 +829,9 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
               <div key={s.id} className="flex items-center gap-2 rounded-lg bg-[#1F2937] border border-[#2D3748] px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-200">
-                    {s.action_type === 'substitute' ? `Substituted × ${s.quantity}` : `Picked × ${s.quantity}`}
+                    {s.action_type === 'substitute'
+                      ? `Substituted × ${s.quantity} (covers ${s.original_quantity_covered ?? '?'})`
+                      : `Picked × ${s.quantity}`}
                   </p>
                   {s.reason && <p className="text-xs text-gray-500 truncate">{s.reason}</p>}
                 </div>
@@ -827,27 +889,104 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
           ) : (
             <>
               <p className="text-xs text-gray-500">
-                Out of stock? Scan or search the replacement product -- it ships instead of this line, at the same quantity ({lineItem.quantity}).
+                Out of stock? Replace it with one or more products -- each row's "covers" quantity must add up to
+                this line's own quantity ({lineItem.quantity}) before you can confirm.
               </p>
-              <form onSubmit={handleSubstituteSearch} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <input
-                    value={substituteQuery}
-                    onChange={e => setSubstituteQuery(e.target.value)}
-                    placeholder="Search or scan barcode…"
-                    className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              {substituteRows.map((row, i) => (
+                <div key={row.key} className="rounded-xl bg-[#1F2937] border border-[#2D3748] p-3 space-y-2">
+                  {row.selected ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0 text-sm text-gray-200 truncate">{row.selected.sku.sku_code}</div>
+                      <button
+                        type="button"
+                        onClick={() => updateRow(row.key, { selected: undefined, candidates: [] })}
+                        className="shrink-0 p-1 text-gray-500 hover:text-red-400"
+                        title="Change product"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <form onSubmit={e => handleRowSearch(row.key, e)} className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                          <input
+                            value={row.query}
+                            onChange={e => updateRow(row.key, { query: e.target.value })}
+                            placeholder="Search or scan barcode…"
+                            className="w-full pl-8 pr-3 py-2 text-sm rounded-xl bg-[#111827] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button type="submit" disabled={row.searching || !row.query.trim()} className="px-4 rounded-xl bg-[#111827] border border-[#2D3748] text-sm text-gray-300 disabled:opacity-50">
+                          {row.searching ? '…' : 'Find'}
+                        </button>
+                      </form>
+                      <div className="space-y-1.5">
+                        {row.candidates.map(c => (
+                          <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => updateRow(row.key, { selected: c, candidates: [] })} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {row.selected && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="block">
+                          <span className="block text-[11px] text-gray-500 mb-1">Qty added</span>
+                          <input
+                            type="number" min={1} value={row.substituteQty}
+                            onChange={e => updateRow(row.key, { substituteQty: e.target.value })}
+                            className="w-full px-3 py-2 text-sm rounded-xl bg-[#111827] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="block text-[11px] text-gray-500 mb-1">Covers (of original)</span>
+                          <input
+                            type="number" min={1} value={row.coveredQty}
+                            onChange={e => updateRow(row.key, { coveredQty: e.target.value })}
+                            className="w-full px-3 py-2 text-sm rounded-xl bg-[#111827] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </label>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-gray-400">
+                        <input
+                          type="checkbox" checked={row.returnToStock}
+                          onChange={e => updateRow(row.key, { returnToStock: e.target.checked })}
+                          className="rounded border-[#2D3748] bg-[#111827]"
+                        />
+                        Return original quantity to stock
+                      </label>
+                    </>
+                  )}
+                  {substituteRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setSubstituteRows(rows => rows.filter((_, idx) => idx !== i))}
+                      className="text-xs text-gray-500 hover:text-red-400"
+                    >
+                      Remove this row
+                    </button>
+                  )}
                 </div>
-                <button type="submit" disabled={searchingSubstitute || !substituteQuery.trim()} className="px-4 rounded-xl bg-[#1F2937] border border-[#2D3748] text-sm text-gray-300 disabled:opacity-50">
-                  {searchingSubstitute ? '…' : 'Find'}
-                </button>
-              </form>
-              <div className="space-y-1.5">
-                {substituteCandidates.map(c => (
-                  <ProductCandidateRow key={c.sku.id} token={token} candidate={c} onClick={() => onSubstitute(c.sku.id)} />
-                ))}
-              </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setSubstituteRows(rows => [...rows, newSubstituteRow()])}
+                className="w-full py-2 rounded-xl border border-dashed border-[#2D3748] text-sm text-gray-400 hover:text-gray-200"
+              >
+                + Add another substitute
+              </button>
+              <p className="text-xs text-gray-500 text-center">
+                Covers {coveredTotal} of {lineItem.quantity}
+              </p>
+              <button
+                onClick={handleSubmitSubstitute}
+                disabled={!substituteReady}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50"
+              >
+                Confirm substitute
+              </button>
             </>
           )}
         </div>
