@@ -12,6 +12,8 @@ import (
 	"gorm.io/gorm"
 
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	iamDomain "github.com/adirkuhn/commerceos/domain/iam"
+	"github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -528,4 +530,68 @@ func (s *stubSalesOrderActivityRepo) ListBySalesOrder(_ context.Context, _ strin
 }
 func (s *stubSalesOrderActivityRepo) ListByUser(_ context.Context, _ string) ([]omsDomain.SalesOrderActivity, error) {
 	return s.listByUser, s.listByUserErr
+}
+
+// stubGroupPermissionRepo backs RefundLineItemUseCase's fine-grained RBAC
+// check -- only HasPermission is ever called by that use case, but the
+// stub implements the full iamDomain.GroupPermissionRepository interface.
+type stubGroupPermissionRepo struct {
+	hasPermissionResult bool
+	hasPermissionErr    error
+	gotUserID           string
+	gotRule             iamDomain.Rule
+}
+
+func (s *stubGroupPermissionRepo) Assign(_ context.Context, _ string, _ iamDomain.Rule) error {
+	return nil
+}
+func (s *stubGroupPermissionRepo) Revoke(_ context.Context, _ string, _ iamDomain.Rule) error {
+	return nil
+}
+func (s *stubGroupPermissionRepo) ListByGroup(_ context.Context, _ string) ([]iamDomain.Rule, error) {
+	return nil, nil
+}
+func (s *stubGroupPermissionRepo) ListByUser(_ context.Context, _ string) ([]iamDomain.Rule, error) {
+	return nil, nil
+}
+func (s *stubGroupPermissionRepo) HasPermission(_ context.Context, userID string, rule iamDomain.Rule) (bool, error) {
+	s.gotUserID, s.gotRule = userID, rule
+	return s.hasPermissionResult, s.hasPermissionErr
+}
+
+// stubPaymentLinkClient backs CompletePickingUseCase's refund replay path --
+// only Refund is exercised by those tests, CreatePaymentLink is never
+// called from picking.
+type stubPaymentLinkClient struct {
+	refundRef            string
+	refundErr            error
+	gotExternalPaymentID string
+	gotAmountMinorUnits  int64
+	gotReason            string
+	refundCalls          int
+}
+
+func (s *stubPaymentLinkClient) CreatePaymentLink(_ context.Context, _ integrations.PaymentLinkRequest) (integrations.PaymentLink, error) {
+	return integrations.PaymentLink{}, nil
+}
+func (s *stubPaymentLinkClient) Refund(_ context.Context, externalPaymentID string, amountMinorUnits int64, reason string) (string, error) {
+	s.refundCalls++
+	s.gotExternalPaymentID, s.gotAmountMinorUnits, s.gotReason = externalPaymentID, amountMinorUnits, reason
+	return s.refundRef, s.refundErr
+}
+
+// stubPaymentRefundClientResolver backs CompletePickingUseCase's refund
+// replay path -- resolveResult/resolveOK/resolveErr drive Resolve's return
+// directly, standing in for the real PaymentRefundClientResolver's
+// Connection/factory/decrypt plumbing (not exercised by these unit tests).
+type stubPaymentRefundClientResolver struct {
+	resolveResult integrations.PaymentLinkClient
+	resolveOK     bool
+	resolveErr    error
+	gotProvider   string
+}
+
+func (s *stubPaymentRefundClientResolver) Resolve(_ context.Context, provider string) (integrations.PaymentLinkClient, bool, error) {
+	s.gotProvider = provider
+	return s.resolveResult, s.resolveOK, s.resolveErr
 }
