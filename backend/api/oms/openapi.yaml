@@ -349,8 +349,10 @@ paths:
       operationId: scanPickItem
       summary: >
         Scanner app -- resolve a scanned code (or an already-known sku_id)
-        and stage a pick/substitute/freebie/new_item action. Never touches
-        real inventory or the order's line items -- see PickScan's doc.
+        and stage a pick/freebie/new_item action. Never touches real
+        inventory or the order's line items -- see PickScan's doc.
+        Rejects action_type substitute (422) -- use
+        POST .../substitute-batch instead.
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -366,6 +368,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScanPickItemResultResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /picking-sessions/{id}/substitute-batch:
+    post:
+      operationId: substituteLineItem
+      summary: >
+        Scanner app -- stage one or more Substitute PickScan rows for the
+        same original line item in a single call, one per substitute SKU.
+        Lets a single original unit be replaced by several different
+        (typically cheaper) substitutes at once. lines' original_quantity_covered
+        must sum to the original line item's own quantity exactly. Never
+        touches real inventory or the order's line items -- see PickScan's
+        doc.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubstituteLineItemRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubstituteLineItemResultResponse'
         '404':
           $ref: '#/components/responses/Error'
         '422':
@@ -864,9 +897,26 @@ components:
           type: integer
           format: int64
           description: >-
-            Always a positive magnitude -- for substitute, always the
-            original line item's own quantity (whole-line swap only, never
-            partial).
+            Always a positive magnitude -- for substitute, this is the
+            SUBSTITUTE sku's own quantity, not the original line's quantity.
+        original_quantity_covered:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Substitute only -- how much of the original line item's own
+            quantity this row covers. Every substitute row for a given
+            original line, summed, equals that line's quantity exactly.
+            Null for every other action type.
+        return_to_stock:
+          type: boolean
+          description: >-
+            Substitute only -- whether this row's own
+            original_quantity_covered was added back to the original SKU's
+            stock at replay. Defaults false: a substitution normally means
+            the original stock figure was wrong, so nothing is added back
+            unless staff explicitly opt in. Meaningless for every other
+            action type.
         price_minor_units:
           type: integer
           format: int64
@@ -917,15 +967,16 @@ components:
             exactly one is required.
         line_item_id:
           type: string
-          description: Required for substitute (the ORIGINAL line being replaced). Ignored for every other action type.
+          description: Unused -- substitute (the only action type that ever needed this) is rejected here, see this path's summary.
         action_type:
           allOf: [{ $ref: '#/components/schemas/PickScanActionType' }]
-          description: Defaults to pick when omitted.
+          description: >-
+            Defaults to pick when omitted. substitute is rejected (422) --
+            use POST .../substitute-batch instead.
         quantity:
           type: integer
           format: int64
           minimum: 1
-          description: Ignored for substitute, which always uses the original line item's own quantity.
         price_minor_units:
           type: integer
           format: int64
@@ -944,6 +995,66 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/ScanPickItemResult' }
+        error: { nullable: true }
+
+    SubstituteLineRequest:
+      type: object
+      required: [sku_id, substitute_quantity, original_quantity_covered]
+      properties:
+        sku_id:
+          type: string
+          description: The substitute SKU being added for this row.
+        substitute_quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          description: How many units of the substitute SKU this row adds.
+        original_quantity_covered:
+          type: integer
+          format: int64
+          minimum: 1
+          description: How much of the original line item's own quantity this row covers.
+        return_to_stock:
+          type: boolean
+          default: false
+          description: >-
+            Whether this row's own original_quantity_covered should be
+            added back to the original SKU's stock at replay. Defaults
+            false.
+
+    SubstituteLineItemRequest:
+      type: object
+      required: [line_item_id, lines]
+      properties:
+        line_item_id:
+          type: string
+          description: The ORIGINAL line item being (partly or fully) replaced.
+        lines:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SubstituteLineRequest'
+          description: >-
+            One or more substitute lines. original_quantity_covered across
+            every line must sum to the original line item's own quantity
+            exactly.
+        reason:
+          type: string
+          description: Optional comment, applied to every staged row in this batch.
+
+    SubstituteLineItemResult:
+      type: object
+      required: [scans]
+      properties:
+        scans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickScan'
+
+    SubstituteLineItemResultResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SubstituteLineItemResult' }
         error: { nullable: true }
 
     ResolvePickScanCodeRequest:
