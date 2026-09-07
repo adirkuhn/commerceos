@@ -272,6 +272,26 @@ func (s *stubSubstituteLineItem) Execute(_ context.Context, in appoms.Substitute
 	return &appoms.SubstituteLineItemResult{Scans: scans}, nil
 }
 
+type stubRefundLineItem struct {
+	out   *appoms.RefundLineItemResult
+	err   error
+	gotIn appoms.RefundLineItemInput
+}
+
+func (s *stubRefundLineItem) Execute(_ context.Context, in appoms.RefundLineItemInput) (*appoms.RefundLineItemResult, error) {
+	s.gotIn = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	lineItemID := in.LineItemID
+	return &appoms.RefundLineItemResult{Scan: omsDomain.PickScan{
+		ID: "scan-1", SessionID: in.SessionID, LineItemID: &lineItemID, ActionType: omsDomain.PickScanActionRefund, Quantity: in.Quantity,
+	}}, nil
+}
+
 type stubResolvePickScanCode struct {
 	out          *appoms.ResolvePickScanCodeResult
 	err          error
@@ -339,7 +359,7 @@ func (s *stubCompletePicking) Execute(_ context.Context, in appoms.CompletePicki
 
 func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock) *gin.Engine {
 	return newTestRouterWithPicking(list, get, create, update, del, link, retry, force,
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{})
 }
 
@@ -347,11 +367,11 @@ func newTestRouterWithPicking(
 	list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder,
 	del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock,
 	addLineItem *stubAddSalesOrderLineItem, startPicking *stubStartOrResumePicking, getPicking *stubGetPickingSession,
-	scan *stubScanPickItem, substitute *stubSubstituteLineItem, resolve *stubResolvePickScanCode, deleteScan *stubDeletePickScan,
+	scan *stubScanPickItem, substitute *stubSubstituteLineItem, refund *stubRefundLineItem, resolve *stubResolvePickScanCode, deleteScan *stubDeletePickScan,
 	pause *stubPausePicking, complete *stubCompletePicking, bulk *stubBulkUpdateSalesOrderStatus,
 ) *gin.Engine {
 	h := omshandler.NewHandler(list, get, create, update, del, link, retry, force,
-		addLineItem, startPicking, getPicking, scan, substitute, resolve, deleteScan, pause, complete, bulk,
+		addLineItem, startPicking, getPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
 		&stubListSalesOrderActivities{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -622,7 +642,7 @@ func TestBulkUpdateSalesOrderStatus_success(t *testing.T) {
 	body := map[string]any{"order_ids": []string{"so-1", "so-2"}, "status": "processing"}
 	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
 		"POST", "/api/v1/sales-orders/bulk-status", body)
 
@@ -638,7 +658,7 @@ func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
 	body := map[string]any{"order_ids": []string{"so-1"}, "fulfilled": true}
 	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
 		"POST", "/api/v1/sales-orders/bulk-status", body)
 
@@ -648,7 +668,7 @@ func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
 func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	s := &pickingStubs{
 		addLineItem: &stubAddSalesOrderLineItem{}, startPicking: &stubStartOrResumePicking{}, getPicking: &stubGetPickingSession{},
-		scan: &stubScanPickItem{}, substitute: &stubSubstituteLineItem{}, resolve: &stubResolvePickScanCode{}, deleteScan: &stubDeletePickScan{},
+		scan: &stubScanPickItem{}, substitute: &stubSubstituteLineItem{}, refund: &stubRefundLineItem{}, resolve: &stubResolvePickScanCode{}, deleteScan: &stubDeletePickScan{},
 		pause: &stubPausePicking{}, complete: &stubCompletePicking{},
 	}
 	if overrides != nil {
@@ -656,13 +676,13 @@ func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	}
 	return newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.substitute, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
+		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.substitute, s.refund, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
 }
 
 func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.Engine {
 	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{}, &stubRefundLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, activities)
 	r := gin.New()
@@ -676,6 +696,7 @@ type pickingStubs struct {
 	getPicking   *stubGetPickingSession
 	scan         *stubScanPickItem
 	substitute   *stubSubstituteLineItem
+	refund       *stubRefundLineItem
 	resolve      *stubResolvePickScanCode
 	deleteScan   *stubDeletePickScan
 	pause        *stubPausePicking
@@ -843,6 +864,36 @@ func TestSubstituteLineItem_notFound(t *testing.T) {
 		"POST", "/api/v1/picking-sessions/missing/substitute-batch", body)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestRefundLineItem_success(t *testing.T) {
+	var refund *stubRefundLineItem
+	body := map[string]any{"line_item_id": "li-1", "quantity": 1, "reason": "damaged"}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { refund = s.refund }),
+		"POST", "/api/v1/picking-sessions/session-1/refund", body)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "session-1", refund.gotIn.SessionID)
+	assert.Equal(t, "li-1", refund.gotIn.LineItemID)
+	assert.Equal(t, int64(1), refund.gotIn.Quantity)
+	assert.Equal(t, "damaged", refund.gotIn.Reason)
+	assert.Contains(t, w.Body.String(), "refund")
+}
+
+func TestRefundLineItem_invalidQuantityIsUnprocessable(t *testing.T) {
+	body := map[string]any{"line_item_id": "li-1", "quantity": 1}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.refund.err = omsDomain.ErrInvalidRefundQuantity }),
+		"POST", "/api/v1/picking-sessions/session-1/refund", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestRefundLineItem_permissionDeniedIsForbidden(t *testing.T) {
+	body := map[string]any{"line_item_id": "li-1", "quantity": 1}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.refund.err = omsDomain.ErrPermissionDenied }),
+		"POST", "/api/v1/picking-sessions/session-1/refund", body)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func TestResolvePickScanCode_success(t *testing.T) {

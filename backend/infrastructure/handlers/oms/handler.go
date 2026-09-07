@@ -18,6 +18,8 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
+	"github.com/adirkuhn/commerceos/infrastructure/revolut"
+	"github.com/adirkuhn/commerceos/infrastructure/stripe"
 )
 
 // ── Use-case interfaces (defined at point of use — ISP) ───────────────────────
@@ -64,6 +66,9 @@ type scanPickItemUC interface {
 type substituteLineItemUC interface {
 	Execute(ctx context.Context, in appoms.SubstituteLineItemInput) (*appoms.SubstituteLineItemResult, error)
 }
+type refundLineItemUC interface {
+	Execute(ctx context.Context, in appoms.RefundLineItemInput) (*appoms.RefundLineItemResult, error)
+}
 type resolvePickScanCodeUC interface {
 	Execute(ctx context.Context, sessionID, code string) (*appoms.ResolvePickScanCodeResult, error)
 }
@@ -96,6 +101,7 @@ type Handler struct {
 	getPickingSession          getPickingSessionUC
 	scanPickItem               scanPickItemUC
 	substituteLineItem         substituteLineItemUC
+	refundLineItem             refundLineItemUC
 	resolvePickScanCode        resolvePickScanCodeUC
 	deletePickScan             deletePickScanUC
 	pausePicking               pausePickingUC
@@ -110,6 +116,7 @@ func NewHandler(
 	retryStockDecrement retryStockDecrementUC, forceAcceptStock forceAcceptStockUC,
 	addSalesOrderLineItem addSalesOrderLineItemUC, startOrResumePicking startOrResumePickingUC,
 	getPickingSession getPickingSessionUC, scanPickItem scanPickItemUC, substituteLineItem substituteLineItemUC,
+	refundLineItem refundLineItemUC,
 	resolvePickScanCode resolvePickScanCodeUC,
 	deletePickScan deletePickScanUC, pausePicking pausePickingUC, completePicking completePickingUC,
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC,
@@ -121,8 +128,9 @@ func NewHandler(
 		linkLineItemSKU: linkLineItemSKU, retryStockDecrement: retryStockDecrement, forceAcceptStock: forceAcceptStock,
 		addSalesOrderLineItem: addSalesOrderLineItem, startOrResumePicking: startOrResumePicking,
 		getPickingSession: getPickingSession, scanPickItem: scanPickItem, substituteLineItem: substituteLineItem,
+		refundLineItem:      refundLineItem,
 		resolvePickScanCode: resolvePickScanCode,
-		deletePickScan: deletePickScan, pausePicking: pausePicking, completePicking: completePicking,
+		deletePickScan:      deletePickScan, pausePicking: pausePicking, completePicking: completePicking,
 		bulkUpdateSalesOrderStatus: bulkUpdateSalesOrderStatus,
 		listSalesOrderActivities:   listSalesOrderActivities,
 	}
@@ -135,7 +143,7 @@ var _ genoms.ServerInterface = (*Handler)(nil)
 // sales orders from the admin UI. The POS's own push path
 // (ReceivePOSSalesOrderUseCase) is separate, under api/pos, authenticated
 // by the POS's lm2 license instead -- see api/oms/generate.go's doc comment.
-func Register(rg gin.IRouter, db *gorm.DB) {
+func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
@@ -154,6 +162,10 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
 	updateSalesOrder := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, allocateStock, recordMovement, outboxRepo)
 
+	permissionRepo := repositories.NewGroupPermissionRepo(db)
+	connRepo := repositories.NewConnectionRepo(db)
+	refundClientResolver := appoms.NewPaymentRefundClientResolver(db, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(), encryptionSecret)
+
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo),
 		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo),
@@ -168,6 +180,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
 		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		appoms.NewSubstituteLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo),
+		appoms.NewRefundLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, permissionRepo),
 		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewPausePickingUseCase(db, pickingSessionRepo),
@@ -176,7 +189,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		// param, recordMovement (RecordStockMovementUseCase) is the
 		// movementReverser param. Same swap UpdateSalesOrderUseCase's own
 		// wiring above already has -- see CompletePickingUseCase's doc.
-		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo),
+		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo, outboxRepo, refundClientResolver),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
 	)
@@ -486,6 +499,28 @@ func (h *Handler) SubstituteLineItem(c *gin.Context, id genoms.Id) {
 	c.JSON(http.StatusCreated, genoms.SubstituteLineItemResultResponse{Data: &resp})
 }
 
+func (h *Handler) RefundLineItem(c *gin.Context, id genoms.Id) {
+	var req genoms.RefundLineItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	claims := middleware.ClaimsFromGin(c)
+	userID, role := "", ""
+	if claims != nil {
+		userID, role = claims.UserID, string(claims.Role)
+	}
+	result, err := h.refundLineItem.Execute(c.Request.Context(), appoms.RefundLineItemInput{
+		SessionID: id, LineItemID: req.LineItemId, Quantity: req.Quantity, Reason: strOrEmpty(req.Reason),
+		ScannedBy: userID, RequesterUserID: userID, RequesterRole: role,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genoms.RefundLineItemResult{Scan: toGenPickScan(result.Scan)}
+	c.JSON(http.StatusCreated, genoms.RefundLineItemResultResponse{Data: &resp})
+}
+
 func (h *Handler) ResolvePickScanCode(c *gin.Context, id genoms.Id) {
 	var req genoms.ResolvePickScanCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -694,8 +729,11 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrPriceRequiredForNewItem), errors.Is(err, omsDomain.ErrBulkUpdateOrderIDsRequired),
 		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven), errors.Is(err, omsDomain.ErrSubstituteViaBatchEndpointOnly),
 		errors.Is(err, omsDomain.ErrSubstituteLinesRequired), errors.Is(err, omsDomain.ErrInvalidSubstituteQuantity),
-		errors.Is(err, omsDomain.ErrSubstitutionCoverageMismatch):
+		errors.Is(err, omsDomain.ErrSubstitutionCoverageMismatch), errors.Is(err, omsDomain.ErrInvalidRefundQuantity),
+		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+	case errors.Is(err, omsDomain.ErrPermissionDenied):
+		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())
 	default:
 		log.Printf("oms: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
