@@ -40,17 +40,16 @@ type ScanPickItemInput struct {
 	// tapping a line item row on the scanner screen) without a barcode --
 	// skips the Code resolution path entirely when set.
 	SKUID string
-	// LineItemID is required for Substitute (the ORIGINAL line being
-	// replaced) -- ignored for every other action type: Pick resolves its
-	// own line item by matching the scanned SKU against the order's line
-	// items (never trusts a caller-supplied one), Freebie/NewItem have no
-	// line item yet.
+	// LineItemID is unused here -- Substitute (the only action type that
+	// ever needed a caller-supplied line item) is rejected by this use
+	// case, see ErrSubstituteViaBatchEndpointOnly. Pick resolves its own
+	// line item by matching the scanned SKU against the order's line items
+	// (never trusts a caller-supplied one); Freebie/NewItem have no line
+	// item yet.
 	LineItemID string
 	// ActionType defaults to PickScanActionPick when empty.
 	ActionType omsDomain.PickScanActionType
-	// Quantity is always a positive magnitude. Ignored for Substitute,
-	// which is always the ORIGINAL line item's own quantity -- see
-	// PickScanActionSubstitute's doc for why this can't be partial.
+	// Quantity is always a positive magnitude.
 	Quantity int64
 	// PriceMinorUnits is required for NewItem, ignored (forced to 0) for
 	// Freebie, and ignored (nil) for Pick/Substitute.
@@ -115,11 +114,11 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 	default:
 		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrInvalidPickScanActionType)
 	}
-	if actionType != omsDomain.PickScanActionSubstitute && in.Quantity <= 0 {
-		return nil, fmt.Errorf("scanPickItem: %w", invDomain.ErrInvalidQuantity)
+	if actionType == omsDomain.PickScanActionSubstitute {
+		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrSubstituteViaBatchEndpointOnly)
 	}
-	if actionType == omsDomain.PickScanActionSubstitute && in.LineItemID == "" {
-		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrPickLineItemRequired)
+	if in.Quantity <= 0 {
+		return nil, fmt.Errorf("scanPickItem: %w", invDomain.ErrInvalidQuantity)
 	}
 	if actionType == omsDomain.PickScanActionNewItem && in.PriceMinorUnits == nil {
 		return nil, fmt.Errorf("scanPickItem: %w", omsDomain.ErrPriceRequiredForNewItem)
@@ -154,20 +153,6 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 				return err
 			}
 			lineItemID = &id
-
-		case omsDomain.PickScanActionSubstitute:
-			li, err := uc.lineItemRepo.FindByID(ctx, in.LineItemID)
-			if err != nil {
-				return err
-			}
-			if li.SalesOrderID != session.SalesOrderID {
-				return omsDomain.ErrLineItemNotOnOrder
-			}
-			id := li.ID
-			lineItemID = &id
-			// Whole-line swap only -- never the caller's quantity, always
-			// the original line's own (see PickScanActionSubstitute's doc).
-			quantity = li.Quantity
 
 		case omsDomain.PickScanActionFreebie:
 			zero := int64(0)

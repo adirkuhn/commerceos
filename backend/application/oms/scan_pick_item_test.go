@@ -152,43 +152,15 @@ func TestScanPickItem_autoLinkAmbiguousWhenMultipleUnlinkedLinesMatch(t *testing
 	assert.ErrorIs(t, err, omsDomain.ErrLineItemSKUMismatch)
 }
 
-func TestScanPickItem_substituteRequiresLineItemID(t *testing.T) {
+// Substitute must go through SubstituteLineItemUseCase's batch endpoint --
+// see ErrSubstituteViaBatchEndpointOnly's doc.
+func TestScanPickItem_rejectsSubstituteActionType(t *testing.T) {
 	db := newMockGormDB(t)
 	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
-	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-2", ActionType: omsDomain.PickScanActionSubstitute})
+	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-2", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 1})
 
-	assert.ErrorIs(t, err, omsDomain.ErrPickLineItemRequired)
-}
-
-func TestScanPickItem_substituteUsesOriginalLineItemQuantityNotCallerQuantity(t *testing.T) {
-	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), Quantity: 7}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
-
-	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
-		SessionID: "session-1", SKUID: "sku-substitute", LineItemID: "li-1", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 999,
-	})
-
-	require.NoError(t, err)
-	assert.Equal(t, int64(7), result.Scan.Quantity, "must use the original line item's own quantity, not the caller's")
-	require.NotNil(t, result.Scan.LineItemID)
-	assert.Equal(t, "li-1", *result.Scan.LineItemID)
-	assert.Equal(t, "sku-substitute", result.Scan.SKUID)
-}
-
-func TestScanPickItem_substituteRejectsLineItemFromAnotherOrder(t *testing.T) {
-	db := newMockGormDB(t)
-	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	lineItemRepo := &stubSalesOrderLineItemRepo{findByIDResult: &omsDomain.SalesOrderLineItem{ID: "li-1", SalesOrderID: "order-2", Quantity: 1}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
-
-	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
-		SessionID: "session-1", SKUID: "sku-1", LineItemID: "li-1", ActionType: omsDomain.PickScanActionSubstitute,
-	})
-
-	assert.ErrorIs(t, err, omsDomain.ErrLineItemNotOnOrder)
+	assert.ErrorIs(t, err, omsDomain.ErrSubstituteViaBatchEndpointOnly)
 }
 
 func TestScanPickItem_freebieForcesZeroPriceRegardlessOfInput(t *testing.T) {
