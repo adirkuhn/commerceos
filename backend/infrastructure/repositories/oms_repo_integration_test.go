@@ -256,6 +256,120 @@ func TestSalesOrderRepo_Integration_WooFieldsRoundTrip(t *testing.T) {
 	require.Equal(t, "Flat rate", found.ShippingMethodTitle)
 }
 
+// TestSalesOrderRepo_Integration_RefundFieldsRoundTrip covers the new
+// payment_provider/payment_external_id/needs_manual_refund_review columns
+// (142_sales_orders_refund_fields.sql) and the partially_refunded status
+// value -- real Postgres, so it also catches the CHECK constraint actually
+// accepting the new status.
+func TestSalesOrderRepo_Integration_RefundFieldsRoundTrip(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+
+	var orderID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWhatsApp,
+			ExternalOrderID: "wa-order-refund-1", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusProcessing, CurrencyCode: "USD", TotalMinorUnits: 1000,
+			PaymentProvider: "stripe", PaymentExternalID: "cs_test_123",
+			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var found *omsDomain.SalesOrder
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = salesOrderRepo.FindByID(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, "stripe", found.PaymentProvider)
+	require.Equal(t, "cs_test_123", found.PaymentExternalID)
+	require.False(t, found.NeedsManualRefundReview, "defaults false")
+
+	// A real refund replay writes needs_manual_refund_review directly and,
+	// separately, the new partially_refunded status -- both via the
+	// generic Update(fields map) path, same as CompletePickingUseCase does.
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, orderID, map[string]any{"needs_manual_refund_review": true})
+	})
+	require.NoError(t, err)
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return salesOrderRepo.Update(ctx, orderID, map[string]any{"status": string(omsDomain.SalesOrderStatusPartiallyRefunded)})
+	})
+	require.NoError(t, err, "the sales_orders_status_check CHECK constraint must accept partially_refunded")
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = salesOrderRepo.FindByID(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, found.NeedsManualRefundReview)
+	require.Equal(t, omsDomain.SalesOrderStatusPartiallyRefunded, found.Status)
+}
+
+// TestSalesOrderLineItemRepo_Integration_RefundedFieldsRoundTrip covers the
+// new refunded_quantity/refunded_amount_minor_units columns
+// (143_sales_order_line_items_refund_fields.sql).
+func TestSalesOrderLineItemRepo_Integration_RefundedFieldsRoundTrip(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
+
+	var orderID, lineItemID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		order := omsDomain.SalesOrder{
+			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
+			ExternalOrderID: "pos-order-refund-1", WarehouseID: warehouseID,
+			Status: omsDomain.SalesOrderStatusProcessing, CurrencyCode: "USD", TotalMinorUnits: 1000,
+			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
+		}
+		orderID = order.ID
+
+		li := omsDomain.SalesOrderLineItem{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: &skuID, Name: "Widget",
+			Quantity: 3, PriceMinorUnits: 500, CreatedAt: now,
+		}
+		if err := lineItemRepo.Create(ctx, &li); err != nil {
+			return err
+		}
+		lineItemID = li.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return lineItemRepo.Update(ctx, lineItemID, map[string]any{"refunded_quantity": int64(2), "refunded_amount_minor_units": int64(1000)})
+	})
+	require.NoError(t, err)
+
+	var found *omsDomain.SalesOrderLineItem
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = lineItemRepo.FindByID(ctx, lineItemID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), found.RefundedQuantity)
+	require.Equal(t, int64(1000), found.RefundedAmountMinorUnits)
+}
+
 func TestSalesOrderRepo_Integration_List(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()

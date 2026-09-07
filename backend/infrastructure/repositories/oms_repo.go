@@ -63,6 +63,8 @@ type salesOrderModel struct {
 	ShippingMethod      string `gorm:"column:shipping_method;not null;default:''"`
 	ShippingMethodTitle string `gorm:"column:shipping_method_title;not null;default:''"`
 	TransactionID       string
+	PaymentProvider     string `gorm:"column:payment_provider;not null;default:''"`
+	PaymentExternalID   string `gorm:"column:payment_external_id;not null;default:''"`
 	DatePaid            *time.Time
 	DateCompleted       *time.Time
 
@@ -70,10 +72,11 @@ type salesOrderModel struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 
-	StockDecremented bool `gorm:"not null;default:false"`
-	NeedsStockReview bool `gorm:"column:needs_stock_review;not null;default:false"`
-	NeedsSKUReview   bool `gorm:"column:needs_sku_review;not null;default:false"`
-	Fulfilled        bool `gorm:"not null;default:false"`
+	StockDecremented        bool `gorm:"not null;default:false"`
+	NeedsStockReview        bool `gorm:"column:needs_stock_review;not null;default:false"`
+	NeedsSKUReview          bool `gorm:"column:needs_sku_review;not null;default:false"`
+	NeedsManualRefundReview bool `gorm:"column:needs_manual_refund_review;not null;default:false"`
+	Fulfilled               bool `gorm:"not null;default:false"`
 }
 
 func (salesOrderModel) TableName() string { return "sales_orders" }
@@ -95,6 +98,9 @@ type salesOrderLineItemModel struct {
 	TotalMinorUnits       int64   `gorm:"not null;default:0"`
 	TotalTaxMinorUnits    int64   `gorm:"not null;default:0"`
 	TaxClassID            *string `gorm:"column:tax_class_id;type:uuid"`
+
+	RefundedQuantity         int64 `gorm:"column:refunded_quantity;not null;default:0"`
+	RefundedAmountMinorUnits int64 `gorm:"column:refunded_amount_minor_units;not null;default:0"`
 
 	CreatedAt time.Time
 }
@@ -137,11 +143,13 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		TaxTotalMinorUnits: o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
 		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
 		ShippingMethod: o.ShippingMethod, ShippingMethodTitle: o.ShippingMethodTitle, TransactionID: o.TransactionID,
+		PaymentProvider: o.PaymentProvider, PaymentExternalID: o.PaymentExternalID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted,
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 		StockDecremented: o.StockDecremented,
 		NeedsStockReview: o.NeedsStockReview, NeedsSKUReview: o.NeedsSKUReview,
-		Fulfilled: o.Fulfilled,
+		NeedsManualRefundReview: o.NeedsManualRefundReview,
+		Fulfilled:               o.Fulfilled,
 	}
 }
 
@@ -343,11 +351,13 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		TaxTotalMinorUnits: m.TaxTotalMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle,
 		ShippingMethod: m.ShippingMethod, ShippingMethodTitle: m.ShippingMethodTitle, TransactionID: m.TransactionID,
+		PaymentProvider: m.PaymentProvider, PaymentExternalID: m.PaymentExternalID,
 		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted,
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 		StockDecremented: m.StockDecremented,
 		NeedsStockReview: m.NeedsStockReview, NeedsSKUReview: m.NeedsSKUReview,
-		Fulfilled: m.Fulfilled,
+		NeedsManualRefundReview: m.NeedsManualRefundReview,
+		Fulfilled:               m.Fulfilled,
 	}
 }
 
@@ -1195,6 +1205,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, CreatedAt: li.CreatedAt,
+		RefundedQuantity: li.RefundedQuantity, RefundedAmountMinorUnits: li.RefundedAmountMinorUnits,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("salesOrderLineItemRepo.Create: %w", err)
@@ -1241,6 +1252,7 @@ func toSalesOrderLineItemDomain(m salesOrderLineItemModel) *omsDomain.SalesOrder
 		PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 		TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,
+		RefundedQuantity: m.RefundedQuantity, RefundedAmountMinorUnits: m.RefundedAmountMinorUnits,
 	}
 }
 
