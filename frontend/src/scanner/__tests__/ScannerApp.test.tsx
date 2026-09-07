@@ -24,6 +24,7 @@ vi.mock('../api', () => ({
   getPickingSession: vi.fn(),
   scanPickItem: vi.fn(),
   substituteLineItem: vi.fn(),
+  refundLineItem: vi.fn(),
   resolvePickScanCode: vi.fn(),
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
@@ -924,6 +925,39 @@ describe('ScannerApp picking screen', () => {
         { sku_id: 'sku-3', substitute_quantity: 4, original_quantity_covered: 5, return_to_stock: true },
       ],
     }))
+  })
+
+  it('Refund mode stages a refund for the entered quantity and reason', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    vi.mocked(api.refundLineItem).mockResolvedValue({
+      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'refund', quantity: 3, scanned_at: '', scanned_by: '' },
+    })
+
+    await enterPickingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+    await userEvent.click(screen.getByRole('button', { name: /Refund/ }))
+
+    const qtyInput = screen.getByLabelText('Quantity to refund')
+    await userEvent.clear(qtyInput)
+    await userEvent.type(qtyInput, '3')
+    await userEvent.type(screen.getByLabelText('Reason (optional)'), 'damaged')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm refund' }))
+
+    await waitFor(() => expect(api.refundLineItem).toHaveBeenCalledWith(expect.any(String), 'session-1', {
+      line_item_id: 'li-1', quantity: 3, reason: 'damaged',
+    }))
+  })
+
+  it('surfaces a permission-denied refund error from the API', async () => {
+    vi.mocked(api.getPickingSession).mockResolvedValue({ session: pickingSession(), line_items: [lineItem], scans: [] })
+    vi.mocked(api.refundLineItem).mockRejectedValue(new Error('caller does not have permission to perform this action'))
+
+    await enterPickingScreen()
+    await userEvent.click(await screen.findByText('Widget A'))
+    await userEvent.click(screen.getByRole('button', { name: /Refund/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm refund' }))
+
+    expect(await screen.findByText('caller does not have permission to perform this action')).toBeInTheDocument()
   })
 
   it('adds a freebie via the search flow, forcing no price input', async () => {

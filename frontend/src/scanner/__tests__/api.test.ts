@@ -279,6 +279,28 @@ describe('substituteLineItem', () => {
   })
 })
 
+describe('refundLineItem', () => {
+  it('sends the refund to the correct endpoint', async () => {
+    const result = {
+      scan: { id: 'scan-1', session_id: 'session-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'refund', quantity: 1, scanned_at: '', scanned_by: '' },
+    }
+    mockFetch(result, 201)
+    const input = { line_item_id: 'li-1', quantity: 1, reason: 'damaged' }
+    const got = await api.refundLineItem(TOKEN, 'session-1', input)
+
+    expect(got).toEqual(result)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/picking-sessions/session-1/refund')
+    expect(JSON.parse(opts.body as string)).toEqual(input)
+  })
+
+  it('throws on a permission-denied error', async () => {
+    mockFetchError('FORBIDDEN', 'caller does not have permission to perform this action', 403)
+    await expect(api.refundLineItem(TOKEN, 'session-1', { line_item_id: 'li-1', quantity: 1 }))
+      .rejects.toThrow('caller does not have permission to perform this action')
+  })
+})
+
 describe('resolvePickScanCode', () => {
   it('sends the code to the correct endpoint', async () => {
     const result = { sku_id: 'sku-1', product_name: 'Widget' }

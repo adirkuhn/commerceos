@@ -19,6 +19,7 @@ vi.mock('../../scanner/api', () => ({
   getPickingSession: vi.fn(),
   scanPickItem: vi.fn(),
   substituteLineItem: vi.fn(),
+  refundLineItem: vi.fn(),
   resolvePickScanCode: vi.fn(),
   deletePickScan: vi.fn(),
   pausePicking: vi.fn(),
@@ -281,6 +282,49 @@ describe('Picking page', () => {
     // Line quantity is 2 -- covering only 1 leaves the button disabled.
     expect(screen.getByRole('button', { name: 'Confirm substitute' })).toBeDisabled()
     expect(pickingApi.substituteLineItem).not.toHaveBeenCalled()
+  })
+
+  it('refund mode stages a refund for the entered quantity, using the Refund tab', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.refundLineItem).mockResolvedValue({
+      scan: { id: 'scan-1', session_id: 'ps-1', line_item_id: 'li-1', sku_id: 'sku-1', action_type: 'refund', quantity: 2, scanned_at: '2026-08-22T10:01:00Z', scanned_by: 'user-1' },
+    })
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await user.click(screen.getByText('Widget'))
+    await screen.findByText('Confirm pick')
+    await user.click(screen.getByRole('button', { name: 'Refund' }))
+    const qtyInput = screen.getByLabelText('Quantity to refund')
+    await user.clear(qtyInput)
+    await user.type(qtyInput, '2')
+    await user.click(screen.getByRole('button', { name: 'Confirm refund' }))
+
+    await waitFor(() => expect(pickingApi.refundLineItem).toHaveBeenCalledWith('test-token', 'ps-1', {
+      line_item_id: 'li-1', quantity: 2, reason: undefined,
+    }))
+  })
+
+  it('surfaces a permission-denied refund error', async () => {
+    vi.mocked(pickingApi.startOrResumePicking).mockResolvedValue(session())
+    vi.mocked(pickingApi.getPickingSession).mockResolvedValue(detail())
+    vi.mocked(pickingApi.refundLineItem).mockRejectedValue(new Error('caller does not have permission to perform this action'))
+
+    const user = userEvent.setup()
+    render(<Picking />)
+    await user.click(await screen.findByText('#1001'))
+    await screen.findByText('Widget')
+
+    await user.click(screen.getByText('Widget'))
+    await screen.findByText('Confirm pick')
+    await user.click(screen.getByRole('button', { name: 'Refund' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm refund' }))
+
+    expect(await screen.findByText('caller does not have permission to perform this action')).toBeInTheDocument()
   })
 
   it('pausing returns to the order list', async () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2, ArrowLeft } from 'lucide-react'
+import { ScanBarcode, CheckCircle, Package, Search, PauseCircle, Repeat, Gift, PackagePlus, X, Trash2, ArrowLeft, Undo2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as omsApi from '../oms/api'
@@ -61,7 +61,7 @@ function shippingAddressLine(address?: Address): string {
 
 
 const ACTION_LABEL: Record<PickScan['action_type'], string> = {
-  pick: 'Picked', substitute: 'Substituted', freebie: 'Freebie', new_item: 'New item',
+  pick: 'Picked', substitute: 'Substituted', freebie: 'Freebie', new_item: 'New item', refund: 'Refunded',
 }
 
 // One row of a substitute batch -- each row scans/types its own
@@ -102,8 +102,10 @@ export default function Picking() {
 
   const [pickLine, setPickLine] = useState<{ lineItem: PickingSessionLineItem; pickedSoFar: number } | null>(null)
   const [pickQty, setPickQty] = useState(1)
-  const [substituteMode, setSubstituteMode] = useState(false)
+  const [pickPanelMode, setPickPanelMode] = useState<'pick' | 'substitute' | 'refund'>('pick')
   const [substituteRows, setSubstituteRows] = useState<SubstituteRowState[]>([])
+  const [refundQty, setRefundQty] = useState('1')
+  const [refundReason, setRefundReason] = useState('')
 
   const [addItemOpen, setAddItemOpen] = useState<{ skuId: string; productName: string } | null>(null)
   const [addItemQty, setAddItemQty] = useState(1)
@@ -325,8 +327,10 @@ export default function Picking() {
     if (!li.sku_id) return // an unmatched Woo-import line has no SKU to pick against -- must be resolved elsewhere first
     setPickLine({ lineItem: li, pickedSoFar })
     setPickQty(Math.max(1, li.quantity - pickedSoFar))
-    setSubstituteMode(false)
+    setPickPanelMode('pick')
     setSubstituteRows([newSubstituteRow()])
+    setRefundQty(String(Math.max(1, li.quantity - pickedSoFar)))
+    setRefundReason('')
   }
 
   async function confirmPick() {
@@ -370,11 +374,33 @@ export default function Picking() {
       }))
       await pickingApi.substituteLineItem(token, session.session.id, { line_item_id: pickLine.lineItem.id, lines })
       setPickLine(null)
-      setSubstituteMode(false)
+      setPickPanelMode('pick')
       setSubstituteRows([])
       await loadSession(session.session.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record substitute')
+    } finally {
+      setBusy(false)
+      codeRef.current?.focus()
+    }
+  }
+
+  const refundQtyNum = Number(refundQty) || 0
+  const refundReady = !!pickLine && refundQtyNum > 0 && refundQtyNum <= pickLine.lineItem.quantity
+
+  async function confirmRefund() {
+    if (!pickLine || !session || !token || !refundReady) return
+    setBusy(true)
+    setError('')
+    try {
+      await pickingApi.refundLineItem(token, session.session.id, {
+        line_item_id: pickLine.lineItem.id, quantity: refundQtyNum, reason: refundReason || undefined,
+      })
+      setPickLine(null)
+      setPickPanelMode('pick')
+      await loadSession(session.session.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record refund')
     } finally {
       setBusy(false)
       codeRef.current?.focus()
@@ -919,20 +945,54 @@ export default function Picking() {
           <div className="p-4 space-y-4">
             <div className="flex items-center rounded-lg border dark:border-[#2D3748] border-gray-200 overflow-hidden">
               <button
-                type="button" onClick={() => setSubstituteMode(false)}
-                className={clsx('flex-1 px-3 py-1.5 text-[11px] font-medium', !substituteMode ? 'bg-blue-600 text-white' : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500')}
+                type="button" onClick={() => setPickPanelMode('pick')}
+                className={clsx('flex-1 px-3 py-1.5 text-[11px] font-medium', pickPanelMode === 'pick' ? 'bg-blue-600 text-white' : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500')}
               >
                 Pick
               </button>
               <button
-                type="button" onClick={() => { setSubstituteMode(true); setSubstituteRows([newSubstituteRow()]) }}
-                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', substituteMode ? 'bg-blue-600 text-white' : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500')}
+                type="button" onClick={() => { setPickPanelMode('substitute'); setSubstituteRows([newSubstituteRow()]) }}
+                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', pickPanelMode === 'substitute' ? 'bg-blue-600 text-white' : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500')}
               >
                 <Repeat size={11} /> Substitute
               </button>
+              <button
+                type="button" onClick={() => setPickPanelMode('refund')}
+                className={clsx('flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium', pickPanelMode === 'refund' ? 'bg-blue-600 text-white' : 'dark:bg-[#1F2937] bg-white dark:text-gray-400 text-gray-500')}
+              >
+                <Undo2 size={11} /> Refund
+              </button>
             </div>
 
-            {!substituteMode ? (
+            {pickPanelMode === 'refund' ? (
+              <>
+                <p className="text-[11px] dark:text-gray-400 text-gray-500">
+                  Can't fulfill this and don't want to substitute? Refund part or all of this line's own quantity
+                  ({pickLine.lineItem.quantity}) instead -- money only moves once the session is completed.
+                </p>
+                <label className="block">
+                  <span className="block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Quantity to refund</span>
+                  <input
+                    type="number" min={1} max={pickLine.lineItem.quantity}
+                    value={refundQty} onChange={e => setRefundQty(e.target.value)}
+                    className={inputClass}
+                  />
+                </label>
+                <label className="block">
+                  <span className="block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Reason (optional)</span>
+                  <input
+                    type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)}
+                    className={inputClass}
+                  />
+                </label>
+                <button
+                  type="button" onClick={confirmRefund} disabled={busy || !refundReady}
+                  className="w-full px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Confirm refund
+                </button>
+              </>
+            ) : pickPanelMode === 'pick' ? (
               <>
                 <div>
                   <label className="block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Quantity</label>

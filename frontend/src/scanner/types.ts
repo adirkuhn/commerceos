@@ -153,7 +153,7 @@ export interface PickingSession {
   completed_by: string
 }
 
-export type PickScanActionType = 'pick' | 'substitute' | 'freebie' | 'new_item'
+export type PickScanActionType = 'pick' | 'substitute' | 'freebie' | 'new_item' | 'refund'
 
 // A STAGED action -- see backend domain/oms/picking.go's doc comment.
 // Nothing here is real (no stock movement, no order line item) until
@@ -258,6 +258,22 @@ export interface SubstituteLineItemInput {
 
 export interface SubstituteLineItemResult {
   scans: PickScan[]
+}
+
+// Stages refunding part or all of an existing line item's own quantity,
+// when staff choose not to substitute it -- see PickScanActionRefund's
+// backend doc comment. Real money only moves at session completion; a
+// customer_user caller needs the oms.line_item.refund permission (403
+// otherwise).
+export interface RefundLineItemRequest {
+  line_item_id: string
+  // At most the line item's own quantity.
+  quantity: number
+  reason?: string
+}
+
+export interface RefundLineItemResult {
+  scan: PickScan
 }
 
 // Result of resolving a scanned code to a SKU WITHOUT staging anything yet

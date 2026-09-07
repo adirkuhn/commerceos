@@ -2,7 +2,7 @@ import type {
   Booking, BookingDetail, ScanBookingItemInput, ScanBookingItemResult,
   ResolveBookingScanCodeResult, CompleteBookingResult, ScannerPairingCode, APIResponse,
   PickingSession, PickingSessionDetail, ScanPickItemInput, ScanPickItemResult,
-  SubstituteLineItemInput, SubstituteLineItemResult,
+  SubstituteLineItemInput, SubstituteLineItemResult, RefundLineItemRequest, RefundLineItemResult,
   ResolvePickScanCodeResult, CompletePickingResult, StockShortfallResolution, AddSalesOrderLineItemInput,
 } from './types'
 import type { SalesOrderLineItem } from '../oms/types'
@@ -105,6 +105,10 @@ export function scanPickItem(token: string, sessionId: string, input: ScanPickIt
 
 export function substituteLineItem(token: string, sessionId: string, input: SubstituteLineItemInput): Promise<SubstituteLineItemResult> {
   return request<SubstituteLineItemResult>(`${base()}/picking-sessions/${sessionId}/substitute-batch`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function refundLineItem(token: string, sessionId: string, input: RefundLineItemRequest): Promise<RefundLineItemResult> {
+  return request<RefundLineItemResult>(`${base()}/picking-sessions/${sessionId}/refund`, { method: 'POST', body: JSON.stringify(input) }, token)
 }
 
 export function resolvePickScanCode(token: string, sessionId: string, code: string): Promise<ResolvePickScanCodeResult> {

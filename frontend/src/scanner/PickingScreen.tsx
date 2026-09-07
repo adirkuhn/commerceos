@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Repeat, Gift, PackagePlus, Search } from 'lucide-react'
+import { ArrowLeft, Check, PackageCheck, Camera, X, Package, Repeat, Gift, PackagePlus, Search, Undo2 } from 'lucide-react'
 import * as api from './api'
 import { searchSKUCandidates, type SKUCandidate } from '../pms/searchCandidates'
 import { useProductMedia } from '../pms/hooks/useProductMedia'
@@ -209,6 +209,26 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         return false
       }
       setError(err instanceof Error ? err.message : 'Substitute failed')
+      return false
+    } finally {
+      setScanning(false)
+      codeInputRef.current?.focus()
+    }
+  }
+
+  async function stageRefund(input: Parameters<typeof api.refundLineItem>[2]): Promise<boolean> {
+    setError('')
+    setScanning(true)
+    try {
+      await api.refundLineItem(token, sessionId, input)
+      await load()
+      return true
+    } catch (err) {
+      if (isAuthError(err)) {
+        onAuthError()
+        return false
+      }
+      setError(err instanceof Error ? err.message : 'Refund failed')
       return false
     } finally {
       setScanning(false)
@@ -701,6 +721,10 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             setPickLine(null)
             stageSubstitute({ line_item_id: pickLine.lineItem.id, lines })
           }}
+          onRefund={(quantity, reason) => {
+            setPickLine(null)
+            stageRefund({ line_item_id: pickLine.lineItem.id, quantity, reason })
+          }}
         />
       )}
 
@@ -740,7 +764,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
 // how much of the original line it covers, and whether that covered share
 // goes back to stock. The rows' covered quantities must sum to the
 // original line's own quantity exactly before submitting.
-type PickSheetMode = 'pick' | 'substitute'
+type PickSheetMode = 'pick' | 'substitute' | 'refund'
 
 let substituteRowKeySeq = 0
 function nextSubstituteRowKey(): string { return `sub-row-${++substituteRowKeySeq}` }
@@ -760,7 +784,7 @@ function newSubstituteRow(): SubstituteRowState {
   return { key: nextSubstituteRowKey(), query: '', candidates: [], searching: false, substituteQty: '1', coveredQty: '', returnToStock: false }
 }
 
-function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCancel, onPick, onSubstitute }: {
+function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCancel, onPick, onSubstitute, onRefund }: {
   token: string
   lineItem: PickingSessionLineItem
   pickedSoFar: number
@@ -769,12 +793,16 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
   onCancel: () => void
   onPick: (quantity: number, reason?: string) => void
   onSubstitute: (lines: SubstituteLine[]) => void
+  onRefund: (quantity: number, reason?: string) => void
 }) {
   const [mode, setMode] = useState<PickSheetMode>('pick')
   const [qty, setQty] = useState(String(Math.max(lineItem.quantity - pickedSoFar, 0)))
   const [reason, setReason] = useState('')
   const [substituteRows, setSubstituteRows] = useState<SubstituteRowState[]>([newSubstituteRow()])
+  const [refundQty, setRefundQty] = useState(String(Math.max(lineItem.quantity - pickedSoFar, 0)))
+  const [refundReason, setRefundReason] = useState('')
   const n = Number(qty) || 0
+  const refundN = Number(refundQty) || 0
   const remaining = Math.max(lineItem.quantity - pickedSoFar, 0)
 
   const coveredTotal = substituteRows.reduce((sum, r) => sum + (Number(r.coveredQty) || 0), 0)
@@ -831,7 +859,9 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
                   <p className="text-sm text-gray-200">
                     {s.action_type === 'substitute'
                       ? `Substituted × ${s.quantity} (covers ${s.original_quantity_covered ?? '?'})`
-                      : `Picked × ${s.quantity}`}
+                      : s.action_type === 'refund'
+                        ? `Refunded × ${s.quantity}`
+                        : `Picked × ${s.quantity}`}
                   </p>
                   {s.reason && <p className="text-xs text-gray-500 truncate">{s.reason}</p>}
                 </div>
@@ -864,9 +894,40 @@ function PickLineSheet({ token, lineItem, pickedSoFar, scans, onDeleteScan, onCa
             >
               <Repeat size={15} /> Substitute
             </button>
+            <button
+              type="button"
+              onClick={() => setMode('refund')}
+              className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg text-[11px] font-medium leading-tight ${mode === 'refund' ? 'bg-blue-600 text-white' : 'bg-[#1F2937] text-gray-400'}`}
+            >
+              <Undo2 size={15} /> Refund
+            </button>
           </div>
 
-          {mode === 'pick' ? (
+          {mode === 'refund' ? (
+            <>
+              <p className="text-xs text-gray-500">
+                Can't fulfill this and don't want to substitute? Refund part or all of this line's quantity
+                ({lineItem.quantity}) instead -- money only moves once the session is completed.
+              </p>
+              <QuantityStepper id="refund-quantity" label="Quantity to refund" value={refundQty} onChange={setRefundQty} min={0} max={lineItem.quantity} />
+              <div>
+                <label htmlFor="refund-reason" className="block text-xs text-gray-400 mb-1.5">Reason (optional)</label>
+                <input
+                  id="refund-reason"
+                  value={refundReason}
+                  onChange={e => setRefundReason(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#1F2937] border border-[#2D3748] text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => onRefund(refundN, refundReason || undefined)}
+                disabled={refundN <= 0}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50"
+              >
+                Confirm refund
+              </button>
+            </>
+          ) : mode === 'pick' ? (
             <>
               <QuantityStepper id="pick-quantity" label="Quantity to pick" value={qty} onChange={setQty} min={0} max={remaining} />
               <div>
