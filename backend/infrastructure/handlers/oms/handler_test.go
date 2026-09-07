@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -244,6 +245,33 @@ func (s *stubScanPickItem) Execute(_ context.Context, in appoms.ScanPickItemInpu
 	return &appoms.ScanPickItemResult{Scan: omsDomain.PickScan{ID: "scan-1", SessionID: in.SessionID}}, nil
 }
 
+type stubSubstituteLineItem struct {
+	out   *appoms.SubstituteLineItemResult
+	err   error
+	gotIn appoms.SubstituteLineItemInput
+}
+
+func (s *stubSubstituteLineItem) Execute(_ context.Context, in appoms.SubstituteLineItemInput) (*appoms.SubstituteLineItemResult, error) {
+	s.gotIn = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	scans := make([]omsDomain.PickScan, len(in.Lines))
+	lineItemID := in.LineItemID
+	for i, l := range in.Lines {
+		covered := l.OriginalQtyCovered
+		scans[i] = omsDomain.PickScan{
+			ID: fmt.Sprintf("scan-%d", i+1), SessionID: in.SessionID, LineItemID: &lineItemID, SKUID: l.SKUID,
+			ActionType: omsDomain.PickScanActionSubstitute, Quantity: l.SubstituteQuantity,
+			OriginalQtyCovered: &covered, ReturnToStock: l.ReturnToStock,
+		}
+	}
+	return &appoms.SubstituteLineItemResult{Scans: scans}, nil
+}
+
 type stubResolvePickScanCode struct {
 	out          *appoms.ResolvePickScanCodeResult
 	err          error
@@ -311,7 +339,7 @@ func (s *stubCompletePicking) Execute(_ context.Context, in appoms.CompletePicki
 
 func newTestRouter(list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder, del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock) *gin.Engine {
 	return newTestRouterWithPicking(list, get, create, update, del, link, retry, force,
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{})
 }
 
@@ -319,11 +347,11 @@ func newTestRouterWithPicking(
 	list *stubListSalesOrders, get *stubGetSalesOrder, create *stubCreateSalesOrder, update *stubUpdateSalesOrder,
 	del *stubDeleteSalesOrder, link *stubLinkLineItemSKU, retry *stubRetryStockDecrement, force *stubForceAcceptStock,
 	addLineItem *stubAddSalesOrderLineItem, startPicking *stubStartOrResumePicking, getPicking *stubGetPickingSession,
-	scan *stubScanPickItem, resolve *stubResolvePickScanCode, deleteScan *stubDeletePickScan,
+	scan *stubScanPickItem, substitute *stubSubstituteLineItem, resolve *stubResolvePickScanCode, deleteScan *stubDeletePickScan,
 	pause *stubPausePicking, complete *stubCompletePicking, bulk *stubBulkUpdateSalesOrderStatus,
 ) *gin.Engine {
 	h := omshandler.NewHandler(list, get, create, update, del, link, retry, force,
-		addLineItem, startPicking, getPicking, scan, resolve, deleteScan, pause, complete, bulk,
+		addLineItem, startPicking, getPicking, scan, substitute, resolve, deleteScan, pause, complete, bulk,
 		&stubListSalesOrderActivities{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -594,7 +622,7 @@ func TestBulkUpdateSalesOrderStatus_success(t *testing.T) {
 	body := map[string]any{"order_ids": []string{"so-1", "so-2"}, "status": "processing"}
 	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
 		"POST", "/api/v1/sales-orders/bulk-status", body)
 
@@ -610,7 +638,7 @@ func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
 	body := map[string]any{"order_ids": []string{"so-1"}, "fulfilled": true}
 	w := doRequest(newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, bulk),
 		"POST", "/api/v1/sales-orders/bulk-status", body)
 
@@ -620,7 +648,7 @@ func TestBulkUpdateSalesOrderStatus_emptyOrderIDsIsUnprocessable(t *testing.T) {
 func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	s := &pickingStubs{
 		addLineItem: &stubAddSalesOrderLineItem{}, startPicking: &stubStartOrResumePicking{}, getPicking: &stubGetPickingSession{},
-		scan: &stubScanPickItem{}, resolve: &stubResolvePickScanCode{}, deleteScan: &stubDeletePickScan{},
+		scan: &stubScanPickItem{}, substitute: &stubSubstituteLineItem{}, resolve: &stubResolvePickScanCode{}, deleteScan: &stubDeletePickScan{},
 		pause: &stubPausePicking{}, complete: &stubCompletePicking{},
 	}
 	if overrides != nil {
@@ -628,13 +656,13 @@ func routerWithPicking(overrides func(*pickingStubs)) *gin.Engine {
 	}
 	return newTestRouterWithPicking(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
+		s.addLineItem, s.startPicking, s.getPicking, s.scan, s.substitute, s.resolve, s.deleteScan, s.pause, s.complete, &stubBulkUpdateSalesOrderStatus{})
 }
 
 func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.Engine {
 	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
 		&stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{},
-		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{},
+		&stubAddSalesOrderLineItem{}, &stubStartOrResumePicking{}, &stubGetPickingSession{}, &stubScanPickItem{}, &stubSubstituteLineItem{},
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, activities)
 	r := gin.New()
@@ -647,6 +675,7 @@ type pickingStubs struct {
 	startPicking *stubStartOrResumePicking
 	getPicking   *stubGetPickingSession
 	scan         *stubScanPickItem
+	substitute   *stubSubstituteLineItem
 	resolve      *stubResolvePickScanCode
 	deleteScan   *stubDeletePickScan
 	pause        *stubPausePicking
@@ -760,6 +789,58 @@ func TestScanPickItem_notFound(t *testing.T) {
 	body := map[string]any{"sku_id": "sku-1", "quantity": 1}
 	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.scan.err = omsDomain.ErrPickingSessionNotFound }),
 		"POST", "/api/v1/picking-sessions/missing/scan", body)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestSubstituteLineItem_success(t *testing.T) {
+	var substitute *stubSubstituteLineItem
+	body := map[string]any{
+		"line_item_id": "li-1",
+		"lines": []map[string]any{
+			{"sku_id": "sku-a", "substitute_quantity": 3, "original_quantity_covered": 1, "return_to_stock": false},
+			{"sku_id": "sku-b", "substitute_quantity": 4, "original_quantity_covered": 1, "return_to_stock": true},
+		},
+	}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { substitute = s.substitute }),
+		"POST", "/api/v1/picking-sessions/session-1/substitute-batch", body)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "session-1", substitute.gotIn.SessionID)
+	assert.Equal(t, "li-1", substitute.gotIn.LineItemID)
+	require.Len(t, substitute.gotIn.Lines, 2)
+	assert.Equal(t, "sku-a", substitute.gotIn.Lines[0].SKUID)
+	assert.Equal(t, int64(3), substitute.gotIn.Lines[0].SubstituteQuantity)
+	assert.Equal(t, int64(1), substitute.gotIn.Lines[0].OriginalQtyCovered)
+	assert.False(t, substitute.gotIn.Lines[0].ReturnToStock)
+	assert.True(t, substitute.gotIn.Lines[1].ReturnToStock)
+	assert.Contains(t, w.Body.String(), "sku-a")
+	assert.Contains(t, w.Body.String(), "sku-b")
+}
+
+func TestSubstituteLineItem_coverageMismatchIsUnprocessable(t *testing.T) {
+	body := map[string]any{
+		"line_item_id": "li-1",
+		"lines":        []map[string]any{{"sku_id": "sku-a", "substitute_quantity": 1, "original_quantity_covered": 1}},
+	}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.substitute.err = omsDomain.ErrSubstitutionCoverageMismatch }),
+		"POST", "/api/v1/picking-sessions/session-1/substitute-batch", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestSubstituteLineItem_emptyLinesIsUnprocessable(t *testing.T) {
+	body := map[string]any{"line_item_id": "li-1", "lines": []map[string]any{}}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.substitute.err = omsDomain.ErrSubstituteLinesRequired }),
+		"POST", "/api/v1/picking-sessions/session-1/substitute-batch", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestSubstituteLineItem_notFound(t *testing.T) {
+	body := map[string]any{"line_item_id": "li-1", "lines": []map[string]any{{"sku_id": "sku-a", "substitute_quantity": 1, "original_quantity_covered": 1}}}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.substitute.err = omsDomain.ErrPickingSessionNotFound }),
+		"POST", "/api/v1/picking-sessions/missing/substitute-batch", body)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

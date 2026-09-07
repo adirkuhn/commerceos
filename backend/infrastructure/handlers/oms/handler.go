@@ -61,6 +61,9 @@ type getPickingSessionUC interface {
 type scanPickItemUC interface {
 	Execute(ctx context.Context, in appoms.ScanPickItemInput) (*appoms.ScanPickItemResult, error)
 }
+type substituteLineItemUC interface {
+	Execute(ctx context.Context, in appoms.SubstituteLineItemInput) (*appoms.SubstituteLineItemResult, error)
+}
 type resolvePickScanCodeUC interface {
 	Execute(ctx context.Context, sessionID, code string) (*appoms.ResolvePickScanCodeResult, error)
 }
@@ -92,6 +95,7 @@ type Handler struct {
 	startOrResumePicking       startOrResumePickingUC
 	getPickingSession          getPickingSessionUC
 	scanPickItem               scanPickItemUC
+	substituteLineItem         substituteLineItemUC
 	resolvePickScanCode        resolvePickScanCodeUC
 	deletePickScan             deletePickScanUC
 	pausePicking               pausePickingUC
@@ -105,7 +109,8 @@ func NewHandler(
 	updateSalesOrder updateSalesOrderUC, deleteSalesOrder deleteSalesOrderUC, linkLineItemSKU linkLineItemSKUUC,
 	retryStockDecrement retryStockDecrementUC, forceAcceptStock forceAcceptStockUC,
 	addSalesOrderLineItem addSalesOrderLineItemUC, startOrResumePicking startOrResumePickingUC,
-	getPickingSession getPickingSessionUC, scanPickItem scanPickItemUC, resolvePickScanCode resolvePickScanCodeUC,
+	getPickingSession getPickingSessionUC, scanPickItem scanPickItemUC, substituteLineItem substituteLineItemUC,
+	resolvePickScanCode resolvePickScanCodeUC,
 	deletePickScan deletePickScanUC, pausePicking pausePickingUC, completePicking completePickingUC,
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC,
 	listSalesOrderActivities listSalesOrderActivitiesUC,
@@ -115,7 +120,8 @@ func NewHandler(
 		createSalesOrder: createSalesOrder, updateSalesOrder: updateSalesOrder, deleteSalesOrder: deleteSalesOrder,
 		linkLineItemSKU: linkLineItemSKU, retryStockDecrement: retryStockDecrement, forceAcceptStock: forceAcceptStock,
 		addSalesOrderLineItem: addSalesOrderLineItem, startOrResumePicking: startOrResumePicking,
-		getPickingSession: getPickingSession, scanPickItem: scanPickItem, resolvePickScanCode: resolvePickScanCode,
+		getPickingSession: getPickingSession, scanPickItem: scanPickItem, substituteLineItem: substituteLineItem,
+		resolvePickScanCode: resolvePickScanCode,
 		deletePickScan: deletePickScan, pausePicking: pausePicking, completePicking: completePicking,
 		bulkUpdateSalesOrderStatus: bulkUpdateSalesOrderStatus,
 		listSalesOrderActivities:   listSalesOrderActivities,
@@ -161,6 +167,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
 		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
+		appoms.NewSubstituteLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo),
 		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewPausePickingUseCase(db, pickingSessionRepo),
@@ -443,6 +450,42 @@ func (h *Handler) ScanPickItem(c *gin.Context, id genoms.Id) {
 	c.JSON(http.StatusCreated, genoms.ScanPickItemResultResponse{Data: &resp})
 }
 
+func (h *Handler) SubstituteLineItem(c *gin.Context, id genoms.Id) {
+	var req genoms.SubstituteLineItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	claims := middleware.ClaimsFromGin(c)
+	scannedBy := ""
+	if claims != nil {
+		scannedBy = claims.UserID
+	}
+	lines := make([]appoms.SubstituteLineInput, len(req.Lines))
+	for i, l := range req.Lines {
+		returnToStock := false
+		if l.ReturnToStock != nil {
+			returnToStock = *l.ReturnToStock
+		}
+		lines[i] = appoms.SubstituteLineInput{
+			SKUID: l.SkuId, SubstituteQuantity: l.SubstituteQuantity, OriginalQtyCovered: l.OriginalQuantityCovered,
+			ReturnToStock: returnToStock,
+		}
+	}
+	result, err := h.substituteLineItem.Execute(c.Request.Context(), appoms.SubstituteLineItemInput{
+		SessionID: id, LineItemID: req.LineItemId, Lines: lines, Reason: strOrEmpty(req.Reason), ScannedBy: scannedBy,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	scans := make([]genoms.PickScan, len(result.Scans))
+	for i, s := range result.Scans {
+		scans[i] = toGenPickScan(s)
+	}
+	resp := genoms.SubstituteLineItemResult{Scans: scans}
+	c.JSON(http.StatusCreated, genoms.SubstituteLineItemResultResponse{Data: &resp})
+}
+
 func (h *Handler) ResolvePickScanCode(c *gin.Context, id genoms.Id) {
 	var req genoms.ResolvePickScanCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -605,9 +648,11 @@ func toGenPickingSession(s omsDomain.PickingSession) genoms.PickingSession {
 }
 
 func toGenPickScan(s omsDomain.PickScan) genoms.PickScan {
+	returnToStock := s.ReturnToStock
 	return genoms.PickScan{
 		Id: s.ID, SessionId: s.SessionID, LineItemId: s.LineItemID, SkuId: s.SKUID, ActionType: genoms.PickScanActionType(s.ActionType),
-		Quantity: s.Quantity, PriceMinorUnits: s.PriceMinorUnits, Reason: &s.Reason,
+		Quantity: s.Quantity, OriginalQuantityCovered: s.OriginalQtyCovered, ReturnToStock: &returnToStock,
+		PriceMinorUnits: s.PriceMinorUnits, Reason: &s.Reason,
 		ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 	}
 }
@@ -647,7 +692,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrPickLineItemRequired), errors.Is(err, omsDomain.ErrLineItemSKUMismatch),
 		errors.Is(err, omsDomain.ErrInvalidLineItemQuantity), errors.Is(err, omsDomain.ErrInvalidPrice),
 		errors.Is(err, omsDomain.ErrPriceRequiredForNewItem), errors.Is(err, omsDomain.ErrBulkUpdateOrderIDsRequired),
-		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven):
+		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven), errors.Is(err, omsDomain.ErrSubstituteViaBatchEndpointOnly),
+		errors.Is(err, omsDomain.ErrSubstituteLinesRequired), errors.Is(err, omsDomain.ErrInvalidSubstituteQuantity),
+		errors.Is(err, omsDomain.ErrSubstitutionCoverageMismatch):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("oms: unhandled error: %v", err)
