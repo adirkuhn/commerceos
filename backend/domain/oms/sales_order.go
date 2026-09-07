@@ -40,6 +40,14 @@ const (
 	SalesOrderStatusCancelled SalesOrderStatus = "cancelled"
 	SalesOrderStatusRefunded  SalesOrderStatus = "refunded"
 	SalesOrderStatusFailed    SalesOrderStatus = "failed"
+	// SalesOrderStatusPartiallyRefunded is not one of WooCommerce's own
+	// statuses (see this type's doc comment on mirroring Woo) -- set by
+	// CompletePickingUseCase's replay when a PickScanActionRefund row
+	// successfully refunds through the order's payment provider (see
+	// SalesOrder.PaymentProvider/PaymentExternalID). Never set for an order
+	// with no known provider info -- that case sets NeedsManualRefundReview
+	// instead, leaving Status untouched.
+	SalesOrderStatusPartiallyRefunded SalesOrderStatus = "partially_refunded"
 )
 
 // StatusReducesStock mirrors WooCommerce's own stock semantics: pending
@@ -149,8 +157,19 @@ type SalesOrder struct {
 	PaymentMethod      string
 	PaymentMethodTitle string
 	TransactionID      string
-	DatePaid           *time.Time
-	DateCompleted      *time.Time
+	// PaymentProvider/PaymentExternalID are stamped by
+	// application/payments.WebhookDispatchHandler at the same moment
+	// TransactionID is -- PaymentProvider is the literal provider name
+	// ("stripe"/"revolut", see integrations.Provider), PaymentExternalID is
+	// that provider's own checkout-session/order id. Both empty for an
+	// order with no known online-payment webhook (POS, manual, most
+	// imported orders) -- RefundLineItemUseCase's replay uses this pair to
+	// decide whether a real refund API call is even possible; see
+	// SalesOrder.NeedsManualRefundReview for what happens when it isn't.
+	PaymentProvider   string
+	PaymentExternalID string
+	DatePaid          *time.Time
+	DateCompleted     *time.Time
 
 	// ShippingMethod/ShippingMethodTitle mirror PaymentMethod/
 	// PaymentMethodTitle's shape -- ShippingMethod is the machine slug
@@ -183,6 +202,16 @@ type SalesOrder struct {
 	// SKU. Cleared by LinkLineItemSKUUseCase once every such line item is
 	// linked. See the "Unmatched SKUs" admin page.
 	NeedsSKUReview bool
+	// NeedsManualRefundReview is true when a PickScanActionRefund replayed
+	// against this order without being able to call the payment provider's
+	// refund API for real -- either because PaymentProvider/
+	// PaymentExternalID are empty (no known online payment, e.g. an
+	// imported order), or the API call itself failed. The line item is
+	// still marked refunded either way (see SalesOrderLineItem.
+	// RefundedQuantity) -- this flag just means staff must action the
+	// actual money movement by hand. Never auto-cleared -- a human clears
+	// it once they've handled it.
+	NeedsManualRefundReview bool
 
 	// Fulfilled is a binary secondary status, independent of Status -- true
 	// once every item has physically shipped/been picked. Set automatically
@@ -241,6 +270,15 @@ type SalesOrderLineItem struct {
 	// the SKU had no tax class set, or for line items created before this
 	// field existed.
 	TaxClassID *string
+
+	// RefundedQuantity/RefundedAmountMinorUnits accumulate across possibly
+	// more than one PickScanActionRefund row against this line (partial-by-
+	// quantity, see RefundLineItemUseCase) -- RefundedAmountMinorUnits is
+	// always RefundedQuantity * PriceMinorUnits at the time each refund
+	// replayed, not recomputed from the line's current price. Both zero
+	// means never refunded.
+	RefundedQuantity         int64
+	RefundedAmountMinorUnits int64
 
 	CreatedAt time.Time
 

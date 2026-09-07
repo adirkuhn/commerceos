@@ -74,6 +74,21 @@ var (
 	// cover the original line item's own Quantity exactly, no more, no
 	// less.
 	ErrSubstitutionCoverageMismatch = errors.New("substitute lines must cover exactly the original line item's quantity")
+	// ErrInvalidRefundQuantity guards RefundLineItemUseCase against a
+	// quantity that isn't a positive magnitude, or that exceeds the line
+	// item's own Quantity.
+	ErrInvalidRefundQuantity = errors.New("refund quantity must be positive and not exceed the line item's quantity")
+	// ErrRefundRequiresLinkedSKU guards RefundLineItemUseCase against a
+	// line item with no SKUID (an unmatched Woo import line) -- there's no
+	// SKU to attribute the refund's PickScan row to.
+	ErrRefundRequiresLinkedSKU = errors.New("line item must be linked to a sku before it can be refunded")
+	// ErrPermissionDenied guards a use case's fine-grained RBAC check (see
+	// iam.GroupPermissionRepository.HasPermission) against a customer_user
+	// caller who lacks the specific rule required -- e.g.
+	// RefundLineItemUseCase's "oms.line_item.refund". Never raised for
+	// customer_owner/customer_admin/super_admin, which bypass fine-grained
+	// checks entirely (full tenant access by role).
+	ErrPermissionDenied = errors.New("caller does not have permission to perform this action")
 
 	// ErrInvalidLineItemQuantity guards AddSalesOrderLineItemUseCase.
 	ErrInvalidLineItemQuantity = errors.New("quantity must be positive")

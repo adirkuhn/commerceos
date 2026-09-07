@@ -62,6 +62,23 @@ const (
 	// PickScanActionNewItem is Freebie's non-zero-priced sibling -- same
 	// replay effect, PriceMinorUnits is picker-entered instead of forced 0.
 	PickScanActionNewItem PickScanActionType = "new_item"
+	// PickScanActionRefund stages refunding part or all of an existing line
+	// item's quantity, when staff choose not to substitute it (see
+	// RefundLineItemUseCase, the only use case allowed to create these
+	// rows). LineItemID is the line being refunded, SKUID is that line's
+	// own SKU (never a different one -- a refund never introduces a new
+	// product). Quantity is the amount being refunded -- positive, at most
+	// the line's own Quantity, need not equal it (see this doc for
+	// Quantity's Refund case). At replay: if the order has a known
+	// PaymentProvider/PaymentExternalID, CompletePickingUseCase attempts a
+	// real refund through that provider for Quantity * the line's own
+	// PriceMinorUnits; on success the order's Status becomes
+	// PartiallyRefunded. Either no provider info or the API call itself
+	// failing instead sets SalesOrder.NeedsManualRefundReview, leaving
+	// Status untouched -- a refund never blocks picking completion. Either
+	// way the line item's RefundedQuantity/RefundedAmountMinorUnits
+	// accumulate and the line item row itself is never otherwise mutated.
+	PickScanActionRefund PickScanActionType = "refund"
 )
 
 // PickScan is a STAGED action from the scanner app -- see BookingScan's
@@ -85,7 +102,10 @@ type PickScan struct {
 	ActionType PickScanActionType
 	// Quantity is always a positive magnitude -- for Substitute, this is
 	// the SUBSTITUTE SKU's own quantity being added (caller-supplied via
-	// SubstituteLineItemUseCase), not the original line's quantity.
+	// SubstituteLineItemUseCase), not the original line's quantity. For
+	// Refund, this is the quantity of the ORIGINAL line item being
+	// refunded -- at most that line's own Quantity, need not equal it
+	// (partial-by-quantity, see PickScanActionRefund's doc).
 	Quantity int64
 	// OriginalQtyCovered is set only for Substitute -- how much of the
 	// original line item's own Quantity this particular row covers. Every
