@@ -42,13 +42,18 @@ const (
 	// state, see SalesOrderStatus.ReducesStock's doc). Purely a
 	// confirmation/audit row.
 	PickScanActionPick PickScanActionType = "pick"
-	// PickScanActionSubstitute swaps an entire original line item's stock
-	// for a different SKU -- LineItemID is the ORIGINAL line, SKUID is the
-	// SUBSTITUTE. At replay: reverse the original line's full decrement,
-	// decrement the substitute for real. The original line item row itself
-	// is never mutated -- see CompletePickingUseCase's doc. Whole-line-item
-	// quantity only, no partial substitution -- this codebase has no
-	// partial-reversal primitive to build on.
+	// PickScanActionSubstitute swaps part (or all) of an original line
+	// item's quantity for a different SKU -- LineItemID is the ORIGINAL
+	// line, SKUID is the SUBSTITUTE. One original line can be covered by
+	// several Substitute rows at once (e.g. 1 unit replaced by 3 of one
+	// cheaper SKU and 4 of another) -- see SubstituteLineItemUseCase, the
+	// only use case allowed to create these rows (ScanPickItemUseCase
+	// rejects this action type). At replay: each row's own
+	// OriginalQtyCovered is reversed from the original line's stock only if
+	// its own ReturnToStock is true (summed once per line across all its
+	// Substitute rows), then its own substitute SKU is decremented for
+	// real. The original line item row itself is never mutated -- see
+	// CompletePickingUseCase's doc.
 	PickScanActionSubstitute PickScanActionType = "substitute"
 	// PickScanActionFreebie adds a brand-new, real SalesOrderLineItem
 	// priced at 0 and decrements its stock for real. LineItemID is nil
@@ -78,10 +83,23 @@ type PickScan struct {
 	// or the new SKU being added (Freebie/NewItem).
 	SKUID      string
 	ActionType PickScanActionType
-	// Quantity is always a positive magnitude -- for Substitute, this must
-	// equal the original line item's own Quantity (whole-line swap only,
-	// see PickScanActionSubstitute's doc).
+	// Quantity is always a positive magnitude -- for Substitute, this is
+	// the SUBSTITUTE SKU's own quantity being added (caller-supplied via
+	// SubstituteLineItemUseCase), not the original line's quantity.
 	Quantity int64
+	// OriginalQtyCovered is set only for Substitute -- how much of the
+	// original line item's own Quantity this particular row covers. Every
+	// Substitute row for a given original line, summed, must equal that
+	// line's Quantity exactly (enforced by SubstituteLineItemUseCase at
+	// creation, not at replay). Nil for every other action type.
+	OriginalQtyCovered *int64
+	// ReturnToStock is set only for Substitute -- whether this row's own
+	// OriginalQtyCovered should be added back to the original SKU's stock
+	// at replay. Defaults false: a substitution normally happens because
+	// the original stock figure was wrong (it isn't really there), so
+	// nothing is added back unless staff explicitly say so. Ignored for
+	// every other action type.
+	ReturnToStock bool
 	// PriceMinorUnits is nil for Pick/Substitute (no real line item
 	// created), 0 for Freebie, picker-entered for NewItem.
 	PriceMinorUnits *int64

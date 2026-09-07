@@ -57,6 +57,23 @@ var (
 	// ErrPickScanNotFound guards DeletePickScanUseCase against a scan ID
 	// that doesn't belong to the named session.
 	ErrPickScanNotFound = errors.New("pick scan not found")
+	// ErrSubstituteViaBatchEndpointOnly guards ScanPickItemUseCase against
+	// the Substitute action type -- substitution now always goes through
+	// SubstituteLineItemUseCase (one or more substitute lines at once), not
+	// the single-scan endpoint.
+	ErrSubstituteViaBatchEndpointOnly = errors.New("substitute action must use the substitute-batch endpoint")
+	// ErrSubstituteLinesRequired guards SubstituteLineItemUseCase against an
+	// empty batch -- nothing to substitute with.
+	ErrSubstituteLinesRequired = errors.New("at least one substitute line is required")
+	// ErrInvalidSubstituteQuantity guards SubstituteLineItemUseCase against
+	// a substitute line whose SubstituteQuantity or OriginalQtyCovered
+	// isn't a positive magnitude.
+	ErrInvalidSubstituteQuantity = errors.New("substitute quantity and original quantity covered must be positive")
+	// ErrSubstitutionCoverageMismatch guards SubstituteLineItemUseCase --
+	// the batch's substitute lines, summed by OriginalQtyCovered, must
+	// cover the original line item's own Quantity exactly, no more, no
+	// less.
+	ErrSubstitutionCoverageMismatch = errors.New("substitute lines must cover exactly the original line item's quantity")
 
 	// ErrInvalidLineItemQuantity guards AddSalesOrderLineItemUseCase.
 	ErrInvalidLineItemQuantity = errors.New("quantity must be positive")
