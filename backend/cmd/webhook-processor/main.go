@@ -123,8 +123,8 @@ func main() {
 		lookupProductInfo, repositories.NewCustomerRepo(db), orderFlowUC,
 	)
 
-	stripePaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrder)
-	revolutPaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrder)
+	stripePaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrder, "stripe")
+	revolutPaymentHandler := apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrder, "revolut")
 
 	dispatchHandlers := map[string]appwebhooks.DispatchHandler{
 		"myparcel": myParcelRouter,

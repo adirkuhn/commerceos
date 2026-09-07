@@ -54,10 +54,16 @@ type WebhookDispatchHandler struct {
 	salesOrderRepo   omsDomain.SalesOrderRepository
 	parser           PaymentEventParser
 	updateSalesOrder SalesOrderUpdater
+	// provider is the literal integrations.Provider string this handler
+	// instance was constructed for ("stripe"/"revolut", see cmd/api's
+	// handler wiring and cmd/webhook-processor/main.go) -- stamped onto the
+	// order alongside TransactionID so a later refund (see application/oms.
+	// CompletePickingUseCase) knows which provider's API to call.
+	provider string
 }
 
-func NewWebhookDispatchHandler(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, parser PaymentEventParser, updateSalesOrder SalesOrderUpdater) *WebhookDispatchHandler {
-	return &WebhookDispatchHandler{db: db, salesOrderRepo: salesOrderRepo, parser: parser, updateSalesOrder: updateSalesOrder}
+func NewWebhookDispatchHandler(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, parser PaymentEventParser, updateSalesOrder SalesOrderUpdater, provider string) *WebhookDispatchHandler {
+	return &WebhookDispatchHandler{db: db, salesOrderRepo: salesOrderRepo, parser: parser, updateSalesOrder: updateSalesOrder, provider: provider}
 }
 
 // Execute never regresses a SalesOrder that has moved past Pending
@@ -95,7 +101,10 @@ func (h *WebhookDispatchHandler) Execute(ctx context.Context, envelope webhooks.
 	}
 
 	now := time.Now()
-	input := omsapp.UpdateSalesOrderInput{TransactionID: &event.ExternalPaymentID, DatePaid: &now}
+	input := omsapp.UpdateSalesOrderInput{
+		TransactionID: &event.ExternalPaymentID, DatePaid: &now,
+		PaymentProvider: &h.provider, PaymentExternalID: &event.ExternalPaymentID,
+	}
 	if order.Status == omsDomain.SalesOrderStatusPending {
 		processing := omsDomain.SalesOrderStatusProcessing
 		input.Status = &processing

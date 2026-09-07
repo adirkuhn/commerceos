@@ -32,8 +32,13 @@ type UpdateSalesOrderInput struct {
 	ShippingMethod      *string
 	ShippingMethodTitle *string
 	TransactionID       *string
-	DatePaid            *time.Time
-	DateCompleted       *time.Time
+	// PaymentProvider/PaymentExternalID are stamped by
+	// application/payments.WebhookDispatchHandler at the same moment
+	// TransactionID is -- see SalesOrder.PaymentProvider's doc.
+	PaymentProvider   *string
+	PaymentExternalID *string
+	DatePaid          *time.Time
+	DateCompleted     *time.Time
 
 	// Fulfilled is a manual override -- set explicitly to flip the order's
 	// secondary fulfillment status by hand (e.g. a manual/POS order that
@@ -133,6 +138,14 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 		if in.TransactionID != nil {
 			fields["transaction_id"] = *in.TransactionID
 			updated.TransactionID = *in.TransactionID
+		}
+		if in.PaymentProvider != nil {
+			fields["payment_provider"] = *in.PaymentProvider
+			updated.PaymentProvider = *in.PaymentProvider
+		}
+		if in.PaymentExternalID != nil {
+			fields["payment_external_id"] = *in.PaymentExternalID
+			updated.PaymentExternalID = *in.PaymentExternalID
 		}
 		if in.DatePaid != nil {
 			fields["date_paid"] = *in.DatePaid

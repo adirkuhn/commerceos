@@ -348,7 +348,7 @@ func main() {
 	omsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(omsSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	omshandler.Register(omsGroup, db)
+	omshandler.Register(omsGroup, db, cfg.IntegrationsEncryptionSecret)
 
 	procurementSpec, err := genprocurement.GetSpec()
 	if err != nil {

@@ -493,8 +493,8 @@ func Register(
 	allocateStockUC := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
 	updateSalesOrderForWebhooksUC := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, allocateStockUC, stockRecorderUC, outboxRepo)
 	retryablePaymentHandlers := map[string]appshipping.RetryableWebhookHandler{
-		"stripe":  apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrderForWebhooksUC),
-		"revolut": apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrderForWebhooksUC),
+		"stripe":  apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrderForWebhooksUC, "stripe"),
+		"revolut": apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrderForWebhooksUC, "revolut"),
 	}
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(

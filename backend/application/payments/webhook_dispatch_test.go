@@ -61,7 +61,7 @@ func TestWebhookDispatchHandler_notHandled_isNoOpAndReturnsNil(t *testing.T) {
 	parser := &fakeParser{event: payments.PaymentEvent{Handled: false}}
 	updater := &fakeSalesOrderUpdater{}
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
@@ -73,7 +73,7 @@ func TestWebhookDispatchHandler_orderNotFound_isNoOp(t *testing.T) {
 	parser := &fakeParser{event: payments.PaymentEvent{Handled: true, OrderNumber: "WA-UNKNOWN", ExternalPaymentID: "ext-1"}}
 	updater := &fakeSalesOrderUpdater{}
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
@@ -88,7 +88,7 @@ func TestWebhookDispatchHandler_alreadyPaid_isIdempotentNoOp(t *testing.T) {
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{
 		"WA-PAID": {ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing, DatePaid: &paidAt},
 	}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
@@ -102,7 +102,7 @@ func TestWebhookDispatchHandler_pendingOrder_transitionsToProcessing(t *testing.
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{
 		"WA-PENDING": {ID: "order-1", Status: omsDomain.SalesOrderStatusPending},
 	}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
@@ -122,7 +122,7 @@ func TestWebhookDispatchHandler_orderPastPending_neverRegressesStatus(t *testing
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{
 		"WA-SHIPPED": {ID: "order-1", Status: omsDomain.SalesOrderStatusShipped},
 	}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
@@ -137,7 +137,7 @@ func TestWebhookDispatchHandler_parseError_propagates(t *testing.T) {
 	parser := &fakeParser{err: errors.New("boom")}
 	updater := &fakeSalesOrderUpdater{}
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
@@ -150,7 +150,7 @@ func TestWebhookDispatchHandler_updateError_propagates(t *testing.T) {
 	repo := &fakePaymentsSalesOrderRepo{byNumber: map[string]*omsDomain.SalesOrder{
 		"WA-PENDING": {ID: "order-1", Status: omsDomain.SalesOrderStatusPending},
 	}}
-	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater)
+	h := payments.NewWebhookDispatchHandler(newMockGormDB(t), repo, parser, updater, "stripe")
 
 	err := h.Execute(context.Background(), webhooks.Envelope{TenantID: "t1", RawPayload: []byte(`{}`)})
 
