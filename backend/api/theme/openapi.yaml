@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Theme Builder API
+  version: "1.0"
+  description: >
+    Admin-only (JWT) API behind the visual page-builder: fetching and
+    saving one internal sales channel's canvas page documents. See
+    domain/theme's package doc comment for the document model (a free-form
+    canvas of absolutely-positioned blocks, one per PageSlug). The public,
+    read-only counterpart the storefront-frontend actually renders from is
+    api/storefront's GetStorefrontTheme instead -- this API is for the
+    editor only.
+servers:
+  - url: /api/v1
+
+paths:
+  /theme/sales-channels/{channelId}/pages/{slug}:
+    get:
+      operationId: getThemePage
+      summary: Fetch one channel's saved canvas document for a page
+      description: >
+        Returns a default, empty document (canvas_width 1440, no blocks)
+        when the channel has never saved this page yet -- not a 404. A
+        brand-new internal channel starting from a blank canvas is the
+        normal case, not an error.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/PageSlugParam'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePageResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: saveThemePage
+      summary: Replace one channel's whole canvas document for a page
+      description: >
+        Always a full replace -- there is no incremental block add/remove,
+        same "rewrite wholesale" convention as every other JSONB-document
+        resource in this codebase (cart items, WhatsApp conversation
+        state). Rejects an unknown block type up front.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/PageSlugParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveThemePageRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemePageResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    ChannelId:
+      name: channelId
+      in: path
+      required: true
+      schema: { type: string }
+    PageSlugParam:
+      name: slug
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PageSlug' }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    PageSlug:
+      type: string
+      enum: [home, products, product, cart, checkout, order-confirmation, order-lookup]
+
+    BlockType:
+      type: string
+      description: >
+        product_details/cart_summary/checkout_form/order_status are
+        "functional" blocks -- they render real wired-up behavior (the
+        actual add-to-cart control, the actual payment-submitting checkout
+        form), not just presentation. See domain/theme.BlockType.IsFunctional.
+      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status]
+
+    Rect:
+      type: object
+      required: [x, y, width, height]
+      properties:
+        x: { type: integer }
+        y: { type: integer }
+        width: { type: integer }
+        height: { type: integer }
+
+    BlockLayout:
+      type: object
+      required: [desktop]
+      properties:
+        desktop: { $ref: '#/components/schemas/Rect' }
+        mobile:
+          allOf: [{ $ref: '#/components/schemas/Rect' }]
+          nullable: true
+          description: Null means this block uses its desktop Rect on mobile too (no per-breakpoint override saved yet).
+
+    Block:
+      type: object
+      required: [id, type, layout, props]
+      properties:
+        id: { type: string }
+        type: { $ref: '#/components/schemas/BlockType' }
+        layout: { $ref: '#/components/schemas/BlockLayout' }
+        props:
+          type: object
+          description: Block-type-specific free-form data (e.g. hero's heading text/image URL, custom_html's raw markup/CSS).
+
+    ThemePage:
+      type: object
+      required: [sales_channel_id, slug, canvas_width, blocks]
+      properties:
+        sales_channel_id: { type: string }
+        slug: { $ref: '#/components/schemas/PageSlug' }
+        canvas_width: { type: integer }
+        blocks:
+          type: array
+          items: { $ref: '#/components/schemas/Block' }
+
+    ThemePageResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ThemePage' }
+        error: { nullable: true }
+
+    SaveThemePageRequest:
+      type: object
+      required: [canvas_width, blocks]
+      properties:
+        canvas_width: { type: integer }
+        blocks:
+          type: array
+          items: { $ref: '#/components/schemas/Block' }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

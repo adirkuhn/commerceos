@@ -35,6 +35,7 @@ import (
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
+	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
@@ -57,6 +58,7 @@ import (
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
+	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -219,6 +221,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	settingshandler.Register(settingsGroup, db)
+
+	themeSpec, err := gentheme.GetSpec()
+	if err != nil {
+		log.Fatalf("theme: load openapi spec: %v", err)
+	}
+	// Own sub-group so the theme-only spec validator never applies to the
+	// other modules' routes — same reasoning as pmsGroup above.
+	themeGroup := v1.Group("")
+	themeGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(themeSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	themehandler.Register(themeGroup, db)
 
 	taxSpec, err := gentax.GetSpec()
 	if err != nil {
