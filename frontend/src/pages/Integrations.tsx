@@ -162,6 +162,7 @@ export default function Integrations() {
 
   const [connectingStripe, setConnectingStripe] = useState(false)
   const [stripeSecretKey, setStripeSecretKey] = useState('')
+  const [stripePublishableKey, setStripePublishableKey] = useState('')
   const [connectingRevolut, setConnectingRevolut] = useState(false)
   const [revolutApiKey, setRevolutApiKey] = useState('')
   // Set once connectStripe/connectRevolut succeeds -- switches the form to
@@ -275,6 +276,7 @@ export default function Integrations() {
     setWaWebhookUrl('')
     setConnectingStripe(false)
     setStripeSecretKey('')
+    setStripePublishableKey('')
     setConnectingRevolut(false)
     setRevolutApiKey('')
     setPaymentWebhook(null)
@@ -306,7 +308,7 @@ export default function Integrations() {
     setConnectError('')
     setStarting(true)
     try {
-      const { connection, webhook_url } = await api.connectStripe(token, stripeSecretKey)
+      const { connection, webhook_url } = await api.connectStripe(token, stripeSecretKey, stripePublishableKey)
       setPaymentWebhook({ connectionId: connection.id, url: webhook_url })
       refresh()
     } catch (err) {
@@ -733,6 +735,22 @@ export default function Integrations() {
                   />
                   <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
                     From your Stripe Dashboard → Developers → API keys.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="stripe-publishable-key" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Publishable key
+                  </label>
+                  <input
+                    id="stripe-publishable-key"
+                    type="text"
+                    value={stripePublishableKey}
+                    onChange={e => setStripePublishableKey(e.target.value)}
+                    placeholder="pk_live_..."
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Optional — required only to offer an embedded card form at checkout instead of a hosted payment link.
                   </p>
                 </div>
                 {connectError && (

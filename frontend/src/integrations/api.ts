@@ -564,8 +564,8 @@ export interface ConnectPaymentProviderResult {
 // webhook endpoint in the provider's OWN dashboard -- reversed from
 // connectWhatsapp, the provider generates its own signing secret when you
 // do, paste it back via setWebhookSecret's optional secret param.
-export function connectStripe(token: string, secretKey: string): Promise<ConnectPaymentProviderResult> {
-  return request<ConnectPaymentProviderResult>(`${base()}/stripe/connect`, { method: 'POST', body: JSON.stringify({ secret_key: secretKey }) }, token)
+export function connectStripe(token: string, secretKey: string, publishableKey: string): Promise<ConnectPaymentProviderResult> {
+  return request<ConnectPaymentProviderResult>(`${base()}/stripe/connect`, { method: 'POST', body: JSON.stringify({ secret_key: secretKey, publishable_key: publishableKey }) }, token)
 }
 
 export function connectRevolut(token: string, apiKey: string): Promise<ConnectPaymentProviderResult> {

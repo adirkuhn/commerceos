@@ -443,9 +443,10 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     await userEvent.click(screen.getByText('Stripe'))
 
     await userEvent.type(screen.getByPlaceholderText('sk_live_...'), 'sk_test_secret')
+    await userEvent.type(screen.getByPlaceholderText('pk_live_...'), 'pk_test_publishable')
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
-    await waitFor(() => expect(integrationsApi.connectStripe).toHaveBeenCalledWith('test-token', 'sk_test_secret'))
+    await waitFor(() => expect(integrationsApi.connectStripe).toHaveBeenCalledWith('test-token', 'sk_test_secret', 'pk_test_publishable'))
     expect(screen.queryByLabelText('Secret key')).not.toBeInTheDocument()
     expect(await screen.findByText(/tenant-1\/stripe/)).toBeInTheDocument()
   })
