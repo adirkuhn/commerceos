@@ -157,6 +157,34 @@ export interface StorefrontProduct {
   variants: StorefrontVariant[]
 }
 
+export interface Review {
+  id: string
+  customer_name: string
+  rating: number
+  title: string
+  body: string
+  verified: boolean
+  created_at: string
+}
+
+export interface ReviewSummary {
+  average: number
+  count: number
+}
+
+export interface ReviewList {
+  reviews: Review[]
+  summary: ReviewSummary
+}
+
+export interface SubmitReviewInput {
+  customer_name: string
+  customer_email: string
+  rating: number
+  title?: string
+  body: string
+}
+
 export interface StorefrontCategory {
   id: string
   parent_id: string | null
