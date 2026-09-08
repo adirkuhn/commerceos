@@ -252,6 +252,10 @@ export interface SalesChannel {
   // discount instead of the channel's flat rate." Only meaningful for
   // type 'internal' today.
   quantity_breaks?: QuantityBreak[]
+  // This channel's fixed selling currency -- "" (or omitted) means "use
+  // the tenant's default currency". Set once at creation, never
+  // changeable afterward.
+  currency_code?: string
   active: boolean
   created_at: string
   updated_at: string

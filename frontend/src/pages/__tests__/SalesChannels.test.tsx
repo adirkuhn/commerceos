@@ -35,9 +35,16 @@ vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
 }))
 
+vi.mock('../../fx/api', () => ({
+  listExchangeRates: vi.fn(),
+  upsertExchangeRate: vi.fn(),
+  deleteExchangeRate: vi.fn(),
+}))
+
 import * as integrationsApi from '../../integrations/api'
 import * as pmsApi from '../../pms/api'
 import * as inventoryApi from '../../inventory/api'
+import * as fxApi from '../../fx/api'
 
 const wooConnection: Connection = {
   id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', default_currency: 'USD',
@@ -93,6 +100,7 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listSalesChannelProducts).mockResolvedValue({ items: [enrollment()], total: 1 })
   vi.mocked(pmsApi.listCategories).mockResolvedValue([sampleCategory])
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
+  vi.mocked(fxApi.listExchangeRates).mockResolvedValue([])
 })
 
 describe('Sales channels list', () => {
@@ -168,6 +176,42 @@ describe('Create sales channel', () => {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
       })
+    })
+  })
+
+  it('shows a currency picker only for Internal channels, listing configured exchange rates', async () => {
+    vi.mocked(fxApi.listExchangeRates).mockResolvedValue([
+      { currency_code: 'USD', rate_basis_points: 10876, updated_at: '' },
+      { currency_code: 'GBP', rate_basis_points: 8700, updated_at: '' },
+    ])
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    expect(screen.queryByLabelText('Currency')).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    const currencySelect = await screen.findByLabelText('Currency')
+    expect(within(currencySelect).getByText('USD')).toBeInTheDocument()
+    expect(within(currencySelect).getByText('GBP')).toBeInTheDocument()
+  })
+
+  it('creates an Internal channel with the selected non-default currency', async () => {
+    vi.mocked(fxApi.listExchangeRates).mockResolvedValue([{ currency_code: 'USD', rate_basis_points: 10876, updated_at: '' }])
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-usd', name: 'US Store', type: 'internal', connection_id: null, currency_code: 'USD' }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'US Store')
+    await userEvent.selectOptions(await screen.findByLabelText('Currency'), 'USD')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        currencyCode: 'USD',
+      }))
     })
   })
 

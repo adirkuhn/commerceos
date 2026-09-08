@@ -16,6 +16,7 @@ import type { TenantSettings, TenantSettingsInput, ApiKey } from '../settings/ty
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
+import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 
 // toInput picks just the persisted fields off a fetched TenantSettings so a
 // section that only edits some of them (Localization edits 4, Tax edits 2)
@@ -1157,6 +1158,116 @@ function LocalizationSettingsSection() {
       >
         {saving ? 'Saving…' : 'Save Changes'}
       </button>
+
+      <ExchangeRatesCard />
+    </div>
+  )
+}
+
+// ExchangeRatesCard manages the tenant's fx conversion rates -- the
+// fallback a SalesChannel running in a non-default currency uses to price
+// a SKU/coupon with no explicit per-currency override (see domain/fx). A
+// rate converts 1 minor-unit of the tenant's default currency into that
+// many minor-units of the target currency.
+function ExchangeRatesCard() {
+  const { token } = useAuth()
+  const { settings } = useTenantSettings(token ?? '')
+  const defaultCurrencyLabel = settings?.default_currency || 'your default currency'
+  const { rates, loading, error, upsert, remove } = useExchangeRates(token ?? '')
+  const [currencyCode, setCurrencyCode] = useState('')
+  const [rateValue, setRateValue] = useState('')
+  const [formError, setFormError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    setFormError('')
+    const parsed = parseFloat(rateValue)
+    if (!parsed || parsed <= 0) {
+      setFormError('Rate must be a positive number')
+      return
+    }
+    setSaving(true)
+    try {
+      await upsert({ currency_code: currencyCode.toUpperCase(), rate_basis_points: Math.round(parsed * 10000) })
+      setCurrencyCode('')
+      setRateValue('')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save exchange rate')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(code: string) {
+    if (!window.confirm(`Delete the exchange rate for ${code}? Any channel priced in it via conversion (not a manual override) will stop pricing until a new rate is set.`)) return
+    setFormError('')
+    try {
+      await remove(code)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to delete exchange rate')
+    }
+  }
+
+  return (
+    <div className="dark:bg-[#1F2937] bg-white rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Exchange rates</h3>
+        <p className="text-xs dark:text-gray-500 text-gray-400 mt-0.5">
+          How much 1 unit of your default currency is worth in another currency -- used to price a sales channel
+          running in that currency, unless a product/coupon has a manual override.
+        </p>
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+
+      <div className="space-y-1.5">
+        {rates.map(r => (
+          <div key={r.currency_code} className="flex items-center justify-between text-xs dark:text-gray-300 text-gray-700 py-1">
+            <span>1 {defaultCurrencyLabel} = <span className="font-medium">{(r.rate_basis_points / 10000).toFixed(4)}</span> {r.currency_code}</span>
+            <button
+              onClick={() => handleDelete(r.currency_code)}
+              className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+        {!loading && rates.length === 0 && <p className="text-xs dark:text-gray-500 text-gray-400">No exchange rates configured yet.</p>}
+      </div>
+
+      <form onSubmit={handleAdd} className="flex items-end gap-2 pt-2 border-t dark:border-[#2D3748] border-gray-100">
+        <div className="w-20">
+          <label htmlFor="fx-currency" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Currency</label>
+          <input
+            id="fx-currency"
+            value={currencyCode}
+            maxLength={3}
+            placeholder="USD"
+            onChange={e => setCurrencyCode(e.target.value.toUpperCase())}
+            className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div className="w-28">
+          <label htmlFor="fx-rate" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">Rate</label>
+          <input
+            id="fx-rate"
+            value={rateValue}
+            placeholder="1.0876"
+            onChange={e => setRateValue(e.target.value)}
+            className="w-full px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={saving || currencyCode.length !== 3 || !rateValue}
+          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Saving…' : 'Add / update'}
+        </button>
+      </form>
+      {formError && <p className="text-xs text-red-400">{formError}</p>}
     </div>
   )
 }

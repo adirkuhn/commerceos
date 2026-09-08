@@ -13,6 +13,7 @@ import * as integrationsApi from '../integrations/api'
 import type { Connection, SalesChannel, EnrollmentMode, ChannelType, QuantityBreak } from '../integrations/types'
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
+import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 
 const PER_PAGE = 20
 
@@ -40,13 +41,16 @@ interface ChannelFormState {
   // priceAdjustmentPercent is -- converted+validated only at submit time
   // (see quantityBreaksOrError).
   quantityBreaks: { minQuantity: string; discountPercent: string }[]
+  // "" means "use the tenant's default currency" -- only settable at
+  // creation, see SalesChannelPayload.currencyCode's own doc comment.
+  currencyCode: string
 }
 
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
-    quantityBreaks: [],
+    quantityBreaks: [], currencyCode: '',
   }
 }
 
@@ -126,6 +130,7 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
     quantityBreaks: (channel.quantity_breaks ?? []).map(b => ({
       minQuantity: b.min_quantity.toString(), discountPercent: (b.discount_basis_points / 100).toString(),
     })),
+    currencyCode: channel.currency_code ?? '',
   }
 }
 
@@ -136,6 +141,7 @@ export default function SalesChannels() {
   const { connections, refresh: refreshConnections } = useConnections(token ?? '')
   const { categories } = useCategories(token ?? '')
   const { warehouses } = useWarehouses(token ?? '')
+  const { rates: exchangeRates } = useExchangeRates(token ?? '')
 
   const [managingChannel, setManagingChannel] = useState<SalesChannel | null>(null)
 
@@ -187,7 +193,7 @@ export default function SalesChannels() {
         channelType = editingChannel.type
       } else {
         channelType = form.channelType
-        await create({ ...shared, type: channelType } satisfies SalesChannelPayload)
+        await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
       }
       if (shared.connectionId) {
         const connection = connections.find(c => c.id === shared.connectionId)
@@ -366,6 +372,27 @@ export default function SalesChannels() {
                       A storefront CommerceOS itself hosts checkout for — no external connection needed.
                     </p>
                   )}
+                </div>
+              )}
+              {!editingChannel && form.channelType === INTERNAL_TYPE && (
+                <div>
+                  <label htmlFor="channel-currency" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Currency
+                  </label>
+                  <select
+                    id="channel-currency"
+                    value={form.currencyCode}
+                    onChange={e => setForm(f => ({ ...f, currencyCode: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Default (tenant's own currency)</option>
+                    {exchangeRates.map(r => <option key={r.currency_code} value={r.currency_code}>{r.currency_code}</option>)}
+                  </select>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    {exchangeRates.length === 0
+                      ? 'No exchange rates configured yet -- add one under Settings > Localization to sell in another currency.'
+                      : "Fixed for this channel once created. Prices convert via Settings > Localization's exchange rate unless a product has a manual override for it."}
+                  </p>
                 </div>
               )}
               {(editingChannel ? CONNECTION_REQUIRED_TYPES.includes(editingChannel.type) : form.channelType !== INTERNAL_TYPE) && (

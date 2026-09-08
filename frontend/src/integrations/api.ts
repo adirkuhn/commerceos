@@ -310,6 +310,10 @@ export interface SalesChannelPayload {
   enrollmentTag?: string | null
   priceAdjustmentBasisPoints?: number | null
   quantityBreaks?: QuantityBreak[]
+  // currencyCode is settable only at creation -- immutable after (see
+  // backend domain/channels.SalesChannel.CurrencyCode's own doc comment).
+  // "" (or omitted) means "use the tenant's default currency".
+  currencyCode?: string
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -326,6 +330,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         enrollment_tag: payload.enrollmentTag || undefined,
         price_adjustment_basis_points: payload.priceAdjustmentBasisPoints ?? undefined,
         quantity_breaks: payload.quantityBreaks ?? [],
+        currency_code: payload.currencyCode || undefined,
       }),
     },
     token,
