@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createCart, getCart, updateCartItems, checkoutCart } from '../cart'
-import type { APIResponse, Cart, Checkout } from '../../types'
+import { createCart, getCart, updateCartItems, checkoutCart, createPaymentIntent } from '../cart'
+import type { APIResponse, Cart, Checkout, PaymentIntent } from '../../types'
 
 function mockFetch<T>(data: T, ok = true, status = 200) {
   const body: APIResponse<T> = { data: ok ? data : null, error: ok ? null : { code: 'ERR', message: 'failed' } }
@@ -50,6 +50,18 @@ describe('cart api', () => {
     const [url, options] = vi.mocked(fetch).mock.calls[0]
     expect(url).toContain('/carts/cart-1/checkout')
     expect(options?.method).toBe('POST')
+  })
+
+  it('createPaymentIntent POSTs the shipping address and returns the intent', async () => {
+    const intent: PaymentIntent = { client_secret: 'pi_secret_1', publishable_key: 'pk_test_1', amount_minor_units: 1000, currency_code: 'EUR' }
+    mockFetch(intent)
+    const shipping = { first_name: 'A', last_name: 'B', address1: 'St 1', city: 'C', postcode: '1000', country: 'NL' }
+    const result = await createPaymentIntent('cart-1', { shipping })
+    expect(result).toEqual(intent)
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toContain('/carts/cart-1/payment-intent')
+    expect(options?.method).toBe('POST')
+    expect(JSON.parse(options?.body as string)).toEqual({ shipping })
   })
 
   it('throws with the server error message on failure', async () => {

@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { Cart, CheckoutAddress, CheckoutRequest, Checkout, ShippingOption, UpdateCartItemLine } from '../types'
+import type { Cart, CheckoutAddress, CheckoutRequest, Checkout, CreatePaymentIntentRequest, PaymentIntent, ShippingOption, UpdateCartItemLine } from '../types'
 
 export function createCart(): Promise<Cart> {
   return request<Cart>('/carts', { method: 'POST' })
@@ -27,6 +27,16 @@ export function getShippingOptions(token: string, address: CheckoutAddress): Pro
   return request<ShippingOption[]>(`/carts/${encodeURIComponent(token)}/shipping-options`, {
     method: 'POST',
     body: JSON.stringify(address),
+  })
+}
+
+// Rejects with ErrCardPaymentNotSupported (mapped to a plain error message)
+// when the channel has no Stripe publishable key configured -- callers
+// should fall back to the hosted-payment-link checkout flow.
+export function createPaymentIntent(token: string, payload: CreatePaymentIntentRequest): Promise<PaymentIntent> {
+  return request<PaymentIntent>(`/carts/${encodeURIComponent(token)}/payment-intent`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
   })
 }
 

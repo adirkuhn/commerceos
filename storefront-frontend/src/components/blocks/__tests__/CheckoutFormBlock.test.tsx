@@ -8,7 +8,20 @@ import { CartProvider } from '../../../cart/CartContext'
 import type { Cart, ShippingOption } from '../../../types'
 
 vi.mock('../../../api/cart', () => ({
-  createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), getShippingOptions: vi.fn(), applyCoupon: vi.fn(),
+  createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), getShippingOptions: vi.fn(), applyCoupon: vi.fn(), createPaymentIntent: vi.fn(),
+}))
+
+// Card-payment tests below stub the whole Stripe.js/react-stripe-js
+// surface -- Elements just renders its children, CardElement is a plain
+// marker, and useStripe/useElements return a fake Stripe client this
+// test controls confirmCardPayment's outcome for.
+const confirmCardPayment = vi.fn()
+vi.mock('@stripe/stripe-js', () => ({ loadStripe: vi.fn(() => Promise.resolve({})) }))
+vi.mock('@stripe/react-stripe-js', () => ({
+  Elements: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  CardElement: () => <div data-testid="card-element" />,
+  useStripe: () => ({ confirmCardPayment }),
+  useElements: () => ({ getElement: () => ({}) }),
 }))
 
 import * as cartApi from '../../../api/cart'
@@ -19,6 +32,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   vi.mocked(cartApi.getShippingOptions).mockResolvedValue([])
+  vi.mocked(cartApi.createPaymentIntent).mockRejectedValue(new Error('embedded card payment is not available on this channel'))
 })
 
 function renderBlock() {
@@ -115,5 +129,47 @@ describe('CheckoutFormBlock', () => {
 
     await waitFor(() => expect(cartApi.getShippingOptions).toHaveBeenCalled())
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+  })
+
+  it('shows the embedded card field once the channel supports card payment, and pays with it', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(STORAGE_KEY, 'cart-1')
+    vi.mocked(cartApi.getCart).mockResolvedValue(cart)
+    vi.mocked(cartApi.createPaymentIntent).mockResolvedValue({
+      client_secret: 'pi_secret_1', publishable_key: 'pk_test_1', amount_minor_units: 1000, currency_code: 'EUR',
+    })
+    confirmCardPayment.mockResolvedValue({ paymentIntent: { id: 'pi_1', status: 'succeeded' } })
+    vi.mocked(cartApi.checkoutCart).mockResolvedValue({ order_number: 'WEB-1', total_minor_units: 1000, currency_code: 'EUR' })
+
+    renderBlock()
+    await screen.findByLabelText('Email')
+    await fillAddress(user)
+
+    await screen.findByTestId('card-element')
+    expect(screen.queryByRole('button', { name: 'Place order' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Pay .* & place order/ }))
+
+    await waitFor(() => expect(confirmCardPayment).toHaveBeenCalledWith('pi_secret_1', expect.anything()))
+    await waitFor(() => expect(cartApi.checkoutCart).toHaveBeenCalledWith('cart-1', expect.objectContaining({ payment_intent_id: 'pi_1' })))
+  })
+
+  it('shows a card error and does not place the order when confirmCardPayment fails', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem(STORAGE_KEY, 'cart-1')
+    vi.mocked(cartApi.getCart).mockResolvedValue(cart)
+    vi.mocked(cartApi.createPaymentIntent).mockResolvedValue({
+      client_secret: 'pi_secret_1', publishable_key: 'pk_test_1', amount_minor_units: 1000, currency_code: 'EUR',
+    })
+    confirmCardPayment.mockResolvedValue({ error: { message: 'Your card was declined.' } })
+
+    renderBlock()
+    await screen.findByLabelText('Email')
+    await fillAddress(user)
+
+    await screen.findByTestId('card-element')
+    await user.click(screen.getByRole('button', { name: /Pay .* & place order/ }))
+
+    expect(await screen.findByText('Your card was declined.')).toBeInTheDocument()
+    expect(cartApi.checkoutCart).not.toHaveBeenCalled()
   })
 })

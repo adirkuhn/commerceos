@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { Stripe } from '@stripe/stripe-js'
+import { loadStripe } from '@stripe/stripe-js'
+import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js'
 import { useCart } from '../../cart/CartContext'
-import { getShippingOptions } from '../../api/cart'
+import { getShippingOptions, createPaymentIntent } from '../../api/cart'
 import { formatMoney } from '../../format'
-import type { CheckoutAddress, ShippingOption } from '../../types'
+import type { CheckoutAddress, PaymentIntent, ShippingOption } from '../../types'
 
 function emptyAddress(): CheckoutAddress {
   return { first_name: '', last_name: '', address1: '', city: '', postcode: '', country: '' }
@@ -12,6 +15,19 @@ function emptyAddress(): CheckoutAddress {
 
 function isAddressComplete(a: CheckoutAddress): boolean {
   return Boolean(a.address1 && a.city && a.postcode && a.country)
+}
+
+// One Stripe.js load per publishable key, shared across re-renders and
+// re-mounts -- loadStripe() injects a <script> tag, so calling it again
+// for the same key would fetch and parse it a second time for nothing.
+const stripePromiseCache = new Map<string, Promise<Stripe | null>>()
+function getStripePromise(publishableKey: string): Promise<Stripe | null> {
+  let cached = stripePromiseCache.get(publishableKey)
+  if (!cached) {
+    cached = loadStripe(publishableKey)
+    stripePromiseCache.set(publishableKey, cached)
+  }
+  return cached
 }
 
 export function CheckoutFormBlock() {
@@ -24,6 +40,13 @@ export function CheckoutFormBlock() {
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  // paymentIntent is non-null only once the channel has a Stripe
+  // publishable key configured AND the address is complete enough to
+  // quote a total -- ErrCardPaymentNotSupported (any other channel)
+  // just leaves it null, falling back to the hosted-payment-link flow
+  // handleSubmit already implements.
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | null>(null)
 
   const cartToken = cart?.token
 
@@ -55,6 +78,24 @@ export function CheckoutFormBlock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartToken, address.address1, address.city, address.postcode, address.country])
 
+  // Same trigger point as shipping, debounced separately since it also
+  // needs to react to a shipping-method change (the total it quotes
+  // includes shipping cost) without re-fetching shipping options again.
+  useEffect(() => {
+    if (!cartToken || !isAddressComplete(address)) {
+      setPaymentIntent(null)
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      createPaymentIntent(cartToken, { shipping: address, shipping_method_title: selectedTitle ?? undefined })
+        .then(intent => { if (!cancelled) setPaymentIntent(intent) })
+        .catch(() => { if (!cancelled) setPaymentIntent(null) })
+    }, 500)
+    return () => { cancelled = true; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartToken, address.address1, address.city, address.postcode, address.country, selectedTitle])
+
   if (!cart || cart.items.length === 0) {
     return <p className="p-6 text-center text-brand-500">Your cart is empty.</p>
   }
@@ -75,9 +116,16 @@ export function CheckoutFormBlock() {
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-3 p-6">
-      {(formError ?? error) && <p className="text-sm text-red-600">{formError ?? error}</p>}
+  const placeOrderWithCard = async (paymentIntentId: string) => {
+    const result = await checkout({
+      email, billing: address, shipping: address,
+      shipping_method_title: selectedTitle ?? undefined, payment_intent_id: paymentIntentId,
+    })
+    navigate(`/order-confirmation/${result.order_number}`, { state: { email } })
+  }
+
+  const addressFields = (
+    <>
       <Field label="Email" type="email" value={email} onChange={setEmail} />
       <Field label="First name" value={address.first_name} onChange={v => set('first_name', v)} />
       <Field label="Last name" value={address.last_name} onChange={v => set('last_name', v)} />
@@ -106,13 +154,92 @@ export function CheckoutFormBlock() {
           ))}
         </fieldset>
       )}
+    </>
+  )
 
+  if (paymentIntent) {
+    return (
+      <Elements stripe={getStripePromise(paymentIntent.publishable_key)}>
+        <CardCheckoutForm
+          addressFields={addressFields}
+          paymentIntent={paymentIntent}
+          formError={formError ?? error}
+          onPlaceOrder={placeOrderWithCard}
+        />
+      </Elements>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-3 p-6">
+      {(formError ?? error) && <p className="text-sm text-red-600">{formError ?? error}</p>}
+      {addressFields}
       <button
         type="submit"
         disabled={submitting}
         className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
       >
         {submitting ? 'Placing order…' : 'Place order'}
+      </button>
+    </form>
+  )
+}
+
+function CardCheckoutForm({
+  addressFields, paymentIntent, formError, onPlaceOrder,
+}: {
+  addressFields: React.ReactNode
+  paymentIntent: PaymentIntent
+  formError: string | null
+  onPlaceOrder: (paymentIntentId: string) => Promise<void>
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [submitting, setSubmitting] = useState(false)
+  const [cardError, setCardError] = useState<string | null>(null)
+
+  const total = useMemo(
+    () => formatMoney(paymentIntent.amount_minor_units, paymentIntent.currency_code),
+    [paymentIntent.amount_minor_units, paymentIntent.currency_code],
+  )
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!stripe || !elements) return
+    setCardError(null)
+    setSubmitting(true)
+    try {
+      const cardElement = elements.getElement(CardElement)
+      if (!cardElement) throw new Error('Card details are required')
+      const { error: stripeError, paymentIntent: confirmed } = await stripe.confirmCardPayment(paymentIntent.client_secret, {
+        payment_method: { card: cardElement },
+      })
+      if (stripeError) throw new Error(stripeError.message ?? 'Card payment failed')
+      if (!confirmed || confirmed.status !== 'succeeded') throw new Error('Card payment was not completed')
+      await onPlaceOrder(confirmed.id)
+    } catch (err) {
+      setCardError(err instanceof Error ? err.message : 'Could not process card payment')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mx-auto max-w-md space-y-3 p-6">
+      {(cardError ?? formError) && <p className="text-sm text-red-600">{cardError ?? formError}</p>}
+      {addressFields}
+      <div>
+        <span className="mb-1 block text-sm text-brand-500">Card details</span>
+        <div className="rounded-lg border border-gray-200 px-3 py-2.5">
+          <CardElement options={{ style: { base: { fontSize: '14px' } } }} />
+        </div>
+      </div>
+      <button
+        type="submit"
+        disabled={submitting || !stripe}
+        className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+      >
+        {submitting ? 'Processing payment…' : `Pay ${total} & place order`}
       </button>
     </form>
   )

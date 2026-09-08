@@ -133,6 +133,7 @@ export interface CheckoutRequest {
   billing: CheckoutAddress
   shipping: CheckoutAddress
   shipping_method_title?: string
+  payment_intent_id?: string
 }
 
 export interface Checkout {
@@ -140,6 +141,18 @@ export interface Checkout {
   total_minor_units: number
   currency_code: string
   payment_url?: string
+}
+
+export interface CreatePaymentIntentRequest {
+  shipping: CheckoutAddress
+  shipping_method_title?: string
+}
+
+export interface PaymentIntent {
+  client_secret: string
+  publishable_key: string
+  amount_minor_units: number
+  currency_code: string
 }
 
 export interface ShippingOption {
