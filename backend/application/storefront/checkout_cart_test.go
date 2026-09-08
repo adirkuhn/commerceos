@@ -10,6 +10,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
@@ -122,9 +123,21 @@ func (f *fakeDeliveryPriceEstimator) Execute(_ context.Context, in appshipping.G
 	return f.out, f.err
 }
 
+// checkoutChannelRepo backs every checkout test's resolveWarehouse call --
+// both channel IDs used across this file's fixtures (openCartWithOneItem's
+// "channel-1" and the fx coupon test's "channel-usd") already have a
+// DefaultWarehouseID configured, so the happy-path tests below never need
+// to think about it.
+func checkoutChannelRepo() *fakeChannelRepo {
+	return &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{
+		"channel-1":   internalChannelWithWarehouse("channel-1", "wh-1"),
+		"channel-usd": internalChannelWithWarehouse("channel-usd", "wh-1"),
+	}}
+}
+
 func newCheckoutUseCase(t *testing.T, n int, cartRepo *fakeCartRepo, customerRepo *fakeCustomerRepo, createCustomer *fakeCustomerCreator, createOrder *fakeSalesOrderCreator, taxClassRepo *fakeTaxClassRepo, taxRateRepo *fakeTaxRateRepo, outboxRepo *fakeOutboxRepo, paymentGen *fakePaymentLinkGenerator) *appstorefront.CheckoutCartUseCase {
 	return appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, n), cartRepo, customerRepo, createCustomer, createOrder, taxClassRepo, taxRateRepo, outboxRepo, paymentGen,
+		newMockGormDB(t, n), cartRepo, checkoutChannelRepo(), customerRepo, createCustomer, createOrder, taxClassRepo, taxRateRepo, outboxRepo, paymentGen,
 		nil, nil, nil, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -137,11 +150,11 @@ func openCartWithOneItem() storefrontDomain.Cart {
 	}
 }
 
-// 4 transactions: loadOpenCart, resolveCustomer's FindByEmail read,
-// loadTaxConfig, markCheckedOutAndPublish -- see CheckoutCartUseCase's doc
-// comment on why customer-creation and order-creation (both fakes here)
-// never count towards this.
-const checkoutTxnCount = 4
+// 5 transactions: loadOpenCart, resolveWarehouse, resolveCustomer's
+// FindByEmail read, loadTaxConfig, markCheckedOutAndPublish -- see
+// CheckoutCartUseCase's doc comment on why customer-creation and
+// order-creation (both fakes here) never count towards this.
+const checkoutTxnCount = 5
 
 func TestCheckoutCart_placesAPendingOrderForAnExistingCustomer(t *testing.T) {
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
@@ -273,6 +286,25 @@ func TestCheckoutCart_rejectsUnknownCart(t *testing.T) {
 	require.ErrorIs(t, err, storefrontDomain.ErrCartNotFound)
 }
 
+// TestCheckoutCart_rejectsWhenChannelHasNoDefaultWarehouseConfigured guards
+// the live-discovered bug this fix addresses: sales_orders.warehouse_id is
+// a NOT NULL FK, so a channel with no SalesChannel.DefaultWarehouseID set
+// must fail checkout with a clear typed error rather than let a raw
+// invalid-uuid DB error surface as an opaque 500.
+func TestCheckoutCart_rejectsWhenChannelHasNoDefaultWarehouseConfigured(t *testing.T) {
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
+	uc := appstorefront.NewCheckoutCartUseCase(
+		newMockGormDB(t, 2), cartRepo, channelRepo, &fakeCustomerRepo{}, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
+		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, nil,
+		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
+	)
+
+	_, err := uc.Execute(context.Background(), "token-1", validCheckoutInput())
+
+	require.ErrorIs(t, err, storefrontDomain.ErrChannelWarehouseNotConfigured)
+}
+
 // shippingCheckoutTxnCount adds one transaction over checkoutTxnCount --
 // estimateShipping's own read-only lookup of the tenant's MyParcel
 // connection + its ShippingConnectionSettings.
@@ -298,7 +330,7 @@ func TestCheckoutCart_addsShippingCostFromTheCheapestMyParcelOption(t *testing.T
 		{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"},
 	}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, settingsRepo, estimator, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -329,7 +361,7 @@ func TestCheckoutCart_usesTheShopperChosenShippingOptionOverTheCheapest(t *testi
 		{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"},
 	}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -351,7 +383,7 @@ func TestCheckoutCart_fallsBackToCheapestWhenChosenShippingOptionNoLongerExists(
 	connRepo := &fakeConnectionRepo{byTenant: []integrationsDomain.Connection{{ID: "conn-1", Provider: integrationsDomain.ProviderMyParcel}}}
 	estimator := &fakeDeliveryPriceEstimator{out: []shippingDomain.DeliveryPriceOption{{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"}}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -374,7 +406,7 @@ func TestCheckoutCart_skipsShippingEstimateWhenNoHouseNumberCanBeParsed(t *testi
 	settingsRepo := &fakeShippingSettingsRepo{}
 	estimator := &fakeDeliveryPriceEstimator{out: []shippingDomain.DeliveryPriceOption{{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"}}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, checkoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, checkoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, settingsRepo, estimator, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -394,7 +426,7 @@ func TestCheckoutCart_skipsShippingEstimateForAnUnsupportedCountry(t *testing.T)
 	connRepo := &fakeConnectionRepo{byTenant: []integrationsDomain.Connection{{ID: "conn-1", Provider: integrationsDomain.ProviderMyParcel}}}
 	estimator := &fakeDeliveryPriceEstimator{err: shippingDomain.ErrDeliveryEstimateUnsupportedCountry}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, checkoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, checkoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -412,7 +444,7 @@ func TestCheckoutCart_skipsShippingEstimateWhenNoMyParcelConnectionExists(t *tes
 	createOrder := &fakeSalesOrderCreator{}
 	estimator := &fakeDeliveryPriceEstimator{out: []shippingDomain.DeliveryPriceOption{{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"}}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, &fakeConnectionRepo{}, &fakeShippingSettingsRepo{}, estimator, nil,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -435,7 +467,7 @@ func TestCheckoutCart_appliesCouponDiscountToTotal(t *testing.T) {
 	createOrder := &fakeSalesOrderCreator{}
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": redeemableCoupon()}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, couponCheckoutTxnCountWithIncrement), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, couponCheckoutTxnCountWithIncrement), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -464,7 +496,7 @@ func TestCheckoutCart_convertsFixedCouponIntoTheChannelsCurrency(t *testing.T) {
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"TENOFF": fixedCoupon}}
 	fxRepo := &fakeExchangeRateRepo{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, couponCheckoutTxnCountWithIncrement), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		newMockGormDB(t, couponCheckoutTxnCountWithIncrement), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
 		&fakeCouponCurrencyAmountRepo{}, fxRepo, nil,
 	)
@@ -486,7 +518,7 @@ func TestCheckoutCart_failsWhenAttachedCouponIsNoLongerRedeemable(t *testing.T) 
 	inactive.Active = false
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": inactive}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, couponCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
+		newMockGormDB(t, couponCheckoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)
@@ -504,7 +536,7 @@ func TestCheckoutCart_failsWhenCartNoLongerMeetsCouponMinimum(t *testing.T) {
 	tooHigh.MinSubtotalMinorUnits = &min
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": tooHigh}}
 	uc := appstorefront.NewCheckoutCartUseCase(
-		newMockGormDB(t, couponCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
+		newMockGormDB(t, couponCheckoutTxnCount), cartRepo, checkoutChannelRepo(), customerRepo, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
 		&fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{}, nil,
 	)

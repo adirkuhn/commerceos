@@ -13,6 +13,7 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/events"
@@ -126,6 +127,7 @@ type cardPaymentVerifier interface {
 type CheckoutCartUseCase struct {
 	db                  *gorm.DB
 	cartRepo            storefrontDomain.CartRepository
+	channelRepo         channelsDomain.SalesChannelRepository
 	customerRepo        customersDomain.CustomerRepository
 	createCustomer      customerCreator
 	createSalesOrder    salesOrderCreator
@@ -143,6 +145,7 @@ type CheckoutCartUseCase struct {
 func NewCheckoutCartUseCase(
 	db *gorm.DB,
 	cartRepo storefrontDomain.CartRepository,
+	channelRepo channelsDomain.SalesChannelRepository,
 	customerRepo customersDomain.CustomerRepository,
 	createCustomer customerCreator,
 	createSalesOrder salesOrderCreator,
@@ -159,7 +162,7 @@ func NewCheckoutCartUseCase(
 	verifyCardPayment cardPaymentVerifier,
 ) *CheckoutCartUseCase {
 	return &CheckoutCartUseCase{
-		db: db, cartRepo: cartRepo, customerRepo: customerRepo, createCustomer: createCustomer,
+		db: db, cartRepo: cartRepo, channelRepo: channelRepo, customerRepo: customerRepo, createCustomer: createCustomer,
 		createSalesOrder: createSalesOrder, taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo,
 		outboxRepo: outboxRepo, generatePaymentLink: generatePaymentLink,
 		shippingResolver:   &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
@@ -179,6 +182,11 @@ func NewCheckoutCartUseCase(
 // application/whatsapp's chat checkout already accepts, not a new risk.
 func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in CheckoutInput) (*CheckoutResult, error) {
 	cart, err := uc.loadOpenCart(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("checkoutCart: %w", err)
+	}
+
+	warehouseID, err := uc.resolveWarehouse(ctx, cart.SalesChannelID)
 	if err != nil {
 		return nil, fmt.Errorf("checkoutCart: %w", err)
 	}
@@ -225,6 +233,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
 		Source: omsDomain.SalesOrderSourceInternal, Number: orderNumber, OrderKey: orderNumber,
 		Status: status, CustomerID: &customerID, SalesChannelID: &cart.SalesChannelID,
+		WarehouseID:             warehouseID,
 		Billing:                 toOMSAddress(in.Billing, in.Email),
 		Shipping:                toOMSAddress(in.Shipping, ""),
 		CurrencyCode:            totals.CurrencyCode,
@@ -387,6 +396,28 @@ func (uc *CheckoutCartUseCase) loadOpenCart(ctx context.Context, token string) (
 		return nil
 	})
 	return cart, err
+}
+
+// resolveWarehouse looks up the channel's configured
+// SalesChannel.DefaultWarehouseID -- every SalesOrder needs a real
+// warehouse to decrement stock from (sales_orders.warehouse_id is a
+// NOT NULL FK), and unlike a WooCommerce/Bol import (which carries its
+// own Connection.DefaultWarehouseID), an internal-storefront checkout has
+// no other source for one.
+func (uc *CheckoutCartUseCase) resolveWarehouse(ctx context.Context, salesChannelID string) (string, error) {
+	var warehouseID string
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		channel, err := findInternalChannel(ctx, uc.channelRepo, salesChannelID)
+		if err != nil {
+			return err
+		}
+		if channel.DefaultWarehouseID == nil {
+			return storefrontDomain.ErrChannelWarehouseNotConfigured
+		}
+		warehouseID = *channel.DefaultWarehouseID
+		return nil
+	})
+	return warehouseID, err
 }
 
 func (uc *CheckoutCartUseCase) resolveCustomer(ctx context.Context, email string, billing, shipping CheckoutAddressInput) (string, error) {

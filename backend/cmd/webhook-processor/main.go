@@ -115,7 +115,7 @@ func main() {
 		stripe.NewClientFactory(), revolut.NewClientFactory(), cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL,
 	)
 	orderFlowUC := appwhatsapp.NewOrderFlowUseCase(
-		db, repositories.NewWhatsAppConversationRepo(db), lookupProductInfo, createSalesOrderUC, createCustomerUC,
+		db, repositories.NewWhatsAppConversationRepo(db), repositories.NewSalesChannelRepo(db), lookupProductInfo, createSalesOrderUC, createCustomerUC,
 		generatePaymentLinkUC,
 	)
 	whatsappHandler := appwhatsapp.NewHandleInboundMessageUseCase(

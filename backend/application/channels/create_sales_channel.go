@@ -8,9 +8,17 @@ import (
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	inventoryDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
+
+// warehouseExistenceChecker is inventory.WarehouseRepository narrowed to
+// point of use (ISP) -- Create/UpdateSalesChannelUseCase only ever need to
+// confirm a given DefaultWarehouseID is real before saving it.
+type warehouseExistenceChecker interface {
+	FindByID(ctx context.Context, id string) (*inventoryDomain.Warehouse, error)
+}
 
 type CreateSalesChannelInput struct {
 	Name                       string
@@ -25,6 +33,12 @@ type CreateSalesChannelInput struct {
 	// only settable here -- see SalesChannel.CurrencyCode's own doc
 	// comment for why it's immutable after creation.
 	CurrencyCode string
+	// DefaultWarehouseID, nil meaning unset, is required (checked at
+	// checkout/order-placement time, not here) before a Type without its
+	// own Connection (Internal, WhatsApp) can actually process an order --
+	// see SalesChannel.DefaultWarehouseID's own doc comment. Unlike
+	// CurrencyCode, changeable later via UpdateSalesChannelUseCase.
+	DefaultWarehouseID *string
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
@@ -59,14 +73,18 @@ func validateSalesChannelInput(channelType channelsDomain.ChannelType, connectio
 }
 
 type CreateSalesChannelUseCase struct {
-	db       *gorm.DB
-	repo     channelsDomain.SalesChannelRepository
-	connRepo integrationsDomain.ConnectionRepository
-	fxRepo   fxDomain.ExchangeRateRepository
+	db            *gorm.DB
+	repo          channelsDomain.SalesChannelRepository
+	connRepo      integrationsDomain.ConnectionRepository
+	fxRepo        fxDomain.ExchangeRateRepository
+	warehouseRepo warehouseExistenceChecker
 }
 
-func NewCreateSalesChannelUseCase(db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository, fxRepo fxDomain.ExchangeRateRepository) *CreateSalesChannelUseCase {
-	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo}
+func NewCreateSalesChannelUseCase(
+	db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository,
+	fxRepo fxDomain.ExchangeRateRepository, warehouseRepo warehouseExistenceChecker,
+) *CreateSalesChannelUseCase {
+	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo, warehouseRepo: warehouseRepo}
 }
 
 func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
@@ -97,6 +115,11 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 				return channelsDomain.ErrChannelCurrencyRequiresRate
 			}
 		}
+		if in.DefaultWarehouseID != nil {
+			if _, err := uc.warehouseRepo.FindByID(ctx, *in.DefaultWarehouseID); err != nil {
+				return err
+			}
+		}
 		now := time.Now()
 		channel = channelsDomain.SalesChannel{
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Type: in.Type, ConnectionID: in.ConnectionID,
@@ -104,6 +127,7 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			PriceAdjustmentBasisPoints: in.PriceAdjustmentBasisPoints,
 			QuantityBreaks:             in.QuantityBreaks,
 			CurrencyCode:               in.CurrencyCode,
+			DefaultWarehouseID:         in.DefaultWarehouseID,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

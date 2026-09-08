@@ -13,6 +13,7 @@ import (
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -20,6 +21,13 @@ import (
 	"github.com/adirkuhn/commerceos/internal/idgen"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
+
+// ErrChannelWarehouseNotConfigured guards placeOrder: sales_orders.warehouse_id
+// is a NOT NULL FK, so the tenant's WhatsApp SalesChannel must have a
+// DefaultWarehouseID set before an order can be placed through it -- found
+// live via the equivalent internal-storefront checkout bug, see
+// application/storefront.ErrChannelWarehouseNotConfigured's doc comment.
+var ErrChannelWarehouseNotConfigured = errors.New("whatsapp: no default warehouse configured for this channel")
 
 // salesOrderCreator is *application/oms.CreateSalesOrderUseCase narrowed to
 // point of use (ISP).
@@ -54,6 +62,7 @@ type paymentLinkGenerator interface {
 type OrderFlowUseCase struct {
 	db                  *gorm.DB
 	conversationRepo    whatsappDomain.ConversationRepository
+	channelRepo         channelsDomain.SalesChannelRepository
 	lookupProduct       productInfoLookup
 	createSalesOrder    salesOrderCreator
 	createCustomer      customerCreator
@@ -63,16 +72,54 @@ type OrderFlowUseCase struct {
 func NewOrderFlowUseCase(
 	db *gorm.DB,
 	conversationRepo whatsappDomain.ConversationRepository,
+	channelRepo channelsDomain.SalesChannelRepository,
 	lookupProduct productInfoLookup,
 	createSalesOrder salesOrderCreator,
 	createCustomer customerCreator,
 	generatePaymentLink paymentLinkGenerator,
 ) *OrderFlowUseCase {
 	return &OrderFlowUseCase{
-		db: db, conversationRepo: conversationRepo, lookupProduct: lookupProduct,
+		db: db, conversationRepo: conversationRepo, channelRepo: channelRepo, lookupProduct: lookupProduct,
 		createSalesOrder: createSalesOrder, createCustomer: createCustomer,
 		generatePaymentLink: generatePaymentLink,
 	}
+}
+
+// findActiveWhatsAppChannel mirrors LookupProductInfoUseCase's own method of
+// the same name -- deliberately a local copy rather than a shared helper,
+// same "small local copies, not premature sharing" convention this
+// package's other use cases already follow.
+func (uc *OrderFlowUseCase) findActiveWhatsAppChannel(ctx context.Context) (*channelsDomain.SalesChannel, error) {
+	channels, err := uc.channelRepo.ListByTenant(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range channels {
+		if channels[i].Type == channelsDomain.ChannelTypeWhatsApp && channels[i].Active {
+			return &channels[i], nil
+		}
+	}
+	return nil, ErrNoWhatsAppChannel
+}
+
+// resolveWarehouse looks up the tenant's WhatsApp channel's configured
+// SalesChannel.DefaultWarehouseID -- see ErrChannelWarehouseNotConfigured's
+// doc comment for why this must be checked before placeOrder ever calls
+// createSalesOrder.
+func (uc *OrderFlowUseCase) resolveWarehouse(ctx context.Context) (string, error) {
+	var warehouseID string
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		channel, err := uc.findActiveWhatsAppChannel(ctx)
+		if err != nil {
+			return err
+		}
+		if channel.DefaultWarehouseID == nil {
+			return ErrChannelWarehouseNotConfigured
+		}
+		warehouseID = *channel.DefaultWarehouseID
+		return nil
+	})
+	return warehouseID, err
 }
 
 func (uc *OrderFlowUseCase) Execute(ctx context.Context, phone string, customer *customersDomain.Customer, text string) (reply string, handled bool, err error) {
@@ -287,6 +334,11 @@ func (uc *OrderFlowUseCase) handleConfirmation(ctx context.Context, conv *whatsa
 }
 
 func (uc *OrderFlowUseCase) placeOrder(ctx context.Context, conv *whatsappDomain.Conversation, customer *customersDomain.Customer, phone string) (string, bool, error) {
+	warehouseID, err := uc.resolveWarehouse(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("orderFlow: %w", err)
+	}
+
 	var customerID *string
 	var email, addressLine string
 	if customer != nil {
@@ -326,6 +378,7 @@ func (uc *OrderFlowUseCase) placeOrder(ctx context.Context, conv *whatsappDomain
 	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
 		Source: omsDomain.SalesOrderSourceWhatsApp, Number: orderNumber, OrderKey: orderNumber,
 		Status: omsDomain.SalesOrderStatusPending, CustomerID: customerID,
+		WarehouseID:     warehouseID,
 		Billing:         buildOMSAddress(email, addressLine, phone),
 		Shipping:        buildOMSAddress("", addressLine, phone),
 		CurrencyCode:    currency,

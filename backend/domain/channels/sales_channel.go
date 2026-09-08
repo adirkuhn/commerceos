@@ -130,9 +130,20 @@ type SalesChannel struct {
 	// application/pms.ResolvePriceForCurrency for how a SKU/coupon's price
 	// actually gets computed in this currency.
 	CurrencyCode string
-	Active       bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// DefaultWarehouseID is which CommerceOS warehouse this channel's
+	// placed orders attribute their stock decrement to -- mirrors
+	// integrations.Connection.DefaultWarehouseID (used by WooCommerce/Bol
+	// imports), but for a channel type with no connection to hang it off
+	// (ChannelTypeInternal, ChannelTypeWhatsApp). sales_orders.warehouse_id
+	// is a NOT NULL FK, so a channel of either type can't actually process
+	// an order until this is set -- see
+	// application/storefront.CheckoutCartUseCase and
+	// application/whatsapp.OrderFlowUseCase, the two callers that resolve
+	// it and fail clearly (not a raw DB error) when it's nil.
+	DefaultWarehouseID *string
+	Active             bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // QuantityBreak is one "at this quantity or more, this bigger discount"

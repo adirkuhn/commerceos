@@ -484,6 +484,7 @@ func Register(
 	aiConnRepo := repositories.NewAIConnectionRepo(db)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
 	exchangeRateRepo := repositories.NewExchangeRateRepo(db)
+	channelWarehouseRepo := repositories.NewWarehouseRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
@@ -566,8 +567,8 @@ func Register(
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
-		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo),
-		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo),
+		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo),
+		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo),
 		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo),
 		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),
 		appchannels.NewListProductsWithChannelEnrollmentUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo),
@@ -1598,7 +1599,7 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
 		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
-		CurrencyCode:   currencyCode,
+		CurrencyCode:   currencyCode, DefaultWarehouseID: req.DefaultWarehouseId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1620,7 +1621,8 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 		ID: id, Name: req.Name, ConnectionID: req.ConnectionId,
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints, Active: req.Active,
-		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
+		QuantityBreaks:     toDomainQuantityBreaks(req.QuantityBreaks),
+		DefaultWarehouseID: req.DefaultWarehouseId,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1875,6 +1877,7 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		// alongside adding QuantityBreaks below.
 		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
 		QuantityBreaks:             toGenQuantityBreaks(c.QuantityBreaks),
+		DefaultWarehouseId:         c.DefaultWarehouseID,
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {

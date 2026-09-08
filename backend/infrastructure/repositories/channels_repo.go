@@ -873,6 +873,7 @@ type salesChannelModel struct {
 	PriceAdjustmentBasisPoints *int                       `gorm:"column:price_adjustment_basis_points"`
 	QuantityBreaks             salesChannelQuantityBreaks `gorm:"column:quantity_breaks;type:jsonb;not null;default:'[]'"`
 	CurrencyCode               string                     `gorm:"column:currency_code;not null;default:''"`
+	DefaultWarehouseID         *string                    `gorm:"column:default_warehouse_id;type:uuid"`
 	Active                     bool                       `gorm:"not null;default:true"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
@@ -904,6 +905,7 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
 		QuantityBreaks:             salesChannelQuantityBreaks(c.QuantityBreaks),
 		CurrencyCode:               c.CurrencyCode,
+		DefaultWarehouseID:         c.DefaultWarehouseID,
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -956,6 +958,7 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 			"payment_connection_id":         c.PaymentConnectionID,
 			"price_adjustment_basis_points": c.PriceAdjustmentBasisPoints,
 			"quantity_breaks":               salesChannelQuantityBreaks(c.QuantityBreaks),
+			"default_warehouse_id":          c.DefaultWarehouseID,
 			"active":                        c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
@@ -982,6 +985,7 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 		PriceAdjustmentBasisPoints: m.PriceAdjustmentBasisPoints,
 		QuantityBreaks:             []channelsDomain.QuantityBreak(m.QuantityBreaks),
 		CurrencyCode:               m.CurrencyCode,
+		DefaultWarehouseID:         m.DefaultWarehouseID,
 		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

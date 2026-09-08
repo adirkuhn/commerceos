@@ -49,6 +49,22 @@ func (s *stubExchangeRateRepo) ListByTenant(_ context.Context) ([]fxDomain.Excha
 func (s *stubExchangeRateRepo) Upsert(_ context.Context, _ *fxDomain.ExchangeRate) error { return nil }
 func (s *stubExchangeRateRepo) Delete(_ context.Context, _ string) error                 { return nil }
 
+type stubWarehouseExistenceChecker struct {
+	byID map[string]invDomain.Warehouse
+	err  error
+}
+
+func (s *stubWarehouseExistenceChecker) FindByID(_ context.Context, id string) (*invDomain.Warehouse, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if w, ok := s.byID[id]; ok {
+		cp := w
+		return &cp, nil
+	}
+	return nil, invDomain.ErrWarehouseNotFound
+}
+
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy
 // however many tenant.WithTenant Begin/set_config/Commit sequences the test
 // needs — same pattern as application/pms and application/inventory's

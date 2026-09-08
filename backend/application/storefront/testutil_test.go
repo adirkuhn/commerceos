@@ -129,6 +129,16 @@ func internalChannel(id string) channelsDomain.SalesChannel {
 	return channelsDomain.SalesChannel{ID: id, Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true}
 }
 
+// internalChannelWithWarehouse is internalChannel plus a
+// DefaultWarehouseID -- what CheckoutCartUseCase.resolveWarehouse needs to
+// let checkout proceed at all (see checkout_cart_test.go's
+// checkoutChannelRepo).
+func internalChannelWithWarehouse(id, warehouseID string) channelsDomain.SalesChannel {
+	c := internalChannel(id)
+	c.DefaultWarehouseID = &warehouseID
+	return c
+}
+
 // ── carts ────────────────────────────────────────────────────────────────
 
 type fakeCartRepo struct {

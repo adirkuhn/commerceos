@@ -57,4 +57,12 @@ var (
 	// back not-succeeded, or its amount/currency don't match the order
 	// being placed (e.g. the cart changed after the intent was created).
 	ErrCardPaymentMismatch = errors.New("this payment could not be verified against the order total")
+	// ErrChannelWarehouseNotConfigured guards CheckoutCartUseCase: an
+	// order's stock decrement must attribute to a real warehouse
+	// (sales_orders.warehouse_id is NOT NULL), so a channel with no
+	// SalesChannel.DefaultWarehouseID set can't actually process one --
+	// found live, not by any prior test: every internal-storefront
+	// checkout failed at the DB with an invalid-uuid error before this was
+	// checked explicitly.
+	ErrChannelWarehouseNotConfigured = errors.New("this sales channel has no default warehouse configured")
 )

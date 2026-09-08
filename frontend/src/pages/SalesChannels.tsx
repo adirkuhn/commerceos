@@ -33,6 +33,11 @@ interface ChannelFormState {
   enrollmentTag: string
   active: boolean
   defaultWarehouseId: string
+  // channelWarehouseId is SalesChannel.default_warehouse_id itself --
+  // distinct from defaultWarehouseId above (Connection.default_warehouse_id,
+  // which only routes a WooCommerce/Bol import's stock sync). See
+  // WAREHOUSE_REQUIRED_TYPES's doc comment for which channel types need it.
+  channelWarehouseId: string
   paymentConnectionId: string
   // Held as a percent string ("20" means 20%) for the input field --
   // converted to basis points only at submit time (see priceAdjustmentBasisPointsOrError).
@@ -49,7 +54,7 @@ interface ChannelFormState {
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
-    enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
+    enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
     quantityBreaks: [], currencyCode: '',
   }
 }
@@ -109,6 +114,13 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 const INTERNAL_TYPE: ChannelType = 'internal'
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
+// The same two types create a SalesOrder directly (Woo/Bol only ever
+// import one that already has a warehouse from the source system) -- so
+// they're also the only ones that need SalesChannel.default_warehouse_id
+// configured before checkout can succeed. Same set as PAYMENT_CAPABLE_TYPES
+// today because both concerns track "does this channel sell directly," but
+// kept as its own name since that's incidental, not a rule.
+const WAREHOUSE_REQUIRED_TYPES: ChannelType[] = PAYMENT_CAPABLE_TYPES
 
 // defaultWarehouseId lives on the linked Connection, not on the channel
 // itself (SalesChannel is purely a product-enrollment rule on top of it --
@@ -125,6 +137,7 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
     enrollmentTag: channel.enrollment_tag ?? '',
     active: channel.active,
     defaultWarehouseId: connection?.default_warehouse_id ?? '',
+    channelWarehouseId: channel.default_warehouse_id ?? '',
     paymentConnectionId: channel.payment_connection_id ?? '',
     priceAdjustmentPercent: channel.price_adjustment_basis_points ? (channel.price_adjustment_basis_points / 100).toString() : '',
     quantityBreaks: (channel.quantity_breaks ?? []).map(b => ({
@@ -178,6 +191,7 @@ export default function SalesChannels() {
     setFormError('')
     setSaving(true)
     try {
+      const channelType: ChannelType = editingChannel ? editingChannel.type : form.channelType
       const shared = {
         name: form.name,
         connectionId: form.channelType === INTERNAL_TYPE ? null : form.connectionId || null,
@@ -186,13 +200,14 @@ export default function SalesChannels() {
         enrollmentTag: form.enrollmentMode === 'tag' ? form.enrollmentTag || null : null,
         priceAdjustmentBasisPoints: priceAdjustmentBasisPointsOrError(form.priceAdjustmentPercent),
         quantityBreaks: quantityBreaksOrError(form.quantityBreaks),
+        // Only sent for the types that actually need it (see
+        // WAREHOUSE_REQUIRED_TYPES's doc comment) -- omitted (not null) for
+        // every other type, since it has no meaning there.
+        defaultWarehouseId: WAREHOUSE_REQUIRED_TYPES.includes(channelType) ? (form.channelWarehouseId || null) : undefined,
       }
-      let channelType: ChannelType
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
-        channelType = editingChannel.type
       } else {
-        channelType = form.channelType
         await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
       }
       if (shared.connectionId) {
@@ -360,7 +375,7 @@ export default function SalesChannels() {
                   <select
                     id="channel-type"
                     value={form.channelType}
-                    onChange={e => setForm(f => ({ ...f, channelType: e.target.value as ChannelType, connectionId: '', defaultWarehouseId: '' }))}
+                    onChange={e => setForm(f => ({ ...f, channelType: e.target.value as ChannelType, connectionId: '', defaultWarehouseId: '', channelWarehouseId: '' }))}
                     className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {(Object.keys(TYPE_LABELS) as ChannelType[]).map(t => (
@@ -434,6 +449,26 @@ export default function SalesChannels() {
                   </select>
                   <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
                     Which warehouse this channel's orders and stock sync are attributed to.
+                  </p>
+                </div>
+              )}
+              {WAREHOUSE_REQUIRED_TYPES.includes(editingChannel ? editingChannel.type : form.channelType) && (
+                <div>
+                  <label htmlFor="channel-fulfillment-warehouse" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Fulfillment warehouse
+                  </label>
+                  <select
+                    id="channel-fulfillment-warehouse"
+                    required
+                    value={form.channelWarehouseId}
+                    onChange={e => setForm(f => ({ ...f, channelWarehouseId: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="" disabled>Select a warehouse…</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Required -- every order placed through this channel decrements stock from and ships from this warehouse.
                   </p>
                 </div>
               )}

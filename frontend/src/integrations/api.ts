@@ -314,6 +314,10 @@ export interface SalesChannelPayload {
   // backend domain/channels.SalesChannel.CurrencyCode's own doc comment).
   // "" (or omitted) means "use the tenant's default currency".
   currencyCode?: string
+  // defaultWarehouseId is required before an 'internal'/'whatsapp' channel
+  // can process an order (see SalesChannel.default_warehouse_id's doc
+  // comment) -- unlike currencyCode, changeable after creation too.
+  defaultWarehouseId?: string | null
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -331,6 +335,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         price_adjustment_basis_points: payload.priceAdjustmentBasisPoints ?? undefined,
         quantity_breaks: payload.quantityBreaks ?? [],
         currency_code: payload.currencyCode || undefined,
+        default_warehouse_id: payload.defaultWarehouseId || undefined,
       }),
     },
     token,
@@ -346,6 +351,7 @@ export interface UpdateSalesChannelPayload {
   priceAdjustmentBasisPoints?: number | null
   quantityBreaks?: QuantityBreak[]
   active: boolean
+  defaultWarehouseId?: string | null
 }
 
 export function updateSalesChannel(token: string, id: string, payload: UpdateSalesChannelPayload): Promise<SalesChannel> {
@@ -362,6 +368,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         quantity_breaks: payload.quantityBreaks ?? [],
         enrollment_tag: payload.enrollmentTag || undefined,
         active: payload.active,
+        default_warehouse_id: payload.defaultWarehouseId || undefined,
       }),
     },
     token,

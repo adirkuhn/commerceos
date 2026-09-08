@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -16,6 +17,17 @@ import (
 )
 
 const testPhone = "31612345678"
+
+// orderFlowChannelRepo backs every OrderFlowUseCase test's resolveWarehouse
+// call -- an active WhatsApp channel with a DefaultWarehouseID already
+// configured, so only the dedicated warehouse-error test below needs to
+// think about it.
+func orderFlowChannelRepo() *fakeSalesChannelRepo {
+	whID := "wh-1"
+	return &fakeSalesChannelRepo{channels: []channelsDomain.SalesChannel{
+		{ID: "channel-1", Type: channelsDomain.ChannelTypeWhatsApp, Active: true, DefaultWarehouseID: &whID},
+	}}
+}
 
 func newOrderFlowUseCase(t *testing.T, n int, convRepo *fakeConversationRepo, lookup *fakeProductInfoLookup, orderCreator *fakeSalesOrderCreator, customerCreator *fakeCustomerCreator) *appwhatsapp.OrderFlowUseCase {
 	t.Helper()
@@ -31,7 +43,7 @@ func newOrderFlowUseCase(t *testing.T, n int, convRepo *fakeConversationRepo, lo
 	if customerCreator == nil {
 		customerCreator = &fakeCustomerCreator{}
 	}
-	return appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, n), convRepo, lookup, orderCreator, customerCreator, nil)
+	return appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, n), convRepo, orderFlowChannelRepo(), lookup, orderCreator, customerCreator, nil)
 }
 
 func widgetInfo() appwhatsapp.ProductInfo {
@@ -293,7 +305,7 @@ func TestOrderFlow_confirmation_yesNewCustomer_createsCustomerAndOrder(t *testin
 	convRepo := awaitingConfirmationConv(true)
 	orderCreator := &fakeSalesOrderCreator{}
 	customerCreator := &fakeCustomerCreator{}
-	uc := newOrderFlowUseCase(t, 2, convRepo, nil, orderCreator, customerCreator)
+	uc := newOrderFlowUseCase(t, 3, convRepo, nil, orderCreator, customerCreator)
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, nil, "YES")
 
@@ -324,7 +336,7 @@ func TestOrderFlow_confirmation_yesKnownCustomer_doesNotCreateCustomer(t *testin
 	convRepo := awaitingConfirmationConv(false)
 	orderCreator := &fakeSalesOrderCreator{}
 	customerCreator := &fakeCustomerCreator{}
-	uc := newOrderFlowUseCase(t, 2, convRepo, nil, orderCreator, customerCreator)
+	uc := newOrderFlowUseCase(t, 3, convRepo, nil, orderCreator, customerCreator)
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	_, handled, err := uc.Execute(context.Background(), testPhone, customer, "yes")
@@ -365,10 +377,28 @@ func TestOrderFlow_confirmation_garbage_repromptsWithoutChangingState(t *testing
 	assert.Empty(t, convRepo.saved, "an unrecognized answer must not persist or change state")
 }
 
+// TestOrderFlow_confirmation_channelHasNoDefaultWarehouse_failsWithClearError
+// guards the live-discovered bug this fix addresses: sales_orders.warehouse_id
+// is a NOT NULL FK, so a WhatsApp channel with no DefaultWarehouseID
+// configured must fail with ErrChannelWarehouseNotConfigured rather than let
+// a raw invalid-uuid DB error surface.
+func TestOrderFlow_confirmation_channelHasNoDefaultWarehouse_failsWithClearError(t *testing.T) {
+	convRepo := awaitingConfirmationConv(false)
+	channelRepo := &fakeSalesChannelRepo{channels: []channelsDomain.SalesChannel{
+		{ID: "channel-1", Type: channelsDomain.ChannelTypeWhatsApp, Active: true},
+	}}
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, channelRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, nil)
+	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
+
+	_, _, err := uc.Execute(context.Background(), testPhone, customer, "YES")
+
+	assert.ErrorIs(t, err, appwhatsapp.ErrChannelWarehouseNotConfigured)
+}
+
 func TestOrderFlow_confirmation_orderCreationFails_propagatesError(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	orderCreator := &fakeSalesOrderCreator{err: errors.New("db down")}
-	uc := newOrderFlowUseCase(t, 1, convRepo, nil, orderCreator, nil)
+	uc := newOrderFlowUseCase(t, 2, convRepo, nil, orderCreator, nil)
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	_, _, err := uc.Execute(context.Background(), testPhone, customer, "YES")
@@ -440,7 +470,7 @@ func ptr[T any](v T) *T { return &v }
 func TestOrderFlow_confirmation_yes_paymentMethodConfigured_includesLinkInReply(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	paymentGen := &fakePaymentLinkGenerator{ok: true, link: &integrationsDomain.PaymentLink{URL: "https://checkout.stripe.com/pay/cs_1"}}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
@@ -454,7 +484,7 @@ func TestOrderFlow_confirmation_yes_paymentMethodConfigured_includesLinkInReply(
 func TestOrderFlow_confirmation_yes_noPaymentMethodConfigured_omitsLink(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	paymentGen := &fakePaymentLinkGenerator{ok: false}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")
@@ -468,7 +498,7 @@ func TestOrderFlow_confirmation_yes_noPaymentMethodConfigured_omitsLink(t *testi
 func TestOrderFlow_confirmation_yes_paymentLinkGenerationFails_stillSucceedsWithoutLink(t *testing.T) {
 	convRepo := awaitingConfirmationConv(false)
 	paymentGen := &fakePaymentLinkGenerator{err: errors.New("stripe unreachable")}
-	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 2), convRepo, &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
+	uc := appwhatsapp.NewOrderFlowUseCase(newMockGormDB(t, 3), convRepo, orderFlowChannelRepo(), &fakeProductInfoLookup{}, &fakeSalesOrderCreator{}, &fakeCustomerCreator{}, paymentGen)
 	customer := &customersDomain.Customer{ID: "cust-1", FirstName: "Jane", Email: "jane@example.com", Shipping: customersDomain.Address{Address1: "Main St 1"}}
 
 	reply, handled, err := uc.Execute(context.Background(), testPhone, customer, "YES")

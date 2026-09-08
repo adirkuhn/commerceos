@@ -258,7 +258,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	getCartRecommendations := appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo)
 	verifyCardPayment := appstorefront.NewVerifyCardPaymentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret)
 	checkoutCart := appstorefront.NewCheckoutCartUseCase(
-		db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
+		db, cartRepo, channelRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
 		connRepo, shippingSettingsRepo, estimateShipping, couponRepo, couponCurrencyRepo, fxRepo, verifyCardPayment,
 	)
 	createPaymentIntent := appstorefront.NewCreatePaymentIntentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret, checkoutCart)

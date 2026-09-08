@@ -99,7 +99,7 @@ beforeEach(() => {
   vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel()])
   vi.mocked(integrationsApi.listSalesChannelProducts).mockResolvedValue({ items: [enrollment()], total: 1 })
   vi.mocked(pmsApi.listCategories).mockResolvedValue([sampleCategory])
-  vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
+  vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse()])
   vi.mocked(fxApi.listExchangeRates).mockResolvedValue([])
 })
 
@@ -169,12 +169,14 @@ describe('Create sales channel', () => {
     expect(screen.queryByLabelText('Default location')).not.toBeInTheDocument()
 
     await userEvent.type(screen.getByLabelText('Name'), 'B2C Store')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     await waitFor(() => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
         enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
+        defaultWarehouseId: 'wh-1',
       })
     })
   })
@@ -206,6 +208,7 @@ describe('Create sales channel', () => {
     await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
     await userEvent.type(screen.getByLabelText('Name'), 'US Store')
     await userEvent.selectOptions(await screen.findByLabelText('Currency'), 'USD')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     await waitFor(() => {
@@ -411,9 +414,64 @@ describe('Sales channel default location', () => {
   })
 })
 
+describe('Sales channel fulfillment warehouse', () => {
+  it('does not show a fulfillment warehouse field for a WooCommerce channel', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.queryByLabelText('Fulfillment warehouse')).not.toBeInTheDocument()
+  })
+
+  it('shows a required fulfillment warehouse field for an Internal channel', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+
+    expect(screen.getByLabelText('Fulfillment warehouse')).toBeRequired()
+  })
+
+  it('prefills the fulfillment warehouse from the channel itself, not the connection, when editing a WhatsApp channel', async () => {
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' }), warehouse({ id: 'wh-2', name: 'Overflow' })])
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([{ ...whatsappConnection, default_warehouse_id: 'wh-1' }])
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel({ id: 'chan-wa', name: 'WA Channel', type: 'whatsapp', connection_id: 'conn-wa-1', default_warehouse_id: 'wh-2' }),
+    ])
+    renderPage()
+    await screen.findByText('WA Channel')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Fulfillment warehouse')).toHaveValue('wh-2')
+  })
+
+  it('saves a changed fulfillment warehouse on an Internal channel edit', async () => {
+    vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' }), warehouse({ id: 'wh-2', name: 'Overflow' })])
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null, default_warehouse_id: 'wh-1' }),
+    ])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', type: 'internal', default_warehouse_id: 'wh-2' }))
+    renderPage()
+    await screen.findByText('B2C Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-2')
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({
+        defaultWarehouseId: 'wh-2',
+      }))
+    })
+  })
+})
+
 describe('WhatsApp payment method', () => {
   function whatsappChannel(overrides: Partial<SalesChannel> = {}): SalesChannel {
-    return sampleChannel({ id: 'chan-wa', name: 'WA Channel', type: 'whatsapp', connection_id: 'conn-wa-1', ...overrides })
+    return sampleChannel({ id: 'chan-wa', name: 'WA Channel', type: 'whatsapp', connection_id: 'conn-wa-1', default_warehouse_id: 'wh-1', ...overrides })
   }
 
   it('does not show a payment method field for a non-WhatsApp/Internal channel', async () => {
@@ -445,6 +503,7 @@ describe('WhatsApp payment method', () => {
     await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
     await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
     await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '20')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     await waitFor(() => {
@@ -472,6 +531,7 @@ describe('WhatsApp payment method', () => {
     await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
     await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
     await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '150')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     expect(await screen.findByText('Discount must be between 0 and 100%.')).toBeInTheDocument()
@@ -492,6 +552,7 @@ describe('WhatsApp payment method', () => {
     await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
     await userEvent.type(screen.getByLabelText('Quantity tier 1 minimum quantity'), '10')
     await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     await waitFor(() => {
@@ -540,6 +601,7 @@ describe('WhatsApp payment method', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
     await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
     await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     expect(await screen.findByText('Each quantity tier needs a minimum quantity of at least 1.')).toBeInTheDocument()

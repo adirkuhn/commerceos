@@ -10,6 +10,7 @@ import (
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 )
 
 func existingWooChannel() *channelsDomain.SalesChannel {
@@ -24,7 +25,7 @@ func TestUpdateSalesChannel_changesToAllMode_isTheAddAllBulkAction(t *testing.T)
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true,
@@ -39,7 +40,7 @@ func TestUpdateSalesChannel_changesToTagMode_isTheAddByTagBulkAction(t *testing.
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", Name: "My Store", ConnectionID: &connID,
@@ -53,7 +54,7 @@ func TestUpdateSalesChannel_changesToTagMode_isTheAddByTagBulkAction(t *testing.
 
 func TestUpdateSalesChannel_propagatesNotFound(t *testing.T) {
 	repo := &stubSalesChannelRepo{findErr: channelsDomain.ErrSalesChannelNotFound}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{})
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubWarehouseExistenceChecker{})
 
 	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{ID: "missing", EnrollmentMode: channelsDomain.EnrollmentModeAll})
 
@@ -62,7 +63,7 @@ func TestUpdateSalesChannel_propagatesNotFound(t *testing.T) {
 
 func TestUpdateSalesChannel_rejectsInvalidEnrollmentModeOnExistingChannel(t *testing.T) {
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{})
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{}, &stubWarehouseExistenceChecker{})
 
 	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", ConnectionID: strPtr("conn-1"), EnrollmentMode: channelsDomain.EnrollmentMode("bogus"),
@@ -80,7 +81,7 @@ func TestUpdateSalesChannel_rejectsRetargetingToAMismatchedProviderConnection(t 
 	bolConnID := "conn-bol-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: bolConnID, Provider: integrationsDomain.ProviderBol}}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
 
 	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", Name: "My Store", ConnectionID: &bolConnID, EnrollmentMode: channelsDomain.EnrollmentModeAll, Active: true,
@@ -93,7 +94,7 @@ func TestUpdateSalesChannel_canDeactivate(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: false,
@@ -109,7 +110,7 @@ func TestUpdateSalesChannel_replacesQuantityBreaksWholesale(t *testing.T) {
 	existing.QuantityBreaks = []channelsDomain.QuantityBreak{{MinQuantity: 5, DiscountBasisPoints: 500}}
 	repo := &stubSalesChannelRepo{findResult: existing}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
 
 	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true,
@@ -125,7 +126,7 @@ func TestUpdateSalesChannel_rejectsInvalidQuantityBreak(t *testing.T) {
 	connID := "conn-1"
 	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
-	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
 
 	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
 		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true,
@@ -133,4 +134,37 @@ func TestUpdateSalesChannel_rejectsInvalidQuantityBreak(t *testing.T) {
 	})
 
 	assert.ErrorIs(t, err, channelsDomain.ErrInvalidQuantityBreak)
+}
+
+func TestUpdateSalesChannel_setsARealDefaultWarehouse(t *testing.T) {
+	connID := "conn-1"
+	whID := "wh-1"
+	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
+	warehouseRepo := &stubWarehouseExistenceChecker{byID: map[string]invDomain.Warehouse{whID: {ID: whID, Name: "Main DC"}}}
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, warehouseRepo)
+
+	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
+		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true,
+		DefaultWarehouseID: &whID,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, channel.DefaultWarehouseID)
+	assert.Equal(t, whID, *channel.DefaultWarehouseID)
+}
+
+func TestUpdateSalesChannel_rejectsAnUnknownDefaultWarehouse(t *testing.T) {
+	connID := "conn-1"
+	whID := "missing-wh"
+	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo, &stubWarehouseExistenceChecker{})
+
+	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
+		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true,
+		DefaultWarehouseID: &whID,
+	})
+
+	assert.ErrorIs(t, err, invDomain.ErrWarehouseNotFound)
 }

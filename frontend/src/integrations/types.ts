@@ -256,6 +256,13 @@ export interface SalesChannel {
   // the tenant's default currency". Set once at creation, never
   // changeable afterward.
   currency_code?: string
+  // Warehouse a checkout through this channel decrements stock from and
+  // attributes its SalesOrder to (sales_orders.warehouse_id is a NOT NULL
+  // FK) -- required before an 'internal' or 'whatsapp' channel can
+  // actually process an order; unlike currency_code, changeable after
+  // creation. Distinct from Connection.default_warehouse_id, which routes
+  // a WooCommerce/Bol *import*'s stock sync instead.
+  default_warehouse_id?: string | null
   active: boolean
   created_at: string
   updated_at: string

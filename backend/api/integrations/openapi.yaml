@@ -1471,6 +1471,14 @@ components:
             This channel's fixed selling currency. Empty string means "use
             the tenant's default currency" -- set once at creation, never
             changeable afterward.
+        default_warehouse_id:
+          type: string
+          nullable: true
+          description: >
+            Which warehouse this channel's placed orders attribute their
+            stock decrement to. Required (checked at checkout/order-placement
+            time) before a channel with no connection of its own (internal,
+            whatsapp) can actually process an order.
         payment_connection_id:
           type: string
           nullable: true
@@ -1530,6 +1538,9 @@ components:
             "" (or omitted) means "use the tenant's default currency".
             A non-empty value must already have a configured exchange
             rate. Immutable after creation.
+        default_warehouse_id:
+          type: string
+          nullable: true
 
     UpdateSalesChannelRequest:
       type: object
@@ -1544,6 +1555,9 @@ components:
         quantity_breaks:
           type: array
           items: { $ref: '#/components/schemas/QuantityBreak' }
+        default_warehouse_id:
+          type: string
+          nullable: true
         active: { type: boolean }
 
     SalesChannelResponse:

@@ -27,17 +27,24 @@ type UpdateSalesChannelInput struct {
 	EnrollmentTag              string
 	PriceAdjustmentBasisPoints *int
 	QuantityBreaks             []channelsDomain.QuantityBreak
-	Active                     bool
+	// DefaultWarehouseID, unlike CurrencyCode, is changeable after
+	// creation -- see SalesChannel.DefaultWarehouseID's own doc comment.
+	DefaultWarehouseID *string
+	Active             bool
 }
 
 type UpdateSalesChannelUseCase struct {
-	db       *gorm.DB
-	repo     channelsDomain.SalesChannelRepository
-	connRepo integrationsDomain.ConnectionRepository
+	db            *gorm.DB
+	repo          channelsDomain.SalesChannelRepository
+	connRepo      integrationsDomain.ConnectionRepository
+	warehouseRepo warehouseExistenceChecker
 }
 
-func NewUpdateSalesChannelUseCase(db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository) *UpdateSalesChannelUseCase {
-	return &UpdateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo}
+func NewUpdateSalesChannelUseCase(
+	db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository,
+	warehouseRepo warehouseExistenceChecker,
+) *UpdateSalesChannelUseCase {
+	return &UpdateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, warehouseRepo: warehouseRepo}
 }
 
 func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
@@ -59,6 +66,11 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 				return channelsDomain.ErrChannelTypeConnectionMismatch
 			}
 		}
+		if in.DefaultWarehouseID != nil {
+			if _, err := uc.warehouseRepo.FindByID(ctx, *in.DefaultWarehouseID); err != nil {
+				return err
+			}
+		}
 		existing.Name = in.Name
 		existing.ConnectionID = in.ConnectionID
 		existing.EnrollmentMode = in.EnrollmentMode
@@ -66,6 +78,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.EnrollmentTag = in.EnrollmentTag
 		existing.PriceAdjustmentBasisPoints = in.PriceAdjustmentBasisPoints
 		existing.QuantityBreaks = in.QuantityBreaks
+		existing.DefaultWarehouseID = in.DefaultWarehouseID
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {
