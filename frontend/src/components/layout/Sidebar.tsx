@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket,
+  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
   ChevronRight, ChevronDown, Zap, Webhook,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
@@ -87,6 +87,7 @@ const NAV_ITEMS: NavRow[] = [
   { section: 'Intelligence' },
   { id: 'promotions', label: 'Promotions', icon: Tag },
   { id: 'coupons', label: 'Coupons', icon: Ticket },
+  { id: 'reviews', label: 'Reviews', icon: Star },
   REPORTS_SUBMENU,
   { id: 'settings', label: 'Settings', icon: Settings },
 ]

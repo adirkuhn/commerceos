@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Promotions from './pages/Promotions'
 import Coupons from './pages/Coupons'
+import Reviews from './pages/Reviews'
 import Inventory from './pages/Inventory'
 import Warehouses from './pages/Warehouses'
 import Orders from './pages/Orders'
@@ -56,6 +57,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'products', path: '/products', Component: Products },
   { nav: 'promotions', path: '/promotions', Component: Promotions },
   { nav: 'coupons', path: '/coupons', Component: Coupons },
+  { nav: 'reviews', path: '/reviews', Component: Reviews },
   { nav: 'inventory', path: '/inventory', Component: Inventory },
   { nav: 'warehouses', path: '/warehouses', Component: Warehouses },
   { nav: 'orders', path: '/orders', Component: Orders },
