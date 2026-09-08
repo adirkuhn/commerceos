@@ -18,6 +18,7 @@ import (
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
+	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
 )
 
@@ -165,12 +166,35 @@ func (s *stubLookupOrder) Execute(_ context.Context, _, _, _ string) (*appstoref
 	return s.out, nil
 }
 
+type stubGetStorefrontTheme struct {
+	out *themeDomain.ThemePage
+	err error
+
+	gotChannelID string
+	gotSlug      string
+}
+
+func (s *stubGetStorefrontTheme) Execute(_ context.Context, channelID, slug string) (*themeDomain.ThemePage, error) {
+	s.gotChannelID, s.gotSlug = channelID, slug
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &themeDomain.ThemePage{SalesChannelID: channelID, Slug: themeDomain.PageSlug(slug), CanvasWidth: 1440}, nil
+}
+
 func newTestHandler(
 	resolve *stubResolveStorefrontKey, get *stubGetCartRecommendations, create *stubCreateCart, getCart *stubGetCart,
 	update *stubUpdateCartItems, checkout *stubCheckoutCart, listProducts *stubListProducts, getProduct *stubGetProduct,
-	listCategories *stubListCategories, lookupOrder *stubLookupOrder,
+	listCategories *stubListCategories, lookupOrder *stubLookupOrder, theme ...*stubGetStorefrontTheme,
 ) *storefronthandler.Handler {
-	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder)
+	getTheme := &stubGetStorefrontTheme{}
+	if len(theme) > 0 {
+		getTheme = theme[0]
+	}
+	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder, getTheme)
 }
 
 func newTestRouter(h *storefronthandler.Handler) *gin.Engine {
@@ -411,4 +435,44 @@ func TestLookupStorefrontOrderHandler_notFoundIs404(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/orders/lookup?order_number=WEB-NOPE0000&email=shopper@example.com", "", "test-key")
 
 	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGetStorefrontThemeHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	theme := &stubGetStorefrontTheme{out: &themeDomain.ThemePage{
+		SalesChannelID: "channel-1",
+		Slug:           themeDomain.PageSlugHome,
+		CanvasWidth:    1440,
+		Blocks: []themeDomain.Block{
+			{ID: "b1", Type: themeDomain.BlockTypeHero, Layout: themeDomain.BlockLayout{Desktop: themeDomain.Rect{X: 1, Y: 2, Width: 3, Height: 4}}, Props: map[string]any{}},
+		},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, theme)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/pages/home", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"canvas_width":1440`)
+	assert.Contains(t, w.Body.String(), `"id":"b1"`)
+	assert.Equal(t, "channel-1", theme.gotChannelID)
+	assert.Equal(t, "home", theme.gotSlug)
+}
+
+func TestGetStorefrontThemeHandler_channelUnscopedKeyIs401(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/pages/home", "", "test-key")
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetStorefrontThemeHandler_invalidSlugIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	theme := &stubGetStorefrontTheme{err: themeDomain.ErrInvalidPageSlug}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, theme)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/pages/not-a-real-page", "", "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

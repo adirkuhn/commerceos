@@ -25,9 +25,11 @@ import (
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
+	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
@@ -75,6 +77,10 @@ type lookupOrderUC interface {
 	Execute(ctx context.Context, salesChannelID, orderNumber, email string) (*appstorefront.OrderStatus, error)
 }
 
+type getStorefrontThemeUC interface {
+	Execute(ctx context.Context, salesChannelID, slug string) (*themeDomain.ThemePage, error)
+}
+
 type Handler struct {
 	resolveAPIKey          resolveAPIKeyUC
 	getCartRecommendations getCartRecommendationsUC
@@ -86,6 +92,7 @@ type Handler struct {
 	getProduct             getProductUC
 	listCategories         listCategoriesUC
 	lookupOrder            lookupOrderUC
+	getStorefrontTheme     getStorefrontThemeUC
 }
 
 func NewHandler(
@@ -99,11 +106,13 @@ func NewHandler(
 	getProduct getProductUC,
 	listCategories listCategoriesUC,
 	lookupOrder lookupOrderUC,
+	getStorefrontTheme getStorefrontThemeUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
 		createCart: createCart, getCart: getCart, updateCartItems: updateCartItems, checkoutCart: checkoutCart,
 		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
+		getStorefrontTheme: getStorefrontTheme,
 	}
 }
 
@@ -130,6 +139,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	batchRepo := repositories.NewBatchRepo(db)
 	categoryRepo := repositories.NewCategoryRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
+	themeRepo := repositories.NewThemePageRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -152,6 +162,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
+		appstorefront.NewGetStorefrontThemeUseCase(appTheme.NewGetThemePageUseCase(db, themeRepo)),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -350,6 +361,41 @@ func (h *Handler) LookupStorefrontOrder(c *gin.Context, params genstorefront.Loo
 	})
 }
 
+func (h *Handler) GetStorefrontTheme(c *gin.Context, slug genstorefront.StorefrontPageSlug) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	page, err := h.getStorefrontTheme.Execute(ctx, *resolved.SalesChannelID, string(slug))
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenStorefrontThemePage(*page))
+}
+
+func toGenStorefrontThemePage(p themeDomain.ThemePage) genstorefront.StorefrontThemePage {
+	blocks := make([]genstorefront.StorefrontBlock, len(p.Blocks))
+	for i, b := range p.Blocks {
+		blocks[i] = toGenStorefrontBlock(b)
+	}
+	return genstorefront.StorefrontThemePage{Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks}
+}
+
+func toGenStorefrontBlock(b themeDomain.Block) genstorefront.StorefrontBlock {
+	layout := genstorefront.StorefrontBlockLayout{Desktop: genstorefront.StorefrontRect{
+		X: b.Layout.Desktop.X, Y: b.Layout.Desktop.Y, Width: b.Layout.Desktop.Width, Height: b.Layout.Desktop.Height,
+	}}
+	if b.Layout.Mobile != nil {
+		layout.Mobile = &genstorefront.StorefrontRect{X: b.Layout.Mobile.X, Y: b.Layout.Mobile.Y, Width: b.Layout.Mobile.Width, Height: b.Layout.Mobile.Height}
+	}
+	props := b.Props
+	if props == nil {
+		props = map[string]any{}
+	}
+	return genstorefront.StorefrontBlock{Id: b.ID, Type: genstorefront.StorefrontBlockType(b.Type), Layout: layout, Props: props}
+}
+
 // authenticate resolves the bearer key to a tenant only -- used by routes
 // (GetCartRecommendations) that don't need a specific sales channel.
 func (h *Handler) authenticate(c *gin.Context) (apikeysDomain.ResolvedAPIKey, bool) {
@@ -454,7 +500,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, storefrontDomain.ErrCartEmpty),
 		errors.Is(err, storefrontDomain.ErrInsufficientStock),
 		errors.Is(err, storefrontDomain.ErrProductNotAvailable),
-		errors.Is(err, storefrontDomain.ErrNoInternalChannel):
+		errors.Is(err, storefrontDomain.ErrNoInternalChannel),
+		errors.Is(err, themeDomain.ErrInvalidPageSlug):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())

@@ -268,6 +268,37 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/theme/pages/{slug}:
+    get:
+      operationId: getStorefrontTheme
+      summary: Fetch the calling channel's canvas document for one page
+      description: >
+        Read-only counterpart of the admin Theme Builder API's getThemePage
+        (api/theme) -- same document, no editor-only fields. The channel is
+        the calling key's own (see ResolvedAPIKey.SalesChannelID), never a
+        path/query parameter: a storefront key can only ever render its own
+        channel's theme. Returns the same default empty-canvas document the
+        admin API returns for a page that was never saved, so the
+        storefront-frontend can always render *something* -- see
+        domain/theme.ThemePage.HasRequiredBlock for how a missing/empty
+        functional block still renders correctly.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/StorefrontPageSlug' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontThemePageResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     CartToken:
@@ -529,4 +560,63 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/StorefrontOrderStatus' }
+        error: { nullable: true }
+
+    StorefrontPageSlug:
+      type: string
+      enum: [home, products, product, cart, checkout, order-confirmation, order-lookup]
+
+    StorefrontBlockType:
+      type: string
+      description: >
+        product_details/cart_summary/checkout_form/order_status are
+        "functional" blocks -- the storefront-frontend renders its own
+        real, wired-up control for these (add-to-cart, the payment-
+        submitting checkout form, etc), using this block only for its
+        layout Rect. See domain/theme.BlockType.IsFunctional.
+      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status]
+
+    StorefrontRect:
+      type: object
+      required: [x, y, width, height]
+      properties:
+        x: { type: integer }
+        y: { type: integer }
+        width: { type: integer }
+        height: { type: integer }
+
+    StorefrontBlockLayout:
+      type: object
+      required: [desktop]
+      properties:
+        desktop: { $ref: '#/components/schemas/StorefrontRect' }
+        mobile:
+          allOf: [{ $ref: '#/components/schemas/StorefrontRect' }]
+          nullable: true
+
+    StorefrontBlock:
+      type: object
+      required: [id, type, layout, props]
+      properties:
+        id: { type: string }
+        type: { $ref: '#/components/schemas/StorefrontBlockType' }
+        layout: { $ref: '#/components/schemas/StorefrontBlockLayout' }
+        props:
+          type: object
+          description: Block-type-specific free-form data (e.g. hero's heading text/image URL, custom_html's raw markup/CSS).
+
+    StorefrontThemePage:
+      type: object
+      required: [slug, canvas_width, blocks]
+      properties:
+        slug: { $ref: '#/components/schemas/StorefrontPageSlug' }
+        canvas_width: { type: integer }
+        blocks:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontBlock' }
+
+    StorefrontThemePageResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontThemePage' }
         error: { nullable: true }
