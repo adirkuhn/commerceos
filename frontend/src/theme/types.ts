@@ -12,9 +12,11 @@ export type PageSlug =
   | 'order-confirmation'
   | 'order-lookup'
   | 'wishlist'
+  | 'login'
+  | 'account'
 
 export const PAGE_SLUGS: PageSlug[] = [
-  'home', 'products', 'product', 'cart', 'checkout', 'order-confirmation', 'order-lookup', 'wishlist',
+  'home', 'products', 'product', 'cart', 'checkout', 'order-confirmation', 'order-lookup', 'wishlist', 'login', 'account',
 ]
 
 export const PAGE_SLUG_LABELS: Record<PageSlug, string> = {
@@ -26,6 +28,8 @@ export const PAGE_SLUG_LABELS: Record<PageSlug, string> = {
   'order-confirmation': 'Order confirmation',
   'order-lookup': 'Order lookup',
   wishlist: 'Wishlist',
+  login: 'Login',
+  account: 'Account',
 }
 
 export type BlockType =
@@ -38,6 +42,8 @@ export type BlockType =
   | 'checkout_form'
   | 'order_status'
   | 'wishlist'
+  | 'login_form'
+  | 'account'
 
 // Every block type is addable from the canvas -- including the
 // functional ones, which otherwise only ever appear at their
@@ -48,7 +54,7 @@ export type BlockType =
 // BlockPropsPanel shows no fields for it beyond delete.
 export const EDITABLE_BLOCK_TYPES: BlockType[] = [
   'hero', 'rich_text', 'custom_html',
-  'product_grid', 'product_details', 'cart_summary', 'checkout_form', 'order_status', 'wishlist',
+  'product_grid', 'product_details', 'cart_summary', 'checkout_form', 'order_status', 'wishlist', 'login_form', 'account',
 ]
 
 export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
@@ -61,6 +67,8 @@ export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   checkout_form: 'Checkout form',
   order_status: 'Order status',
   wishlist: 'Wishlist',
+  login_form: 'Login form',
+  account: 'Account',
 }
 
 export interface Rect {
