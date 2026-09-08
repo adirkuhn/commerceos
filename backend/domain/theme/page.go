@@ -37,12 +37,13 @@ const (
 	BlockTypeCartSummary    BlockType = "cart_summary"
 	BlockTypeCheckoutForm   BlockType = "checkout_form"
 	BlockTypeOrderStatus    BlockType = "order_status"
+	BlockTypeWishlist       BlockType = "wishlist"
 )
 
 func (t BlockType) Valid() bool {
 	switch t {
 	case BlockTypeHero, BlockTypeProductGrid, BlockTypeRichText, BlockTypeCustomHTML,
-		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus:
+		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist:
 		return true
 	default:
 		return false
@@ -54,7 +55,7 @@ func (t BlockType) Valid() bool {
 // comment.
 func (t BlockType) IsFunctional() bool {
 	switch t {
-	case BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus:
+	case BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist:
 		return true
 	default:
 		return false
@@ -110,12 +111,13 @@ const (
 	PageSlugCheckout          PageSlug = "checkout"
 	PageSlugOrderConfirmed    PageSlug = "order-confirmation"
 	PageSlugOrderStatusLookup PageSlug = "order-lookup"
+	PageSlugWishlist          PageSlug = "wishlist"
 )
 
 func (s PageSlug) Valid() bool {
 	switch s {
 	case PageSlugHome, PageSlugProducts, PageSlugProduct, PageSlugCart, PageSlugCheckout,
-		PageSlugOrderConfirmed, PageSlugOrderStatusLookup:
+		PageSlugOrderConfirmed, PageSlugOrderStatusLookup, PageSlugWishlist:
 		return true
 	default:
 		return false
@@ -139,6 +141,8 @@ func (s PageSlug) RequiredBlockType() (BlockType, bool) {
 		return BlockTypeCheckoutForm, true
 	case PageSlugOrderConfirmed, PageSlugOrderStatusLookup:
 		return BlockTypeOrderStatus, true
+	case PageSlugWishlist:
+		return BlockTypeWishlist, true
 	default:
 		return "", false
 	}

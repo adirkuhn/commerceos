@@ -13,6 +13,7 @@ func TestBlockType_IsFunctional(t *testing.T) {
 	assert.True(t, theme.BlockTypeCartSummary.IsFunctional())
 	assert.True(t, theme.BlockTypeProductDetails.IsFunctional())
 	assert.True(t, theme.BlockTypeOrderStatus.IsFunctional())
+	assert.True(t, theme.BlockTypeWishlist.IsFunctional())
 	assert.False(t, theme.BlockTypeHero.IsFunctional())
 	assert.False(t, theme.BlockTypeRichText.IsFunctional())
 	assert.False(t, theme.BlockTypeProductGrid.IsFunctional())
@@ -32,6 +33,7 @@ func TestPageSlug_RequiredBlockType(t *testing.T) {
 		{theme.PageSlugCheckout, theme.BlockTypeCheckoutForm, true},
 		{theme.PageSlugOrderConfirmed, theme.BlockTypeOrderStatus, true},
 		{theme.PageSlugOrderStatusLookup, theme.BlockTypeOrderStatus, true},
+		{theme.PageSlugWishlist, theme.BlockTypeWishlist, true},
 	}
 	for _, tc := range tests {
 		gotType, gotOK := tc.slug.RequiredBlockType()

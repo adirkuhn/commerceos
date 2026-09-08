@@ -20,34 +20,37 @@ import (
 
 // Defines values for BlockType.
 const (
-	CartSummary    BlockType = "cart_summary"
-	CheckoutForm   BlockType = "checkout_form"
-	CustomHtml     BlockType = "custom_html"
-	Hero           BlockType = "hero"
-	OrderStatus    BlockType = "order_status"
-	ProductDetails BlockType = "product_details"
-	ProductGrid    BlockType = "product_grid"
-	RichText       BlockType = "rich_text"
+	BlockTypeCartSummary    BlockType = "cart_summary"
+	BlockTypeCheckoutForm   BlockType = "checkout_form"
+	BlockTypeCustomHtml     BlockType = "custom_html"
+	BlockTypeHero           BlockType = "hero"
+	BlockTypeOrderStatus    BlockType = "order_status"
+	BlockTypeProductDetails BlockType = "product_details"
+	BlockTypeProductGrid    BlockType = "product_grid"
+	BlockTypeRichText       BlockType = "rich_text"
+	BlockTypeWishlist       BlockType = "wishlist"
 )
 
 // Valid indicates whether the value is a known member of the BlockType enum.
 func (e BlockType) Valid() bool {
 	switch e {
-	case CartSummary:
+	case BlockTypeCartSummary:
 		return true
-	case CheckoutForm:
+	case BlockTypeCheckoutForm:
 		return true
-	case CustomHtml:
+	case BlockTypeCustomHtml:
 		return true
-	case Hero:
+	case BlockTypeHero:
 		return true
-	case OrderStatus:
+	case BlockTypeOrderStatus:
 		return true
-	case ProductDetails:
+	case BlockTypeProductDetails:
 		return true
-	case ProductGrid:
+	case BlockTypeProductGrid:
 		return true
-	case RichText:
+	case BlockTypeRichText:
+		return true
+	case BlockTypeWishlist:
 		return true
 	default:
 		return false
@@ -56,31 +59,34 @@ func (e BlockType) Valid() bool {
 
 // Defines values for PageSlug.
 const (
-	Cart              PageSlug = "cart"
-	Checkout          PageSlug = "checkout"
-	Home              PageSlug = "home"
-	OrderConfirmation PageSlug = "order-confirmation"
-	OrderLookup       PageSlug = "order-lookup"
-	Product           PageSlug = "product"
-	Products          PageSlug = "products"
+	PageSlugCart              PageSlug = "cart"
+	PageSlugCheckout          PageSlug = "checkout"
+	PageSlugHome              PageSlug = "home"
+	PageSlugOrderConfirmation PageSlug = "order-confirmation"
+	PageSlugOrderLookup       PageSlug = "order-lookup"
+	PageSlugProduct           PageSlug = "product"
+	PageSlugProducts          PageSlug = "products"
+	PageSlugWishlist          PageSlug = "wishlist"
 )
 
 // Valid indicates whether the value is a known member of the PageSlug enum.
 func (e PageSlug) Valid() bool {
 	switch e {
-	case Cart:
+	case PageSlugCart:
 		return true
-	case Checkout:
+	case PageSlugCheckout:
 		return true
-	case Home:
+	case PageSlugHome:
 		return true
-	case OrderConfirmation:
+	case PageSlugOrderConfirmation:
 		return true
-	case OrderLookup:
+	case PageSlugOrderLookup:
 		return true
-	case Product:
+	case PageSlugProduct:
 		return true
-	case Products:
+	case PageSlugProducts:
+		return true
+	case PageSlugWishlist:
 		return true
 	default:
 		return false
@@ -95,7 +101,7 @@ type Block struct {
 	// Props Block-type-specific free-form data (e.g. hero's heading text/image URL, custom_html's raw markup/CSS).
 	Props map[string]interface{} `json:"props"`
 
-	// Type product_details/cart_summary/checkout_form/order_status are "functional" blocks -- they render real wired-up behavior (the actual add-to-cart control, the actual payment-submitting checkout form), not just presentation. See domain/theme.BlockType.IsFunctional.
+	// Type product_details/cart_summary/checkout_form/order_status/wishlist are "functional" blocks -- they render real wired-up behavior (the actual add-to-cart control, the actual payment-submitting checkout form), not just presentation. See domain/theme.BlockType.IsFunctional.
 	Type BlockType `json:"type"`
 }
 
@@ -107,7 +113,7 @@ type BlockLayout struct {
 	Mobile *Rect `json:"mobile,omitempty"`
 }
 
-// BlockType product_details/cart_summary/checkout_form/order_status are "functional" blocks -- they render real wired-up behavior (the actual add-to-cart control, the actual payment-submitting checkout form), not just presentation. See domain/theme.BlockType.IsFunctional.
+// BlockType product_details/cart_summary/checkout_form/order_status/wishlist are "functional" blocks -- they render real wired-up behavior (the actual add-to-cart control, the actual payment-submitting checkout form), not just presentation. See domain/theme.BlockType.IsFunctional.
 type BlockType string
 
 // ErrorResponse defines model for ErrorResponse.
@@ -289,34 +295,34 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

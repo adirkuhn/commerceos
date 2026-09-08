@@ -88,16 +88,16 @@ components:
   schemas:
     PageSlug:
       type: string
-      enum: [home, products, product, cart, checkout, order-confirmation, order-lookup]
+      enum: [home, products, product, cart, checkout, order-confirmation, order-lookup, wishlist]
 
     BlockType:
       type: string
       description: >
-        product_details/cart_summary/checkout_form/order_status are
-        "functional" blocks -- they render real wired-up behavior (the
+        product_details/cart_summary/checkout_form/order_status/wishlist
+        are "functional" blocks -- they render real wired-up behavior (the
         actual add-to-cart control, the actual payment-submitting checkout
         form), not just presentation. See domain/theme.BlockType.IsFunctional.
-      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status]
+      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist]
 
     Rect:
       type: object
