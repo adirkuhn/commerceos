@@ -421,7 +421,7 @@ describe('createSalesChannel', () => {
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels')
     expect(opts.method).toBe('POST')
     expect(JSON.parse(opts.body as string)).toEqual({
-      name: 'My Woo Store', type: 'woocommerce', connection_id: 'conn-1', enrollment_mode: 'all',
+      name: 'My Woo Store', type: 'woocommerce', connection_id: 'conn-1', enrollment_mode: 'all', quantity_breaks: [],
     })
   })
 
@@ -430,6 +430,16 @@ describe('createSalesChannel', () => {
     await expect(api.createSalesChannel(TOKEN, { name: 'x', type: 'woocommerce', enrollmentMode: 'all' })).rejects.toThrow(
       'connection is required for this channel type',
     )
+  })
+
+  it('sends quantity breaks through', async () => {
+    mockFetch(sampleChannel)
+    await api.createSalesChannel(TOKEN, {
+      name: 'B2B Store', type: 'internal', enrollmentMode: 'all',
+      quantityBreaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    })
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string).quantity_breaks).toEqual([{ min_quantity: 10, discount_basis_points: 1500 }])
   })
 })
 
@@ -443,7 +453,7 @@ describe('updateSalesChannel', () => {
     expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/integrations/sales-channels/chan-1')
     expect(opts.method).toBe('PATCH')
     expect(JSON.parse(opts.body as string)).toEqual({
-      name: 'Renamed', connection_id: 'conn-1', enrollment_mode: 'tag', enrollment_tag: 'summer', active: true,
+      name: 'Renamed', connection_id: 'conn-1', enrollment_mode: 'tag', enrollment_tag: 'summer', active: true, quantity_breaks: [],
     })
   })
 

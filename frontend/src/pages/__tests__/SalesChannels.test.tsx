@@ -124,7 +124,7 @@ describe('Create sales channel', () => {
     await waitFor(() => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'New Channel', type: 'woocommerce', connectionId: 'conn-1', enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
       })
     })
   })
@@ -166,7 +166,7 @@ describe('Create sales channel', () => {
     await waitFor(() => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [],
       })
     })
   })
@@ -222,7 +222,7 @@ describe('Edit sales channel', () => {
     await waitFor(() => {
       expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-1', {
         name: 'Renamed', connectionId: 'conn-1', enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, active: true,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [], active: true,
       })
     })
   })
@@ -279,7 +279,7 @@ describe('Manage products', () => {
     await waitFor(() => {
       expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-1', {
         name: 'My Woo Store', connectionId: 'conn-1', enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, active: true,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, quantityBreaks: [], active: true,
       })
     })
   })
@@ -432,6 +432,93 @@ describe('WhatsApp payment method', () => {
 
     expect(await screen.findByText('Discount must be between 0 and 100%.')).toBeInTheDocument()
     expect(integrationsApi.createSalesChannel).not.toHaveBeenCalled()
+  })
+
+  it('adds a quantity tier and saves it', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({
+      id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null,
+      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
+    await userEvent.type(screen.getByLabelText('Quantity tier 1 minimum quantity'), '10')
+    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        quantityBreaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+      }))
+    })
+  })
+
+  it('prefills quantity tiers back when editing', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
+      id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null,
+      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    })])
+    renderPage()
+    await screen.findByText('B2B Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
+    expect(screen.getByLabelText('Quantity tier 1 discount percent')).toHaveValue(15)
+  })
+
+  it('removes a quantity tier row', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
+      id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null,
+      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    })])
+    renderPage()
+    await screen.findByText('B2B Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove quantity tier 1' }))
+
+    expect(screen.queryByLabelText('Quantity tier 1 minimum quantity')).not.toBeInTheDocument()
+  })
+
+  it('rejects a quantity tier with no minimum quantity', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
+    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    expect(await screen.findByText('Each quantity tier needs a minimum quantity of at least 1.')).toBeInTheDocument()
+    expect(integrationsApi.createSalesChannel).not.toHaveBeenCalled()
+  })
+
+  it("does not wipe quantity tiers when applying a bulk enrollment action", async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
+      id: 'chan-1', name: 'My Woo Store', quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    })])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ enrollment_mode: 'all' }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+    await screen.findByText('T-Shirt')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add all' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-1', expect.objectContaining({
+        quantityBreaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+      }))
+    })
   })
 
   it('shows the discount badge on the channel card when set', async () => {

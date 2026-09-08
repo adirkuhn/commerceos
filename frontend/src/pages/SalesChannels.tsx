@@ -10,7 +10,7 @@ import { useConnections } from '../integrations/hooks/useConnections'
 import { useCategories } from '../pms/hooks/useCategories'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import * as integrationsApi from '../integrations/api'
-import type { Connection, SalesChannel, EnrollmentMode, ChannelType } from '../integrations/types'
+import type { Connection, SalesChannel, EnrollmentMode, ChannelType, QuantityBreak } from '../integrations/types'
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
 
@@ -36,12 +36,17 @@ interface ChannelFormState {
   // Held as a percent string ("20" means 20%) for the input field --
   // converted to basis points only at submit time (see priceAdjustmentBasisPointsOrError).
   priceAdjustmentPercent: string
+  // Each row held as percent/quantity strings for the same reason
+  // priceAdjustmentPercent is -- converted+validated only at submit time
+  // (see quantityBreaksOrError).
+  quantityBreaks: { minQuantity: string; discountPercent: string }[]
 }
 
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
+    quantityBreaks: [],
   }
 }
 
@@ -56,6 +61,30 @@ function priceAdjustmentBasisPointsOrError(percent: string): number | null {
     throw new Error('Discount must be between 0 and 100%.')
   }
   return value
+}
+
+// quantityBreaksOrError mirrors priceAdjustmentBasisPointsOrError's
+// convert-and-validate-at-submit convention for the repeatable tier rows
+// -- a positive integer minimum quantity, a 0-100% discount, and no two
+// rows sharing the same minimum (which one would even apply is undefined
+// otherwise, same rule the backend enforces).
+function quantityBreaksOrError(rows: { minQuantity: string; discountPercent: string }[]): QuantityBreak[] {
+  const seen = new Set<number>()
+  return rows.map(row => {
+    const minQuantity = parseInt(row.minQuantity, 10)
+    if (!Number.isFinite(minQuantity) || minQuantity <= 0) {
+      throw new Error('Each quantity tier needs a minimum quantity of at least 1.')
+    }
+    if (seen.has(minQuantity)) {
+      throw new Error(`Two quantity tiers both start at ${minQuantity} -- each minimum quantity must be unique.`)
+    }
+    seen.add(minQuantity)
+    const discountBasisPoints = Math.round(parseFloat(row.discountPercent) * 100)
+    if (!Number.isFinite(discountBasisPoints) || discountBasisPoints < 0 || discountBasisPoints > 10000) {
+      throw new Error("Each quantity tier's discount must be between 0 and 100%.")
+    }
+    return { min_quantity: minQuantity, discount_basis_points: discountBasisPoints }
+  })
 }
 
 function capitalize(s: string): string {
@@ -94,6 +123,9 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
     defaultWarehouseId: connection?.default_warehouse_id ?? '',
     paymentConnectionId: channel.payment_connection_id ?? '',
     priceAdjustmentPercent: channel.price_adjustment_basis_points ? (channel.price_adjustment_basis_points / 100).toString() : '',
+    quantityBreaks: (channel.quantity_breaks ?? []).map(b => ({
+      minQuantity: b.min_quantity.toString(), discountPercent: (b.discount_basis_points / 100).toString(),
+    })),
   }
 }
 
@@ -147,6 +179,7 @@ export default function SalesChannels() {
         enrollmentCategoryId: form.enrollmentMode === 'category' ? form.enrollmentCategoryId || null : null,
         enrollmentTag: form.enrollmentMode === 'tag' ? form.enrollmentTag || null : null,
         priceAdjustmentBasisPoints: priceAdjustmentBasisPointsOrError(form.priceAdjustmentPercent),
+        quantityBreaks: quantityBreaksOrError(form.quantityBreaks),
       }
       let channelType: ChannelType
       if (editingChannel) {
@@ -446,6 +479,64 @@ export default function SalesChannels() {
                   </p>
                 </div>
               )}
+              {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">
+                      Quantity tiers
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, quantityBreaks: [...f.quantityBreaks, { minQuantity: '', discountPercent: '' }] }))}
+                      className="text-[10px] text-blue-500 hover:text-blue-400"
+                    >
+                      + Add tier
+                    </button>
+                  </div>
+                  {form.quantityBreaks.length === 0 && (
+                    <p className="text-[10px] dark:text-gray-500 text-gray-400">No quantity tiers -- every order uses the flat discount above.</p>
+                  )}
+                  <div className="space-y-2">
+                    {form.quantityBreaks.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="number" min={1} step={1}
+                          aria-label={`Quantity tier ${i + 1} minimum quantity`}
+                          value={row.minQuantity}
+                          onChange={e => setForm(f => ({
+                            ...f, quantityBreaks: f.quantityBreaks.map((r, ri) => (ri === i ? { ...r, minQuantity: e.target.value } : r)),
+                          }))}
+                          placeholder="Qty"
+                          className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-[10px] dark:text-gray-500 text-gray-400">units or more →</span>
+                        <input
+                          type="number" step={0.01}
+                          aria-label={`Quantity tier ${i + 1} discount percent`}
+                          value={row.discountPercent}
+                          onChange={e => setForm(f => ({
+                            ...f, quantityBreaks: f.quantityBreaks.map((r, ri) => (ri === i ? { ...r, discountPercent: e.target.value } : r)),
+                          }))}
+                          placeholder="0"
+                          className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-[10px] dark:text-gray-500 text-gray-400">% off</span>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, quantityBreaks: f.quantityBreaks.filter((_, ri) => ri !== i) }))}
+                          aria-label={`Remove quantity tier ${i + 1}`}
+                          className="ml-auto text-gray-400 hover:text-red-400"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Buy this many or more of one SKU in a single cart line and get this bigger discount instead of the flat rate above.
+                  </p>
+                </div>
+              )}
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
                   <label htmlFor="channel-payment-method" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
@@ -567,6 +658,7 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
         enrollmentCategoryId: categoryId,
         enrollmentTag: tag,
         priceAdjustmentBasisPoints: channel.price_adjustment_basis_points ?? null,
+        quantityBreaks: channel.quantity_breaks ?? [],
         active: channel.active,
       })
       onChannelUpdated(updated)

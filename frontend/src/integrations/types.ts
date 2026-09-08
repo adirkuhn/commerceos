@@ -247,9 +247,19 @@ export interface SalesChannel {
   // channel, in basis points (e.g. 2000 = 20% off). Null means no
   // adjustment. Only meaningful for type 'internal' today.
   price_adjustment_basis_points?: number | null
+  // Additional per-line-quantity discount tiers on top of
+  // price_adjustment_basis_points -- "buy N+ of one SKU, get this bigger
+  // discount instead of the channel's flat rate." Only meaningful for
+  // type 'internal' today.
+  quantity_breaks?: QuantityBreak[]
   active: boolean
   created_at: string
   updated_at: string
+}
+
+export interface QuantityBreak {
+  min_quantity: number
+  discount_basis_points: number
 }
 
 export interface SalesChannelProduct {

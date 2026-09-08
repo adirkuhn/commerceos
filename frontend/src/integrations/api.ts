@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, WebhookEvent, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, SyncSchedule, ImportJob, DeleteAllImportedProductsResult, ProductChannelListing, SyncLogEntry, AIConnection, AIProvider, APIResponse, ChannelType, EnrollmentMode, SalesChannel, SalesChannelProductEnrollment, QuantityBreak, WooTaxClass, WooCategory, ExternalCategoryLink, FetchWooOrderResult, WebhookFallbackEvent, WebhookFallbackStatus, WebhookSecretResult, WebhookForwardRule, WebhookForwardDelivery, WebhookEvent, ProviderWebhook, BolProductOverride, BolProductContent, BolCommission } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/integrations`
@@ -309,6 +309,7 @@ export interface SalesChannelPayload {
   enrollmentCategoryId?: string | null
   enrollmentTag?: string | null
   priceAdjustmentBasisPoints?: number | null
+  quantityBreaks?: QuantityBreak[]
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -324,6 +325,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         enrollment_category_id: payload.enrollmentCategoryId || undefined,
         enrollment_tag: payload.enrollmentTag || undefined,
         price_adjustment_basis_points: payload.priceAdjustmentBasisPoints ?? undefined,
+        quantity_breaks: payload.quantityBreaks ?? [],
       }),
     },
     token,
@@ -337,6 +339,7 @@ export interface UpdateSalesChannelPayload {
   enrollmentCategoryId?: string | null
   enrollmentTag?: string | null
   priceAdjustmentBasisPoints?: number | null
+  quantityBreaks?: QuantityBreak[]
   active: boolean
 }
 
@@ -351,6 +354,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         enrollment_mode: payload.enrollmentMode,
         enrollment_category_id: payload.enrollmentCategoryId || undefined,
         price_adjustment_basis_points: payload.priceAdjustmentBasisPoints ?? undefined,
+        quantity_breaks: payload.quantityBreaks ?? [],
         enrollment_tag: payload.enrollmentTag || undefined,
         active: payload.active,
       }),
