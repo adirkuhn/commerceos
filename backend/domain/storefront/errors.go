@@ -36,4 +36,13 @@ var (
 	// ErrWishlistNotFound mirrors ErrCartNotFound for Wishlist -- see
 	// GetWishlistUseCase/ToggleWishlistItemUseCase.
 	ErrWishlistNotFound = errors.New("wishlist not found")
+	// ErrInvalidOrExpiredMagicLink covers "no such token", "already used",
+	// and "expired" alike -- deliberately the same error for all three, so
+	// a captured/guessed token value can never be used to distinguish a
+	// real-but-expired link from a nonexistent one.
+	ErrInvalidOrExpiredMagicLink = errors.New("this sign-in link is invalid or has expired")
+	// ErrSessionNotFound covers a missing, expired, or wrong-channel
+	// session token -- same "one error for every reason" rule as
+	// ErrInvalidOrExpiredMagicLink.
+	ErrSessionNotFound = errors.New("session not found")
 )

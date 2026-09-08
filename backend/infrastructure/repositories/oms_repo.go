@@ -296,6 +296,9 @@ func (r *SalesOrderRepo) List(ctx context.Context, filter omsDomain.ListSalesOrd
 	if filter.CustomerID != nil {
 		q = q.Where("customer_id = ?", *filter.CustomerID)
 	}
+	if filter.SalesChannelID != nil {
+		q = q.Where("sales_channel_id = ?", *filter.SalesChannelID)
+	}
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

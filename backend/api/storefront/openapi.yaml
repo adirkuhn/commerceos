@@ -290,6 +290,101 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/auth/magic-link:
+    post:
+      operationId: requestMagicLink
+      summary: Email a one-time sign-in link to the given address
+      description: >
+        Always responds 200 and always sends an email, whether or not the
+        address is already a known customer (one is created if not) --
+        this can never be used to check whether an email has an account
+        here. The link expires in 15 minutes and works once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestMagicLinkRequest'
+      responses:
+        '200':
+          description: ok
+        '401':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/auth/session:
+    post:
+      operationId: verifySession
+      summary: Exchange a magic-link token for a signed-in session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifySessionRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/account/{token}:
+    get:
+      operationId: getAccount
+      summary: Fetch the signed-in shopper's profile
+      parameters:
+        - $ref: '#/components/parameters/SessionToken'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: logout
+      summary: End the session
+      parameters:
+        - $ref: '#/components/parameters/SessionToken'
+      responses:
+        '200':
+          description: ok
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/account/{token}/orders:
+    get:
+      operationId: listAccountOrders
+      summary: The signed-in shopper's order history on this channel
+      description: >
+        Scoped to the calling channel specifically, same isolation rule
+        the guest lookupStorefrontOrder endpoint follows -- a B2C session
+        never surfaces a B2B order, or vice versa.
+      parameters:
+        - $ref: '#/components/parameters/SessionToken'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountOrderListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/products:
     get:
       operationId: listStorefrontProducts
@@ -526,6 +621,12 @@ components:
       required: true
       schema: { type: string }
 
+    SessionToken:
+      name: token
+      in: path
+      required: true
+      schema: { type: string }
+
   responses:
     Error:
       description: error
@@ -631,6 +732,67 @@ components:
         code:
           type: string
           description: Empty or omitted removes any attached coupon.
+
+    RequestMagicLinkRequest:
+      type: object
+      required: [email, redirect_url]
+      properties:
+        email: { type: string, format: email }
+        redirect_url:
+          type: string
+          description: The storefront-frontend page that completes sign-in -- the emailed link is this URL with "?token=..." appended.
+
+    VerifySessionRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    Account:
+      type: object
+      required: [email, first_name, last_name]
+      properties:
+        email: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+
+    Session:
+      type: object
+      required: [session_token, account]
+      properties:
+        session_token: { type: string }
+        account: { $ref: '#/components/schemas/Account' }
+
+    SessionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Session' }
+        error: { nullable: true }
+
+    AccountResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Account' }
+        error: { nullable: true }
+
+    AccountOrder:
+      type: object
+      required: [order_number, status, fulfilled, total_minor_units, currency_code, placed_at]
+      properties:
+        order_number: { type: string }
+        status: { type: string }
+        fulfilled: { type: boolean }
+        total_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+        placed_at: { type: string, format: date-time }
+
+    AccountOrderListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AccountOrder' }
+        error: { nullable: true }
 
     Wishlist:
       type: object

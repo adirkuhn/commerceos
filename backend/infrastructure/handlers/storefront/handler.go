@@ -29,6 +29,7 @@ import (
 	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	emailDomain "github.com/adirkuhn/commerceos/domain/email"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -117,6 +118,26 @@ type toggleWishlistItemUC interface {
 	Execute(ctx context.Context, token, productID string) (*storefrontDomain.Wishlist, error)
 }
 
+type requestMagicLinkUC interface {
+	Execute(ctx context.Context, in appstorefront.RequestMagicLinkInput) error
+}
+
+type verifyMagicLinkUC interface {
+	Execute(ctx context.Context, salesChannelID, token string) (*storefrontDomain.CustomerSession, error)
+}
+
+type getAccountUC interface {
+	Execute(ctx context.Context, salesChannelID, sessionToken string) (*appstorefront.Account, error)
+}
+
+type listAccountOrdersUC interface {
+	Execute(ctx context.Context, salesChannelID, sessionToken string) ([]appstorefront.AccountOrder, error)
+}
+
+type logoutUC interface {
+	Execute(ctx context.Context, sessionToken string) error
+}
+
 type Handler struct {
 	resolveAPIKey             resolveAPIKeyUC
 	getCartRecommendations    getCartRecommendationsUC
@@ -137,6 +158,11 @@ type Handler struct {
 	getWishlist               getWishlistUC
 	toggleWishlistItem        toggleWishlistItemUC
 	getProductRecommendations getProductRecommendationsUC
+	requestMagicLink          requestMagicLinkUC
+	verifyMagicLink           verifyMagicLinkUC
+	getAccount                getAccountUC
+	listAccountOrders         listAccountOrdersUC
+	logout                    logoutUC
 }
 
 func NewHandler(
@@ -159,6 +185,11 @@ func NewHandler(
 	getWishlist getWishlistUC,
 	toggleWishlistItem toggleWishlistItemUC,
 	getProductRecommendations getProductRecommendationsUC,
+	requestMagicLink requestMagicLinkUC,
+	verifyMagicLink verifyMagicLinkUC,
+	getAccount getAccountUC,
+	listAccountOrders listAccountOrdersUC,
+	logout logoutUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -168,12 +199,14 @@ func NewHandler(
 		submitReview: submitReview, listReviews: listReviews,
 		createWishlist: createWishlist, getWishlist: getWishlist, toggleWishlistItem: toggleWishlistItem,
 		getProductRecommendations: getProductRecommendations,
+		requestMagicLink:          requestMagicLink, verifyMagicLink: verifyMagicLink, getAccount: getAccount,
+		listAccountOrders: listAccountOrders, logout: logout,
 	}
 }
 
 var _ genstorefront.ServerInterface = (*Handler)(nil)
 
-func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL string) {
+func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL string, emailClient emailDomain.Client) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
@@ -199,6 +232,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	couponRepo := repositories.NewCouponRepo(db)
 	reviewRepo := repositories.NewReviewRepo(db)
 	wishlistRepo := repositories.NewStorefrontWishlistRepo(db)
+	magicLinkTokenRepo := repositories.NewStorefrontMagicLinkTokenRepo(db)
+	customerSessionRepo := repositories.NewStorefrontCustomerSessionRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -235,6 +270,11 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetWishlistUseCase(db, wishlistRepo),
 		appstorefront.NewToggleWishlistItemUseCase(db, wishlistRepo, channelRepo, overrideRepo, productRepo),
 		appstorefront.NewGetProductRecommendationsUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, getCartRecommendations),
+		appstorefront.NewRequestMagicLinkUseCase(db, channelRepo, customerRepo, createCustomer, magicLinkTokenRepo, emailClient),
+		appstorefront.NewVerifyMagicLinkUseCase(db, magicLinkTokenRepo, customerSessionRepo),
+		appstorefront.NewGetAccountUseCase(db, customerSessionRepo, customerRepo),
+		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),
+		appstorefront.NewLogoutUseCase(db, customerSessionRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -516,6 +556,94 @@ func toGenReview(rv reviewsDomain.Review) genstorefront.Review {
 	}
 }
 
+func (h *Handler) RequestMagicLink(c *gin.Context) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.RequestMagicLinkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	err := h.requestMagicLink.Execute(ctx, appstorefront.RequestMagicLinkInput{
+		SalesChannelID: *resolved.SalesChannelID, Email: string(req.Email), RedirectURL: req.RedirectUrl,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *Handler) VerifySession(c *gin.Context) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.VerifySessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	session, err := h.verifyMagicLink.Execute(ctx, *resolved.SalesChannelID, req.Token)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	account, err := h.getAccount.Execute(ctx, *resolved.SalesChannelID, session.Token)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genstorefront.Session{
+		SessionToken: session.Token,
+		Account:      genstorefront.Account{Email: account.Email, FirstName: account.FirstName, LastName: account.LastName},
+	})
+}
+
+func (h *Handler) GetAccount(c *gin.Context, token string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	account, err := h.getAccount.Execute(ctx, *resolved.SalesChannelID, token)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genstorefront.Account{Email: account.Email, FirstName: account.FirstName, LastName: account.LastName})
+}
+
+func (h *Handler) ListAccountOrders(c *gin.Context, token string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	orders, err := h.listAccountOrders.Execute(ctx, *resolved.SalesChannelID, token)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	items := make([]genstorefront.AccountOrder, len(orders))
+	for i, o := range orders {
+		items[i] = genstorefront.AccountOrder{
+			OrderNumber: o.OrderNumber, Status: string(o.Status), Fulfilled: o.Fulfilled,
+			TotalMinorUnits: o.TotalMinorUnits, CurrencyCode: o.CurrencyCode, PlacedAt: o.PlacedAt,
+		}
+	}
+	middleware.OK(c, items)
+}
+
+func (h *Handler) Logout(c *gin.Context, token string) {
+	if _, ok := h.authenticateChannel(c); !ok {
+		return
+	}
+	if err := mapError(c, h.logout.Execute(c.Request.Context(), token)); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
+}
+
 func (h *Handler) CreateWishlist(c *gin.Context) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
@@ -753,10 +881,12 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, reviewsDomain.ErrCustomerEmailRequired),
 		errors.Is(err, reviewsDomain.ErrInvalidRating),
 		errors.Is(err, reviewsDomain.ErrReviewBodyRequired),
+		errors.Is(err, storefrontDomain.ErrInvalidOrExpiredMagicLink),
 		errors.Is(err, themeDomain.ErrInvalidPageSlug):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
-		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, couponsDomain.ErrCouponNotFound):
+		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, storefrontDomain.ErrSessionNotFound),
+		errors.Is(err, couponsDomain.ErrCouponNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartAlreadyCheckedOut):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())

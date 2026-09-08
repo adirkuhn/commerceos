@@ -56,6 +56,13 @@ type ListSalesOrdersFilter struct {
 	// lifetime-spend figures. Guest orders (SalesOrder.CustomerID nil) never
 	// match a non-nil filter value.
 	CustomerID *string
+	// SalesChannelID nil means "don't filter on this" -- set to narrow to
+	// one internal storefront channel, e.g. a logged-in customer's account
+	// order history (application/storefront.ListAccountOrdersUseCase),
+	// same channel-isolation rule LookupOrderUseCase's own doc comment
+	// enforces for guest lookup: a B2C channel must never surface a B2B
+	// order, or vice versa.
+	SalesChannelID *string
 }
 
 type SalesOrderRepository interface {

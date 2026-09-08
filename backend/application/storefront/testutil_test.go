@@ -14,6 +14,7 @@ import (
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	emailDomain "github.com/adirkuhn/commerceos/domain/email"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -130,6 +131,70 @@ func (f *fakeWishlistRepo) Update(_ context.Context, w *storefrontDomain.Wishlis
 		return f.updateErr
 	}
 	f.updated = w
+	return nil
+}
+
+type fakeMagicLinkTokenRepo struct {
+	storefrontDomain.MagicLinkTokenRepository
+	byToken     map[string]storefrontDomain.MagicLinkToken
+	created     *storefrontDomain.MagicLinkToken
+	markUsedErr error
+	markUsedID  string
+}
+
+func (f *fakeMagicLinkTokenRepo) Create(_ context.Context, t *storefrontDomain.MagicLinkToken) error {
+	t.ID = "magic-link-1"
+	f.created = t
+	return nil
+}
+
+func (f *fakeMagicLinkTokenRepo) FindByToken(_ context.Context, token string) (*storefrontDomain.MagicLinkToken, error) {
+	if t, ok := f.byToken[token]; ok {
+		return &t, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeMagicLinkTokenRepo) MarkUsed(_ context.Context, id string, _ time.Time) error {
+	f.markUsedID = id
+	return f.markUsedErr
+}
+
+type fakeCustomerSessionRepo struct {
+	storefrontDomain.CustomerSessionRepository
+	byToken      map[string]storefrontDomain.CustomerSession
+	created      *storefrontDomain.CustomerSession
+	deletedToken string
+}
+
+func (f *fakeCustomerSessionRepo) Create(_ context.Context, s *storefrontDomain.CustomerSession) error {
+	s.ID = "session-1"
+	f.created = s
+	return nil
+}
+
+func (f *fakeCustomerSessionRepo) FindByToken(_ context.Context, token string) (*storefrontDomain.CustomerSession, error) {
+	if s, ok := f.byToken[token]; ok {
+		return &s, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeCustomerSessionRepo) Delete(_ context.Context, token string) error {
+	f.deletedToken = token
+	return nil
+}
+
+type fakeEmailClient struct {
+	sent []emailDomain.Message
+	err  error
+}
+
+func (f *fakeEmailClient) Send(_ context.Context, msg emailDomain.Message) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.sent = append(f.sent, msg)
 	return nil
 }
 
@@ -266,7 +331,9 @@ func (f *fakeListPOSProductCatalog) Execute(ctx context.Context, in apppms.ListP
 
 type fakeSalesOrderRepo struct {
 	omsDomain.SalesOrderRepository
-	byNumber map[string]omsDomain.SalesOrder
+	byNumber  map[string]omsDomain.SalesOrder
+	listOut   []omsDomain.SalesOrder
+	gotFilter omsDomain.ListSalesOrdersFilter
 }
 
 func (f *fakeSalesOrderRepo) FindByNumber(_ context.Context, number string) (*omsDomain.SalesOrder, error) {
@@ -276,11 +343,17 @@ func (f *fakeSalesOrderRepo) FindByNumber(_ context.Context, number string) (*om
 	return nil, nil
 }
 
+func (f *fakeSalesOrderRepo) List(_ context.Context, filter omsDomain.ListSalesOrdersFilter) ([]omsDomain.SalesOrder, int64, error) {
+	f.gotFilter = filter
+	return f.listOut, int64(len(f.listOut)), nil
+}
+
 // ── customers ────────────────────────────────────────────────────────────
 
 type fakeCustomerRepo struct {
 	customersDomain.CustomerRepository
 	byEmail map[string]customersDomain.Customer
+	byID    map[string]customersDomain.Customer
 }
 
 func (f *fakeCustomerRepo) FindByEmail(_ context.Context, email string) (*customersDomain.Customer, error) {
@@ -288,6 +361,13 @@ func (f *fakeCustomerRepo) FindByEmail(_ context.Context, email string) (*custom
 		return &c, nil
 	}
 	return nil, nil
+}
+
+func (f *fakeCustomerRepo) FindByID(_ context.Context, id string) (*customersDomain.Customer, error) {
+	if c, ok := f.byID[id]; ok {
+		return &c, nil
+	}
+	return nil, customersDomain.ErrCustomerNotFound
 }
 
 // ── tax ──────────────────────────────────────────────────────────────────

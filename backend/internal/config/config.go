@@ -49,6 +49,17 @@ type Config struct {
 	// same "optional integration, nil-safe skip" pattern as
 	// AIDocumentParser being nil when no AI provider is configured.
 	LM2LicensePublicKeyURL string
+	// SMTP* configure the outbound-email client (infrastructure/email,
+	// domain/email.Client) used to send storefront magic-link login
+	// emails. Optional, same "unset means skip the whole feature rather
+	// than mount a guaranteed-broken path" convention as
+	// LM2LicensePublicKeyURL -- when SMTPHost is empty, cmd/api/main.go
+	// doesn't mount the storefront auth routes at all.
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
 }
 
 func Load() Config {
@@ -71,6 +82,11 @@ func Load() Config {
 		S3UseSSL:                     envOr("S3_USE_SSL", "false") == "true",
 		S3PublicBaseURL:              os.Getenv("S3_PUBLIC_BASE_URL"),
 		LM2LicensePublicKeyURL:       os.Getenv("LM2_LICENSE_PUBLIC_KEY_URL"),
+		SMTPHost:                     os.Getenv("SMTP_HOST"),
+		SMTPPort:                     envOr("SMTP_PORT", "587"),
+		SMTPUsername:                 os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:                 os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:                     os.Getenv("SMTP_FROM"),
 	}
 }
 

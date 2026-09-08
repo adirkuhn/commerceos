@@ -38,7 +38,9 @@ import (
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
+	emailDomain "github.com/adirkuhn/commerceos/domain/email"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	"github.com/adirkuhn/commerceos/infrastructure/email"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
@@ -445,7 +447,13 @@ func main() {
 	storefrontGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(storefrontSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	storefronthandler.Register(storefrontGroup, db, cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL)
+	var emailClient emailDomain.Client = email.NoopClient{}
+	if cfg.SMTPHost != "" {
+		emailClient = email.NewSMTPClient(email.SMTPConfig{
+			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
+		})
+	}
+	storefronthandler.Register(storefrontGroup, db, cfg.IntegrationsEncryptionSecret, cfg.FrontendBaseURL, emailClient)
 
 	// POS desktop integration -- authenticated by the caller's lm2 license
 	// directly (middleware.POSLicense), never the human JWT, so it's its

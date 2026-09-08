@@ -213,6 +213,76 @@ func (s *stubGetProductRecommendations) Execute(_ context.Context, salesChannelI
 	return s.out, nil
 }
 
+type stubRequestMagicLink struct {
+	err   error
+	gotIn appstorefront.RequestMagicLinkInput
+}
+
+func (s *stubRequestMagicLink) Execute(_ context.Context, in appstorefront.RequestMagicLinkInput) error {
+	s.gotIn = in
+	return s.err
+}
+
+type stubVerifySession struct {
+	out      *storefrontDomain.CustomerSession
+	err      error
+	gotChan  string
+	gotToken string
+}
+
+func (s *stubVerifySession) Execute(_ context.Context, salesChannelID, token string) (*storefrontDomain.CustomerSession, error) {
+	s.gotChan, s.gotToken = salesChannelID, token
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &storefrontDomain.CustomerSession{Token: "session-token-1", SalesChannelID: salesChannelID}, nil
+}
+
+type stubGetAccount struct {
+	out      *appstorefront.Account
+	err      error
+	gotChan  string
+	gotToken string
+}
+
+func (s *stubGetAccount) Execute(_ context.Context, salesChannelID, sessionToken string) (*appstorefront.Account, error) {
+	s.gotChan, s.gotToken = salesChannelID, sessionToken
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appstorefront.Account{Email: "shopper@example.com"}, nil
+}
+
+type stubListAccountOrders struct {
+	out      []appstorefront.AccountOrder
+	err      error
+	gotToken string
+}
+
+func (s *stubListAccountOrders) Execute(_ context.Context, _, sessionToken string) ([]appstorefront.AccountOrder, error) {
+	s.gotToken = sessionToken
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
+type stubLogout struct {
+	err      error
+	gotToken string
+}
+
+func (s *stubLogout) Execute(_ context.Context, sessionToken string) error {
+	s.gotToken = sessionToken
+	return s.err
+}
+
 type stubCheckoutCart struct {
 	out      *appstorefront.CheckoutResult
 	err      error
@@ -323,6 +393,11 @@ func newTestHandler(
 	getWishlist := &stubGetWishlist{}
 	toggleWishlistItem := &stubToggleWishlistItem{}
 	getProductRecommendations := &stubGetProductRecommendations{}
+	requestMagicLink := &stubRequestMagicLink{}
+	verifySession := &stubVerifySession{}
+	getAccount := &stubGetAccount{}
+	listAccountOrders := &stubListAccountOrders{}
+	logout := &stubLogout{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
@@ -343,12 +418,23 @@ func newTestHandler(
 			toggleWishlistItem = v
 		case *stubGetProductRecommendations:
 			getProductRecommendations = v
+		case *stubRequestMagicLink:
+			requestMagicLink = v
+		case *stubVerifySession:
+			verifySession = v
+		case *stubGetAccount:
+			getAccount = v
+		case *stubListAccountOrders:
+			listAccountOrders = v
+		case *stubLogout:
+			logout = v
 		}
 	}
 	return storefronthandler.NewHandler(
 		resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder,
 		getTheme, getShippingOptions, applyCoupon, submitReview, listReviews,
 		createWishlist, getWishlist, toggleWishlistItem, getProductRecommendations,
+		requestMagicLink, verifySession, getAccount, listAccountOrders, logout,
 	)
 }
 
@@ -886,4 +972,85 @@ func TestToggleWishlistItemHandler_productNotAvailableIs422(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/wishlists/wishlist-token-1/items", `{"product_id":"missing-product"}`, "test-key")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestRequestMagicLinkHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	request := &stubRequestMagicLink{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, request)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/auth/magic-link", `{"email":"shopper@example.com","redirect_url":"https://shop.example.com/verify"}`, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "channel-1", request.gotIn.SalesChannelID)
+	assert.Equal(t, "shopper@example.com", request.gotIn.Email)
+	assert.Equal(t, "https://shop.example.com/verify", request.gotIn.RedirectURL)
+}
+
+func TestVerifySessionHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	verify := &stubVerifySession{}
+	getAccount := &stubGetAccount{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, verify, getAccount)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/auth/session", `{"token":"LINK123"}`, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "LINK123", verify.gotToken)
+	assert.Contains(t, w.Body.String(), `"session_token":"session-token-1"`)
+	assert.Contains(t, w.Body.String(), `"email":"shopper@example.com"`)
+}
+
+func TestVerifySessionHandler_invalidTokenIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	verify := &stubVerifySession{err: storefrontDomain.ErrInvalidOrExpiredMagicLink}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, verify)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/auth/session", `{"token":"bad-token"}`, "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestGetAccountHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	getAccount := &stubGetAccount{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, getAccount)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/account/session-token-1", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "channel-1", getAccount.gotChan)
+	assert.Equal(t, "session-token-1", getAccount.gotToken)
+}
+
+func TestGetAccountHandler_notFoundIs404(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	getAccount := &stubGetAccount{err: storefrontDomain.ErrSessionNotFound}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, getAccount)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/account/missing-session", "", "test-key")
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListAccountOrdersHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	list := &stubListAccountOrders{out: []appstorefront.AccountOrder{{OrderNumber: "WEB-1", TotalMinorUnits: 1000, CurrencyCode: "EUR"}}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, list)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/account/session-token-1/orders", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"order_number":"WEB-1"`)
+}
+
+func TestLogoutHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	logout := &stubLogout{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, logout)
+
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/storefront/v1/account/session-token-1", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "session-token-1", logout.gotToken)
 }
