@@ -14,6 +14,7 @@ import (
 
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 )
@@ -275,6 +276,43 @@ func (s *stubListProductHistory) Execute(_ context.Context, _ pmsDomain.ProductH
 	return s.out, s.err
 }
 
+type stubListSKUCurrencyPrices struct {
+	out []pmsDomain.SKUCurrencyPrice
+	err error
+}
+
+func (s *stubListSKUCurrencyPrices) Execute(_ context.Context, _ string) ([]pmsDomain.SKUCurrencyPrice, error) {
+	return s.out, s.err
+}
+
+type stubUpsertSKUCurrencyPrice struct {
+	out      *pmsDomain.SKUCurrencyPrice
+	err      error
+	gotInput apppms.UpsertSKUCurrencyPriceInput
+}
+
+func (s *stubUpsertSKUCurrencyPrice) Execute(_ context.Context, in apppms.UpsertSKUCurrencyPriceInput) (*pmsDomain.SKUCurrencyPrice, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &pmsDomain.SKUCurrencyPrice{SKUID: in.SKUID, CurrencyCode: in.CurrencyCode, PriceMinorUnits: in.PriceMinorUnits, SalePriceMinorUnits: in.SalePriceMinorUnits}, nil
+}
+
+type stubDeleteSKUCurrencyPrice struct {
+	err         error
+	gotSKUID    string
+	gotCurrency string
+}
+
+func (s *stubDeleteSKUCurrencyPrice) Execute(_ context.Context, skuID, currencyCode string) error {
+	s.gotSKUID, s.gotCurrency = skuID, currencyCode
+	return s.err
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type stubs struct {
@@ -306,6 +344,9 @@ type stubs struct {
 	listMarginReport       stubListMarginReport
 	listSKUPriceHistory    stubListSKUPriceHistory
 	listProductHistory     stubListProductHistory
+	listSKUCurrencyPrices  stubListSKUCurrencyPrices
+	upsertSKUCurrencyPrice stubUpsertSKUCurrencyPrice
+	deleteSKUCurrencyPrice stubDeleteSKUCurrencyPrice
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -320,6 +361,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.getSKUMarginInsight, &s.listCostPriceHistory, &s.listMarginReport,
 		&s.listSKUPriceHistory,
 		&s.listProductHistory,
+		&s.listSKUCurrencyPrices, &s.upsertSKUCurrencyPrice, &s.deleteSKUCurrencyPrice,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)
@@ -774,6 +816,47 @@ func TestListSKUPriceHistory_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"price_minor_units":999`)
 	assert.Contains(t, w.Body.String(), `"reason":"manual_update"`)
+}
+
+func TestListSKUCurrencyPrices_success(t *testing.T) {
+	s := &stubs{listSKUCurrencyPrices: stubListSKUCurrencyPrices{out: []pmsDomain.SKUCurrencyPrice{
+		{SKUID: "sku-1", CurrencyCode: "USD", PriceMinorUnits: 1200},
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/sku-1/currency-prices", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"currency_code":"USD"`)
+	assert.Contains(t, w.Body.String(), `"price_minor_units":1200`)
+}
+
+func TestUpsertSKUCurrencyPrice_success(t *testing.T) {
+	s := &stubs{}
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/sku-1/currency-prices", map[string]any{
+		"currency_code": "USD", "price_minor_units": 1200,
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "sku-1", s.upsertSKUCurrencyPrice.gotInput.SKUID)
+	assert.Equal(t, "USD", s.upsertSKUCurrencyPrice.gotInput.CurrencyCode)
+	assert.Equal(t, int64(1200), s.upsertSKUCurrencyPrice.gotInput.PriceMinorUnits)
+}
+
+func TestUpsertSKUCurrencyPrice_validationError(t *testing.T) {
+	s := &stubs{upsertSKUCurrencyPrice: stubUpsertSKUCurrencyPrice{err: fxDomain.ErrInvalidCurrencyCode}}
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/sku-1/currency-prices", map[string]any{
+		"currency_code": "us", "price_minor_units": 1200,
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestDeleteSKUCurrencyPrice_success(t *testing.T) {
+	s := &stubs{}
+	w := doRequest(newTestRouter(s), http.MethodDelete, "/api/v1/pms/skus/sku-1/currency-prices/USD", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "sku-1", s.deleteSKUCurrencyPrice.gotSKUID)
+	assert.Equal(t, "USD", s.deleteSKUCurrencyPrice.gotCurrency)
 }
 
 func TestListProductHistory_success(t *testing.T) {

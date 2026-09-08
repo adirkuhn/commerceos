@@ -12,7 +12,7 @@ var (
 	// it must already be in slugified form (lowercase alphanumeric,
 	// single dashes, no leading/trailing dash) -- same shape Slugify
 	// produces from a name, so the URL stays well-formed.
-	ErrInvalidSlug = errors.New("slug must be lowercase alphanumeric with single dashes")
+	ErrInvalidSlug      = errors.New("slug must be lowercase alphanumeric with single dashes")
 	ErrDuplicateSKUCode = errors.New("sku code already exists")
 	// ErrDuplicateBarcode guards SKU.Barcode: a barcode scan must resolve
 	// to exactly one SKU within a tenant (skus_tenant_barcode_idx).
@@ -80,4 +80,10 @@ var (
 	// and settings.TenantSettings.DefaultTargetMarkupBasisPoints: must be
 	// >= 0. Unlike margin, markup (profit / cost) has no upper bound.
 	ErrInvalidTargetMarkupBasisPoints = errors.New("target markup basis points must be at least 0")
+	// ErrExchangeRateRequired is returned by ResolveSKUPrice when a SKU
+	// needs converting into a currency that has neither an explicit
+	// SKUCurrencyPrice override nor a configured fx.ExchangeRate -- a
+	// misconfigured channel (its CurrencyCode's rate got deleted after
+	// the channel was created) rather than a normal "no price" case.
+	ErrExchangeRateRequired = errors.New("no exchange rate or price override configured for this currency")
 )

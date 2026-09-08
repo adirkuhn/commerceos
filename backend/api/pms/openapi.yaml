@@ -498,6 +498,66 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/currency-prices:
+    get:
+      operationId: listSKUCurrencyPrices
+      summary: List every per-currency price override for a SKU
+      description: >-
+        Absent an override for a given currency, a channel running in it
+        prices this SKU via an fx conversion of its own price instead --
+        see domain/fx.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUCurrencyPriceListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: upsertSKUCurrencyPrice
+      summary: Create or replace this SKU's price override for one currency
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertSKUCurrencyPriceRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUCurrencyPriceResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /pms/skus/{id}/currency-prices/{currencyCode}:
+    delete:
+      operationId: deleteSKUCurrencyPrice
+      summary: Remove this SKU's price override for one currency
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: currencyCode
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+
   /pms/products/{id}/history:
     get:
       operationId: listProductHistory
@@ -868,6 +928,40 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/SKUPriceHistoryEntry' }
+        error: { nullable: true }
+
+    SKUCurrencyPrice:
+      type: object
+      required: [sku_id, currency_code, price_minor_units, updated_at]
+      properties:
+        sku_id: { type: string }
+        currency_code: { type: string }
+        price_minor_units: { type: integer, format: int64 }
+        sale_price_minor_units: { type: integer, format: int64, nullable: true }
+        sale_end_date: { type: string, format: date, nullable: true }
+        updated_at: { type: string, format: date-time }
+
+    UpsertSKUCurrencyPriceRequest:
+      type: object
+      required: [currency_code, price_minor_units]
+      properties:
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+        price_minor_units: { type: integer, format: int64 }
+        sale_price_minor_units: { type: integer, format: int64, nullable: true }
+        sale_end_date: { type: string, format: date, nullable: true }
+
+    SKUCurrencyPriceResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SKUCurrencyPrice' }
+        error: { nullable: true }
+
+    SKUCurrencyPriceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SKUCurrencyPrice' }
         error: { nullable: true }
 
     ProductHistoryEntry:

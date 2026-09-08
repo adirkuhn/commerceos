@@ -14,6 +14,7 @@ import (
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -136,6 +137,15 @@ type listSKUPriceHistoryUC interface {
 type listProductHistoryUC interface {
 	Execute(ctx context.Context, entityType pmsDomain.ProductHistoryEntityType, entityID string) ([]pmsDomain.ProductHistory, error)
 }
+type listSKUCurrencyPricesUC interface {
+	Execute(ctx context.Context, skuID string) ([]pmsDomain.SKUCurrencyPrice, error)
+}
+type upsertSKUCurrencyPriceUC interface {
+	Execute(ctx context.Context, in apppms.UpsertSKUCurrencyPriceInput) (*pmsDomain.SKUCurrencyPrice, error)
+}
+type deleteSKUCurrencyPriceUC interface {
+	Execute(ctx context.Context, skuID, currencyCode string) error
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -168,6 +178,9 @@ type Handler struct {
 	listMarginReport       listMarginReportUC
 	listSKUPriceHistory    listSKUPriceHistoryUC
 	listProductHistory     listProductHistoryUC
+	listSKUCurrencyPrices  listSKUCurrencyPricesUC
+	upsertSKUCurrencyPrice upsertSKUCurrencyPriceUC
+	deleteSKUCurrencyPrice deleteSKUCurrencyPriceUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -200,6 +213,9 @@ func NewHandler(
 	listMarginReport listMarginReportUC,
 	listSKUPriceHistory listSKUPriceHistoryUC,
 	listProductHistory listProductHistoryUC,
+	listSKUCurrencyPrices listSKUCurrencyPricesUC,
+	upsertSKUCurrencyPrice upsertSKUCurrencyPriceUC,
+	deleteSKUCurrencyPrice deleteSKUCurrencyPriceUC,
 ) *Handler {
 	return &Handler{
 		getSKUMarginInsight:    getSKUMarginInsight,
@@ -207,6 +223,9 @@ func NewHandler(
 		listMarginReport:       listMarginReport,
 		listSKUPriceHistory:    listSKUPriceHistory,
 		listProductHistory:     listProductHistory,
+		listSKUCurrencyPrices:  listSKUCurrencyPrices,
+		upsertSKUCurrencyPrice: upsertSKUCurrencyPrice,
+		deleteSKUCurrencyPrice: deleteSKUCurrencyPrice,
 		listCategories:         listCategories,
 		createCategory:         createCategory,
 		updateCategory:         updateCategory,
@@ -250,6 +269,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
 	priceHistoryRepo := repositories.NewSKUPriceHistoryRepo(db)
 	productHistoryRepo := repositories.NewProductHistoryRepo(db)
+	skuCurrencyPriceRepo := repositories.NewSKUCurrencyPriceRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
@@ -287,6 +307,9 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewListMarginReportUseCase(db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo),
 		apppms.NewListSKUPriceHistoryUseCase(db, priceHistoryRepo),
 		apppms.NewListProductHistoryUseCase(db, productHistoryRepo),
+		apppms.NewListSKUCurrencyPricesUseCase(db, skuCurrencyPriceRepo),
+		apppms.NewUpsertSKUCurrencyPriceUseCase(db, skuRepo, skuCurrencyPriceRepo),
+		apppms.NewDeleteSKUCurrencyPriceUseCase(db, skuCurrencyPriceRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
@@ -700,6 +723,51 @@ func (h *Handler) ListSKUPriceHistory(c *gin.Context, id genpms.Id, params genpm
 	c.JSON(http.StatusOK, genpms.SKUPriceHistoryListResponse{Data: &resp})
 }
 
+func (h *Handler) ListSKUCurrencyPrices(c *gin.Context, id genpms.Id) {
+	prices, err := h.listSKUCurrencyPrices.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := make([]genpms.SKUCurrencyPrice, len(prices))
+	for i, p := range prices {
+		resp[i] = toGenSKUCurrencyPrice(p)
+	}
+	c.JSON(http.StatusOK, genpms.SKUCurrencyPriceListResponse{Data: &resp})
+}
+
+func (h *Handler) UpsertSKUCurrencyPrice(c *gin.Context, id genpms.Id) {
+	var req genpms.UpsertSKUCurrencyPriceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	price, err := h.upsertSKUCurrencyPrice.Execute(c.Request.Context(), apppms.UpsertSKUCurrencyPriceInput{
+		SKUID: id, CurrencyCode: req.CurrencyCode, PriceMinorUnits: req.PriceMinorUnits,
+		SalePriceMinorUnits: req.SalePriceMinorUnits, SaleEndDate: genDateToTimePtr(req.SaleEndDate),
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenSKUCurrencyPrice(*price)
+	c.JSON(http.StatusOK, genpms.SKUCurrencyPriceResponse{Data: &resp})
+}
+
+func (h *Handler) DeleteSKUCurrencyPrice(c *gin.Context, id genpms.Id, currencyCode string) {
+	err := h.deleteSKUCurrencyPrice.Execute(c.Request.Context(), id, currencyCode)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genpms.EmptyResponse{})
+}
+
+func toGenSKUCurrencyPrice(p pmsDomain.SKUCurrencyPrice) genpms.SKUCurrencyPrice {
+	return genpms.SKUCurrencyPrice{
+		SkuId: p.SKUID, CurrencyCode: p.CurrencyCode, PriceMinorUnits: p.PriceMinorUnits,
+		SalePriceMinorUnits: p.SalePriceMinorUnits, SaleEndDate: timePtrToGenDate(p.SaleEndDate),
+		UpdatedAt: p.UpdatedAt,
+	}
+}
+
 func (h *Handler) ListProductHistory(c *gin.Context, id genpms.Id) {
 	history, err := h.listProductHistory.Execute(c.Request.Context(), pmsDomain.ProductHistoryEntityProduct, id)
 	if err := mapError(c, err); err != nil {
@@ -1013,7 +1081,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrUnitsPerCaseMustBePositive),
 		errors.Is(err, pmsDomain.ErrPortionedFromSKUCannotBeSelf),
 		errors.Is(err, pmsDomain.ErrPortionedFromSKUMustTrackWeight),
-		errors.Is(err, pmsDomain.ErrBulkSKUCannotBePortioned):
+		errors.Is(err, pmsDomain.ErrBulkSKUCannotBePortioned),
+		errors.Is(err, pmsDomain.ErrExchangeRateRequired),
+		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("pms: unhandled error: %v", err)
