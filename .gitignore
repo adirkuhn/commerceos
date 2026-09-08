@@ -16,6 +16,9 @@ storefront-frontend/node_modules/
 storefront-frontend/dist/
 storefront-frontend/.env.local
 storefront-frontend/.env.*.local
+storefront-frontend/test-results/
+storefront-frontend/playwright-report/
+storefront-frontend/blob-report/
 
 # --- Env ---
 .env
