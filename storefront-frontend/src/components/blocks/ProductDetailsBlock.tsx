@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom'
 import { getProduct } from '../../api/products'
 import * as reviewsApi from '../../api/reviews'
 import { useCart } from '../../cart/CartContext'
+import { useWishlist } from '../../wishlist/WishlistContext'
 import { formatMoney } from '../../format'
 import type { StorefrontProduct, Review, ReviewSummary, SubmitReviewInput } from '../../types'
 
 export function ProductDetailsBlock() {
   const { id } = useParams<{ id: string }>()
   const { addItem } = useCart()
+  const { isSaved, toggle } = useWishlist()
   const [product, setProduct] = useState<StorefrontProduct | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +43,17 @@ export function ProductDetailsBlock() {
 
   return (
     <div className="h-full overflow-auto p-6">
-      <h1 className="text-2xl font-semibold text-brand-700">{product.name}</h1>
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-brand-700">{product.name}</h1>
+        <button
+          onClick={() => toggle(product.id)}
+          aria-label={isSaved(product.id) ? 'Remove from wishlist' : 'Save to wishlist'}
+          aria-pressed={isSaved(product.id)}
+          className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-brand-500 transition-colors hover:bg-gray-50"
+        >
+          {isSaved(product.id) ? '♥ Saved' : '♡ Save'}
+        </button>
+      </div>
       {product.description && <p className="mt-2 text-brand-500">{product.description}</p>}
       <div className="mt-6 space-y-4">
         {product.variants.map(variant => (

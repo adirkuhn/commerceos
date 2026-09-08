@@ -5,29 +5,35 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ProductDetailsBlock } from '../ProductDetailsBlock'
 import { CartProvider } from '../../../cart/CartContext'
+import { WishlistProvider } from '../../../wishlist/WishlistContext'
 import type { StorefrontProduct, Cart } from '../../../types'
 
 vi.mock('../../../api/products', () => ({ listProducts: vi.fn(), getProduct: vi.fn() }))
 vi.mock('../../../api/cart', () => ({ createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), applyCoupon: vi.fn() }))
 vi.mock('../../../api/reviews', () => ({ listReviews: vi.fn(), submitReview: vi.fn() }))
+vi.mock('../../../api/wishlist', () => ({ createWishlist: vi.fn(), getWishlist: vi.fn(), toggleWishlistItem: vi.fn() }))
 
 import * as productsApi from '../../../api/products'
 import * as cartApi from '../../../api/cart'
 import * as reviewsApi from '../../../api/reviews'
+import * as wishlistApi from '../../../api/wishlist'
 
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   vi.mocked(reviewsApi.listReviews).mockResolvedValue({ reviews: [], summary: { average: 0, count: 0 } })
+  vi.mocked(wishlistApi.createWishlist).mockResolvedValue({ token: 'wishlist-1', product_ids: [] })
 })
 
 function renderAt(id: string) {
   return render(
     <MemoryRouter initialEntries={[`/products/${id}`]}>
       <CartProvider>
-        <Routes>
-          <Route path="/products/:id" element={<ProductDetailsBlock />} />
-        </Routes>
+        <WishlistProvider>
+          <Routes>
+            <Route path="/products/:id" element={<ProductDetailsBlock />} />
+          </Routes>
+        </WishlistProvider>
       </CartProvider>
     </MemoryRouter>,
   )
@@ -143,5 +149,25 @@ describe('ProductDetailsBlock reviews', () => {
     await user.click(screen.getByRole('button', { name: 'Submit review' }))
 
     expect(await screen.findByText('rating must be between 1 and 5')).toBeInTheDocument()
+  })
+})
+
+describe('ProductDetailsBlock wishlist', () => {
+  it('saves and un-saves the product', async () => {
+    const user = userEvent.setup()
+    vi.mocked(productsApi.getProduct).mockResolvedValue(product)
+    vi.mocked(wishlistApi.toggleWishlistItem)
+      .mockResolvedValueOnce({ token: 'wishlist-1', product_ids: ['p1'] })
+      .mockResolvedValueOnce({ token: 'wishlist-1', product_ids: [] })
+
+    renderAt('p1')
+    await screen.findByText('Widget')
+
+    await user.click(screen.getByRole('button', { name: 'Save to wishlist' }))
+    expect(await screen.findByRole('button', { name: 'Remove from wishlist' })).toBeInTheDocument()
+    expect(wishlistApi.toggleWishlistItem).toHaveBeenCalledWith('wishlist-1', 'p1')
+
+    await user.click(screen.getByRole('button', { name: 'Remove from wishlist' }))
+    expect(await screen.findByRole('button', { name: 'Save to wishlist' })).toBeInTheDocument()
   })
 })

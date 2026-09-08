@@ -3,6 +3,7 @@ import { ProductDetailsBlock } from './blocks/ProductDetailsBlock'
 import { CartSummaryBlock } from './blocks/CartSummaryBlock'
 import { CheckoutFormBlock } from './blocks/CheckoutFormBlock'
 import { OrderStatusBlock } from './blocks/OrderStatusBlock'
+import { WishlistBlock } from './blocks/WishlistBlock'
 import type { Block, PageSlug } from '../types'
 
 function stringProp(props: Record<string, unknown>, key: string): string {
@@ -61,6 +62,8 @@ export function BlockRenderer({ block, pageSlug }: Props) {
       return <CheckoutFormBlock />
     case 'order_status':
       return <OrderStatusBlock pageSlug={pageSlug === 'order-lookup' ? 'order-lookup' : 'order-confirmation'} />
+    case 'wishlist':
+      return <WishlistBlock />
     default:
       return (
         <div className="flex h-full w-full items-center justify-center border border-dashed border-gray-300 bg-gray-50">
