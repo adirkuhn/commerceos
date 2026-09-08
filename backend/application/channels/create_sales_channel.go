@@ -6,6 +6,7 @@ import (
 	"time"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -20,6 +21,10 @@ type CreateSalesChannelInput struct {
 	EnrollmentTag              string
 	PriceAdjustmentBasisPoints *int
 	QuantityBreaks             []channelsDomain.QuantityBreak
+	// CurrencyCode, "" meaning "use the tenant's default currency", is
+	// only settable here -- see SalesChannel.CurrencyCode's own doc
+	// comment for why it's immutable after creation.
+	CurrencyCode string
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
@@ -57,15 +62,19 @@ type CreateSalesChannelUseCase struct {
 	db       *gorm.DB
 	repo     channelsDomain.SalesChannelRepository
 	connRepo integrationsDomain.ConnectionRepository
+	fxRepo   fxDomain.ExchangeRateRepository
 }
 
-func NewCreateSalesChannelUseCase(db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository) *CreateSalesChannelUseCase {
-	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo}
+func NewCreateSalesChannelUseCase(db *gorm.DB, repo channelsDomain.SalesChannelRepository, connRepo integrationsDomain.ConnectionRepository, fxRepo fxDomain.ExchangeRateRepository) *CreateSalesChannelUseCase {
+	return &CreateSalesChannelUseCase{db: db, repo: repo, connRepo: connRepo, fxRepo: fxRepo}
 }
 
 func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
 	if err := validateSalesChannelInput(in.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints, in.QuantityBreaks); err != nil {
 		return nil, fmt.Errorf("createSalesChannel: %w", err)
+	}
+	if in.CurrencyCode != "" && !fxDomain.ValidCurrencyCode(in.CurrencyCode) {
+		return nil, fmt.Errorf("createSalesChannel: %w", channelsDomain.ErrInvalidCurrencyCode)
 	}
 
 	var channel channelsDomain.SalesChannel
@@ -79,12 +88,22 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 				return channelsDomain.ErrChannelTypeConnectionMismatch
 			}
 		}
+		if in.CurrencyCode != "" {
+			rate, err := uc.fxRepo.FindByCurrency(ctx, in.CurrencyCode)
+			if err != nil {
+				return err
+			}
+			if rate == nil {
+				return channelsDomain.ErrChannelCurrencyRequiresRate
+			}
+		}
 		now := time.Now()
 		channel = channelsDomain.SalesChannel{
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Type: in.Type, ConnectionID: in.ConnectionID,
 			EnrollmentMode: in.EnrollmentMode, EnrollmentCategoryID: in.EnrollmentCategoryID, EnrollmentTag: in.EnrollmentTag,
 			PriceAdjustmentBasisPoints: in.PriceAdjustmentBasisPoints,
 			QuantityBreaks:             in.QuantityBreaks,
+			CurrencyCode:               in.CurrencyCode,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

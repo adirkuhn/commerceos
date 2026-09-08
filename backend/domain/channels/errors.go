@@ -110,4 +110,13 @@ var (
 	// application/channels.SyncProductToChannelsUseCase's gating, not this
 	// error.
 	ErrProductNotSyncable = errors.New("product is not active, cannot push to a sales channel")
+	// ErrInvalidCurrencyCode guards SalesChannel.CurrencyCode against a
+	// malformed value -- "" (meaning "use the tenant's default currency")
+	// is always valid; a non-empty value must pass fx.ValidCurrencyCode.
+	ErrInvalidCurrencyCode = errors.New("currency code must be 3 uppercase letters")
+	// ErrChannelCurrencyRequiresRate guards CreateSalesChannelUseCase: a
+	// non-default CurrencyCode needs a fx.ExchangeRate already configured
+	// for it, since that's the fallback every SKU/coupon without an
+	// explicit override in that currency will be priced through.
+	ErrChannelCurrencyRequiresRate = errors.New("no exchange rate is configured for this currency yet")
 )

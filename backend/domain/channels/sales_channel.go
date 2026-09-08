@@ -116,9 +116,23 @@ type SalesChannel struct {
 	// a bulk buyer gets a bigger cut the more of one SKU they add to a
 	// single cart line, still with no customer-group/login concept.
 	QuantityBreaks []QuantityBreak
-	Active         bool
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// CurrencyCode is this channel's fixed selling currency -- "" means
+	// "use the tenant's default currency" (settings.TenantSettings), which
+	// is what every channel had implicitly before multi-currency existed
+	// and is still the only behavior for every channel that doesn't opt
+	// in. Set once at creation (see
+	// application/channels.CreateSalesChannelUseCase) and immutable after
+	// -- changing a live channel's currency out from under carts/orders
+	// already priced in the old one would corrupt them, so re-pricing a
+	// channel means creating a new one. A non-"" value requires a
+	// fx.ExchangeRate already configured for it (checked at creation, not
+	// here, since that's a cross-domain lookup) -- see
+	// application/pms.ResolvePriceForCurrency for how a SKU/coupon's price
+	// actually gets computed in this currency.
+	CurrencyCode string
+	Active       bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // QuantityBreak is one "at this quantity or more, this bigger discount"

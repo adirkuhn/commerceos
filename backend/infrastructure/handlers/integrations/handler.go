@@ -483,6 +483,7 @@ func Register(
 	notificationRepo := repositories.NewNotificationRepo(db)
 	aiConnRepo := repositories.NewAIConnectionRepo(db)
 	salesChannelRepo := repositories.NewSalesChannelRepo(db)
+	exchangeRateRepo := repositories.NewExchangeRateRepo(db)
 	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
@@ -565,7 +566,7 @@ func Register(
 		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret),
 		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo),
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
-		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo),
+		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo),
 		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo),
 		appchannels.NewSetSalesChannelPaymentMethodUseCase(db, salesChannelRepo, connRepo),
 		appchannels.NewDeleteSalesChannelUseCase(db, salesChannelRepo),
@@ -1588,11 +1589,16 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 	if req.EnrollmentTag != nil {
 		tag = *req.EnrollmentTag
 	}
+	currencyCode := ""
+	if req.CurrencyCode != nil {
+		currencyCode = *req.CurrencyCode
+	}
 	channel, err := h.createSalesChannel.Execute(c.Request.Context(), appchannels.CreateSalesChannelInput{
 		Name: req.Name, Type: channelsDomain.ChannelType(req.Type), ConnectionID: req.ConnectionId,
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
 		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
+		CurrencyCode:   currencyCode,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1873,6 +1879,9 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 	}
 	if c.EnrollmentTag != "" {
 		resp.EnrollmentTag = &c.EnrollmentTag
+	}
+	if c.CurrencyCode != "" {
+		resp.CurrencyCode = &c.CurrencyCode
 	}
 	return resp
 }

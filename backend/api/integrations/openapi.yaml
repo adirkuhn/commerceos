@@ -1465,6 +1465,12 @@ components:
         enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
         enrollment_category_id: { type: string, nullable: true }
         enrollment_tag: { type: string }
+        currency_code:
+          type: string
+          description: >
+            This channel's fixed selling currency. Empty string means "use
+            the tenant's default currency" -- set once at creation, never
+            changeable afterward.
         payment_connection_id:
           type: string
           nullable: true
@@ -1518,6 +1524,12 @@ components:
         quantity_breaks:
           type: array
           items: { $ref: '#/components/schemas/QuantityBreak' }
+        currency_code:
+          type: string
+          description: >
+            "" (or omitted) means "use the tenant's default currency".
+            A non-empty value must already have a configured exchange
+            rate. Immutable after creation.
 
     UpdateSalesChannelRequest:
       type: object

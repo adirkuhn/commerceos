@@ -20,6 +20,7 @@ import (
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	notificationsDomain "github.com/adirkuhn/commerceos/domain/notifications"
@@ -30,6 +31,23 @@ import (
 )
 
 func strPtr(s string) *string { return &s }
+
+type stubExchangeRateRepo struct {
+	byCurrency map[string]fxDomain.ExchangeRate
+}
+
+func (s *stubExchangeRateRepo) FindByCurrency(_ context.Context, currencyCode string) (*fxDomain.ExchangeRate, error) {
+	if r, ok := s.byCurrency[currencyCode]; ok {
+		cp := r
+		return &cp, nil
+	}
+	return nil, nil
+}
+func (s *stubExchangeRateRepo) ListByTenant(_ context.Context) ([]fxDomain.ExchangeRate, error) {
+	return nil, nil
+}
+func (s *stubExchangeRateRepo) Upsert(_ context.Context, _ *fxDomain.ExchangeRate) error { return nil }
+func (s *stubExchangeRateRepo) Delete(_ context.Context, _ string) error                 { return nil }
 
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy
 // however many tenant.WithTenant Begin/set_config/Commit sequences the test

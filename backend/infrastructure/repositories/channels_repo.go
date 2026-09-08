@@ -872,6 +872,7 @@ type salesChannelModel struct {
 	PaymentConnectionID        *string
 	PriceAdjustmentBasisPoints *int                       `gorm:"column:price_adjustment_basis_points"`
 	QuantityBreaks             salesChannelQuantityBreaks `gorm:"column:quantity_breaks;type:jsonb;not null;default:'[]'"`
+	CurrencyCode               string                     `gorm:"column:currency_code;not null;default:''"`
 	Active                     bool                       `gorm:"not null;default:true"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
@@ -902,6 +903,7 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 		PaymentConnectionID:        c.PaymentConnectionID,
 		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
 		QuantityBreaks:             salesChannelQuantityBreaks(c.QuantityBreaks),
+		CurrencyCode:               c.CurrencyCode,
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -979,6 +981,7 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 		PaymentConnectionID:        m.PaymentConnectionID,
 		PriceAdjustmentBasisPoints: m.PriceAdjustmentBasisPoints,
 		QuantityBreaks:             []channelsDomain.QuantityBreak(m.QuantityBreaks),
+		CurrencyCode:               m.CurrencyCode,
 		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
