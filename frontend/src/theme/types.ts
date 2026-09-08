@@ -83,9 +83,11 @@ export interface ThemePage {
   slug: PageSlug
   canvas_width: number
   blocks: Block[]
+  custom_css: string
 }
 
 export interface SaveThemePagePayload {
   canvas_width: number
   blocks: Block[]
+  custom_css: string
 }

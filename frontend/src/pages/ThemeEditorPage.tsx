@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Rnd } from 'react-rnd'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Code, Monitor, Smartphone } from 'lucide-react'
+import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useThemePage } from '../theme/hooks/useThemePage'
 import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
+import { defaultMobileRect, MOBILE_CANVAS_WIDTH } from '../theme/mobileLayout'
 import { BlockPreview } from '../theme/components/BlockPreview'
 import { BlockPropsPanel } from '../theme/components/BlockPropsPanel'
+import { CustomCSSPanel } from '../theme/components/CustomCSSPanel'
 import { PAGE_SLUGS, PAGE_SLUG_LABELS, EDITABLE_BLOCK_TYPES, BLOCK_TYPE_LABELS } from '../theme/types'
-import type { Block, PageSlug } from '../theme/types'
+import type { Block, PageSlug, Rect } from '../theme/types'
 
 const CANVAS_HEIGHT = 900
+type Breakpoint = 'desktop' | 'mobile'
 
 export default function ThemeEditorPage() {
   const { token } = useAuth()
@@ -45,7 +49,10 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
 
   const [blocks, setBlocks] = useState<Block[]>([])
   const [canvasWidth, setCanvasWidth] = useState(1440)
+  const [customCss, setCustomCss] = useState('')
+  const [breakpoint, setBreakpoint] = useState<Breakpoint>('desktop')
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  const [cssPanelOpen, setCssPanelOpen] = useState(false)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [dirty, setDirty] = useState(false)
   const initializedFor = useRef<string | null>(null)
@@ -55,7 +62,10 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
     if (page && initializedFor.current !== key) {
       setBlocks(page.blocks)
       setCanvasWidth(page.canvas_width)
+      setCustomCss(page.custom_css)
       setSelectedBlockId(null)
+      setCssPanelOpen(false)
+      setBreakpoint('desktop')
       setDirty(false)
       initializedFor.current = key
     }
@@ -63,29 +73,54 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
 
   const selectedBlock = blocks.find(b => b.id === selectedBlockId) ?? null
 
+  const selectBlock = (id: string | null) => {
+    setSelectedBlockId(id)
+    if (id) setCssPanelOpen(false)
+  }
+
+  const openCssPanel = () => {
+    setCssPanelOpen(true)
+    setSelectedBlockId(null)
+  }
+
   const updateBlock = (id: string, updater: (b: Block) => Block) => {
     setBlocks(prev => prev.map(b => (b.id === id ? updater(b) : b)))
     setDirty(true)
   }
 
+  // The Rect the canvas actually displays/edits for the current
+  // breakpoint -- Mobile falls back to a computed full-width default
+  // (see mobileLayout.ts) until a merchant's first drag/resize in Mobile
+  // view gives it a real saved override.
+  const rectFor = (block: Block): Rect => (breakpoint === 'desktop' ? block.layout.desktop : block.layout.mobile ?? defaultMobileRect(block.layout.desktop))
+
+  const updateRect = (id: string, rect: Rect) => {
+    updateBlock(id, b => ({
+      ...b,
+      layout: breakpoint === 'desktop' ? { ...b.layout, desktop: rect } : { ...b.layout, mobile: rect },
+    }))
+  }
+
   const addBlock = (type: (typeof EDITABLE_BLOCK_TYPES)[number]) => {
     const block = createBlock(type)
     setBlocks(prev => [...prev, block])
-    setSelectedBlockId(block.id)
+    selectBlock(block.id)
     setDirty(true)
     setAddMenuOpen(false)
   }
 
   const deleteBlock = (id: string) => {
     setBlocks(prev => prev.filter(b => b.id !== id))
-    if (selectedBlockId === id) setSelectedBlockId(null)
+    if (selectedBlockId === id) selectBlock(null)
     setDirty(true)
   }
 
   const handleSave = async () => {
-    await save({ canvas_width: canvasWidth, blocks })
+    await save({ canvas_width: canvasWidth, blocks, custom_css: customCss })
     setDirty(false)
   }
+
+  const displayedWidth = breakpoint === 'desktop' ? canvasWidth : MOBILE_CANVAS_WIDTH
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -111,6 +146,33 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
         </div>
         <div className="flex items-center gap-3">
           {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
+            <button
+              aria-label="Desktop"
+              aria-pressed={breakpoint === 'desktop'}
+              onClick={() => setBreakpoint('desktop')}
+              className={clsx('rounded-md p-1.5 transition-colors', breakpoint === 'desktop' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
+            >
+              <Monitor size={14} />
+            </button>
+            <button
+              aria-label="Mobile"
+              aria-pressed={breakpoint === 'mobile'}
+              onClick={() => setBreakpoint('mobile')}
+              className={clsx('rounded-md p-1.5 transition-colors', breakpoint === 'mobile' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
+            >
+              <Smartphone size={14} />
+            </button>
+          </div>
+          <button
+            onClick={openCssPanel}
+            className={clsx(
+              'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+              cssPanelOpen ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50',
+            )}
+          >
+            <Code size={12} /> Custom CSS
+          </button>
           <div className="relative">
             <button
               onClick={() => setAddMenuOpen(o => !o)}
@@ -150,36 +212,38 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
             <div
               data-testid="theme-canvas"
               className="relative mx-auto bg-white shadow-sm"
-              style={{ width: canvasWidth, height: CANVAS_HEIGHT }}
-              onClick={() => setSelectedBlockId(null)}
+              style={{ width: displayedWidth, height: CANVAS_HEIGHT }}
+              onClick={() => selectBlock(null)}
             >
-              {blocks.map(block => (
-                <Rnd
-                  key={block.id}
-                  bounds="parent"
-                  size={{ width: block.layout.desktop.width, height: block.layout.desktop.height }}
-                  position={{ x: block.layout.desktop.x, y: block.layout.desktop.y }}
-                  onDragStop={(_e, d) => updateBlock(block.id, b => ({
-                    ...b, layout: { ...b.layout, desktop: { ...b.layout.desktop, x: d.x, y: d.y } },
-                  }))}
-                  onResizeStop={(_e, _dir, ref, _delta, pos) => updateBlock(block.id, b => ({
-                    ...b,
-                    layout: {
-                      ...b.layout,
-                      desktop: { x: pos.x, y: pos.y, width: parseInt(ref.style.width, 10), height: parseInt(ref.style.height, 10) },
-                    },
-                  }))}
-                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedBlockId(block.id) }}
-                  className={selectedBlockId === block.id ? 'ring-2 ring-brand-500' : 'ring-1 ring-gray-200'}
-                >
-                  <BlockPreview block={block} />
-                </Rnd>
-              ))}
+              {blocks.map(block => {
+                const rect = rectFor(block)
+                return (
+                  <Rnd
+                    key={block.id}
+                    bounds="parent"
+                    size={{ width: rect.width, height: rect.height }}
+                    position={{ x: rect.x, y: rect.y }}
+                    onDragStop={(_e, d) => updateRect(block.id, { ...rect, x: d.x, y: d.y })}
+                    onResizeStop={(_e, _dir, ref, _delta, pos) => updateRect(block.id, {
+                      x: pos.x, y: pos.y, width: parseInt(ref.style.width, 10), height: parseInt(ref.style.height, 10),
+                    })}
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectBlock(block.id) }}
+                    className={selectedBlockId === block.id ? 'ring-2 ring-brand-500' : 'ring-1 ring-gray-200'}
+                  >
+                    <BlockPreview block={block} />
+                  </Rnd>
+                )
+              })}
             </div>
           )}
         </div>
 
-        {selectedBlock && (
+        {cssPanelOpen && (
+          <div className="w-80 shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
+            <CustomCSSPanel value={customCss} onChange={v => { setCustomCss(v); setDirty(true) }} />
+          </div>
+        )}
+        {!cssPanelOpen && selectedBlock && (
           <div className="w-64 shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
             <BlockPropsPanel
               block={selectedBlock}

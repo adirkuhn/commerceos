@@ -31,6 +31,7 @@ const samplePage: ThemePage = {
   blocks: [
     { id: 'b1', type: 'hero', layout: { desktop: { x: 0, y: 0, width: 1440, height: 400 }, mobile: null }, props: { heading: 'Hi' } },
   ],
+  custom_css: '.hero { color: red; }',
 }
 
 describe('getThemePage', () => {
@@ -57,15 +58,15 @@ describe('getThemePage', () => {
 describe('saveThemePage', () => {
   it('PUTs the payload and returns the saved page', async () => {
     mockFetch(samplePage)
-    const result = await api.saveThemePage(TOKEN, 'chan-1', 'home', { canvas_width: 1440, blocks: samplePage.blocks })
+    const result = await api.saveThemePage(TOKEN, 'chan-1', 'home', { canvas_width: 1440, blocks: samplePage.blocks, custom_css: samplePage.custom_css })
     expect(result).toEqual(samplePage)
     const [, options] = vi.mocked(fetch).mock.calls[0]
     expect(options?.method).toBe('PUT')
-    expect(JSON.parse(options?.body as string)).toEqual({ canvas_width: 1440, blocks: samplePage.blocks })
+    expect(JSON.parse(options?.body as string)).toEqual({ canvas_width: 1440, blocks: samplePage.blocks, custom_css: samplePage.custom_css })
   })
 
   it('throws on a validation error', async () => {
     mockFetchError('VALIDATION_ERROR', 'invalid block type', 422)
-    await expect(api.saveThemePage(TOKEN, 'chan-1', 'home', { canvas_width: 1440, blocks: [] })).rejects.toThrow('invalid block type')
+    await expect(api.saveThemePage(TOKEN, 'chan-1', 'home', { canvas_width: 1440, blocks: [], custom_css: '' })).rejects.toThrow('invalid block type')
   })
 })
