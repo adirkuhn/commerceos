@@ -63,6 +63,10 @@ type checkoutCartUC interface {
 	Execute(ctx context.Context, token string, in appstorefront.CheckoutInput) (*appstorefront.CheckoutResult, error)
 }
 
+type getShippingOptionsUC interface {
+	Execute(ctx context.Context, shipping appstorefront.CheckoutAddressInput) []appstorefront.ShippingOption
+}
+
 type listProductsUC interface {
 	Execute(ctx context.Context, salesChannelID string, in appstorefront.ListProductsInput) (*appstorefront.ListProductsResult, error)
 }
@@ -95,6 +99,7 @@ type Handler struct {
 	listCategories         listCategoriesUC
 	lookupOrder            lookupOrderUC
 	getStorefrontTheme     getStorefrontThemeUC
+	getShippingOptions     getShippingOptionsUC
 }
 
 func NewHandler(
@@ -109,12 +114,13 @@ func NewHandler(
 	listCategories listCategoriesUC,
 	lookupOrder lookupOrderUC,
 	getStorefrontTheme getStorefrontThemeUC,
+	getShippingOptions getShippingOptionsUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
 		createCart: createCart, getCart: getCart, updateCartItems: updateCartItems, checkoutCart: checkoutCart,
 		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
-		getStorefrontTheme: getStorefrontTheme,
+		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions,
 	}
 }
 
@@ -170,6 +176,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
 		appstorefront.NewGetStorefrontThemeUseCase(appTheme.NewGetThemePageUseCase(db, themeRepo)),
+		appstorefront.NewGetShippingOptionsUseCase(db, connRepo, shippingSettingsRepo, estimateShipping),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -257,6 +264,25 @@ func (h *Handler) UpdateCartItems(c *gin.Context, token genstorefront.CartToken)
 	middleware.OK(c, toGenCart(*cart))
 }
 
+func (h *Handler) GetShippingOptions(c *gin.Context, _ genstorefront.CartToken) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.CheckoutAddress
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	options := h.getShippingOptions.Execute(ctx, toAddressInput(req))
+	genOptions := make([]genstorefront.ShippingOption, len(options))
+	for i, o := range options {
+		genOptions[i] = genstorefront.ShippingOption{Title: o.Title, AmountMinorUnits: o.AmountMinorUnits, CurrencyCode: o.CurrencyCode}
+	}
+	middleware.OK(c, genOptions)
+}
+
 func (h *Handler) CheckoutCart(c *gin.Context, token genstorefront.CartToken) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
@@ -269,9 +295,8 @@ func (h *Handler) CheckoutCart(c *gin.Context, token genstorefront.CartToken) {
 	}
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
 	result, err := h.checkoutCart.Execute(ctx, token, appstorefront.CheckoutInput{
-		Email:    string(req.Email),
-		Billing:  toAddressInput(req.Billing),
-		Shipping: toAddressInput(req.Shipping),
+		Email: string(req.Email), Billing: toAddressInput(req.Billing), Shipping: toAddressInput(req.Shipping),
+		ShippingMethodTitle: strPtrOr(req.ShippingMethodTitle),
 	})
 	if err := mapError(c, err); err != nil {
 		return

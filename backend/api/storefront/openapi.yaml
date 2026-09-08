@@ -127,6 +127,39 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/carts/{token}/shipping-options:
+    post:
+      operationId: getShippingOptions
+      summary: Priced delivery options for a shipping address
+      description: >
+        Read-only, no persistence -- checkout_form calls this once the
+        shopper has entered a shipping address, to offer a choice of
+        delivery options before they place the order. Always MyParcel
+        NL/BE only today (see domain/shipping's own doc comment); an empty
+        list is a normal outcome (no MyParcel connection on this tenant,
+        an unsupported country, or an address with no parseable house
+        number), not an error -- the storefront falls back to shipping
+        cost communicated some other way. The token path segment exists
+        only to match this route's siblings; the cart itself isn't read
+        (this never depends on cart contents, only the address).
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutAddress'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingOptionListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/carts/{token}/checkout:
     post:
       operationId: checkoutCart
@@ -431,6 +464,32 @@ components:
         email: { type: string, format: email }
         billing: { $ref: '#/components/schemas/CheckoutAddress' }
         shipping: { $ref: '#/components/schemas/CheckoutAddress' }
+        shipping_method_title:
+          type: string
+          description: >
+            Which of getShippingOptions' options (by its title) the
+            shopper picked, or omitted/empty for "let the server pick".
+            Never a price -- checkout always re-resolves the real options
+            itself and looks this title up among them, so a client can
+            never inject an arbitrary shipping cost. A title that no
+            longer matches any current option falls back to the cheapest
+            one, same as omitting it does.
+
+    ShippingOption:
+      type: object
+      required: [title, amount_minor_units, currency_code]
+      properties:
+        title: { type: string }
+        amount_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+
+    ShippingOptionListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ShippingOption' }
+        error: { nullable: true }
 
     Checkout:
       type: object

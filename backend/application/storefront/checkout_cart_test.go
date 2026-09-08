@@ -281,6 +281,51 @@ func TestCheckoutCart_addsShippingCostFromTheCheapestMyParcelOption(t *testing.T
 	require.Equal(t, shippingDomain.CarrierPostNL, estimator.gotInput.Carrier)
 }
 
+func TestCheckoutCart_usesTheShopperChosenShippingOptionOverTheCheapest(t *testing.T) {
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
+	customerRepo := &fakeCustomerRepo{byEmail: map[string]customersDomain.Customer{"shopper@example.com": {ID: "existing-customer-1"}}}
+	createOrder := &fakeSalesOrderCreator{}
+	connRepo := &fakeConnectionRepo{byTenant: []integrationsDomain.Connection{{ID: "conn-1", Provider: integrationsDomain.ProviderMyParcel}}}
+	estimator := &fakeDeliveryPriceEstimator{out: []shippingDomain.DeliveryPriceOption{
+		{PriceComment: "Evening", AmountMinorUnits: 895, Currency: "EUR"},
+		{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"},
+	}}
+	uc := appstorefront.NewCheckoutCartUseCase(
+		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator,
+	)
+
+	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Damrak 1", City: "Amsterdam", Postcode: "1012 LG", Country: "NL"}
+	_, err := uc.Execute(context.Background(), "token-1", appstorefront.CheckoutInput{
+		Email: "shopper@example.com", Billing: addr, Shipping: addr, ShippingMethodTitle: "Evening",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(895), createOrder.got.ShippingTotalMinorUnits)
+	require.Equal(t, "Evening", createOrder.got.ShippingMethodTitle)
+}
+
+func TestCheckoutCart_fallsBackToCheapestWhenChosenShippingOptionNoLongerExists(t *testing.T) {
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
+	customerRepo := &fakeCustomerRepo{byEmail: map[string]customersDomain.Customer{"shopper@example.com": {ID: "existing-customer-1"}}}
+	createOrder := &fakeSalesOrderCreator{}
+	connRepo := &fakeConnectionRepo{byTenant: []integrationsDomain.Connection{{ID: "conn-1", Provider: integrationsDomain.ProviderMyParcel}}}
+	estimator := &fakeDeliveryPriceEstimator{out: []shippingDomain.DeliveryPriceOption{{PriceComment: "Standard", AmountMinorUnits: 495, Currency: "EUR"}}}
+	uc := appstorefront.NewCheckoutCartUseCase(
+		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
+		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator,
+	)
+
+	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Damrak 1", City: "Amsterdam", Postcode: "1012 LG", Country: "NL"}
+	_, err := uc.Execute(context.Background(), "token-1", appstorefront.CheckoutInput{
+		Email: "shopper@example.com", Billing: addr, Shipping: addr, ShippingMethodTitle: "Next-day (no longer offered)",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(495), createOrder.got.ShippingTotalMinorUnits)
+	require.Equal(t, "Standard", createOrder.got.ShippingMethodTitle)
+}
+
 func TestCheckoutCart_skipsShippingEstimateWhenNoHouseNumberCanBeParsed(t *testing.T) {
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
 	customerRepo := &fakeCustomerRepo{byEmail: map[string]customersDomain.Customer{"shopper@example.com": {ID: "existing-customer-1"}}}

@@ -185,16 +185,33 @@ func (s *stubGetStorefrontTheme) Execute(_ context.Context, channelID, slug stri
 	return &themeDomain.ThemePage{SalesChannelID: channelID, Slug: themeDomain.PageSlug(slug), CanvasWidth: 1440}, nil
 }
 
+type stubGetShippingOptions struct {
+	out []appstorefront.ShippingOption
+
+	gotShipping appstorefront.CheckoutAddressInput
+}
+
+func (s *stubGetShippingOptions) Execute(_ context.Context, shipping appstorefront.CheckoutAddressInput) []appstorefront.ShippingOption {
+	s.gotShipping = shipping
+	return s.out
+}
+
 func newTestHandler(
 	resolve *stubResolveStorefrontKey, get *stubGetCartRecommendations, create *stubCreateCart, getCart *stubGetCart,
 	update *stubUpdateCartItems, checkout *stubCheckoutCart, listProducts *stubListProducts, getProduct *stubGetProduct,
-	listCategories *stubListCategories, lookupOrder *stubLookupOrder, theme ...*stubGetStorefrontTheme,
+	listCategories *stubListCategories, lookupOrder *stubLookupOrder, extra ...any,
 ) *storefronthandler.Handler {
 	getTheme := &stubGetStorefrontTheme{}
-	if len(theme) > 0 {
-		getTheme = theme[0]
+	getShippingOptions := &stubGetShippingOptions{}
+	for _, e := range extra {
+		switch v := e.(type) {
+		case *stubGetStorefrontTheme:
+			getTheme = v
+		case *stubGetShippingOptions:
+			getShippingOptions = v
+		}
 	}
-	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder, getTheme)
+	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder, getTheme, getShippingOptions)
 }
 
 func newTestRouter(h *storefronthandler.Handler) *gin.Engine {
@@ -342,6 +359,56 @@ func TestCheckoutCartHandler_success(t *testing.T) {
 	assert.Equal(t, "NL", checkout.gotInput.Billing.Country)
 	assert.Contains(t, w.Body.String(), `"order_number":"WEB-ABCD1234"`)
 	assert.Contains(t, w.Body.String(), `"payment_url":"https://pay.example/abc"`)
+}
+
+func TestCheckoutCartHandler_passesThroughTheChosenShippingMethodTitle(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	checkout := &stubCheckoutCart{out: &appstorefront.CheckoutResult{OrderNumber: "WEB-ABCD1234", TotalMinorUnits: 1000, CurrencyCode: "EUR"}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	body := `{"email":"shopper@example.com","billing":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"shipping_method_title":"Evening"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/checkout", body, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "Evening", checkout.gotInput.ShippingMethodTitle)
+}
+
+func TestGetShippingOptionsHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	shippingOptions := &stubGetShippingOptions{out: []appstorefront.ShippingOption{
+		{Title: "Standard", AmountMinorUnits: 495, CurrencyCode: "EUR"},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, shippingOptions)
+
+	body := `{"first_name":"A","last_name":"B","address1":"Damrak 1","city":"Amsterdam","postcode":"1012 LG","country":"NL"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/shipping-options", body, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"title":"Standard"`)
+	assert.Contains(t, w.Body.String(), `"amount_minor_units":495`)
+	assert.Equal(t, "NL", shippingOptions.gotShipping.Country)
+	assert.Equal(t, "Damrak 1", shippingOptions.gotShipping.Address1)
+}
+
+func TestGetShippingOptionsHandler_returnsEmptyListWhenNoneAvailable(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	body := `{"first_name":"A","last_name":"B","address1":"Main St 1","city":"Berlin","postcode":"10115","country":"DE"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/shipping-options", body, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"data":[]`)
+}
+
+func TestGetShippingOptionsHandler_rejectsTenantWideKey(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	body := `{"first_name":"A","last_name":"B","address1":"Damrak 1","city":"Amsterdam","postcode":"1012 LG","country":"NL"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/shipping-options", body, "test-key")
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestCheckoutCartHandler_alreadyCheckedOut(t *testing.T) {

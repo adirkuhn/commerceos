@@ -39,6 +39,15 @@ type CheckoutInput struct {
 	Email    string
 	Billing  CheckoutAddressInput
 	Shipping CheckoutAddressInput
+	// ShippingMethodTitle is which of GetShippingOptionsUseCase's options
+	// (by its Title -- see ShippingOption's doc comment on why that's the
+	// identity) the shopper picked, or "" for "let the server pick" --
+	// never a price: Execute always re-resolves the real options itself
+	// and looks this title up among them, so a client can never inject an
+	// arbitrary shipping cost. A title that no longer matches any current
+	// option (the shopper's session outlived the quote) falls back to the
+	// cheapest option, same as "" does.
+	ShippingMethodTitle string
 }
 
 type CheckoutResult struct {
@@ -80,18 +89,16 @@ type deliveryPriceEstimator interface {
 }
 
 type CheckoutCartUseCase struct {
-	db                   *gorm.DB
-	cartRepo             storefrontDomain.CartRepository
-	customerRepo         customersDomain.CustomerRepository
-	createCustomer       customerCreator
-	createSalesOrder     salesOrderCreator
-	taxClassRepo         taxDomain.TaxClassRepository
-	taxRateRepo          taxDomain.TaxRateRepository
-	outboxRepo           outbox.Repository
-	generatePaymentLink  paymentLinkGenerator
-	connRepo             integrationsDomain.ConnectionRepository
-	shippingSettingsRepo shippingDomain.ShippingConnectionSettingsRepository
-	estimateShippingUC   deliveryPriceEstimator
+	db                  *gorm.DB
+	cartRepo            storefrontDomain.CartRepository
+	customerRepo        customersDomain.CustomerRepository
+	createCustomer      customerCreator
+	createSalesOrder    salesOrderCreator
+	taxClassRepo        taxDomain.TaxClassRepository
+	taxRateRepo         taxDomain.TaxRateRepository
+	outboxRepo          outbox.Repository
+	generatePaymentLink paymentLinkGenerator
+	shippingResolver    *shippingOptionsResolver
 }
 
 func NewCheckoutCartUseCase(
@@ -112,7 +119,7 @@ func NewCheckoutCartUseCase(
 		db: db, cartRepo: cartRepo, customerRepo: customerRepo, createCustomer: createCustomer,
 		createSalesOrder: createSalesOrder, taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo,
 		outboxRepo: outboxRepo, generatePaymentLink: generatePaymentLink,
-		connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateShippingUC: estimateShippingUC,
+		shippingResolver: &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
 	}
 }
 
@@ -160,7 +167,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	// connection, unsupported country, address we can't parse a number
 	// out of, a failed MyParcel call) falls back to 0, same as before this
 	// existed, never blocking checkout.
-	shippingAmount, shippingMethodTitle := uc.estimateShipping(ctx, in.Shipping)
+	shippingAmount, shippingMethodTitle := uc.resolveShipping(ctx, in.Shipping, in.ShippingMethodTitle)
 	total := subtotal + taxTotal + shippingAmount
 
 	orderNumber := "WEB-" + strings.ToUpper(idgen.NewV4()[:8])
@@ -252,68 +259,23 @@ func (uc *CheckoutCartUseCase) resolveCustomer(ctx context.Context, email string
 	return created.ID, nil
 }
 
-// estimateShipping is best-effort, per this method's own reasoning: any
-// missing piece (no MyParcel connection on this tenant, an unsupported
-// country, an address1/2 we can't pull a house number out of via
-// splitStreetAndNumber, or a failed MyParcel call) silently falls back to
-// (0, "") rather than propagating an error -- checkout must never fail
-// because a shipping estimate isn't available, same convention as
-// generatePaymentLink. Returns the cheapest of MyParcel's priced delivery
-// slots when one is available.
-func (uc *CheckoutCartUseCase) estimateShipping(ctx context.Context, shipping CheckoutAddressInput) (int64, string) {
-	if uc.estimateShippingUC == nil {
+// resolveShipping re-resolves the real shipping options for shipping
+// itself (never trusts a client-supplied price -- see CheckoutInput's doc
+// comment on ShippingMethodTitle) and picks wantTitle among them if it's
+// non-empty and still matches one, else the cheapest. No options
+// available at all (see shippingOptionsResolver's doc comment for every
+// reason that happens) falls back to (0, ""), never blocking checkout.
+func (uc *CheckoutCartUseCase) resolveShipping(ctx context.Context, shipping CheckoutAddressInput, wantTitle string) (int64, string) {
+	options := uc.shippingResolver.resolve(ctx, shipping)
+	if len(options) == 0 {
 		return 0, ""
 	}
-	// Checked up front, before ever opening a transaction to look up a
-	// connection, same short-circuit GetDeliveryPriceEstimateUseCase's own
-	// Execute does -- no point resolving a connection for a country
-	// MyParcel could never price anyway.
-	cc := strings.ToUpper(strings.TrimSpace(shipping.Country))
-	if cc != "NL" && cc != "BE" {
-		return 0, ""
-	}
-	_, number, _ := splitStreetAndNumber(shipping.Address1, shipping.Address2)
-	if number == "" {
-		return 0, ""
-	}
-
-	var connectionID string
-	carrier := shippingDomain.CarrierPostNL
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		conns, err := uc.connRepo.ListByTenant(ctx)
-		if err != nil {
-			return err
-		}
-		for _, c := range conns {
-			if c.Provider == integrationsDomain.ProviderMyParcel {
-				connectionID = c.ID
-				break
+	if wantTitle != "" {
+		for _, o := range options {
+			if o.Title == wantTitle {
+				return o.AmountMinorUnits, o.Title
 			}
 		}
-		if connectionID == "" {
-			return nil
-		}
-		settings, err := uc.shippingSettingsRepo.FindByConnectionID(ctx, connectionID)
-		if err != nil {
-			return err
-		}
-		if settings != nil {
-			carrier = settings.DefaultCarrier
-		}
-		return nil
-	})
-	if err != nil || connectionID == "" {
-		return 0, ""
-	}
-
-	// GetDeliveryPriceEstimateUseCase opens its own tenant.WithTenant --
-	// called here, outside the transaction above, to avoid nesting one
-	// (this codebase's repos reject that, see txctx's own doc comment).
-	options, err := uc.estimateShippingUC.Execute(ctx, appshipping.GetDeliveryPriceEstimateInput{
-		ConnectionID: connectionID, CC: cc, PostalCode: shipping.Postcode, Number: number, Carrier: carrier,
-	})
-	if err != nil || len(options) == 0 {
-		return 0, ""
 	}
 	cheapest := options[0]
 	for _, o := range options[1:] {
@@ -321,7 +283,7 @@ func (uc *CheckoutCartUseCase) estimateShipping(ctx context.Context, shipping Ch
 			cheapest = o
 		}
 	}
-	return int64(cheapest.AmountMinorUnits), cheapest.PriceComment
+	return cheapest.AmountMinorUnits, cheapest.Title
 }
 
 // shippingMethodSlug is the machine-readable counterpart to the human
