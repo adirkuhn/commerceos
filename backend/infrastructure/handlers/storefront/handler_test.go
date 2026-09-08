@@ -198,6 +198,21 @@ func (s *stubToggleWishlistItem) Execute(_ context.Context, token, productID str
 	return &storefrontDomain.Wishlist{Token: token, ProductIDs: []string{productID}}, nil
 }
 
+type stubGetProductRecommendations struct {
+	out     []appstorefront.ProductSummary
+	err     error
+	gotChan string
+	gotID   string
+}
+
+func (s *stubGetProductRecommendations) Execute(_ context.Context, salesChannelID, productID string) ([]appstorefront.ProductSummary, error) {
+	s.gotChan, s.gotID = salesChannelID, productID
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
 type stubCheckoutCart struct {
 	out      *appstorefront.CheckoutResult
 	err      error
@@ -307,6 +322,7 @@ func newTestHandler(
 	createWishlist := &stubCreateWishlist{}
 	getWishlist := &stubGetWishlist{}
 	toggleWishlistItem := &stubToggleWishlistItem{}
+	getProductRecommendations := &stubGetProductRecommendations{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
@@ -325,12 +341,14 @@ func newTestHandler(
 			getWishlist = v
 		case *stubToggleWishlistItem:
 			toggleWishlistItem = v
+		case *stubGetProductRecommendations:
+			getProductRecommendations = v
 		}
 	}
 	return storefronthandler.NewHandler(
 		resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder,
 		getTheme, getShippingOptions, applyCoupon, submitReview, listReviews,
-		createWishlist, getWishlist, toggleWishlistItem,
+		createWishlist, getWishlist, toggleWishlistItem, getProductRecommendations,
 	)
 }
 
@@ -660,6 +678,32 @@ func TestGetStorefrontProductHandler_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"name":"Widget"`)
+}
+
+func TestGetStorefrontProductRecommendationsHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	price := int64(500)
+	rec := &stubGetProductRecommendations{out: []appstorefront.ProductSummary{
+		{Product: pmsDomain.Product{ID: "product-2", Name: "Gadget"}, PriceMinorUnits: &price},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, rec)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products/product-1/recommendations", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "channel-1", rec.gotChan)
+	assert.Equal(t, "product-1", rec.gotID)
+	assert.Contains(t, w.Body.String(), `"name":"Gadget"`)
+}
+
+func TestGetStorefrontProductRecommendationsHandler_emptyIsOK(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products/product-1/recommendations", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"data":[]`)
 }
 
 func TestListStorefrontReviewsHandler_success(t *testing.T) {

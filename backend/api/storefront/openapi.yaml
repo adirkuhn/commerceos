@@ -344,6 +344,32 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/products/{id}/recommendations:
+    get:
+      operationId: getStorefrontProductRecommendations
+      summary: "\"You might also like\" -- products historically bought alongside this one"
+      description: >
+        Driven by the same FP-Growth cross-sell engine as
+        getCartRecommendations, seeded with just this product instead of a
+        cart -- see application/storefront.GetProductRecommendationsUseCase.
+        An empty list is a normal outcome (no purchase history yet, or
+        every candidate has since been deactivated/unenrolled), not an
+        error.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontProductRecommendationsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/products/{id}/reviews:
     get:
       operationId: listStorefrontReviews
@@ -626,6 +652,14 @@ components:
       required: [product_id]
       properties:
         product_id: { type: string }
+
+    StorefrontProductRecommendationsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontProductSummary' }
+        error: { nullable: true }
 
     Review:
       type: object

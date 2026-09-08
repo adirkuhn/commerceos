@@ -81,6 +81,10 @@ type getProductUC interface {
 	Execute(ctx context.Context, salesChannelID, productID string) (*appstorefront.ProductDetail, error)
 }
 
+type getProductRecommendationsUC interface {
+	Execute(ctx context.Context, salesChannelID, productID string) ([]appstorefront.ProductSummary, error)
+}
+
 type listCategoriesUC interface {
 	Execute(ctx context.Context) ([]pmsDomain.Category, error)
 }
@@ -114,24 +118,25 @@ type toggleWishlistItemUC interface {
 }
 
 type Handler struct {
-	resolveAPIKey          resolveAPIKeyUC
-	getCartRecommendations getCartRecommendationsUC
-	createCart             createCartUC
-	getCart                getCartUC
-	updateCartItems        updateCartItemsUC
-	checkoutCart           checkoutCartUC
-	listProducts           listProductsUC
-	getProduct             getProductUC
-	listCategories         listCategoriesUC
-	lookupOrder            lookupOrderUC
-	getStorefrontTheme     getStorefrontThemeUC
-	getShippingOptions     getShippingOptionsUC
-	applyCoupon            applyCouponUC
-	submitReview           submitReviewUC
-	listReviews            listReviewsUC
-	createWishlist         createWishlistUC
-	getWishlist            getWishlistUC
-	toggleWishlistItem     toggleWishlistItemUC
+	resolveAPIKey             resolveAPIKeyUC
+	getCartRecommendations    getCartRecommendationsUC
+	createCart                createCartUC
+	getCart                   getCartUC
+	updateCartItems           updateCartItemsUC
+	checkoutCart              checkoutCartUC
+	listProducts              listProductsUC
+	getProduct                getProductUC
+	listCategories            listCategoriesUC
+	lookupOrder               lookupOrderUC
+	getStorefrontTheme        getStorefrontThemeUC
+	getShippingOptions        getShippingOptionsUC
+	applyCoupon               applyCouponUC
+	submitReview              submitReviewUC
+	listReviews               listReviewsUC
+	createWishlist            createWishlistUC
+	getWishlist               getWishlistUC
+	toggleWishlistItem        toggleWishlistItemUC
+	getProductRecommendations getProductRecommendationsUC
 }
 
 func NewHandler(
@@ -153,6 +158,7 @@ func NewHandler(
 	createWishlist createWishlistUC,
 	getWishlist getWishlistUC,
 	toggleWishlistItem toggleWishlistItemUC,
+	getProductRecommendations getProductRecommendationsUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -161,6 +167,7 @@ func NewHandler(
 		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions, applyCoupon: applyCoupon,
 		submitReview: submitReview, listReviews: listReviews,
 		createWishlist: createWishlist, getWishlist: getWishlist, toggleWishlistItem: toggleWishlistItem,
+		getProductRecommendations: getProductRecommendations,
 	}
 }
 
@@ -203,10 +210,11 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	)
 	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewClientFactory(), encryptionSecret)
 	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo)
+	getCartRecommendations := appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo)
 
 	h := NewHandler(
 		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
-		appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo),
+		getCartRecommendations,
 		appstorefront.NewCreateCartUseCase(db, channelRepo, cartRepo),
 		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo),
 		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel, couponRepo),
@@ -226,6 +234,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewCreateWishlistUseCase(db, channelRepo, wishlistRepo),
 		appstorefront.NewGetWishlistUseCase(db, wishlistRepo),
 		appstorefront.NewToggleWishlistItemUseCase(db, wishlistRepo, channelRepo, overrideRepo, productRepo),
+		appstorefront.NewGetProductRecommendationsUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, getCartRecommendations),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -428,6 +437,23 @@ func (h *Handler) GetStorefrontProduct(c *gin.Context, id string) {
 		return
 	}
 	middleware.OK(c, toGenProductDetail(*detail))
+}
+
+func (h *Handler) GetStorefrontProductRecommendations(c *gin.Context, id string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	summaries, err := h.getProductRecommendations.Execute(ctx, *resolved.SalesChannelID, id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	items := make([]genstorefront.StorefrontProductSummary, len(summaries))
+	for i, p := range summaries {
+		items[i] = toGenProductSummary(p)
+	}
+	middleware.OK(c, items)
 }
 
 func (h *Handler) ListStorefrontReviews(c *gin.Context, id string, params genstorefront.ListStorefrontReviewsParams) {
