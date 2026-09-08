@@ -63,10 +63,16 @@ func (s StoreURL) Validate() error {
 func (s StoreURL) String() string { return string(s) }
 
 type Connection struct {
-	ID                      string
-	TenantID                string
-	Provider                Provider
-	StoreURL                StoreURL
+	ID       string
+	TenantID string
+	Provider Provider
+	StoreURL StoreURL
+	// ConsumerKey is provider-specific: WooCommerce's REST API key,
+	// Bol's/WhatsApp's own instance identifier -- unused (blank) for
+	// MyParcel (single credential). For a Stripe connection specifically,
+	// it holds the publishable key ("pk_...") -- not sensitive, safe to
+	// hand to the storefront client for Stripe Elements, so it's stored
+	// plain here rather than encrypted like ConsumerSecretEncrypted.
 	ConsumerKey             string
 	ConsumerSecretEncrypted string
 	// WebhookSecretEncrypted verifies INBOUND webhook signatures from this

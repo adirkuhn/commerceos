@@ -1210,7 +1210,11 @@ func (h *Handler) ConnectStripe(c *gin.Context) {
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "secret_key is required")
 		return
 	}
-	result, err := h.connectStripe.Execute(c.Request.Context(), appintegrations.ConnectStripeInput{SecretKey: req.SecretKey})
+	publishableKey := ""
+	if req.PublishableKey != nil {
+		publishableKey = *req.PublishableKey
+	}
+	result, err := h.connectStripe.Execute(c.Request.Context(), appintegrations.ConnectStripeInput{SecretKey: req.SecretKey, PublishableKey: publishableKey})
 	if err := mapError(c, err); err != nil {
 		return
 	}

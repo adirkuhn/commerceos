@@ -138,6 +138,10 @@ type logoutUC interface {
 	Execute(ctx context.Context, sessionToken string) error
 }
 
+type createPaymentIntentUC interface {
+	Execute(ctx context.Context, salesChannelID, cartToken string, shipping appstorefront.CheckoutAddressInput, shippingMethodTitle string) (*appstorefront.PaymentIntentResult, error)
+}
+
 type Handler struct {
 	resolveAPIKey             resolveAPIKeyUC
 	getCartRecommendations    getCartRecommendationsUC
@@ -163,6 +167,7 @@ type Handler struct {
 	getAccount                getAccountUC
 	listAccountOrders         listAccountOrdersUC
 	logout                    logoutUC
+	createPaymentIntent       createPaymentIntentUC
 }
 
 func NewHandler(
@@ -190,6 +195,7 @@ func NewHandler(
 	getAccount getAccountUC,
 	listAccountOrders listAccountOrdersUC,
 	logout logoutUC,
+	createPaymentIntent createPaymentIntentUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -201,6 +207,7 @@ func NewHandler(
 		getProductRecommendations: getProductRecommendations,
 		requestMagicLink:          requestMagicLink, verifyMagicLink: verifyMagicLink, getAccount: getAccount,
 		listAccountOrders: listAccountOrders, logout: logout,
+		createPaymentIntent: createPaymentIntent,
 	}
 }
 
@@ -246,6 +253,12 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewClientFactory(), encryptionSecret)
 	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo)
 	getCartRecommendations := appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo)
+	verifyCardPayment := appstorefront.NewVerifyCardPaymentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret)
+	checkoutCart := appstorefront.NewCheckoutCartUseCase(
+		db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
+		connRepo, shippingSettingsRepo, estimateShipping, couponRepo, verifyCardPayment,
+	)
+	createPaymentIntent := appstorefront.NewCreatePaymentIntentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret, checkoutCart)
 
 	h := NewHandler(
 		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
@@ -253,10 +266,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewCreateCartUseCase(db, channelRepo, cartRepo),
 		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo),
 		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel, couponRepo),
-		appstorefront.NewCheckoutCartUseCase(
-			db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
-			connRepo, shippingSettingsRepo, estimateShipping, couponRepo,
-		),
+		checkoutCart,
 		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo),
 		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
@@ -275,6 +285,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetAccountUseCase(db, customerSessionRepo, customerRepo),
 		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),
 		appstorefront.NewLogoutUseCase(db, customerSessionRepo),
+		createPaymentIntent,
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -399,6 +410,27 @@ func (h *Handler) GetShippingOptions(c *gin.Context, _ genstorefront.CartToken) 
 	middleware.OK(c, genOptions)
 }
 
+func (h *Handler) CreatePaymentIntent(c *gin.Context, token genstorefront.CartToken) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.CreatePaymentIntentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	result, err := h.createPaymentIntent.Execute(ctx, *resolved.SalesChannelID, token, toAddressInput(req.Shipping), strPtrOr(req.ShippingMethodTitle))
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, genstorefront.PaymentIntent{
+		ClientSecret: result.ClientSecret, PublishableKey: result.PublishableKey,
+		AmountMinorUnits: result.AmountMinorUnits, CurrencyCode: result.CurrencyCode,
+	})
+}
+
 func (h *Handler) CheckoutCart(c *gin.Context, token genstorefront.CartToken) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
@@ -412,7 +444,7 @@ func (h *Handler) CheckoutCart(c *gin.Context, token genstorefront.CartToken) {
 	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
 	result, err := h.checkoutCart.Execute(ctx, token, appstorefront.CheckoutInput{
 		Email: string(req.Email), Billing: toAddressInput(req.Billing), Shipping: toAddressInput(req.Shipping),
-		ShippingMethodTitle: strPtrOr(req.ShippingMethodTitle),
+		ShippingMethodTitle: strPtrOr(req.ShippingMethodTitle), PaymentIntentID: strPtrOr(req.PaymentIntentId),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -882,6 +914,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, reviewsDomain.ErrInvalidRating),
 		errors.Is(err, reviewsDomain.ErrReviewBodyRequired),
 		errors.Is(err, storefrontDomain.ErrInvalidOrExpiredMagicLink),
+		errors.Is(err, storefrontDomain.ErrCardPaymentNotSupported),
+		errors.Is(err, storefrontDomain.ErrCardPaymentMismatch),
 		errors.Is(err, themeDomain.ErrInvalidPageSlug):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),

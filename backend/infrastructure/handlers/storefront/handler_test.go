@@ -283,6 +283,26 @@ func (s *stubLogout) Execute(_ context.Context, sessionToken string) error {
 	return s.err
 }
 
+type stubCreatePaymentIntent struct {
+	out      *appstorefront.PaymentIntentResult
+	err      error
+	gotChan  string
+	gotToken string
+	gotAddr  appstorefront.CheckoutAddressInput
+	gotTitle string
+}
+
+func (s *stubCreatePaymentIntent) Execute(_ context.Context, salesChannelID, cartToken string, shipping appstorefront.CheckoutAddressInput, shippingMethodTitle string) (*appstorefront.PaymentIntentResult, error) {
+	s.gotChan, s.gotToken, s.gotAddr, s.gotTitle = salesChannelID, cartToken, shipping, shippingMethodTitle
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appstorefront.PaymentIntentResult{ClientSecret: "pi_secret_1", PublishableKey: "pk_test_1", AmountMinorUnits: 1000, CurrencyCode: "EUR"}, nil
+}
+
 type stubCheckoutCart struct {
 	out      *appstorefront.CheckoutResult
 	err      error
@@ -398,6 +418,7 @@ func newTestHandler(
 	getAccount := &stubGetAccount{}
 	listAccountOrders := &stubListAccountOrders{}
 	logout := &stubLogout{}
+	createPaymentIntent := &stubCreatePaymentIntent{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
@@ -428,6 +449,8 @@ func newTestHandler(
 			listAccountOrders = v
 		case *stubLogout:
 			logout = v
+		case *stubCreatePaymentIntent:
+			createPaymentIntent = v
 		}
 	}
 	return storefronthandler.NewHandler(
@@ -435,6 +458,7 @@ func newTestHandler(
 		getTheme, getShippingOptions, applyCoupon, submitReview, listReviews,
 		createWishlist, getWishlist, toggleWishlistItem, getProductRecommendations,
 		requestMagicLink, verifySession, getAccount, listAccountOrders, logout,
+		createPaymentIntent,
 	)
 }
 
@@ -1053,4 +1077,56 @@ func TestLogoutHandler_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "session-token-1", logout.gotToken)
+}
+
+func TestCreatePaymentIntentHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	createPaymentIntent := &stubCreatePaymentIntent{out: &appstorefront.PaymentIntentResult{
+		ClientSecret: "pi_secret_1", PublishableKey: "pk_test_1", AmountMinorUnits: 4599, CurrencyCode: "EUR",
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, createPaymentIntent)
+
+	body := `{"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"}}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/payment-intent", body, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "cart-token-1", createPaymentIntent.gotToken)
+	assert.Equal(t, "channel-1", createPaymentIntent.gotChan)
+	assert.Contains(t, w.Body.String(), `"client_secret":"pi_secret_1"`)
+	assert.Contains(t, w.Body.String(), `"publishable_key":"pk_test_1"`)
+	assert.Contains(t, w.Body.String(), `"amount_minor_units":4599`)
+}
+
+func TestCreatePaymentIntentHandler_notSupportedIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	createPaymentIntent := &stubCreatePaymentIntent{err: storefrontDomain.ErrCardPaymentNotSupported}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, createPaymentIntent)
+
+	body := `{"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"}}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/payment-intent", body, "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestCheckoutCartHandler_withPaymentIntentID_passesItThrough(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	checkout := &stubCheckoutCart{out: &appstorefront.CheckoutResult{OrderNumber: "WEB-ABCD1234", TotalMinorUnits: 1000, CurrencyCode: "EUR"}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	body := `{"email":"shopper@example.com","billing":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"payment_intent_id":"pi_123"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/checkout", body, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "pi_123", checkout.gotInput.PaymentIntentID)
+}
+
+func TestCheckoutCartHandler_cardPaymentMismatchIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	checkout := &stubCheckoutCart{err: storefrontDomain.ErrCardPaymentMismatch}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, checkout, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	body := `{"email":"shopper@example.com","billing":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"shipping":{"first_name":"A","last_name":"B","address1":"Street 1","city":"Amsterdam","postcode":"1000AA","country":"NL"},"payment_intent_id":"pi_123"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/carts/cart-token-1/checkout", body, "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

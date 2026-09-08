@@ -63,8 +63,17 @@ type CreateSalesOrderInput struct {
 	ShippingMethodTitle string
 	CouponCode          string
 	TransactionID       string
-	DatePaid            *time.Time
-	DateCompleted       *time.Time
+	// PaymentProvider/PaymentExternalID are set directly at creation time
+	// only by application/storefront.CheckoutCartUseCase, when checkout
+	// already verified a card payment succeeded (Stripe Elements) before
+	// creating the order -- see SalesOrder.PaymentProvider's own doc
+	// comment. Every other caller leaves these empty; the webhook path
+	// (application/payments.WebhookDispatchHandler) stamps them later via
+	// UpdateSalesOrderUseCase instead, for the hosted-checkout-link flow.
+	PaymentProvider   string
+	PaymentExternalID string
+	DatePaid          *time.Time
+	DateCompleted     *time.Time
 
 	OccurredAt time.Time
 	LineItems  []CreateSalesOrderLineItemInput
@@ -121,6 +130,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,
 			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle,
 			ShippingMethod: in.ShippingMethod, ShippingMethodTitle: in.ShippingMethodTitle, CouponCode: in.CouponCode, TransactionID: in.TransactionID,
+			PaymentProvider: in.PaymentProvider, PaymentExternalID: in.PaymentExternalID,
 			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
 			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,

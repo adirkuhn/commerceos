@@ -63,3 +63,44 @@ type PaymentLinkClient interface {
 type PaymentLinkClientFactory interface {
 	NewClient(apiKey string) (PaymentLinkClient, error)
 }
+
+// CardPaymentIntent is the result of starting a PaymentIntent -- ClientSecret
+// is handed to the storefront client to confirm the card charge via Stripe
+// Elements/Stripe.js, ID is kept for server-side verification afterward
+// (see CardPaymentClient.RetrievePaymentIntent).
+type CardPaymentIntent struct {
+	ClientSecret string
+	ID           string
+}
+
+// CardPaymentStatus is what a server-side re-check of a PaymentIntent
+// reports -- application/storefront's checkout never trusts a
+// client-asserted "already paid"; it re-fetches this from the provider and
+// only proceeds when Status is the provider's own "succeeded" value and
+// the amount/currency match the order being placed.
+type CardPaymentStatus struct {
+	ID               string
+	Status           string
+	AmountMinorUnits int64
+	CurrencyCode     string
+}
+
+// CardPaymentClient is a Stripe-specific capability (embedded card fields
+// via Stripe Elements/Stripe.js) -- deliberately its own narrow interface
+// rather than added to PaymentLinkClient, which every payment provider
+// (including Revolut, which has no equivalent client-side-confirm SDK)
+// must implement. Only infrastructure/stripe implements this.
+type CardPaymentClient interface {
+	CreatePaymentIntent(ctx context.Context, amountMinorUnits int64, currencyCode string) (CardPaymentIntent, error)
+	RetrievePaymentIntent(ctx context.Context, id string) (CardPaymentStatus, error)
+}
+
+// CardPaymentClientFactory mirrors PaymentLinkClientFactory's shape/reason
+// (DI, see CLAUDE.md's SOLID D rule) for CardPaymentClient instead. Named
+// NewCardPaymentClient (not NewClient) so a single concrete factory type
+// (infrastructure/stripe.ClientFactory) can implement both this and
+// PaymentLinkClientFactory at once -- one Go type can't have two methods
+// named NewClient differing only by return type.
+type CardPaymentClientFactory interface {
+	NewCardPaymentClient(apiKey string) (CardPaymentClient, error)
+}

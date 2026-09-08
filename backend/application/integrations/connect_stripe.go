@@ -21,6 +21,15 @@ type ConnectStripeInput struct {
 	// Connect exists but is out of scope; this is a direct-account
 	// integration, same as Bol/WhatsApp's own connect flows).
 	SecretKey string
+	// PublishableKey ("pk_...") is not sensitive -- Stripe's own docs say
+	// it's safe to expose client-side -- so it's stored plain in
+	// Connection.ConsumerKey (unused for Stripe until now, see that
+	// field's doc comment) rather than encrypted alongside SecretKey.
+	// Optional: empty until the merchant sets it, which just means the
+	// storefront's embedded Stripe Elements checkout isn't offered yet
+	// (application/storefront.CreatePaymentIntentUseCase requires it) --
+	// the existing hosted Checkout Session flow needs only SecretKey.
+	PublishableKey string
 }
 
 // ConnectStripeResult carries the webhook ingest URL alongside the new
@@ -65,6 +74,7 @@ func (uc *ConnectStripeUseCase) Execute(ctx context.Context, in ConnectStripeInp
 		now := time.Now()
 		conn = integrationsDomain.Connection{
 			TenantID: tenantID, Provider: integrationsDomain.ProviderStripe,
+			ConsumerKey:             in.PublishableKey,
 			ConsumerSecretEncrypted: encryptedSecret,
 			Status:                  integrationsDomain.StatusConnected,
 			CreatedAt:               now, UpdatedAt: now,

@@ -1632,6 +1632,13 @@ components:
         secret_key:
           type: string
           description: Stripe's own secret API key (sk_...). No OAuth -- direct-account integration.
+        publishable_key:
+          type: string
+          description: >
+            Stripe's publishable key (pk_...), optional -- not sensitive,
+            handed to the storefront client to power an embedded Stripe
+            Elements checkout. Leave unset to keep using only the hosted
+            Checkout Session redirect flow.
 
     ConnectRevolutRequest:
       type: object

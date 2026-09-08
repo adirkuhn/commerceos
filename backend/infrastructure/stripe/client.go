@@ -107,11 +107,50 @@ func (c *Client) Refund(ctx context.Context, externalPaymentID string, amountMin
 	return refund.ID, nil
 }
 
+// CreatePaymentIntent implements domain/integrations.CardPaymentClient --
+// AutomaticPaymentMethods lets Stripe decide which payment methods to
+// surface in the Elements widget based on what's enabled in the connected
+// account's Dashboard, rather than this codebase hardcoding "card".
+func (c *Client) CreatePaymentIntent(ctx context.Context, amountMinorUnits int64, currencyCode string) (integrations.CardPaymentIntent, error) {
+	params := &stripe.PaymentIntentCreateParams{
+		Amount:                  stripe.Int64(amountMinorUnits),
+		Currency:                stripe.String(strings.ToLower(currencyCode)),
+		AutomaticPaymentMethods: &stripe.PaymentIntentCreateAutomaticPaymentMethodsParams{Enabled: stripe.Bool(true)},
+	}
+	intent, err := c.sc.V1PaymentIntents.Create(ctx, params)
+	if err != nil {
+		return integrations.CardPaymentIntent{}, fmt.Errorf("stripe: create payment intent: %w", err)
+	}
+	return integrations.CardPaymentIntent{ClientSecret: intent.ClientSecret, ID: intent.ID}, nil
+}
+
+// RetrievePaymentIntent implements domain/integrations.CardPaymentClient --
+// the server-side source of truth application/storefront's checkout
+// re-checks against before ever trusting a client-confirmed card payment.
+func (c *Client) RetrievePaymentIntent(ctx context.Context, id string) (integrations.CardPaymentStatus, error) {
+	intent, err := c.sc.V1PaymentIntents.Retrieve(ctx, id, nil)
+	if err != nil {
+		return integrations.CardPaymentStatus{}, fmt.Errorf("stripe: retrieve payment intent: %w", err)
+	}
+	return integrations.CardPaymentStatus{
+		ID: intent.ID, Status: string(intent.Status),
+		AmountMinorUnits: intent.Amount, CurrencyCode: strings.ToUpper(string(intent.Currency)),
+	}, nil
+}
+
 // ClientFactory implements domain/integrations.PaymentLinkClientFactory.
 type ClientFactory struct{}
 
 func NewClientFactory() ClientFactory { return ClientFactory{} }
 
 func (ClientFactory) NewClient(apiKey string) (integrations.PaymentLinkClient, error) {
+	return NewClient(Config{APIKey: apiKey}), nil
+}
+
+// NewCardPaymentClient implements domain/integrations.CardPaymentClientFactory
+// -- same underlying *Client as NewClient, exposed through the narrower
+// CardPaymentClient interface for callers that only need the PaymentIntent
+// capability.
+func (ClientFactory) NewCardPaymentClient(apiKey string) (integrations.CardPaymentClient, error) {
 	return NewClient(Config{APIKey: apiKey}), nil
 }

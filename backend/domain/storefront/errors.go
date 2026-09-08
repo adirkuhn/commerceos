@@ -45,4 +45,16 @@ var (
 	// session token -- same "one error for every reason" rule as
 	// ErrInvalidOrExpiredMagicLink.
 	ErrSessionNotFound = errors.New("session not found")
+	// ErrCardPaymentNotSupported guards CreatePaymentIntentUseCase/
+	// CheckoutCartUseCase's embedded-card-payment path -- returned when the
+	// channel's configured payment connection isn't Stripe (Revolut has no
+	// equivalent client-side-confirm SDK) or Stripe's publishable key was
+	// never set (see integrations.Connection.ConsumerKey's doc comment).
+	ErrCardPaymentNotSupported = errors.New("embedded card payment is not available on this channel")
+	// ErrCardPaymentMismatch guards checkout against confirming an order
+	// against a PaymentIntent that doesn't actually match it -- the
+	// server-side re-check (CardPaymentClient.RetrievePaymentIntent) came
+	// back not-succeeded, or its amount/currency don't match the order
+	// being placed (e.g. the cart changed after the intent was created).
+	ErrCardPaymentMismatch = errors.New("this payment could not be verified against the order total")
 )

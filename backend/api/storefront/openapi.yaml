@@ -192,6 +192,44 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/carts/{token}/payment-intent:
+    post:
+      operationId: createPaymentIntent
+      summary: Start an embedded Stripe Elements card payment for this cart's current total
+      description: >
+        Computes the exact same total checkoutCart will (subtotal + tax +
+        shipping - discount, using the same address/shipping method given
+        here), starts a Stripe PaymentIntent for it, and returns what the
+        storefront needs to mount an embedded card field (Stripe Elements/
+        Stripe.js) and confirm the charge itself. Only available when the
+        channel's payment connection is Stripe with a publishable key set
+        -- 422 otherwise (this is not a hard requirement: the existing
+        hosted-checkout-link flow still works with no PaymentIntent at
+        all). After confirming client-side, pass the resulting
+        payment_intent_id to checkoutCart -- it is re-verified server-side
+        against Stripe itself before the order is ever marked paid.
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentIntentRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentIntentResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/carts/{token}/checkout:
     post:
       operationId: checkoutCart
@@ -925,6 +963,37 @@ components:
             never inject an arbitrary shipping cost. A title that no
             longer matches any current option falls back to the cheapest
             one, same as omitting it does.
+        payment_intent_id:
+          type: string
+          description: >
+            Set only after an embedded Stripe Elements payment was
+            confirmed client-side (see createPaymentIntent) -- re-verified
+            server-side against Stripe before the order is marked paid.
+            Omitted/empty for the existing hosted-checkout-link flow.
+
+    CreatePaymentIntentRequest:
+      type: object
+      required: [shipping]
+      properties:
+        shipping: { $ref: '#/components/schemas/CheckoutAddress' }
+        shipping_method_title:
+          type: string
+          description: Same meaning as CheckoutRequest's field of the same name -- affects the total this PaymentIntent is started for.
+
+    PaymentIntent:
+      type: object
+      required: [client_secret, publishable_key, amount_minor_units, currency_code]
+      properties:
+        client_secret: { type: string }
+        publishable_key: { type: string }
+        amount_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+
+    PaymentIntentResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/PaymentIntent' }
+        error: { nullable: true }
 
     ShippingOption:
       type: object

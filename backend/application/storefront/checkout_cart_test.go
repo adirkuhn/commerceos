@@ -125,6 +125,7 @@ func newCheckoutUseCase(t *testing.T, n int, cartRepo *fakeCartRepo, customerRep
 	return appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, n), cartRepo, customerRepo, createCustomer, createOrder, taxClassRepo, taxRateRepo, outboxRepo, paymentGen,
 		nil, nil, nil, nil,
+		nil,
 	)
 }
 
@@ -273,6 +274,7 @@ func TestCheckoutCart_addsShippingCostFromTheCheapestMyParcelOption(t *testing.T
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, settingsRepo, estimator, nil,
+		nil,
 	)
 
 	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Damrak 1", City: "Amsterdam", Postcode: "1012 LG", Country: "NL"}
@@ -303,6 +305,7 @@ func TestCheckoutCart_usesTheShopperChosenShippingOptionOverTheCheapest(t *testi
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator, nil,
+		nil,
 	)
 
 	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Damrak 1", City: "Amsterdam", Postcode: "1012 LG", Country: "NL"}
@@ -324,6 +327,7 @@ func TestCheckoutCart_fallsBackToCheapestWhenChosenShippingOptionNoLongerExists(
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator, nil,
+		nil,
 	)
 
 	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Damrak 1", City: "Amsterdam", Postcode: "1012 LG", Country: "NL"}
@@ -346,6 +350,7 @@ func TestCheckoutCart_skipsShippingEstimateWhenNoHouseNumberCanBeParsed(t *testi
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, checkoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, settingsRepo, estimator, nil,
+		nil,
 	)
 
 	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Damrak", City: "Amsterdam", Postcode: "1012 LG", Country: "NL"}
@@ -365,6 +370,7 @@ func TestCheckoutCart_skipsShippingEstimateForAnUnsupportedCountry(t *testing.T)
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, checkoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, connRepo, &fakeShippingSettingsRepo{}, estimator, nil,
+		nil,
 	)
 
 	addr := appstorefront.CheckoutAddressInput{FirstName: "A", LastName: "B", Address1: "Main St 1", City: "Berlin", Postcode: "10115", Country: "DE"}
@@ -382,6 +388,7 @@ func TestCheckoutCart_skipsShippingEstimateWhenNoMyParcelConnectionExists(t *tes
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, shippingCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, &fakeConnectionRepo{}, &fakeShippingSettingsRepo{}, estimator, nil,
+		nil,
 	)
 
 	_, err := uc.Execute(context.Background(), "token-1", validCheckoutInput())
@@ -404,6 +411,7 @@ func TestCheckoutCart_appliesCouponDiscountToTotal(t *testing.T) {
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, couponCheckoutTxnCountWithIncrement), cartRepo, customerRepo, &fakeCustomerCreator{}, createOrder,
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
+		nil,
 	)
 
 	result, err := uc.Execute(context.Background(), "token-1", validCheckoutInput())
@@ -426,6 +434,7 @@ func TestCheckoutCart_failsWhenAttachedCouponIsNoLongerRedeemable(t *testing.T) 
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, couponCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
+		nil,
 	)
 
 	_, err := uc.Execute(context.Background(), "token-1", validCheckoutInput())
@@ -443,6 +452,7 @@ func TestCheckoutCart_failsWhenCartNoLongerMeetsCouponMinimum(t *testing.T) {
 	uc := appstorefront.NewCheckoutCartUseCase(
 		newMockGormDB(t, couponCheckoutTxnCount), cartRepo, customerRepo, &fakeCustomerCreator{}, &fakeSalesOrderCreator{},
 		&fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil, nil, nil, nil, couponRepo,
+		nil,
 	)
 
 	_, err := uc.Execute(context.Background(), "token-1", validCheckoutInput())

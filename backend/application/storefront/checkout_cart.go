@@ -49,14 +49,38 @@ type CheckoutInput struct {
 	// option (the shopper's session outlived the quote) falls back to the
 	// cheapest option, same as "" does.
 	ShippingMethodTitle string
+	// PaymentIntentID is set only by an embedded Stripe Elements checkout
+	// (see CreatePaymentIntentUseCase) -- Execute re-verifies it server-side
+	// (CardPaymentClient.RetrievePaymentIntent) against the freshly
+	// computed order total before ever trusting it, same "never trust a
+	// client-supplied price" rule ShippingMethodTitle's own doc comment
+	// follows. Empty for the existing hosted-checkout-link flow, where
+	// payment confirmation arrives later via webhook instead.
+	PaymentIntentID string
 }
 
 type CheckoutResult struct {
 	OrderNumber     string
 	TotalMinorUnits int64
 	CurrencyCode    string
-	// PaymentURL is nil when the channel has no payment method configured.
+	// PaymentURL is nil when the channel has no payment method configured,
+	// or when the order was already paid via an embedded card payment
+	// (CheckoutInput.PaymentIntentID) -- no redirect link is needed then.
 	PaymentURL *string
+}
+
+// CheckoutEstimate is the same total EstimateTotal computes and Execute
+// will (re)compute for real at checkout time -- used by
+// CreatePaymentIntentUseCase to know the exact amount to charge before the
+// order exists, without duplicating any of the subtotal/tax/shipping/
+// discount logic.
+type CheckoutEstimate struct {
+	SubtotalMinorUnits int64
+	TaxTotalMinorUnits int64
+	ShippingMinorUnits int64
+	DiscountMinorUnits int64
+	TotalMinorUnits    int64
+	CurrencyCode       string
 }
 
 // salesOrderCreator is *application/oms.CreateSalesOrderUseCase narrowed to
@@ -89,6 +113,14 @@ type deliveryPriceEstimator interface {
 	Execute(ctx context.Context, in appshipping.GetDeliveryPriceEstimateInput) ([]shippingDomain.DeliveryPriceOption, error)
 }
 
+// cardPaymentVerifier is *VerifyCardPaymentUseCase narrowed to point of use
+// (ISP) -- may be nil (a channel/deployment that hasn't wired embedded
+// card payment up), same optional-dependency convention as
+// paymentLinkGenerator/deliveryPriceEstimator.
+type cardPaymentVerifier interface {
+	Execute(ctx context.Context, salesChannelID, paymentIntentID string) (*integrationsDomain.CardPaymentStatus, error)
+}
+
 type CheckoutCartUseCase struct {
 	db                  *gorm.DB
 	cartRepo            storefrontDomain.CartRepository
@@ -101,6 +133,7 @@ type CheckoutCartUseCase struct {
 	generatePaymentLink paymentLinkGenerator
 	shippingResolver    *shippingOptionsResolver
 	couponRepo          couponsDomain.Repository
+	verifyCardPayment   cardPaymentVerifier
 }
 
 func NewCheckoutCartUseCase(
@@ -117,13 +150,15 @@ func NewCheckoutCartUseCase(
 	shippingSettingsRepo shippingDomain.ShippingConnectionSettingsRepository,
 	estimateShippingUC deliveryPriceEstimator,
 	couponRepo couponsDomain.Repository,
+	verifyCardPayment cardPaymentVerifier,
 ) *CheckoutCartUseCase {
 	return &CheckoutCartUseCase{
 		db: db, cartRepo: cartRepo, customerRepo: customerRepo, createCustomer: createCustomer,
 		createSalesOrder: createSalesOrder, taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo,
 		outboxRepo: outboxRepo, generatePaymentLink: generatePaymentLink,
-		shippingResolver: &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
-		couponRepo:       couponRepo,
+		shippingResolver:  &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
+		couponRepo:        couponRepo,
+		verifyCardPayment: verifyCardPayment,
 	}
 }
 
@@ -145,9 +180,136 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 		return nil, fmt.Errorf("checkoutCart: resolve customer: %w", err)
 	}
 
+	totals, err := uc.computeTotals(ctx, cart, in.Shipping, in.ShippingMethodTitle)
+	if err != nil {
+		return nil, fmt.Errorf("checkoutCart: %w", err)
+	}
+
+	// An embedded Stripe Elements payment is never trusted client-side --
+	// re-fetch the PaymentIntent from Stripe itself and only proceed when
+	// it actually succeeded for exactly this order's total. A mismatch
+	// (stale intent from a cart that changed since, wrong currency, a
+	// forged id) fails checkout outright, same "never silently drop
+	// something the shopper explicitly paid for/expects" stance
+	// resolveCouponDiscount already takes for coupons.
+	status := omsDomain.SalesOrderStatusPending
+	var paymentProvider, paymentExternalID string
+	var datePaid *time.Time
+	if in.PaymentIntentID != "" {
+		if uc.verifyCardPayment == nil {
+			return nil, fmt.Errorf("checkoutCart: %w", storefrontDomain.ErrCardPaymentNotSupported)
+		}
+		cardStatus, err := uc.verifyCardPayment.Execute(ctx, cart.SalesChannelID, in.PaymentIntentID)
+		if err != nil {
+			return nil, fmt.Errorf("checkoutCart: verify card payment: %w", err)
+		}
+		if cardStatus.Status != "succeeded" || cardStatus.AmountMinorUnits != totals.TotalMinorUnits || !strings.EqualFold(cardStatus.CurrencyCode, totals.CurrencyCode) {
+			return nil, fmt.Errorf("checkoutCart: %w", storefrontDomain.ErrCardPaymentMismatch)
+		}
+		status = omsDomain.SalesOrderStatusProcessing
+		paymentProvider = "stripe"
+		paymentExternalID = cardStatus.ID
+		now := time.Now()
+		datePaid = &now
+	}
+
+	orderNumber := "WEB-" + strings.ToUpper(idgen.NewV4()[:8])
+	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
+		Source: omsDomain.SalesOrderSourceInternal, Number: orderNumber, OrderKey: orderNumber,
+		Status: status, CustomerID: &customerID, SalesChannelID: &cart.SalesChannelID,
+		Billing:                 toOMSAddress(in.Billing, in.Email),
+		Shipping:                toOMSAddress(in.Shipping, ""),
+		CurrencyCode:            totals.CurrencyCode,
+		TaxTotalMinorUnits:      totals.TaxTotalMinorUnits,
+		ShippingTotalMinorUnits: totals.ShippingMinorUnits,
+		ShippingMethod:          shippingMethodSlug(totals.ShippingMinorUnits),
+		ShippingMethodTitle:     totals.ShippingMethodTitle,
+		DiscountTotalMinorUnits: totals.DiscountMinorUnits,
+		CouponCode:              totals.CouponCode,
+		TotalMinorUnits:         totals.TotalMinorUnits,
+		PaymentProvider:         paymentProvider,
+		PaymentExternalID:       paymentExternalID,
+		DatePaid:                datePaid,
+		OccurredAt:              time.Now(),
+		LineItems:               totals.LineItems,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("checkoutCart: create sales order: %w", err)
+	}
+
+	if err := uc.markCheckedOutAndPublish(ctx, cart, result.SalesOrder.ID); err != nil {
+		return nil, fmt.Errorf("checkoutCart: %w", err)
+	}
+
+	// Best-effort, same non-atomicity tradeoff as markCheckedOutAndPublish
+	// above: the order already exists, so a failure to bump the usage
+	// counter must never fail checkout after the fact.
+	if totals.CouponID != "" {
+		_ = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+			return uc.couponRepo.IncrementTimesUsed(ctx, totals.CouponID)
+		})
+	}
+
+	checkoutResult := &CheckoutResult{OrderNumber: result.SalesOrder.Number, TotalMinorUnits: totals.TotalMinorUnits, CurrencyCode: totals.CurrencyCode}
+
+	// Payment link generation is best-effort, same reasoning
+	// application/whatsapp's placeOrder documents: it must never propagate
+	// an error here (the order already exists and the cart is already
+	// marked checked out) -- no payment method configured is a normal,
+	// expected state, not a failure. Skipped entirely when the order was
+	// already paid via an embedded card payment above -- no redirect link
+	// is needed for an order that's already Processing.
+	if uc.generatePaymentLink != nil && paymentExternalID == "" {
+		link, ok, linkErr := uc.generatePaymentLink.Execute(ctx, cart.SalesChannelID, totals.TotalMinorUnits, totals.CurrencyCode, "Order #"+result.SalesOrder.Number, result.SalesOrder.Number)
+		if linkErr == nil && ok {
+			checkoutResult.PaymentURL = &link.URL
+		}
+	}
+	return checkoutResult, nil
+}
+
+// EstimateTotal computes exactly what Execute would charge for token's
+// cart right now, without creating an order -- used by
+// CreatePaymentIntentUseCase to know the amount to start a Stripe
+// PaymentIntent for before the order exists. Shares computeTotals with
+// Execute so the two can never drift apart.
+func (uc *CheckoutCartUseCase) EstimateTotal(ctx context.Context, token string, shipping CheckoutAddressInput, shippingMethodTitle string) (*CheckoutEstimate, error) {
+	cart, err := uc.loadOpenCart(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("estimateCheckoutTotal: %w", err)
+	}
+	totals, err := uc.computeTotals(ctx, cart, shipping, shippingMethodTitle)
+	if err != nil {
+		return nil, fmt.Errorf("estimateCheckoutTotal: %w", err)
+	}
+	return &CheckoutEstimate{
+		SubtotalMinorUnits: totals.SubtotalMinorUnits, TaxTotalMinorUnits: totals.TaxTotalMinorUnits,
+		ShippingMinorUnits: totals.ShippingMinorUnits, DiscountMinorUnits: totals.DiscountMinorUnits,
+		TotalMinorUnits: totals.TotalMinorUnits, CurrencyCode: totals.CurrencyCode,
+	}, nil
+}
+
+// checkoutTotals is computeTotals' full result -- carries everything both
+// Execute (to build the order) and EstimateTotal (to quote a
+// PaymentIntent) need, computed exactly once per call so the two can never
+// disagree on what a cart is about to cost.
+type checkoutTotals struct {
+	LineItems           []appoms.CreateSalesOrderLineItemInput
+	SubtotalMinorUnits  int64
+	TaxTotalMinorUnits  int64
+	ShippingMinorUnits  int64
+	ShippingMethodTitle string
+	DiscountMinorUnits  int64
+	CouponCode          string
+	CouponID            string
+	TotalMinorUnits     int64
+	CurrencyCode        string
+}
+
+func (uc *CheckoutCartUseCase) computeTotals(ctx context.Context, cart *storefrontDomain.Cart, shipping CheckoutAddressInput, wantShippingTitle string) (*checkoutTotals, error) {
 	classes, rates, err := uc.loadTaxConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("checkoutCart: load tax config: %w", err)
+		return nil, fmt.Errorf("load tax config: %w", err)
 	}
 
 	lineItems := make([]appoms.CreateSalesOrderLineItemInput, len(cart.Items))
@@ -155,7 +317,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	currency := ""
 	for i, item := range cart.Items {
 		lineSubtotal := item.Quantity * item.PriceMinorUnits
-		lineTax := computeLineTax(lineSubtotal, item.TaxClassID, in.Shipping.Country, classes, rates)
+		lineTax := computeLineTax(lineSubtotal, item.TaxClassID, shipping.Country, classes, rates)
 		lineItems[i] = appoms.CreateSalesOrderLineItemInput{
 			SKUID: item.SKUID, Name: item.ProductName, SKUCode: item.SKUCode, Quantity: item.Quantity,
 			PriceMinorUnits: item.PriceMinorUnits, SubtotalMinorUnits: lineSubtotal, SubtotalTaxMinorUnits: lineTax,
@@ -171,7 +333,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	// connection, unsupported country, address we can't parse a number
 	// out of, a failed MyParcel call) falls back to 0, never blocking
 	// checkout.
-	shippingAmount, shippingMethodTitle := uc.resolveShipping(ctx, in.Shipping, in.ShippingMethodTitle)
+	shippingAmount, shippingMethodTitle := uc.resolveShipping(ctx, shipping, wantShippingTitle)
 
 	// Unlike shipping, a coupon the shopper explicitly attached is never
 	// best-effort: if it's no longer redeemable (or the cart no longer
@@ -180,7 +342,7 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	// discount the shopper is expecting.
 	discountAmount, couponID, err := uc.resolveCouponDiscount(ctx, cart.CouponCode, subtotal)
 	if err != nil {
-		return nil, fmt.Errorf("checkoutCart: %w", err)
+		return nil, err
 	}
 	couponCode := ""
 	if cart.CouponCode != nil {
@@ -189,54 +351,12 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 
 	total := subtotal + taxTotal + shippingAmount - discountAmount
 
-	orderNumber := "WEB-" + strings.ToUpper(idgen.NewV4()[:8])
-	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
-		Source: omsDomain.SalesOrderSourceInternal, Number: orderNumber, OrderKey: orderNumber,
-		Status: omsDomain.SalesOrderStatusPending, CustomerID: &customerID, SalesChannelID: &cart.SalesChannelID,
-		Billing:                 toOMSAddress(in.Billing, in.Email),
-		Shipping:                toOMSAddress(in.Shipping, ""),
-		CurrencyCode:            currency,
-		TaxTotalMinorUnits:      taxTotal,
-		ShippingTotalMinorUnits: shippingAmount,
-		ShippingMethod:          shippingMethodSlug(shippingAmount),
-		ShippingMethodTitle:     shippingMethodTitle,
-		DiscountTotalMinorUnits: discountAmount,
-		CouponCode:              couponCode,
-		TotalMinorUnits:         total,
-		OccurredAt:              time.Now(),
-		LineItems:               lineItems,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("checkoutCart: create sales order: %w", err)
-	}
-
-	if err := uc.markCheckedOutAndPublish(ctx, cart, result.SalesOrder.ID); err != nil {
-		return nil, fmt.Errorf("checkoutCart: %w", err)
-	}
-
-	// Best-effort, same non-atomicity tradeoff as markCheckedOutAndPublish
-	// above: the order already exists, so a failure to bump the usage
-	// counter must never fail checkout after the fact.
-	if couponID != "" {
-		_ = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-			return uc.couponRepo.IncrementTimesUsed(ctx, couponID)
-		})
-	}
-
-	checkoutResult := &CheckoutResult{OrderNumber: result.SalesOrder.Number, TotalMinorUnits: total, CurrencyCode: currency}
-
-	// Payment link generation is best-effort, same reasoning
-	// application/whatsapp's placeOrder documents: it must never propagate
-	// an error here (the order already exists and the cart is already
-	// marked checked out) -- no payment method configured is a normal,
-	// expected state, not a failure.
-	if uc.generatePaymentLink != nil {
-		link, ok, linkErr := uc.generatePaymentLink.Execute(ctx, cart.SalesChannelID, total, currency, "Order #"+result.SalesOrder.Number, result.SalesOrder.Number)
-		if linkErr == nil && ok {
-			checkoutResult.PaymentURL = &link.URL
-		}
-	}
-	return checkoutResult, nil
+	return &checkoutTotals{
+		LineItems: lineItems, SubtotalMinorUnits: subtotal, TaxTotalMinorUnits: taxTotal,
+		ShippingMinorUnits: shippingAmount, ShippingMethodTitle: shippingMethodTitle,
+		DiscountMinorUnits: discountAmount, CouponCode: couponCode, CouponID: couponID,
+		TotalMinorUnits: total, CurrencyCode: currency,
+	}, nil
 }
 
 func (uc *CheckoutCartUseCase) loadOpenCart(ctx context.Context, token string) (*storefrontDomain.Cart, error) {
