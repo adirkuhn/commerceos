@@ -1,3 +1,4 @@
+import { BLOCK_TYPE_LABELS } from '../types'
 import type { Block } from '../types'
 
 // A rough approximation of each block type's real rendering, just enough
@@ -35,7 +36,7 @@ export function BlockPreview({ block }: { block: Block }) {
     default:
       return (
         <div className="flex h-full w-full items-center justify-center bg-amber-50 p-3">
-          <p className="text-[11px] font-medium text-amber-700">{block.type} (functional block)</p>
+          <p className="text-[11px] font-medium text-amber-700">{BLOCK_TYPE_LABELS[block.type]} — renders live content</p>
         </div>
       )
   }

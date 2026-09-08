@@ -107,4 +107,20 @@ describe('ThemeEditorPage', () => {
 
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled()
   })
+
+  it('adds a functional block full-width, with no editable props', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
+
+    renderAt('/sales-channels/chan-1/theme/cart')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: /add block/i }))
+    await user.click(screen.getByRole('button', { name: 'Cart summary' }))
+
+    expect(screen.getByText('Cart summary — renders live content')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Cart summary' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Delete block')).toBeInTheDocument()
+  })
 })

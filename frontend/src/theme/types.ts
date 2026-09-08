@@ -36,12 +36,17 @@ export type BlockType =
   | 'checkout_form'
   | 'order_status'
 
-// The block types the canvas editor can add today. The remaining
-// BlockType members either need a bigger props editor (product_grid) or
-// are functional blocks placed automatically per page (see backend
-// domain/theme.PageSlug.RequiredBlockType) rather than added by hand --
-// both are a later increment, not part of the minimal end-to-end canvas.
-export const EDITABLE_BLOCK_TYPES: BlockType[] = ['hero', 'rich_text', 'custom_html']
+// Every block type is addable from the canvas -- including the
+// functional ones, which otherwise only ever appear at their
+// storefront-synthesized default position (see storefront-frontend
+// CanvasPage.withRequiredBlock). Adding one here lets a merchant
+// reposition/resize the real thing; it never has editable props (its
+// content is live cart/catalog/order data, not merchant text) so
+// BlockPropsPanel shows no fields for it beyond delete.
+export const EDITABLE_BLOCK_TYPES: BlockType[] = [
+  'hero', 'rich_text', 'custom_html',
+  'product_grid', 'product_details', 'cart_summary', 'checkout_form', 'order_status',
+]
 
 export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   hero: 'Hero',
