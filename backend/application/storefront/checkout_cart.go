@@ -12,6 +12,7 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
+	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -99,6 +100,7 @@ type CheckoutCartUseCase struct {
 	outboxRepo          outbox.Repository
 	generatePaymentLink paymentLinkGenerator
 	shippingResolver    *shippingOptionsResolver
+	couponRepo          couponsDomain.Repository
 }
 
 func NewCheckoutCartUseCase(
@@ -114,12 +116,14 @@ func NewCheckoutCartUseCase(
 	connRepo integrationsDomain.ConnectionRepository,
 	shippingSettingsRepo shippingDomain.ShippingConnectionSettingsRepository,
 	estimateShippingUC deliveryPriceEstimator,
+	couponRepo couponsDomain.Repository,
 ) *CheckoutCartUseCase {
 	return &CheckoutCartUseCase{
 		db: db, cartRepo: cartRepo, customerRepo: customerRepo, createCustomer: createCustomer,
 		createSalesOrder: createSalesOrder, taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo,
 		outboxRepo: outboxRepo, generatePaymentLink: generatePaymentLink,
 		shippingResolver: &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
+		couponRepo:       couponRepo,
 	}
 }
 
@@ -165,10 +169,25 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 	// when a MyParcel connection + a house number are both available --
 	// see estimateShipping's own doc comment. Every other case (no
 	// connection, unsupported country, address we can't parse a number
-	// out of, a failed MyParcel call) falls back to 0, same as before this
-	// existed, never blocking checkout.
+	// out of, a failed MyParcel call) falls back to 0, never blocking
+	// checkout.
 	shippingAmount, shippingMethodTitle := uc.resolveShipping(ctx, in.Shipping, in.ShippingMethodTitle)
-	total := subtotal + taxTotal + shippingAmount
+
+	// Unlike shipping, a coupon the shopper explicitly attached is never
+	// best-effort: if it's no longer redeemable (or the cart no longer
+	// meets its minimum -- e.g. an item was removed after applying it),
+	// checkout fails with a clear error rather than silently dropping the
+	// discount the shopper is expecting.
+	discountAmount, couponID, err := uc.resolveCouponDiscount(ctx, cart.CouponCode, subtotal)
+	if err != nil {
+		return nil, fmt.Errorf("checkoutCart: %w", err)
+	}
+	couponCode := ""
+	if cart.CouponCode != nil {
+		couponCode = *cart.CouponCode
+	}
+
+	total := subtotal + taxTotal + shippingAmount - discountAmount
 
 	orderNumber := "WEB-" + strings.ToUpper(idgen.NewV4()[:8])
 	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
@@ -181,6 +200,8 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 		ShippingTotalMinorUnits: shippingAmount,
 		ShippingMethod:          shippingMethodSlug(shippingAmount),
 		ShippingMethodTitle:     shippingMethodTitle,
+		DiscountTotalMinorUnits: discountAmount,
+		CouponCode:              couponCode,
 		TotalMinorUnits:         total,
 		OccurredAt:              time.Now(),
 		LineItems:               lineItems,
@@ -191,6 +212,15 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 
 	if err := uc.markCheckedOutAndPublish(ctx, cart, result.SalesOrder.ID); err != nil {
 		return nil, fmt.Errorf("checkoutCart: %w", err)
+	}
+
+	// Best-effort, same non-atomicity tradeoff as markCheckedOutAndPublish
+	// above: the order already exists, so a failure to bump the usage
+	// counter must never fail checkout after the fact.
+	if couponID != "" {
+		_ = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+			return uc.couponRepo.IncrementTimesUsed(ctx, couponID)
+		})
 	}
 
 	checkoutResult := &CheckoutResult{OrderNumber: result.SalesOrder.Number, TotalMinorUnits: total, CurrencyCode: currency}
@@ -295,6 +325,35 @@ func shippingMethodSlug(shippingAmount int64) string {
 		return ""
 	}
 	return "myparcel"
+}
+
+// resolveCouponDiscount returns (0, "", nil) when couponCode is nil (no
+// coupon attached to this cart). Otherwise re-loads the coupon fresh (see
+// Cart.CouponCode's own doc comment on why the cart never caches a
+// discount amount) and re-checks both IsRedeemable and MeetsMinSubtotal --
+// either failing returns an error that Execute propagates, never silently
+// drops the discount. Returns the coupon's ID (for IncrementTimesUsed)
+// alongside the amount.
+func (uc *CheckoutCartUseCase) resolveCouponDiscount(ctx context.Context, couponCode *string, subtotal int64) (int64, string, error) {
+	if couponCode == nil {
+		return 0, "", nil
+	}
+	var coupon *couponsDomain.Coupon
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		var err error
+		coupon, err = uc.couponRepo.FindByCode(ctx, *couponCode)
+		return err
+	})
+	if err != nil {
+		return 0, "", err
+	}
+	if coupon == nil || !coupon.IsRedeemable(time.Now()) {
+		return 0, "", couponsDomain.ErrCouponNotRedeemable
+	}
+	if !coupon.MeetsMinSubtotal(subtotal) {
+		return 0, "", couponsDomain.ErrCouponMinSubtotalNotMet
+	}
+	return coupon.DiscountForSubtotal(subtotal), coupon.ID, nil
 }
 
 func (uc *CheckoutCartUseCase) loadTaxConfig(ctx context.Context) ([]taxDomain.TaxClass, []taxDomain.TaxRate, error) {

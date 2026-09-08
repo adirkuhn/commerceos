@@ -48,8 +48,14 @@ type Cart struct {
 	// has this set, so a retried/double-submitted checkout request can
 	// never place a second order for the same cart.
 	CheckedOutAt *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// CouponCode is nil when no coupon is attached -- identity only, never
+	// a stored discount amount (see SubtotalMinorUnits's own doc comment
+	// on why a Cart caches nothing derivable from its state): the discount
+	// is always computed live from this code plus the cart's current
+	// subtotal, in application/storefront.
+	CouponCode *string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // IsCheckedOut reports whether this cart has already been turned into an

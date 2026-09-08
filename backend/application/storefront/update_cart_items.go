@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -32,6 +33,7 @@ type UpdateCartItemsUseCase struct {
 	productRepo  pmsDomain.ProductRepository
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	stockLevel   StockLevelGetter
+	couponRepo   couponsDomain.Repository
 }
 
 func NewUpdateCartItemsUseCase(
@@ -43,10 +45,12 @@ func NewUpdateCartItemsUseCase(
 	productRepo pmsDomain.ProductRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	stockLevel StockLevelGetter,
+	couponRepo couponsDomain.Repository,
 ) *UpdateCartItemsUseCase {
 	return &UpdateCartItemsUseCase{
 		db: db, cartRepo: cartRepo, channelRepo: channelRepo, skuRepo: skuRepo,
 		variantRepo: variantRepo, productRepo: productRepo, overrideRepo: overrideRepo, stockLevel: stockLevel,
+		couponRepo: couponRepo,
 	}
 }
 
@@ -63,7 +67,7 @@ type resolvedLine struct {
 // clamping. Stock is checked in a separate step after the catalog lookup's
 // own transaction closes -- StockLevelGetter opens its own (see its doc
 // comment), and this codebase never nests tenant.WithTenant calls.
-func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lines []UpdateCartItemLineInput) (*storefrontDomain.Cart, error) {
+func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lines []UpdateCartItemLineInput) (*CartResult, error) {
 	var cart *storefrontDomain.Cart
 	var resolved []resolvedLine
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -121,5 +125,5 @@ func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lin
 	if err != nil {
 		return nil, fmt.Errorf("updateCartItems: %w", err)
 	}
-	return cart, nil
+	return &CartResult{Cart: cart, DiscountMinorUnits: resolveDisplayDiscount(ctx, uc.db, uc.couponRepo, cart)}, nil
 }

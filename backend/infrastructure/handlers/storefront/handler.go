@@ -28,6 +28,7 @@ import (
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
@@ -52,11 +53,15 @@ type createCartUC interface {
 }
 
 type getCartUC interface {
-	Execute(ctx context.Context, token string) (*storefrontDomain.Cart, error)
+	Execute(ctx context.Context, token string) (*appstorefront.CartResult, error)
 }
 
 type updateCartItemsUC interface {
-	Execute(ctx context.Context, token string, lines []appstorefront.UpdateCartItemLineInput) (*storefrontDomain.Cart, error)
+	Execute(ctx context.Context, token string, lines []appstorefront.UpdateCartItemLineInput) (*appstorefront.CartResult, error)
+}
+
+type applyCouponUC interface {
+	Execute(ctx context.Context, token string, code string) (*appstorefront.CartResult, error)
 }
 
 type checkoutCartUC interface {
@@ -100,6 +105,7 @@ type Handler struct {
 	lookupOrder            lookupOrderUC
 	getStorefrontTheme     getStorefrontThemeUC
 	getShippingOptions     getShippingOptionsUC
+	applyCoupon            applyCouponUC
 }
 
 func NewHandler(
@@ -115,12 +121,13 @@ func NewHandler(
 	lookupOrder lookupOrderUC,
 	getStorefrontTheme getStorefrontThemeUC,
 	getShippingOptions getShippingOptionsUC,
+	applyCoupon applyCouponUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
 		createCart: createCart, getCart: getCart, updateCartItems: updateCartItems, checkoutCart: checkoutCart,
 		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
-		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions,
+		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions, applyCoupon: applyCoupon,
 	}
 }
 
@@ -149,6 +156,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	mediaRepo := repositories.NewMediaRepo(db)
 	themeRepo := repositories.NewThemePageRepo(db)
 	shippingSettingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
+	couponRepo := repositories.NewCouponRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -165,11 +173,11 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
 		appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo),
 		appstorefront.NewCreateCartUseCase(db, channelRepo, cartRepo),
-		appstorefront.NewGetCartUseCase(db, cartRepo),
-		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel),
+		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo),
+		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel, couponRepo),
 		appstorefront.NewCheckoutCartUseCase(
 			db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
-			connRepo, shippingSettingsRepo, estimateShipping,
+			connRepo, shippingSettingsRepo, estimateShipping, couponRepo,
 		),
 		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog),
 		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
@@ -177,6 +185,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
 		appstorefront.NewGetStorefrontThemeUseCase(appTheme.NewGetThemePageUseCase(db, themeRepo)),
 		appstorefront.NewGetShippingOptionsUseCase(db, connRepo, shippingSettingsRepo, estimateShipping),
+		appstorefront.NewApplyCouponUseCase(db, cartRepo, couponRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -226,7 +235,7 @@ func (h *Handler) CreateCart(c *gin.Context) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	c.JSON(http.StatusCreated, genstorefront.CartResponse{Data: toGenCart(*cart)})
+	c.JSON(http.StatusCreated, genstorefront.CartResponse{Data: toGenCart(appstorefront.CartResult{Cart: cart})})
 }
 
 func (h *Handler) GetCart(c *gin.Context, token genstorefront.CartToken) {
@@ -262,6 +271,24 @@ func (h *Handler) UpdateCartItems(c *gin.Context, token genstorefront.CartToken)
 		return
 	}
 	middleware.OK(c, toGenCart(*cart))
+}
+
+func (h *Handler) ApplyCoupon(c *gin.Context, token genstorefront.CartToken) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.ApplyCouponRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	result, err := h.applyCoupon.Execute(ctx, token, strPtrOr(req.Code))
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenCart(*result))
 }
 
 func (h *Handler) GetShippingOptions(c *gin.Context, _ genstorefront.CartToken) {
@@ -471,7 +498,8 @@ func bearerToken(header string) string {
 	return strings.TrimPrefix(header, prefix)
 }
 
-func toGenCart(cart storefrontDomain.Cart) *genstorefront.Cart {
+func toGenCart(result appstorefront.CartResult) *genstorefront.Cart {
+	cart := result.Cart
 	items := make([]genstorefront.CartItem, len(cart.Items))
 	for i, item := range cart.Items {
 		items[i] = genstorefront.CartItem{
@@ -479,7 +507,10 @@ func toGenCart(cart storefrontDomain.Cart) *genstorefront.Cart {
 			PriceMinorUnits: item.PriceMinorUnits, CurrencyCode: item.CurrencyCode,
 		}
 	}
-	return &genstorefront.Cart{Token: cart.Token, Items: items, SubtotalMinorUnits: cart.SubtotalMinorUnits()}
+	return &genstorefront.Cart{
+		Token: cart.Token, Items: items, SubtotalMinorUnits: cart.SubtotalMinorUnits(),
+		CouponCode: cart.CouponCode, DiscountMinorUnits: result.DiscountMinorUnits,
+	}
 }
 
 func toAddressInput(a genstorefront.CheckoutAddress) appstorefront.CheckoutAddressInput {
@@ -533,9 +564,12 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, storefrontDomain.ErrInsufficientStock),
 		errors.Is(err, storefrontDomain.ErrProductNotAvailable),
 		errors.Is(err, storefrontDomain.ErrNoInternalChannel),
+		errors.Is(err, couponsDomain.ErrCouponNotRedeemable),
+		errors.Is(err, couponsDomain.ErrCouponMinSubtotalNotMet),
 		errors.Is(err, themeDomain.ErrInvalidPageSlug):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
-	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound):
+	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
+		errors.Is(err, couponsDomain.ErrCouponNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartAlreadyCheckedOut):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())

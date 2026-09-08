@@ -51,6 +51,7 @@ type storefrontCartModel struct {
 	Token          string              `gorm:"not null"`
 	Items          storefrontCartItems `gorm:"type:jsonb;not null;default:'[]'"`
 	CheckedOutAt   *time.Time
+	CouponCode     *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -109,6 +110,7 @@ func (r *StorefrontCartRepo) Update(ctx context.Context, c *storefrontDomain.Car
 	result := tx.Model(&storefrontCartModel{}).Where("id = ?", c.ID).Updates(map[string]any{
 		"items":          storefrontCartItems(c.Items),
 		"checked_out_at": c.CheckedOutAt,
+		"coupon_code":    c.CouponCode,
 		"updated_at":     c.UpdatedAt,
 	})
 	if result.Error != nil {
@@ -123,7 +125,7 @@ func (r *StorefrontCartRepo) Update(ctx context.Context, c *storefrontDomain.Car
 func toCartDomain(m storefrontCartModel) *storefrontDomain.Cart {
 	return &storefrontDomain.Cart{
 		ID: m.ID, TenantID: m.TenantID, SalesChannelID: m.SalesChannelID, Token: m.Token,
-		Items: []storefrontDomain.CartItem(m.Items), CheckedOutAt: m.CheckedOutAt,
+		Items: []storefrontDomain.CartItem(m.Items), CheckedOutAt: m.CheckedOutAt, CouponCode: m.CouponCode,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

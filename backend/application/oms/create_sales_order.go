@@ -61,6 +61,7 @@ type CreateSalesOrderInput struct {
 	PaymentMethodTitle  string
 	ShippingMethod      string
 	ShippingMethodTitle string
+	CouponCode          string
 	TransactionID       string
 	DatePaid            *time.Time
 	DateCompleted       *time.Time
@@ -119,7 +120,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,
 			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle,
-			ShippingMethod: in.ShippingMethod, ShippingMethodTitle: in.ShippingMethodTitle, TransactionID: in.TransactionID,
+			ShippingMethod: in.ShippingMethod, ShippingMethodTitle: in.ShippingMethodTitle, CouponCode: in.CouponCode, TransactionID: in.TransactionID,
 			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
 			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
 			StockDecremented: stockReducing,

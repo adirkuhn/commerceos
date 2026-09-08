@@ -194,6 +194,10 @@ type SalesOrder struct {
 	// report one).
 	ShippingMethod      string
 	ShippingMethodTitle string
+	// CouponCode is the code (if any) redeemed for this order's
+	// DiscountTotalMinorUnits -- empty means none, same convention as
+	// ShippingMethod above.
+	CouponCode string
 
 	OccurredAt time.Time
 	CreatedAt  time.Time

@@ -127,6 +127,38 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/carts/{token}/coupon:
+    put:
+      operationId: applyCoupon
+      summary: Attach a coupon code to the cart, or remove it
+      description: >
+        Send code empty (or omit it) to remove any attached coupon. The
+        response's discount_minor_units reflects this coupon applied to
+        the cart's current subtotal right now -- re-validated for real at
+        checkout, since both the coupon's redeemability and the cart's
+        subtotal can change afterward.
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyCouponRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/carts/{token}/shipping-options:
     post:
       operationId: getShippingOptions
@@ -413,19 +445,38 @@ components:
 
     Cart:
       type: object
-      required: [token, items, subtotal_minor_units]
+      required: [token, items, subtotal_minor_units, discount_minor_units]
       properties:
         token: { type: string }
         items:
           type: array
           items: { $ref: '#/components/schemas/CartItem' }
         subtotal_minor_units: { type: integer, format: int64 }
+        coupon_code:
+          type: string
+          nullable: true
+          description: The attached coupon's code, or null when none is attached.
+        discount_minor_units:
+          type: integer
+          format: int64
+          description: >
+            Live-computed from coupon_code against the current subtotal --
+            0 (not an error) when the code is no longer redeemable or the
+            subtotal no longer meets its minimum; re-validated for real at
+            checkout.
 
     CartResponse:
       type: object
       properties:
         data: { $ref: '#/components/schemas/Cart' }
         error: { nullable: true }
+
+    ApplyCouponRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Empty or omitted removes any attached coupon.
 
     UpdateCartItemLine:
       type: object

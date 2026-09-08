@@ -12,7 +12,7 @@ import (
 )
 
 func newUpdateCartItemsUseCase(t *testing.T, n int, cartRepo *fakeCartRepo, channelRepo *fakeChannelRepo, skuRepo *fakeSKURepo, variantRepo *fakeVariantRepo, productRepo *fakeProductRepo, overrideRepo *fakeOverrideRepo, stockLevel *fakeStockLevel) *appstorefront.UpdateCartItemsUseCase {
-	return appstorefront.NewUpdateCartItemsUseCase(newMockGormDB(t, n), cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel)
+	return appstorefront.NewUpdateCartItemsUseCase(newMockGormDB(t, n), cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel, nil)
 }
 
 func TestUpdateCartItems_replacesTheWholeLineSetWithFreshCatalogSnapshot(t *testing.T) {
@@ -26,11 +26,11 @@ func TestUpdateCartItems_replacesTheWholeLineSetWithFreshCatalogSnapshot(t *test
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 3}})
 
 	require.NoError(t, err)
-	require.Len(t, cart.Items, 1)
-	require.Equal(t, "sku-1", cart.Items[0].SKUID)
-	require.Equal(t, int64(500), cart.Items[0].PriceMinorUnits)
-	require.Equal(t, int64(3), cart.Items[0].Quantity)
-	require.Equal(t, cartRepo.updated, cart)
+	require.Len(t, cart.Cart.Items, 1)
+	require.Equal(t, "sku-1", cart.Cart.Items[0].SKUID)
+	require.Equal(t, int64(500), cart.Cart.Items[0].PriceMinorUnits)
+	require.Equal(t, int64(3), cart.Cart.Items[0].Quantity)
+	require.Equal(t, cartRepo.updated, cart.Cart)
 }
 
 func TestUpdateCartItems_appliesChannelPriceAdjustment(t *testing.T) {
@@ -47,7 +47,7 @@ func TestUpdateCartItems_appliesChannelPriceAdjustment(t *testing.T) {
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 1}})
 
 	require.NoError(t, err)
-	require.Equal(t, int64(800), cart.Items[0].PriceMinorUnits)
+	require.Equal(t, int64(800), cart.Cart.Items[0].PriceMinorUnits)
 }
 
 func TestUpdateCartItems_appliesQuantityBreakWhenLineQuantityQualifies(t *testing.T) {
@@ -63,7 +63,7 @@ func TestUpdateCartItems_appliesQuantityBreakWhenLineQuantityQualifies(t *testin
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 10}})
 
 	require.NoError(t, err)
-	require.Equal(t, int64(700), cart.Items[0].PriceMinorUnits) // 30% off, not the flat channel rate
+	require.Equal(t, int64(700), cart.Cart.Items[0].PriceMinorUnits) // 30% off, not the flat channel rate
 }
 
 func TestUpdateCartItems_usesFlatDiscountWhenQuantityBreakNotMet(t *testing.T) {
@@ -81,7 +81,7 @@ func TestUpdateCartItems_usesFlatDiscountWhenQuantityBreakNotMet(t *testing.T) {
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 5}})
 
 	require.NoError(t, err)
-	require.Equal(t, int64(900), cart.Items[0].PriceMinorUnits) // flat 10% off, break not met
+	require.Equal(t, int64(900), cart.Cart.Items[0].PriceMinorUnits) // flat 10% off, break not met
 }
 
 func TestUpdateCartItems_usesSalePriceWhenActive(t *testing.T) {
@@ -97,7 +97,7 @@ func TestUpdateCartItems_usesSalePriceWhenActive(t *testing.T) {
 	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 1}})
 
 	require.NoError(t, err)
-	require.Equal(t, int64(400), cart.Items[0].PriceMinorUnits)
+	require.Equal(t, int64(400), cart.Cart.Items[0].PriceMinorUnits)
 }
 
 func TestUpdateCartItems_rejectsQuantityOverStock(t *testing.T) {

@@ -68,6 +68,8 @@ func TestStorefrontCartRepo_Integration_CreateFindUpdate(t *testing.T) {
 	found.Items = []storefrontDomain.CartItem{
 		{SKUID: "sku-1", SKUCode: "SKU-1", ProductName: "Widget", Quantity: 2, PriceMinorUnits: 500, CurrencyCode: "EUR"},
 	}
+	code := "SUMMER10"
+	found.CouponCode = &code
 	found.UpdatedAt = time.Now()
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		return repo.Update(ctx, found)
@@ -84,6 +86,26 @@ func TestStorefrontCartRepo_Integration_CreateFindUpdate(t *testing.T) {
 	require.Len(t, updated.Items, 1)
 	require.Equal(t, "SKU-1", updated.Items[0].SKUCode)
 	require.Equal(t, int64(2), updated.Items[0].Quantity)
+	require.NotNil(t, updated.CouponCode)
+	require.Equal(t, "SUMMER10", *updated.CouponCode)
+
+	// Removing the coupon (nil) must persist as NULL, not linger as the
+	// old code.
+	updated.CouponCode = nil
+	updated.UpdatedAt = time.Now()
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.Update(ctx, updated)
+	})
+	require.NoError(t, err)
+
+	var cleared *storefrontDomain.Cart
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		cleared, err = repo.FindByToken(ctx, "test-token-1")
+		return err
+	})
+	require.NoError(t, err)
+	require.Nil(t, cleared.CouponCode)
 }
 
 // TestStorefrontCartRepo_Integration_FindByTokenNotFound proves a missing

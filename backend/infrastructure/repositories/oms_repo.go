@@ -63,6 +63,7 @@ type salesOrderModel struct {
 	PaymentMethodTitle  string
 	ShippingMethod      string `gorm:"column:shipping_method;not null;default:''"`
 	ShippingMethodTitle string `gorm:"column:shipping_method_title;not null;default:''"`
+	CouponCode          string `gorm:"column:coupon_code;not null;default:''"`
 	TransactionID       string
 	PaymentProvider     string `gorm:"column:payment_provider;not null;default:''"`
 	PaymentExternalID   string `gorm:"column:payment_external_id;not null;default:''"`
@@ -143,7 +144,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		DiscountTotalMinorUnits: o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: o.ShippingTotalMinorUnits,
 		TaxTotalMinorUnits: o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
 		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
-		ShippingMethod: o.ShippingMethod, ShippingMethodTitle: o.ShippingMethodTitle, TransactionID: o.TransactionID,
+		ShippingMethod: o.ShippingMethod, ShippingMethodTitle: o.ShippingMethodTitle, CouponCode: o.CouponCode, TransactionID: o.TransactionID,
 		PaymentProvider: o.PaymentProvider, PaymentExternalID: o.PaymentExternalID,
 		DatePaid: o.DatePaid, DateCompleted: o.DateCompleted,
 		OccurredAt: o.OccurredAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
@@ -351,7 +352,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		DiscountTotalMinorUnits: m.DiscountTotalMinorUnits, ShippingTotalMinorUnits: m.ShippingTotalMinorUnits,
 		TaxTotalMinorUnits: m.TaxTotalMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle,
-		ShippingMethod: m.ShippingMethod, ShippingMethodTitle: m.ShippingMethodTitle, TransactionID: m.TransactionID,
+		ShippingMethod: m.ShippingMethod, ShippingMethodTitle: m.ShippingMethodTitle, CouponCode: m.CouponCode, TransactionID: m.TransactionID,
 		PaymentProvider: m.PaymentProvider, PaymentExternalID: m.PaymentExternalID,
 		DatePaid: m.DatePaid, DateCompleted: m.DateCompleted,
 		OccurredAt: m.OccurredAt, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,

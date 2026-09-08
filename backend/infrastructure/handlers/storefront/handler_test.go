@@ -16,6 +16,7 @@ import (
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
@@ -72,12 +73,12 @@ func (s *stubCreateCart) Execute(_ context.Context, salesChannelID string) (*sto
 }
 
 type stubGetCart struct {
-	out      *storefrontDomain.Cart
+	out      *appstorefront.CartResult
 	err      error
 	gotToken string
 }
 
-func (s *stubGetCart) Execute(_ context.Context, token string) (*storefrontDomain.Cart, error) {
+func (s *stubGetCart) Execute(_ context.Context, token string) (*appstorefront.CartResult, error) {
 	s.gotToken = token
 	if s.err != nil {
 		return nil, s.err
@@ -86,14 +87,29 @@ func (s *stubGetCart) Execute(_ context.Context, token string) (*storefrontDomai
 }
 
 type stubUpdateCartItems struct {
-	out      *storefrontDomain.Cart
+	out      *appstorefront.CartResult
 	err      error
 	gotToken string
 	gotLines []appstorefront.UpdateCartItemLineInput
 }
 
-func (s *stubUpdateCartItems) Execute(_ context.Context, token string, lines []appstorefront.UpdateCartItemLineInput) (*storefrontDomain.Cart, error) {
+func (s *stubUpdateCartItems) Execute(_ context.Context, token string, lines []appstorefront.UpdateCartItemLineInput) (*appstorefront.CartResult, error) {
 	s.gotToken, s.gotLines = token, lines
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
+type stubApplyCoupon struct {
+	out      *appstorefront.CartResult
+	err      error
+	gotToken string
+	gotCode  string
+}
+
+func (s *stubApplyCoupon) Execute(_ context.Context, token string, code string) (*appstorefront.CartResult, error) {
+	s.gotToken, s.gotCode = token, code
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -203,15 +219,18 @@ func newTestHandler(
 ) *storefronthandler.Handler {
 	getTheme := &stubGetStorefrontTheme{}
 	getShippingOptions := &stubGetShippingOptions{}
+	applyCoupon := &stubApplyCoupon{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
 			getTheme = v
 		case *stubGetShippingOptions:
 			getShippingOptions = v
+		case *stubApplyCoupon:
+			applyCoupon = v
 		}
 	}
-	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder, getTheme, getShippingOptions)
+	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder, getTheme, getShippingOptions, applyCoupon)
 }
 
 func newTestRouter(h *storefronthandler.Handler) *gin.Engine {
@@ -317,11 +336,64 @@ func TestGetCartHandler_notFound(t *testing.T) {
 	assert.Equal(t, "unknown-token", get.gotToken)
 }
 
+func TestGetCartHandler_includesCouponAndDiscount(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	code := "SUMMER10"
+	get := &stubGetCart{out: &appstorefront.CartResult{
+		Cart:               &storefrontDomain.Cart{Token: "cart-token-1", CouponCode: &code},
+		DiscountMinorUnits: 100,
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, get, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/carts/cart-token-1", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"coupon_code":"SUMMER10"`)
+	assert.Contains(t, w.Body.String(), `"discount_minor_units":100`)
+}
+
+func TestApplyCouponHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	code := "SUMMER10"
+	apply := &stubApplyCoupon{out: &appstorefront.CartResult{
+		Cart:               &storefrontDomain.Cart{Token: "cart-token-1", CouponCode: &code},
+		DiscountMinorUnits: 100,
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, apply)
+
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/carts/cart-token-1/coupon", `{"code":"summer10"}`, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "cart-token-1", apply.gotToken)
+	assert.Equal(t, "summer10", apply.gotCode)
+	assert.Contains(t, w.Body.String(), `"discount_minor_units":100`)
+}
+
+func TestApplyCouponHandler_notRedeemableIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	apply := &stubApplyCoupon{err: couponsDomain.ErrCouponNotRedeemable}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, apply)
+
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/carts/cart-token-1/coupon", `{"code":"NOPE"}`, "test-key")
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestApplyCouponHandler_cartNotFoundIs404(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	apply := &stubApplyCoupon{err: storefrontDomain.ErrCartNotFound}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, apply)
+
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/carts/unknown-token/coupon", `{"code":"X"}`, "test-key")
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestUpdateCartItemsHandler_success(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
-	update := &stubUpdateCartItems{out: &storefrontDomain.Cart{Token: "cart-token-1", Items: []storefrontDomain.CartItem{
+	update := &stubUpdateCartItems{out: &appstorefront.CartResult{Cart: &storefrontDomain.Cart{Token: "cart-token-1", Items: []storefrontDomain.CartItem{
 		{SKUCode: "SKU-A", Quantity: 2, PriceMinorUnits: 500, CurrencyCode: "EUR"},
-	}}}
+	}}}}
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, update, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
 
 	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/carts/cart-token-1/items", `{"items":[{"sku_code":"SKU-A","quantity":2}]}`, "test-key")
