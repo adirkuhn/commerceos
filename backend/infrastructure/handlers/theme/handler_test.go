@@ -56,7 +56,7 @@ func (s *stubSaveThemePage) Execute(_ context.Context, in appTheme.SaveThemePage
 		return s.out, nil
 	}
 	return &themeDomain.ThemePage{
-		SalesChannelID: in.SalesChannelID, Slug: in.Slug, CanvasWidth: in.CanvasWidth, Blocks: in.Blocks,
+		SalesChannelID: in.SalesChannelID, Slug: in.Slug, CanvasWidth: in.CanvasWidth, Blocks: in.Blocks, CustomCSS: in.CustomCSS,
 	}, nil
 }
 
@@ -155,6 +155,22 @@ func TestSaveThemePageHandler_success(t *testing.T) {
 	assert.Equal(t, "chan-1", save.gotInput.SalesChannelID)
 	assert.Equal(t, themeDomain.PageSlugHome, save.gotInput.Slug)
 	assert.Equal(t, themeDomain.BlockTypeHero, save.gotInput.Blocks[0].Type)
+}
+
+func TestSaveThemePageHandler_roundTripsCustomCSS(t *testing.T) {
+	save := &stubSaveThemePage{}
+	h := newTestHandler(&stubGetThemePage{}, save)
+	r := newTestRouter(h)
+
+	body := gentheme.SaveThemePageRequest{CanvasWidth: 1440, Blocks: []gentheme.Block{}, CustomCss: ".hero { color: red; }"}
+	w := doRequest(r, http.MethodPut, "/api/v1/theme/sales-channels/chan-1/pages/home", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var resp gentheme.ThemePageResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.NotNil(t, resp.Data)
+	assert.Equal(t, ".hero { color: red; }", resp.Data.CustomCss)
+	assert.Equal(t, ".hero { color: red; }", save.gotInput.CustomCSS)
 }
 
 func TestSaveThemePageHandler_invalidSlugReturns422(t *testing.T) {

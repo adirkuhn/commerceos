@@ -446,6 +446,7 @@ func TestGetStorefrontThemeHandler_success(t *testing.T) {
 		Blocks: []themeDomain.Block{
 			{ID: "b1", Type: themeDomain.BlockTypeHero, Layout: themeDomain.BlockLayout{Desktop: themeDomain.Rect{X: 1, Y: 2, Width: 3, Height: 4}}, Props: map[string]any{}},
 		},
+		CustomCSS: ".hero { color: red; }",
 	}}
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, theme)
 
@@ -454,6 +455,7 @@ func TestGetStorefrontThemeHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"canvas_width":1440`)
 	assert.Contains(t, w.Body.String(), `"id":"b1"`)
+	assert.Contains(t, w.Body.String(), `"custom_css":".hero { color: red; }"`)
 	assert.Equal(t, "channel-1", theme.gotChannelID)
 	assert.Equal(t, "home", theme.gotSlug)
 }

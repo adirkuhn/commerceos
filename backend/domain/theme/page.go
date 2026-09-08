@@ -147,7 +147,11 @@ func (s PageSlug) RequiredBlockType() (BlockType, bool) {
 // ThemePage is one page's whole canvas document for one sales channel --
 // Slug identifies which storefront page this is (see PageSlug).
 // CanvasWidth is the fixed design width every Block's Rect is positioned
-// against (see Rect's doc comment).
+// against (see Rect's doc comment). CustomCSS is raw, merchant-authored
+// CSS injected into the storefront-frontend's page as-is (same trust
+// boundary as CustomHTML's raw markup -- admin-JWT-gated, never shopper
+// input) -- an escape hatch for styling the canvas can't express, not a
+// replacement for it.
 type ThemePage struct {
 	ID             string
 	TenantID       string
@@ -155,6 +159,7 @@ type ThemePage struct {
 	Slug           PageSlug
 	CanvasWidth    int
 	Blocks         []Block
+	CustomCSS      string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

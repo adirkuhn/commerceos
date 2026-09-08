@@ -607,13 +607,16 @@ components:
 
     StorefrontThemePage:
       type: object
-      required: [slug, canvas_width, blocks]
+      required: [slug, canvas_width, blocks, custom_css]
       properties:
         slug: { $ref: '#/components/schemas/StorefrontPageSlug' }
         canvas_width: { type: integer }
         blocks:
           type: array
           items: { $ref: '#/components/schemas/StorefrontBlock' }
+        custom_css:
+          type: string
+          description: Raw merchant-authored CSS -- injected as-is by the storefront-frontend, same trust boundary as a custom_html block's raw markup.
 
     StorefrontThemePageResponse:
       type: object

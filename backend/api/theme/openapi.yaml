@@ -131,7 +131,7 @@ components:
 
     ThemePage:
       type: object
-      required: [sales_channel_id, slug, canvas_width, blocks]
+      required: [sales_channel_id, slug, canvas_width, blocks, custom_css]
       properties:
         sales_channel_id: { type: string }
         slug: { $ref: '#/components/schemas/PageSlug' }
@@ -139,6 +139,13 @@ components:
         blocks:
           type: array
           items: { $ref: '#/components/schemas/Block' }
+        custom_css:
+          type: string
+          description: >
+            Raw CSS injected as-is into the storefront-frontend's page --
+            same trust boundary as a custom_html block's raw markup
+            (admin-JWT-gated, never shopper input), just page-scoped
+            instead of block-scoped.
 
     ThemePageResponse:
       type: object
@@ -148,12 +155,13 @@ components:
 
     SaveThemePageRequest:
       type: object
-      required: [canvas_width, blocks]
+      required: [canvas_width, blocks, custom_css]
       properties:
         canvas_width: { type: integer }
         blocks:
           type: array
           items: { $ref: '#/components/schemas/Block' }
+        custom_css: { type: string }
 
     ErrorResponse:
       type: object

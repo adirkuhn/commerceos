@@ -26,6 +26,21 @@ func TestSaveThemePage_savesAndReturnsTheSavedPage(t *testing.T) {
 	require.Equal(t, "channel-1", repo.upserted.SalesChannelID)
 }
 
+func TestSaveThemePage_savesCustomCSS(t *testing.T) {
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": {ID: "channel-1", Type: channelsDomain.ChannelTypeInternal}}}
+	repo := &fakeThemeRepo{}
+	uc := appTheme.NewSaveThemePageUseCase(newMockGormDB(t, 1), repo, channelRepo)
+
+	page, err := uc.Execute(context.Background(), appTheme.SaveThemePageInput{
+		SalesChannelID: "channel-1", Slug: themeDomain.PageSlugHome, CanvasWidth: 1440,
+		CustomCSS: ".hero { color: red; }",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, ".hero { color: red; }", page.CustomCSS)
+	require.Equal(t, ".hero { color: red; }", repo.upserted.CustomCSS)
+}
+
 func TestSaveThemePage_allowsCheckoutFormBlockOnCheckoutPage(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": {ID: "channel-1", Type: channelsDomain.ChannelTypeInternal}}}
 	repo := &fakeThemeRepo{}

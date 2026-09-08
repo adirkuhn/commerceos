@@ -67,7 +67,7 @@ func (h *Handler) SaveThemePage(c *gin.Context, channelID string, slug gentheme.
 		blocks[i] = toDomainBlock(b)
 	}
 	page, err := h.saveThemePage.Execute(c.Request.Context(), appTheme.SaveThemePageInput{
-		SalesChannelID: channelID, Slug: themeDomain.PageSlug(slug), CanvasWidth: req.CanvasWidth, Blocks: blocks,
+		SalesChannelID: channelID, Slug: themeDomain.PageSlug(slug), CanvasWidth: req.CanvasWidth, Blocks: blocks, CustomCSS: req.CustomCss,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -81,7 +81,7 @@ func toGenThemePage(p themeDomain.ThemePage) gentheme.ThemePage {
 		blocks[i] = toGenBlock(b)
 	}
 	return gentheme.ThemePage{
-		SalesChannelId: p.SalesChannelID, Slug: gentheme.PageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks,
+		SalesChannelId: p.SalesChannelID, Slug: gentheme.PageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS,
 	}
 }
 

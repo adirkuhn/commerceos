@@ -16,6 +16,7 @@ type SaveThemePageInput struct {
 	Slug           themeDomain.PageSlug
 	CanvasWidth    int
 	Blocks         []themeDomain.Block
+	CustomCSS      string
 }
 
 type SaveThemePageUseCase struct {
@@ -52,7 +53,7 @@ func (uc *SaveThemePageUseCase) Execute(ctx context.Context, in SaveThemePageInp
 		now := time.Now()
 		page := themeDomain.ThemePage{
 			TenantID: tenant.IDFromContext(ctx), SalesChannelID: in.SalesChannelID, Slug: in.Slug,
-			CanvasWidth: in.CanvasWidth, Blocks: in.Blocks, CreatedAt: now, UpdatedAt: now,
+			CanvasWidth: in.CanvasWidth, Blocks: in.Blocks, CustomCSS: in.CustomCSS, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.repo.Upsert(ctx, &page); err != nil {
 			return err

@@ -379,7 +379,7 @@ func toGenStorefrontThemePage(p themeDomain.ThemePage) genstorefront.StorefrontT
 	for i, b := range p.Blocks {
 		blocks[i] = toGenStorefrontBlock(b)
 	}
-	return genstorefront.StorefrontThemePage{Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks}
+	return genstorefront.StorefrontThemePage{Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS}
 }
 
 func toGenStorefrontBlock(b themeDomain.Block) genstorefront.StorefrontBlock {

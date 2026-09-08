@@ -68,6 +68,7 @@ func TestThemePageRepo_Integration_UpsertInsertsThenReplacesWholesale(t *testing
 				Layout: themeDomain.BlockLayout{Desktop: themeDomain.Rect{X: 0, Y: 0, Width: 1440, Height: 400}},
 				Props:  map[string]any{"heading": "Welcome"},
 			}},
+			CustomCSS: ".hero { color: red; }",
 			CreatedAt: now, UpdatedAt: now,
 		}
 		return repo.Upsert(ctx, &page)
@@ -86,6 +87,7 @@ func TestThemePageRepo_Integration_UpsertInsertsThenReplacesWholesale(t *testing
 	require.Equal(t, themeDomain.BlockTypeHero, found.Blocks[0].Type)
 	require.Equal(t, 1440, found.Blocks[0].Layout.Desktop.Width)
 	require.Equal(t, "Welcome", found.Blocks[0].Props["heading"])
+	require.Equal(t, ".hero { color: red; }", found.CustomCSS)
 
 	// Second Upsert replaces the whole document -- two blocks now, first
 	// one gone entirely, not merged.
@@ -113,6 +115,7 @@ func TestThemePageRepo_Integration_UpsertInsertsThenReplacesWholesale(t *testing
 	require.Len(t, found.Blocks, 2)
 	require.Equal(t, "block-a", found.Blocks[0].ID)
 	require.Equal(t, "block-b", found.Blocks[1].ID)
+	require.Empty(t, found.CustomCSS) // whole-document replace: the second Upsert didn't resend it
 }
 
 // TestThemePageRepo_Integration_TenantIsolation proves a page created

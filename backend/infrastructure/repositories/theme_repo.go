@@ -52,6 +52,7 @@ type themePageModel struct {
 	Slug           string      `gorm:"not null"`
 	CanvasWidth    int         `gorm:"column:canvas_width;not null"`
 	Blocks         themeBlocks `gorm:"type:jsonb;not null;default:'[]'"`
+	CustomCSS      string      `gorm:"column:custom_css;not null;default:''"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -102,10 +103,10 @@ func (r *ThemePageRepo) Upsert(ctx context.Context, p *themeDomain.ThemePage) er
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "sales_channel_id"}, {Name: "slug"}},
-		DoUpdates: clause.AssignmentColumns([]string{"canvas_width", "blocks", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"canvas_width", "blocks", "custom_css", "updated_at"}),
 	}).Create(&themePageModel{
 		TenantID: p.TenantID, SalesChannelID: p.SalesChannelID, Slug: string(p.Slug),
-		CanvasWidth: p.CanvasWidth, Blocks: themeBlocks(p.Blocks),
+		CanvasWidth: p.CanvasWidth, Blocks: themeBlocks(p.Blocks), CustomCSS: p.CustomCSS,
 		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}).Error
 	if err != nil {
@@ -117,7 +118,7 @@ func (r *ThemePageRepo) Upsert(ctx context.Context, p *themeDomain.ThemePage) er
 func toThemePageDomain(m themePageModel) *themeDomain.ThemePage {
 	return &themeDomain.ThemePage{
 		ID: m.ID, TenantID: m.TenantID, SalesChannelID: m.SalesChannelID, Slug: themeDomain.PageSlug(m.Slug),
-		CanvasWidth: m.CanvasWidth, Blocks: []themeDomain.Block(m.Blocks),
+		CanvasWidth: m.CanvasWidth, Blocks: []themeDomain.Block(m.Blocks), CustomCSS: m.CustomCSS,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

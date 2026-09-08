@@ -36,4 +36,5 @@ func TestGetThemePage_returnsDefaultEmptyPageWhenNeverSaved(t *testing.T) {
 	require.Equal(t, themeDomain.PageSlugCheckout, page.Slug)
 	require.Equal(t, 1440, page.CanvasWidth)
 	require.Empty(t, page.Blocks)
+	require.Empty(t, page.CustomCSS)
 }
