@@ -13,13 +13,13 @@ import (
 )
 
 type CreateProductInput struct {
-	Name                         string
-	Description                  string
-	CategoryID                   *string
-	Status                       pmsDomain.ProductStatus
-	HasVariants                  bool
-	SyncVariantsAsWooVariations  bool
-	Tags                         []string
+	Name                        string
+	Description                 string
+	CategoryID                  *string
+	Status                      pmsDomain.ProductStatus
+	HasVariants                 bool
+	SyncVariantsAsWooVariations bool
+	Tags                        []string
 }
 
 type CreateProductUseCase struct {
