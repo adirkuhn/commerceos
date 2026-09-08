@@ -11,6 +11,12 @@ frontend/dist/
 frontend/.env.local
 frontend/.env.*.local
 
+# --- Node / Storefront Frontend ---
+storefront-frontend/node_modules/
+storefront-frontend/dist/
+storefront-frontend/.env.local
+storefront-frontend/.env.*.local
+
 # --- Env ---
 .env
 .env.*
