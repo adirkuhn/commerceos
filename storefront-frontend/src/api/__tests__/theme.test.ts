@@ -28,6 +28,7 @@ const samplePage: ThemePage = {
   blocks: [
     { id: 'b1', type: 'hero', layout: { desktop: { x: 0, y: 0, width: 1440, height: 400 }, mobile: null }, props: { heading: 'Welcome' } },
   ],
+  custom_css: '',
 }
 
 describe('getStorefrontTheme', () => {

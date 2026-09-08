@@ -5,7 +5,7 @@ import { App } from '../App'
 import type { APIResponse, ThemePage } from '../types'
 
 function mockFetch() {
-  const body: APIResponse<ThemePage> = { data: { slug: 'home', canvas_width: 1440, blocks: [] }, error: null }
+  const body: APIResponse<ThemePage> = { data: { slug: 'home', canvas_width: 1440, blocks: [], custom_css: '' }, error: null }
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve(body) }))
 }
 

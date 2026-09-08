@@ -1,7 +1,8 @@
 import { useThemePage } from './useThemePage'
 import { BlockRenderer } from './BlockRenderer'
+import { useIsMobileViewport, defaultMobileRect, MOBILE_CANVAS_WIDTH } from './mobileLayout'
 import { REQUIRED_BLOCK_TYPE_BY_SLUG } from '../types'
-import type { Block, PageSlug, ThemePage } from '../types'
+import type { Block, PageSlug, Rect, ThemePage } from '../types'
 
 interface Props {
   slug: PageSlug
@@ -25,11 +26,9 @@ function withRequiredBlock(page: ThemePage): Block[] {
   ]
 }
 
-// Desktop-only for now (see ThemePage.Layout.Mobile on the backend --
-// present but not yet populated), so every block renders at its saved
-// desktop Rect regardless of viewport.
 export function CanvasPage({ slug }: Props) {
   const { page, loading, error } = useThemePage(slug)
+  const isMobile = useIsMobileViewport()
 
   if (loading) {
     return <p className="px-6 py-16 text-center text-brand-500">Loading…</p>
@@ -46,29 +45,30 @@ export function CanvasPage({ slug }: Props) {
     return <p className="px-6 py-16 text-center text-brand-500">This page has no content yet.</p>
   }
 
-  const height = Math.max(...blocks.map(b => b.layout.desktop.y + b.layout.desktop.height), 400)
+  const rectFor = (block: Block): Rect => (isMobile ? block.layout.mobile ?? defaultMobileRect(block.layout.desktop) : block.layout.desktop)
+  const canvasWidth = isMobile ? MOBILE_CANVAS_WIDTH : page.canvas_width
+  const height = Math.max(...blocks.map(b => { const r = rectFor(b); return r.y + r.height }), 400)
 
   return (
     <div className="overflow-x-auto">
+      {page.custom_css && <style>{page.custom_css}</style>}
       <div
         data-testid="canvas-page"
         className="relative mx-auto"
-        style={{ width: page.canvas_width, height }}
+        style={{ width: canvasWidth, height }}
       >
-        {blocks.map(block => (
-          <div
-            key={block.id}
-            className="absolute"
-            style={{
-              left: block.layout.desktop.x,
-              top: block.layout.desktop.y,
-              width: block.layout.desktop.width,
-              height: block.layout.desktop.height,
-            }}
-          >
-            <BlockRenderer block={block} pageSlug={page.slug} />
-          </div>
-        ))}
+        {blocks.map(block => {
+          const rect = rectFor(block)
+          return (
+            <div
+              key={block.id}
+              className="absolute"
+              style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+            >
+              <BlockRenderer block={block} pageSlug={page.slug} />
+            </div>
+          )
+        })}
       </div>
     </div>
   )

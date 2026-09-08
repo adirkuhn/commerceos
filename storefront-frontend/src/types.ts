@@ -45,6 +45,7 @@ export interface ThemePage {
   slug: PageSlug
   canvas_width: number
   blocks: Block[]
+  custom_css: string
 }
 
 // Mirrors backend domain/theme.PageSlug.RequiredBlockType: these pages
