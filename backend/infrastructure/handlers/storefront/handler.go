@@ -24,6 +24,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
+	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
@@ -31,6 +32,7 @@ import (
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
+	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
 	"github.com/adirkuhn/commerceos/infrastructure/stripe"
@@ -140,6 +142,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	categoryRepo := repositories.NewCategoryRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
 	themeRepo := repositories.NewThemePageRepo(db)
+	shippingSettingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -149,6 +152,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		db, channelRepo, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(),
 		encryptionSecret, publicBaseURL,
 	)
+	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewClientFactory(), encryptionSecret)
 	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo)
 
 	h := NewHandler(
@@ -157,7 +161,10 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewCreateCartUseCase(db, channelRepo, cartRepo),
 		appstorefront.NewGetCartUseCase(db, cartRepo),
 		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel),
-		appstorefront.NewCheckoutCartUseCase(db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink),
+		appstorefront.NewCheckoutCartUseCase(
+			db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
+			connRepo, shippingSettingsRepo, estimateShipping,
+		),
 		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog),
 		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),

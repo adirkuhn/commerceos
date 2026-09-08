@@ -11,11 +11,13 @@ import (
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 	"github.com/adirkuhn/commerceos/internal/idgen"
@@ -69,16 +71,27 @@ type paymentLinkGenerator interface {
 	Execute(ctx context.Context, salesChannelID string, amountMinorUnits int64, currencyCode, description, reference string) (*integrationsDomain.PaymentLink, bool, error)
 }
 
+// deliveryPriceEstimator is *application/shipping.GetDeliveryPriceEstimateUseCase
+// narrowed to point of use (ISP) -- may be nil (deployments with no
+// shipping estimate wired up yet), same optional-dependency convention as
+// paymentLinkGenerator.
+type deliveryPriceEstimator interface {
+	Execute(ctx context.Context, in appshipping.GetDeliveryPriceEstimateInput) ([]shippingDomain.DeliveryPriceOption, error)
+}
+
 type CheckoutCartUseCase struct {
-	db                  *gorm.DB
-	cartRepo            storefrontDomain.CartRepository
-	customerRepo        customersDomain.CustomerRepository
-	createCustomer      customerCreator
-	createSalesOrder    salesOrderCreator
-	taxClassRepo        taxDomain.TaxClassRepository
-	taxRateRepo         taxDomain.TaxRateRepository
-	outboxRepo          outbox.Repository
-	generatePaymentLink paymentLinkGenerator
+	db                   *gorm.DB
+	cartRepo             storefrontDomain.CartRepository
+	customerRepo         customersDomain.CustomerRepository
+	createCustomer       customerCreator
+	createSalesOrder     salesOrderCreator
+	taxClassRepo         taxDomain.TaxClassRepository
+	taxRateRepo          taxDomain.TaxRateRepository
+	outboxRepo           outbox.Repository
+	generatePaymentLink  paymentLinkGenerator
+	connRepo             integrationsDomain.ConnectionRepository
+	shippingSettingsRepo shippingDomain.ShippingConnectionSettingsRepository
+	estimateShippingUC   deliveryPriceEstimator
 }
 
 func NewCheckoutCartUseCase(
@@ -91,11 +104,15 @@ func NewCheckoutCartUseCase(
 	taxRateRepo taxDomain.TaxRateRepository,
 	outboxRepo outbox.Repository,
 	generatePaymentLink paymentLinkGenerator,
+	connRepo integrationsDomain.ConnectionRepository,
+	shippingSettingsRepo shippingDomain.ShippingConnectionSettingsRepository,
+	estimateShippingUC deliveryPriceEstimator,
 ) *CheckoutCartUseCase {
 	return &CheckoutCartUseCase{
 		db: db, cartRepo: cartRepo, customerRepo: customerRepo, createCustomer: createCustomer,
 		createSalesOrder: createSalesOrder, taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo,
 		outboxRepo: outboxRepo, generatePaymentLink: generatePaymentLink,
+		connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateShippingUC: estimateShippingUC,
 	}
 }
 
@@ -137,24 +154,29 @@ func (uc *CheckoutCartUseCase) Execute(ctx context.Context, token string, in Che
 		taxTotal += lineTax
 		currency = item.CurrencyCode
 	}
-	// ShippingTotalMinorUnits is deliberately 0 -- live shipping-rate
-	// calculation at checkout is a separate, not-yet-built piece (see the
-	// roadmap's "shipping at checkout" gap); a v1 internal storefront
-	// launches with shipping cost communicated some other way (flat fee
-	// baked into pricing, or handled offline), not blocked on it.
-	total := subtotal + taxTotal
+	// Best-effort: NL/BE only (MyParcel's own API constraint), and only
+	// when a MyParcel connection + a house number are both available --
+	// see estimateShipping's own doc comment. Every other case (no
+	// connection, unsupported country, address we can't parse a number
+	// out of, a failed MyParcel call) falls back to 0, same as before this
+	// existed, never blocking checkout.
+	shippingAmount, shippingMethodTitle := uc.estimateShipping(ctx, in.Shipping)
+	total := subtotal + taxTotal + shippingAmount
 
 	orderNumber := "WEB-" + strings.ToUpper(idgen.NewV4()[:8])
 	result, err := uc.createSalesOrder.Execute(ctx, appoms.CreateSalesOrderInput{
 		Source: omsDomain.SalesOrderSourceInternal, Number: orderNumber, OrderKey: orderNumber,
 		Status: omsDomain.SalesOrderStatusPending, CustomerID: &customerID, SalesChannelID: &cart.SalesChannelID,
-		Billing:            toOMSAddress(in.Billing, in.Email),
-		Shipping:           toOMSAddress(in.Shipping, ""),
-		CurrencyCode:       currency,
-		TaxTotalMinorUnits: taxTotal,
-		TotalMinorUnits:    total,
-		OccurredAt:         time.Now(),
-		LineItems:          lineItems,
+		Billing:                 toOMSAddress(in.Billing, in.Email),
+		Shipping:                toOMSAddress(in.Shipping, ""),
+		CurrencyCode:            currency,
+		TaxTotalMinorUnits:      taxTotal,
+		ShippingTotalMinorUnits: shippingAmount,
+		ShippingMethod:          shippingMethodSlug(shippingAmount),
+		ShippingMethodTitle:     shippingMethodTitle,
+		TotalMinorUnits:         total,
+		OccurredAt:              time.Now(),
+		LineItems:               lineItems,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("checkoutCart: create sales order: %w", err)
@@ -228,6 +250,89 @@ func (uc *CheckoutCartUseCase) resolveCustomer(ctx context.Context, email string
 		return "", err
 	}
 	return created.ID, nil
+}
+
+// estimateShipping is best-effort, per this method's own reasoning: any
+// missing piece (no MyParcel connection on this tenant, an unsupported
+// country, an address1/2 we can't pull a house number out of via
+// splitStreetAndNumber, or a failed MyParcel call) silently falls back to
+// (0, "") rather than propagating an error -- checkout must never fail
+// because a shipping estimate isn't available, same convention as
+// generatePaymentLink. Returns the cheapest of MyParcel's priced delivery
+// slots when one is available.
+func (uc *CheckoutCartUseCase) estimateShipping(ctx context.Context, shipping CheckoutAddressInput) (int64, string) {
+	if uc.estimateShippingUC == nil {
+		return 0, ""
+	}
+	// Checked up front, before ever opening a transaction to look up a
+	// connection, same short-circuit GetDeliveryPriceEstimateUseCase's own
+	// Execute does -- no point resolving a connection for a country
+	// MyParcel could never price anyway.
+	cc := strings.ToUpper(strings.TrimSpace(shipping.Country))
+	if cc != "NL" && cc != "BE" {
+		return 0, ""
+	}
+	_, number, _ := splitStreetAndNumber(shipping.Address1, shipping.Address2)
+	if number == "" {
+		return 0, ""
+	}
+
+	var connectionID string
+	carrier := shippingDomain.CarrierPostNL
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		conns, err := uc.connRepo.ListByTenant(ctx)
+		if err != nil {
+			return err
+		}
+		for _, c := range conns {
+			if c.Provider == integrationsDomain.ProviderMyParcel {
+				connectionID = c.ID
+				break
+			}
+		}
+		if connectionID == "" {
+			return nil
+		}
+		settings, err := uc.shippingSettingsRepo.FindByConnectionID(ctx, connectionID)
+		if err != nil {
+			return err
+		}
+		if settings != nil {
+			carrier = settings.DefaultCarrier
+		}
+		return nil
+	})
+	if err != nil || connectionID == "" {
+		return 0, ""
+	}
+
+	// GetDeliveryPriceEstimateUseCase opens its own tenant.WithTenant --
+	// called here, outside the transaction above, to avoid nesting one
+	// (this codebase's repos reject that, see txctx's own doc comment).
+	options, err := uc.estimateShippingUC.Execute(ctx, appshipping.GetDeliveryPriceEstimateInput{
+		ConnectionID: connectionID, CC: cc, PostalCode: shipping.Postcode, Number: number, Carrier: carrier,
+	})
+	if err != nil || len(options) == 0 {
+		return 0, ""
+	}
+	cheapest := options[0]
+	for _, o := range options[1:] {
+		if o.AmountMinorUnits < cheapest.AmountMinorUnits {
+			cheapest = o
+		}
+	}
+	return int64(cheapest.AmountMinorUnits), cheapest.PriceComment
+}
+
+// shippingMethodSlug is the machine-readable counterpart to the human
+// title estimateShipping returns -- empty when no estimate was applied,
+// same "both empty means no shipping method was recorded" convention
+// oms.SalesOrder.ShippingMethod's own doc comment describes.
+func shippingMethodSlug(shippingAmount int64) string {
+	if shippingAmount == 0 {
+		return ""
+	}
+	return "myparcel"
 }
 
 func (uc *CheckoutCartUseCase) loadTaxConfig(ctx context.Context) ([]taxDomain.TaxClass, []taxDomain.TaxRate, error) {
