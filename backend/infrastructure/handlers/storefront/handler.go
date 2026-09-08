@@ -101,6 +101,18 @@ type listReviewsUC interface {
 	Execute(ctx context.Context, in appstorefront.ListReviewsInput) (*appstorefront.ReviewsResult, error)
 }
 
+type createWishlistUC interface {
+	Execute(ctx context.Context, salesChannelID string) (*storefrontDomain.Wishlist, error)
+}
+
+type getWishlistUC interface {
+	Execute(ctx context.Context, token string) (*storefrontDomain.Wishlist, error)
+}
+
+type toggleWishlistItemUC interface {
+	Execute(ctx context.Context, token, productID string) (*storefrontDomain.Wishlist, error)
+}
+
 type Handler struct {
 	resolveAPIKey          resolveAPIKeyUC
 	getCartRecommendations getCartRecommendationsUC
@@ -117,6 +129,9 @@ type Handler struct {
 	applyCoupon            applyCouponUC
 	submitReview           submitReviewUC
 	listReviews            listReviewsUC
+	createWishlist         createWishlistUC
+	getWishlist            getWishlistUC
+	toggleWishlistItem     toggleWishlistItemUC
 }
 
 func NewHandler(
@@ -135,6 +150,9 @@ func NewHandler(
 	applyCoupon applyCouponUC,
 	submitReview submitReviewUC,
 	listReviews listReviewsUC,
+	createWishlist createWishlistUC,
+	getWishlist getWishlistUC,
+	toggleWishlistItem toggleWishlistItemUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -142,6 +160,7 @@ func NewHandler(
 		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
 		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions, applyCoupon: applyCoupon,
 		submitReview: submitReview, listReviews: listReviews,
+		createWishlist: createWishlist, getWishlist: getWishlist, toggleWishlistItem: toggleWishlistItem,
 	}
 }
 
@@ -172,6 +191,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	shippingSettingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
 	couponRepo := repositories.NewCouponRepo(db)
 	reviewRepo := repositories.NewReviewRepo(db)
+	wishlistRepo := repositories.NewStorefrontWishlistRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -203,6 +223,9 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewApplyCouponUseCase(db, cartRepo, couponRepo),
 		appstorefront.NewSubmitReviewUseCase(db, channelRepo, overrideRepo, productRepo, reviewRepo),
 		appstorefront.NewListReviewsUseCase(db, reviewRepo),
+		appstorefront.NewCreateWishlistUseCase(db, channelRepo, wishlistRepo),
+		appstorefront.NewGetWishlistUseCase(db, wishlistRepo),
+		appstorefront.NewToggleWishlistItemUseCase(db, wishlistRepo, channelRepo, overrideRepo, productRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -462,6 +485,58 @@ func toGenReview(rv reviewsDomain.Review) genstorefront.Review {
 	}
 }
 
+func (h *Handler) CreateWishlist(c *gin.Context) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	wishlist, err := h.createWishlist.Execute(ctx, *resolved.SalesChannelID)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenWishlist(*wishlist))
+}
+
+func (h *Handler) GetWishlist(c *gin.Context, token string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	wishlist, err := h.getWishlist.Execute(ctx, token)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenWishlist(*wishlist))
+}
+
+func (h *Handler) ToggleWishlistItem(c *gin.Context, token string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.ToggleWishlistItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	wishlist, err := h.toggleWishlistItem.Execute(ctx, token, req.ProductId)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenWishlist(*wishlist))
+}
+
+func toGenWishlist(w storefrontDomain.Wishlist) genstorefront.Wishlist {
+	productIDs := w.ProductIDs
+	if productIDs == nil {
+		productIDs = []string{}
+	}
+	return genstorefront.Wishlist{Token: w.Token, ProductIds: productIDs}
+}
+
 func (h *Handler) ListStorefrontCategories(c *gin.Context) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
@@ -650,7 +725,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, themeDomain.ErrInvalidPageSlug):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
-		errors.Is(err, couponsDomain.ErrCouponNotFound):
+		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, couponsDomain.ErrCouponNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartAlreadyCheckedOut):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())

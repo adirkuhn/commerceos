@@ -227,6 +227,69 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/wishlists:
+    post:
+      operationId: createWishlist
+      summary: Start a new, empty wishlist on the calling channel
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/wishlists/{token}:
+    get:
+      operationId: getWishlist
+      summary: Fetch a wishlist by its token
+      parameters:
+        - $ref: '#/components/parameters/WishlistToken'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /storefront/v1/wishlists/{token}/items:
+    put:
+      operationId: toggleWishlistItem
+      summary: Add product_id to the wishlist, or remove it if already saved
+      description: >
+        One call per heart-icon click -- adding checks the product is still
+        available/enrolled on this channel (same rule as getStorefrontProduct);
+        removing never re-checks, so an already-saved product can always be
+        removed even if it's since been deactivated or unenrolled.
+      parameters:
+        - $ref: '#/components/parameters/WishlistToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToggleWishlistItemRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/products:
     get:
       operationId: listStorefrontProducts
@@ -431,6 +494,12 @@ components:
       required: true
       schema: { type: string }
 
+    WishlistToken:
+      name: token
+      in: path
+      required: true
+      schema: { type: string }
+
   responses:
     Error:
       description: error
@@ -536,6 +605,27 @@ components:
         code:
           type: string
           description: Empty or omitted removes any attached coupon.
+
+    Wishlist:
+      type: object
+      required: [token, product_ids]
+      properties:
+        token: { type: string }
+        product_ids:
+          type: array
+          items: { type: string }
+
+    WishlistResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Wishlist' }
+        error: { nullable: true }
+
+    ToggleWishlistItemRequest:
+      type: object
+      required: [product_id]
+      properties:
+        product_id: { type: string }
 
     Review:
       type: object

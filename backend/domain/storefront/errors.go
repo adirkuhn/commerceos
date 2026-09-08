@@ -33,4 +33,7 @@ var (
 	// three (see LookupOrderUseCase), so a guest order-status lookup can
 	// never be used to enumerate order numbers or guess billing emails.
 	ErrOrderNotFound = errors.New("order not found")
+	// ErrWishlistNotFound mirrors ErrCartNotFound for Wishlist -- see
+	// GetWishlistUseCase/ToggleWishlistItemUseCase.
+	ErrWishlistNotFound = errors.New("wishlist not found")
 )

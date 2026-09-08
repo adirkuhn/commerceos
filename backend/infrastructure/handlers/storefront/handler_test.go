@@ -149,6 +149,55 @@ func (s *stubListReviews) Execute(_ context.Context, _ appstorefront.ListReviews
 	return &appstorefront.ReviewsResult{}, nil
 }
 
+type stubCreateWishlist struct {
+	out       *storefrontDomain.Wishlist
+	err       error
+	gotChanID string
+}
+
+func (s *stubCreateWishlist) Execute(_ context.Context, salesChannelID string) (*storefrontDomain.Wishlist, error) {
+	s.gotChanID = salesChannelID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &storefrontDomain.Wishlist{Token: "wishlist-token-1", SalesChannelID: salesChannelID}, nil
+}
+
+type stubGetWishlist struct {
+	out      *storefrontDomain.Wishlist
+	err      error
+	gotToken string
+}
+
+func (s *stubGetWishlist) Execute(_ context.Context, token string) (*storefrontDomain.Wishlist, error) {
+	s.gotToken = token
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.out, nil
+}
+
+type stubToggleWishlistItem struct {
+	out          *storefrontDomain.Wishlist
+	err          error
+	gotToken     string
+	gotProductID string
+}
+
+func (s *stubToggleWishlistItem) Execute(_ context.Context, token, productID string) (*storefrontDomain.Wishlist, error) {
+	s.gotToken, s.gotProductID = token, productID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &storefrontDomain.Wishlist{Token: token, ProductIDs: []string{productID}}, nil
+}
+
 type stubCheckoutCart struct {
 	out      *appstorefront.CheckoutResult
 	err      error
@@ -255,6 +304,9 @@ func newTestHandler(
 	applyCoupon := &stubApplyCoupon{}
 	submitReview := &stubSubmitReview{}
 	listReviews := &stubListReviews{}
+	createWishlist := &stubCreateWishlist{}
+	getWishlist := &stubGetWishlist{}
+	toggleWishlistItem := &stubToggleWishlistItem{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
@@ -267,11 +319,18 @@ func newTestHandler(
 			submitReview = v
 		case *stubListReviews:
 			listReviews = v
+		case *stubCreateWishlist:
+			createWishlist = v
+		case *stubGetWishlist:
+			getWishlist = v
+		case *stubToggleWishlistItem:
+			toggleWishlistItem = v
 		}
 	}
 	return storefronthandler.NewHandler(
 		resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder,
 		getTheme, getShippingOptions, applyCoupon, submitReview, listReviews,
+		createWishlist, getWishlist, toggleWishlistItem,
 	)
 }
 
@@ -708,6 +767,62 @@ func TestGetStorefrontThemeHandler_invalidSlugIs422(t *testing.T) {
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, theme)
 
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/pages/not-a-real-page", "", "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestCreateWishlistHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	create := &stubCreateWishlist{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, create)
+
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/wishlists", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "channel-1", create.gotChanID)
+	assert.Contains(t, w.Body.String(), `"token":"wishlist-token-1"`)
+}
+
+func TestGetWishlistHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	get := &stubGetWishlist{out: &storefrontDomain.Wishlist{Token: "wishlist-token-1", ProductIDs: []string{"product-1"}}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, get)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/wishlists/wishlist-token-1", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "wishlist-token-1", get.gotToken)
+	assert.Contains(t, w.Body.String(), `"product-1"`)
+}
+
+func TestGetWishlistHandler_notFoundIs404(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	get := &stubGetWishlist{err: storefrontDomain.ErrWishlistNotFound}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, get)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/wishlists/missing-token", "", "test-key")
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestToggleWishlistItemHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	toggle := &stubToggleWishlistItem{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, toggle)
+
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/wishlists/wishlist-token-1/items", `{"product_id":"product-1"}`, "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "wishlist-token-1", toggle.gotToken)
+	assert.Equal(t, "product-1", toggle.gotProductID)
+}
+
+func TestToggleWishlistItemHandler_productNotAvailableIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	toggle := &stubToggleWishlistItem{err: storefrontDomain.ErrProductNotAvailable}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, toggle)
+
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/wishlists/wishlist-token-1/items", `{"product_id":"missing-product"}`, "test-key")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }

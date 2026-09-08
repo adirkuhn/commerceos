@@ -18,3 +18,11 @@ type CartRepository interface {
 	// "replace the whole line set" doc comment).
 	Update(ctx context.Context, c *Cart) error
 }
+
+// WishlistRepository mirrors CartRepository's shape/conventions exactly
+// (see its doc comment) -- same token-lookup, same whole-object Update.
+type WishlistRepository interface {
+	Create(ctx context.Context, w *Wishlist) error
+	FindByToken(ctx context.Context, token string) (*Wishlist, error)
+	Update(ctx context.Context, w *Wishlist) error
+}

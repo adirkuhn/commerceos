@@ -100,6 +100,39 @@ func (f *fakeCartRepo) Update(_ context.Context, c *storefrontDomain.Cart) error
 	return nil
 }
 
+type fakeWishlistRepo struct {
+	storefrontDomain.WishlistRepository
+	byToken   map[string]storefrontDomain.Wishlist
+	createErr error
+	updateErr error
+	created   *storefrontDomain.Wishlist
+	updated   *storefrontDomain.Wishlist
+}
+
+func (f *fakeWishlistRepo) Create(_ context.Context, w *storefrontDomain.Wishlist) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
+	w.ID = "wishlist-1"
+	f.created = w
+	return nil
+}
+
+func (f *fakeWishlistRepo) FindByToken(_ context.Context, token string) (*storefrontDomain.Wishlist, error) {
+	if w, ok := f.byToken[token]; ok {
+		return &w, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeWishlistRepo) Update(_ context.Context, w *storefrontDomain.Wishlist) error {
+	if f.updateErr != nil {
+		return f.updateErr
+	}
+	f.updated = w
+	return nil
+}
+
 // ── catalog ──────────────────────────────────────────────────────────────
 
 type fakeSKURepo struct {
