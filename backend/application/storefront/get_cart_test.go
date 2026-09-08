@@ -15,7 +15,7 @@ func TestGetCart_returnsTheCartForItsToken(t *testing.T) {
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{
 		"token-1": {ID: "cart-1", Token: "token-1", Items: []storefrontDomain.CartItem{{SKUCode: "SKU-A", Quantity: 2, PriceMinorUnits: 500}}},
 	}}
-	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 1), cartRepo, nil)
+	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 1), cartRepo, nil, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
 
 	result, err := uc.Execute(context.Background(), "token-1")
 
@@ -26,7 +26,7 @@ func TestGetCart_returnsTheCartForItsToken(t *testing.T) {
 }
 
 func TestGetCart_returnsNotFoundForUnknownToken(t *testing.T) {
-	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 1), &fakeCartRepo{}, nil)
+	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 1), &fakeCartRepo{}, nil, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
 
 	_, err := uc.Execute(context.Background(), "unknown-token")
 
@@ -42,7 +42,7 @@ func TestGetCart_computesLiveDiscountWhenCouponAttached(t *testing.T) {
 		},
 	}}
 	couponRepo := &fakeCouponRepoForCheckout{byCode: map[string]couponsDomain.Coupon{"SUMMER10": redeemableCoupon()}}
-	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 2), cartRepo, couponRepo)
+	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 2), cartRepo, couponRepo, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
 
 	result, err := uc.Execute(context.Background(), "token-1")
 
@@ -58,7 +58,7 @@ func TestGetCart_showsZeroDiscountWhenCouponNoLongerRedeemable(t *testing.T) {
 			Items: []storefrontDomain.CartItem{{SKUCode: "SKU-A", Quantity: 2, PriceMinorUnits: 500}},
 		},
 	}}
-	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 2), cartRepo, &fakeCouponRepoForCheckout{})
+	uc := appstorefront.NewGetCartUseCase(newMockGormDB(t, 2), cartRepo, &fakeCouponRepoForCheckout{}, &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepo{})
 
 	result, err := uc.Execute(context.Background(), "token-1")
 

@@ -241,6 +241,9 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	wishlistRepo := repositories.NewStorefrontWishlistRepo(db)
 	magicLinkTokenRepo := repositories.NewStorefrontMagicLinkTokenRepo(db)
 	customerSessionRepo := repositories.NewStorefrontCustomerSessionRepo(db)
+	skuCurrencyPriceRepo := repositories.NewSKUCurrencyPriceRepo(db)
+	fxRepo := repositories.NewExchangeRateRepo(db)
+	couponCurrencyRepo := repositories.NewCouponCurrencyAmountRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -256,7 +259,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	verifyCardPayment := appstorefront.NewVerifyCardPaymentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret)
 	checkoutCart := appstorefront.NewCheckoutCartUseCase(
 		db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
-		connRepo, shippingSettingsRepo, estimateShipping, couponRepo, verifyCardPayment,
+		connRepo, shippingSettingsRepo, estimateShipping, couponRepo, couponCurrencyRepo, fxRepo, verifyCardPayment,
 	)
 	createPaymentIntent := appstorefront.NewCreatePaymentIntentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret, checkoutCart)
 
@@ -264,22 +267,22 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
 		getCartRecommendations,
 		appstorefront.NewCreateCartUseCase(db, channelRepo, cartRepo),
-		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo),
-		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel, couponRepo),
+		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo, couponCurrencyRepo, fxRepo),
+		appstorefront.NewUpdateCartItemsUseCase(db, cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, skuCurrencyPriceRepo, fxRepo, stockLevel, couponRepo, couponCurrencyRepo),
 		checkoutCart,
-		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo),
-		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
+		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo, skuCurrencyPriceRepo, fxRepo),
+		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, stockLevel),
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
 		appstorefront.NewGetStorefrontThemeUseCase(appTheme.NewGetThemePageUseCase(db, themeRepo)),
 		appstorefront.NewGetShippingOptionsUseCase(db, connRepo, shippingSettingsRepo, estimateShipping),
-		appstorefront.NewApplyCouponUseCase(db, cartRepo, couponRepo),
+		appstorefront.NewApplyCouponUseCase(db, cartRepo, couponRepo, couponCurrencyRepo, fxRepo),
 		appstorefront.NewSubmitReviewUseCase(db, channelRepo, overrideRepo, productRepo, reviewRepo),
 		appstorefront.NewListReviewsUseCase(db, reviewRepo),
 		appstorefront.NewCreateWishlistUseCase(db, channelRepo, wishlistRepo),
 		appstorefront.NewGetWishlistUseCase(db, wishlistRepo),
 		appstorefront.NewToggleWishlistItemUseCase(db, wishlistRepo, channelRepo, overrideRepo, productRepo),
-		appstorefront.NewGetProductRecommendationsUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, getCartRecommendations),
+		appstorefront.NewGetProductRecommendationsUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, skuCurrencyPriceRepo, fxRepo, getCartRecommendations),
 		appstorefront.NewRequestMagicLinkUseCase(db, channelRepo, customerRepo, createCustomer, magicLinkTokenRepo, emailClient),
 		appstorefront.NewVerifyMagicLinkUseCase(db, magicLinkTokenRepo, customerSessionRepo),
 		appstorefront.NewGetAccountUseCase(db, customerSessionRepo, customerRepo),

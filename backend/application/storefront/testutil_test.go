@@ -13,14 +13,77 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	emailDomain "github.com/adirkuhn/commerceos/domain/email"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	taxDomain "github.com/adirkuhn/commerceos/domain/tax"
 )
+
+// ── fx / multi-currency ──────────────────────────────────────────────────
+
+// fakeExchangeRateRepo/fakeSKUCurrencyPriceRepo/fakeCouponCurrencyAmountRepo
+// back every use case's optional currency-resolution dependencies -- nil
+// maps mean "no rate/override configured", the pre-multi-currency default
+// every existing test exercises (channel.CurrencyCode == "").
+type fakeExchangeRateRepo struct {
+	byCurrency map[string]fxDomain.ExchangeRate
+}
+
+func (f *fakeExchangeRateRepo) FindByCurrency(_ context.Context, currencyCode string) (*fxDomain.ExchangeRate, error) {
+	if r, ok := f.byCurrency[currencyCode]; ok {
+		cp := r
+		return &cp, nil
+	}
+	return nil, nil
+}
+func (f *fakeExchangeRateRepo) ListByTenant(_ context.Context) ([]fxDomain.ExchangeRate, error) {
+	return nil, nil
+}
+func (f *fakeExchangeRateRepo) Upsert(_ context.Context, _ *fxDomain.ExchangeRate) error { return nil }
+func (f *fakeExchangeRateRepo) Delete(_ context.Context, _ string) error                 { return nil }
+
+type fakeSKUCurrencyPriceRepo struct {
+	byKey map[string]pmsDomain.SKUCurrencyPrice
+}
+
+func (f *fakeSKUCurrencyPriceRepo) FindBySKUAndCurrency(_ context.Context, skuID, currencyCode string) (*pmsDomain.SKUCurrencyPrice, error) {
+	if p, ok := f.byKey[skuID+"|"+currencyCode]; ok {
+		cp := p
+		return &cp, nil
+	}
+	return nil, nil
+}
+func (f *fakeSKUCurrencyPriceRepo) ListBySKU(_ context.Context, _ string) ([]pmsDomain.SKUCurrencyPrice, error) {
+	return nil, nil
+}
+func (f *fakeSKUCurrencyPriceRepo) Upsert(_ context.Context, _ *pmsDomain.SKUCurrencyPrice) error {
+	return nil
+}
+func (f *fakeSKUCurrencyPriceRepo) Delete(_ context.Context, _, _ string) error { return nil }
+
+type fakeCouponCurrencyAmountRepo struct {
+	byKey map[string]couponsDomain.CouponCurrencyAmount
+}
+
+func (f *fakeCouponCurrencyAmountRepo) FindByCouponAndCurrency(_ context.Context, couponID, currencyCode string) (*couponsDomain.CouponCurrencyAmount, error) {
+	if a, ok := f.byKey[couponID+"|"+currencyCode]; ok {
+		cp := a
+		return &cp, nil
+	}
+	return nil, nil
+}
+func (f *fakeCouponCurrencyAmountRepo) ListByCoupon(_ context.Context, _ string) ([]couponsDomain.CouponCurrencyAmount, error) {
+	return nil, nil
+}
+func (f *fakeCouponCurrencyAmountRepo) Upsert(_ context.Context, _ *couponsDomain.CouponCurrencyAmount) error {
+	return nil
+}
+func (f *fakeCouponCurrencyAmountRepo) Delete(_ context.Context, _, _ string) error { return nil }
 
 // newMockGormDB returns a *gorm.DB backed by sqlmock, wired to satisfy n
 // tenant.WithTenant Begin/set_config/Commit round trips -- same pattern as

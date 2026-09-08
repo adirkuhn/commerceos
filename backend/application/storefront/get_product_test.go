@@ -8,12 +8,13 @@ import (
 
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 )
 
 func newGetProductUseCase(t *testing.T, n int, channelRepo *fakeChannelRepo, overrideRepo *fakeOverrideRepo, productRepo *fakeProductRepo, variantRepo *fakeVariantRepo, skuRepo *fakeSKURepo, mediaRepo *fakeMediaRepo, stockLevel *fakeStockLevel) *appstorefront.GetProductUseCase {
-	return appstorefront.NewGetProductUseCase(newMockGormDB(t, n), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel)
+	return appstorefront.NewGetProductUseCase(newMockGormDB(t, n), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, stockLevel)
 }
 
 func TestGetProduct_returnsFullVariantSKUAndImageDetail(t *testing.T) {
@@ -63,6 +64,32 @@ func TestGetProduct_appliesChannelPriceAdjustment(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int64(800), detail.Variants[0].SKUs[0].PriceMinorUnits)
+}
+
+func TestGetProduct_convertsSKUPriceIntoTheChannelsCurrency(t *testing.T) {
+	usdChannel := internalChannel("channel-usd")
+	usdChannel.CurrencyCode = "USD"
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-usd": usdChannel}}
+	productRepo := &fakeProductRepo{byID: map[string]pmsDomain.Product{
+		"product-1": {ID: "product-1", Name: "Widget", Status: pmsDomain.ProductStatusActive},
+	}}
+	variantRepo := &fakeVariantRepo{byProduct: map[string][]pmsDomain.Variant{
+		"product-1": {{ID: "variant-1", ProductID: "product-1", Name: "Default"}},
+	}}
+	skuRepo := &fakeSKURepo{byVariant: map[string][]pmsDomain.SKU{
+		"variant-1": {{ID: "sku-1", VariantID: "variant-1", SKUCode: "SKU-A", PriceMinorUnits: 1000, CurrencyCode: "EUR"}},
+	}}
+	fxRepo := &fakeExchangeRateRepo{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
+	uc := appstorefront.NewGetProductUseCase(
+		newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, productRepo, variantRepo, skuRepo, &fakeMediaRepo{},
+		&fakeSKUCurrencyPriceRepo{}, fxRepo, &fakeStockLevel{},
+	)
+
+	detail, err := uc.Execute(context.Background(), "channel-usd", "product-1")
+
+	require.NoError(t, err)
+	require.Equal(t, "USD", detail.Variants[0].SKUs[0].CurrencyCode)
+	require.Equal(t, int64(1088), detail.Variants[0].SKUs[0].PriceMinorUnits)
 }
 
 func TestGetProduct_rejectsDraftProduct(t *testing.T) {

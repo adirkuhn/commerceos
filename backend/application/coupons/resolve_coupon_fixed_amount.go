@@ -42,3 +42,20 @@ func ResolveCouponFixedAmount(ctx context.Context, coupon couponsDomain.Coupon, 
 	}
 	return rate.Convert(int64(coupon.DiscountValue)), nil
 }
+
+// EffectiveCoupon returns coupon with DiscountValue resolved into
+// channelCurrency -- a no-op copy for DiscountTypePercent (already
+// currency-agnostic) or "" (the tenant's default currency). Callers then
+// call DiscountForSubtotal on the result unchanged, so the clamp-to-subtotal
+// logic never needs duplicating here.
+func EffectiveCoupon(ctx context.Context, coupon couponsDomain.Coupon, channelCurrency string, overrideRepo couponsDomain.CouponCurrencyAmountRepository, fxRepo fxDomain.ExchangeRateRepository) (couponsDomain.Coupon, error) {
+	if coupon.DiscountType != couponsDomain.DiscountTypeFixed {
+		return coupon, nil
+	}
+	amount, err := ResolveCouponFixedAmount(ctx, coupon, channelCurrency, overrideRepo, fxRepo)
+	if err != nil {
+		return coupon, err
+	}
+	coupon.DiscountValue = int(amount)
+	return coupon, nil
+}

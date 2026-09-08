@@ -8,19 +8,26 @@ import (
 
 	"gorm.io/gorm"
 
+	appcoupons "github.com/adirkuhn/commerceos/application/coupons"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 type ApplyCouponUseCase struct {
-	db         *gorm.DB
-	cartRepo   storefrontDomain.CartRepository
-	couponRepo couponsDomain.Repository
+	db                 *gorm.DB
+	cartRepo           storefrontDomain.CartRepository
+	couponRepo         couponsDomain.Repository
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository
+	fxRepo             fxDomain.ExchangeRateRepository
 }
 
-func NewApplyCouponUseCase(db *gorm.DB, cartRepo storefrontDomain.CartRepository, couponRepo couponsDomain.Repository) *ApplyCouponUseCase {
-	return &ApplyCouponUseCase{db: db, cartRepo: cartRepo, couponRepo: couponRepo}
+func NewApplyCouponUseCase(
+	db *gorm.DB, cartRepo storefrontDomain.CartRepository, couponRepo couponsDomain.Repository,
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository, fxRepo fxDomain.ExchangeRateRepository,
+) *ApplyCouponUseCase {
+	return &ApplyCouponUseCase{db: db, cartRepo: cartRepo, couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo, fxRepo: fxRepo}
 }
 
 // Execute attaches code to token's cart, or removes any attached coupon
@@ -62,7 +69,11 @@ func (uc *ApplyCouponUseCase) Execute(ctx context.Context, token string, code st
 			// Computed here, inside the same transaction that just
 			// validated this exact coupon -- resolveDisplayDiscount would
 			// otherwise re-look it up a second time right after.
-			discount = coupon.DiscountForSubtotal(subtotal)
+			effective, err := appcoupons.EffectiveCoupon(ctx, *coupon, found.CurrencyCode(), uc.couponCurrencyRepo, uc.fxRepo)
+			if err != nil {
+				return err
+			}
+			discount = effective.DiscountForSubtotal(subtotal)
 		}
 		found.UpdatedAt = time.Now()
 		if err := uc.cartRepo.Update(ctx, found); err != nil {

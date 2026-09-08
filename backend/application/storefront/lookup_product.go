@@ -14,7 +14,9 @@ import (
 	"errors"
 
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 )
@@ -59,6 +61,8 @@ func lookupCatalogEntry(
 	variantRepo pmsDomain.VariantRepository,
 	productRepo pmsDomain.ProductRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository,
+	fxRepo fxDomain.ExchangeRateRepository,
 	channel channelsDomain.SalesChannel,
 	skuCode string,
 	quantity int64,
@@ -91,21 +95,27 @@ func lookupCatalogEntry(
 	if !channel.IsProductEnrolled(product.CategoryID, product.Tags, override) {
 		return nil, storefrontDomain.ErrProductNotAvailable
 	}
-	// Both prices go through the channel's own discount (e.g. a B2B
-	// channel's wholesale rate, plus any QuantityBreak this line's own
-	// quantity qualifies for -- the actual line quantity is known here,
-	// unlike on a browse-time listing/detail page) before anything else
-	// ever sees them -- snapshotted onto the CartItem at this point, same
-	// as every other price field here (see catalogEntry's own doc comment).
-	price := channel.EffectivePriceMinorUnitsForQuantity(sku.PriceMinorUnits, quantity)
+	// Resolved into the channel's own currency first (a no-op passthrough
+	// for a channel with no CurrencyCode set -- see ResolveSKUPrice), then
+	// the channel's own discount (e.g. a B2B channel's wholesale rate, plus
+	// any QuantityBreak this line's own quantity qualifies for -- the
+	// actual line quantity is known here, unlike on a browse-time
+	// listing/detail page) applied on top, before anything else ever sees
+	// them -- snapshotted onto the CartItem at this point, same as every
+	// other price field here (see catalogEntry's own doc comment).
+	resolved, err := apppms.ResolveSKUPrice(ctx, *sku, channel.CurrencyCode, skuCurrencyPriceRepo, fxRepo)
+	if err != nil {
+		return nil, err
+	}
+	price := channel.EffectivePriceMinorUnitsForQuantity(resolved.PriceMinorUnits, quantity)
 	var salePrice *int64
-	if sku.SalePriceMinorUnits != nil {
-		discounted := channel.EffectivePriceMinorUnitsForQuantity(*sku.SalePriceMinorUnits, quantity)
+	if resolved.SalePriceMinorUnits != nil {
+		discounted := channel.EffectivePriceMinorUnitsForQuantity(*resolved.SalePriceMinorUnits, quantity)
 		salePrice = &discounted
 	}
 	return &catalogEntry{
 		SKUID: sku.ID, ProductName: product.Name, PriceMinorUnits: price,
-		SalePriceMinorUnits: salePrice, CurrencyCode: sku.CurrencyCode, TaxClassID: sku.TaxClassID,
+		SalePriceMinorUnits: salePrice, CurrencyCode: resolved.CurrencyCode, TaxClassID: sku.TaxClassID,
 	}, nil
 }
 

@@ -76,3 +76,13 @@ func (c Cart) SubtotalMinorUnits() int64 {
 	}
 	return total
 }
+
+// CurrencyCode is the cart's items' own currency ("" for an empty cart) --
+// every item is snapshotted in the channel's currency at add-time (see
+// CartItem's own doc comment), so the first line's is as good as any.
+func (c Cart) CurrencyCode() string {
+	if len(c.Items) == 0 {
+		return ""
+	}
+	return c.Items[0].CurrencyCode
+}

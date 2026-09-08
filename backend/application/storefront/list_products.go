@@ -8,6 +8,7 @@ import (
 
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -68,12 +69,14 @@ type listPOSProductCatalogUC interface {
 // single source of truth for "what a product+its SKUs look like",
 // application/storefront only ever adds channel-enrollment scoping on top.
 type ListProductsUseCase struct {
-	db           *gorm.DB
-	channelRepo  channelsDomain.SalesChannelRepository
-	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
-	listCatalog  listPOSProductCatalogUC
-	productRepo  pmsDomain.ProductRepository
-	categoryRepo pmsDomain.CategoryRepository
+	db                   *gorm.DB
+	channelRepo          channelsDomain.SalesChannelRepository
+	overrideRepo         channelsDomain.SalesChannelProductOverrideRepository
+	listCatalog          listPOSProductCatalogUC
+	productRepo          pmsDomain.ProductRepository
+	categoryRepo         pmsDomain.CategoryRepository
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository
+	fxRepo               fxDomain.ExchangeRateRepository
 }
 
 func NewListProductsUseCase(
@@ -83,10 +86,13 @@ func NewListProductsUseCase(
 	listCatalog listPOSProductCatalogUC,
 	productRepo pmsDomain.ProductRepository,
 	categoryRepo pmsDomain.CategoryRepository,
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository,
+	fxRepo fxDomain.ExchangeRateRepository,
 ) *ListProductsUseCase {
 	return &ListProductsUseCase{
 		db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, listCatalog: listCatalog,
 		productRepo: productRepo, categoryRepo: categoryRepo,
+		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo,
 	}
 }
 
@@ -164,18 +170,31 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 	}
 
 	result := &ListProductsResult{Total: catalog.Total, Products: make([]ProductSummary, len(catalog.Products)), CategoryFacets: categoryFacets}
-	for i, p := range catalog.Products {
-		summary := ProductSummary{Product: p.Product, ImageURL: p.ImageURL}
-		if len(p.SKUs) > 0 {
-			sku := p.SKUs[0]
-			price, currency := channel.EffectivePriceMinorUnits(sku.PriceMinorUnits), sku.CurrencyCode
-			summary.PriceMinorUnits, summary.CurrencyCode = &price, &currency
-			if sku.SalePriceMinorUnits != nil {
-				salePrice := channel.EffectivePriceMinorUnits(*sku.SalePriceMinorUnits)
-				summary.SalePriceMinorUnits = &salePrice
+	// A separate transaction from the one above -- listCatalog.Execute (a
+	// full use case) already opened and closed its own in between, and this
+	// codebase never nests tenant.WithTenant calls.
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		for i, p := range catalog.Products {
+			summary := ProductSummary{Product: p.Product, ImageURL: p.ImageURL}
+			if len(p.SKUs) > 0 {
+				sku := p.SKUs[0]
+				resolved, err := apppms.ResolveSKUPrice(ctx, sku.SKU, channel.CurrencyCode, uc.skuCurrencyPriceRepo, uc.fxRepo)
+				if err != nil {
+					return err
+				}
+				price, currency := channel.EffectivePriceMinorUnits(resolved.PriceMinorUnits), resolved.CurrencyCode
+				summary.PriceMinorUnits, summary.CurrencyCode = &price, &currency
+				if resolved.SalePriceMinorUnits != nil {
+					salePrice := channel.EffectivePriceMinorUnits(*resolved.SalePriceMinorUnits)
+					summary.SalePriceMinorUnits = &salePrice
+				}
 			}
+			result.Products[i] = summary
 		}
-		result.Products[i] = summary
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listProducts: %w", err)
 	}
 	return result, nil
 }

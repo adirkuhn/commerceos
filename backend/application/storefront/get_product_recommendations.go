@@ -6,8 +6,10 @@ import (
 
 	"gorm.io/gorm"
 
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -41,6 +43,8 @@ type GetProductRecommendationsUseCase struct {
 	variantRepo            pmsDomain.VariantRepository
 	skuRepo                pmsDomain.SKURepository
 	mediaRepo              pmsDomain.MediaRepository
+	skuCurrencyPriceRepo   pmsDomain.SKUCurrencyPriceRepository
+	fxRepo                 fxDomain.ExchangeRateRepository
 	getCartRecommendations cartRecommendationsGetter
 }
 
@@ -52,11 +56,14 @@ func NewGetProductRecommendationsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	mediaRepo pmsDomain.MediaRepository,
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository,
+	fxRepo fxDomain.ExchangeRateRepository,
 	getCartRecommendations cartRecommendationsGetter,
 ) *GetProductRecommendationsUseCase {
 	return &GetProductRecommendationsUseCase{
 		db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, productRepo: productRepo,
-		variantRepo: variantRepo, skuRepo: skuRepo, mediaRepo: mediaRepo, getCartRecommendations: getCartRecommendations,
+		variantRepo: variantRepo, skuRepo: skuRepo, mediaRepo: mediaRepo,
+		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo, getCartRecommendations: getCartRecommendations,
 	}
 }
 
@@ -126,12 +133,16 @@ func (uc *GetProductRecommendationsUseCase) Execute(ctx context.Context, salesCh
 				continue
 			}
 
+			resolved, err := apppms.ResolveSKUPrice(ctx, *sku, channel.CurrencyCode, uc.skuCurrencyPriceRepo, uc.fxRepo)
+			if err != nil {
+				return err
+			}
 			summary := ProductSummary{Product: *product}
-			price := channel.EffectivePriceMinorUnits(sku.PriceMinorUnits)
-			currency := sku.CurrencyCode
+			price := channel.EffectivePriceMinorUnits(resolved.PriceMinorUnits)
+			currency := resolved.CurrencyCode
 			summary.PriceMinorUnits, summary.CurrencyCode = &price, &currency
-			if sku.SalePriceMinorUnits != nil {
-				salePrice := channel.EffectivePriceMinorUnits(*sku.SalePriceMinorUnits)
+			if resolved.SalePriceMinorUnits != nil {
+				salePrice := channel.EffectivePriceMinorUnits(*resolved.SalePriceMinorUnits)
 				summary.SalePriceMinorUnits = &salePrice
 			}
 			if media, err := uc.mediaRepo.ListByProduct(ctx, product.ID); err == nil && len(media) > 0 {

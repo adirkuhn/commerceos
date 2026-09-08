@@ -44,3 +44,21 @@ func TestResolveCouponFixedAmount(t *testing.T) {
 		require.ErrorIs(t, err, couponsDomain.ErrExchangeRateRequired)
 	})
 }
+
+func TestEffectiveCoupon(t *testing.T) {
+	t.Run("percent coupons pass through unchanged regardless of currency", func(t *testing.T) {
+		percent := couponsDomain.Coupon{ID: "coupon-1", DiscountType: couponsDomain.DiscountTypePercent, DiscountValue: 1500}
+		effective, err := appcoupons.EffectiveCoupon(context.Background(), percent, "USD", &fakeCouponCurrencyAmountRepo{}, &fakeExchangeRateRepoCoupons{})
+		require.NoError(t, err)
+		require.Equal(t, 1500, effective.DiscountValue)
+	})
+
+	t.Run("fixed coupons resolve DiscountValue into the channel currency", func(t *testing.T) {
+		fixed := couponsDomain.Coupon{ID: "coupon-1", DiscountType: couponsDomain.DiscountTypeFixed, DiscountValue: 1000}
+		fxRepo := &fakeExchangeRateRepoCoupons{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
+
+		effective, err := appcoupons.EffectiveCoupon(context.Background(), fixed, "USD", &fakeCouponCurrencyAmountRepo{}, fxRepo)
+		require.NoError(t, err)
+		require.Equal(t, 1088, effective.DiscountValue)
+	})
+}

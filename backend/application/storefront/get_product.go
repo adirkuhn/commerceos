@@ -7,7 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
+	apppms "github.com/adirkuhn/commerceos/application/pms"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -41,14 +43,16 @@ type ProductDetail struct {
 }
 
 type GetProductUseCase struct {
-	db           *gorm.DB
-	channelRepo  channelsDomain.SalesChannelRepository
-	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
-	productRepo  pmsDomain.ProductRepository
-	variantRepo  pmsDomain.VariantRepository
-	skuRepo      pmsDomain.SKURepository
-	mediaRepo    pmsDomain.MediaRepository
-	stockLevel   StockLevelGetter
+	db                   *gorm.DB
+	channelRepo          channelsDomain.SalesChannelRepository
+	overrideRepo         channelsDomain.SalesChannelProductOverrideRepository
+	productRepo          pmsDomain.ProductRepository
+	variantRepo          pmsDomain.VariantRepository
+	skuRepo              pmsDomain.SKURepository
+	mediaRepo            pmsDomain.MediaRepository
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository
+	fxRepo               fxDomain.ExchangeRateRepository
+	stockLevel           StockLevelGetter
 }
 
 func NewGetProductUseCase(
@@ -59,11 +63,14 @@ func NewGetProductUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	skuRepo pmsDomain.SKURepository,
 	mediaRepo pmsDomain.MediaRepository,
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository,
+	fxRepo fxDomain.ExchangeRateRepository,
 	stockLevel StockLevelGetter,
 ) *GetProductUseCase {
 	return &GetProductUseCase{
 		db: db, channelRepo: channelRepo, overrideRepo: overrideRepo,
-		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo, mediaRepo: mediaRepo, stockLevel: stockLevel,
+		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo, mediaRepo: mediaRepo,
+		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo, stockLevel: stockLevel,
 	}
 }
 
@@ -111,9 +118,15 @@ func (uc *GetProductUseCase) Execute(ctx context.Context, salesChannelID, produc
 			}
 			skuDetails := make([]SKUDetail, len(skus))
 			for j, s := range skus {
-				s.PriceMinorUnits = channel.EffectivePriceMinorUnits(s.PriceMinorUnits)
-				if s.SalePriceMinorUnits != nil {
-					discounted := channel.EffectivePriceMinorUnits(*s.SalePriceMinorUnits)
+				resolved, err := apppms.ResolveSKUPrice(ctx, s, channel.CurrencyCode, uc.skuCurrencyPriceRepo, uc.fxRepo)
+				if err != nil {
+					return err
+				}
+				s.PriceMinorUnits = channel.EffectivePriceMinorUnits(resolved.PriceMinorUnits)
+				s.CurrencyCode = resolved.CurrencyCode
+				s.SalePriceMinorUnits = nil
+				if resolved.SalePriceMinorUnits != nil {
+					discounted := channel.EffectivePriceMinorUnits(*resolved.SalePriceMinorUnits)
 					s.SalePriceMinorUnits = &discounted
 				}
 				skuDetails[j] = SKUDetail{SKU: s}

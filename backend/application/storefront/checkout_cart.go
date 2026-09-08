@@ -9,12 +9,14 @@ import (
 
 	"gorm.io/gorm"
 
+	appcoupons "github.com/adirkuhn/commerceos/application/coupons"
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/events"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
@@ -133,6 +135,8 @@ type CheckoutCartUseCase struct {
 	generatePaymentLink paymentLinkGenerator
 	shippingResolver    *shippingOptionsResolver
 	couponRepo          couponsDomain.Repository
+	couponCurrencyRepo  couponsDomain.CouponCurrencyAmountRepository
+	fxRepo              fxDomain.ExchangeRateRepository
 	verifyCardPayment   cardPaymentVerifier
 }
 
@@ -150,15 +154,19 @@ func NewCheckoutCartUseCase(
 	shippingSettingsRepo shippingDomain.ShippingConnectionSettingsRepository,
 	estimateShippingUC deliveryPriceEstimator,
 	couponRepo couponsDomain.Repository,
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository,
+	fxRepo fxDomain.ExchangeRateRepository,
 	verifyCardPayment cardPaymentVerifier,
 ) *CheckoutCartUseCase {
 	return &CheckoutCartUseCase{
 		db: db, cartRepo: cartRepo, customerRepo: customerRepo, createCustomer: createCustomer,
 		createSalesOrder: createSalesOrder, taxClassRepo: taxClassRepo, taxRateRepo: taxRateRepo,
 		outboxRepo: outboxRepo, generatePaymentLink: generatePaymentLink,
-		shippingResolver:  &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
-		couponRepo:        couponRepo,
-		verifyCardPayment: verifyCardPayment,
+		shippingResolver:   &shippingOptionsResolver{db: db, connRepo: connRepo, shippingSettingsRepo: shippingSettingsRepo, estimateUC: estimateShippingUC},
+		couponRepo:         couponRepo,
+		couponCurrencyRepo: couponCurrencyRepo,
+		fxRepo:             fxRepo,
+		verifyCardPayment:  verifyCardPayment,
 	}
 }
 
@@ -340,7 +348,7 @@ func (uc *CheckoutCartUseCase) computeTotals(ctx context.Context, cart *storefro
 	// meets its minimum -- e.g. an item was removed after applying it),
 	// checkout fails with a clear error rather than silently dropping the
 	// discount the shopper is expecting.
-	discountAmount, couponID, err := uc.resolveCouponDiscount(ctx, cart.CouponCode, subtotal)
+	discountAmount, couponID, err := uc.resolveCouponDiscount(ctx, cart.CouponCode, subtotal, currency)
 	if err != nil {
 		return nil, err
 	}
@@ -454,14 +462,22 @@ func shippingMethodSlug(shippingAmount int64) string {
 // either failing returns an error that Execute propagates, never silently
 // drops the discount. Returns the coupon's ID (for IncrementTimesUsed)
 // alongside the amount.
-func (uc *CheckoutCartUseCase) resolveCouponDiscount(ctx context.Context, couponCode *string, subtotal int64) (int64, string, error) {
+func (uc *CheckoutCartUseCase) resolveCouponDiscount(ctx context.Context, couponCode *string, subtotal int64, channelCurrency string) (int64, string, error) {
 	if couponCode == nil {
 		return 0, "", nil
 	}
 	var coupon *couponsDomain.Coupon
+	var effective couponsDomain.Coupon
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		coupon, err = uc.couponRepo.FindByCode(ctx, *couponCode)
+		if err != nil {
+			return err
+		}
+		if coupon == nil {
+			return nil
+		}
+		effective, err = appcoupons.EffectiveCoupon(ctx, *coupon, channelCurrency, uc.couponCurrencyRepo, uc.fxRepo)
 		return err
 	})
 	if err != nil {
@@ -473,7 +489,7 @@ func (uc *CheckoutCartUseCase) resolveCouponDiscount(ctx context.Context, coupon
 	if !coupon.MeetsMinSubtotal(subtotal) {
 		return 0, "", couponsDomain.ErrCouponMinSubtotalNotMet
 	}
-	return coupon.DiscountForSubtotal(subtotal), coupon.ID, nil
+	return effective.DiscountForSubtotal(subtotal), coupon.ID, nil
 }
 
 func (uc *CheckoutCartUseCase) loadTaxConfig(ctx context.Context) ([]taxDomain.TaxClass, []taxDomain.TaxRate, error) {

@@ -9,6 +9,7 @@ import (
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 )
@@ -19,7 +20,7 @@ func TestListProducts_allModeOnlyExcludesManualOverrides(t *testing.T) {
 		"channel-1": {{ProductID: "product-excluded", Included: false}},
 	}}
 	catalog := &fakeListPOSProductCatalog{}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, catalog, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
 
@@ -42,7 +43,7 @@ func TestListProducts_categoryModeConstrainsToCategoryPlusManualIncludes(t *test
 		"channel-1": {{ProductID: "manually-included", Included: true}},
 	}}
 	catalog := &fakeListPOSProductCatalog{}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, overrideRepo, catalog, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
 
@@ -58,7 +59,7 @@ func TestListProducts_manualModeWithNoIncludesStillQueries(t *testing.T) {
 	manual.EnrollmentMode = channelsDomain.EnrollmentModeManual
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": manual}}
 	catalog := &fakeListPOSProductCatalog{}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
 
@@ -70,7 +71,7 @@ func TestListProducts_manualModeWithNoIncludesStillQueries(t *testing.T) {
 func TestListProducts_browseCategoryFilterPassesThroughAsAndCategoryID(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	catalog := &fakeListPOSProductCatalog{}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 	browseCategory := "cat-shoes"
 
 	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{CategoryID: &browseCategory, Page: 1, PerPage: 20})
@@ -90,7 +91,7 @@ func TestListProducts_mapsSKUsFirstSKUAsListingPrice(t *testing.T) {
 			SKUs:    []apppms.POSProductSKU{{SKU: pmsDomain.SKU{PriceMinorUnits: 500, SalePriceMinorUnits: &sale, CurrencyCode: "EUR"}}},
 		}},
 	}}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	result, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
 
@@ -100,6 +101,51 @@ func TestListProducts_mapsSKUsFirstSKUAsListingPrice(t *testing.T) {
 	require.NotNil(t, result.Products[0].PriceMinorUnits)
 	require.Equal(t, int64(500), *result.Products[0].PriceMinorUnits)
 	require.Equal(t, int64(400), *result.Products[0].SalePriceMinorUnits)
+}
+
+func TestListProducts_convertsListingPriceIntoTheChannelsCurrency(t *testing.T) {
+	usdChannel := internalChannel("channel-usd")
+	usdChannel.CurrencyCode = "USD"
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-usd": usdChannel}}
+	sale := int64(400)
+	catalog := &fakeListPOSProductCatalog{out: &apppms.ListPOSProductCatalogResult{
+		Total: 1,
+		Products: []apppms.POSProductWithSKUs{{
+			Product: pmsDomain.Product{ID: "product-1", Name: "Widget"},
+			SKUs:    []apppms.POSProductSKU{{SKU: pmsDomain.SKU{PriceMinorUnits: 1000, SalePriceMinorUnits: &sale, CurrencyCode: "EUR"}}},
+		}},
+	}}
+	fxRepo := &fakeExchangeRateRepo{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, fxRepo)
+
+	result, err := uc.Execute(context.Background(), "channel-usd", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
+
+	require.NoError(t, err)
+	require.Equal(t, "USD", *result.Products[0].CurrencyCode)
+	require.Equal(t, int64(1088), *result.Products[0].PriceMinorUnits)    // 1000 * 1.0876, rounded
+	require.Equal(t, int64(435), *result.Products[0].SalePriceMinorUnits) // 400 * 1.0876, rounded
+}
+
+func TestListProducts_usesAManualOverrideOverFxConversion(t *testing.T) {
+	usdChannel := internalChannel("channel-usd")
+	usdChannel.CurrencyCode = "USD"
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-usd": usdChannel}}
+	catalog := &fakeListPOSProductCatalog{out: &apppms.ListPOSProductCatalogResult{
+		Total: 1,
+		Products: []apppms.POSProductWithSKUs{{
+			Product: pmsDomain.Product{ID: "product-1", Name: "Widget"},
+			SKUs:    []apppms.POSProductSKU{{SKU: pmsDomain.SKU{ID: "sku-1", PriceMinorUnits: 1000, CurrencyCode: "EUR"}}},
+		}},
+	}}
+	overrideRepo := &fakeSKUCurrencyPriceRepo{byKey: map[string]pmsDomain.SKUCurrencyPrice{
+		"sku-1|USD": {SKUID: "sku-1", CurrencyCode: "USD", PriceMinorUnits: 999},
+	}}
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, overrideRepo, &fakeExchangeRateRepo{})
+
+	result, err := uc.Execute(context.Background(), "channel-usd", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(999), *result.Products[0].PriceMinorUnits)
 }
 
 func TestListProducts_appliesChannelPriceAdjustmentToListingPrice(t *testing.T) {
@@ -115,7 +161,7 @@ func TestListProducts_appliesChannelPriceAdjustmentToListingPrice(t *testing.T) 
 			SKUs:    []apppms.POSProductSKU{{SKU: pmsDomain.SKU{PriceMinorUnits: 1000, SalePriceMinorUnits: &sale, CurrencyCode: "EUR"}}},
 		}},
 	}}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	result, err := uc.Execute(context.Background(), "channel-b2b", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
 
@@ -131,7 +177,7 @@ func TestListProducts_returnsCategoryFacetsWithNamesAndNonZeroCountsOnly(t *test
 		{ID: "cat-1", Name: "Shoes"}, {ID: "cat-2", Name: "Empty Category"}, {ID: "cat-3", Name: "Uncounted"},
 	}}
 	catalog := &fakeListPOSProductCatalog{}
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, catalog, productRepo, categoryRepo)
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, productRepo, categoryRepo, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	result, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
 
@@ -140,7 +186,7 @@ func TestListProducts_returnsCategoryFacetsWithNamesAndNonZeroCountsOnly(t *test
 }
 
 func TestListProducts_rejectsUnknownChannel(t *testing.T) {
-	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), &fakeChannelRepo{}, &fakeOverrideRepo{}, &fakeListPOSProductCatalog{}, &fakeProductRepo{}, &fakeCategoryRepo{})
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), &fakeChannelRepo{}, &fakeOverrideRepo{}, &fakeListPOSProductCatalog{}, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
 
 	_, err := uc.Execute(context.Background(), "missing-channel", appstorefront.ListProductsInput{})
 

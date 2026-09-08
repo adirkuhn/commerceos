@@ -7,7 +7,9 @@ import (
 
 	"gorm.io/gorm"
 
+	appcoupons "github.com/adirkuhn/commerceos/application/coupons"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -29,7 +31,11 @@ type CartResult struct {
 // rather than an error. CheckoutCartUseCase.resolveCouponDiscount is the
 // strict counterpart used at the one point this must never be silently
 // wrong.
-func resolveDisplayDiscount(ctx context.Context, db *gorm.DB, couponRepo couponsDomain.Repository, cart *storefrontDomain.Cart) int64 {
+func resolveDisplayDiscount(
+	ctx context.Context, db *gorm.DB, couponRepo couponsDomain.Repository,
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository, fxRepo fxDomain.ExchangeRateRepository,
+	cart *storefrontDomain.Cart,
+) int64 {
 	if cart.CouponCode == nil || couponRepo == nil {
 		return 0
 	}
@@ -43,20 +49,29 @@ func resolveDisplayDiscount(ctx context.Context, db *gorm.DB, couponRepo coupons
 		if !coupon.IsRedeemable(time.Now()) || !coupon.MeetsMinSubtotal(subtotal) {
 			return nil
 		}
-		discount = coupon.DiscountForSubtotal(subtotal)
+		effective, err := appcoupons.EffectiveCoupon(ctx, *coupon, cart.CurrencyCode(), couponCurrencyRepo, fxRepo)
+		if err != nil {
+			return nil
+		}
+		discount = effective.DiscountForSubtotal(subtotal)
 		return nil
 	})
 	return discount
 }
 
 type GetCartUseCase struct {
-	db         *gorm.DB
-	cartRepo   storefrontDomain.CartRepository
-	couponRepo couponsDomain.Repository
+	db                 *gorm.DB
+	cartRepo           storefrontDomain.CartRepository
+	couponRepo         couponsDomain.Repository
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository
+	fxRepo             fxDomain.ExchangeRateRepository
 }
 
-func NewGetCartUseCase(db *gorm.DB, cartRepo storefrontDomain.CartRepository, couponRepo couponsDomain.Repository) *GetCartUseCase {
-	return &GetCartUseCase{db: db, cartRepo: cartRepo, couponRepo: couponRepo}
+func NewGetCartUseCase(
+	db *gorm.DB, cartRepo storefrontDomain.CartRepository, couponRepo couponsDomain.Repository,
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository, fxRepo fxDomain.ExchangeRateRepository,
+) *GetCartUseCase {
+	return &GetCartUseCase{db: db, cartRepo: cartRepo, couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo, fxRepo: fxRepo}
 }
 
 func (uc *GetCartUseCase) Execute(ctx context.Context, token string) (*CartResult, error) {
@@ -75,5 +90,5 @@ func (uc *GetCartUseCase) Execute(ctx context.Context, token string) (*CartResul
 	if err != nil {
 		return nil, fmt.Errorf("getCart: %w", err)
 	}
-	return &CartResult{Cart: cart, DiscountMinorUnits: resolveDisplayDiscount(ctx, uc.db, uc.couponRepo, cart)}, nil
+	return &CartResult{Cart: cart, DiscountMinorUnits: resolveDisplayDiscount(ctx, uc.db, uc.couponRepo, uc.couponCurrencyRepo, uc.fxRepo, cart)}, nil
 }

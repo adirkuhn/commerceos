@@ -9,6 +9,7 @@ import (
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -25,15 +26,18 @@ type UpdateCartItemLineInput struct {
 }
 
 type UpdateCartItemsUseCase struct {
-	db           *gorm.DB
-	cartRepo     storefrontDomain.CartRepository
-	channelRepo  channelsDomain.SalesChannelRepository
-	skuRepo      pmsDomain.SKURepository
-	variantRepo  pmsDomain.VariantRepository
-	productRepo  pmsDomain.ProductRepository
-	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
-	stockLevel   StockLevelGetter
-	couponRepo   couponsDomain.Repository
+	db                   *gorm.DB
+	cartRepo             storefrontDomain.CartRepository
+	channelRepo          channelsDomain.SalesChannelRepository
+	skuRepo              pmsDomain.SKURepository
+	variantRepo          pmsDomain.VariantRepository
+	productRepo          pmsDomain.ProductRepository
+	overrideRepo         channelsDomain.SalesChannelProductOverrideRepository
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository
+	fxRepo               fxDomain.ExchangeRateRepository
+	stockLevel           StockLevelGetter
+	couponRepo           couponsDomain.Repository
+	couponCurrencyRepo   couponsDomain.CouponCurrencyAmountRepository
 }
 
 func NewUpdateCartItemsUseCase(
@@ -44,13 +48,17 @@ func NewUpdateCartItemsUseCase(
 	variantRepo pmsDomain.VariantRepository,
 	productRepo pmsDomain.ProductRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
+	skuCurrencyPriceRepo pmsDomain.SKUCurrencyPriceRepository,
+	fxRepo fxDomain.ExchangeRateRepository,
 	stockLevel StockLevelGetter,
 	couponRepo couponsDomain.Repository,
+	couponCurrencyRepo couponsDomain.CouponCurrencyAmountRepository,
 ) *UpdateCartItemsUseCase {
 	return &UpdateCartItemsUseCase{
 		db: db, cartRepo: cartRepo, channelRepo: channelRepo, skuRepo: skuRepo,
-		variantRepo: variantRepo, productRepo: productRepo, overrideRepo: overrideRepo, stockLevel: stockLevel,
-		couponRepo: couponRepo,
+		variantRepo: variantRepo, productRepo: productRepo, overrideRepo: overrideRepo,
+		skuCurrencyPriceRepo: skuCurrencyPriceRepo, fxRepo: fxRepo, stockLevel: stockLevel,
+		couponRepo: couponRepo, couponCurrencyRepo: couponCurrencyRepo,
 	}
 }
 
@@ -88,7 +96,7 @@ func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lin
 
 		resolved = make([]resolvedLine, 0, len(lines))
 		for _, line := range lines {
-			entry, err := lookupCatalogEntry(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, uc.overrideRepo, *channel, line.SKUCode, line.Quantity)
+			entry, err := lookupCatalogEntry(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, uc.overrideRepo, uc.skuCurrencyPriceRepo, uc.fxRepo, *channel, line.SKUCode, line.Quantity)
 			if err != nil {
 				return err
 			}
@@ -125,5 +133,5 @@ func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lin
 	if err != nil {
 		return nil, fmt.Errorf("updateCartItems: %w", err)
 	}
-	return &CartResult{Cart: cart, DiscountMinorUnits: resolveDisplayDiscount(ctx, uc.db, uc.couponRepo, cart)}, nil
+	return &CartResult{Cart: cart, DiscountMinorUnits: resolveDisplayDiscount(ctx, uc.db, uc.couponRepo, uc.couponCurrencyRepo, uc.fxRepo, cart)}, nil
 }

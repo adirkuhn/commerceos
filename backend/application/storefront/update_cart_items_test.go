@@ -8,11 +8,15 @@ import (
 
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 )
 
 func newUpdateCartItemsUseCase(t *testing.T, n int, cartRepo *fakeCartRepo, channelRepo *fakeChannelRepo, skuRepo *fakeSKURepo, variantRepo *fakeVariantRepo, productRepo *fakeProductRepo, overrideRepo *fakeOverrideRepo, stockLevel *fakeStockLevel) *appstorefront.UpdateCartItemsUseCase {
-	return appstorefront.NewUpdateCartItemsUseCase(newMockGormDB(t, n), cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo, stockLevel, nil)
+	return appstorefront.NewUpdateCartItemsUseCase(
+		newMockGormDB(t, n), cartRepo, channelRepo, skuRepo, variantRepo, productRepo, overrideRepo,
+		&fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, stockLevel, nil, &fakeCouponCurrencyAmountRepo{},
+	)
 }
 
 func TestUpdateCartItems_replacesTheWholeLineSetWithFreshCatalogSnapshot(t *testing.T) {
@@ -48,6 +52,27 @@ func TestUpdateCartItems_appliesChannelPriceAdjustment(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int64(800), cart.Cart.Items[0].PriceMinorUnits)
+}
+
+func TestUpdateCartItems_convertsPriceIntoTheChannelsCurrencyBeforeSnapshotting(t *testing.T) {
+	usdChannel := internalChannel("channel-usd")
+	usdChannel.CurrencyCode = "USD"
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-usd": usdChannel}}
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{
+		"token-1": {ID: "cart-1", Token: "token-1", SalesChannelID: "channel-usd"},
+	}}
+	sku, variant, product, override, stockLevel := seedCatalogOneSKU("SKU-A", "sku-1", 1000, 10)
+	fxRepo := &fakeExchangeRateRepo{byCurrency: map[string]fxDomain.ExchangeRate{"USD": {CurrencyCode: "USD", RateBasisPoints: 10876}}}
+	uc := appstorefront.NewUpdateCartItemsUseCase(
+		newMockGormDB(t, 2), cartRepo, channelRepo, sku, variant, product, override,
+		&fakeSKUCurrencyPriceRepo{}, fxRepo, stockLevel, nil, &fakeCouponCurrencyAmountRepo{},
+	)
+
+	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 1}})
+
+	require.NoError(t, err)
+	require.Equal(t, "USD", cart.Cart.Items[0].CurrencyCode)
+	require.Equal(t, int64(1088), cart.Cart.Items[0].PriceMinorUnits)
 }
 
 func TestUpdateCartItems_appliesQuantityBreakWhenLineQuantityQualifies(t *testing.T) {

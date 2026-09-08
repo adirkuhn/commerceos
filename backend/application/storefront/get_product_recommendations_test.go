@@ -59,7 +59,7 @@ func seedRecommendationCatalog() (*channelsDomain.SalesChannel, *fakeChannelRepo
 func TestGetProductRecommendations_seedsEngineWithTheProductsOwnFirstSKU(t *testing.T) {
 	_, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo := seedRecommendationCatalog()
 	getter := &fakeCartRecommendationsGetter{}
-	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, getter)
+	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, getter)
 
 	_, err := uc.Execute(context.Background(), "channel-1", "product-1")
 
@@ -72,7 +72,7 @@ func TestGetProductRecommendations_mapsAvailableRecommendedProducts(t *testing.T
 	getter := &fakeCartRecommendationsGetter{out: &appreports.CartRecommendationsReport{
 		Recommendations: []appreports.CartRecommendation{{SKUCode: "SKU-2", ProductName: "Gadget", Confidence: 0.5}},
 	}}
-	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, getter)
+	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, getter)
 
 	summaries, err := uc.Execute(context.Background(), "channel-1", "product-1")
 
@@ -103,7 +103,7 @@ func TestGetProductRecommendations_skipsUnenrolledRecommendation(t *testing.T) {
 	getter := &fakeCartRecommendationsGetter{out: &appreports.CartRecommendationsReport{
 		Recommendations: []appreports.CartRecommendation{{SKUCode: "SKU-2", ProductName: "Gadget"}},
 	}}
-	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, getter)
+	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, getter)
 
 	summaries, err := uc.Execute(context.Background(), "channel-1", "product-1")
 
@@ -116,7 +116,7 @@ func TestGetProductRecommendations_returnsNilWhenProductHasNoSKUYet(t *testing.T
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": channel}}
 	variantRepo := &fakeVariantRepo{byProduct: map[string][]pmsDomain.Variant{}}
 	getter := &fakeCartRecommendationsGetter{}
-	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, &fakeProductRepo{}, variantRepo, &fakeSKURepo{}, &fakeMediaRepo{}, getter)
+	uc := appstorefront.NewGetProductRecommendationsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, &fakeProductRepo{}, variantRepo, &fakeSKURepo{}, &fakeMediaRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{}, getter)
 
 	summaries, err := uc.Execute(context.Background(), "channel-1", "product-with-no-sku")
 
