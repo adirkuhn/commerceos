@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ProductGridBlock } from '../ProductGridBlock'
@@ -27,6 +27,7 @@ describe('ProductGridBlock', () => {
     const result: StorefrontProductListResult = {
       items: [{ id: 'p1', slug: 'p1', name: 'Widget', category_id: null, tags: [], image_url: null, price_minor_units: 1999, currency_code: 'EUR' }],
       total: 1,
+      category_facets: [],
     }
     vi.mocked(productsApi.listProducts).mockResolvedValue(result)
 
@@ -41,6 +42,7 @@ describe('ProductGridBlock', () => {
     vi.mocked(productsApi.listProducts).mockResolvedValue({
       items: [{ id: 'p1', slug: 'p1', name: 'Widget', category_id: null, tags: [], image_url: null, price_minor_units: 2000, sale_price_minor_units: 1500, currency_code: 'EUR' }],
       total: 1,
+      category_facets: [],
     })
 
     renderBlock()
@@ -50,11 +52,11 @@ describe('ProductGridBlock', () => {
   })
 
   it('shows an empty state when there are no products', async () => {
-    vi.mocked(productsApi.listProducts).mockResolvedValue({ items: [], total: 0 })
+    vi.mocked(productsApi.listProducts).mockResolvedValue({ items: [], total: 0, category_facets: [] })
 
     renderBlock()
 
-    expect(await screen.findByText('No products yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No products found.')).toBeInTheDocument()
   })
 
   it('toggles a product onto the wishlist without navigating', async () => {
@@ -62,6 +64,7 @@ describe('ProductGridBlock', () => {
     vi.mocked(productsApi.listProducts).mockResolvedValue({
       items: [{ id: 'p1', slug: 'p1', name: 'Widget', category_id: null, tags: [], image_url: null, price_minor_units: 1999, currency_code: 'EUR' }],
       total: 1,
+      category_facets: [],
     })
     vi.mocked(wishlistApi.createWishlist).mockResolvedValue({ token: 'wishlist-1', product_ids: [] })
     vi.mocked(wishlistApi.toggleWishlistItem).mockResolvedValue({ token: 'wishlist-1', product_ids: ['p1'] })
@@ -73,5 +76,38 @@ describe('ProductGridBlock', () => {
 
     expect(wishlistApi.toggleWishlistItem).toHaveBeenCalledWith('wishlist-1', 'p1')
     expect(await screen.findByRole('button', { name: 'Remove from wishlist' })).toBeInTheDocument()
+  })
+
+  it('shows category facets with counts and re-fetches when one is clicked', async () => {
+    const user = userEvent.setup()
+    vi.mocked(productsApi.listProducts).mockResolvedValue({
+      items: [{ id: 'p1', slug: 'p1', name: 'Widget', category_id: null, tags: [], image_url: null, price_minor_units: 1999, currency_code: 'EUR' }],
+      total: 1,
+      category_facets: [{ category_id: 'cat-1', category_name: 'Shoes', count: 3 }],
+    })
+
+    renderBlock()
+
+    expect(await screen.findByText('Shoes (3)')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Shoes (3)'))
+
+    await waitFor(() => expect(productsApi.listProducts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ categoryId: 'cat-1' }),
+    ))
+  })
+
+  it('searches products by typed text', async () => {
+    const user = userEvent.setup()
+    vi.mocked(productsApi.listProducts).mockResolvedValue({ items: [], total: 0, category_facets: [] })
+
+    renderBlock()
+    await screen.findByText('No products found.')
+
+    await user.type(screen.getByLabelText('Search products'), 'widget{Enter}')
+
+    await waitFor(() => expect(productsApi.listProducts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search: 'widget' }),
+    ))
   })
 })

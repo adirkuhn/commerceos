@@ -11,7 +11,7 @@ beforeEach(() => { vi.restoreAllMocks() })
 
 describe('products api', () => {
   it('listProducts fetches the enrolled catalog', async () => {
-    const result: StorefrontProductListResult = { items: [], total: 0 }
+    const result: StorefrontProductListResult = { items: [], total: 0, category_facets: [] }
     mockFetch(result)
     expect(await listProducts()).toEqual(result)
     const [url] = vi.mocked(fetch).mock.calls[0]
@@ -19,7 +19,7 @@ describe('products api', () => {
   })
 
   it('listProducts sends query params for filters/paging', async () => {
-    mockFetch<StorefrontProductListResult>({ items: [], total: 0 })
+    mockFetch<StorefrontProductListResult>({ items: [], total: 0, category_facets: [] })
     await listProducts({ categoryId: 'cat-1', search: 'shoe', page: 2, perPage: 10 })
     const [url] = vi.mocked(fetch).mock.calls[0]
     expect(url).toContain('category_id=cat-1')

@@ -134,9 +134,16 @@ export interface StorefrontProductSummary {
   currency_code?: string
 }
 
+export interface StorefrontCategoryFacet {
+  category_id: string
+  category_name: string
+  count: number
+}
+
 export interface StorefrontProductListResult {
   items: StorefrontProductSummary[]
   total: number
+  category_facets: StorefrontCategoryFacet[]
 }
 
 export interface StorefrontSKU {
