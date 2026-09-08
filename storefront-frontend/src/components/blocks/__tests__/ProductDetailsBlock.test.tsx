@@ -12,17 +12,20 @@ vi.mock('../../../api/products', () => ({ listProducts: vi.fn(), getProduct: vi.
 vi.mock('../../../api/cart', () => ({ createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), applyCoupon: vi.fn() }))
 vi.mock('../../../api/reviews', () => ({ listReviews: vi.fn(), submitReview: vi.fn() }))
 vi.mock('../../../api/wishlist', () => ({ createWishlist: vi.fn(), getWishlist: vi.fn(), toggleWishlistItem: vi.fn() }))
+vi.mock('../../../api/recommendations', () => ({ getProductRecommendations: vi.fn() }))
 
 import * as productsApi from '../../../api/products'
 import * as cartApi from '../../../api/cart'
 import * as reviewsApi from '../../../api/reviews'
 import * as wishlistApi from '../../../api/wishlist'
+import * as recommendationsApi from '../../../api/recommendations'
 
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   vi.mocked(reviewsApi.listReviews).mockResolvedValue({ reviews: [], summary: { average: 0, count: 0 } })
   vi.mocked(wishlistApi.createWishlist).mockResolvedValue({ token: 'wishlist-1', product_ids: [] })
+  vi.mocked(recommendationsApi.getProductRecommendations).mockResolvedValue([])
 })
 
 function renderAt(id: string) {
@@ -169,5 +172,29 @@ describe('ProductDetailsBlock wishlist', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove from wishlist' }))
     expect(await screen.findByRole('button', { name: 'Save to wishlist' })).toBeInTheDocument()
+  })
+})
+
+describe('ProductDetailsBlock recommendations', () => {
+  it('shows related products when the engine returns some', async () => {
+    vi.mocked(productsApi.getProduct).mockResolvedValue(product)
+    vi.mocked(recommendationsApi.getProductRecommendations).mockResolvedValue([
+      { id: 'p2', slug: 'p2', name: 'Gadget', category_id: null, tags: [], image_url: null, price_minor_units: 750, currency_code: 'EUR' },
+    ])
+
+    renderAt('p1')
+
+    expect(await screen.findByText('You might also like')).toBeInTheDocument()
+    expect(screen.getByText('Gadget')).toBeInTheDocument()
+  })
+
+  it('renders nothing when there are no recommendations', async () => {
+    vi.mocked(productsApi.getProduct).mockResolvedValue(product)
+    vi.mocked(recommendationsApi.getProductRecommendations).mockResolvedValue([])
+
+    renderAt('p1')
+    await screen.findByText('Widget')
+
+    expect(screen.queryByText('You might also like')).not.toBeInTheDocument()
   })
 })
