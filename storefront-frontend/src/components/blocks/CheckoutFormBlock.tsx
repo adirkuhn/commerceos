@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../../cart/CartContext'
-import type { CheckoutAddress } from '../../types'
+import { getShippingOptions } from '../../api/cart'
+import { formatMoney } from '../../format'
+import type { CheckoutAddress, ShippingOption } from '../../types'
 
 function emptyAddress(): CheckoutAddress {
   return { first_name: '', last_name: '', address1: '', city: '', postcode: '', country: '' }
+}
+
+function isAddressComplete(a: CheckoutAddress): boolean {
+  return Boolean(a.address1 && a.city && a.postcode && a.country)
 }
 
 export function CheckoutFormBlock() {
@@ -13,8 +19,41 @@ export function CheckoutFormBlock() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [address, setAddress] = useState<CheckoutAddress>(emptyAddress())
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
+  const [shippingOptionsLoading, setShippingOptionsLoading] = useState(false)
+  const [selectedTitle, setSelectedTitle] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  const cartToken = cart?.token
+
+  // Debounced: re-quotes shipping every time the address changes enough
+  // to matter, not on every keystroke. An address MyParcel can't quote
+  // (unsupported country, no house number, no connection at all -- see
+  // GetShippingOptionsUseCase's own doc comment) just yields an empty
+  // list -- checkout still works, with shipping cost communicated some
+  // other way.
+  useEffect(() => {
+    if (!cartToken || !isAddressComplete(address)) {
+      setShippingOptions([])
+      setSelectedTitle(null)
+      return
+    }
+    let cancelled = false
+    setShippingOptionsLoading(true)
+    const timer = setTimeout(() => {
+      getShippingOptions(cartToken, address)
+        .then(options => {
+          if (cancelled) return
+          setShippingOptions(options)
+          setSelectedTitle(options[0]?.title ?? null)
+        })
+        .catch(() => { if (!cancelled) setShippingOptions([]) })
+        .finally(() => { if (!cancelled) setShippingOptionsLoading(false) })
+    }, 500)
+    return () => { cancelled = true; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartToken, address.address1, address.city, address.postcode, address.country])
 
   if (!cart || cart.items.length === 0) {
     return <p className="p-6 text-center text-brand-500">Your cart is empty.</p>
@@ -27,7 +66,7 @@ export function CheckoutFormBlock() {
     setFormError(null)
     setSubmitting(true)
     try {
-      const result = await checkout({ email, billing: address, shipping: address })
+      const result = await checkout({ email, billing: address, shipping: address, shipping_method_title: selectedTitle ?? undefined })
       navigate(`/order-confirmation/${result.order_number}`, { state: { email } })
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Could not place your order')
@@ -46,6 +85,28 @@ export function CheckoutFormBlock() {
       <Field label="City" value={address.city} onChange={v => set('city', v)} />
       <Field label="Postcode" value={address.postcode} onChange={v => set('postcode', v)} />
       <Field label="Country" value={address.country} onChange={v => set('country', v)} />
+
+      {shippingOptionsLoading && <p className="text-xs text-gray-400">Checking shipping options…</p>}
+      {!shippingOptionsLoading && shippingOptions.length > 0 && (
+        <fieldset className="space-y-1.5">
+          <legend className="mb-1 text-sm text-brand-500">Shipping</legend>
+          {shippingOptions.map(option => (
+            <label key={option.title} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="shipping-option"
+                  checked={selectedTitle === option.title}
+                  onChange={() => setSelectedTitle(option.title)}
+                />
+                {option.title}
+              </span>
+              <span className="text-brand-500">{formatMoney(option.amount_minor_units, option.currency_code)}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+
       <button
         type="submit"
         disabled={submitting}

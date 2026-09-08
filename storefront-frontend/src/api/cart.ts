@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { Cart, CheckoutRequest, Checkout, UpdateCartItemLine } from '../types'
+import type { Cart, CheckoutAddress, CheckoutRequest, Checkout, ShippingOption, UpdateCartItemLine } from '../types'
 
 export function createCart(): Promise<Cart> {
   return request<Cart>('/carts', { method: 'POST' })
@@ -20,5 +20,12 @@ export function checkoutCart(token: string, payload: CheckoutRequest): Promise<C
   return request<Checkout>(`/carts/${encodeURIComponent(token)}/checkout`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function getShippingOptions(token: string, address: CheckoutAddress): Promise<ShippingOption[]> {
+  return request<ShippingOption[]>(`/carts/${encodeURIComponent(token)}/shipping-options`, {
+    method: 'POST',
+    body: JSON.stringify(address),
   })
 }

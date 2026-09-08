@@ -96,6 +96,7 @@ export interface CheckoutRequest {
   email: string
   billing: CheckoutAddress
   shipping: CheckoutAddress
+  shipping_method_title?: string
 }
 
 export interface Checkout {
@@ -103,6 +104,12 @@ export interface Checkout {
   total_minor_units: number
   currency_code: string
   payment_url?: string
+}
+
+export interface ShippingOption {
+  title: string
+  amount_minor_units: number
+  currency_code: string
 }
 
 export interface StorefrontProductSummary {
