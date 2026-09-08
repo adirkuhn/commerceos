@@ -1,5 +1,5 @@
-import { ThemePagePlaceholder } from '../components/ThemePagePlaceholder'
+import { CanvasPage } from '../components/CanvasPage'
 
 export function ProductsPage() {
-  return <ThemePagePlaceholder slug="products" title="Products" />
+  return <CanvasPage slug="products" />
 }

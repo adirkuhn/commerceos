@@ -16,7 +16,7 @@ describe('App', () => {
     mockFetch()
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
+    expect(await screen.findByText(/no content yet/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument()
   })
 })

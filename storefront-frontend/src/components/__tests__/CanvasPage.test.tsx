@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { ThemePagePlaceholder } from '../ThemePagePlaceholder'
+import { CanvasPage } from '../CanvasPage'
 import type { APIResponse, ThemePage } from '../../types'
 
 function mockFetch<T>(data: T) {
@@ -16,23 +16,29 @@ function mockFetchError(message: string) {
 
 beforeEach(() => { vi.restoreAllMocks() })
 
-describe('ThemePagePlaceholder', () => {
-  it('shows the block count once loaded', async () => {
+describe('CanvasPage', () => {
+  it('renders each block at its saved desktop position', async () => {
     const page: ThemePage = {
-      slug: 'home', canvas_width: 1440,
-      blocks: [{ id: 'b1', type: 'hero', layout: { desktop: { x: 0, y: 0, width: 1, height: 1 }, mobile: null }, props: {} }],
+      slug: 'home',
+      canvas_width: 1440,
+      blocks: [
+        { id: 'b1', type: 'hero', layout: { desktop: { x: 10, y: 20, width: 300, height: 150 }, mobile: null }, props: { heading: 'Welcome' } },
+      ],
     }
     mockFetch(page)
 
-    render(<ThemePagePlaceholder slug="home" title="Home" />)
+    render(<CanvasPage slug="home" />)
 
-    expect(await screen.findByText(/1 block configured/)).toBeInTheDocument()
+    const heading = await screen.findByText('Welcome')
+    const positioned = heading.closest('[style]') as HTMLElement
+    expect(positioned.style.left).toBe('10px')
+    expect(positioned.style.top).toBe('20px')
   })
 
   it('shows an empty-page message when there are no blocks', async () => {
     mockFetch<ThemePage>({ slug: 'home', canvas_width: 1440, blocks: [] })
 
-    render(<ThemePagePlaceholder slug="home" title="Home" />)
+    render(<CanvasPage slug="home" />)
 
     expect(await screen.findByText(/no content yet/)).toBeInTheDocument()
   })
@@ -40,7 +46,7 @@ describe('ThemePagePlaceholder', () => {
   it('shows an error message on failure', async () => {
     mockFetchError('boom')
 
-    render(<ThemePagePlaceholder slug="home" title="Home" />)
+    render(<CanvasPage slug="home" />)
 
     await waitFor(() => expect(screen.getByText(/Could not load this page: boom/)).toBeInTheDocument())
   })

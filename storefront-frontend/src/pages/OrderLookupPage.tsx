@@ -1,5 +1,5 @@
-import { ThemePagePlaceholder } from '../components/ThemePagePlaceholder'
+import { CanvasPage } from '../components/CanvasPage'
 
 export function OrderLookupPage() {
-  return <ThemePagePlaceholder slug="order-lookup" title="Track your order" />
+  return <CanvasPage slug="order-lookup" />
 }

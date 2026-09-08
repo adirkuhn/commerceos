@@ -1,5 +1,5 @@
-import { ThemePagePlaceholder } from '../components/ThemePagePlaceholder'
+import { CanvasPage } from '../components/CanvasPage'
 
 export function OrderConfirmationPage() {
-  return <ThemePagePlaceholder slug="order-confirmation" title="Order confirmed" />
+  return <CanvasPage slug="order-confirmation" />
 }
