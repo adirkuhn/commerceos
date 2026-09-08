@@ -167,6 +167,31 @@ func TestCheckoutCart_placesAPendingOrderForAnExistingCustomer(t *testing.T) {
 	require.Nil(t, result.PaymentURL)
 }
 
+func TestCheckoutCart_EstimateTotal(t *testing.T) {
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
+	uc := newCheckoutUseCase(t, checkoutTxnCount, cartRepo, &fakeCustomerRepo{}, &fakeCustomerCreator{}, &fakeSalesOrderCreator{}, &fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil)
+
+	estimate, err := uc.EstimateTotal(context.Background(), "token-1", validCheckoutInput().Shipping, "")
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1000), estimate.SubtotalMinorUnits)
+	require.Equal(t, int64(1000), estimate.TotalMinorUnits)
+	require.Equal(t, "EUR", estimate.CurrencyCode)
+	require.Zero(t, estimate.DiscountMinorUnits)
+	// Never creates an order or touches the cart -- it's a quote, used by
+	// CreatePaymentIntentUseCase to know the amount to start a Stripe
+	// PaymentIntent for before checkout actually happens.
+	require.Nil(t, cartRepo.updated)
+}
+
+func TestCheckoutCart_EstimateTotal_propagatesCartNotFound(t *testing.T) {
+	uc := newCheckoutUseCase(t, checkoutTxnCount, &fakeCartRepo{}, &fakeCustomerRepo{}, &fakeCustomerCreator{}, &fakeSalesOrderCreator{}, &fakeTaxClassRepo{}, &fakeTaxRateRepo{}, &fakeOutboxRepo{}, nil)
+
+	_, err := uc.EstimateTotal(context.Background(), "missing-token", validCheckoutInput().Shipping, "")
+
+	require.ErrorIs(t, err, storefrontDomain.ErrCartNotFound)
+}
+
 func TestCheckoutCart_createsAGuestCustomerWhenEmailIsNew(t *testing.T) {
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": openCartWithOneItem()}}
 	createOrder := &fakeSalesOrderCreator{}
