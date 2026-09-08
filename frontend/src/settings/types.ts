@@ -59,6 +59,9 @@ export interface ApiKey {
   created_at: string
   // Null for an active key.
   revoked_at: string | null
+  // Null means this key is tenant-wide (e.g. the WooCommerce plugin's).
+  // Set means the key is scoped to one internal storefront channel.
+  sales_channel_id: string | null
 }
 
 export interface ApiKeyCreated extends ApiKey {

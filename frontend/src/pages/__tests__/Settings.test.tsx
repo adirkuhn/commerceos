@@ -11,6 +11,7 @@ vi.mock('../../auth/AuthContext', () => ({
 
 vi.mock('../../integrations/api', () => ({
   listConnections: vi.fn(),
+  listSalesChannels: vi.fn(),
   listSyncSchedules: vi.fn(),
   upsertSyncSchedules: vi.fn(),
   deleteAllImportedProducts: vi.fn(),
@@ -71,6 +72,7 @@ function wooConnection(overrides: Partial<Connection> = {}): Connection {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
+  vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([])
   vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
   vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([])
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
@@ -156,7 +158,7 @@ describe('Settings > Integrations > API keys', () => {
 
   it('lists existing keys with their status', async () => {
     vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([
-      { id: 'key-1', name: 'Main storefront', description: 'Prod Woo site', created_at: '2026-01-01T00:00:00Z', revoked_at: null },
+      { id: 'key-1', name: 'Main storefront', description: 'Prod Woo site', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null },
     ])
 
     render(<Settings />)
@@ -169,7 +171,7 @@ describe('Settings > Integrations > API keys', () => {
 
   it('creating a key calls the endpoint and shows the plaintext value once', async () => {
     vi.mocked(tenantSettingsApi.createApiKey).mockResolvedValue({
-      id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, key: 'top-secret-key',
+      id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null, key: 'top-secret-key',
     })
 
     render(<Settings />)
@@ -179,7 +181,7 @@ describe('Settings > Integrations > API keys', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
 
     expect(await screen.findByText('top-secret-key')).toBeInTheDocument()
-    expect(tenantSettingsApi.createApiKey).toHaveBeenCalledWith('test-token', 'Main storefront', '')
+    expect(tenantSettingsApi.createApiKey).toHaveBeenCalledWith('test-token', 'Main storefront', '', null)
     expect(await screen.findByText('Main storefront')).toBeInTheDocument()
   })
 
@@ -197,7 +199,7 @@ describe('Settings > Integrations > API keys', () => {
 
   it('revoking a key calls the endpoint and marks it revoked', async () => {
     vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([
-      { id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null },
+      { id: 'key-1', name: 'Main storefront', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null },
     ])
     vi.mocked(tenantSettingsApi.revokeApiKey).mockResolvedValue(null)
 
@@ -208,6 +210,60 @@ describe('Settings > Integrations > API keys', () => {
     expect(tenantSettingsApi.revokeApiKey).toHaveBeenCalledWith('test-token', 'key-1')
     expect(await screen.findByText('revoked')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
+  })
+
+  it('does not show a sales channel picker when the tenant has no internal channels', async () => {
+    render(<Settings />)
+    await openIntegrationsSection()
+    await screen.findByText(/No keys yet/)
+
+    expect(screen.queryByLabelText('Sales channel')).not.toBeInTheDocument()
+  })
+
+  it('offers only internal channels in the sales channel picker, and sends the chosen one', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      { id: 'chan-woo', name: 'Woo Store', type: 'woocommerce', connection_id: 'conn-1', enrollment_mode: 'all', active: true, created_at: '', updated_at: '' },
+      { id: 'chan-b2c', name: 'B2C Store', type: 'internal', connection_id: null, enrollment_mode: 'all', active: true, created_at: '', updated_at: '' },
+      { id: 'chan-b2b', name: 'B2B Store', type: 'internal', connection_id: null, enrollment_mode: 'all', active: true, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(tenantSettingsApi.createApiKey).mockResolvedValue({
+      id: 'key-1', name: 'B2C key', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: 'chan-b2c', key: 'top-secret-key',
+    })
+
+    render(<Settings />)
+    await openIntegrationsSection()
+    await screen.findByText(/No keys yet/)
+
+    const select = screen.getByLabelText('Sales channel')
+    expect(within(select).queryByText('Woo Store')).not.toBeInTheDocument()
+    expect(within(select).getByText('B2C Store')).toBeInTheDocument()
+    expect(within(select).getByText('B2B Store')).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Name'), 'B2C key')
+    await userEvent.selectOptions(select, 'chan-b2c')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
+
+    await waitFor(() => {
+      expect(tenantSettingsApi.createApiKey).toHaveBeenCalledWith('test-token', 'B2C key', '', 'chan-b2c')
+    })
+  })
+
+  it('shows which sales channel each key is scoped to, or "All channels" for a tenant-wide key', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      { id: 'chan-b2c', name: 'B2C Store', type: 'internal', connection_id: null, enrollment_mode: 'all', active: true, created_at: '', updated_at: '' },
+    ])
+    vi.mocked(tenantSettingsApi.listApiKeys).mockResolvedValue([
+      { id: 'key-1', name: 'B2C key', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: 'chan-b2c' },
+      { id: 'key-2', name: 'Woo plugin', description: '', created_at: '2026-01-01T00:00:00Z', revoked_at: null, sales_channel_id: null },
+    ])
+
+    render(<Settings />)
+    await openIntegrationsSection()
+
+    await screen.findByText('B2C key')
+    const table = screen.getByRole('table')
+    expect(within(table).getByText('B2C Store')).toBeInTheDocument()
+    expect(within(table).getByText('All channels')).toBeInTheDocument()
   })
 })
 

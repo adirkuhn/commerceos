@@ -8,7 +8,8 @@ import { useAuth } from '../auth/AuthContext'
 import { useConnections } from '../integrations/hooks/useConnections'
 import { useAIConnection } from '../integrations/hooks/useAIConnection'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
-import type { Connection, AIProvider } from '../integrations/types'
+import * as integrationsApi from '../integrations/api'
+import type { Connection, AIProvider, SalesChannel } from '../integrations/types'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as settingsApi from '../settings/api'
 import type { TenantSettings, TenantSettingsInput, ApiKey } from '../settings/types'
@@ -531,19 +532,23 @@ function RecommendationsSettingsCard() {
 function ApiKeysCard() {
   const { token } = useAuth()
   const [keys, setKeys] = useState<ApiKey[]>([])
+  const [channels, setChannels] = useState<SalesChannel[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [salesChannelId, setSalesChannelId] = useState('')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [justCreatedKey, setJustCreatedKey] = useState('')
   const [copied, setCopied] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
 
+  const internalChannels = channels.filter(c => c.type === 'internal')
+
   useEffect(() => {
     let cancelled = false
-    settingsApi.listApiKeys(token ?? '')
-      .then(result => { if (!cancelled) setKeys(result) })
+    Promise.all([settingsApi.listApiKeys(token ?? ''), integrationsApi.listSalesChannels(token ?? '')])
+      .then(([keysResult, channelsResult]) => { if (!cancelled) { setKeys(keysResult); setChannels(channelsResult) } })
       .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load API keys') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -554,16 +559,22 @@ function ApiKeysCard() {
     setError('')
     setCreating(true)
     try {
-      const created = await settingsApi.createApiKey(token ?? '', name.trim(), description.trim())
+      const created = await settingsApi.createApiKey(token ?? '', name.trim(), description.trim(), salesChannelId || null)
       setKeys(prev => [created, ...prev])
       setJustCreatedKey(created.key)
       setName('')
       setDescription('')
+      setSalesChannelId('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create API key')
     } finally {
       setCreating(false)
     }
+  }
+
+  function channelName(id: string | null): string {
+    if (!id) return 'All channels'
+    return channels.find(c => c.id === id)?.name ?? 'Unknown channel'
   }
 
   async function handleRevoke(id: string) {
@@ -647,6 +658,20 @@ function ApiKeysCard() {
             className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
           />
         </div>
+        {internalChannels.length > 0 && (
+          <div className="flex-1">
+            <label htmlFor="api-key-channel" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+              Sales channel
+            </label>
+            <select
+              id="api-key-channel" value={salesChannelId} onChange={e => setSalesChannelId(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900"
+            >
+              <option value="">All channels (tenant-wide)</option>
+              {internalChannels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
         <button
           type="submit" disabled={creating}
           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
@@ -666,6 +691,7 @@ function ApiKeysCard() {
               <tr className="text-left dark:text-gray-500 text-gray-400 border-b dark:border-[#2D3748] border-gray-200">
                 <th className="py-2 pr-3 font-medium">Name</th>
                 <th className="py-2 pr-3 font-medium">Description</th>
+                <th className="py-2 pr-3 font-medium">Scope</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
                 <th className="py-2 pr-3 font-medium"></th>
               </tr>
@@ -675,6 +701,7 @@ function ApiKeysCard() {
                 <tr key={k.id} className="border-b dark:border-[#2D3748] border-gray-100 last:border-0">
                   <td className="py-2 pr-3 dark:text-gray-300 text-gray-700">{k.name}</td>
                   <td className="py-2 pr-3 dark:text-gray-400 text-gray-500 truncate max-w-[220px]">{k.description}</td>
+                  <td className="py-2 pr-3 dark:text-gray-400 text-gray-500">{channelName(k.sales_channel_id)}</td>
                   <td className="py-2 pr-3">
                     {k.revoked_at ? (
                       <span className="text-[10px] dark:text-gray-500 text-gray-400">revoked</span>

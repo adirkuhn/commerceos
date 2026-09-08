@@ -124,21 +124,45 @@ describe('Create sales channel', () => {
     })
   })
 
-  it('derives type from the selected connection\'s provider, not always woocommerce', async () => {
+  it('filters the connection list to the selected type, and submits that type', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, bolConnection])
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-bol', name: 'BOL', type: 'bol', connection_id: 'conn-bol-1' }))
     render(<SalesChannels />)
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'bol')
+    const connectionSelect = screen.getByLabelText('Connection')
+    expect(within(connectionSelect).queryByText(/mystore.com/)).not.toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Name'), 'BOL')
-    await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-bol-1')
+    await userEvent.selectOptions(connectionSelect, 'conn-bol-1')
     await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
 
     await waitFor(() => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
         type: 'bol', connectionId: 'conn-bol-1',
       }))
+    })
+  })
+
+  it('picking Internal hides connection/default-location fields and creates with no connection', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Default location')).not.toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText('Name'), 'B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
+        name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
+        enrollmentCategoryId: null, enrollmentTag: null,
+      })
     })
   })
 
@@ -343,13 +367,23 @@ describe('WhatsApp payment method', () => {
     return sampleChannel({ id: 'chan-wa', name: 'WA Channel', type: 'whatsapp', connection_id: 'conn-wa-1', ...overrides })
   }
 
-  it('does not show a payment method field for a non-WhatsApp channel', async () => {
+  it('does not show a payment method field for a non-WhatsApp/Internal channel', async () => {
     render(<SalesChannels />)
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     expect(screen.queryByLabelText('Payment method')).not.toBeInTheDocument()
+  })
+
+  it('shows a payment method field for an Internal channel too', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    render(<SalesChannels />)
+    await screen.findByText('B2C Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Payment method')).toBeInTheDocument()
   })
 
   it('lists only connected Stripe/Revolut connections as payment method options', async () => {

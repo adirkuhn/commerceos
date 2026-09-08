@@ -23,6 +23,7 @@ const ENROLLMENT_LABELS: Record<EnrollmentMode, string> = {
 
 interface ChannelFormState {
   name: string
+  channelType: ChannelType
   connectionId: string
   enrollmentMode: EnrollmentMode
   enrollmentCategoryId: string
@@ -33,24 +34,30 @@ interface ChannelFormState {
 }
 
 function emptyForm(): ChannelFormState {
-  return { name: '', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '', enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '' }
+  return {
+    name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
+    enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '',
+  }
 }
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
 }
 
-// A channel's type must match its connection's actual provider -- derived,
-// not a separate user choice, since connectionId is already required. Any
-// provider besides 'bol' falls back to 'woocommerce' (the only other
-// channel-eligible provider today, per backend domain/channels.ChannelType
-// -- 'myparcel' connections shouldn't be picked here at all, though this
-// form doesn't yet filter the connection dropdown to exclude them).
-function channelTypeForConnection(provider: string | undefined): ChannelType {
-  if (provider === 'bol') return 'bol'
-  if (provider === 'whatsapp') return 'whatsapp'
-  return 'woocommerce'
+const TYPE_LABELS: Record<ChannelType, string> = {
+  woocommerce: 'WooCommerce',
+  bol: 'Bol.com',
+  whatsapp: 'WhatsApp',
+  internal: 'Internal store',
 }
+
+// A built-in storefront has nothing external to connect to (see backend
+// domain/channels.ChannelType.RequiresConnection) -- its own form fields
+// never render, and it's the one type able to configure a payment method
+// directly (WhatsApp is the other, for its chat checkout).
+const INTERNAL_TYPE: ChannelType = 'internal'
+const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
+const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
 
 // defaultWarehouseId lives on the linked Connection, not on the channel
 // itself (SalesChannel is purely a product-enrollment rule on top of it --
@@ -60,6 +67,7 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
   const connection = connections.find(c => c.id === channel.connection_id)
   return {
     name: channel.name,
+    channelType: channel.type,
     connectionId: channel.connection_id ?? '',
     enrollmentMode: channel.enrollment_mode,
     enrollmentCategoryId: channel.enrollment_category_id ?? '',
@@ -114,7 +122,7 @@ export default function SalesChannels() {
     try {
       const shared = {
         name: form.name,
-        connectionId: form.connectionId || null,
+        connectionId: form.channelType === INTERNAL_TYPE ? null : form.connectionId || null,
         enrollmentMode: form.enrollmentMode,
         enrollmentCategoryId: form.enrollmentMode === 'category' ? form.enrollmentCategoryId || null : null,
         enrollmentTag: form.enrollmentMode === 'tag' ? form.enrollmentTag || null : null,
@@ -124,15 +132,15 @@ export default function SalesChannels() {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
         channelType = editingChannel.type
       } else {
-        channelType = channelTypeForConnection(connections.find(c => c.id === form.connectionId)?.provider)
+        channelType = form.channelType
         await create({ ...shared, type: channelType } satisfies SalesChannelPayload)
       }
-      if (form.connectionId) {
-        const connection = connections.find(c => c.id === form.connectionId)
-        await integrationsApi.updateConnectionSettings(token ?? '', form.connectionId, connection?.default_currency ?? '', form.defaultWarehouseId || null)
+      if (shared.connectionId) {
+        const connection = connections.find(c => c.id === shared.connectionId)
+        await integrationsApi.updateConnectionSettings(token ?? '', shared.connectionId, connection?.default_currency ?? '', form.defaultWarehouseId || null)
         refreshConnections()
       }
-      if (editingChannel && channelType === 'whatsapp') {
+      if (editingChannel && PAYMENT_CAPABLE_TYPES.includes(channelType)) {
         await integrationsApi.setSalesChannelPaymentMethod(token ?? '', editingChannel.id, form.paymentConnectionId || null)
       }
       closeForm()
@@ -269,25 +277,51 @@ export default function SalesChannels() {
                   className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div>
-                <label htmlFor="channel-connection" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
-                  Connection
-                </label>
-                <select
-                  id="channel-connection"
-                  required
-                  value={form.connectionId}
-                  onChange={e => {
-                    const connectionId = e.target.value
-                    const defaultWarehouseId = connections.find(c => c.id === connectionId)?.default_warehouse_id ?? ''
-                    setForm(f => ({ ...f, connectionId, defaultWarehouseId }))
-                  }}
-                  className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="" disabled>Select a connection…</option>
-                  {connections.map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)} — {c.store_url}</option>)}
-                </select>
-              </div>
+              {!editingChannel && (
+                <div>
+                  <label htmlFor="channel-type" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Type
+                  </label>
+                  <select
+                    id="channel-type"
+                    value={form.channelType}
+                    onChange={e => setForm(f => ({ ...f, channelType: e.target.value as ChannelType, connectionId: '', defaultWarehouseId: '' }))}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {(Object.keys(TYPE_LABELS) as ChannelType[]).map(t => (
+                      <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                    ))}
+                  </select>
+                  {form.channelType === INTERNAL_TYPE && (
+                    <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                      A storefront CommerceOS itself hosts checkout for — no external connection needed.
+                    </p>
+                  )}
+                </div>
+              )}
+              {(editingChannel ? CONNECTION_REQUIRED_TYPES.includes(editingChannel.type) : form.channelType !== INTERNAL_TYPE) && (
+                <div>
+                  <label htmlFor="channel-connection" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Connection
+                  </label>
+                  <select
+                    id="channel-connection"
+                    required
+                    value={form.connectionId}
+                    onChange={e => {
+                      const connectionId = e.target.value
+                      const defaultWarehouseId = connections.find(c => c.id === connectionId)?.default_warehouse_id ?? ''
+                      setForm(f => ({ ...f, connectionId, defaultWarehouseId }))
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="" disabled>Select a connection…</option>
+                    {connections
+                      .filter(c => c.provider === (editingChannel ? editingChannel.type : form.channelType))
+                      .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)} — {c.store_url}</option>)}
+                  </select>
+                </div>
+              )}
               {form.connectionId && (
                 <div>
                   <label htmlFor="channel-default-warehouse" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
@@ -358,7 +392,7 @@ export default function SalesChannels() {
                   />
                 </div>
               )}
-              {editingChannel && editingChannel.type === 'whatsapp' && (
+              {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
                   <label htmlFor="channel-payment-method" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
                     Payment method
@@ -375,7 +409,7 @@ export default function SalesChannels() {
                       .map(c => <option key={c.id} value={c.id}>{capitalize(c.provider)}</option>)}
                   </select>
                   <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
-                    Which connected payment integration a WhatsApp order's payment link is generated through. Connect Stripe or Revolut from the Integrations page first.
+                    Which connected payment integration an order's payment link is generated through. Connect Stripe or Revolut from the Integrations page first.
                   </p>
                 </div>
               )}

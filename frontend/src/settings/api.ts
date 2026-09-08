@@ -46,10 +46,10 @@ export async function listApiKeys(token: string): Promise<ApiKey[]> {
 // authenticated public-storefront API. The response carries the
 // PLAINTEXT value exactly once, it can't be retrieved again after this
 // call (only the hash persists server-side).
-export function createApiKey(token: string, name: string, description: string): Promise<ApiKeyCreated> {
+export function createApiKey(token: string, name: string, description: string, salesChannelId: string | null = null): Promise<ApiKeyCreated> {
   return request<ApiKeyCreated>(
     `${base()}/api-keys`,
-    { method: 'POST', body: JSON.stringify({ name, description }) },
+    { method: 'POST', body: JSON.stringify({ name, description, sales_channel_id: salesChannelId }) },
     token,
   )
 }
