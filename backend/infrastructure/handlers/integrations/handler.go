@@ -1587,7 +1587,7 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 	channel, err := h.createSalesChannel.Execute(c.Request.Context(), appchannels.CreateSalesChannelInput{
 		Name: req.Name, Type: channelsDomain.ChannelType(req.Type), ConnectionID: req.ConnectionId,
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
-		EnrollmentTag: tag,
+		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1608,7 +1608,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 	channel, err := h.updateSalesChannel.Execute(c.Request.Context(), appchannels.UpdateSalesChannelInput{
 		ID: id, Name: req.Name, ConnectionID: req.ConnectionId,
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
-		EnrollmentTag: tag, Active: req.Active,
+		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints, Active: req.Active,
 	})
 	if err := mapError(c, err); err != nil {
 		return

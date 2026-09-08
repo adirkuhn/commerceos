@@ -241,8 +241,12 @@ export interface SalesChannel {
   enrollment_tag?: string | null
   // Which connected payment integration (Stripe/Revolut) this channel
   // generates a payment link through -- null means disabled. Only
-  // meaningful for type 'whatsapp' today.
+  // meaningful for type 'whatsapp'/'internal' today.
   payment_connection_id?: string | null
+  // Discount off list price applied to every SKU shown/sold through this
+  // channel, in basis points (e.g. 2000 = 20% off). Null means no
+  // adjustment. Only meaningful for type 'internal' today.
+  price_adjustment_basis_points?: number | null
   active: boolean
   created_at: string
   updated_at: string

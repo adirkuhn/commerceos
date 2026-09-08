@@ -122,6 +122,45 @@ func TestCreateSalesChannel_requiresTagForTagMode(t *testing.T) {
 	assert.ErrorIs(t, err, channelsDomain.ErrEnrollmentTagRequired)
 }
 
+func TestCreateSalesChannel_internal_withPriceAdjustment_success(t *testing.T) {
+	repo := &stubSalesChannelRepo{}
+	discount := 2000
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{})
+
+	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		PriceAdjustmentBasisPoints: &discount,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, channel.PriceAdjustmentBasisPoints)
+	assert.Equal(t, 2000, *channel.PriceAdjustmentBasisPoints)
+}
+
+func TestCreateSalesChannel_rejectsPriceAdjustmentOutOfRange(t *testing.T) {
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{})
+	tooHigh := 10001
+
+	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		PriceAdjustmentBasisPoints: &tooHigh,
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrInvalidPriceAdjustment)
+}
+
+func TestCreateSalesChannel_rejectsNegativePriceAdjustment(t *testing.T) {
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{})
+	negative := -1
+
+	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		PriceAdjustmentBasisPoints: &negative,
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrInvalidPriceAdjustment)
+}
+
 func TestCreateSalesChannel_propagatesConnectionNotFound(t *testing.T) {
 	connID := "missing"
 	connRepo := &stubConnectionRepo{findErr: integrationsDomain.ErrConnectionNotFound}

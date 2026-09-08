@@ -33,6 +33,23 @@ func TestUpdateCartItems_replacesTheWholeLineSetWithFreshCatalogSnapshot(t *test
 	require.Equal(t, cartRepo.updated, cart)
 }
 
+func TestUpdateCartItems_appliesChannelPriceAdjustment(t *testing.T) {
+	discount := 2000 // 20% off
+	b2bChannel := internalChannel("channel-b2b")
+	b2bChannel.PriceAdjustmentBasisPoints = &discount
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-b2b": b2bChannel}}
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{
+		"token-1": {ID: "cart-1", Token: "token-1", SalesChannelID: "channel-b2b"},
+	}}
+	sku, variant, product, override, stockLevel := seedCatalogOneSKU("SKU-A", "sku-1", 1000, 10)
+	uc := newUpdateCartItemsUseCase(t, 2, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
+
+	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 1}})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(800), cart.Items[0].PriceMinorUnits)
+}
+
 func TestUpdateCartItems_usesSalePriceWhenActive(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": {ID: "cart-1", SalesChannelID: "channel-1"}}}

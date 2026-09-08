@@ -90,9 +90,19 @@ func lookupCatalogEntry(
 	if !channel.IsProductEnrolled(product.CategoryID, product.Tags, override) {
 		return nil, storefrontDomain.ErrProductNotAvailable
 	}
+	// Both prices go through the channel's own discount (e.g. a B2B
+	// channel's wholesale rate) before anything else ever sees them --
+	// snapshotted onto the CartItem at this point, same as every other
+	// price field here (see catalogEntry's own doc comment).
+	price := channel.EffectivePriceMinorUnits(sku.PriceMinorUnits)
+	var salePrice *int64
+	if sku.SalePriceMinorUnits != nil {
+		discounted := channel.EffectivePriceMinorUnits(*sku.SalePriceMinorUnits)
+		salePrice = &discounted
+	}
 	return &catalogEntry{
-		SKUID: sku.ID, ProductName: product.Name, PriceMinorUnits: sku.PriceMinorUnits,
-		SalePriceMinorUnits: sku.SalePriceMinorUnits, CurrencyCode: sku.CurrencyCode, TaxClassID: sku.TaxClassID,
+		SKUID: sku.ID, ProductName: product.Name, PriceMinorUnits: price,
+		SalePriceMinorUnits: salePrice, CurrencyCode: sku.CurrencyCode, TaxClassID: sku.TaxClassID,
 	}, nil
 }
 

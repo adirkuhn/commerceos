@@ -102,6 +102,28 @@ func TestListProducts_mapsSKUsFirstSKUAsListingPrice(t *testing.T) {
 	require.Equal(t, int64(400), *result.Products[0].SalePriceMinorUnits)
 }
 
+func TestListProducts_appliesChannelPriceAdjustmentToListingPrice(t *testing.T) {
+	discount := 2000 // 20% off
+	b2bChannel := internalChannel("channel-b2b")
+	b2bChannel.PriceAdjustmentBasisPoints = &discount
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-b2b": b2bChannel}}
+	sale := int64(500)
+	catalog := &fakeListPOSProductCatalog{out: &apppms.ListPOSProductCatalogResult{
+		Total: 1,
+		Products: []apppms.POSProductWithSKUs{{
+			Product: pmsDomain.Product{ID: "product-1", Name: "Widget"},
+			SKUs:    []apppms.POSProductSKU{{SKU: pmsDomain.SKU{PriceMinorUnits: 1000, SalePriceMinorUnits: &sale, CurrencyCode: "EUR"}}},
+		}},
+	}}
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), channelRepo, &fakeOverrideRepo{}, catalog)
+
+	result, err := uc.Execute(context.Background(), "channel-b2b", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(800), *result.Products[0].PriceMinorUnits)
+	require.Equal(t, int64(400), *result.Products[0].SalePriceMinorUnits)
+}
+
 func TestListProducts_rejectsUnknownChannel(t *testing.T) {
 	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 1), &fakeChannelRepo{}, &fakeOverrideRepo{}, &fakeListPOSProductCatalog{})
 

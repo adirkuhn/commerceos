@@ -22,10 +22,11 @@ type UpdateSalesChannelInput struct {
 	// all"/"add by category"/"add by tag" bulk actions work: they're just
 	// this channel's default rule changing, evaluated live against the
 	// whole catalog with no per-product rows to write.
-	EnrollmentMode       channelsDomain.EnrollmentMode
-	EnrollmentCategoryID *string
-	EnrollmentTag        string
-	Active               bool
+	EnrollmentMode             channelsDomain.EnrollmentMode
+	EnrollmentCategoryID       *string
+	EnrollmentTag              string
+	PriceAdjustmentBasisPoints *int
+	Active                     bool
 }
 
 type UpdateSalesChannelUseCase struct {
@@ -45,7 +46,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		if err != nil {
 			return err
 		}
-		if err := validateSalesChannelInput(existing.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag); err != nil {
+		if err := validateSalesChannelInput(existing.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints); err != nil {
 			return err
 		}
 		if in.ConnectionID != nil {
@@ -62,6 +63,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.EnrollmentMode = in.EnrollmentMode
 		existing.EnrollmentCategoryID = in.EnrollmentCategoryID
 		existing.EnrollmentTag = in.EnrollmentTag
+		existing.PriceAdjustmentBasisPoints = in.PriceAdjustmentBasisPoints
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {

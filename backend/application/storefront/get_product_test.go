@@ -43,6 +43,28 @@ func TestGetProduct_returnsFullVariantSKUAndImageDetail(t *testing.T) {
 	require.Equal(t, int64(7), detail.Variants[0].SKUs[0].StockQuantity)
 }
 
+func TestGetProduct_appliesChannelPriceAdjustment(t *testing.T) {
+	discount := 2000 // 20% off
+	b2bChannel := internalChannel("channel-b2b")
+	b2bChannel.PriceAdjustmentBasisPoints = &discount
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-b2b": b2bChannel}}
+	productRepo := &fakeProductRepo{byID: map[string]pmsDomain.Product{
+		"product-1": {ID: "product-1", Name: "Widget", Status: pmsDomain.ProductStatusActive},
+	}}
+	variantRepo := &fakeVariantRepo{byProduct: map[string][]pmsDomain.Variant{
+		"product-1": {{ID: "variant-1", ProductID: "product-1", Name: "Default"}},
+	}}
+	skuRepo := &fakeSKURepo{byVariant: map[string][]pmsDomain.SKU{
+		"variant-1": {{ID: "sku-1", VariantID: "variant-1", SKUCode: "SKU-A", PriceMinorUnits: 1000, CurrencyCode: "EUR"}},
+	}}
+	uc := newGetProductUseCase(t, 1, channelRepo, &fakeOverrideRepo{}, productRepo, variantRepo, skuRepo, &fakeMediaRepo{}, &fakeStockLevel{})
+
+	detail, err := uc.Execute(context.Background(), "channel-b2b", "product-1")
+
+	require.NoError(t, err)
+	require.Equal(t, int64(800), detail.Variants[0].SKUs[0].PriceMinorUnits)
+}
+
 func TestGetProduct_rejectsDraftProduct(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	productRepo := &fakeProductRepo{byID: map[string]pmsDomain.Product{

@@ -88,13 +88,37 @@ type SalesChannel struct {
 	// method enabled" -- "disabling" the
 	// payment method is exactly this field going back to nil, "enabling"
 	// is setting it to one of the tenant's connected payment integrations.
-	// Meaningful only for ChannelTypeWhatsApp today, but kept generic on
-	// SalesChannel rather than WhatsApp-specific, same convention as
+	// Meaningful only for ChannelTypeWhatsApp and ChannelTypeInternal today
+	// (both generate their own checkout payment link), but kept generic on
+	// SalesChannel rather than type-specific, same convention as
 	// Connection's Bol-only fields.
 	PaymentConnectionID *string
-	Active              bool
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	// PriceAdjustmentBasisPoints discounts every SKU's effective price when
+	// shown/sold through this channel -- nil means no adjustment (retail
+	// price as-is). Basis points as a DISCOUNT off list price (e.g. 2000 =
+	// 20% off), same convention as tax.TaxRate.RateBasisPoints: an integer
+	// so a value that ends up multiplied into money never carries float
+	// rounding error. Meaningful only for ChannelTypeInternal today -- this
+	// is what lets a tenant run a B2B storefront at wholesale prices
+	// alongside a B2C one at retail, without any customer-group/login
+	// concept (see application/storefront, the only reader). Valid range
+	// 0-10000 (0%-100%), enforced at write time (see
+	// application/channels.validateSalesChannelInput).
+	PriceAdjustmentBasisPoints *int
+	Active                     bool
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
+}
+
+// EffectivePriceMinorUnits applies PriceAdjustmentBasisPoints (nil = no
+// adjustment) to priceMinorUnits, rounding down -- the one place this
+// channel's discount is actually computed, called for every price a
+// storefront shows or sells at (see application/storefront).
+func (c SalesChannel) EffectivePriceMinorUnits(priceMinorUnits int64) int64 {
+	if c.PriceAdjustmentBasisPoints == nil || *c.PriceAdjustmentBasisPoints == 0 {
+		return priceMinorUnits
+	}
+	return priceMinorUnits * (10000 - int64(*c.PriceAdjustmentBasisPoints)) / 10000
 }
 
 // SalesChannelProductOverride force-includes or force-excludes one product

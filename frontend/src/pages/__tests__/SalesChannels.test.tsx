@@ -119,7 +119,7 @@ describe('Create sales channel', () => {
     await waitFor(() => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'New Channel', type: 'woocommerce', connectionId: 'conn-1', enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null,
       })
     })
   })
@@ -161,7 +161,7 @@ describe('Create sales channel', () => {
     await waitFor(() => {
       expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', {
         name: 'B2C Store', type: 'internal', connectionId: null, enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null,
       })
     })
   })
@@ -217,7 +217,7 @@ describe('Edit sales channel', () => {
     await waitFor(() => {
       expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-1', {
         name: 'Renamed', connectionId: 'conn-1', enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null, active: true,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, active: true,
       })
     })
   })
@@ -274,7 +274,7 @@ describe('Manage products', () => {
     await waitFor(() => {
       expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-1', {
         name: 'My Woo Store', connectionId: 'conn-1', enrollmentMode: 'all',
-        enrollmentCategoryId: null, enrollmentTag: null, active: true,
+        enrollmentCategoryId: null, enrollmentTag: null, priceAdjustmentBasisPoints: null, active: true,
       })
     })
   })
@@ -374,6 +374,66 @@ describe('WhatsApp payment method', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     expect(screen.queryByLabelText('Payment method')).not.toBeInTheDocument()
+  })
+
+  it('shows the discount field only for Internal channels', async () => {
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    expect(screen.queryByLabelText('Discount off list price (%)')).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    expect(screen.getByLabelText('Discount off list price (%)')).toBeInTheDocument()
+  })
+
+  it('converts a percent into basis points and sends it on create', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 2000 }))
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
+    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '20')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
+        priceAdjustmentBasisPoints: 2000,
+      }))
+    })
+  })
+
+  it('prefills the discount field from basis points when editing', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 1500 })])
+    render(<SalesChannels />)
+    await screen.findByText('B2B Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Discount off list price (%)')).toHaveValue(15)
+  })
+
+  it('rejects a discount over 100%', async () => {
+    render(<SalesChannels />)
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
+    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '150')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    expect(await screen.findByText('Discount must be between 0 and 100%.')).toBeInTheDocument()
+    expect(integrationsApi.createSalesChannel).not.toHaveBeenCalled()
+  })
+
+  it('shows the discount badge on the channel card when set', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 2000 })])
+    render(<SalesChannels />)
+
+    expect(await screen.findByText('20% off')).toBeInTheDocument()
   })
 
   it('shows a payment method field for an Internal channel too', async () => {

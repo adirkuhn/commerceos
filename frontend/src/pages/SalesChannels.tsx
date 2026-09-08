@@ -31,13 +31,29 @@ interface ChannelFormState {
   active: boolean
   defaultWarehouseId: string
   paymentConnectionId: string
+  // Held as a percent string ("20" means 20%) for the input field --
+  // converted to basis points only at submit time (see priceAdjustmentBasisPointsOrError).
+  priceAdjustmentPercent: string
 }
 
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
-    enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '',
+    enrollmentTag: '', active: true, defaultWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
   }
+}
+
+// priceAdjustmentBasisPointsOrError converts the form's percent string to
+// basis points (e.g. "20" -> 2000), or throws a message-carrying Error for
+// an out-of-range value -- caught by handleSubmit the same way every other
+// save error is.
+function priceAdjustmentBasisPointsOrError(percent: string): number | null {
+  if (percent.trim() === '') return null
+  const value = Math.round(parseFloat(percent) * 100)
+  if (!Number.isFinite(value) || value < 0 || value > 10000) {
+    throw new Error('Discount must be between 0 and 100%.')
+  }
+  return value
 }
 
 function capitalize(s: string): string {
@@ -75,6 +91,7 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
     active: channel.active,
     defaultWarehouseId: connection?.default_warehouse_id ?? '',
     paymentConnectionId: channel.payment_connection_id ?? '',
+    priceAdjustmentPercent: channel.price_adjustment_basis_points ? (channel.price_adjustment_basis_points / 100).toString() : '',
   }
 }
 
@@ -126,6 +143,7 @@ export default function SalesChannels() {
         enrollmentMode: form.enrollmentMode,
         enrollmentCategoryId: form.enrollmentMode === 'category' ? form.enrollmentCategoryId || null : null,
         enrollmentTag: form.enrollmentMode === 'tag' ? form.enrollmentTag || null : null,
+        priceAdjustmentBasisPoints: priceAdjustmentBasisPointsOrError(form.priceAdjustmentPercent),
       }
       let channelType: ChannelType
       if (editingChannel) {
@@ -221,9 +239,16 @@ export default function SalesChannels() {
                   <span className={clsx('w-2 h-2 rounded-full mt-1.5', channel.active ? 'bg-green-400' : 'bg-gray-500')} />
                 </div>
                 <p className="text-[10px] dark:text-gray-500 text-gray-400 truncate">{connectionLabel(channel.connection_id)}</p>
-                <p className="mt-2 inline-block text-[10px] px-2 py-0.5 rounded-full dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500">
-                  {ENROLLMENT_LABELS[channel.enrollment_mode]}
-                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="inline-block text-[10px] px-2 py-0.5 rounded-full dark:bg-[#111827] bg-gray-100 dark:text-gray-400 text-gray-500">
+                    {ENROLLMENT_LABELS[channel.enrollment_mode]}
+                  </span>
+                  {!!channel.price_adjustment_basis_points && (
+                    <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500">
+                      {(channel.price_adjustment_basis_points / 100).toString()}% off
+                    </span>
+                  )}
+                </div>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setManagingChannel(channel)}
@@ -392,6 +417,24 @@ export default function SalesChannels() {
                   />
                 </div>
               )}
+              {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
+                <div>
+                  <label htmlFor="channel-price-adjustment" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Discount off list price (%)
+                  </label>
+                  <input
+                    id="channel-price-adjustment"
+                    type="number" step={0.01}
+                    value={form.priceAdjustmentPercent}
+                    onChange={e => setForm(f => ({ ...f, priceAdjustmentPercent: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Applied to every product's price on this storefront -- e.g. 20 for a wholesale channel selling at 20% off retail.
+                  </p>
+                </div>
+              )}
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
                   <label htmlFor="channel-payment-method" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
@@ -512,6 +555,7 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
         enrollmentMode: mode,
         enrollmentCategoryId: categoryId,
         enrollmentTag: tag,
+        priceAdjustmentBasisPoints: channel.price_adjustment_basis_points ?? null,
         active: channel.active,
       })
       onChannelUpdated(updated)

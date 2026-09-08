@@ -111,6 +111,11 @@ func (uc *GetProductUseCase) Execute(ctx context.Context, salesChannelID, produc
 			}
 			skuDetails := make([]SKUDetail, len(skus))
 			for j, s := range skus {
+				s.PriceMinorUnits = channel.EffectivePriceMinorUnits(s.PriceMinorUnits)
+				if s.SalePriceMinorUnits != nil {
+					discounted := channel.EffectivePriceMinorUnits(*s.SalePriceMinorUnits)
+					s.SalePriceMinorUnits = &discounted
+				}
 				skuDetails[j] = SKUDetail{SKU: s}
 				skuIDs = append(skuIDs, s.ID)
 			}

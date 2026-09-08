@@ -830,18 +830,19 @@ func toSyncLogDomain(m channelSyncLogModel) *channelsDomain.SyncLogEntry {
 // ── Sales channel repo ───────────────────────────────────────────────────────
 
 type salesChannelModel struct {
-	ID                   string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID             string `gorm:"not null;type:uuid"`
-	Name                 string `gorm:"not null"`
-	Type                 string `gorm:"not null"`
-	ConnectionID         *string
-	EnrollmentMode       string `gorm:"column:enrollment_mode;not null"`
-	EnrollmentCategoryID *string
-	EnrollmentTag        string `gorm:"not null;default:''"`
-	PaymentConnectionID  *string
-	Active               bool `gorm:"not null;default:true"`
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	ID                         string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                   string `gorm:"not null;type:uuid"`
+	Name                       string `gorm:"not null"`
+	Type                       string `gorm:"not null"`
+	ConnectionID               *string
+	EnrollmentMode             string `gorm:"column:enrollment_mode;not null"`
+	EnrollmentCategoryID       *string
+	EnrollmentTag              string `gorm:"not null;default:''"`
+	PaymentConnectionID        *string
+	PriceAdjustmentBasisPoints *int `gorm:"column:price_adjustment_basis_points"`
+	Active                     bool `gorm:"not null;default:true"`
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
 }
 
 func (salesChannelModel) TableName() string { return "sales_channels" }
@@ -866,8 +867,9 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 	m := salesChannelModel{
 		TenantID: c.TenantID, Name: c.Name, Type: string(c.Type), ConnectionID: c.ConnectionID,
 		EnrollmentMode: string(c.EnrollmentMode), EnrollmentCategoryID: c.EnrollmentCategoryID, EnrollmentTag: c.EnrollmentTag,
-		PaymentConnectionID: c.PaymentConnectionID,
-		Active:              c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+		PaymentConnectionID:        c.PaymentConnectionID,
+		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
+		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Create: %w", err)
@@ -916,8 +918,9 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 		Updates(map[string]any{
 			"name": c.Name, "connection_id": c.ConnectionID,
 			"enrollment_mode": string(c.EnrollmentMode), "enrollment_category_id": c.EnrollmentCategoryID, "enrollment_tag": c.EnrollmentTag,
-			"payment_connection_id": c.PaymentConnectionID,
-			"active":                c.Active, "updated_at": c.UpdatedAt,
+			"payment_connection_id":         c.PaymentConnectionID,
+			"price_adjustment_basis_points": c.PriceAdjustmentBasisPoints,
+			"active":                        c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
 	}
@@ -939,8 +942,9 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 	return &channelsDomain.SalesChannel{
 		ID: m.ID, TenantID: m.TenantID, Name: m.Name, Type: channelsDomain.ChannelType(m.Type), ConnectionID: m.ConnectionID,
 		EnrollmentMode: channelsDomain.EnrollmentMode(m.EnrollmentMode), EnrollmentCategoryID: m.EnrollmentCategoryID, EnrollmentTag: m.EnrollmentTag,
-		PaymentConnectionID: m.PaymentConnectionID,
-		Active:              m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
+		PaymentConnectionID:        m.PaymentConnectionID,
+		PriceAdjustmentBasisPoints: m.PriceAdjustmentBasisPoints,
+		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
 

@@ -308,6 +308,7 @@ export interface SalesChannelPayload {
   enrollmentMode: EnrollmentMode
   enrollmentCategoryId?: string | null
   enrollmentTag?: string | null
+  priceAdjustmentBasisPoints?: number | null
 }
 
 export function createSalesChannel(token: string, payload: SalesChannelPayload): Promise<SalesChannel> {
@@ -322,6 +323,7 @@ export function createSalesChannel(token: string, payload: SalesChannelPayload):
         enrollment_mode: payload.enrollmentMode,
         enrollment_category_id: payload.enrollmentCategoryId || undefined,
         enrollment_tag: payload.enrollmentTag || undefined,
+        price_adjustment_basis_points: payload.priceAdjustmentBasisPoints ?? undefined,
       }),
     },
     token,
@@ -334,6 +336,7 @@ export interface UpdateSalesChannelPayload {
   enrollmentMode: EnrollmentMode
   enrollmentCategoryId?: string | null
   enrollmentTag?: string | null
+  priceAdjustmentBasisPoints?: number | null
   active: boolean
 }
 
@@ -347,6 +350,7 @@ export function updateSalesChannel(token: string, id: string, payload: UpdateSal
         connection_id: payload.connectionId || undefined,
         enrollment_mode: payload.enrollmentMode,
         enrollment_category_id: payload.enrollmentCategoryId || undefined,
+        price_adjustment_basis_points: payload.priceAdjustmentBasisPoints ?? undefined,
         enrollment_tag: payload.enrollmentTag || undefined,
         active: payload.active,
       }),

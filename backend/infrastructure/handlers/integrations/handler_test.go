@@ -1888,6 +1888,24 @@ func TestCreateSalesChannelHandler_returns422OnInvalidEnrollmentMode(t *testing.
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
+func TestCreateSalesChannelHandler_passesPriceAdjustmentThrough(t *testing.T) {
+	create := &stubCreateSalesChannel{out: &channelsDomain.SalesChannel{ID: "chan-1", Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, create, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	discount := 2000
+	body := genintegrations.CreateSalesChannelRequest{
+		Name: "B2B Store", Type: genintegrations.ChannelType(channelsDomain.ChannelTypeInternal),
+		EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll), PriceAdjustmentBasisPoints: &discount,
+	}
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sales-channels", body)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.NotNil(t, create.in.PriceAdjustmentBasisPoints)
+	assert.Equal(t, 2000, *create.in.PriceAdjustmentBasisPoints)
+}
+
 func TestUpdateSalesChannelHandler_returnsUpdatedChannel(t *testing.T) {
 	update := &stubUpdateSalesChannel{out: &channelsDomain.SalesChannel{ID: "chan-1", Name: "Renamed", EnrollmentMode: channelsDomain.EnrollmentModeAll}}
 	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, update, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
@@ -1900,6 +1918,24 @@ func TestUpdateSalesChannelHandler_returnsUpdatedChannel(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Renamed")
 	assert.Equal(t, "chan-1", update.in.ID)
+}
+
+func TestUpdateSalesChannelHandler_passesPriceAdjustmentThrough(t *testing.T) {
+	update := &stubUpdateSalesChannel{out: &channelsDomain.SalesChannel{ID: "chan-1", Name: "B2B Store", EnrollmentMode: channelsDomain.EnrollmentModeAll}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, update, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	discount := 1500
+	body := genintegrations.UpdateSalesChannelRequest{
+		Name: "B2B Store", EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll), Active: true,
+		PriceAdjustmentBasisPoints: &discount,
+	}
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/sales-channels/chan-1", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, update.in.PriceAdjustmentBasisPoints)
+	assert.Equal(t, 1500, *update.in.PriceAdjustmentBasisPoints)
 }
 
 func TestUpdateSalesChannelHandler_returns404WhenChannelNotFound(t *testing.T) {

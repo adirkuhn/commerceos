@@ -1469,6 +1469,15 @@ components:
           type: string
           nullable: true
           description: Which connected payment integration (Stripe/Revolut) this channel generates a payment link through. Null means no payment method enabled.
+        price_adjustment_basis_points:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 10000
+          description: >
+            Discount off list price applied to every SKU shown/sold through
+            this channel, in basis points (e.g. 2000 = 20% off). Null means
+            no adjustment. Meaningful only for internal channels.
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1491,6 +1500,7 @@ components:
         enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
         enrollment_category_id: { type: string }
         enrollment_tag: { type: string }
+        price_adjustment_basis_points: { type: integer, nullable: true, minimum: 0, maximum: 10000 }
 
     UpdateSalesChannelRequest:
       type: object
@@ -1501,6 +1511,7 @@ components:
         enrollment_mode: { $ref: '#/components/schemas/EnrollmentMode' }
         enrollment_category_id: { type: string }
         enrollment_tag: { type: string }
+        price_adjustment_basis_points: { type: integer, nullable: true, minimum: 0, maximum: 10000 }
         active: { type: boolean }
 
     SalesChannelResponse:

@@ -55,6 +55,10 @@ var (
 	ErrSalesChannelNotFound  = errors.New("sales channel not found")
 	ErrInvalidChannelType    = errors.New("invalid sales channel type")
 	ErrInvalidEnrollmentMode = errors.New("invalid enrollment mode")
+	// ErrInvalidPriceAdjustment guards SalesChannel.PriceAdjustmentBasisPoints
+	// against an out-of-range value -- 0-10000 (0%-100% discount) is the
+	// only valid range.
+	ErrInvalidPriceAdjustment = errors.New("price adjustment must be between 0 and 10000 basis points")
 	// ErrConnectionRequired guards a channel type where
 	// ChannelType.RequiresConnection() is true (every type implemented
 	// today) against being created/updated with no ConnectionID.

@@ -72,8 +72,10 @@ func NewListProductsUseCase(
 
 func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID string, in ListProductsInput) (*ListProductsResult, error) {
 	var pmsInput apppms.ListProductsInput
+	var channel *channelsDomain.SalesChannel
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		channel, err := findInternalChannel(ctx, uc.channelRepo, salesChannelID)
+		var err error
+		channel, err = findInternalChannel(ctx, uc.channelRepo, salesChannelID)
 		if err != nil {
 			return err
 		}
@@ -124,8 +126,12 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		summary := ProductSummary{Product: p.Product, ImageURL: p.ImageURL}
 		if len(p.SKUs) > 0 {
 			sku := p.SKUs[0]
-			price, currency := sku.PriceMinorUnits, sku.CurrencyCode
-			summary.PriceMinorUnits, summary.SalePriceMinorUnits, summary.CurrencyCode = &price, sku.SalePriceMinorUnits, &currency
+			price, currency := channel.EffectivePriceMinorUnits(sku.PriceMinorUnits), sku.CurrencyCode
+			summary.PriceMinorUnits, summary.CurrencyCode = &price, &currency
+			if sku.SalePriceMinorUnits != nil {
+				salePrice := channel.EffectivePriceMinorUnits(*sku.SalePriceMinorUnits)
+				summary.SalePriceMinorUnits = &salePrice
+			}
 		}
 		result.Products[i] = summary
 	}
