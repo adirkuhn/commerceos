@@ -1,0 +1,109 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Exchange Rates API
+  version: "1.0"
+  description: >
+    Admin-only (JWT) CRUD over the tenant's fx conversion rates (see
+    domain/fx). A rate converts 1 minor-unit of the tenant's default
+    currency into rate_basis_points/10000 minor-units of currency_code
+    (10000 = 1:1 parity) -- the fallback a SalesChannel running in that
+    currency uses to price a SKU/coupon that has no explicit per-currency
+    override.
+servers:
+  - url: /api/v1
+
+paths:
+  /fx/rates:
+    get:
+      operationId: listExchangeRates
+      summary: List every configured exchange rate for the tenant
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExchangeRateListResponse'
+    put:
+      operationId: upsertExchangeRate
+      summary: Create or replace the tenant's rate for one currency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertExchangeRateRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExchangeRateResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /fx/rates/{currencyCode}:
+    delete:
+      operationId: deleteExchangeRate
+      summary: Remove the tenant's rate for one currency
+      parameters:
+        - name: currencyCode
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ExchangeRate:
+      type: object
+      required: [currency_code, rate_basis_points, updated_at]
+      properties:
+        currency_code: { type: string }
+        rate_basis_points:
+          type: integer
+          format: int64
+          description: 10000 = 1:1 parity between the tenant's default currency and currency_code.
+        updated_at: { type: string, format: date-time }
+
+    UpsertExchangeRateRequest:
+      type: object
+      required: [currency_code, rate_basis_points]
+      properties:
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+        rate_basis_points: { type: integer, format: int64 }
+
+    ExchangeRateResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ExchangeRate' }
+        error: { nullable: true }
+
+    ExchangeRateListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ExchangeRate' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

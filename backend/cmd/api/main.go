@@ -17,6 +17,7 @@ import (
 	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	gendashboard "github.com/adirkuhn/commerceos/api/dashboard"
+	genfx "github.com/adirkuhn/commerceos/api/fx"
 	genia "github.com/adirkuhn/commerceos/api/iam"
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
@@ -44,6 +45,7 @@ import (
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
+	fxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/fx"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
@@ -275,6 +277,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	couponshandler.Register(couponsGroup, db)
+
+	fxSpec, err := genfx.GetSpec()
+	if err != nil {
+		log.Fatalf("fx: load openapi spec: %v", err)
+	}
+	// Own sub-group so the fx-only spec validator never applies to the
+	// other modules' routes — same reasoning as pmsGroup above.
+	fxGroup := v1.Group("")
+	fxGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(fxSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	fxhandler.Register(fxGroup, db)
 
 	reviewsSpec, err := genreviews.GetSpec()
 	if err != nil {
