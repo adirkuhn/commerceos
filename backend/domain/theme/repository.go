@@ -10,7 +10,7 @@ type Repository interface {
 	// when none exists yet -- a channel with no saved theme has no row at
 	// all, not a zero-value one (see application/theme's default-page
 	// fallback for what a caller does with nil).
-	FindBySlug(ctx context.Context, salesChannelID, slug string) (*ThemePage, error)
+	FindBySlug(ctx context.Context, salesChannelID string, slug PageSlug) (*ThemePage, error)
 	// Upsert replaces the whole page document for (SalesChannelID, Slug) --
 	// a page's block list is always saved as one unit from the canvas
 	// editor, never patched incrementally (see ThemePage's own doc

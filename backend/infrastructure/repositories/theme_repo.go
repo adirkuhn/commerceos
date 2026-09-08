@@ -70,13 +70,13 @@ func (r *ThemePageRepo) tx(ctx context.Context) (*gorm.DB, error) {
 	return tx.WithContext(ctx), nil
 }
 
-func (r *ThemePageRepo) FindBySlug(ctx context.Context, salesChannelID, slug string) (*themeDomain.ThemePage, error) {
+func (r *ThemePageRepo) FindBySlug(ctx context.Context, salesChannelID string, slug themeDomain.PageSlug) (*themeDomain.ThemePage, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var m themePageModel
-	err = tx.Where("sales_channel_id = ? AND slug = ?", salesChannelID, slug).First(&m).Error
+	err = tx.Where("sales_channel_id = ? AND slug = ?", salesChannelID, string(slug)).First(&m).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -104,7 +104,7 @@ func (r *ThemePageRepo) Upsert(ctx context.Context, p *themeDomain.ThemePage) er
 		Columns:   []clause.Column{{Name: "sales_channel_id"}, {Name: "slug"}},
 		DoUpdates: clause.AssignmentColumns([]string{"canvas_width", "blocks", "updated_at"}),
 	}).Create(&themePageModel{
-		TenantID: p.TenantID, SalesChannelID: p.SalesChannelID, Slug: p.Slug,
+		TenantID: p.TenantID, SalesChannelID: p.SalesChannelID, Slug: string(p.Slug),
 		CanvasWidth: p.CanvasWidth, Blocks: themeBlocks(p.Blocks),
 		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}).Error
@@ -116,7 +116,7 @@ func (r *ThemePageRepo) Upsert(ctx context.Context, p *themeDomain.ThemePage) er
 
 func toThemePageDomain(m themePageModel) *themeDomain.ThemePage {
 	return &themeDomain.ThemePage{
-		ID: m.ID, TenantID: m.TenantID, SalesChannelID: m.SalesChannelID, Slug: m.Slug,
+		ID: m.ID, TenantID: m.TenantID, SalesChannelID: m.SalesChannelID, Slug: themeDomain.PageSlug(m.Slug),
 		CanvasWidth: m.CanvasWidth, Blocks: []themeDomain.Block(m.Blocks),
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}

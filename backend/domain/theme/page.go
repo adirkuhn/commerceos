@@ -15,6 +15,16 @@ import "time"
 // BlockType is the fixed set of block kinds the canvas editor can place --
 // each has its own Props shape (validated at the application layer, not
 // here) and its own renderer in the storefront-frontend app.
+//
+// Functional block types (ProductDetails/CartSummary/CheckoutForm/
+// OrderStatus, see IsFunctional) render real wired-up behavior -- the
+// actual add-to-cart control, the actual payment-submitting checkout form
+// -- not just presentation, unlike Hero/RichText/ProductGrid/CustomHTML.
+// A merchant can drag/resize/restyle one of these like any other block,
+// but PageSlug's own doc comment on RequiredBlockType explains what
+// happens if one goes missing from a page that needs it: the
+// storefront-frontend renders a safe default in its place rather than
+// ever shipping a broken cart/checkout/product page.
 type BlockType string
 
 const (
@@ -22,11 +32,29 @@ const (
 	BlockTypeProductGrid BlockType = "product_grid"
 	BlockTypeRichText    BlockType = "rich_text"
 	BlockTypeCustomHTML  BlockType = "custom_html"
+
+	BlockTypeProductDetails BlockType = "product_details"
+	BlockTypeCartSummary    BlockType = "cart_summary"
+	BlockTypeCheckoutForm   BlockType = "checkout_form"
+	BlockTypeOrderStatus    BlockType = "order_status"
 )
 
 func (t BlockType) Valid() bool {
 	switch t {
-	case BlockTypeHero, BlockTypeProductGrid, BlockTypeRichText, BlockTypeCustomHTML:
+	case BlockTypeHero, BlockTypeProductGrid, BlockTypeRichText, BlockTypeCustomHTML,
+		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsFunctional reports whether this block type renders real wired-up
+// behavior rather than pure presentation -- see the type's own doc
+// comment.
+func (t BlockType) IsFunctional() bool {
+	switch t {
+	case BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus:
 		return true
 	default:
 		return false
@@ -68,18 +96,82 @@ type Block struct {
 	Props  map[string]any
 }
 
+// PageSlug is the fixed set of storefront pages that can have their own
+// canvas document -- every one of them is canvas-editable (including Cart
+// and Checkout), each via its own RequiredBlockType so its real behavior
+// survives however the merchant lays it out.
+type PageSlug string
+
+const (
+	PageSlugHome              PageSlug = "home"
+	PageSlugProducts          PageSlug = "products"
+	PageSlugProduct           PageSlug = "product"
+	PageSlugCart              PageSlug = "cart"
+	PageSlugCheckout          PageSlug = "checkout"
+	PageSlugOrderConfirmed    PageSlug = "order-confirmation"
+	PageSlugOrderStatusLookup PageSlug = "order-lookup"
+)
+
+func (s PageSlug) Valid() bool {
+	switch s {
+	case PageSlugHome, PageSlugProducts, PageSlugProduct, PageSlugCart, PageSlugCheckout,
+		PageSlugOrderConfirmed, PageSlugOrderStatusLookup:
+		return true
+	default:
+		return false
+	}
+}
+
+// RequiredBlockType is the one functional block a page needs to actually
+// work -- ok is false for Home/Products, which are pure presentation and
+// need no functional block at all. The storefront-frontend renders this
+// block type's safe default UI when a required page is missing it (a
+// merchant deleted it, or the page was never customized), so a page can
+// always be laid out freely without ever being capable of shipping
+// without its real behavior.
+func (s PageSlug) RequiredBlockType() (BlockType, bool) {
+	switch s {
+	case PageSlugProduct:
+		return BlockTypeProductDetails, true
+	case PageSlugCart:
+		return BlockTypeCartSummary, true
+	case PageSlugCheckout:
+		return BlockTypeCheckoutForm, true
+	case PageSlugOrderConfirmed, PageSlugOrderStatusLookup:
+		return BlockTypeOrderStatus, true
+	default:
+		return "", false
+	}
+}
+
 // ThemePage is one page's whole canvas document for one sales channel --
-// "home" is the only Slug used today (the storefront's landing page); the
-// field exists so a later increment adding more pages (product listing,
-// about, etc.) is additive. CanvasWidth is the fixed design width every
-// Block's Rect is positioned against (see Rect's doc comment).
+// Slug identifies which storefront page this is (see PageSlug).
+// CanvasWidth is the fixed design width every Block's Rect is positioned
+// against (see Rect's doc comment).
 type ThemePage struct {
 	ID             string
 	TenantID       string
 	SalesChannelID string
-	Slug           string
+	Slug           PageSlug
 	CanvasWidth    int
 	Blocks         []Block
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// HasRequiredBlock reports whether p actually contains the functional
+// block its own Slug requires -- true for a page with no requirement at
+// all (Home/Products). Used by application/theme's page-fetch use case to
+// decide whether a caller should be told a default fallback is in effect.
+func (p ThemePage) HasRequiredBlock() bool {
+	required, ok := p.Slug.RequiredBlockType()
+	if !ok {
+		return true
+	}
+	for _, b := range p.Blocks {
+		if b.Type == required {
+			return true
+		}
+	}
+	return false
 }
