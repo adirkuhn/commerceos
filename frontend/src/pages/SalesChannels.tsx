@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Radio, X, Search } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
+import { themeEditorPath } from '../theme/routing'
 import { useSalesChannels } from '../integrations/hooks/useSalesChannels'
 import { useSalesChannelProducts } from '../integrations/hooks/useSalesChannelProducts'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -96,6 +98,7 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
 }
 
 export default function SalesChannels() {
+  const navigate = useNavigate()
   const { token } = useAuth()
   const { channels, loading, error, create, update, remove } = useSalesChannels(token ?? '')
   const { connections, refresh: refreshConnections } = useConnections(token ?? '')
@@ -249,13 +252,21 @@ export default function SalesChannels() {
                     </span>
                   )}
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className={clsx('mt-3 grid gap-2', channel.type === INTERNAL_TYPE ? 'grid-cols-4' : 'grid-cols-3')}>
                   <button
                     onClick={() => setManagingChannel(channel)}
                     className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                   >
                     Products
                   </button>
+                  {channel.type === INTERNAL_TYPE && (
+                    <button
+                      onClick={() => navigate(themeEditorPath(channel.id, 'home'))}
+                      className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
+                    >
+                      Theme
+                    </button>
+                  )}
                   <button
                     onClick={() => openEdit(channel)}
                     className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"

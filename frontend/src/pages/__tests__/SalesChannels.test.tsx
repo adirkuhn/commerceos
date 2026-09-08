@@ -2,7 +2,12 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import SalesChannels from '../SalesChannels'
+
+function renderPage() {
+  return render(<MemoryRouter><SalesChannels /></MemoryRouter>)
+}
 import type { Connection, SalesChannel, SalesChannelProductEnrollment } from '../../integrations/types'
 import type { Category } from '../../pms/types'
 
@@ -93,12 +98,12 @@ beforeEach(() => {
 describe('Sales channels list', () => {
   it('shows an empty state when there are no channels', async () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([])
-    render(<SalesChannels />)
+    renderPage()
     expect(await screen.findByText('No sales channels yet')).toBeInTheDocument()
   })
 
   it('lists channels with their connection and enrollment mode', async () => {
-    render(<SalesChannels />)
+    renderPage()
     expect(await screen.findByText('My Woo Store')).toBeInTheDocument()
     expect(screen.getByText('Woocommerce — https://mystore.com')).toBeInTheDocument()
     expect(screen.getByText('All products')).toBeInTheDocument()
@@ -108,7 +113,7 @@ describe('Sales channels list', () => {
 describe('Create sales channel', () => {
   it('creates a channel with the selected connection and enrollment mode', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-2', name: 'New Channel' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -127,7 +132,7 @@ describe('Create sales channel', () => {
   it('filters the connection list to the selected type, and submits that type', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, bolConnection])
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-bol', name: 'BOL', type: 'bol', connection_id: 'conn-bol-1' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -147,7 +152,7 @@ describe('Create sales channel', () => {
 
   it('picking Internal hides connection/default-location fields and creates with no connection', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -168,7 +173,7 @@ describe('Create sales channel', () => {
 
   it('shows the tag input only when enrollment mode is tag, and sends it', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-3', name: 'Tagged Channel', enrollment_mode: 'tag', enrollment_tag: 'summer' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -189,7 +194,7 @@ describe('Create sales channel', () => {
 
   it('shows an error if creating fails', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockRejectedValue(new Error('connection is required'))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -204,7 +209,7 @@ describe('Create sales channel', () => {
 describe('Edit sales channel', () => {
   it('prefills the form and saves changes', async () => {
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ name: 'Renamed' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -226,7 +231,7 @@ describe('Edit sales channel', () => {
 describe('Delete sales channel', () => {
   it('asks for confirmation and calls delete', async () => {
     vi.mocked(integrationsApi.deleteSalesChannel).mockResolvedValue(null)
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
@@ -239,7 +244,7 @@ describe('Delete sales channel', () => {
 
 describe('Manage products', () => {
   it('lists products with their computed enrollment status', async () => {
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
@@ -250,7 +255,7 @@ describe('Manage products', () => {
 
   it('toggling a product calls the override endpoint', async () => {
     vi.mocked(integrationsApi.setSalesChannelProductOverride).mockResolvedValue(null)
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
     await screen.findByText('T-Shirt')
@@ -264,7 +269,7 @@ describe('Manage products', () => {
 
   it('"Add all" applies the all-products enrollment rule', async () => {
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ enrollment_mode: 'all' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
     await screen.findByText('T-Shirt')
@@ -281,7 +286,7 @@ describe('Manage products', () => {
 
   it('"Add by category" applies the category enrollment rule for the selected category', async () => {
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ enrollment_mode: 'category', enrollment_category_id: 'cat-1' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
     await screen.findByText('T-Shirt')
@@ -297,7 +302,7 @@ describe('Manage products', () => {
   })
 
   it('Back returns to the channel list', async () => {
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
     await userEvent.click(screen.getByRole('button', { name: 'Products' }))
     await screen.findByText('T-Shirt')
@@ -314,7 +319,7 @@ describe('Sales channel default location', () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-2', name: 'New Channel' }))
     vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue({ ...wooConnection, default_warehouse_id: 'wh-1' })
 
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -334,7 +339,7 @@ describe('Sales channel default location', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([{ ...wooConnection, default_warehouse_id: 'wh-1' }])
     vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([warehouse({ id: 'wh-1', name: 'Main DC' })])
 
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -348,7 +353,7 @@ describe('Sales channel default location', () => {
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ name: 'Renamed' }))
     vi.mocked(integrationsApi.updateConnectionSettings).mockResolvedValue({ ...wooConnection, default_warehouse_id: 'wh-1' })
 
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -368,7 +373,7 @@ describe('WhatsApp payment method', () => {
   }
 
   it('does not show a payment method field for a non-WhatsApp/Internal channel', async () => {
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -377,7 +382,7 @@ describe('WhatsApp payment method', () => {
   })
 
   it('shows the discount field only for Internal channels', async () => {
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -389,7 +394,7 @@ describe('WhatsApp payment method', () => {
 
   it('converts a percent into basis points and sends it on create', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 2000 }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -407,7 +412,7 @@ describe('WhatsApp payment method', () => {
 
   it('prefills the discount field from basis points when editing', async () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 1500 })])
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('B2B Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -416,7 +421,7 @@ describe('WhatsApp payment method', () => {
   })
 
   it('rejects a discount over 100%', async () => {
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('My Woo Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
@@ -431,14 +436,14 @@ describe('WhatsApp payment method', () => {
 
   it('shows the discount badge on the channel card when set', async () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 2000 })])
-    render(<SalesChannels />)
+    renderPage()
 
     expect(await screen.findByText('20% off')).toBeInTheDocument()
   })
 
   it('shows a payment method field for an Internal channel too', async () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('B2C Store')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -449,7 +454,7 @@ describe('WhatsApp payment method', () => {
   it('lists only connected Stripe/Revolut connections as payment method options', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, whatsappConnection, stripeConnection, revolutConnection])
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel()])
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('WA Channel')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -462,7 +467,7 @@ describe('WhatsApp payment method', () => {
   it('prefills the current payment connection when editing', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection, whatsappConnection, stripeConnection])
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel({ payment_connection_id: 'conn-stripe-1' })])
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('WA Channel')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -475,7 +480,7 @@ describe('WhatsApp payment method', () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel()])
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(whatsappChannel())
     vi.mocked(integrationsApi.setSalesChannelPaymentMethod).mockResolvedValue(whatsappChannel({ payment_connection_id: 'conn-stripe-1' }))
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('WA Channel')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
@@ -492,7 +497,7 @@ describe('WhatsApp payment method', () => {
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([whatsappChannel({ payment_connection_id: 'conn-stripe-1' })])
     vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(whatsappChannel({ payment_connection_id: 'conn-stripe-1' }))
     vi.mocked(integrationsApi.setSalesChannelPaymentMethod).mockResolvedValue(whatsappChannel())
-    render(<SalesChannels />)
+    renderPage()
     await screen.findByText('WA Channel')
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
