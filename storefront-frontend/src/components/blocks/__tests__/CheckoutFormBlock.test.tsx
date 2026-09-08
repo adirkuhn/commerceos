@@ -8,7 +8,7 @@ import { CartProvider } from '../../../cart/CartContext'
 import type { Cart, ShippingOption } from '../../../types'
 
 vi.mock('../../../api/cart', () => ({
-  createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), getShippingOptions: vi.fn(),
+  createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), getShippingOptions: vi.fn(), applyCoupon: vi.fn(),
 }))
 
 import * as cartApi from '../../../api/cart'
@@ -25,7 +25,7 @@ function renderBlock() {
   return render(<MemoryRouter><CartProvider><CheckoutFormBlock /></CartProvider></MemoryRouter>)
 }
 
-const cart: Cart = { token: 'cart-1', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 1000, currency_code: 'EUR' }], subtotal_minor_units: 1000 }
+const cart: Cart = { token: 'cart-1', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 1000, currency_code: 'EUR' }], subtotal_minor_units: 1000, discount_minor_units: 0 }
 
 async function fillAddress(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Email'), 'shopper@example.com')

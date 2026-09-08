@@ -10,6 +10,7 @@ vi.mock('../../api/cart', () => ({
   getCart: vi.fn(),
   updateCartItems: vi.fn(),
   checkoutCart: vi.fn(),
+  applyCoupon: vi.fn(),
 }))
 
 import * as cartApi from '../../api/cart'
@@ -49,8 +50,8 @@ describe('CartContext', () => {
 
   it('creates a cart lazily on the first addItem and persists the token', async () => {
     const user = userEvent.setup()
-    const created: Cart = { token: 'cart-1', items: [], subtotal_minor_units: 0 }
-    const updated: Cart = { token: 'cart-1', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 500, currency_code: 'EUR' }], subtotal_minor_units: 500 }
+    const created: Cart = { token: 'cart-1', items: [], subtotal_minor_units: 0, discount_minor_units: 0 }
+    const updated: Cart = { token: 'cart-1', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 500, currency_code: 'EUR' }], subtotal_minor_units: 500, discount_minor_units: 0 }
     vi.mocked(cartApi.createCart).mockResolvedValue(created)
     vi.mocked(cartApi.updateCartItems).mockResolvedValue(updated)
 
@@ -66,7 +67,7 @@ describe('CartContext', () => {
 
   it('loads the existing cart on mount when a token is already stored', async () => {
     localStorage.setItem(STORAGE_KEY, 'cart-9')
-    const existing: Cart = { token: 'cart-9', items: [{ sku_code: 'SKU-2', product_name: 'Gizmo', quantity: 2, price_minor_units: 200, currency_code: 'EUR' }], subtotal_minor_units: 400 }
+    const existing: Cart = { token: 'cart-9', items: [{ sku_code: 'SKU-2', product_name: 'Gizmo', quantity: 2, price_minor_units: 200, currency_code: 'EUR' }], subtotal_minor_units: 400, discount_minor_units: 0 }
     vi.mocked(cartApi.getCart).mockResolvedValue(existing)
 
     render(<CartProvider><Harness /></CartProvider>)
@@ -78,9 +79,9 @@ describe('CartContext', () => {
   it('drops an item once its quantity reaches zero', async () => {
     const user = userEvent.setup()
     localStorage.setItem(STORAGE_KEY, 'cart-9')
-    const existing: Cart = { token: 'cart-9', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 500, currency_code: 'EUR' }], subtotal_minor_units: 500 }
+    const existing: Cart = { token: 'cart-9', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 500, currency_code: 'EUR' }], subtotal_minor_units: 500, discount_minor_units: 0 }
     vi.mocked(cartApi.getCart).mockResolvedValue(existing)
-    vi.mocked(cartApi.updateCartItems).mockResolvedValue({ token: 'cart-9', items: [], subtotal_minor_units: 0 })
+    vi.mocked(cartApi.updateCartItems).mockResolvedValue({ token: 'cart-9', items: [], subtotal_minor_units: 0, discount_minor_units: 0 })
 
     render(<CartProvider><Harness /></CartProvider>)
     await waitFor(() => expect(screen.getByTestId('items')).toHaveTextContent('SKU-1'))
@@ -93,7 +94,7 @@ describe('CartContext', () => {
   it('clears the cart and stored token after checkout', async () => {
     const user = userEvent.setup()
     localStorage.setItem(STORAGE_KEY, 'cart-9')
-    const existing: Cart = { token: 'cart-9', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 500, currency_code: 'EUR' }], subtotal_minor_units: 500 }
+    const existing: Cart = { token: 'cart-9', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 500, currency_code: 'EUR' }], subtotal_minor_units: 500, discount_minor_units: 0 }
     vi.mocked(cartApi.getCart).mockResolvedValue(existing)
     vi.mocked(cartApi.checkoutCart).mockResolvedValue({ order_number: 'WEB-1', total_minor_units: 500, currency_code: 'EUR' })
 

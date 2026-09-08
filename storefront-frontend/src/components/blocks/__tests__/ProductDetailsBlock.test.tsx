@@ -8,7 +8,7 @@ import { CartProvider } from '../../../cart/CartContext'
 import type { StorefrontProduct, Cart } from '../../../types'
 
 vi.mock('../../../api/products', () => ({ listProducts: vi.fn(), getProduct: vi.fn() }))
-vi.mock('../../../api/cart', () => ({ createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn() }))
+vi.mock('../../../api/cart', () => ({ createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), applyCoupon: vi.fn() }))
 
 import * as productsApi from '../../../api/products'
 import * as cartApi from '../../../api/cart'
@@ -49,8 +49,8 @@ describe('ProductDetailsBlock', () => {
   it('adds the SKU to the cart and shows it was added', async () => {
     const user = userEvent.setup()
     vi.mocked(productsApi.getProduct).mockResolvedValue(product)
-    vi.mocked(cartApi.createCart).mockResolvedValue({ token: 'cart-1', items: [], subtotal_minor_units: 0 })
-    const updated: Cart = { token: 'cart-1', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 1000, currency_code: 'EUR' }], subtotal_minor_units: 1000 }
+    vi.mocked(cartApi.createCart).mockResolvedValue({ token: 'cart-1', items: [], subtotal_minor_units: 0, discount_minor_units: 0 })
+    const updated: Cart = { token: 'cart-1', items: [{ sku_code: 'SKU-1', product_name: 'Widget', quantity: 1, price_minor_units: 1000, currency_code: 'EUR' }], subtotal_minor_units: 1000, discount_minor_units: 0 }
     vi.mocked(cartApi.updateCartItems).mockResolvedValue(updated)
 
     renderAt('p1')

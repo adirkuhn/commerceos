@@ -12,6 +12,8 @@ interface CartContextValue {
   addItem: (skuCode: string, quantity: number) => Promise<void>
   setItemQuantity: (skuCode: string, quantity: number) => Promise<void>
   removeItem: (skuCode: string) => Promise<void>
+  // Passing an empty string removes any coupon already attached to the cart.
+  applyCoupon: (code: string) => Promise<void>
   checkout: (payload: CheckoutRequest) => Promise<Checkout>
 }
 
@@ -93,6 +95,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeItem = useCallback((skuCode: string) => setItemQuantity(skuCode, 0), [setItemQuantity])
 
+  const applyCoupon = useCallback(async (code: string) => {
+    const current = await ensureCart()
+    setError(null)
+    try {
+      const updated = await cartApi.applyCoupon(current.token, code)
+      setCart(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+      throw e
+    }
+  }, [ensureCart])
+
   const checkout = useCallback(async (payload: CheckoutRequest): Promise<Checkout> => {
     if (!cart) throw new Error('Your cart is empty.')
     setError(null)
@@ -108,7 +122,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [cart])
 
   return (
-    <CartContext.Provider value={{ cart, loading, error, addItem, setItemQuantity, removeItem, checkout }}>
+    <CartContext.Provider value={{ cart, loading, error, addItem, setItemQuantity, removeItem, applyCoupon, checkout }}>
       {children}
     </CartContext.Provider>
   )

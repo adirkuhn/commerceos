@@ -72,6 +72,8 @@ export interface Cart {
   token: string
   items: CartItem[]
   subtotal_minor_units: number
+  coupon_code?: string | null
+  discount_minor_units: number
 }
 
 export interface UpdateCartItemLine {

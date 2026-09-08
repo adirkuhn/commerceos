@@ -9,7 +9,7 @@ function mockFetch<T>(data: T, ok = true, status = 200) {
 
 beforeEach(() => { vi.restoreAllMocks() })
 
-const sampleCart: Cart = { token: 'cart-1', items: [], subtotal_minor_units: 0 }
+const sampleCart: Cart = { token: 'cart-1', items: [], subtotal_minor_units: 0, discount_minor_units: 0 }
 
 describe('cart api', () => {
   it('createCart POSTs to /carts', async () => {

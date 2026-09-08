@@ -29,3 +29,11 @@ export function getShippingOptions(token: string, address: CheckoutAddress): Pro
     body: JSON.stringify(address),
   })
 }
+
+// Passing an empty code removes any coupon already attached to the cart.
+export function applyCoupon(token: string, code: string): Promise<Cart> {
+  return request<Cart>(`/carts/${encodeURIComponent(token)}/coupon`, {
+    method: 'PUT',
+    body: JSON.stringify({ code }),
+  })
+}
