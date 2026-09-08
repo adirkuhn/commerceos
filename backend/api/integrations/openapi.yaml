@@ -1478,9 +1478,23 @@ components:
             Discount off list price applied to every SKU shown/sold through
             this channel, in basis points (e.g. 2000 = 20% off). Null means
             no adjustment. Meaningful only for internal channels.
+        quantity_breaks:
+          type: array
+          items: { $ref: '#/components/schemas/QuantityBreak' }
+          description: >
+            Additional per-line-quantity discount tiers on top of
+            price_adjustment_basis_points -- "buy N+ of one SKU, get this
+            bigger discount instead of the channel's flat rate."
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    QuantityBreak:
+      type: object
+      required: [min_quantity, discount_basis_points]
+      properties:
+        min_quantity: { type: integer, minimum: 1 }
+        discount_basis_points: { type: integer, minimum: 0, maximum: 10000 }
 
     SetSalesChannelPaymentMethodRequest:
       type: object
@@ -1501,6 +1515,9 @@ components:
         enrollment_category_id: { type: string }
         enrollment_tag: { type: string }
         price_adjustment_basis_points: { type: integer, nullable: true, minimum: 0, maximum: 10000 }
+        quantity_breaks:
+          type: array
+          items: { $ref: '#/components/schemas/QuantityBreak' }
 
     UpdateSalesChannelRequest:
       type: object
@@ -1512,6 +1529,9 @@ components:
         enrollment_category_id: { type: string }
         enrollment_tag: { type: string }
         price_adjustment_basis_points: { type: integer, nullable: true, minimum: 0, maximum: 10000 }
+        quantity_breaks:
+          type: array
+          items: { $ref: '#/components/schemas/QuantityBreak' }
         active: { type: boolean }
 
     SalesChannelResponse:

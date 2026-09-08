@@ -59,6 +59,11 @@ var (
 	// against an out-of-range value -- 0-10000 (0%-100% discount) is the
 	// only valid range.
 	ErrInvalidPriceAdjustment = errors.New("price adjustment must be between 0 and 10000 basis points")
+	// ErrInvalidQuantityBreak guards SalesChannel.QuantityBreaks: every
+	// MinQuantity must be positive, every DiscountBasisPoints 0-10000, and
+	// no two breaks may share the same MinQuantity (which one would even
+	// apply is undefined otherwise).
+	ErrInvalidQuantityBreak = errors.New("each quantity break needs a positive, unique minimum quantity and a discount between 0 and 10000 basis points")
 	// ErrConnectionRequired guards a channel type where
 	// ChannelType.RequiresConnection() is true (every type implemented
 	// today) against being created/updated with no ConnectionID.

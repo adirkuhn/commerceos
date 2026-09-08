@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -829,6 +830,36 @@ func toSyncLogDomain(m channelSyncLogModel) *channelsDomain.SyncLogEntry {
 
 // ── Sales channel repo ───────────────────────────────────────────────────────
 
+// salesChannelQuantityBreaks is JSONB-backed, same driver.Valuer/
+// sql.Scanner + whole-document-replace convention as theme_repo.go's
+// themeBlocks type.
+type salesChannelQuantityBreaks []channelsDomain.QuantityBreak
+
+func (b salesChannelQuantityBreaks) Value() (driver.Value, error) {
+	if len(b) == 0 {
+		return "[]", nil
+	}
+	out, err := json.Marshal([]channelsDomain.QuantityBreak(b))
+	return string(out), err
+}
+
+func (b *salesChannelQuantityBreaks) Scan(value any) error {
+	if value == nil {
+		*b = nil
+		return nil
+	}
+	var raw []byte
+	switch v := value.(type) {
+	case []byte:
+		raw = v
+	case string:
+		raw = []byte(v)
+	default:
+		return fmt.Errorf("salesChannelQuantityBreaks.Scan: unsupported type %T", value)
+	}
+	return json.Unmarshal(raw, (*[]channelsDomain.QuantityBreak)(b))
+}
+
 type salesChannelModel struct {
 	ID                         string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID                   string `gorm:"not null;type:uuid"`
@@ -839,8 +870,9 @@ type salesChannelModel struct {
 	EnrollmentCategoryID       *string
 	EnrollmentTag              string `gorm:"not null;default:''"`
 	PaymentConnectionID        *string
-	PriceAdjustmentBasisPoints *int `gorm:"column:price_adjustment_basis_points"`
-	Active                     bool `gorm:"not null;default:true"`
+	PriceAdjustmentBasisPoints *int                       `gorm:"column:price_adjustment_basis_points"`
+	QuantityBreaks             salesChannelQuantityBreaks `gorm:"column:quantity_breaks;type:jsonb;not null;default:'[]'"`
+	Active                     bool                       `gorm:"not null;default:true"`
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -869,6 +901,7 @@ func (r *SalesChannelRepo) Create(ctx context.Context, c *channelsDomain.SalesCh
 		EnrollmentMode: string(c.EnrollmentMode), EnrollmentCategoryID: c.EnrollmentCategoryID, EnrollmentTag: c.EnrollmentTag,
 		PaymentConnectionID:        c.PaymentConnectionID,
 		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
+		QuantityBreaks:             salesChannelQuantityBreaks(c.QuantityBreaks),
 		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
@@ -920,6 +953,7 @@ func (r *SalesChannelRepo) Update(ctx context.Context, c *channelsDomain.SalesCh
 			"enrollment_mode": string(c.EnrollmentMode), "enrollment_category_id": c.EnrollmentCategoryID, "enrollment_tag": c.EnrollmentTag,
 			"payment_connection_id":         c.PaymentConnectionID,
 			"price_adjustment_basis_points": c.PriceAdjustmentBasisPoints,
+			"quantity_breaks":               salesChannelQuantityBreaks(c.QuantityBreaks),
 			"active":                        c.Active, "updated_at": c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("salesChannelRepo.Update: %w", err)
@@ -944,6 +978,7 @@ func toSalesChannelDomain(m salesChannelModel) *channelsDomain.SalesChannel {
 		EnrollmentMode: channelsDomain.EnrollmentMode(m.EnrollmentMode), EnrollmentCategoryID: m.EnrollmentCategoryID, EnrollmentTag: m.EnrollmentTag,
 		PaymentConnectionID:        m.PaymentConnectionID,
 		PriceAdjustmentBasisPoints: m.PriceAdjustmentBasisPoints,
+		QuantityBreaks:             []channelsDomain.QuantityBreak(m.QuantityBreaks),
 		Active:                     m.Active, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

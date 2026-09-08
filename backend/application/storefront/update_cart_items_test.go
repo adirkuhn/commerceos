@@ -50,6 +50,40 @@ func TestUpdateCartItems_appliesChannelPriceAdjustment(t *testing.T) {
 	require.Equal(t, int64(800), cart.Items[0].PriceMinorUnits)
 }
 
+func TestUpdateCartItems_appliesQuantityBreakWhenLineQuantityQualifies(t *testing.T) {
+	b2bChannel := internalChannel("channel-b2b")
+	b2bChannel.QuantityBreaks = []channelsDomain.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 3000}}
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-b2b": b2bChannel}}
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{
+		"token-1": {ID: "cart-1", Token: "token-1", SalesChannelID: "channel-b2b"},
+	}}
+	sku, variant, product, override, stockLevel := seedCatalogOneSKU("SKU-A", "sku-1", 1000, 50)
+	uc := newUpdateCartItemsUseCase(t, 2, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
+
+	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 10}})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(700), cart.Items[0].PriceMinorUnits) // 30% off, not the flat channel rate
+}
+
+func TestUpdateCartItems_usesFlatDiscountWhenQuantityBreakNotMet(t *testing.T) {
+	discount := 1000 // 10% off flat
+	b2bChannel := internalChannel("channel-b2b")
+	b2bChannel.PriceAdjustmentBasisPoints = &discount
+	b2bChannel.QuantityBreaks = []channelsDomain.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 3000}}
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-b2b": b2bChannel}}
+	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{
+		"token-1": {ID: "cart-1", Token: "token-1", SalesChannelID: "channel-b2b"},
+	}}
+	sku, variant, product, override, stockLevel := seedCatalogOneSKU("SKU-A", "sku-1", 1000, 50)
+	uc := newUpdateCartItemsUseCase(t, 2, cartRepo, channelRepo, sku, variant, product, override, stockLevel)
+
+	cart, err := uc.Execute(context.Background(), "token-1", []appstorefront.UpdateCartItemLineInput{{SKUCode: "SKU-A", Quantity: 5}})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(900), cart.Items[0].PriceMinorUnits) // flat 10% off, break not met
+}
+
 func TestUpdateCartItems_usesSalePriceWhenActive(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	cartRepo := &fakeCartRepo{byToken: map[string]storefrontDomain.Cart{"token-1": {ID: "cart-1", SalesChannelID: "channel-1"}}}

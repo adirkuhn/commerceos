@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
@@ -94,4 +95,58 @@ func TestSalesChannelRepo_Integration_PriceAdjustmentRoundTripsAndEnforcesCheckC
 		return repo.Create(ctx, &invalid)
 	})
 	require.Error(t, err, "the database CHECK constraint must reject a value outside 0-10000")
+}
+
+// TestSalesChannelRepo_Integration_QuantityBreaksRoundTripThroughRealJSONB
+// proves the quantity_breaks JSONB column (migration 151) round-trips
+// through real Postgres on both Create and a wholesale-replace Update --
+// sqlmock can't exercise the driver.Valuer/sql.Scanner pair at all.
+func TestSalesChannelRepo_Integration_QuantityBreaksRoundTripThroughRealJSONB(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewSalesChannelRepo(db)
+
+	var created channelsDomain.SalesChannel
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		created = channelsDomain.SalesChannel{
+			TenantID: tenant.IDFromContext(ctx), Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal,
+			EnrollmentMode: channelsDomain.EnrollmentModeAll,
+			QuantityBreaks: []channelsDomain.QuantityBreak{
+				{MinQuantity: 10, DiscountBasisPoints: 1000},
+				{MinQuantity: 50, DiscountBasisPoints: 2500},
+			},
+			Active: true, CreatedAt: now, UpdatedAt: now,
+		}
+		return repo.Create(ctx, &created)
+	})
+	require.NoError(t, err)
+
+	var found *channelsDomain.SalesChannel
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByID(ctx, created.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, found.QuantityBreaks, 2)
+	assert.Equal(t, int64(10), found.QuantityBreaks[0].MinQuantity)
+	assert.Equal(t, 2500, found.QuantityBreaks[1].DiscountBasisPoints)
+
+	// Update replaces wholesale -- down to one break, not merged with the
+	// two above.
+	found.QuantityBreaks = []channelsDomain.QuantityBreak{{MinQuantity: 20, DiscountBasisPoints: 1800}}
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.Update(ctx, found)
+	})
+	require.NoError(t, err)
+
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByID(ctx, created.ID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, found.QuantityBreaks, 1)
+	assert.Equal(t, int64(20), found.QuantityBreaks[0].MinQuantity)
 }

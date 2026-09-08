@@ -61,6 +61,7 @@ func lookupCatalogEntry(
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	channel channelsDomain.SalesChannel,
 	skuCode string,
+	quantity int64,
 ) (*catalogEntry, error) {
 	sku, err := skuRepo.FindByCode(ctx, skuCode)
 	if err != nil {
@@ -91,13 +92,15 @@ func lookupCatalogEntry(
 		return nil, storefrontDomain.ErrProductNotAvailable
 	}
 	// Both prices go through the channel's own discount (e.g. a B2B
-	// channel's wholesale rate) before anything else ever sees them --
-	// snapshotted onto the CartItem at this point, same as every other
-	// price field here (see catalogEntry's own doc comment).
-	price := channel.EffectivePriceMinorUnits(sku.PriceMinorUnits)
+	// channel's wholesale rate, plus any QuantityBreak this line's own
+	// quantity qualifies for -- the actual line quantity is known here,
+	// unlike on a browse-time listing/detail page) before anything else
+	// ever sees them -- snapshotted onto the CartItem at this point, same
+	// as every other price field here (see catalogEntry's own doc comment).
+	price := channel.EffectivePriceMinorUnitsForQuantity(sku.PriceMinorUnits, quantity)
 	var salePrice *int64
 	if sku.SalePriceMinorUnits != nil {
-		discounted := channel.EffectivePriceMinorUnits(*sku.SalePriceMinorUnits)
+		discounted := channel.EffectivePriceMinorUnitsForQuantity(*sku.SalePriceMinorUnits, quantity)
 		salePrice = &discounted
 	}
 	return &catalogEntry{

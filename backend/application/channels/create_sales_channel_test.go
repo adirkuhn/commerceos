@@ -161,6 +161,57 @@ func TestCreateSalesChannel_rejectsNegativePriceAdjustment(t *testing.T) {
 	assert.ErrorIs(t, err, channelsDomain.ErrInvalidPriceAdjustment)
 }
 
+func TestCreateSalesChannel_savesQuantityBreaks(t *testing.T) {
+	repo := &stubSalesChannelRepo{}
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 1), repo, &stubConnectionRepo{})
+
+	channel, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		QuantityBreaks: []channelsDomain.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 1500}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, channel.QuantityBreaks, 1)
+	assert.Equal(t, int64(10), channel.QuantityBreaks[0].MinQuantity)
+	assert.Equal(t, 1500, channel.QuantityBreaks[0].DiscountBasisPoints)
+}
+
+func TestCreateSalesChannel_rejectsQuantityBreakWithZeroMinQuantity(t *testing.T) {
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{})
+
+	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		QuantityBreaks: []channelsDomain.QuantityBreak{{MinQuantity: 0, DiscountBasisPoints: 1500}},
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrInvalidQuantityBreak)
+}
+
+func TestCreateSalesChannel_rejectsQuantityBreakDiscountOutOfRange(t *testing.T) {
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{})
+
+	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		QuantityBreaks: []channelsDomain.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 10001}},
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrInvalidQuantityBreak)
+}
+
+func TestCreateSalesChannel_rejectsDuplicateMinQuantityAcrossBreaks(t *testing.T) {
+	uc := appchannels.NewCreateSalesChannelUseCase(newMockGormDB(t, 0), &stubSalesChannelRepo{}, &stubConnectionRepo{})
+
+	_, err := uc.Execute(context.Background(), appchannels.CreateSalesChannelInput{
+		Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		QuantityBreaks: []channelsDomain.QuantityBreak{
+			{MinQuantity: 10, DiscountBasisPoints: 1000},
+			{MinQuantity: 10, DiscountBasisPoints: 2000},
+		},
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrInvalidQuantityBreak)
+}
+
 func TestCreateSalesChannel_propagatesConnectionNotFound(t *testing.T) {
 	connID := "missing"
 	connRepo := &stubConnectionRepo{findErr: integrationsDomain.ErrConnectionNotFound}

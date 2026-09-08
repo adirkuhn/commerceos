@@ -19,11 +19,12 @@ type CreateSalesChannelInput struct {
 	EnrollmentCategoryID       *string
 	EnrollmentTag              string
 	PriceAdjustmentBasisPoints *int
+	QuantityBreaks             []channelsDomain.QuantityBreak
 }
 
 // validateSalesChannelInput is shared by Create and Update -- same field
 // rules apply whichever way a channel got into this shape.
-func validateSalesChannelInput(channelType channelsDomain.ChannelType, connectionID *string, mode channelsDomain.EnrollmentMode, categoryID *string, tag string, priceAdjustmentBasisPoints *int) error {
+func validateSalesChannelInput(channelType channelsDomain.ChannelType, connectionID *string, mode channelsDomain.EnrollmentMode, categoryID *string, tag string, priceAdjustmentBasisPoints *int, quantityBreaks []channelsDomain.QuantityBreak) error {
 	if !channelType.Valid() {
 		return channelsDomain.ErrInvalidChannelType
 	}
@@ -42,6 +43,13 @@ func validateSalesChannelInput(channelType channelsDomain.ChannelType, connectio
 	if priceAdjustmentBasisPoints != nil && (*priceAdjustmentBasisPoints < 0 || *priceAdjustmentBasisPoints > 10000) {
 		return channelsDomain.ErrInvalidPriceAdjustment
 	}
+	seenMinQuantity := map[int64]bool{}
+	for _, b := range quantityBreaks {
+		if b.MinQuantity <= 0 || b.DiscountBasisPoints < 0 || b.DiscountBasisPoints > 10000 || seenMinQuantity[b.MinQuantity] {
+			return channelsDomain.ErrInvalidQuantityBreak
+		}
+		seenMinQuantity[b.MinQuantity] = true
+	}
 	return nil
 }
 
@@ -56,7 +64,7 @@ func NewCreateSalesChannelUseCase(db *gorm.DB, repo channelsDomain.SalesChannelR
 }
 
 func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSalesChannelInput) (*channelsDomain.SalesChannel, error) {
-	if err := validateSalesChannelInput(in.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints); err != nil {
+	if err := validateSalesChannelInput(in.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints, in.QuantityBreaks); err != nil {
 		return nil, fmt.Errorf("createSalesChannel: %w", err)
 	}
 
@@ -76,6 +84,7 @@ func (uc *CreateSalesChannelUseCase) Execute(ctx context.Context, in CreateSales
 			TenantID: tenant.IDFromContext(ctx), Name: in.Name, Type: in.Type, ConnectionID: in.ConnectionID,
 			EnrollmentMode: in.EnrollmentMode, EnrollmentCategoryID: in.EnrollmentCategoryID, EnrollmentTag: in.EnrollmentTag,
 			PriceAdjustmentBasisPoints: in.PriceAdjustmentBasisPoints,
+			QuantityBreaks:             in.QuantityBreaks,
 			Active:                     true, CreatedAt: now, UpdatedAt: now,
 		}
 		return uc.repo.Create(ctx, &channel)

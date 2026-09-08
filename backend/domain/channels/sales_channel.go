@@ -105,20 +105,61 @@ type SalesChannel struct {
 	// 0-10000 (0%-100%), enforced at write time (see
 	// application/channels.validateSalesChannelInput).
 	PriceAdjustmentBasisPoints *int
-	Active                     bool
-	CreatedAt                  time.Time
-	UpdatedAt                  time.Time
+	// QuantityBreaks are additional per-line-quantity discount tiers on top
+	// of PriceAdjustmentBasisPoints -- "buy N+ of one SKU, get this bigger
+	// discount instead of the channel's flat rate." A short list wholly
+	// owned by the channel (no independent existence, no ordering that
+	// matters), same JSONB whole-document convention as domain/theme.Block
+	// or domain/storefront.CartItem. Meaningful only for ChannelTypeInternal
+	// today, same as PriceAdjustmentBasisPoints -- this is the other half
+	// of "B2B/wholesale pricing" alongside the flat per-channel discount:
+	// a bulk buyer gets a bigger cut the more of one SKU they add to a
+	// single cart line, still with no customer-group/login concept.
+	QuantityBreaks []QuantityBreak
+	Active         bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// QuantityBreak is one "at this quantity or more, this bigger discount"
+// tier -- see SalesChannel.QuantityBreaks.
+type QuantityBreak struct {
+	MinQuantity         int64
+	DiscountBasisPoints int
 }
 
 // EffectivePriceMinorUnits applies PriceAdjustmentBasisPoints (nil = no
 // adjustment) to priceMinorUnits, rounding down -- the one place this
-// channel's discount is actually computed, called for every price a
-// storefront shows or sells at (see application/storefront).
+// channel's flat discount is actually computed, called for every price a
+// storefront shows before a cart quantity is known (product listing/
+// detail pages -- see application/storefront). Cart/checkout pricing,
+// where the actual line quantity IS known, uses
+// EffectivePriceMinorUnitsForQuantity instead.
 func (c SalesChannel) EffectivePriceMinorUnits(priceMinorUnits int64) int64 {
 	if c.PriceAdjustmentBasisPoints == nil || *c.PriceAdjustmentBasisPoints == 0 {
 		return priceMinorUnits
 	}
 	return priceMinorUnits * (10000 - int64(*c.PriceAdjustmentBasisPoints)) / 10000
+}
+
+// EffectivePriceMinorUnitsForQuantity picks the BEST (largest) discount
+// between the channel's flat PriceAdjustmentBasisPoints and any
+// QuantityBreak whose MinQuantity is met by quantity -- a bulk tier is
+// always an upgrade over the flat rate, never a worse price than it.
+func (c SalesChannel) EffectivePriceMinorUnitsForQuantity(priceMinorUnits int64, quantity int64) int64 {
+	best := 0
+	if c.PriceAdjustmentBasisPoints != nil {
+		best = *c.PriceAdjustmentBasisPoints
+	}
+	for _, b := range c.QuantityBreaks {
+		if quantity >= b.MinQuantity && b.DiscountBasisPoints > best {
+			best = b.DiscountBasisPoints
+		}
+	}
+	if best == 0 {
+		return priceMinorUnits
+	}
+	return priceMinorUnits * (10000 - int64(best)) / 10000
 }
 
 // SalesChannelProductOverride force-includes or force-excludes one product

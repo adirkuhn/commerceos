@@ -1588,6 +1588,7 @@ func (h *Handler) CreateSalesChannel(c *gin.Context) {
 		Name: req.Name, Type: channelsDomain.ChannelType(req.Type), ConnectionID: req.ConnectionId,
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints,
+		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1609,6 +1610,7 @@ func (h *Handler) UpdateSalesChannel(c *gin.Context, id genintegrations.Id) {
 		ID: id, Name: req.Name, ConnectionID: req.ConnectionId,
 		EnrollmentMode: channelsDomain.EnrollmentMode(req.EnrollmentMode), EnrollmentCategoryID: req.EnrollmentCategoryId,
 		EnrollmentTag: tag, PriceAdjustmentBasisPoints: req.PriceAdjustmentBasisPoints, Active: req.Active,
+		QuantityBreaks: toDomainQuantityBreaks(req.QuantityBreaks),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -1856,12 +1858,38 @@ func toGenSalesChannel(c channelsDomain.SalesChannel) genintegrations.SalesChann
 		ConnectionId: c.ConnectionID, EnrollmentMode: genintegrations.EnrollmentMode(c.EnrollmentMode),
 		EnrollmentCategoryId: c.EnrollmentCategoryID,
 		PaymentConnectionId:  c.PaymentConnectionID,
-		Active:               c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+		// PriceAdjustmentBasisPoints was missing here entirely -- a real
+		// bug (the field the admin form needs to re-show a channel's own
+		// discount when reopening it for edit, and the sales-channels
+		// list's "20% off" badge, both silently always saw nil) fixed
+		// alongside adding QuantityBreaks below.
+		PriceAdjustmentBasisPoints: c.PriceAdjustmentBasisPoints,
+		QuantityBreaks:             toGenQuantityBreaks(c.QuantityBreaks),
+		Active:                     c.Active, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 	if c.EnrollmentTag != "" {
 		resp.EnrollmentTag = &c.EnrollmentTag
 	}
 	return resp
+}
+
+func toDomainQuantityBreaks(breaks *[]genintegrations.QuantityBreak) []channelsDomain.QuantityBreak {
+	if breaks == nil {
+		return nil
+	}
+	out := make([]channelsDomain.QuantityBreak, len(*breaks))
+	for i, b := range *breaks {
+		out[i] = channelsDomain.QuantityBreak{MinQuantity: int64(b.MinQuantity), DiscountBasisPoints: b.DiscountBasisPoints}
+	}
+	return out
+}
+
+func toGenQuantityBreaks(breaks []channelsDomain.QuantityBreak) *[]genintegrations.QuantityBreak {
+	out := make([]genintegrations.QuantityBreak, len(breaks))
+	for i, b := range breaks {
+		out[i] = genintegrations.QuantityBreak{MinQuantity: int(b.MinQuantity), DiscountBasisPoints: b.DiscountBasisPoints}
+	}
+	return &out
 }
 
 func toGenSalesChannelProduct(p pmsDomain.Product) genintegrations.SalesChannelProduct {
@@ -1928,7 +1956,9 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrEnrollmentTagRequired),
 		errors.Is(err, channelsDomain.ErrInvalidPaymentConnection),
 		errors.Is(err, channelsDomain.ErrChannelTypeConnectionMismatch),
-		errors.Is(err, channelsDomain.ErrProductAlreadyLinkedToConnection):
+		errors.Is(err, channelsDomain.ErrProductAlreadyLinkedToConnection),
+		errors.Is(err, channelsDomain.ErrInvalidPriceAdjustment),
+		errors.Is(err, channelsDomain.ErrInvalidQuantityBreak):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, integrationsDomain.ErrStateInvalid):
 		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", err.Error())

@@ -102,3 +102,35 @@ func TestUpdateSalesChannel_canDeactivate(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, channel.Active)
 }
+
+func TestUpdateSalesChannel_replacesQuantityBreaksWholesale(t *testing.T) {
+	connID := "conn-1"
+	existing := existingWooChannel()
+	existing.QuantityBreaks = []channelsDomain.QuantityBreak{{MinQuantity: 5, DiscountBasisPoints: 500}}
+	repo := &stubSalesChannelRepo{findResult: existing}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+
+	channel, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
+		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true,
+		QuantityBreaks: []channelsDomain.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 1500}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, channel.QuantityBreaks, 1)
+	assert.Equal(t, int64(10), channel.QuantityBreaks[0].MinQuantity)
+}
+
+func TestUpdateSalesChannel_rejectsInvalidQuantityBreak(t *testing.T) {
+	connID := "conn-1"
+	repo := &stubSalesChannelRepo{findResult: existingWooChannel()}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, Provider: integrationsDomain.ProviderWooCommerce}}
+	uc := appchannels.NewUpdateSalesChannelUseCase(newMockGormDB(t, 1), repo, connRepo)
+
+	_, err := uc.Execute(context.Background(), appchannels.UpdateSalesChannelInput{
+		ID: "channel-1", Name: "My Store", ConnectionID: &connID, EnrollmentMode: channelsDomain.EnrollmentModeManual, Active: true,
+		QuantityBreaks: []channelsDomain.QuantityBreak{{MinQuantity: -1, DiscountBasisPoints: 1500}},
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrInvalidQuantityBreak)
+}

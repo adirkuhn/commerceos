@@ -1938,6 +1938,84 @@ func TestUpdateSalesChannelHandler_passesPriceAdjustmentThrough(t *testing.T) {
 	assert.Equal(t, 1500, *update.in.PriceAdjustmentBasisPoints)
 }
 
+func TestGetSalesChannelResponse_includesPriceAdjustmentAndQuantityBreaks(t *testing.T) {
+	discount := 2000
+	create := &stubCreateSalesChannel{out: &channelsDomain.SalesChannel{
+		ID: "chan-1", Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll,
+		PriceAdjustmentBasisPoints: &discount,
+		QuantityBreaks:             []channelsDomain.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 3000}},
+	}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, create, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	body := genintegrations.CreateSalesChannelRequest{
+		Name: "B2B Store", Type: genintegrations.ChannelType(channelsDomain.ChannelTypeInternal),
+		EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll),
+	}
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sales-channels", body)
+
+	// Regression test: toGenSalesChannel used to omit
+	// price_adjustment_basis_points from every response entirely, so the
+	// admin edit form always saw it as unset on reopen.
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), `"price_adjustment_basis_points":2000`)
+	assert.Contains(t, w.Body.String(), `"min_quantity":10`)
+	assert.Contains(t, w.Body.String(), `"discount_basis_points":3000`)
+}
+
+func TestCreateSalesChannelHandler_passesQuantityBreaksThrough(t *testing.T) {
+	create := &stubCreateSalesChannel{out: &channelsDomain.SalesChannel{ID: "chan-1", Name: "B2B Store", Type: channelsDomain.ChannelTypeInternal, EnrollmentMode: channelsDomain.EnrollmentModeAll}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, create, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	breaks := []genintegrations.QuantityBreak{{MinQuantity: 10, DiscountBasisPoints: 1500}}
+	body := genintegrations.CreateSalesChannelRequest{
+		Name: "B2B Store", Type: genintegrations.ChannelType(channelsDomain.ChannelTypeInternal),
+		EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll), QuantityBreaks: &breaks,
+	}
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sales-channels", body)
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	require.Len(t, create.in.QuantityBreaks, 1)
+	assert.Equal(t, int64(10), create.in.QuantityBreaks[0].MinQuantity)
+	assert.Equal(t, 1500, create.in.QuantityBreaks[0].DiscountBasisPoints)
+}
+
+func TestCreateSalesChannelHandler_returns422OnInvalidQuantityBreak(t *testing.T) {
+	create := &stubCreateSalesChannel{err: channelsDomain.ErrInvalidQuantityBreak}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, create, &stubUpdateSalesChannel{}, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	breaks := []genintegrations.QuantityBreak{{MinQuantity: 0, DiscountBasisPoints: 1500}}
+	body := genintegrations.CreateSalesChannelRequest{
+		Name: "B2B Store", Type: genintegrations.ChannelType(channelsDomain.ChannelTypeInternal),
+		EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll), QuantityBreaks: &breaks,
+	}
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/sales-channels", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpdateSalesChannelHandler_passesQuantityBreaksThrough(t *testing.T) {
+	update := &stubUpdateSalesChannel{out: &channelsDomain.SalesChannel{ID: "chan-1", Name: "B2B Store", EnrollmentMode: channelsDomain.EnrollmentModeAll}}
+	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, update, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	breaks := []genintegrations.QuantityBreak{{MinQuantity: 25, DiscountBasisPoints: 2500}}
+	body := genintegrations.UpdateSalesChannelRequest{
+		Name: "B2B Store", EnrollmentMode: genintegrations.EnrollmentMode(channelsDomain.EnrollmentModeAll), Active: true, QuantityBreaks: &breaks,
+	}
+	w := doRequest(r, http.MethodPatch, "/api/v1/integrations/sales-channels/chan-1", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, update.in.QuantityBreaks, 1)
+	assert.Equal(t, int64(25), update.in.QuantityBreaks[0].MinQuantity)
+}
+
 func TestUpdateSalesChannelHandler_returns404WhenChannelNotFound(t *testing.T) {
 	update := &stubUpdateSalesChannel{err: channelsDomain.ErrSalesChannelNotFound}
 	h := newSalesChannelTestHandler(&stubListSalesChannels{}, &stubCreateSalesChannel{}, update, &stubDeleteSalesChannel{}, &stubListSalesChannelProducts{}, &stubSetProductChannelOverride{})

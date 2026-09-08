@@ -84,7 +84,7 @@ func (uc *UpdateCartItemsUseCase) Execute(ctx context.Context, token string, lin
 
 		resolved = make([]resolvedLine, 0, len(lines))
 		for _, line := range lines {
-			entry, err := lookupCatalogEntry(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, uc.overrideRepo, *channel, line.SKUCode)
+			entry, err := lookupCatalogEntry(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, uc.overrideRepo, *channel, line.SKUCode, line.Quantity)
 			if err != nil {
 				return err
 			}

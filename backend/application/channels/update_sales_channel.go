@@ -26,6 +26,7 @@ type UpdateSalesChannelInput struct {
 	EnrollmentCategoryID       *string
 	EnrollmentTag              string
 	PriceAdjustmentBasisPoints *int
+	QuantityBreaks             []channelsDomain.QuantityBreak
 	Active                     bool
 }
 
@@ -46,7 +47,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		if err != nil {
 			return err
 		}
-		if err := validateSalesChannelInput(existing.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints); err != nil {
+		if err := validateSalesChannelInput(existing.Type, in.ConnectionID, in.EnrollmentMode, in.EnrollmentCategoryID, in.EnrollmentTag, in.PriceAdjustmentBasisPoints, in.QuantityBreaks); err != nil {
 			return err
 		}
 		if in.ConnectionID != nil {
@@ -64,6 +65,7 @@ func (uc *UpdateSalesChannelUseCase) Execute(ctx context.Context, in UpdateSales
 		existing.EnrollmentCategoryID = in.EnrollmentCategoryID
 		existing.EnrollmentTag = in.EnrollmentTag
 		existing.PriceAdjustmentBasisPoints = in.PriceAdjustmentBasisPoints
+		existing.QuantityBreaks = in.QuantityBreaks
 		existing.Active = in.Active
 		existing.UpdatedAt = time.Now()
 		if err := uc.repo.Update(ctx, existing); err != nil {
