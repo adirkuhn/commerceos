@@ -1093,7 +1093,7 @@ components:
 
     StorefrontPageSlug:
       type: string
-      enum: [home, products, product, cart, checkout, order-confirmation, order-lookup, wishlist]
+      enum: [home, products, product, cart, checkout, order-confirmation, order-lookup, wishlist, login, account]
 
     StorefrontBlockType:
       type: string
@@ -1103,7 +1103,7 @@ components:
         real, wired-up control for these (add-to-cart, the payment-
         submitting checkout form, etc), using this block only for its
         layout Rect. See domain/theme.BlockType.IsFunctional.
-      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist]
+      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist, login_form, account]
 
     StorefrontRect:
       type: object

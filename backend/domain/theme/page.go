@@ -38,12 +38,15 @@ const (
 	BlockTypeCheckoutForm   BlockType = "checkout_form"
 	BlockTypeOrderStatus    BlockType = "order_status"
 	BlockTypeWishlist       BlockType = "wishlist"
+	BlockTypeLoginForm      BlockType = "login_form"
+	BlockTypeAccount        BlockType = "account"
 )
 
 func (t BlockType) Valid() bool {
 	switch t {
 	case BlockTypeHero, BlockTypeProductGrid, BlockTypeRichText, BlockTypeCustomHTML,
-		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist:
+		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist,
+		BlockTypeLoginForm, BlockTypeAccount:
 		return true
 	default:
 		return false
@@ -55,7 +58,8 @@ func (t BlockType) Valid() bool {
 // comment.
 func (t BlockType) IsFunctional() bool {
 	switch t {
-	case BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist:
+	case BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist,
+		BlockTypeLoginForm, BlockTypeAccount:
 		return true
 	default:
 		return false
@@ -112,12 +116,14 @@ const (
 	PageSlugOrderConfirmed    PageSlug = "order-confirmation"
 	PageSlugOrderStatusLookup PageSlug = "order-lookup"
 	PageSlugWishlist          PageSlug = "wishlist"
+	PageSlugLogin             PageSlug = "login"
+	PageSlugAccount           PageSlug = "account"
 )
 
 func (s PageSlug) Valid() bool {
 	switch s {
 	case PageSlugHome, PageSlugProducts, PageSlugProduct, PageSlugCart, PageSlugCheckout,
-		PageSlugOrderConfirmed, PageSlugOrderStatusLookup, PageSlugWishlist:
+		PageSlugOrderConfirmed, PageSlugOrderStatusLookup, PageSlugWishlist, PageSlugLogin, PageSlugAccount:
 		return true
 	default:
 		return false
@@ -143,6 +149,10 @@ func (s PageSlug) RequiredBlockType() (BlockType, bool) {
 		return BlockTypeOrderStatus, true
 	case PageSlugWishlist:
 		return BlockTypeWishlist, true
+	case PageSlugLogin:
+		return BlockTypeLoginForm, true
+	case PageSlugAccount:
+		return BlockTypeAccount, true
 	default:
 		return "", false
 	}

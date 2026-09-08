@@ -20,10 +20,12 @@ import (
 
 // Defines values for BlockType.
 const (
+	BlockTypeAccount        BlockType = "account"
 	BlockTypeCartSummary    BlockType = "cart_summary"
 	BlockTypeCheckoutForm   BlockType = "checkout_form"
 	BlockTypeCustomHtml     BlockType = "custom_html"
 	BlockTypeHero           BlockType = "hero"
+	BlockTypeLoginForm      BlockType = "login_form"
 	BlockTypeOrderStatus    BlockType = "order_status"
 	BlockTypeProductDetails BlockType = "product_details"
 	BlockTypeProductGrid    BlockType = "product_grid"
@@ -34,6 +36,8 @@ const (
 // Valid indicates whether the value is a known member of the BlockType enum.
 func (e BlockType) Valid() bool {
 	switch e {
+	case BlockTypeAccount:
+		return true
 	case BlockTypeCartSummary:
 		return true
 	case BlockTypeCheckoutForm:
@@ -41,6 +45,8 @@ func (e BlockType) Valid() bool {
 	case BlockTypeCustomHtml:
 		return true
 	case BlockTypeHero:
+		return true
+	case BlockTypeLoginForm:
 		return true
 	case BlockTypeOrderStatus:
 		return true
@@ -59,9 +65,11 @@ func (e BlockType) Valid() bool {
 
 // Defines values for PageSlug.
 const (
+	PageSlugAccount           PageSlug = "account"
 	PageSlugCart              PageSlug = "cart"
 	PageSlugCheckout          PageSlug = "checkout"
 	PageSlugHome              PageSlug = "home"
+	PageSlugLogin             PageSlug = "login"
 	PageSlugOrderConfirmation PageSlug = "order-confirmation"
 	PageSlugOrderLookup       PageSlug = "order-lookup"
 	PageSlugProduct           PageSlug = "product"
@@ -72,11 +80,15 @@ const (
 // Valid indicates whether the value is a known member of the PageSlug enum.
 func (e PageSlug) Valid() bool {
 	switch e {
+	case PageSlugAccount:
+		return true
 	case PageSlugCart:
 		return true
 	case PageSlugCheckout:
 		return true
 	case PageSlugHome:
+		return true
+	case PageSlugLogin:
 		return true
 	case PageSlugOrderConfirmation:
 		return true
@@ -295,34 +307,35 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"1Fffb9s4Ev5XBrwDkgCSlXbz5Le0uF20WGyLOIc+bApjLI0t1hSp5ZB2jcD/+2EoyT9ipwnuisPdi2FJ",
-	"5HDmm2++GT6q0jWts2QDq/GjatFjQ4F8enpfo7VkPlTyoK0aqxZDrTJlsSE1VuXue6Y8/RW1p0qNg4+U",
-	"KS5ralA2hk0rizl4bRdqu83UZ1zQxMTFZzntGdts4uKHZv/uaa7G6m/FPoKi+8rFcIDaynGeuHWWKcX0",
-	"D++dlz+ls4FskL/YtkaXGLSzxTd2Vt697qBk7a63351WEZdet2JMjRWl4+R9v0UsvjOuXCa4vWvJB925",
-	"pqszcGXK4MbF8JInyebv3dJtliwno8fupFW5HJFzS6We6xLmniifO99AhQHhkkaLEdTk3QVDTVhpu4BA",
-	"30OhG1wQ/PPu9wzKyME10zo05oLB4xoa9MvYFu8nk6uRyoYo3Owblcmh7sUrYriXhV3ahtT/KdD0JnZ4",
-	"DDF+PXPYIRgnMFfEy+Dal5y56201bqZNch2N+TRX4z9fs+/rUyL8EY2BhtAyhFozzMRFiEwMOjD0ToHs",
-	"BmehOxWCc3BpHbTk85knXLZO2wBuRd7rioBxRRVsKCTQbTQGZ+KsFMtTDIe4nwXsvk/RseOtd1Usw7Si",
-	"gNpwUaIPU45Ng35TlDWVSxfDVPhTOF+Rn3LAELlYa66N5gDoCR7UPNpSLKJ5UF3wDHkOoaYNeLIVefCE",
-	"Btbibh5bmFGNK+08XIaaAMsQ0QBWVR5cLj6AFLB3JoOD7y1uGrIh5zhrdAhC3cFFEBevMrAuwLfIAVpP",
-	"TDaksh/BhAgq16C2RaipodEOktEH/nXn/OjBqkyRjY1AKlXSETFBtPCJp16X9VQqRmXqoFAOFvZYyvcD",
-	"NOXxEE+VqUNEVaYGTA9yuNeJYy06pT2GJGdPSJL1EnWyvnQVndWjhphxQeel/Qmztme4thPn8eMeSNfQ",
-	"Hh/e/+0hOoBmQCUvnZ1r36T87V4a55axfQmqVKMnEdekF3U4iEvbQAvysmOtq1Cf//T9/OvNuddPSvK7",
-	"knWD9Wzw4FyFTnBF90JMge+O/orEZ0LoCis1k0ANv0pw9+qs0HvcyHOJdoU8/UHUPbFL5vNEOAzzyFo2",
-	"OHlk41zIu3D/d+I8lsY7XMP7yQS0FZepAuRcM2gbXBIlDs7T3Dsb8vRLtrpgaKWL5jkwNgTBixTNXLQV",
-	"+g0gAx42104pj1osXGLVaJt//HKfLzBQlYGlFXng2rUtedC2jeEq60UOF5Rz6VqqQFsOhBW4eWe2f99J",
-	"2kmNMBriaT/iTZ+ZTbiv41cOY8e0ODkhG6a+/5QwL6vgjxze8+5QHU+b61Ot22ZK27k75cltSpizZgOX",
-	"H7/cX8Ht5w/S37StEk9WmrvmtaB8FrWpyI9hTqGspYGhraTPy19nSdhF3qKBBB/08F0wdKB19KpcGaUR",
-	"8mljSwwsl/0qKF0jC6U7Jl+GndC4igxc4sF82J/g5oAzdiYGMpu8dawlTqr6tp4lN4WJQ+avRnBfE7Rx",
-	"ZnSZSZ+vOjRKFyWaVtr5MwXTd3YzTAkMc+8a0AzY6mK/4YLhNwqT3XNK4o7yadLQnIDXvAuWKh2cB/Gl",
-	"rwIdJMPqvaDiS/o0gc7Quy4tYkBlakWeu9S+GV0LS1xLFlutxuqX0fXoF+lfGOrEuA71ImUr77PFxePu",
-	"7rQtJGNcPAr3t7JjQeGM1lCI3oo8VDTHaEIG1LRhs0/Y5WHVwJubm2sZdvqkXMG6JpuC7k+GGnlQjjRF",
-	"JoASezYUBDGZlBBurm9GcAszj7bKLa33BBwMcUCfRq2UGYSZQbscyKI5HWqdb2QLMnUjGFpIpdXhLiWa",
-	"GrncNdVvFPY1mB1dSp8ZvvdLiv2ldZu9uPj4JipT+9Fl8e319U+7Kp6K05nroktd6ub65jlrO/e6q2d3",
-	"s+zHx7H6VTQjld9eFrrk9tnYkUUqAFO2020xnmHcrVnjRgg3l6uLp9ZgSf3M7kkSax1oW3oSi9j3KhnR",
-	"C0+NW1HWtbgH5WntdSBY186QFMKDkul9RVaOkqYnNNyAE8vwcfLpj3f5zlNP7KIvpZY7ispgOkMmIbwP",
-	"kAaADL7UGPi2bTvDnlOKhJqBrkZwR6LRLKyLdmnd2vbeioZDbCFpxjkuHs1d/30ypjnvnas2P42HZwfJ",
-	"7XFv7m8G/2+1kKmbt2//vcq56+l9XDuJsD+snWSF/GrgQ/RGjVUhvWn1Rm2/bv8VAAD//w==",
+	"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",
+	"XwEAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
