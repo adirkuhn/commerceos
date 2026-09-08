@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { CartProvider, useCart } from './cart/CartContext'
 import { WishlistProvider, useWishlist } from './wishlist/WishlistContext'
+import { AuthProvider, useAuth } from './auth/AuthContext'
 import { HomePage } from './pages/HomePage'
 import { ProductsPage } from './pages/ProductsPage'
 import { ProductPage } from './pages/ProductPage'
@@ -10,6 +11,8 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { OrderConfirmationPage } from './pages/OrderConfirmationPage'
 import { OrderLookupPage } from './pages/OrderLookupPage'
 import { WishlistPage } from './pages/WishlistPage'
+import { LoginPage } from './pages/LoginPage'
+import { AccountPage } from './pages/AccountPage'
 
 function CartLink() {
   const { cart } = useCart()
@@ -31,6 +34,16 @@ function WishlistLink() {
   )
 }
 
+function AccountLink() {
+  const { account, loading } = useAuth()
+  if (loading) return null
+  return (
+    <Link to={account ? '/account' : '/login'} className="text-brand-500 hover:text-brand-700">
+      {account ? (account.first_name || 'Account') : 'Sign in'}
+    </Link>
+  )
+}
+
 function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-brand-700">
@@ -40,6 +53,7 @@ function Layout({ children }: { children: ReactNode }) {
           <Link to="/products" className="text-brand-500 hover:text-brand-700">Products</Link>
           <CartLink />
           <WishlistLink />
+          <AccountLink />
           <Link to="/order-lookup" className="text-brand-500 hover:text-brand-700">Track order</Link>
         </nav>
       </header>
@@ -53,18 +67,22 @@ export function App() {
     <BrowserRouter>
       <CartProvider>
         <WishlistProvider>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/products/:id" element={<ProductPage />} />
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmationPage />} />
-              <Route path="/order-lookup" element={<OrderLookupPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
-            </Routes>
-          </Layout>
+          <AuthProvider>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/products/:id" element={<ProductPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmationPage />} />
+                <Route path="/order-lookup" element={<OrderLookupPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/account" element={<AccountPage />} />
+              </Routes>
+            </Layout>
+          </AuthProvider>
         </WishlistProvider>
       </CartProvider>
     </BrowserRouter>

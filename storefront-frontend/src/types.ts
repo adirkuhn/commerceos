@@ -12,6 +12,8 @@ export type PageSlug =
   | 'order-confirmation'
   | 'order-lookup'
   | 'wishlist'
+  | 'login'
+  | 'account'
 
 export type BlockType =
   | 'hero'
@@ -23,6 +25,8 @@ export type BlockType =
   | 'checkout_form'
   | 'order_status'
   | 'wishlist'
+  | 'login_form'
+  | 'account'
 
 export interface Rect {
   x: number
@@ -61,11 +65,33 @@ export const REQUIRED_BLOCK_TYPE_BY_SLUG: Partial<Record<PageSlug, BlockType>> =
   'order-confirmation': 'order_status',
   'order-lookup': 'order_status',
   wishlist: 'wishlist',
+  login: 'login_form',
+  account: 'account',
 }
 
 export interface Wishlist {
   token: string
   product_ids: string[]
+}
+
+export interface Account {
+  email: string
+  first_name: string
+  last_name: string
+}
+
+export interface Session {
+  session_token: string
+  account: Account
+}
+
+export interface AccountOrder {
+  order_number: string
+  status: string
+  fulfilled: boolean
+  total_minor_units: number
+  currency_code: string
+  placed_at: string
 }
 
 export interface CartItem {
