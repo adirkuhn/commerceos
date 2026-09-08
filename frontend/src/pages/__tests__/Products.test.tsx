@@ -74,6 +74,18 @@ import * as integrationsApi from '../../integrations/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
 
+// inputAfterLabel finds the <input> sibling of a plain-text <label> that
+// has no htmlFor/id association (VariantRow's edit panel labels don't wrap
+// or reference their inputs) -- getByLabelText can't resolve these, and
+// several inputs in the same panel share the same placeholder ("0" for
+// weight/length/width/height), so placeholder lookup alone is ambiguous.
+function inputAfterLabel(labelText: string): HTMLInputElement {
+  const label = screen.getByText(labelText)
+  const input = label.parentElement?.querySelector('input')
+  if (!input) throw new Error(`No input found next to label "${labelText}"`)
+  return input
+}
+
 function product(overrides: Partial<Product> = {}): Product {
   return {
     id: 'prod-1', tenant_id: 't1', name: 'T-Shirt', slug: 't-shirt',
@@ -780,9 +792,12 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
     await screen.findByText('Bulk')
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add SKU' }))
-    const skuForm = screen.getByPlaceholderText('SKU code').closest('div')!.parentElement!
+    // 2 levels up from the SKU code field: its own wrapper div, then the
+    // grid div -- the outer panel (Item type + Add/Cancel buttons live
+    // there, as siblings of the grid, not inside it) is one level further.
+    const skuForm = screen.getByPlaceholderText('SKU code').closest('div')!.parentElement!.parentElement!
     await userEvent.type(within(skuForm).getByPlaceholderText('SKU code'), 'BULK-1')
-    await userEvent.type(within(skuForm).getByPlaceholderText('Price'), '0')
+    await userEvent.type(within(skuForm).getByPlaceholderText('0.00'), '0')
     await userEvent.selectOptions(within(skuForm).getByLabelText(/item type/i), 'kilo')
     await userEvent.click(within(skuForm).getByRole('button', { name: 'Add' }))
 
@@ -907,12 +922,12 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
 
     expect(screen.getByPlaceholderText('Variant name')).toHaveValue('378g')
     expect(screen.getByPlaceholderText('SKU code')).toHaveValue(baseSku.sku_code)
-    expect(screen.getByPlaceholderText('Price')).toHaveValue(19.99)
-    expect(screen.getByPlaceholderText('Weight (g)')).toHaveValue(378)
+    expect(screen.getByPlaceholderText('0.00')).toHaveValue(19.99)
+    expect(inputAfterLabel('Weight (g)')).toHaveValue(378)
     expect(screen.getByDisplayValue('Inactive')).toBeInTheDocument()
   })
 
@@ -929,12 +944,12 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
     const nameInput = screen.getByPlaceholderText('Variant name')
     const editPanel = nameInput.closest('div')!.parentElement!
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, '412g')
-    const priceInput = within(editPanel).getByPlaceholderText('Price')
+    const priceInput = within(editPanel).getByPlaceholderText('0.00')
     await userEvent.clear(priceInput)
     await userEvent.type(priceInput, '24.99')
     await userEvent.click(within(editPanel).getByRole('button', { name: 'Save' }))
@@ -959,7 +974,7 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
     const editPanel = screen.getByPlaceholderText('Variant name').closest('div')!.parentElement!
     await userEvent.click(within(editPanel).getByRole('button', { name: 'Save' }))
 
@@ -978,7 +993,7 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     await userEvent.click(await screen.findByTitle('Edit'))
     await screen.findByText('378g')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
     expect(screen.getByPlaceholderText('Variant name')).toBeInTheDocument()
     const editPanel = screen.getByPlaceholderText('Variant name').closest('div')!.parentElement!
     await userEvent.click(within(editPanel).getByRole('button', { name: 'Cancel' }))
