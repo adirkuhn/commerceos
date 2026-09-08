@@ -1,0 +1,171 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Coupons API
+  version: "1.0"
+  description: >
+    Admin-only (JWT) CRUD over tenant-wide cart discount codes (see
+    domain/coupons). Not channel/product-scoped -- one code applies to
+    any cart on any internal storefront for the tenant. The public,
+    read-only-in-spirit counterpart a shopper actually redeems a code
+    through is api/storefront's applyCoupon instead -- this API is for
+    the admin management screen only.
+servers:
+  - url: /api/v1
+
+paths:
+  /coupons:
+    get:
+      operationId: listCoupons
+      summary: List every coupon for the tenant, newest first
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponListResponse'
+    post:
+      operationId: createCoupon
+      summary: Create a new coupon code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCouponRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /coupons/{id}:
+    patch:
+      operationId: updateCoupon
+      summary: Replace a coupon's whole configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCouponRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: deleteCoupon
+      summary: Delete a coupon
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    DiscountType:
+      type: string
+      enum: [percent, fixed]
+
+    Coupon:
+      type: object
+      required: [id, code, discount_type, discount_value, times_used, active, created_at, updated_at]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        discount_type: { $ref: '#/components/schemas/DiscountType' }
+        discount_value:
+          type: integer
+          description: Basis points (0-10000) off the cart subtotal for "percent", or a flat minor-units amount for "fixed".
+        min_subtotal_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+        usage_limit:
+          type: integer
+          nullable: true
+        times_used: { type: integer }
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateCouponRequest:
+      type: object
+      required: [code, discount_type, discount_value]
+      properties:
+        code: { type: string, minLength: 1 }
+        discount_type: { $ref: '#/components/schemas/DiscountType' }
+        discount_value: { type: integer }
+        min_subtotal_minor_units: { type: integer, format: int64, nullable: true }
+        usage_limit: { type: integer, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+
+    UpdateCouponRequest:
+      type: object
+      required: [code, discount_type, discount_value, active]
+      properties:
+        code: { type: string, minLength: 1 }
+        discount_type: { $ref: '#/components/schemas/DiscountType' }
+        discount_value: { type: integer }
+        min_subtotal_minor_units: { type: integer, format: int64, nullable: true }
+        usage_limit: { type: integer, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        active: { type: boolean }
+
+    CouponResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Coupon' }
+        error: { nullable: true }
+
+    CouponListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Coupon' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

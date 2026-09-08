@@ -14,6 +14,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	gencustomers "github.com/adirkuhn/commerceos/api/customers"
 	gendashboard "github.com/adirkuhn/commerceos/api/dashboard"
 	genia "github.com/adirkuhn/commerceos/api/iam"
@@ -37,6 +38,7 @@ import (
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
@@ -257,6 +259,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	promotionshandler.Register(promotionsGroup, db)
+
+	couponsSpec, err := gencoupons.GetSpec()
+	if err != nil {
+		log.Fatalf("coupons: load openapi spec: %v", err)
+	}
+	// Own sub-group so the coupons-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	couponsGroup := v1.Group("")
+	couponsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(couponsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	couponshandler.Register(couponsGroup, db)
 
 	reportsSpec, err := genreports.GetSpec()
 	if err != nil {
