@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -63,6 +64,56 @@ func TestProductRepo_Integration_SearchIsAccentInsensitive(t *testing.T) {
 		require.Len(t, products, 1, "query %q should match exactly one product", tc.query)
 		require.Equal(t, tc.want, products[0].Name, "query %q", tc.query)
 	}
+}
+
+// TestProductRepo_Integration_CountByCategory proves the GROUP BY query
+// actually runs against real Postgres and that AndCategoryID is ignored
+// (see applyProductFilter's doc comment) -- both categories' counts come
+// back even though the filter passed in is scoped to just one of them.
+func TestProductRepo_Integration_CountByCategory(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	categoryRepo := repositories.NewCategoryRepo(db)
+
+	var categoryAID, categoryBID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tid := tenant.IDFromContext(ctx)
+		categoryA := &pmsDomain.Category{TenantID: tid, Name: "Category A", Slug: "category-a-count-by-category"}
+		if err := categoryRepo.Create(ctx, categoryA); err != nil {
+			return err
+		}
+		categoryAID = categoryA.ID
+		categoryB := &pmsDomain.Category{TenantID: tid, Name: "Category B", Slug: "category-b-count-by-category"}
+		if err := categoryRepo.Create(ctx, categoryB); err != nil {
+			return err
+		}
+		categoryBID = categoryB.ID
+
+		now := time.Now()
+		for i, catID := range []string{categoryAID, categoryAID, categoryBID} {
+			id := catID
+			p := &pmsDomain.Product{
+				TenantID: tid, Name: fmt.Sprintf("Product %d", i), Slug: fmt.Sprintf("count-by-category-product-%d", i),
+				CategoryID: &id, Status: pmsDomain.ProductStatusActive, CreatedAt: now, UpdatedAt: now,
+			}
+			if err := productRepo.Create(ctx, p); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	var counts map[string]int64
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		counts, err = productRepo.CountByCategory(ctx, pmsDomain.ProductFilter{AndCategoryID: &categoryAID})
+		return err
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), counts[categoryAID])
+	assert.Equal(t, int64(1), counts[categoryBID])
 }
 
 // TestProductRepo_Integration_UpdatedAfterFiltersByRealUpdatedAtColumn

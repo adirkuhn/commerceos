@@ -336,6 +336,10 @@ func (s *stubProductRepo) SearchByAnyNameToken(_ context.Context, tokens []strin
 	return s.tokenResult, nil
 }
 
+func (s *stubProductRepo) CountByCategory(_ context.Context, _ pmsDomain.ProductFilter) (map[string]int64, error) {
+	return nil, nil
+}
+
 // stubVariantRepo implements pms.VariantRepository -- only ListByProduct
 // (the name-search matching step uses) is exercised; the rest are unused
 // no-ops.

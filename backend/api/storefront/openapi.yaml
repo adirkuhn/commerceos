@@ -784,6 +784,22 @@ components:
         sale_price_minor_units: { type: integer, format: int64, nullable: true }
         currency_code: { type: string, nullable: true }
 
+    StorefrontCategoryFacet:
+      type: object
+      required: [category_id, category_name, count]
+      properties:
+        category_id: { type: string }
+        category_name: { type: string }
+        count:
+          type: integer
+          format: int64
+          description: >
+            Enrolled products in this category under the listing's current
+            search text -- ignores whichever category is currently
+            selected, so every option's count stays meaningful regardless
+            of which one is active. Categories with zero matches are
+            omitted entirely.
+
     StorefrontProductListResponse:
       type: object
       properties:
@@ -794,6 +810,9 @@ components:
               type: array
               items: { $ref: '#/components/schemas/StorefrontProductSummary' }
             total: { type: integer, format: int64 }
+            category_facets:
+              type: array
+              items: { $ref: '#/components/schemas/StorefrontCategoryFacet' }
         error: { nullable: true }
 
     StorefrontSKU:

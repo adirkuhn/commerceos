@@ -30,6 +30,12 @@ type ProductRepository interface {
 	// differ), so an exact-phrase Search can't find the candidates at all.
 	// Real scoring/ranking of the results happens in Go, not SQL.
 	SearchByAnyNameToken(ctx context.Context, tokens []string, limit int) ([]Product, error)
+	// CountByCategory groups filter's matching products by category_id --
+	// used by application/storefront's search-facets support to show a
+	// count next to each category a shopper could switch to. See
+	// infrastructure/repositories.ProductRepo.CountByCategory's doc
+	// comment for why AndCategoryID is deliberately ignored here.
+	CountByCategory(ctx context.Context, filter ProductFilter) (map[string]int64, error)
 }
 
 type ProductFilter struct {

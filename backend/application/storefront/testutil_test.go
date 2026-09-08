@@ -171,7 +171,8 @@ func (f *fakeVariantRepo) ListByProduct(_ context.Context, productID string) ([]
 
 type fakeProductRepo struct {
 	pmsDomain.ProductRepository
-	byID map[string]pmsDomain.Product
+	byID           map[string]pmsDomain.Product
+	categoryCounts map[string]int64
 }
 
 func (f *fakeProductRepo) FindByID(_ context.Context, id string) (*pmsDomain.Product, error) {
@@ -179,6 +180,10 @@ func (f *fakeProductRepo) FindByID(_ context.Context, id string) (*pmsDomain.Pro
 		return &p, nil
 	}
 	return nil, pmsDomain.ErrProductNotFound
+}
+
+func (f *fakeProductRepo) CountByCategory(_ context.Context, _ pmsDomain.ProductFilter) (map[string]int64, error) {
+	return f.categoryCounts, nil
 }
 
 type fakeOverrideRepo struct {

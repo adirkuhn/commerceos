@@ -32,9 +32,22 @@ type ListProductsInput struct {
 	PerPage    int
 }
 
+// CategoryFacet is one category a shopper could switch to from the
+// current listing, and how many enrolled products they'd see there --
+// counted against the same enrollment scoping and Search text as the
+// listing itself, but ignoring any currently-selected browse category
+// (see pms.ProductRepository.CountByCategory's doc comment), so every
+// facet option's count stays meaningful regardless of which one is active.
+type CategoryFacet struct {
+	CategoryID   string
+	CategoryName string
+	Count        int64
+}
+
 type ListProductsResult struct {
-	Products []ProductSummary
-	Total    int64
+	Products       []ProductSummary
+	Total          int64
+	CategoryFacets []CategoryFacet
 }
 
 // listPOSProductCatalogUC is *application/pms.ListPOSProductCatalogUseCase
@@ -59,6 +72,8 @@ type ListProductsUseCase struct {
 	channelRepo  channelsDomain.SalesChannelRepository
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository
 	listCatalog  listPOSProductCatalogUC
+	productRepo  pmsDomain.ProductRepository
+	categoryRepo pmsDomain.CategoryRepository
 }
 
 func NewListProductsUseCase(
@@ -66,13 +81,19 @@ func NewListProductsUseCase(
 	channelRepo channelsDomain.SalesChannelRepository,
 	overrideRepo channelsDomain.SalesChannelProductOverrideRepository,
 	listCatalog listPOSProductCatalogUC,
+	productRepo pmsDomain.ProductRepository,
+	categoryRepo pmsDomain.CategoryRepository,
 ) *ListProductsUseCase {
-	return &ListProductsUseCase{db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, listCatalog: listCatalog}
+	return &ListProductsUseCase{
+		db: db, channelRepo: channelRepo, overrideRepo: overrideRepo, listCatalog: listCatalog,
+		productRepo: productRepo, categoryRepo: categoryRepo,
+	}
 }
 
 func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID string, in ListProductsInput) (*ListProductsResult, error) {
 	var pmsInput apppms.ListProductsInput
 	var channel *channelsDomain.SalesChannel
+	var categoryFacets []CategoryFacet
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
 		channel, err = findInternalChannel(ctx, uc.channelRepo, salesChannelID)
@@ -110,6 +131,27 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		case channelsDomain.EnrollmentModeManual:
 			pmsInput.IncludeIDs = &includeIDs
 		}
+
+		var searchPtr *string
+		if in.Search != "" {
+			searchPtr = &in.Search
+		}
+		counts, err := uc.productRepo.CountByCategory(ctx, pmsDomain.ProductFilter{
+			CategoryID: pmsInput.CategoryID, Tag: pmsInput.Tag, IncludeIDs: pmsInput.IncludeIDs,
+			ExcludeIDs: pmsInput.ExcludeIDs, Status: pmsInput.Status, Search: searchPtr,
+		})
+		if err != nil {
+			return err
+		}
+		categories, err := uc.categoryRepo.List(ctx)
+		if err != nil {
+			return err
+		}
+		for _, cat := range categories {
+			if count, ok := counts[cat.ID]; ok && count > 0 {
+				categoryFacets = append(categoryFacets, CategoryFacet{CategoryID: cat.ID, CategoryName: cat.Name, Count: count})
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -121,7 +163,7 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 		return nil, fmt.Errorf("listProducts: %w", err)
 	}
 
-	result := &ListProductsResult{Total: catalog.Total, Products: make([]ProductSummary, len(catalog.Products))}
+	result := &ListProductsResult{Total: catalog.Total, Products: make([]ProductSummary, len(catalog.Products)), CategoryFacets: categoryFacets}
 	for i, p := range catalog.Products {
 		summary := ProductSummary{Product: p.Product, ImageURL: p.ImageURL}
 		if len(p.SKUs) > 0 {

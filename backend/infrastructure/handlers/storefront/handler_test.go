@@ -613,6 +613,23 @@ func TestListStorefrontProductsHandler_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"total":1`)
 }
 
+func TestListStorefrontProductsHandler_includesCategoryFacets(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	list := &stubListProducts{out: &appstorefront.ListProductsResult{
+		Total: 1,
+		CategoryFacets: []appstorefront.CategoryFacet{
+			{CategoryID: "cat-1", CategoryName: "Shoes", Count: 3},
+		},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, list, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"category_name":"Shoes"`)
+	assert.Contains(t, w.Body.String(), `"count":3`)
+}
+
 func TestListStorefrontProductsHandler_rejectsTenantWideKey(t *testing.T) {
 	resolve := &stubResolveStorefrontKey{resolved: apikeysDomain.ResolvedAPIKey{TenantID: "tenant-1"}}
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})

@@ -56,6 +56,10 @@ func (s *stubMediaProductRepo) SearchByAnyNameToken(_ context.Context, _ []strin
 	return nil, nil
 }
 
+func (s *stubMediaProductRepo) CountByCategory(_ context.Context, _ pmsDomain.ProductFilter) (map[string]int64, error) {
+	return nil, nil
+}
+
 type stubMediaVariantRepo struct {
 	variant *pmsDomain.Variant
 	findErr error

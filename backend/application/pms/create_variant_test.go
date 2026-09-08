@@ -48,6 +48,10 @@ func (s *stubProductRepo) SearchByAnyNameToken(_ context.Context, _ []string, _ 
 	return nil, nil
 }
 
+func (s *stubProductRepo) CountByCategory(_ context.Context, _ pmsDomain.ProductFilter) (map[string]int64, error) {
+	return nil, nil
+}
+
 type stubVariantRepo struct {
 	existing     []pmsDomain.Variant
 	createCalled bool

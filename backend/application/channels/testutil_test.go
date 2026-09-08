@@ -587,6 +587,10 @@ func (s *stubChannelsProductRepo) SearchByAnyNameToken(_ context.Context, _ []st
 	return nil, nil
 }
 
+func (s *stubChannelsProductRepo) CountByCategory(_ context.Context, _ pmsDomain.ProductFilter) (map[string]int64, error) {
+	return nil, nil
+}
+
 type stubChannelsVariantRepo struct {
 	created        []pmsDomain.Variant
 	createErr      error

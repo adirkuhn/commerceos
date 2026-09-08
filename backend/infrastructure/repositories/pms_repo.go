@@ -327,12 +327,13 @@ func (r *ProductRepo) FindBySlug(ctx context.Context, slug string) (*pmsDomain.P
 	return toProductDomain(m), nil
 }
 
-func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
-	tx, err := r.tx(ctx)
-	if err != nil {
-		return nil, 0, err
-	}
-	q := tx.Model(&productModel{})
+// applyProductFilter applies every ProductFilter constraint to q except
+// AndCategoryID when includeAndCategory is false -- shared by List (which
+// always applies it) and CountByCategory (which deliberately doesn't: a
+// category facet's count must reflect "how many if this category were
+// picked instead", not "how many within the already-picked category").
+// Returns the search pattern too, since List's result ordering needs it.
+func applyProductFilter(q *gorm.DB, filter pmsDomain.ProductFilter, includeAndCategory bool) (*gorm.DB, string, error) {
 	if filter.CategoryID != nil || filter.Tag != nil || filter.IncludeIDs != nil {
 		var ors []string
 		var args []any
@@ -343,7 +344,7 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		if filter.Tag != nil {
 			tagJSON, err := json.Marshal([]string{*filter.Tag})
 			if err != nil {
-				return nil, 0, fmt.Errorf("productRepo.List: marshal tag: %w", err)
+				return nil, "", fmt.Errorf("marshal tag: %w", err)
 			}
 			ors = append(ors, "tags @> ?::jsonb")
 			args = append(args, string(tagJSON))
@@ -364,7 +365,7 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	if len(filter.ExcludeIDs) > 0 {
 		q = q.Where("id NOT IN ?", filter.ExcludeIDs)
 	}
-	if filter.AndCategoryID != nil {
+	if includeAndCategory && filter.AndCategoryID != nil {
 		q = q.Where("category_id = ?", *filter.AndCategoryID)
 	}
 	if filter.Status != nil {
@@ -393,6 +394,18 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 	}
 	if filter.UpdatedAfter != nil {
 		q = q.Where("updated_at > ?", *filter.UpdatedAfter)
+	}
+	return q, pattern, nil
+}
+
+func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) ([]pmsDomain.Product, int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	q, pattern, err := applyProductFilter(tx.Model(&productModel{}), filter, true)
+	if err != nil {
+		return nil, 0, fmt.Errorf("productRepo.List: %w", err)
 	}
 
 	var total int64
@@ -439,6 +452,40 @@ func (r *ProductRepo) List(ctx context.Context, filter pmsDomain.ProductFilter) 
 		products[i] = *toProductDomain(row)
 	}
 	return products, total, nil
+}
+
+type productCategoryCountRow struct {
+	CategoryID *string
+	Count      int64
+}
+
+// CountByCategory groups filter's matching products by category_id --
+// AndCategoryID is deliberately ignored (see applyProductFilter's doc
+// comment) so the counts reflect every category a shopper could switch to,
+// not just the one currently selected. A nil CategoryID (uncategorized)
+// comes back under the empty-string key.
+func (r *ProductRepo) CountByCategory(ctx context.Context, filter pmsDomain.ProductFilter) (map[string]int64, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q, _, err := applyProductFilter(tx.Model(&productModel{}), filter, false)
+	if err != nil {
+		return nil, fmt.Errorf("productRepo.CountByCategory: %w", err)
+	}
+	var rows []productCategoryCountRow
+	if err := q.Select("category_id, COUNT(*) as count").Group("category_id").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("productRepo.CountByCategory: %w", err)
+	}
+	out := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		if row.CategoryID != nil {
+			out[*row.CategoryID] = row.Count
+		} else {
+			out[""] = row.Count
+		}
+	}
+	return out, nil
 }
 
 func (r *ProductRepo) SearchByAnyNameToken(ctx context.Context, tokens []string, limit int) ([]pmsDomain.Product, error) {

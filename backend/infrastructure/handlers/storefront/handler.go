@@ -214,7 +214,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 			db, cartRepo, customerRepo, createCustomer, createSalesOrder, taxClassRepo, taxRateRepo, outboxRepo, generatePaymentLink,
 			connRepo, shippingSettingsRepo, estimateShipping, couponRepo,
 		),
-		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog),
+		appstorefront.NewListProductsUseCase(db, channelRepo, overrideRepo, listPOSProductCatalog, productRepo, categoryRepo),
 		appstorefront.NewGetProductUseCase(db, channelRepo, overrideRepo, productRepo, variantRepo, skuRepo, mediaRepo, stockLevel),
 		appstorefront.NewListCategoriesUseCase(db, categoryRepo),
 		appstorefront.NewLookupOrderUseCase(db, salesRepo),
@@ -398,11 +398,16 @@ func (h *Handler) ListStorefrontProducts(c *gin.Context, params genstorefront.Li
 	for i, p := range result.Products {
 		items[i] = toGenProductSummary(p)
 	}
+	facets := make([]genstorefront.StorefrontCategoryFacet, len(result.CategoryFacets))
+	for i, f := range result.CategoryFacets {
+		facets[i] = genstorefront.StorefrontCategoryFacet{CategoryId: f.CategoryID, CategoryName: f.CategoryName, Count: f.Count}
+	}
 	total := result.Total
 	middleware.OK(c, struct {
-		Items []genstorefront.StorefrontProductSummary `json:"items"`
-		Total int64                                    `json:"total"`
-	}{Items: items, Total: total})
+		Items          []genstorefront.StorefrontProductSummary `json:"items"`
+		Total          int64                                    `json:"total"`
+		CategoryFacets []genstorefront.StorefrontCategoryFacet  `json:"category_facets"`
+	}{Items: items, Total: total, CategoryFacets: facets})
 }
 
 func (h *Handler) GetStorefrontProduct(c *gin.Context, id string) {
