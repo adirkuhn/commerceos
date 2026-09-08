@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
-  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3,
+  ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket,
   ChevronRight, ChevronDown, Zap, Webhook,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
@@ -86,6 +86,7 @@ const NAV_ITEMS: NavRow[] = [
   // than scattering as flat top-level items.
   { section: 'Intelligence' },
   { id: 'promotions', label: 'Promotions', icon: Tag },
+  { id: 'coupons', label: 'Coupons', icon: Ticket },
   REPORTS_SUBMENU,
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
