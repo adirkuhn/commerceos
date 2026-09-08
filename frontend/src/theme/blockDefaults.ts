@@ -16,6 +16,7 @@ const DEFAULT_PROPS: Record<BlockType, Record<string, unknown>> = {
   cart_summary: {},
   checkout_form: {},
   order_status: {},
+  wishlist: {},
 }
 
 // Decorative blocks start as a small box a merchant places by hand. The
@@ -31,6 +32,7 @@ const DEFAULT_RECT: Record<BlockType, Rect> = {
   cart_summary: { x: 0, y: 20, width: 1440, height: 600 },
   checkout_form: { x: 0, y: 20, width: 1440, height: 600 },
   order_status: { x: 0, y: 20, width: 1440, height: 400 },
+  wishlist: { x: 0, y: 20, width: 1440, height: 600 },
 }
 
 export function createBlock(type: BlockType): Block {
