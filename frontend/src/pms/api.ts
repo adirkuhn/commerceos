@@ -6,6 +6,7 @@ import type {
   CreateSKUPayload, UpdateSKUPayload,
   SKUMarginInsight, SKUCostPriceHistoryEntry, SKUPriceHistoryEntry, MarginReportRow,
   ProductHistoryEntry,
+  SKUCurrencyPrice, UpsertSKUCurrencyPriceInput,
   APIResponse,
 } from './types'
 
@@ -133,6 +134,18 @@ export function deleteSKU(token: string, id: string): Promise<null> {
 
 export function getSKUMarginInsight(token: string, id: string): Promise<SKUMarginInsight> {
   return request<SKUMarginInsight>(`${base()}/skus/${id}/margin-insight`, { method: 'GET' }, token)
+}
+
+export function listSKUCurrencyPrices(token: string, id: string): Promise<SKUCurrencyPrice[]> {
+  return request<SKUCurrencyPrice[]>(`${base()}/skus/${id}/currency-prices`, { method: 'GET' }, token)
+}
+
+export function upsertSKUCurrencyPrice(token: string, id: string, payload: UpsertSKUCurrencyPriceInput): Promise<SKUCurrencyPrice> {
+  return request<SKUCurrencyPrice>(`${base()}/skus/${id}/currency-prices`, { method: 'PUT', body: JSON.stringify(payload) }, token)
+}
+
+export function deleteSKUCurrencyPrice(token: string, id: string, currencyCode: string): Promise<null> {
+  return request<null>(`${base()}/skus/${id}/currency-prices/${currencyCode}`, { method: 'DELETE' }, token)
 }
 
 export function listSKUCostPriceHistory(token: string, id: string, limit?: number): Promise<SKUCostPriceHistoryEntry[]> {

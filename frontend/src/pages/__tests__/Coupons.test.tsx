@@ -14,6 +14,9 @@ vi.mock('../../coupons/api', () => ({
   createCoupon: vi.fn(),
   updateCoupon: vi.fn(),
   deleteCoupon: vi.fn(),
+  listCouponCurrencyAmounts: vi.fn(() => Promise.resolve([])),
+  upsertCouponCurrencyAmount: vi.fn(),
+  deleteCouponCurrencyAmount: vi.fn(),
 }))
 
 import * as couponsApi from '../../coupons/api'
@@ -122,6 +125,57 @@ describe('Coupon edit page', () => {
     expect(await screen.findByDisplayValue('SUMMER10')).toBeInTheDocument()
     expect(screen.getByDisplayValue('10')).toBeInTheDocument()
     expect(screen.getByText('Used 3 times')).toBeInTheDocument()
+  })
+
+  it('shows no currency-overrides editor for a Percent coupon', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon()])
+
+    render(<Coupons />)
+    await userEvent.click(await screen.findByText('SUMMER10'))
+    await screen.findByDisplayValue('SUMMER10')
+
+    expect(screen.queryByText('Currency overrides')).not.toBeInTheDocument()
+  })
+
+  it('a Fixed coupon shows currency overrides, loads existing ones, and can add one', async () => {
+    const fixedCoupon = coupon({ discount_type: 'fixed', discount_value: 500 })
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([fixedCoupon])
+    vi.mocked(couponsApi.listCouponCurrencyAmounts).mockResolvedValue([
+      { coupon_id: 'coupon-1', currency_code: 'USD', amount_minor_units: 600 },
+    ])
+    vi.mocked(couponsApi.upsertCouponCurrencyAmount).mockResolvedValue({ coupon_id: 'coupon-1', currency_code: 'GBP', amount_minor_units: 450 })
+
+    render(<Coupons />)
+    await userEvent.click(await screen.findByText('SUMMER10'))
+    await screen.findByDisplayValue('SUMMER10')
+
+    expect(await screen.findByText('USD: 6.00 off')).toBeInTheDocument()
+    expect(couponsApi.listCouponCurrencyAmounts).toHaveBeenCalledWith('test-token', 'coupon-1')
+
+    await userEvent.selectOptions(screen.getByLabelText('Currency'), 'GBP')
+    await userEvent.type(screen.getByLabelText('Override amount'), '4.50')
+    await userEvent.click(screen.getByRole('button', { name: 'Add / update' }))
+
+    await waitFor(() => expect(couponsApi.upsertCouponCurrencyAmount).toHaveBeenCalledWith('test-token', 'coupon-1', {
+      currency_code: 'GBP', amount_minor_units: 450,
+    }))
+  })
+
+  it('can delete a coupon currency override', async () => {
+    vi.mocked(couponsApi.listCoupons).mockResolvedValue([coupon({ discount_type: 'fixed', discount_value: 500 })])
+    vi.mocked(couponsApi.listCouponCurrencyAmounts).mockResolvedValue([
+      { coupon_id: 'coupon-1', currency_code: 'USD', amount_minor_units: 600 },
+    ])
+    vi.mocked(couponsApi.deleteCouponCurrencyAmount).mockResolvedValue(null)
+
+    render(<Coupons />)
+    await userEvent.click(await screen.findByText('SUMMER10'))
+    await screen.findByText('USD: 6.00 off')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(couponsApi.deleteCouponCurrencyAmount).toHaveBeenCalledWith('test-token', 'coupon-1', 'USD'))
+    expect(screen.queryByText('USD: 6.00 off')).not.toBeInTheDocument()
   })
 
   it('Discard returns to the list without saving', async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { Coupon, APIResponse } from '../types'
+import type { Coupon, CouponCurrencyAmount, APIResponse } from '../types'
 
 const TOKEN = 'test-token'
 
@@ -113,5 +113,47 @@ describe('deleteCoupon', () => {
   it('throws on not found', async () => {
     mockFetchError('NOT_FOUND', 'coupon not found', 404)
     await expect(api.deleteCoupon(TOKEN, 'missing')).rejects.toThrow('coupon not found')
+  })
+})
+
+const sampleCurrencyAmount: CouponCurrencyAmount = { coupon_id: 'coupon-1', currency_code: 'USD', amount_minor_units: 600 }
+
+describe('listCouponCurrencyAmounts', () => {
+  it('returns the list and calls the correct endpoint', async () => {
+    mockFetch([sampleCurrencyAmount])
+    const result = await api.listCouponCurrencyAmounts(TOKEN, 'coupon-1')
+    expect(result).toEqual([sampleCurrencyAmount])
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/coupons/coupon-1/currency-amounts',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+})
+
+describe('upsertCouponCurrencyAmount', () => {
+  it('PUTs the input and returns the result', async () => {
+    mockFetch(sampleCurrencyAmount)
+    const result = await api.upsertCouponCurrencyAmount(TOKEN, 'coupon-1', { currency_code: 'USD', amount_minor_units: 600 })
+    expect(result).toEqual(sampleCurrencyAmount)
+    const [url, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.commerceos.dev.localhost/api/v1/coupons/coupon-1/currency-amounts')
+    expect(opts.method).toBe('PUT')
+    expect(JSON.parse(opts.body as string)).toEqual({ currency_code: 'USD', amount_minor_units: 600 })
+  })
+
+  it('throws on validation error', async () => {
+    mockFetchError('VALIDATION_ERROR', 'currency code must be 3 uppercase letters', 422)
+    await expect(api.upsertCouponCurrencyAmount(TOKEN, 'coupon-1', { currency_code: 'us', amount_minor_units: 600 })).rejects.toThrow('currency code must be 3 uppercase letters')
+  })
+})
+
+describe('deleteCouponCurrencyAmount', () => {
+  it('calls the correct endpoint with DELETE', async () => {
+    mockFetch(null)
+    await api.deleteCouponCurrencyAmount(TOKEN, 'coupon-1', 'USD')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/coupons/coupon-1/currency-amounts/USD',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
   })
 })

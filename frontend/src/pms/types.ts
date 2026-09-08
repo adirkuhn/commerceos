@@ -154,6 +154,26 @@ export interface SKUPriceHistoryEntry {
   reason: SKUPriceHistoryReason
 }
 
+// SKUCurrencyPrice is a manual price override for one SKU in one
+// non-default currency -- absent one, a sales channel running in that
+// currency prices this SKU via the tenant's configured exchange rate
+// instead (see Settings > Localization).
+export interface SKUCurrencyPrice {
+  sku_id: string
+  currency_code: string
+  price_minor_units: number
+  sale_price_minor_units?: number | null
+  sale_end_date?: string | null
+  updated_at: string
+}
+
+export interface UpsertSKUCurrencyPriceInput {
+  currency_code: string
+  price_minor_units: number
+  sale_price_minor_units?: number | null
+  sale_end_date?: string | null
+}
+
 export type ProductHistoryEntityType = 'product' | 'variant'
 export type ProductHistoryField = 'name' | 'status'
 

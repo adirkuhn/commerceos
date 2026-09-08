@@ -1,4 +1,4 @@
-import type { Coupon, CouponInput, APIResponse } from './types'
+import type { Coupon, CouponInput, CouponCurrencyAmount, UpsertCouponCurrencyAmountInput, APIResponse } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/coupons`
@@ -38,4 +38,16 @@ export function updateCoupon(token: string, id: string, input: CouponInput): Pro
 
 export function deleteCoupon(token: string, id: string): Promise<null> {
   return request<null>(`${base()}/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listCouponCurrencyAmounts(token: string, id: string): Promise<CouponCurrencyAmount[]> {
+  return request<CouponCurrencyAmount[]>(`${base()}/${id}/currency-amounts`, { method: 'GET' }, token)
+}
+
+export function upsertCouponCurrencyAmount(token: string, id: string, input: UpsertCouponCurrencyAmountInput): Promise<CouponCurrencyAmount> {
+  return request<CouponCurrencyAmount>(`${base()}/${id}/currency-amounts`, { method: 'PUT', body: JSON.stringify(input) }, token)
+}
+
+export function deleteCouponCurrencyAmount(token: string, id: string, currencyCode: string): Promise<null> {
+  return request<null>(`${base()}/${id}/currency-amounts/${currencyCode}`, { method: 'DELETE' }, token)
 }

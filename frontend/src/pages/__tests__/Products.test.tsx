@@ -44,6 +44,9 @@ vi.mock('../../pms/api', () => ({
   uploadProductMedia: vi.fn(),
   updateMedia: vi.fn(),
   deleteMedia: vi.fn(),
+  listSKUCurrencyPrices: vi.fn(() => Promise.resolve([])),
+  upsertSKUCurrencyPrice: vi.fn(),
+  deleteSKUCurrencyPrice: vi.fn(),
 }))
 
 vi.mock('../../integrations/api', () => ({
@@ -1001,6 +1004,64 @@ describe('editing an existing variant and its SKU\'s own fields (VariantRow)', (
     expect(screen.queryByPlaceholderText('Variant name')).not.toBeInTheDocument()
     expect(pmsApi.updateVariant).not.toHaveBeenCalled()
     expect(pmsApi.updateSKU).not.toHaveBeenCalled()
+  })
+})
+
+describe('SKU currency overrides (VariantRow)', () => {
+  it('is collapsed by default, loads and lists overrides once expanded, and can add one', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listSKUCurrencyPrices).mockResolvedValue([
+      { sku_id: 'sku-1', currency_code: 'USD', price_minor_units: 2199, updated_at: '' },
+    ])
+    vi.mocked(pmsApi.upsertSKUCurrencyPrice).mockResolvedValue({ sku_id: 'sku-1', currency_code: 'GBP', price_minor_units: 1799, updated_at: '' })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
+
+    expect(screen.queryByText(/currency overrides/i)).toBeInTheDocument()
+    expect(pmsApi.listSKUCurrencyPrices).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: /currency overrides/i }))
+    expect(await screen.findByText(/USD.*21\.99/)).toBeInTheDocument()
+
+    const overridesPanel = screen.getByText(/USD.*21\.99/).closest('div')!.parentElement!
+    await userEvent.selectOptions(within(overridesPanel).getByLabelText('Currency'), 'GBP')
+    await userEvent.type(within(overridesPanel).getByPlaceholderText('0.00'), '17.99')
+    await userEvent.click(within(overridesPanel).getByRole('button', { name: 'Add / update' }))
+
+    await waitFor(() => expect(pmsApi.upsertSKUCurrencyPrice).toHaveBeenCalledWith('test-token', 'sku-1', {
+      currency_code: 'GBP', price_minor_units: 1799, sale_price_minor_units: null,
+    }))
+  })
+
+  it('can delete an existing override', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [baseSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.listSKUCurrencyPrices).mockResolvedValue([
+      { sku_id: 'sku-1', currency_code: 'USD', price_minor_units: 2199, updated_at: '' },
+    ])
+    vi.mocked(pmsApi.deleteSKUCurrencyPrice).mockResolvedValue(null)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
+    await userEvent.click(screen.getByRole('button', { name: /currency overrides/i }))
+    await screen.findByText(/USD.*21\.99/)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(pmsApi.deleteSKUCurrencyPrice).toHaveBeenCalledWith('test-token', 'sku-1', 'USD'))
+    expect(screen.queryByText(/USD.*21\.99/)).not.toBeInTheDocument()
   })
 })
 

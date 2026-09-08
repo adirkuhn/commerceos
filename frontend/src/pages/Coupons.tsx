@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Ticket, Trash2, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import Pagination from '../components/common/Pagination'
 import { useCoupons } from '../coupons/hooks/useCoupons'
-import type { Coupon, CouponInput, DiscountType } from '../coupons/types'
+import * as couponsApi from '../coupons/api'
+import type { Coupon, CouponInput, DiscountType, CouponCurrencyAmount } from '../coupons/types'
 
 const PAGE_SIZE = 20
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
 
 function formatDate(value?: string | null): string {
   if (!value) return '—'
@@ -145,6 +147,112 @@ export default function Coupons() {
       </div>
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
+    </div>
+  )
+}
+
+// CouponCurrencyAmountsEditor manages a Fixed-type coupon's manual
+// per-currency amount overrides -- absent one, checkout converts
+// discount_value via the tenant's configured exchange rate instead (see
+// Settings > Localization). Only meaningful once the coupon exists (needs
+// its id), and only for discount_type "fixed" (a Percent discount is
+// already currency-agnostic).
+function CouponCurrencyAmountsEditor({ couponId }: { couponId: string }) {
+  const { token } = useAuth()
+  const [amounts, setAmounts] = useState<CouponCurrencyAmount[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [newCurrency, setNewCurrency] = useState(CURRENCIES[0])
+  const [newAmount, setNewAmount] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    setLoading(true)
+    couponsApi.listCouponCurrencyAmounts(token, couponId)
+      .then(setAmounts)
+      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load currency overrides'))
+      .finally(() => setLoading(false))
+  }, [token, couponId])
+
+  const labelClass = 'block text-[10px] font-medium dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500 transition-shadow'
+
+  async function handleAdd() {
+    if (!token || !newAmount) return
+    setSaving(true)
+    setError('')
+    try {
+      const result = await couponsApi.upsertCouponCurrencyAmount(token, couponId, {
+        currency_code: newCurrency, amount_minor_units: Math.round(parseFloat(newAmount) * 100),
+      })
+      setAmounts(prev => (prev.some(a => a.currency_code === result.currency_code) ? prev.map(a => (a.currency_code === result.currency_code ? result : a)) : [...prev, result]))
+      setNewAmount('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save currency override')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(currencyCode: string) {
+    if (!token) return
+    setError('')
+    try {
+      await couponsApi.deleteCouponCurrencyAmount(token, couponId, currencyCode)
+      setAmounts(prev => prev.filter(a => a.currency_code !== currencyCode))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete currency override')
+    }
+  }
+
+  return (
+    <div className="rounded-xl border dark:border-[#2D3748] border-gray-200 p-4 space-y-3">
+      <div>
+        <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900">Currency overrides</h3>
+        <p className="text-[11px] dark:text-gray-500 text-gray-400 mt-0.5">
+          Set an exact amount off for a channel running in another currency, instead of the auto-converted rate.
+        </p>
+      </div>
+      {loading && <p className="text-xs dark:text-gray-500 text-gray-400">Loading…</p>}
+      {amounts.length > 0 && (
+        <div className="space-y-1.5">
+          {amounts.map(a => (
+            <div key={a.currency_code} className="flex items-center justify-between text-xs dark:text-gray-300 text-gray-700">
+              <span>{a.currency_code}: {(a.amount_minor_units / 100).toFixed(2)} off</span>
+              <button type="button" onClick={() => handleDelete(a.currency_code)} className="text-[10px] dark:text-gray-500 text-gray-400 hover:text-red-400 transition-colors">
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="coupon-currency-override-currency" className={labelClass}>Currency</label>
+          <select id="coupon-currency-override-currency" value={newCurrency} onChange={e => setNewCurrency(e.target.value)} className={inputClass}>
+            {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="coupon-currency-override-amount" className={labelClass}>Override amount</label>
+          <input
+            id="coupon-currency-override-amount"
+            type="number" min="0" step="0.01" placeholder="e.g. 5.00" value={newAmount}
+            onChange={e => setNewAmount(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleAdd}
+        disabled={saving || !newAmount}
+        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Add / update'}
+      </button>
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   )
 }
@@ -318,6 +426,7 @@ function CouponEditPage({ coupon, onCreate, onUpdate, onClose }: CouponEditPageP
               )}
             </div>
           </form>
+          {coupon && discountType === 'fixed' && <CouponCurrencyAmountsEditor couponId={coupon.id} />}
         </div>
       </div>
     </div>

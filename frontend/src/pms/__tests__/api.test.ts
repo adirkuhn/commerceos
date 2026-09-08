@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as api from '../api'
-import type { APIResponse, Category, Product, ProductDetail, Variant, SKU, Media } from '../types'
+import type { APIResponse, Category, Product, ProductDetail, Variant, SKU, Media, SKUCurrencyPrice } from '../types'
 
 const TOKEN = 'test-token'
 const BASE = 'https://api.commerceos.dev.localhost/api/v1/pms'
@@ -221,6 +221,44 @@ describe('deleteSKU', () => {
     mockFetch(null)
     await api.deleteSKU(TOKEN, 's1')
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/skus/s1`, expect.objectContaining({ method: 'DELETE' }))
+  })
+})
+
+const sampleCurrencyPrice: SKUCurrencyPrice = {
+  sku_id: 's1', currency_code: 'USD', price_minor_units: 2199, updated_at: '2026-09-08T00:00:00Z',
+}
+
+describe('listSKUCurrencyPrices', () => {
+  it('calls the correct endpoint and returns the list', async () => {
+    mockFetch([sampleCurrencyPrice])
+    const result = await api.listSKUCurrencyPrices(TOKEN, 's1')
+    expect(result).toEqual([sampleCurrencyPrice])
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/skus/s1/currency-prices`, expect.objectContaining({ method: 'GET' }))
+  })
+})
+
+describe('upsertSKUCurrencyPrice', () => {
+  it('PUTs the override and returns it', async () => {
+    mockFetch(sampleCurrencyPrice)
+    const result = await api.upsertSKUCurrencyPrice(TOKEN, 's1', { currency_code: 'USD', price_minor_units: 2199 })
+    expect(result).toEqual(sampleCurrencyPrice)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      `${BASE}/skus/s1/currency-prices`,
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ currency_code: 'USD', price_minor_units: 2199 }) }),
+    )
+  })
+
+  it('throws with the server error message on failure', async () => {
+    mockFetchError('VALIDATION_ERROR', 'currency code must be 3 uppercase letters')
+    await expect(api.upsertSKUCurrencyPrice(TOKEN, 's1', { currency_code: 'us', price_minor_units: 2199 })).rejects.toThrow('currency code must be 3 uppercase letters')
+  })
+})
+
+describe('deleteSKUCurrencyPrice', () => {
+  it('calls the correct endpoint', async () => {
+    mockFetch(null)
+    await api.deleteSKUCurrencyPrice(TOKEN, 's1', 'USD')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/skus/s1/currency-prices/USD`, expect.objectContaining({ method: 'DELETE' }))
   })
 })
 
