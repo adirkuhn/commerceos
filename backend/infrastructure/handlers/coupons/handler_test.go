@@ -16,6 +16,7 @@ import (
 	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	appcoupons "github.com/adirkuhn/commerceos/application/coupons"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 )
 
@@ -74,8 +75,58 @@ func (s *stubDeleteCoupon) Execute(_ context.Context, id string) error {
 	return s.err
 }
 
-func newTestHandler(list *stubListCoupons, create *stubCreateCoupon, update *stubUpdateCoupon, deleteCoupon *stubDeleteCoupon) *couponshandler.Handler {
-	return couponshandler.NewHandler(list, create, update, deleteCoupon)
+type stubListCouponCurrencyAmounts struct {
+	out []couponsDomain.CouponCurrencyAmount
+	err error
+}
+
+func (s *stubListCouponCurrencyAmounts) Execute(_ context.Context, _ string) ([]couponsDomain.CouponCurrencyAmount, error) {
+	return s.out, s.err
+}
+
+type stubUpsertCouponCurrencyAmount struct {
+	out      *couponsDomain.CouponCurrencyAmount
+	err      error
+	gotInput appcoupons.UpsertCouponCurrencyAmountInput
+}
+
+func (s *stubUpsertCouponCurrencyAmount) Execute(_ context.Context, in appcoupons.UpsertCouponCurrencyAmountInput) (*couponsDomain.CouponCurrencyAmount, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &couponsDomain.CouponCurrencyAmount{CouponID: in.CouponID, CurrencyCode: in.CurrencyCode, AmountMinorUnits: in.AmountMinorUnits}, nil
+}
+
+type stubDeleteCouponCurrencyAmount struct {
+	err         error
+	gotCouponID string
+	gotCurrency string
+}
+
+func (s *stubDeleteCouponCurrencyAmount) Execute(_ context.Context, couponID, currencyCode string) error {
+	s.gotCouponID, s.gotCurrency = couponID, currencyCode
+	return s.err
+}
+
+func newTestHandler(list *stubListCoupons, create *stubCreateCoupon, update *stubUpdateCoupon, deleteCoupon *stubDeleteCoupon, extra ...any) *couponshandler.Handler {
+	listAmounts := &stubListCouponCurrencyAmounts{}
+	upsertAmount := &stubUpsertCouponCurrencyAmount{}
+	deleteAmount := &stubDeleteCouponCurrencyAmount{}
+	for _, e := range extra {
+		switch v := e.(type) {
+		case *stubListCouponCurrencyAmounts:
+			listAmounts = v
+		case *stubUpsertCouponCurrencyAmount:
+			upsertAmount = v
+		case *stubDeleteCouponCurrencyAmount:
+			deleteAmount = v
+		}
+	}
+	return couponshandler.NewHandler(list, create, update, deleteCoupon, listAmounts, upsertAmount, deleteAmount)
 }
 
 func newTestRouter(h *couponshandler.Handler) *gin.Engine {
@@ -164,4 +215,45 @@ func TestDeleteCouponHandler_notFound(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/coupons/missing", nil)
 
 	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestListCouponCurrencyAmountsHandler_returnsTheList(t *testing.T) {
+	list := &stubListCouponCurrencyAmounts{out: []couponsDomain.CouponCurrencyAmount{{CouponID: "coupon-1", CurrencyCode: "USD", AmountMinorUnits: 1200}}}
+	h := newTestHandler(&stubListCoupons{}, &stubCreateCoupon{}, &stubUpdateCoupon{}, &stubDeleteCoupon{}, list)
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/coupons/coupon-1/currency-amounts", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"currency_code":"USD"`)
+}
+
+func TestUpsertCouponCurrencyAmountHandler_success(t *testing.T) {
+	upsert := &stubUpsertCouponCurrencyAmount{}
+	h := newTestHandler(&stubListCoupons{}, &stubCreateCoupon{}, &stubUpdateCoupon{}, &stubDeleteCoupon{}, upsert)
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/coupons/coupon-1/currency-amounts", map[string]any{
+		"currency_code": "USD", "amount_minor_units": 1200,
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "coupon-1", upsert.gotInput.CouponID)
+	assert.Equal(t, "USD", upsert.gotInput.CurrencyCode)
+}
+
+func TestUpsertCouponCurrencyAmountHandler_validationError(t *testing.T) {
+	upsert := &stubUpsertCouponCurrencyAmount{err: fxDomain.ErrInvalidCurrencyCode}
+	h := newTestHandler(&stubListCoupons{}, &stubCreateCoupon{}, &stubUpdateCoupon{}, &stubDeleteCoupon{}, upsert)
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/coupons/coupon-1/currency-amounts", map[string]any{
+		"currency_code": "us", "amount_minor_units": 1200,
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestDeleteCouponCurrencyAmountHandler_success(t *testing.T) {
+	del := &stubDeleteCouponCurrencyAmount{}
+	h := newTestHandler(&stubListCoupons{}, &stubCreateCoupon{}, &stubUpdateCoupon{}, &stubDeleteCoupon{}, del)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/coupons/coupon-1/currency-amounts/USD", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "coupon-1", del.gotCouponID)
+	assert.Equal(t, "USD", del.gotCurrency)
 }

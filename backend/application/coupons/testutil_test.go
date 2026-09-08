@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 )
 
 func newMockGormDB(t *testing.T, n int) *gorm.DB {
@@ -93,3 +94,59 @@ func (f *fakeCouponRepo) Delete(_ context.Context, id string) error {
 func (f *fakeCouponRepo) IncrementTimesUsed(_ context.Context, id string) error {
 	return nil
 }
+
+type fakeCouponCurrencyAmountRepo struct {
+	byKey                       map[string]couponsDomain.CouponCurrencyAmount
+	upserted                    *couponsDomain.CouponCurrencyAmount
+	deletedCouponID, deletedCcy string
+}
+
+func couponCurrencyKey(couponID, currencyCode string) string { return couponID + "|" + currencyCode }
+
+func (f *fakeCouponCurrencyAmountRepo) FindByCouponAndCurrency(_ context.Context, couponID, currencyCode string) (*couponsDomain.CouponCurrencyAmount, error) {
+	if a, ok := f.byKey[couponCurrencyKey(couponID, currencyCode)]; ok {
+		cp := a
+		return &cp, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeCouponCurrencyAmountRepo) ListByCoupon(_ context.Context, couponID string) ([]couponsDomain.CouponCurrencyAmount, error) {
+	var out []couponsDomain.CouponCurrencyAmount
+	for _, a := range f.byKey {
+		if a.CouponID == couponID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeCouponCurrencyAmountRepo) Upsert(_ context.Context, a *couponsDomain.CouponCurrencyAmount) error {
+	a.ID = "coupon-currency-amount-1"
+	f.upserted = a
+	return nil
+}
+
+func (f *fakeCouponCurrencyAmountRepo) Delete(_ context.Context, couponID, currencyCode string) error {
+	f.deletedCouponID, f.deletedCcy = couponID, currencyCode
+	return nil
+}
+
+type fakeExchangeRateRepoCoupons struct {
+	byCurrency map[string]fxDomain.ExchangeRate
+}
+
+func (f *fakeExchangeRateRepoCoupons) FindByCurrency(_ context.Context, currencyCode string) (*fxDomain.ExchangeRate, error) {
+	if r, ok := f.byCurrency[currencyCode]; ok {
+		cp := r
+		return &cp, nil
+	}
+	return nil, nil
+}
+func (f *fakeExchangeRateRepoCoupons) ListByTenant(_ context.Context) ([]fxDomain.ExchangeRate, error) {
+	return nil, nil
+}
+func (f *fakeExchangeRateRepoCoupons) Upsert(_ context.Context, _ *fxDomain.ExchangeRate) error {
+	return nil
+}
+func (f *fakeExchangeRateRepoCoupons) Delete(_ context.Context, _ string) error { return nil }

@@ -83,6 +83,71 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /coupons/{id}/currency-amounts:
+    get:
+      operationId: listCouponCurrencyAmounts
+      summary: List every per-currency fixed-amount override for a coupon
+      description: >-
+        Only meaningful for a "fixed" discount_type coupon -- absent an
+        override, a channel running in a non-default currency converts
+        discount_value via a configured fx rate instead.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponCurrencyAmountListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: upsertCouponCurrencyAmount
+      summary: Create or replace this coupon's fixed amount for one currency
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertCouponCurrencyAmountRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponCurrencyAmountResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /coupons/{id}/currency-amounts/{currencyCode}:
+    delete:
+      operationId: deleteCouponCurrencyAmount
+      summary: Remove this coupon's fixed amount override for one currency
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: currencyCode
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ok
+
 components:
   responses:
     Error:
@@ -158,6 +223,35 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/Coupon' }
+        error: { nullable: true }
+
+    CouponCurrencyAmount:
+      type: object
+      required: [coupon_id, currency_code, amount_minor_units]
+      properties:
+        coupon_id: { type: string }
+        currency_code: { type: string }
+        amount_minor_units: { type: integer, format: int64 }
+
+    UpsertCouponCurrencyAmountRequest:
+      type: object
+      required: [currency_code, amount_minor_units]
+      properties:
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+        amount_minor_units: { type: integer, format: int64, minimum: 0 }
+
+    CouponCurrencyAmountResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/CouponCurrencyAmount' }
+        error: { nullable: true }
+
+    CouponCurrencyAmountListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/CouponCurrencyAmount' }
         error: { nullable: true }
 
     ErrorResponse:

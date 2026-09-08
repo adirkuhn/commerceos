@@ -14,6 +14,7 @@ import (
 	gencoupons "github.com/adirkuhn/commerceos/api/coupons"
 	appCoupons "github.com/adirkuhn/commerceos/application/coupons"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
+	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -33,27 +34,49 @@ type updateCouponUC interface {
 type deleteCouponUC interface {
 	Execute(ctx context.Context, id string) error
 }
-
-type Handler struct {
-	listCoupons  listCouponsUC
-	createCoupon createCouponUC
-	updateCoupon updateCouponUC
-	deleteCoupon deleteCouponUC
+type listCouponCurrencyAmountsUC interface {
+	Execute(ctx context.Context, couponID string) ([]couponsDomain.CouponCurrencyAmount, error)
+}
+type upsertCouponCurrencyAmountUC interface {
+	Execute(ctx context.Context, in appCoupons.UpsertCouponCurrencyAmountInput) (*couponsDomain.CouponCurrencyAmount, error)
+}
+type deleteCouponCurrencyAmountUC interface {
+	Execute(ctx context.Context, couponID, currencyCode string) error
 }
 
-func NewHandler(listCoupons listCouponsUC, createCoupon createCouponUC, updateCoupon updateCouponUC, deleteCoupon deleteCouponUC) *Handler {
-	return &Handler{listCoupons: listCoupons, createCoupon: createCoupon, updateCoupon: updateCoupon, deleteCoupon: deleteCoupon}
+type Handler struct {
+	listCoupons                listCouponsUC
+	createCoupon               createCouponUC
+	updateCoupon               updateCouponUC
+	deleteCoupon               deleteCouponUC
+	listCouponCurrencyAmounts  listCouponCurrencyAmountsUC
+	upsertCouponCurrencyAmount upsertCouponCurrencyAmountUC
+	deleteCouponCurrencyAmount deleteCouponCurrencyAmountUC
+}
+
+func NewHandler(
+	listCoupons listCouponsUC, createCoupon createCouponUC, updateCoupon updateCouponUC, deleteCoupon deleteCouponUC,
+	listCouponCurrencyAmounts listCouponCurrencyAmountsUC, upsertCouponCurrencyAmount upsertCouponCurrencyAmountUC, deleteCouponCurrencyAmount deleteCouponCurrencyAmountUC,
+) *Handler {
+	return &Handler{
+		listCoupons: listCoupons, createCoupon: createCoupon, updateCoupon: updateCoupon, deleteCoupon: deleteCoupon,
+		listCouponCurrencyAmounts: listCouponCurrencyAmounts, upsertCouponCurrencyAmount: upsertCouponCurrencyAmount, deleteCouponCurrencyAmount: deleteCouponCurrencyAmount,
+	}
 }
 
 var _ gencoupons.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB) {
 	repo := repositories.NewCouponRepo(db)
+	currencyAmountRepo := repositories.NewCouponCurrencyAmountRepo(db)
 	h := NewHandler(
 		appCoupons.NewListCouponsUseCase(db, repo),
 		appCoupons.NewCreateCouponUseCase(db, repo),
 		appCoupons.NewUpdateCouponUseCase(db, repo),
 		appCoupons.NewDeleteCouponUseCase(db, repo),
+		appCoupons.NewListCouponCurrencyAmountsUseCase(db, currencyAmountRepo),
+		appCoupons.NewUpsertCouponCurrencyAmountUseCase(db, repo, currencyAmountRepo),
+		appCoupons.NewDeleteCouponCurrencyAmountUseCase(db, currencyAmountRepo),
 	)
 	gencoupons.RegisterHandlers(rg, h)
 }
@@ -110,6 +133,45 @@ func (h *Handler) DeleteCoupon(c *gin.Context, id string) {
 	middleware.OK(c, nil)
 }
 
+func (h *Handler) ListCouponCurrencyAmounts(c *gin.Context, id string) {
+	amounts, err := h.listCouponCurrencyAmounts.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]gencoupons.CouponCurrencyAmount, len(amounts))
+	for i, a := range amounts {
+		out[i] = toGenCouponCurrencyAmount(a)
+	}
+	middleware.OK(c, out)
+}
+
+func (h *Handler) UpsertCouponCurrencyAmount(c *gin.Context, id string) {
+	var req gencoupons.UpsertCouponCurrencyAmountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	amount, err := h.upsertCouponCurrencyAmount.Execute(c.Request.Context(), appCoupons.UpsertCouponCurrencyAmountInput{
+		CouponID: id, CurrencyCode: req.CurrencyCode, AmountMinorUnits: req.AmountMinorUnits,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenCouponCurrencyAmount(*amount))
+}
+
+func (h *Handler) DeleteCouponCurrencyAmount(c *gin.Context, id string, currencyCode string) {
+	err := h.deleteCouponCurrencyAmount.Execute(c.Request.Context(), id, currencyCode)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func toGenCouponCurrencyAmount(a couponsDomain.CouponCurrencyAmount) gencoupons.CouponCurrencyAmount {
+	return gencoupons.CouponCurrencyAmount{CouponId: a.CouponID, CurrencyCode: a.CurrencyCode, AmountMinorUnits: a.AmountMinorUnits}
+}
+
 func toGenCoupon(c couponsDomain.Coupon) gencoupons.Coupon {
 	return gencoupons.Coupon{
 		Id: c.ID, Code: c.Code, DiscountType: gencoupons.DiscountType(c.DiscountType), DiscountValue: c.DiscountValue,
@@ -128,7 +190,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, couponsDomain.ErrInvalidDiscountType),
 		errors.Is(err, couponsDomain.ErrInvalidDiscountValue),
 		errors.Is(err, couponsDomain.ErrInvalidMinSubtotal),
-		errors.Is(err, couponsDomain.ErrInvalidUsageLimit):
+		errors.Is(err, couponsDomain.ErrInvalidUsageLimit),
+		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, couponsDomain.ErrCouponNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())

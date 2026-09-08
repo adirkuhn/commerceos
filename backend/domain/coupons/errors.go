@@ -24,4 +24,9 @@ var (
 	// ErrCouponNotRedeemable (see Coupon.MeetsMinSubtotal's doc comment)
 	// since a shopper can fix this one by adding more to their cart.
 	ErrCouponMinSubtotalNotMet = errors.New("cart subtotal does not meet this coupon's minimum")
+	// ErrExchangeRateRequired is returned by ResolveCouponFixedAmount when
+	// a Fixed coupon needs converting into a channel currency that has
+	// neither an explicit CouponCurrencyAmount override nor a configured
+	// fx.ExchangeRate.
+	ErrExchangeRateRequired = errors.New("no exchange rate or amount override configured for this currency")
 )

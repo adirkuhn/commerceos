@@ -54,6 +54,25 @@ type Coupon struct {
 	UsageLimit            *int       `json:"usage_limit,omitempty"`
 }
 
+// CouponCurrencyAmount defines model for CouponCurrencyAmount.
+type CouponCurrencyAmount struct {
+	AmountMinorUnits int64  `json:"amount_minor_units"`
+	CouponId         string `json:"coupon_id"`
+	CurrencyCode     string `json:"currency_code"`
+}
+
+// CouponCurrencyAmountListResponse defines model for CouponCurrencyAmountListResponse.
+type CouponCurrencyAmountListResponse struct {
+	Data  *[]CouponCurrencyAmount `json:"data,omitempty"`
+	Error interface{}             `json:"error,omitempty"`
+}
+
+// CouponCurrencyAmountResponse defines model for CouponCurrencyAmountResponse.
+type CouponCurrencyAmountResponse struct {
+	Data  *CouponCurrencyAmount `json:"data,omitempty"`
+	Error interface{}           `json:"error,omitempty"`
+}
+
 // CouponListResponse defines model for CouponListResponse.
 type CouponListResponse struct {
 	Data  *[]Coupon   `json:"data,omitempty"`
@@ -99,6 +118,12 @@ type UpdateCouponRequest struct {
 	UsageLimit            *int         `json:"usage_limit,omitempty"`
 }
 
+// UpsertCouponCurrencyAmountRequest defines model for UpsertCouponCurrencyAmountRequest.
+type UpsertCouponCurrencyAmountRequest struct {
+	AmountMinorUnits int64  `json:"amount_minor_units"`
+	CurrencyCode     string `json:"currency_code"`
+}
+
 // Error defines model for Error.
 type Error = ErrorResponse
 
@@ -107,6 +132,9 @@ type CreateCouponJSONRequestBody = CreateCouponRequest
 
 // UpdateCouponJSONRequestBody defines body for UpdateCoupon for application/json ContentType.
 type UpdateCouponJSONRequestBody = UpdateCouponRequest
+
+// UpsertCouponCurrencyAmountJSONRequestBody defines body for UpsertCouponCurrencyAmount for application/json ContentType.
+type UpsertCouponCurrencyAmountJSONRequestBody = UpsertCouponCurrencyAmountRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -122,6 +150,15 @@ type ServerInterface interface {
 	// UpdateCoupon Replace a coupon's whole configuration
 	// (PATCH /coupons/{id})
 	UpdateCoupon(c *gin.Context, id string)
+	// ListCouponCurrencyAmounts List every per-currency fixed-amount override for a coupon
+	// (GET /coupons/{id}/currency-amounts)
+	ListCouponCurrencyAmounts(c *gin.Context, id string)
+	// UpsertCouponCurrencyAmount Create or replace this coupon's fixed amount for one currency
+	// (PUT /coupons/{id}/currency-amounts)
+	UpsertCouponCurrencyAmount(c *gin.Context, id string)
+	// DeleteCouponCurrencyAmount Remove this coupon's fixed amount override for one currency
+	// (DELETE /coupons/{id}/currency-amounts/{currencyCode})
+	DeleteCouponCurrencyAmount(c *gin.Context, id string, currencyCode string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -209,6 +246,90 @@ func (siw *ServerInterfaceWrapper) UpdateCoupon(c *gin.Context) {
 	siw.Handler.UpdateCoupon(c, id)
 }
 
+// ListCouponCurrencyAmounts operation middleware
+func (siw *ServerInterfaceWrapper) ListCouponCurrencyAmounts(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListCouponCurrencyAmounts(c, id)
+}
+
+// UpsertCouponCurrencyAmount operation middleware
+func (siw *ServerInterfaceWrapper) UpsertCouponCurrencyAmount(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpsertCouponCurrencyAmount(c, id)
+}
+
+// DeleteCouponCurrencyAmount operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCouponCurrencyAmount(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "currencyCode" -------------
+	var currencyCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "currencyCode", c.Param("currencyCode"), &currencyCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter currencyCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteCouponCurrencyAmount(c, id, currencyCode)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -240,6 +361,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/coupons", wrapper.CreateCoupon)
 	router.DELETE(options.BaseURL+"/coupons/:id", wrapper.DeleteCoupon)
 	router.PATCH(options.BaseURL+"/coupons/:id", wrapper.UpdateCoupon)
+	router.GET(options.BaseURL+"/coupons/:id/currency-amounts", wrapper.ListCouponCurrencyAmounts)
+	router.PUT(options.BaseURL+"/coupons/:id/currency-amounts", wrapper.UpsertCouponCurrencyAmount)
+	router.DELETE(options.BaseURL+"/coupons/:id/currency-amounts/:currencyCode", wrapper.DeleteCouponCurrencyAmount)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -247,24 +371,30 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"7FhNb9s4E/4rA74v0BaQbKcJ9uBbm+6hi2K76LbYQxMYjDSy2RU/OiTdGIH/+4KUZEuyHDut02CBvdGS",
+	"OXzmmWc+qDuWaWm0QuUsm94xQmu0shh//EqkKSwyrRwqF5bcmFJk3Amtxl+sVuGZzRYoeVj9n7BgU/a/",
+	"8dbquHprx9Hah9o+W6/XCcvRZiRMMMamDONx4Xm9JVi81N5UpxjSBsmJChvPnFhiWLmVQTZlN1qXyBVb",
+	"JyzTefuNdSTUPL4g5A7zGY+uFJpkWLGcO0ydkMiS3T25sJn2ys2qN/f7+Kb+88fw3/bmJS993N11+TW3",
+	"woLRQjkLzyfp2WQymbwAXRTgFggZJwfW3zjteAmFJrhiBilD5a5YApqAQ1FyB1IoTalXwlngMpxY/7sQ",
+	"t5hfsdHWM6EczpECOrw1gtDeR4fyZclvSmRTRx4H6BH5INNSqFkDfBbRzSK6zkFCuV8u9h/SQhrQ2Jm3",
+	"2D6t9d6b/MGB9ZbPcVYKKeKmQyDWCSP86gUFDJ+D37XQ+hLZiXoHftIot6PGjgfXm8P1zRfMXABbpcGl",
+	"J0KVrV7FEA8kRXx+kO9d/rJofrYnmFl97GxPYvWo2Rrrb02GEB7r7jth3aZ87LiecxcrkHAo7aE0HWRz",
+	"vcHBifgqJkhTALviWK+PhHwY7vegfDiqk1N3GrJOQc+DT45J15z/1aMdyKNG51Kod6jmbsGmZ4/fGh6n",
+	"QJ+4Ev9Y1TyuYA5VhA590zuGystgsW6HLKlaXWvvloLu5LFXbD31tHQ1rI5dqtEGdoYrZM+jIW1+ij3g",
+	"gDaPGXz+0+2T6HbT268Hg2uR3HCX2Bfq49q5FErIkA2Twdbeb96S3zbiOE/aUjlPDjX272nmwYhQhd4d",
+	"fl/lUqhUq3IFz3/76+MLuPzw6Q3oJRI4VFy59JvI6yG4YRrC0RaeW0TIteRCjatxw74Ywe/aQbbgSmE5",
+	"NqRzn7nUZtpgDmkKWmHcDfEKgxacBq5WlX2t4jrwRoqXYJ0mLEjXg3QYxitMI/i4QDD+phRZAoQ8jx6k",
+	"QqXWCBIBoQ9WTDDLwS60MUjAM+d5Wa6AMEeUFngFxi1I+/kChAVuxHh77jMbga4qxYBQ1iGPjriFsPDq",
+	"j7dhTwOOBy5BcsXnKFE5sBkhKgjYRlcqzqAuyJ1dailDzXz/J1Smoy2WsCWSrQJzNpoE5WiDihvBpux8",
+	"NBmds4QZ7hZRgw3pYT3HKN0g3HgtfJuzKQsTR22eJd1b5cvJ5GR3yoHxZuBiqf+ubpVeSk6rGh3gEmkF",
+	"lSO9ICeg8BtaB4UgG7PXaDvgZXuYYFWuoHWvdb46nYcD88q6m5h1t+qRfHZiku8juL7JBKIuXr7cZ28D",
+	"sPoU0ItJ5SjwQH0TlVhnwt8avY3vRL6uKkmJDncj8iY+30TEcOISHZJl0893TASwQcShZXAZK2XO+lwm",
+	"LV76BfF6WMy7ekvYxeTi+5iofIgFoplwDXfZYtfb9sDwaN6eXtNDc85Rmp78RE0/PIg/IP4PaEqebWP+",
+	"zMK3hS5Dw1KFmPsq5rupMG5aclr14nZB7rrzPrRZiVwJNS989TGJbz8QQWe0afIvTYHf2NBOuIqNmUSO",
+	"SUBZdVkgr4JBECokrlZpjgX3pYMGV3BgieQsdGclWAoeva3cwxyKW6BQAOpGN2LJ3pbSHZ/sT8zzE2rv",
+	"no8bJ1HjvoZnkNJNdGL0a+1sAlxro1V9vBuqPfvm2X9VJTo0lD9JXdrzFempq1TdojUB1fUqjqKbkhXV",
+	"1P7+HEfu2pcjitf4rnlyqXM8us8/vvqSQSNtsI8zRPR6hNTLeynvJHCP+2AKadlw4qlkUzYOV47lGVtf",
+	"r/8JAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
