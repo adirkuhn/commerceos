@@ -1,23 +1,26 @@
-import type { Block } from '../types'
+import { ProductGridBlock } from './blocks/ProductGridBlock'
+import { ProductDetailsBlock } from './blocks/ProductDetailsBlock'
+import { CartSummaryBlock } from './blocks/CartSummaryBlock'
+import { CheckoutFormBlock } from './blocks/CheckoutFormBlock'
+import { OrderStatusBlock } from './blocks/OrderStatusBlock'
+import type { Block, PageSlug } from '../types'
 
 function stringProp(props: Record<string, unknown>, key: string): string {
   const v = props[key]
   return typeof v === 'string' ? v : ''
 }
 
-const FUNCTIONAL_LABELS: Record<string, string> = {
-  product_grid: 'Product grid',
-  product_details: 'Product details',
-  cart_summary: 'Cart summary',
-  checkout_form: 'Checkout form',
-  order_status: 'Order status',
+interface Props {
+  block: Block
+  pageSlug: PageSlug
 }
 
 // Renders one block's real content. hero/rich_text/custom_html render
-// merchant-authored props directly; the rest are wired to real cart/
-// catalog/checkout data in a later increment -- until then they render a
-// labeled placeholder rather than pretending to be the finished feature.
-export function BlockRenderer({ block }: { block: Block }) {
+// merchant-authored props directly; the functional types (see backend
+// domain/theme.BlockType.IsFunctional) delegate to a real, wired-up
+// component under ./blocks -- they ignore props entirely, since their
+// content is live cart/catalog/order data, not merchant-authored text.
+export function BlockRenderer({ block, pageSlug }: Props) {
   switch (block.type) {
     case 'hero': {
       const heading = stringProp(block.props, 'heading')
@@ -48,10 +51,20 @@ export function BlockRenderer({ block }: { block: Block }) {
       const html = stringProp(block.props, 'html')
       return <div className="h-full w-full overflow-auto" dangerouslySetInnerHTML={{ __html: html }} />
     }
+    case 'product_grid':
+      return <ProductGridBlock />
+    case 'product_details':
+      return <ProductDetailsBlock />
+    case 'cart_summary':
+      return <CartSummaryBlock />
+    case 'checkout_form':
+      return <CheckoutFormBlock />
+    case 'order_status':
+      return <OrderStatusBlock pageSlug={pageSlug === 'order-lookup' ? 'order-lookup' : 'order-confirmation'} />
     default:
       return (
         <div className="flex h-full w-full items-center justify-center border border-dashed border-gray-300 bg-gray-50">
-          <p className="text-sm text-gray-400">{FUNCTIONAL_LABELS[block.type] ?? block.type} — coming soon</p>
+          <p className="text-sm text-gray-400">{block.type} — unsupported block type</p>
         </div>
       )
   }
