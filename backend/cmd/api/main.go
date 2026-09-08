@@ -27,6 +27,7 @@ import (
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
 	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
 	genreports "github.com/adirkuhn/commerceos/api/reports"
+	genreviews "github.com/adirkuhn/commerceos/api/reviews"
 	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
 	genscanning "github.com/adirkuhn/commerceos/api/scanning"
 	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
@@ -51,6 +52,7 @@ import (
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
 	promotionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/promotions"
 	reportshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reports"
+	reviewshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reviews"
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
 	scanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scanning"
 	schedulerhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scheduler"
@@ -271,6 +273,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	couponshandler.Register(couponsGroup, db)
+
+	reviewsSpec, err := genreviews.GetSpec()
+	if err != nil {
+		log.Fatalf("reviews: load openapi spec: %v", err)
+	}
+	// Own sub-group so the reviews-only spec validator never applies to
+	// the other modules' routes — same reasoning as pmsGroup above.
+	reviewsGroup := v1.Group("")
+	reviewsGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(reviewsSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	reviewshandler.Register(reviewsGroup, db)
 
 	reportsSpec, err := genreports.GetSpec()
 	if err != nil {

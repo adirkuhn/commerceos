@@ -30,6 +30,7 @@ import (
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -92,6 +93,14 @@ type getStorefrontThemeUC interface {
 	Execute(ctx context.Context, salesChannelID, slug string) (*themeDomain.ThemePage, error)
 }
 
+type submitReviewUC interface {
+	Execute(ctx context.Context, in appstorefront.SubmitReviewInput) (*reviewsDomain.Review, error)
+}
+
+type listReviewsUC interface {
+	Execute(ctx context.Context, in appstorefront.ListReviewsInput) (*appstorefront.ReviewsResult, error)
+}
+
 type Handler struct {
 	resolveAPIKey          resolveAPIKeyUC
 	getCartRecommendations getCartRecommendationsUC
@@ -106,6 +115,8 @@ type Handler struct {
 	getStorefrontTheme     getStorefrontThemeUC
 	getShippingOptions     getShippingOptionsUC
 	applyCoupon            applyCouponUC
+	submitReview           submitReviewUC
+	listReviews            listReviewsUC
 }
 
 func NewHandler(
@@ -122,12 +133,15 @@ func NewHandler(
 	getStorefrontTheme getStorefrontThemeUC,
 	getShippingOptions getShippingOptionsUC,
 	applyCoupon applyCouponUC,
+	submitReview submitReviewUC,
+	listReviews listReviewsUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
 		createCart: createCart, getCart: getCart, updateCartItems: updateCartItems, checkoutCart: checkoutCart,
 		listProducts: listProducts, getProduct: getProduct, listCategories: listCategories, lookupOrder: lookupOrder,
 		getStorefrontTheme: getStorefrontTheme, getShippingOptions: getShippingOptions, applyCoupon: applyCoupon,
+		submitReview: submitReview, listReviews: listReviews,
 	}
 }
 
@@ -157,6 +171,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	themeRepo := repositories.NewThemePageRepo(db)
 	shippingSettingsRepo := repositories.NewShippingConnectionSettingsRepo(db)
 	couponRepo := repositories.NewCouponRepo(db)
+	reviewRepo := repositories.NewReviewRepo(db)
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
@@ -186,6 +201,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewGetStorefrontThemeUseCase(appTheme.NewGetThemePageUseCase(db, themeRepo)),
 		appstorefront.NewGetShippingOptionsUseCase(db, connRepo, shippingSettingsRepo, estimateShipping),
 		appstorefront.NewApplyCouponUseCase(db, cartRepo, couponRepo),
+		appstorefront.NewSubmitReviewUseCase(db, channelRepo, overrideRepo, productRepo, reviewRepo),
+		appstorefront.NewListReviewsUseCase(db, reviewRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -385,6 +402,66 @@ func (h *Handler) GetStorefrontProduct(c *gin.Context, id string) {
 	middleware.OK(c, toGenProductDetail(*detail))
 }
 
+func (h *Handler) ListStorefrontReviews(c *gin.Context, id string, params genstorefront.ListStorefrontReviewsParams) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	in := appstorefront.ListReviewsInput{SalesChannelID: *resolved.SalesChannelID, ProductID: id}
+	if params.PerPage != nil {
+		in.Limit = *params.PerPage
+	}
+	if params.Page != nil && in.Limit > 0 {
+		in.Offset = (*params.Page - 1) * in.Limit
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	result, err := h.listReviews.Execute(ctx, in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	reviews := make([]genstorefront.Review, len(result.Reviews))
+	for i, rv := range result.Reviews {
+		reviews[i] = toGenReview(rv)
+	}
+	middleware.OK(c, genstorefront.ReviewList{
+		Reviews: reviews,
+		Summary: genstorefront.ReviewSummary{Average: result.Summary.Average, Count: result.Summary.Count},
+	})
+}
+
+func (h *Handler) SubmitStorefrontReview(c *gin.Context, id string) {
+	resolved, ok := h.authenticateChannel(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.SubmitReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	review, err := h.submitReview.Execute(ctx, appstorefront.SubmitReviewInput{
+		SalesChannelID: *resolved.SalesChannelID, ProductID: id,
+		CustomerName: req.CustomerName, CustomerEmail: string(req.CustomerEmail), Rating: req.Rating,
+		Title: strPtrOr(req.Title), Body: req.Body,
+	})
+	if errors.Is(err, storefrontDomain.ErrProductNotAvailable) {
+		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+		return
+	}
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	c.JSON(http.StatusCreated, middleware.APIResponse{Data: toGenReview(*review)})
+}
+
+func toGenReview(rv reviewsDomain.Review) genstorefront.Review {
+	return genstorefront.Review{
+		Id: rv.ID, CustomerName: rv.CustomerName, Rating: rv.Rating, Title: rv.Title, Body: rv.Body,
+		Verified: rv.Verified, CreatedAt: rv.CreatedAt,
+	}
+}
+
 func (h *Handler) ListStorefrontCategories(c *gin.Context) {
 	resolved, ok := h.authenticateChannel(c)
 	if !ok {
@@ -566,6 +643,10 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, storefrontDomain.ErrNoInternalChannel),
 		errors.Is(err, couponsDomain.ErrCouponNotRedeemable),
 		errors.Is(err, couponsDomain.ErrCouponMinSubtotalNotMet),
+		errors.Is(err, reviewsDomain.ErrCustomerNameRequired),
+		errors.Is(err, reviewsDomain.ErrCustomerEmailRequired),
+		errors.Is(err, reviewsDomain.ErrInvalidRating),
+		errors.Is(err, reviewsDomain.ErrReviewBodyRequired),
 		errors.Is(err, themeDomain.ErrInvalidPageSlug):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),

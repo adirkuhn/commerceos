@@ -18,6 +18,7 @@ import (
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
@@ -114,6 +115,38 @@ func (s *stubApplyCoupon) Execute(_ context.Context, token string, code string) 
 		return nil, s.err
 	}
 	return s.out, nil
+}
+
+type stubSubmitReview struct {
+	out   *reviewsDomain.Review
+	err   error
+	gotIn appstorefront.SubmitReviewInput
+}
+
+func (s *stubSubmitReview) Execute(_ context.Context, in appstorefront.SubmitReviewInput) (*reviewsDomain.Review, error) {
+	s.gotIn = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &reviewsDomain.Review{ID: "review-1", CustomerName: in.CustomerName, Rating: in.Rating, Body: in.Body}, nil
+}
+
+type stubListReviews struct {
+	out *appstorefront.ReviewsResult
+	err error
+}
+
+func (s *stubListReviews) Execute(_ context.Context, _ appstorefront.ListReviewsInput) (*appstorefront.ReviewsResult, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &appstorefront.ReviewsResult{}, nil
 }
 
 type stubCheckoutCart struct {
@@ -220,6 +253,8 @@ func newTestHandler(
 	getTheme := &stubGetStorefrontTheme{}
 	getShippingOptions := &stubGetShippingOptions{}
 	applyCoupon := &stubApplyCoupon{}
+	submitReview := &stubSubmitReview{}
+	listReviews := &stubListReviews{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
@@ -228,9 +263,16 @@ func newTestHandler(
 			getShippingOptions = v
 		case *stubApplyCoupon:
 			applyCoupon = v
+		case *stubSubmitReview:
+			submitReview = v
+		case *stubListReviews:
+			listReviews = v
 		}
 	}
-	return storefronthandler.NewHandler(resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder, getTheme, getShippingOptions, applyCoupon)
+	return storefronthandler.NewHandler(
+		resolve, get, create, getCart, update, checkout, listProducts, getProduct, listCategories, lookupOrder,
+		getTheme, getShippingOptions, applyCoupon, submitReview, listReviews,
+	)
 }
 
 func newTestRouter(h *storefronthandler.Handler) *gin.Engine {
@@ -542,6 +584,58 @@ func TestGetStorefrontProductHandler_success(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"name":"Widget"`)
+}
+
+func TestListStorefrontReviewsHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	listReviews := &stubListReviews{out: &appstorefront.ReviewsResult{
+		Reviews: []reviewsDomain.Review{{ID: "review-1", CustomerName: "Ada", Rating: 5, Body: "Great"}},
+		Summary: reviewsDomain.Summary{Average: 5, Count: 1},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, listReviews)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products/product-1/reviews", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"customer_name":"Ada"`)
+	assert.Contains(t, w.Body.String(), `"average":5`)
+}
+
+func TestSubmitStorefrontReviewHandler_success(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	submit := &stubSubmitReview{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, submit)
+
+	body := `{"customer_name":"Ada","customer_email":"ada@example.com","rating":5,"body":"Loved it"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/products/product-1/reviews", body, "test-key")
+
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "product-1", submit.gotIn.ProductID)
+	assert.Equal(t, "channel-1", submit.gotIn.SalesChannelID)
+	assert.Equal(t, "Ada", submit.gotIn.CustomerName)
+	assert.Equal(t, 5, submit.gotIn.Rating)
+}
+
+func TestSubmitStorefrontReviewHandler_productNotAvailableIs404(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	submit := &stubSubmitReview{err: storefrontDomain.ErrProductNotAvailable}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, submit)
+
+	body := `{"customer_name":"Ada","customer_email":"ada@example.com","rating":5,"body":"Loved it"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/products/unknown-id/reviews", body, "test-key")
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestSubmitStorefrontReviewHandler_invalidRatingIs422(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	submit := &stubSubmitReview{err: reviewsDomain.ErrInvalidRating}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, submit)
+
+	body := `{"customer_name":"Ada","customer_email":"ada@example.com","rating":9,"body":"Loved it"}`
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/storefront/v1/products/product-1/reviews", body, "test-key")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestListStorefrontCategoriesHandler_success(t *testing.T) {

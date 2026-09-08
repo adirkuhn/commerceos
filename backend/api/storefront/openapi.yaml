@@ -281,6 +281,65 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/products/{id}/reviews:
+    get:
+      operationId: listStorefrontReviews
+      summary: List a product's reviews on the calling channel, with a rating summary
+      description: >
+        Does not require the product to still be available/enrolled --
+        see ListReviewsUseCase's doc comment. Newest first.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: submitStorefrontReview
+      summary: Submit a review for a product on the calling channel
+      description: >
+        verified is computed server-side from this email's completed-order
+        history on this channel -- there is no client-supplied verified
+        field, so a shopper can never claim a purchase they didn't make.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitReviewRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/categories:
     get:
       operationId: listStorefrontCategories
@@ -477,6 +536,61 @@ components:
         code:
           type: string
           description: Empty or omitted removes any attached coupon.
+
+    Review:
+      type: object
+      required: [id, customer_name, rating, title, body, verified, created_at]
+      properties:
+        id: { type: string }
+        customer_name: { type: string }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        body: { type: string }
+        verified:
+          type: boolean
+          description: True when this email completed an order containing this product on this channel, checked at submission time.
+        created_at: { type: string, format: date-time }
+
+    ReviewSummary:
+      type: object
+      required: [average, count]
+      properties:
+        average:
+          type: number
+          format: double
+          description: Meaningless (0) when count is 0 -- check count first.
+        count: { type: integer }
+
+    ReviewList:
+      type: object
+      required: [reviews, summary]
+      properties:
+        reviews:
+          type: array
+          items: { $ref: '#/components/schemas/Review' }
+        summary: { $ref: '#/components/schemas/ReviewSummary' }
+
+    ReviewListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ReviewList' }
+        error: { nullable: true }
+
+    SubmitReviewRequest:
+      type: object
+      required: [customer_name, customer_email, rating, body]
+      properties:
+        customer_name: { type: string, minLength: 1 }
+        customer_email: { type: string, format: email }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        body: { type: string, minLength: 1 }
+
+    ReviewResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Review' }
+        error: { nullable: true }
 
     UpdateCartItemLine:
       type: object
