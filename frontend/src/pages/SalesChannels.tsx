@@ -113,15 +113,22 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 // directly (WhatsApp is the other, for its chat checkout).
 const INTERNAL_TYPE: ChannelType = 'internal'
 
-// storefrontURL builds the link to one internal channel's own live
-// storefront -- the channel's own id doubles as its storefront bearer key
-// (see backend application/apikeys.ResolveAPIKeyUseCase's fallback), so
-// every internal channel already has a working URL with no separate key
-// to create/manage/lose. "" (no link shown) when the storefront app isn't
-// deployed anywhere yet -- see VITE_STOREFRONT_URL's own doc comment.
+// storefrontPath is what every internal channel's own storefront URL ends
+// in, regardless of where storefront-frontend is actually deployed -- the
+// channel's own id doubles as its storefront bearer key (see backend
+// application/apikeys.ResolveAPIKeyUseCase's fallback), so this is stable
+// and correct even before VITE_STOREFRONT_URL is configured.
+function storefrontPath(channelId: string): string {
+  return `/store/${channelId}`
+}
+
+// storefrontURL is the full clickable link, once VITE_STOREFRONT_URL (the
+// deployed storefront app's own base URL) is configured. "" until then --
+// callers must still show storefrontPath so the URL is never silently
+// invisible while ops finishes that one-time setup.
 function storefrontURL(channelId: string): string {
   const base = import.meta.env.VITE_STOREFRONT_URL
-  return base ? `${base}/store/${channelId}` : ''
+  return base ? `${base}${storefrontPath(channelId)}` : ''
 }
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
@@ -178,6 +185,19 @@ export default function SalesChannels() {
   const [deletingChannel, setDeletingChannel] = useState<SalesChannel | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+
+  const [copiedChannelId, setCopiedChannelId] = useState<string | null>(null)
+  async function copyStorefrontPath(channelId: string) {
+    try {
+      await navigator.clipboard.writeText(storefrontPath(channelId))
+      setCopiedChannelId(channelId)
+      setTimeout(() => setCopiedChannelId(null), 1500)
+    } catch {
+      // Clipboard access can be denied (permissions, insecure context) --
+      // the path is already shown selectable on screen, so this is a
+      // convenience failure, not a blocker; no error surfaced for it.
+    }
+  }
 
   const openCreate = () => {
     setForm(emptyForm())
@@ -317,16 +337,33 @@ export default function SalesChannels() {
                     </span>
                   )}
                 </div>
-                {channel.type === INTERNAL_TYPE && storefrontURL(channel.id) && (
-                  <a
-                    href={storefrontURL(channel.id)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
-                    title={storefrontURL(channel.id)}
-                  >
-                    Visit store ↗
-                  </a>
+                {channel.type === INTERNAL_TYPE && (
+                  storefrontURL(channel.id) ? (
+                    <a
+                      href={storefrontURL(channel.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                      title={storefrontURL(channel.id)}
+                    >
+                      Visit store ↗
+                    </a>
+                  ) : (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <p
+                        className="truncate text-[10px] dark:text-gray-500 text-gray-400"
+                        title="Storefront app URL not configured yet (VITE_STOREFRONT_URL) -- this is the path to add to it"
+                      >
+                        Store path: <code className="dark:text-gray-400 text-gray-500">{storefrontPath(channel.id)}</code>
+                      </p>
+                      <button
+                        onClick={() => copyStorefrontPath(channel.id)}
+                        className="shrink-0 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                      >
+                        {copiedChannelId === channel.id ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  )
                 )}
                 <div className={clsx('mt-3 grid gap-2', channel.type === INTERNAL_TYPE ? 'grid-cols-4' : 'grid-cols-3')}>
                   <button

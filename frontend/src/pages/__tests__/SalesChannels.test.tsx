@@ -533,13 +533,31 @@ describe('WhatsApp payment method', () => {
     expect(link).toHaveAttribute('href', 'https://shop.test/store/chan-int')
   })
 
-  it('shows no "Visit store" link when no storefront base URL is configured', async () => {
+  it('falls back to a copyable store path (never hidden entirely) when no storefront base URL is configured', async () => {
     vi.stubEnv('VITE_STOREFRONT_URL', '')
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
     renderPage()
     await screen.findByText('B2B Store')
 
     expect(screen.queryByRole('link', { name: /Visit store/ })).not.toBeInTheDocument()
+    expect(screen.getByText('/store/chan-int')).toBeInTheDocument()
+  })
+
+  it('shows a separate store path per channel when multiple internal channels exist', async () => {
+    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel({ id: 'chan-b2c', name: 'B2C Store', type: 'internal', connection_id: null }),
+      sampleChannel({ id: 'chan-b2b', name: 'B2B Store', type: 'internal', connection_id: null }),
+    ])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await screen.findByText('B2B Store')
+
+    const links = screen.getAllByRole('link', { name: /Visit store/ })
+    expect(links.map(l => l.getAttribute('href'))).toEqual([
+      'https://shop.test/store/chan-b2c',
+      'https://shop.test/store/chan-b2b',
+    ])
   })
 
   it('rejects a discount over 100%', async () => {
