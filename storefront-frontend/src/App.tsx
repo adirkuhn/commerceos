@@ -83,15 +83,24 @@ function Layout({ children }: { children: ReactNode }) {
   )
 }
 
+// Matches vite.config.ts's build-time `base` -- "/" locally/in tests (no
+// prefix to strip), "/store/" in production, where Traefik path-mounts
+// this app on the same host/domain the backend API already has DNS/TLS
+// for (see docker-compose.yml's storefront service). basename must not
+// carry a trailing slash, and passing "/" explicitly (rather than
+// omitting it) makes react-router treat every route as one level deeper
+// than intended.
+const basename = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')
+
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <CartProvider>
         <WishlistProvider>
           <AuthProvider>
             <Layout>
               <Routes>
-                <Route path="/store/:storeKey" element={<StoreEntry />} />
+                <Route path="/enter/:storeKey" element={<StoreEntry />} />
                 <Route path="/" element={<HomePage />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/products/:id" element={<ProductPage />} />

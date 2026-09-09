@@ -14,6 +14,9 @@ import type { Connection, SalesChannel, EnrollmentMode, ChannelType, QuantityBre
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
+import { saveThemePage } from '../theme/api'
+import { buildStarterHomeBlocks } from '../theme/starterTemplate'
+import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 
 const PER_PAGE = 20
 
@@ -113,22 +116,53 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 // directly (WhatsApp is the other, for its chat checkout).
 const INTERNAL_TYPE: ChannelType = 'internal'
 
+// seedStarterTheme gives a brand-new internal channel a real home page
+// immediately (hero/about/product-grid/footer, one default palette) --
+// merchants shouldn't have to know the theme editor's "Template" button
+// exists just to get past a blank storefront. Still just a starting
+// point: freely editable/replaceable afterward, same as if a merchant had
+// clicked Template themselves. Best-effort -- a failure here must not
+// block channel creation from succeeding; the channel still exists and
+// the merchant can seed/edit its theme by hand from the editor.
+async function seedStarterTheme(token: string, channel: SalesChannel): Promise<void> {
+  const palette = THEME_PALETTES.find(p => p.id === 'verde') ?? THEME_PALETTES[0]
+  try {
+    await saveThemePage(token, channel.id, 'home', {
+      canvas_width: 1440,
+      blocks: buildStarterHomeBlocks(channel.name),
+      custom_css: paletteCustomCSS(palette),
+    })
+  } catch {
+    // Non-blocking -- see this function's doc comment.
+  }
+}
+
 // storefrontPath is what every internal channel's own storefront URL ends
 // in, regardless of where storefront-frontend is actually deployed -- the
 // channel's own id doubles as its storefront bearer key (see backend
-// application/apikeys.ResolveAPIKeyUseCase's fallback), so this is stable
-// and correct even before VITE_STOREFRONT_URL is configured.
+// application/apikeys.ResolveAPIKeyUseCase's fallback). /store/enter/...
+// matches storefront-frontend's own entry route (App.tsx's StoreEntry) --
+// it's path-mounted at /store by default (see docker-compose.yml's
+// storefront service), not a separate domain.
 function storefrontPath(channelId: string): string {
-  return `/store/${channelId}`
+  return `/store/enter/${channelId}`
 }
 
-// storefrontURL is the full clickable link, once VITE_STOREFRONT_URL (the
-// deployed storefront app's own base URL) is configured. "" until then --
-// callers must still show storefrontPath so the URL is never silently
-// invisible while ops finishes that one-time setup.
+// storefrontURL is the full clickable link. VITE_STOREFRONT_URL overrides
+// this once storefront-frontend is deployed on a dedicated domain of its
+// own; until then this defaults to VITE_API_BASE_URL's own origin, since
+// that's where storefront-frontend is path-mounted by default -- a real,
+// working link with no extra configuration step. "" only if that default
+// somehow can't be computed (VITE_API_BASE_URL isn't a valid URL).
 function storefrontURL(channelId: string): string {
-  const base = import.meta.env.VITE_STOREFRONT_URL
-  return base ? `${base}${storefrontPath(channelId)}` : ''
+  const explicit = import.meta.env.VITE_STOREFRONT_URL
+  if (explicit) return `${explicit}${storefrontPath(channelId)}`
+  try {
+    const base = new URL(import.meta.env.VITE_API_BASE_URL).origin
+    return `${base}${storefrontPath(channelId)}`
+  } catch {
+    return ''
+  }
 }
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
@@ -239,7 +273,10 @@ export default function SalesChannels() {
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
       } else {
-        await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
+        const created = await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
+        if (channelType === INTERNAL_TYPE) {
+          await seedStarterTheme(token ?? '', created)
+        }
       }
       if (shared.connectionId) {
         const connection = connections.find(c => c.id === shared.connectionId)

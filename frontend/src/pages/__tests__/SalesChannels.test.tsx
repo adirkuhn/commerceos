@@ -35,6 +35,10 @@ vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
 }))
 
+vi.mock('../../theme/api', () => ({
+  saveThemePage: vi.fn(),
+}))
+
 vi.mock('../../fx/api', () => ({
   listExchangeRates: vi.fn(),
   upsertExchangeRate: vi.fn(),
@@ -45,6 +49,7 @@ import * as integrationsApi from '../../integrations/api'
 import * as pmsApi from '../../pms/api'
 import * as inventoryApi from '../../inventory/api'
 import * as fxApi from '../../fx/api'
+import * as themeApi from '../../theme/api'
 
 const wooConnection: Connection = {
   id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', default_currency: 'USD',
@@ -179,6 +184,28 @@ describe('Create sales channel', () => {
         defaultWarehouseId: 'wh-1',
       })
     })
+    // A brand-new internal channel gets a real home page immediately --
+    // no separate "click Template in the editor" step required.
+    await waitFor(() => {
+      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
+        blocks: expect.arrayContaining([expect.objectContaining({ type: 'hero' })]),
+        custom_css: expect.stringContaining(':root'),
+      }))
+    })
+  })
+
+  it('does not seed a theme for a non-internal channel (WooCommerce/Bol have no storefront of their own)', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-woo-2', name: 'Second Woo Store' }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.type(screen.getByLabelText('Name'), 'Second Woo Store')
+    await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => expect(integrationsApi.createSalesChannel).toHaveBeenCalled())
+    expect(themeApi.saveThemePage).not.toHaveBeenCalled()
   })
 
   it('shows a currency picker only for Internal channels, listing configured exchange rates', async () => {
@@ -523,27 +550,38 @@ describe('WhatsApp payment method', () => {
     expect(screen.getByLabelText('Discount off list price (%)')).toHaveValue(15)
   })
 
-  it('shows a per-channel "Visit store" link built from the channel id, when a storefront base URL is configured', async () => {
+  it('shows a per-channel "Visit store" link built from the channel id, when a dedicated storefront base URL is configured', async () => {
     vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
     renderPage()
     await screen.findByText('B2B Store')
 
     const link = screen.getByRole('link', { name: /Visit store/ })
-    expect(link).toHaveAttribute('href', 'https://shop.test/store/chan-int')
+    expect(link).toHaveAttribute('href', 'https://shop.test/store/enter/chan-int')
   })
 
-  it('falls back to a copyable store path (never hidden entirely) when no storefront base URL is configured', async () => {
+  it('defaults the store link to the API base URL\'s own origin -- a working link with no extra configuration', async () => {
     vi.stubEnv('VITE_STOREFRONT_URL', '')
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
     renderPage()
     await screen.findByText('B2B Store')
 
-    expect(screen.queryByRole('link', { name: /Visit store/ })).not.toBeInTheDocument()
-    expect(screen.getByText('/store/chan-int')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Visit store/ })
+    expect(link).toHaveAttribute('href', 'https://api.commerceos.dev.localhost/store/enter/chan-int')
   })
 
-  it('shows a separate store path per channel when multiple internal channels exist', async () => {
+  it('falls back to a copyable store path (never hidden entirely) if the API base URL itself cannot be parsed', async () => {
+    vi.stubEnv('VITE_STOREFRONT_URL', '')
+    vi.stubEnv('VITE_API_BASE_URL', 'not-a-valid-url')
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2B Store')
+
+    expect(screen.queryByRole('link', { name: /Visit store/ })).not.toBeInTheDocument()
+    expect(screen.getByText('/store/enter/chan-int')).toBeInTheDocument()
+  })
+
+  it('shows a separate store link per channel when multiple internal channels exist', async () => {
     vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
     vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
       sampleChannel({ id: 'chan-b2c', name: 'B2C Store', type: 'internal', connection_id: null }),
@@ -555,8 +593,8 @@ describe('WhatsApp payment method', () => {
 
     const links = screen.getAllByRole('link', { name: /Visit store/ })
     expect(links.map(l => l.getAttribute('href'))).toEqual([
-      'https://shop.test/store/chan-b2c',
-      'https://shop.test/store/chan-b2b',
+      'https://shop.test/store/enter/chan-b2c',
+      'https://shop.test/store/enter/chan-b2b',
     ])
   })
 

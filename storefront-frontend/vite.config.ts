@@ -1,8 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
+  // Production is deployed path-mounted at /store on the same host/domain
+  // the backend API already has DNS/TLS for (see docker-compose.yml's
+  // storefront service) -- no separate domain to provision just to get a
+  // working preview URL. Only affects the build (asset URLs the emitted
+  // index.html references); `npm run dev`/tests keep serving from root so
+  // local dev isn't forced through that same path.
+  base: command === 'build' ? '/store/' : '/',
   server: {
     port: 3100,
   },
@@ -19,4 +26,4 @@ export default defineConfig({
       VITE_STOREFRONT_API_KEY: 'test-storefront-key',
     },
   },
-})
+}))
