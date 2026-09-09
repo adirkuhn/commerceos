@@ -306,6 +306,16 @@ export default function SalesChannels() {
                     </span>
                   )}
                 </div>
+                {channel.type === INTERNAL_TYPE && import.meta.env.VITE_STOREFRONT_URL && (
+                  <a
+                    href={import.meta.env.VITE_STOREFRONT_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 block text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                  >
+                    Visit store ↗
+                  </a>
+                )}
                 <div className={clsx('mt-3 grid gap-2', channel.type === INTERNAL_TYPE ? 'grid-cols-4' : 'grid-cols-3')}>
                   <button
                     onClick={() => setManagingChannel(channel)}

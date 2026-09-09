@@ -262,6 +262,7 @@ services:
         - VITE_LM2_LOGIN_URL=${VITE_LM2_LOGIN_URL}
         - VITE_LM2_CALLBACK_PATH=${VITE_LM2_CALLBACK_PATH}
         - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+        - VITE_STOREFRONT_URL=${VITE_STOREFRONT_URL}
     env_file:
       - .env
     restart: unless-stopped
@@ -280,6 +281,36 @@ services:
       - "traefik.http.routers.frontend.entrypoints=https"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=le"
+
+  # commerceos-storefront -- the shopper-facing storefront SPA
+  # (storefront-frontend/), one internal sales channel's own build. Its API
+  # key is baked in at build time (see storefront-frontend/src/api/client.ts's
+  # doc comment) so this deployment always serves exactly one sales channel;
+  # a second internal channel needing its own storefront means a second
+  # image build + a second Traefik Host rule, not a config toggle on this
+  # one. STOREFRONT_DOMAIN is a placeholder host for now -- pointing a real
+  # customer domain here is a later step (needs its own Traefik router +
+  # cert, same shape as this one, once that's actually wanted).
+  storefront:
+    build:
+      context: ./storefront-frontend
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+        - VITE_STOREFRONT_API_KEY=${STOREFRONT_API_KEY}
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - backend
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storefront.rule=Host(`${STOREFRONT_DOMAIN}`)"
+      - "traefik.http.services.storefront.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.storefront.entrypoints=https"
+      - "traefik.http.routers.storefront.tls=true"
+      - "traefik.http.routers.storefront.tls.certresolver=le"
 
 volumes:
   postgres_data:
