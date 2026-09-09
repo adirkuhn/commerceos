@@ -283,20 +283,20 @@ services:
       - "traefik.http.routers.frontend.tls.certresolver=le"
 
   # commerceos-storefront -- the shopper-facing storefront SPA
-  # (storefront-frontend/), one internal sales channel's own build. Its API
-  # key is baked in at build time (see storefront-frontend/src/api/client.ts's
-  # doc comment) so this deployment always serves exactly one sales channel;
-  # a second internal channel needing its own storefront means a second
-  # image build + a second Traefik Host rule, not a config toggle on this
-  # one. STOREFRONT_DOMAIN is a placeholder host for now -- pointing a real
-  # customer domain here is a later step (needs its own Traefik router +
-  # cert, same shape as this one, once that's actually wanted).
+  # (storefront-frontend/). One deployment serves every tenant's every
+  # internal sales channel: a shopper's key is resolved at runtime from the
+  # /store/:channelId URL the admin app shows for each channel (see
+  # storefront-frontend/src/App.tsx's StoreEntry, api/client.ts's
+  # setStorefrontKey), not baked into this build -- no build-time secret,
+  # no per-tenant image. STOREFRONT_DOMAIN is a placeholder host for now --
+  # pointing a real customer domain at a specific channel is a later step
+  # (needs its own Traefik router + cert, same shape as this one, once
+  # that's actually wanted).
   storefront:
     build:
       context: ./storefront-frontend
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL}
-        - VITE_STOREFRONT_API_KEY=${STOREFRONT_API_KEY}
     restart: unless-stopped
     logging: *default-logging
     depends_on:

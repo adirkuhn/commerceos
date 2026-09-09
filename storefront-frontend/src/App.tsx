@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
+import { setStorefrontKey } from './api/client'
 import { CartProvider, useCart } from './cart/CartContext'
 import { WishlistProvider, useWishlist } from './wishlist/WishlistContext'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -44,6 +46,25 @@ function AccountLink() {
   )
 }
 
+// StoreEntry is this deployment's one entry point for selecting which
+// tenant/channel to show -- a shopper never lands here directly (it's what
+// a shared link/QR code from the admin app points at), it just remembers
+// the key (see setStorefrontKey) and redirects into the app's normal
+// routes, which stay entirely unaware a multi-tenant deployment exists.
+function StoreEntry() {
+  const { storeKey } = useParams<{ storeKey: string }>()
+  const navigate = useNavigate()
+  useEffect(() => {
+    // Set the key before navigating away, in that order, within the same
+    // effect -- CartProvider/WishlistProvider/AuthProvider's own mount
+    // effects (higher up the tree, so React fires them after this one)
+    // must never fire their first fetch against the old/empty key.
+    if (storeKey) setStorefrontKey(storeKey)
+    navigate('/', { replace: true })
+  }, [storeKey, navigate])
+  return null
+}
+
 function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-brand-700">
@@ -70,6 +91,7 @@ export function App() {
           <AuthProvider>
             <Layout>
               <Routes>
+                <Route path="/store/:storeKey" element={<StoreEntry />} />
                 <Route path="/" element={<HomePage />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/products/:id" element={<ProductPage />} />

@@ -264,7 +264,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 	createPaymentIntent := appstorefront.NewCreatePaymentIntentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret, checkoutCart)
 
 	h := NewHandler(
-		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo),
+		appapikeys.NewResolveAPIKeyUseCase(db, apiKeyRepo, channelRepo),
 		getCartRecommendations,
 		appstorefront.NewCreateCartUseCase(db, channelRepo, cartRepo),
 		appstorefront.NewGetCartUseCase(db, cartRepo, couponRepo, couponCurrencyRepo, fxRepo),

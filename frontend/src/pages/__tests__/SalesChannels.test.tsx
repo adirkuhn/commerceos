@@ -523,6 +523,25 @@ describe('WhatsApp payment method', () => {
     expect(screen.getByLabelText('Discount off list price (%)')).toHaveValue(15)
   })
 
+  it('shows a per-channel "Visit store" link built from the channel id, when a storefront base URL is configured', async () => {
+    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2B Store')
+
+    const link = screen.getByRole('link', { name: /Visit store/ })
+    expect(link).toHaveAttribute('href', 'https://shop.test/store/chan-int')
+  })
+
+  it('shows no "Visit store" link when no storefront base URL is configured', async () => {
+    vi.stubEnv('VITE_STOREFRONT_URL', '')
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2B Store')
+
+    expect(screen.queryByRole('link', { name: /Visit store/ })).not.toBeInTheDocument()
+  })
+
   it('rejects a discount over 100%', async () => {
     renderPage()
     await screen.findByText('My Woo Store')

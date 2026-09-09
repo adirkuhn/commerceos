@@ -19,4 +19,16 @@ describe('App', () => {
     expect(await screen.findByText(/no content yet/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument()
   })
+
+  it('visiting /store/:key remembers the key and redirects to home -- the link the admin app shows for a channel', async () => {
+    mockFetch()
+    localStorage.clear()
+    window.history.pushState({}, '', '/store/channel-abc-123')
+
+    render(<App />)
+
+    expect(await screen.findByText(/no content yet/)).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+    expect(localStorage.getItem('commerceos_storefront_key')).toBe('channel-abc-123')
+  })
 })

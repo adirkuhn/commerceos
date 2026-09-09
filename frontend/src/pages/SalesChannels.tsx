@@ -112,6 +112,17 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 // never render, and it's the one type able to configure a payment method
 // directly (WhatsApp is the other, for its chat checkout).
 const INTERNAL_TYPE: ChannelType = 'internal'
+
+// storefrontURL builds the link to one internal channel's own live
+// storefront -- the channel's own id doubles as its storefront bearer key
+// (see backend application/apikeys.ResolveAPIKeyUseCase's fallback), so
+// every internal channel already has a working URL with no separate key
+// to create/manage/lose. "" (no link shown) when the storefront app isn't
+// deployed anywhere yet -- see VITE_STOREFRONT_URL's own doc comment.
+function storefrontURL(channelId: string): string {
+  const base = import.meta.env.VITE_STOREFRONT_URL
+  return base ? `${base}/store/${channelId}` : ''
+}
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
 // The same two types create a SalesOrder directly (Woo/Bol only ever
@@ -306,12 +317,13 @@ export default function SalesChannels() {
                     </span>
                   )}
                 </div>
-                {channel.type === INTERNAL_TYPE && import.meta.env.VITE_STOREFRONT_URL && (
+                {channel.type === INTERNAL_TYPE && storefrontURL(channel.id) && (
                   <a
-                    href={import.meta.env.VITE_STOREFRONT_URL}
+                    href={storefrontURL(channel.id)}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 block text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                    className="mt-2 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                    title={storefrontURL(channel.id)}
                   >
                     Visit store ↗
                   </a>
