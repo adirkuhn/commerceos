@@ -39,9 +39,8 @@ import (
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
-	emailDomain "github.com/adirkuhn/commerceos/domain/email"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
-	"github.com/adirkuhn/commerceos/infrastructure/email"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
@@ -69,6 +68,8 @@ import (
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
 	webhookshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/webhooks"
 	"github.com/adirkuhn/commerceos/infrastructure/lm2license"
+	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
+	"github.com/adirkuhn/commerceos/infrastructure/messaging/smtp"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -461,9 +462,9 @@ func main() {
 	storefrontGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(storefrontSpec, &ginmiddleware.Options{
 		SilenceServersWarning: true,
 	}))
-	var emailClient emailDomain.Client = email.NoopClient{}
+	var emailClient messaging.Client = noop.Client{}
 	if cfg.SMTPHost != "" {
-		emailClient = email.NewSMTPClient(email.SMTPConfig{
+		emailClient = smtp.NewClient(smtp.Config{
 			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom,
 		})
 	}

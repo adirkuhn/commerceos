@@ -11,7 +11,7 @@ import (
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
-	emailDomain "github.com/adirkuhn/commerceos/domain/email"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
 	"github.com/adirkuhn/commerceos/internal/idgen"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -37,7 +37,7 @@ type RequestMagicLinkUseCase struct {
 	customerRepo   customersDomain.CustomerRepository
 	createCustomer customerCreator
 	tokenRepo      storefrontDomain.MagicLinkTokenRepository
-	emailClient    emailDomain.Client
+	emailClient    messaging.Client
 }
 
 func NewRequestMagicLinkUseCase(
@@ -46,7 +46,7 @@ func NewRequestMagicLinkUseCase(
 	customerRepo customersDomain.CustomerRepository,
 	createCustomer customerCreator,
 	tokenRepo storefrontDomain.MagicLinkTokenRepository,
-	emailClient emailDomain.Client,
+	emailClient messaging.Client,
 ) *RequestMagicLinkUseCase {
 	return &RequestMagicLinkUseCase{
 		db: db, channelRepo: channelRepo, customerRepo: customerRepo,
@@ -109,7 +109,8 @@ func (uc *RequestMagicLinkUseCase) Execute(ctx context.Context, in RequestMagicL
 	// Sending email is external I/O -- deliberately outside every
 	// transaction above, same "never do external I/O inside
 	// tenant.WithTenant" rule this codebase applies to NATS publishes.
-	msg := emailDomain.Message{
+	msg := messaging.Message{
+		Channel: messaging.ChannelEmail,
 		To:      email,
 		Subject: "Your sign-in link",
 		HTMLBody: fmt.Sprintf(

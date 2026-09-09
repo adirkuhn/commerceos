@@ -15,8 +15,8 @@ import (
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
-	emailDomain "github.com/adirkuhn/commerceos/domain/email"
 	fxDomain "github.com/adirkuhn/commerceos/domain/fx"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -259,11 +259,11 @@ func (f *fakeCustomerSessionRepo) Delete(_ context.Context, token string) error 
 }
 
 type fakeEmailClient struct {
-	sent []emailDomain.Message
+	sent []messaging.Message
 	err  error
 }
 
-func (f *fakeEmailClient) Send(_ context.Context, msg emailDomain.Message) error {
+func (f *fakeEmailClient) Send(_ context.Context, msg messaging.Message) error {
 	if f.err != nil {
 		return f.err
 	}

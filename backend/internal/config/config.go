@@ -49,8 +49,8 @@ type Config struct {
 	// same "optional integration, nil-safe skip" pattern as
 	// AIDocumentParser being nil when no AI provider is configured.
 	LM2LicensePublicKeyURL string
-	// SMTP* configure the outbound-email client (infrastructure/email,
-	// domain/email.Client) used to send storefront magic-link login
+	// SMTP* configure the outbound-email client (infrastructure/messaging/smtp,
+	// domain/messaging.Client) used to send storefront magic-link login
 	// emails. Optional, same "unset means skip the whole feature rather
 	// than mount a guaranteed-broken path" convention as
 	// LM2LicensePublicKeyURL -- when SMTPHost is empty, cmd/api/main.go

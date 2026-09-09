@@ -1,11 +1,11 @@
-// Package email implements domain/email.Client. SMTPClient is the only
-// implementation today (stdlib net/smtp, no third-party dependency) --
+// Package smtp implements domain/messaging.Client over stdlib net/smtp --
 // points at any SMTP relay (Gmail/Workspace, Mailgun/SES's SMTP endpoint,
 // a self-hosted Postfix, etc.) via plain config, no vendor SDK required.
 // A future REST-API provider (Resend, SendGrid...) would live alongside
-// this as its own Client implementation, selected the same way
-// infrastructure/myparcel/infrastructure/stripe's own factories are.
-package email
+// this as its own domain/messaging.Client implementation, selected the
+// same way infrastructure/myparcel/infrastructure/stripe's own factories
+// are.
+package smtp
 
 import (
 	"context"
@@ -14,13 +14,13 @@ import (
 	"net/smtp"
 	"strings"
 
-	emailDomain "github.com/adirkuhn/commerceos/domain/email"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 )
 
-// SMTPConfig is intentionally plain fields, not a struct tag/env-loader
-// magic (see this repo's config-loading convention) -- internal/config
-// populates it from SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASSWORD/SMTP_FROM.
-type SMTPConfig struct {
+// Config is intentionally plain fields, not a struct tag/env-loader magic
+// (see this repo's config-loading convention) -- internal/config populates
+// it from SMTP_HOST/SMTP_PORT/SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM.
+type Config struct {
 	Host     string
 	Port     string
 	Username string
@@ -28,22 +28,26 @@ type SMTPConfig struct {
 	From     string
 }
 
-type SMTPClient struct {
-	cfg SMTPConfig
+type Client struct {
+	cfg Config
 }
 
-func NewSMTPClient(cfg SMTPConfig) *SMTPClient {
-	return &SMTPClient{cfg: cfg}
+func NewClient(cfg Config) *Client {
+	return &Client{cfg: cfg}
 }
 
-var _ emailDomain.Client = (*SMTPClient)(nil)
+var _ messaging.Client = (*Client)(nil)
 
 // Send uses net/smtp.SendMail, which opportunistically STARTTLS's when the
 // server advertises the extension (true of virtually every relay on port
 // 587) -- no implicit-TLS (port 465/SMTPS) support, matching what a
 // generic STARTTLS relay needs; that's an explicit gap, not silently
 // assumed to work.
-func (c *SMTPClient) Send(_ context.Context, msg emailDomain.Message) error {
+func (c *Client) Send(_ context.Context, msg messaging.Message) error {
+	if msg.Channel != messaging.ChannelEmail {
+		return fmt.Errorf("smtp.Client.Send: unsupported channel %q", msg.Channel)
+	}
+
 	addr := net.JoinHostPort(c.cfg.Host, c.cfg.Port)
 	var auth smtp.Auth
 	if c.cfg.Username != "" {
@@ -65,7 +69,7 @@ func (c *SMTPClient) Send(_ context.Context, msg emailDomain.Message) error {
 	b.WriteString(msg.HTMLBody)
 
 	if err := smtp.SendMail(addr, auth, c.cfg.From, []string{msg.To}, []byte(b.String())); err != nil {
-		return fmt.Errorf("smtpClient.Send: %w", err)
+		return fmt.Errorf("smtp.Client.Send: %w", err)
 	}
 	return nil
 }

@@ -29,7 +29,7 @@ import (
 	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
-	emailDomain "github.com/adirkuhn/commerceos/domain/email"
+	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
@@ -213,7 +213,7 @@ func NewHandler(
 
 var _ genstorefront.ServerInterface = (*Handler)(nil)
 
-func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL string, emailClient emailDomain.Client) {
+func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL string, emailClient messaging.Client) {
 	salesRepo := repositories.NewSalesOrderRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	apiKeyRepo := repositories.NewAPIKeyRepo(db)
