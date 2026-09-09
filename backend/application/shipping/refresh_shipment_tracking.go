@@ -27,7 +27,7 @@ type RefreshShipmentTrackingUseCase struct {
 	statusEventRepo shippingDomain.ShipmentStatusEventRepository
 	connRepo        integrationsDomain.ConnectionRepository
 	salesOrderRepo  omsDomain.SalesOrderRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
+	carrierFactory  integrationsDomain.CarrierClientFactory
 	encSecret       string
 }
 
@@ -37,12 +37,12 @@ func NewRefreshShipmentTrackingUseCase(
 	statusEventRepo shippingDomain.ShipmentStatusEventRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	salesOrderRepo omsDomain.SalesOrderRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 ) *RefreshShipmentTrackingUseCase {
 	return &RefreshShipmentTrackingUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
-		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 	}
 }
 
@@ -70,12 +70,12 @@ func (uc *RefreshShipmentTrackingUseCase) Execute(ctx context.Context, shipmentI
 	if err != nil {
 		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: build client: %w", err)
 	}
 
-	tt, err := client.GetTrackTrace(ctx, shipment.MyParcelShipmentID)
+	tt, err := client.GetTrackTrace(ctx, shipment.ExternalShipmentID)
 	if err != nil {
 		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: get tracktrace: %w", err)
 	}

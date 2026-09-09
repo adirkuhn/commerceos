@@ -13,7 +13,7 @@ import (
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 )
 
-func newGetDeliveryPriceEstimateUseCase(t *testing.T, n int, connRepo *mocks.ConnectionRepo, factory *fakeMyParcelClientFactory) *appshipping.GetDeliveryPriceEstimateUseCase {
+func newGetDeliveryPriceEstimateUseCase(t *testing.T, n int, connRepo *mocks.ConnectionRepo, factory *fakeCarrierClientFactory) *appshipping.GetDeliveryPriceEstimateUseCase {
 	t.Helper()
 	return appshipping.NewGetDeliveryPriceEstimateUseCase(newMockGormDB(t, n), connRepo, factory, testEncSecret)
 }
@@ -26,7 +26,7 @@ func TestGetDeliveryPriceEstimate_happyPath_returnsMyParcelsPricedOptions(t *tes
 	}}
 
 	var gotInput integrationsDomain.DeliveryPriceEstimateInput
-	client := &fakeMyParcelClient{
+	client := &fakeCarrierClient{
 		getDeliveryPriceEstimateFn: func(_ context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
 			gotInput = in
 			return []integrationsDomain.DeliveryPriceOption{
@@ -35,7 +35,7 @@ func TestGetDeliveryPriceEstimate_happyPath_returnsMyParcelsPricedOptions(t *tes
 			}, nil
 		},
 	}
-	factory := &fakeMyParcelClientFactory{client: client}
+	factory := &fakeCarrierClientFactory{client: client}
 	uc := newGetDeliveryPriceEstimateUseCase(t, 1, connRepo, factory)
 
 	options, err := uc.Execute(context.Background(), appshipping.GetDeliveryPriceEstimateInput{
@@ -56,13 +56,13 @@ func TestGetDeliveryPriceEstimate_rejectsUnsupportedCountryBeforeCallingMyParcel
 		t.Fatal("must not look up the connection for an unsupported country -- reject before any I/O")
 		return nil, nil
 	}}
-	client := &fakeMyParcelClient{
+	client := &fakeCarrierClient{
 		getDeliveryPriceEstimateFn: func(_ context.Context, _ integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
 			t.Fatal("must not call MyParcel for an unsupported country")
 			return nil, nil
 		},
 	}
-	factory := &fakeMyParcelClientFactory{client: client}
+	factory := &fakeCarrierClientFactory{client: client}
 	uc := newGetDeliveryPriceEstimateUseCase(t, 0, connRepo, factory)
 
 	_, err := uc.Execute(context.Background(), appshipping.GetDeliveryPriceEstimateInput{
@@ -76,12 +76,12 @@ func TestGetDeliveryPriceEstimate_rejectsUnsupportedCountryBeforeCallingMyParcel
 func TestGetDeliveryPriceEstimate_propagatesMyParcelError(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{
+	client := &fakeCarrierClient{
 		getDeliveryPriceEstimateFn: func(_ context.Context, _ integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
 			return nil, assert.AnError
 		},
 	}
-	factory := &fakeMyParcelClientFactory{client: client}
+	factory := &fakeCarrierClientFactory{client: client}
 	uc := newGetDeliveryPriceEstimateUseCase(t, 1, connRepo, factory)
 
 	_, err := uc.Execute(context.Background(), appshipping.GetDeliveryPriceEstimateInput{

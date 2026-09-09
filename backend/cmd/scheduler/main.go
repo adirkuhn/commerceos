@@ -312,7 +312,7 @@ func main() {
 	)
 	shipmentReconcileUC := shippingapp.NewReconcileShipmentsUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
-		connRepo, salesOrderRepo, myparcelinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
+		connRepo, salesOrderRepo, myparcelinfra.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret,
 		updateSalesOrderUC, notifyShipmentDeliveryUC,
 	)
 

@@ -15,7 +15,7 @@ import (
 )
 
 func TestRefreshShipmentTracking_fetchesFromProviderAndSavesTheResult(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByIDFn: func(_ context.Context, id string) (*shippingDomain.Shipment, error) {
 			require.Equal(t, "s-1", id)
@@ -35,14 +35,14 @@ func TestRefreshShipmentTracking_fetchesFromProviderAndSavesTheResult(t *testing
 	}}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(_ context.Context, id int64) (integrationsDomain.TrackTraceResult, error) {
-		require.Equal(t, int64(555), id)
+	client := &fakeCarrierClient{getTrackTraceFn: func(_ context.Context, id string) (integrationsDomain.TrackTraceResult, error) {
+		require.Equal(t, "555", id)
 		return integrationsDomain.TrackTraceResult{StatusCode: 5, StatusMain: "enroute"}, nil
 	}}
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewRefreshShipmentTrackingUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeCarrierClientFactory{client: client}, testEncSecret)
 
 	event, err := uc.Execute(context.Background(), "s-1")
 
@@ -55,7 +55,7 @@ func TestRefreshShipmentTracking_fetchesFromProviderAndSavesTheResult(t *testing
 }
 
 func TestRefreshShipmentTracking_noBarcodeYet_fetchesAndSavesIt(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Barcode: ""}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Barcode: ""}
 	var savedBarcode string
 	shipmentRepo := &fakeShipmentRepo{
 		findByIDFn: func(_ context.Context, id string) (*shippingDomain.Shipment, error) { return shipment, nil },
@@ -67,19 +67,19 @@ func TestRefreshShipmentTracking_noBarcodeYet_fetchesAndSavesIt(t *testing.T) {
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(_ context.Context, _ *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{
-		getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{
+		getTrackTraceFn: func(_ context.Context, _ string) (integrationsDomain.TrackTraceResult, error) {
 			return integrationsDomain.TrackTraceResult{StatusCode: 4, StatusMain: "enroute"}, nil
 		},
-		getShipmentBarcodeFn: func(_ context.Context, id int64) (string, error) {
-			require.Equal(t, int64(555), id)
+		getShipmentBarcodeFn: func(_ context.Context, id string) (string, error) {
+			require.Equal(t, "555", id)
 			return "3SMYPA447656020", nil
 		},
 	}
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewRefreshShipmentTrackingUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeCarrierClientFactory{client: client}, testEncSecret)
 
 	_, err := uc.Execute(context.Background(), "s-1")
 
@@ -88,7 +88,7 @@ func TestRefreshShipmentTracking_noBarcodeYet_fetchesAndSavesIt(t *testing.T) {
 }
 
 func TestRefreshShipmentTracking_alreadyHasBarcode_skipsTheExtraCall(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Barcode: "3SMYPA1"}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Barcode: "3SMYPA1"}
 	shipmentRepo := &fakeShipmentRepo{
 		findByIDFn:     func(_ context.Context, id string) (*shippingDomain.Shipment, error) { return shipment, nil },
 		updateStatusFn: func(context.Context, string, int, string, string, string) error { return nil },
@@ -97,11 +97,11 @@ func TestRefreshShipmentTracking_alreadyHasBarcode_skipsTheExtraCall(t *testing.
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	barcodeCalled := false
-	client := &fakeMyParcelClient{
-		getTrackTraceFn: func(_ context.Context, _ int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{
+		getTrackTraceFn: func(_ context.Context, _ string) (integrationsDomain.TrackTraceResult, error) {
 			return integrationsDomain.TrackTraceResult{StatusCode: 4, StatusMain: "enroute"}, nil
 		},
-		getShipmentBarcodeFn: func(_ context.Context, _ int64) (string, error) {
+		getShipmentBarcodeFn: func(_ context.Context, _ string) (string, error) {
 			barcodeCalled = true
 			return "should-not-be-used", nil
 		},
@@ -109,7 +109,7 @@ func TestRefreshShipmentTracking_alreadyHasBarcode_skipsTheExtraCall(t *testing.
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewRefreshShipmentTrackingUseCase(newMockGormDB(t, 2), shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret)
+		&fakeCarrierClientFactory{client: client}, testEncSecret)
 
 	_, err := uc.Execute(context.Background(), "s-1")
 
@@ -130,10 +130,12 @@ func TestRefreshShipmentTracking_alreadyHasBarcode_skipsTheExtraCall(t *testing.
 
 func TestRefreshShipmentTracking_shipmentNotFound_propagatesError(t *testing.T) {
 	shipmentRepo := &fakeShipmentRepo{
-		findByIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return nil, shippingDomain.ErrShipmentNotFound },
+		findByIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) {
+			return nil, shippingDomain.ErrShipmentNotFound
+		},
 	}
 	uc := appshipping.NewRefreshShipmentTrackingUseCase(newMockGormDB(t, 1), shipmentRepo, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret)
 
 	_, err := uc.Execute(context.Background(), "missing")
 
@@ -142,16 +144,16 @@ func TestRefreshShipmentTracking_shipmentNotFound_propagatesError(t *testing.T) 
 }
 
 func TestRefreshShipmentTracking_providerFetchFails_returnsError(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555"}
 	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{}, errors.New("myparcel unreachable")
 	}}
 
 	uc := appshipping.NewRefreshShipmentTrackingUseCase(newMockGormDB(t, 1), shipmentRepo, &fakeShipmentStatusEventRepo{},
-		connRepo, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{client: client}, testEncSecret)
+		connRepo, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{client: client}, testEncSecret)
 
 	_, err := uc.Execute(context.Background(), "s-1")
 

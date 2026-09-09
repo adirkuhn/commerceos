@@ -10,10 +10,12 @@ import (
 type ShipmentRepository interface {
 	Create(ctx context.Context, s *Shipment) error
 	FindByID(ctx context.Context, id string) (*Shipment, error)
-	// FindByMyParcelShipmentID correlates an inbound webhook's shipment_id
-	// back to our own Shipment row. Returns ErrShipmentNotFound (not a
-	// generic error) when none matches.
-	FindByMyParcelShipmentID(ctx context.Context, myParcelShipmentID int64) (*Shipment, error)
+	// FindByExternalShipmentID correlates an inbound webhook's shipment id
+	// (converted to string at the caller's boundary -- see
+	// domain/shipping.Shipment.ExternalShipmentID's doc) back to our own
+	// Shipment row. Returns ErrShipmentNotFound (not a generic error) when
+	// none matches.
+	FindByExternalShipmentID(ctx context.Context, externalShipmentID string) (*Shipment, error)
 	// FindBySalesOrderID returns every shipment created for a SalesOrder,
 	// newest first -- normally one, but nothing stops staff from creating a
 	// second after a failed/lost first attempt.

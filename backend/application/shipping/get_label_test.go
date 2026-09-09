@@ -15,7 +15,7 @@ import (
 )
 
 func TestGetShipmentLabel_fetchesInShipmentsOwnFormat(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", MyParcelShipmentID: 555, LabelFormat: shippingDomain.LabelFormatZPL}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", ExternalShipmentID: "555", LabelFormat: shippingDomain.LabelFormatZPL}
 	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(_ context.Context, _ string) (*shippingDomain.Shipment, error) { return shipment, nil }}
 
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
@@ -24,19 +24,19 @@ func TestGetShipmentLabel_fetchesInShipmentsOwnFormat(t *testing.T) {
 		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) { return nil, nil },
 	}
 
-	var gotID int64
+	var gotID string
 	var gotFormat, gotSize string
-	client := &fakeMyParcelClient{getLabelFn: func(_ context.Context, id int64, format, size string) (integrationsDomain.LabelResult, error) {
+	client := &fakeCarrierClient{getLabelFn: func(_ context.Context, id string, format, size string) (integrationsDomain.LabelResult, error) {
 		gotID, gotFormat, gotSize = id, format, size
 		return integrationsDomain.LabelResult{Data: []byte("^XA^XZ"), ContentType: "application/vnd.shipment_label+zpl"}, nil
 	}}
 
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret)
 
 	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "")
 
 	require.NoError(t, err)
-	assert.Equal(t, int64(555), gotID)
+	assert.Equal(t, "555", gotID)
 	assert.Equal(t, "zpl", gotFormat)
 	assert.Equal(t, "A4", gotSize, "falls back to LabelSizeA4 when no size requested and no connection default configured")
 	assert.Equal(t, []byte("^XA^XZ"), result.Data)
@@ -46,7 +46,7 @@ func TestGetShipmentLabel_fetchesInShipmentsOwnFormat(t *testing.T) {
 // per-print size request (the A6 print-time option) overrides the
 // connection's own DefaultLabelSize, not the other way around.
 func TestGetShipmentLabel_explicitSizeWinsOverConnectionDefault(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", MyParcelShipmentID: 555, LabelFormat: shippingDomain.LabelFormatPDF}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", ExternalShipmentID: "555", LabelFormat: shippingDomain.LabelFormatPDF}
 	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(_ context.Context, _ string) (*shippingDomain.Shipment, error) { return shipment, nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
@@ -56,12 +56,12 @@ func TestGetShipmentLabel_explicitSizeWinsOverConnectionDefault(t *testing.T) {
 		},
 	}
 	var gotSize string
-	client := &fakeMyParcelClient{getLabelFn: func(_ context.Context, _ int64, _, size string) (integrationsDomain.LabelResult, error) {
+	client := &fakeCarrierClient{getLabelFn: func(_ context.Context, _, _, size string) (integrationsDomain.LabelResult, error) {
 		gotSize = size
 		return integrationsDomain.LabelResult{}, nil
 	}}
 
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret)
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "A6")
 
 	require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestGetShipmentLabel_explicitSizeWinsOverConnectionDefault(t *testing.T) {
 // empty size request falls back to the connection's own configured default
 // (the "configurable" part of the A6 feature), not always A4.
 func TestGetShipmentLabel_noExplicitSizeFallsBackToConnectionDefault(t *testing.T) {
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", MyParcelShipmentID: 555, LabelFormat: shippingDomain.LabelFormatPDF}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", ExternalShipmentID: "555", LabelFormat: shippingDomain.LabelFormatPDF}
 	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(_ context.Context, _ string) (*shippingDomain.Shipment, error) { return shipment, nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
@@ -82,12 +82,12 @@ func TestGetShipmentLabel_noExplicitSizeFallsBackToConnectionDefault(t *testing.
 		},
 	}
 	var gotSize string
-	client := &fakeMyParcelClient{getLabelFn: func(_ context.Context, _ int64, _, size string) (integrationsDomain.LabelResult, error) {
+	client := &fakeCarrierClient{getLabelFn: func(_ context.Context, _, _, size string) (integrationsDomain.LabelResult, error) {
 		gotSize = size
 		return integrationsDomain.LabelResult{}, nil
 	}}
 
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeMyParcelClientFactory{client: client}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret)
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "")
 
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestGetShipmentLabel_shipmentNotFound_propagatesError(t *testing.T) {
 	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(_ context.Context, _ string) (*shippingDomain.Shipment, error) {
 		return nil, shippingDomain.ErrShipmentNotFound
 	}}
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{}, &fakeMyParcelClientFactory{}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{}, &fakeCarrierClientFactory{}, testEncSecret)
 
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "missing", "")
 

@@ -94,7 +94,7 @@ type CreateShipmentUseCase struct {
 	settingsRepo       shippingDomain.ShippingConnectionSettingsRepository
 	overrideRepo       shippingDomain.ShippingCarrierOverrideRepository
 	shipmentRepo       shippingDomain.ShipmentRepository
-	myParcelFactory    integrationsDomain.MyParcelClientFactory
+	carrierFactory     integrationsDomain.CarrierClientFactory
 	encSecret          string
 	recordActivity     recordActivityUC
 	tenantSettingsRepo settingsDomain.Repository
@@ -110,7 +110,7 @@ func NewCreateShipmentUseCase(
 	settingsRepo shippingDomain.ShippingConnectionSettingsRepository,
 	overrideRepo shippingDomain.ShippingCarrierOverrideRepository,
 	shipmentRepo shippingDomain.ShipmentRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 	recordActivity recordActivityUC,
 	tenantSettingsRepo settingsDomain.Repository,
@@ -121,7 +121,7 @@ func NewCreateShipmentUseCase(
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
-		shipmentRepo: shipmentRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		shipmentRepo: shipmentRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo, salesOrderRepo: salesOrderRepo,
 		orderExporter: orderExporter, lineItemRepo: lineItemRepo, skuRepo: skuRepo,
 	}
@@ -237,21 +237,21 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: build client: %w", err)
 	}
 
-	result, err := client.CreateShipment(ctx, integrationsDomain.CreateShipmentInput{
-		Recipient: integrationsDomain.MyParcelAddress{
+	result, err := client.CreateShipment(ctx, integrationsDomain.CreateCarrierShipmentRequest{
+		Recipient: integrationsDomain.CarrierAddress{
 			Person: r.Person, Company: r.Company, Street: r.Street, Number: r.Number, NumberSuffix: r.NumberSuffix,
 			PostalCode: r.PostalCode, City: r.City, CC: r.CC, Email: r.Email, Phone: r.Phone,
 		},
 		Carrier: int(in.Carrier),
-		Options: integrationsDomain.MyParcelShipmentOptions{
+		Options: integrationsDomain.CarrierShipmentOptions{
 			PackageType: int(resolved.PackageType), SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
-			InsuranceAmountMinorEUR: insuranceAmount,
-			Currency:                tenantSettings.DefaultCurrency,
+			InsuranceAmountMinorUnits: insuranceAmount,
+			Currency:                  tenantSettings.DefaultCurrency,
 		},
 		OrderReference: in.SalesOrderID,
 		WeightGrams:    weightGrams,
@@ -263,7 +263,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 
 	shipment := shippingDomain.Shipment{
 		SalesOrderID: in.SalesOrderID, ConnectionID: in.ConnectionID,
-		Carrier: in.Carrier, MyParcelShipmentID: result.ShipmentID, Barcode: result.Barcode,
+		Carrier: in.Carrier, ExternalShipmentID: result.ExternalShipmentID, Barcode: result.Barcode,
 		Status: 0, StatusMain: "registered", LabelFormat: resolved.LabelFormat,
 		PackageType: resolved.PackageType, SignatureRequired: resolved.SignatureRequired, OnlyRecipient: resolved.OnlyRecipient,
 		InsuranceAmountMinorEUR: insuranceAmount,

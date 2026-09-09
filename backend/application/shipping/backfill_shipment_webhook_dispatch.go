@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -82,7 +83,7 @@ type shipmentWebhookDispatcher struct {
 	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
 	connRepo         integrationsDomain.ConnectionRepository
 	salesOrderRepo   omsDomain.SalesOrderRepository
-	myParcelFactory  integrationsDomain.MyParcelClientFactory
+	carrierFactory   integrationsDomain.CarrierClientFactory
 	encSecret        string
 	// updateSalesOrder may be nil (a deployment that hasn't wired it, or a
 	// caller like BackfillShipmentWebhookDispatchUseCase's cmd binary that
@@ -151,7 +152,7 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 	var shipment shippingDomain.Shipment
 	var conn integrationsDomain.Connection
 	err := tenant.WithTenant(ctx, d.db, func(ctx context.Context) error {
-		s, err := d.shipmentRepo.FindByMyParcelShipmentID(ctx, myParcelShipmentID)
+		s, err := d.shipmentRepo.FindByExternalShipmentID(ctx, strconv.FormatInt(myParcelShipmentID, 10))
 		if err != nil {
 			return err
 		}
@@ -174,11 +175,11 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 	if err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("decrypt api key: %w", err)}
 	}
-	client, err := d.myParcelFactory.NewClient(apiKey)
+	client, err := d.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("build client: %w", err)}
 	}
-	tt, err := client.GetTrackTrace(ctx, myParcelShipmentID)
+	tt, err := client.GetTrackTrace(ctx, strconv.FormatInt(myParcelShipmentID, 10))
 	if err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("get tracktrace: %w", err)}
 	}
@@ -241,14 +242,14 @@ func NewBackfillShipmentWebhookDispatchUseCase(
 	statusEventRepo shippingDomain.ShipmentStatusEventRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	salesOrderRepo omsDomain.SalesOrderRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 	updateSalesOrder SalesOrderStatusUpdater,
 	whatsappNotifier ShipmentDeliveryNotifier,
 ) *BackfillShipmentWebhookDispatchUseCase {
 	return &BackfillShipmentWebhookDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
 		db: db, webhookEventRepo: webhookEventRepo, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo,
-		connRepo: connRepo, salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		connRepo: connRepo, salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}}
 }

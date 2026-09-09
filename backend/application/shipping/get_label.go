@@ -17,12 +17,12 @@ import (
 // pdf/zpl, fixed at creation) -- the frontend's ShippingLabelPrintView
 // renders whatever comes back.
 type GetShipmentLabelUseCase struct {
-	db              *gorm.DB
-	shipmentRepo    shippingDomain.ShipmentRepository
-	connRepo        integrationsDomain.ConnectionRepository
-	settingsRepo    shippingDomain.ShippingConnectionSettingsRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
-	encSecret       string
+	db             *gorm.DB
+	shipmentRepo   shippingDomain.ShipmentRepository
+	connRepo       integrationsDomain.ConnectionRepository
+	settingsRepo   shippingDomain.ShippingConnectionSettingsRepository
+	carrierFactory integrationsDomain.CarrierClientFactory
+	encSecret      string
 }
 
 func NewGetShipmentLabelUseCase(
@@ -30,12 +30,12 @@ func NewGetShipmentLabelUseCase(
 	shipmentRepo shippingDomain.ShipmentRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	settingsRepo shippingDomain.ShippingConnectionSettingsRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 ) *GetShipmentLabelUseCase {
 	return &GetShipmentLabelUseCase{
 		db: db, shipmentRepo: shipmentRepo, connRepo: connRepo, settingsRepo: settingsRepo,
-		myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		carrierFactory: carrierFactory, encSecret: encryptionSecret,
 	}
 }
 
@@ -78,12 +78,12 @@ func (uc *GetShipmentLabelUseCase) Execute(ctx context.Context, shipmentID, size
 	if err != nil {
 		return nil, fmt.Errorf("getShipmentLabel: decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("getShipmentLabel: build client: %w", err)
 	}
 
-	label, err := client.GetLabel(ctx, shipment.MyParcelShipmentID, shipment.LabelFormat, size)
+	label, err := client.GetLabel(ctx, shipment.ExternalShipmentID, shipment.LabelFormat, size)
 	if err != nil {
 		return nil, fmt.Errorf("getShipmentLabel: %w", err)
 	}

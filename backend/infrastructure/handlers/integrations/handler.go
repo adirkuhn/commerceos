@@ -604,7 +604,7 @@ func Register(
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
-		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, retryablePaymentHandlers),
+		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewCarrierClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, retryablePaymentHandlers),
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 	)

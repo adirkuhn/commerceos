@@ -20,10 +20,10 @@ func TestCancelShipment_myParcelDeletesSuccessfully_marksCancelledLocally(t *tes
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
 
-	shipment := shippingDomain.Shipment{ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", MyParcelShipmentID: 555}
-	var gotDeleteID int64
-	client := &fakeMyParcelClient{
-		deleteShipmentFn: func(_ context.Context, id int64) error {
+	shipment := shippingDomain.Shipment{ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", ExternalShipmentID: "555"}
+	var gotDeleteID string
+	client := &fakeCarrierClient{
+		cancelShipmentFn: func(_ context.Context, id string) error {
 			gotDeleteID = id
 			return nil
 		},
@@ -39,13 +39,13 @@ func TestCancelShipment_myParcelDeletesSuccessfully_marksCancelledLocally(t *tes
 	}
 
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 2), connRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
 
 	require.NoError(t, err)
-	assert.Equal(t, int64(555), gotDeleteID)
+	assert.Equal(t, "555", gotDeleteID)
 	assert.True(t, result.DeletedOnMyParcel)
 	assert.Contains(t, result.Message, "deleted on MyParcel")
 	assert.Equal(t, "shipment-1", markedID)
@@ -56,9 +56,9 @@ func TestCancelShipment_myParcelRejectsDelete_stillCancelsLocallyAndInformsCalle
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
 
-	shipment := shippingDomain.Shipment{ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", MyParcelShipmentID: 555}
-	client := &fakeMyParcelClient{
-		deleteShipmentFn: func(_ context.Context, _ int64) error {
+	shipment := shippingDomain.Shipment{ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", ExternalShipmentID: "555"}
+	client := &fakeCarrierClient{
+		cancelShipmentFn: func(_ context.Context, _ string) error {
 			return &myParcelAPIError{statusCode: 422, body: "Shipment cannot be deleted"}
 		},
 	}
@@ -72,7 +72,7 @@ func TestCancelShipment_myParcelRejectsDelete_stillCancelsLocallyAndInformsCalle
 	}
 
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 2), connRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
@@ -90,12 +90,12 @@ func TestCancelShipment_alreadyCancelled_isIdempotentAndDoesNotCallMyParcelAgain
 
 	cancelledAt := time.Now()
 	shipment := shippingDomain.Shipment{
-		ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", MyParcelShipmentID: 555,
+		ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", ExternalShipmentID: "555",
 		CancelledAt: &cancelledAt, CancelNote: "Shipment deleted on MyParcel.",
 	}
 	deleteCalled := false
-	client := &fakeMyParcelClient{
-		deleteShipmentFn: func(_ context.Context, _ int64) error {
+	client := &fakeCarrierClient{
+		cancelShipmentFn: func(_ context.Context, _ string) error {
 			deleteCalled = true
 			return nil
 		},
@@ -105,7 +105,7 @@ func TestCancelShipment_alreadyCancelled_isIdempotentAndDoesNotCallMyParcelAgain
 	}
 
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 1), connRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	result, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
@@ -123,7 +123,7 @@ func TestCancelShipment_shipmentNotFound_returnsError(t *testing.T) {
 		},
 	}
 	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 1), connRepo, shipmentRepo,
-		&fakeMyParcelClientFactory{}, testEncSecret, &fakeRecordActivity{})
+		&fakeCarrierClientFactory{}, testEncSecret, &fakeRecordActivity{})
 
 	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
 	_, err := uc.Execute(ctx, appshipping.CancelShipmentInput{ShipmentID: "missing"})

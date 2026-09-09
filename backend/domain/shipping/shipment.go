@@ -135,12 +135,19 @@ var (
 // step (frontend), and this is what actually gets submitted to MyParcel and
 // printed on the label.
 type Shipment struct {
-	ID                 string
-	TenantID           string
-	SalesOrderID       string
-	ConnectionID       string
-	Carrier            Carrier
-	MyParcelShipmentID int64
+	ID           string
+	TenantID     string
+	SalesOrderID string
+	ConnectionID string
+	Carrier      Carrier
+	// ExternalShipmentID is this shipment's id on whichever carrier/aggregator
+	// created it -- a plain string (not MyParcel's own int64) since a second
+	// carrier's id format isn't guaranteed numeric. The MyParcel adapter
+	// (infrastructure/myparcel.CarrierAdapter) converts to/from MyParcel's
+	// own int64 shipment id at its own boundary; nothing above
+	// domain/integrations.CarrierClient ever sees that type. See migration
+	// 160_shipments_external_shipment_id.sql.
+	ExternalShipmentID string
 	Barcode            string
 	// Status/StatusMain hold only the latest known state -- see
 	// ShipmentStatusEvent for the full history. TrackingURL likewise holds

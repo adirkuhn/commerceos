@@ -27,7 +27,7 @@ type shippingConnectionSettingsModel struct {
 	// default namer splits "MyParcel" into two words ("my_parcel_..."),
 	// but migration 096/111 named these columns "myparcel_..." (matching
 	// this codebase's other MyParcel-prefixed names, e.g.
-	// ShipmentRepo's MyParcelShipmentID `gorm:"column:myparcel_shipment_id"`)
+	// ShipmentRepo's ExternalShipmentID `gorm:"column:external_shipment_id"`)
 	// -- without the tag, Upsert fails with "column my_parcel_account_id
 	// does not exist" (caught 2026-08-27).
 	MyParcelAccountID     *int `gorm:"column:myparcel_account_id"`
@@ -112,10 +112,10 @@ func (r *ShippingConnectionSettingsRepo) Upsert(ctx context.Context, s *shipping
 // --- ShippingCarrierOverride ---
 
 type shippingCarrierOverrideModel struct {
-	ID                string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID          string `gorm:"not null;type:uuid"`
-	ConnectionID      string `gorm:"not null;type:uuid"`
-	Carrier           int
+	ID                  string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID            string `gorm:"not null;type:uuid"`
+	ConnectionID        string `gorm:"not null;type:uuid"`
+	Carrier             int
 	PackageType         *int
 	SignatureRequired   *bool
 	OnlyRecipient       *bool

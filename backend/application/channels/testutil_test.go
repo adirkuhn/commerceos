@@ -471,7 +471,7 @@ func (s *stubShipmentRepo) Create(_ context.Context, _ *shippingDomain.Shipment)
 func (s *stubShipmentRepo) FindByID(_ context.Context, _ string) (*shippingDomain.Shipment, error) {
 	return nil, shippingDomain.ErrShipmentNotFound
 }
-func (s *stubShipmentRepo) FindByMyParcelShipmentID(_ context.Context, _ int64) (*shippingDomain.Shipment, error) {
+func (s *stubShipmentRepo) FindByExternalShipmentID(_ context.Context, _ string) (*shippingDomain.Shipment, error) {
 	return nil, shippingDomain.ErrShipmentNotFound
 }
 func (s *stubShipmentRepo) FindBySalesOrderID(_ context.Context, salesOrderID string) ([]shippingDomain.Shipment, error) {

@@ -45,26 +45,26 @@ type CancelShipmentResult struct {
 // staff know a wrong-carrier label might still exist/trigger tracking
 // events on MyParcel's side.
 type CancelShipmentUseCase struct {
-	db              *gorm.DB
-	connRepo        integrationsDomain.ConnectionRepository
-	shipmentRepo    shippingDomain.ShipmentRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
-	encSecret       string
-	recordActivity  recordActivityUC
-	now             func() time.Time
+	db             *gorm.DB
+	connRepo       integrationsDomain.ConnectionRepository
+	shipmentRepo   shippingDomain.ShipmentRepository
+	carrierFactory integrationsDomain.CarrierClientFactory
+	encSecret      string
+	recordActivity recordActivityUC
+	now            func() time.Time
 }
 
 func NewCancelShipmentUseCase(
 	db *gorm.DB,
 	connRepo integrationsDomain.ConnectionRepository,
 	shipmentRepo shippingDomain.ShipmentRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 	recordActivity recordActivityUC,
 ) *CancelShipmentUseCase {
 	return &CancelShipmentUseCase{
 		db: db, connRepo: connRepo, shipmentRepo: shipmentRepo,
-		myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		recordActivity: recordActivity, now: time.Now,
 	}
 }
@@ -97,12 +97,12 @@ func (uc *CancelShipmentUseCase) Execute(ctx context.Context, in CancelShipmentI
 	if err != nil {
 		return nil, fmt.Errorf("cancelShipment: decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("cancelShipment: build client: %w", err)
 	}
 
-	deleteErr := client.DeleteShipment(ctx, shipment.MyParcelShipmentID)
+	deleteErr := client.CancelShipment(ctx, shipment.ExternalShipmentID)
 	result := &CancelShipmentResult{}
 	if deleteErr == nil {
 		result.DeletedOnMyParcel = true

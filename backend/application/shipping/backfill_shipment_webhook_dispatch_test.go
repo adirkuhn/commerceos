@@ -27,21 +27,21 @@ func TestBackfillShipmentWebhookDispatch_appliesChangedStatus(t *testing.T) {
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 3),
 	}}
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
-		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		findByExternalShipmentIDFn: func(_ context.Context, id string) (*shippingDomain.Shipment, error) { return shipment, nil },
 		updateStatusFn:             func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
 	}}
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
+		&fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -57,15 +57,15 @@ func TestBackfillShipmentWebhookDispatch_fulfilledOrder_movesOrderToShipped(t *t
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 3),
 	}}
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
-		findByMyParcelShipmentIDFn: func(_ context.Context, id int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		findByExternalShipmentIDFn: func(_ context.Context, id string) (*shippingDomain.Shipment, error) { return shipment, nil },
 		updateStatusFn:             func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
 	}}
 	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
@@ -76,7 +76,7 @@ func TestBackfillShipmentWebhookDispatch_fulfilledOrder_movesOrderToShipped(t *t
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, updater, nil)
+		&fakeCarrierClientFactory{client: client}, testEncSecret, updater, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -91,13 +91,13 @@ func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testi
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 3),
 	}}
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 3, StatusMain: "shipped", Barcode: "3SMYPA1"}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Status: 3, StatusMain: "shipped", Barcode: "3SMYPA1"}
 	shipmentRepo := &fakeShipmentRepo{
-		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		findByExternalShipmentIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil },
 	}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil // already what's recorded
 	}}
 	// Barcode also already matches the payload's -- genuinely nothing new,
@@ -109,7 +109,7 @@ func TestBackfillShipmentWebhookDispatch_skipsWhenStatusAlreadyRecorded(t *testi
 	}}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, &fakeSalesOrderRepo{},
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
+		&fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -129,11 +129,11 @@ func TestBackfillShipmentWebhookDispatch_statusUnchangedButBarcodeMissing_backfi
 	// earlier webhook, but never got a barcode (e.g. it was created before
 	// this code tracked one) -- retrying/backfilling this webhook must still
 	// pick up the barcode even though the status itself hasn't changed.
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 4, StatusMain: "enroute", Barcode: ""}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Status: 4, StatusMain: "enroute", Barcode: ""}
 	var updateCalls int
 	var savedBarcode string
 	shipmentRepo := &fakeShipmentRepo{
-		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		findByExternalShipmentIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil },
 		updateStatusFn: func(_ context.Context, _ string, _ int, _ string, _ string, barcode string) error {
 			updateCalls++
 			savedBarcode = barcode
@@ -142,7 +142,7 @@ func TestBackfillShipmentWebhookDispatch_statusUnchangedButBarcodeMissing_backfi
 	}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{StatusCode: 4, StatusMain: "enroute"}, nil // same as already recorded
 	}}
 	appendCalled := false
@@ -152,7 +152,7 @@ func TestBackfillShipmentWebhookDispatch_statusUnchangedButBarcodeMissing_backfi
 	}}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, &fakeSalesOrderRepo{},
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
+		&fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -168,23 +168,23 @@ func TestBackfillShipmentWebhookDispatch_multipleEventsSameShipment_fetchesTrack
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 2),
 		myParcelHookEvent("evt-row-2", "evt-2", 555, 3),
 	}}
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555, Status: 1, StatusMain: "registered"}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555", Status: 1, StatusMain: "registered"}
 	shipmentRepo := &fakeShipmentRepo{
-		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil },
+		findByExternalShipmentIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil },
 		updateStatusFn:             func(context.Context, string, int, string, string, string) error { return nil },
 	}
 	statusEventRepo := &fakeShipmentStatusEventRepo{appendFn: func(context.Context, *shippingDomain.ShipmentStatusEvent) error { return nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
 	trackTraceCalls := 0
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		trackTraceCalls++
 		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "shipped"}, nil
 	}}
 	salesOrderRepo := &fakeSalesOrderRepo{updateFn: func(context.Context, string, map[string]any) error { return nil }}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
+		&fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -201,12 +201,12 @@ func TestBackfillShipmentWebhookDispatch_unknownShipment_skipsAndMarksProcessed(
 		myParcelHookEvent("evt-row-1", "evt-1", 999, 2),
 	}}
 	shipmentRepo := &fakeShipmentRepo{
-		findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) {
+		findByExternalShipmentIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) {
 			return nil, shippingDomain.ErrShipmentNotFound
 		},
 	}
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -220,16 +220,16 @@ func TestBackfillShipmentWebhookDispatch_providerFetchFails_marksEventFailed(t *
 	eventRepo := &fakeWebhookEventRepoForBackfill{events: []webhooksDomain.WebhookEvent{
 		myParcelHookEvent("evt-row-1", "evt-1", 555, 2),
 	}}
-	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", MyParcelShipmentID: 555}
-	shipmentRepo := &fakeShipmentRepo{findByMyParcelShipmentIDFn: func(context.Context, int64) (*shippingDomain.Shipment, error) { return shipment, nil }}
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", SalesOrderID: "order-1", ExternalShipmentID: "555"}
+	shipmentRepo := &fakeShipmentRepo{findByExternalShipmentIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil }}
 	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	client := &fakeMyParcelClient{getTrackTraceFn: func(context.Context, int64) (integrationsDomain.TrackTraceResult, error) {
+	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{}, errors.New("myparcel unreachable")
 	}}
 
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, &fakeShipmentStatusEventRepo{},
-		connRepo, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{client: client}, testEncSecret, nil, nil)
+		connRepo, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 
@@ -246,7 +246,7 @@ func TestBackfillShipmentWebhookDispatch_ignoresAlreadyProcessedAndOtherTopics(t
 		{ID: "evt-row-2", Provider: "myparcel", Topic: "shop_updated", EventID: "evt-2", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusReceived},
 	}}
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(newMockGormDB(t, 10), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeMyParcelClientFactory{}, testEncSecret, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil)
 
 	result, err := uc.Execute(context.Background())
 

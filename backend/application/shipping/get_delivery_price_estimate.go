@@ -32,14 +32,14 @@ type GetDeliveryPriceEstimateInput struct {
 // why every other country is rejected here rather than sent upstream.
 // Read-only: no persistence, no outbox, this never changes any state.
 type GetDeliveryPriceEstimateUseCase struct {
-	db              *gorm.DB
-	connRepo        integrationsDomain.ConnectionRepository
-	myParcelFactory integrationsDomain.MyParcelClientFactory
-	encSecret       string
+	db             *gorm.DB
+	connRepo       integrationsDomain.ConnectionRepository
+	carrierFactory integrationsDomain.CarrierClientFactory
+	encSecret      string
 }
 
-func NewGetDeliveryPriceEstimateUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, myParcelFactory integrationsDomain.MyParcelClientFactory, encryptionSecret string) *GetDeliveryPriceEstimateUseCase {
-	return &GetDeliveryPriceEstimateUseCase{db: db, connRepo: connRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret}
+func NewGetDeliveryPriceEstimateUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, carrierFactory integrationsDomain.CarrierClientFactory, encryptionSecret string) *GetDeliveryPriceEstimateUseCase {
+	return &GetDeliveryPriceEstimateUseCase{db: db, connRepo: connRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret}
 }
 
 func (uc *GetDeliveryPriceEstimateUseCase) Execute(ctx context.Context, in GetDeliveryPriceEstimateInput) ([]shippingDomain.DeliveryPriceOption, error) {
@@ -65,7 +65,7 @@ func (uc *GetDeliveryPriceEstimateUseCase) Execute(ctx context.Context, in GetDe
 	if err != nil {
 		return nil, fmt.Errorf("getDeliveryPriceEstimate: decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("getDeliveryPriceEstimate: build client: %w", err)
 	}

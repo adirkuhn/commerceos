@@ -253,7 +253,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		db, channelRepo, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(),
 		encryptionSecret, publicBaseURL,
 	)
-	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewClientFactory(), encryptionSecret)
+	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewCarrierClientFactory(), encryptionSecret)
 	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo)
 	getCartRecommendations := appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo)
 	verifyCardPayment := appstorefront.NewVerifyCardPaymentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret)

@@ -54,7 +54,7 @@ func main() {
 	// notifyWhatsAppOnDelivery's docs).
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(
 		db, repositories.NewWebhookEventRepo(db), repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
-		connRepo, repositories.NewSalesOrderRepo(db), myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret, nil, nil,
+		connRepo, repositories.NewSalesOrderRepo(db), myparcel.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret, nil, nil,
 	)
 
 	// ListByTenant has no WHERE tenant_id clause of its own -- under

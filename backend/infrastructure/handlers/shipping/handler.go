@@ -502,6 +502,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	myParcelFactory := myparcel.NewClientFactory()
+	carrierFactory := myparcel.NewCarrierClientFactory()
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	skuRepo := repositories.NewSKURepo(db)
@@ -514,15 +515,15 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo),
-		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, myParcelFactory, encryptionSecret),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo),
+		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, carrierFactory, encryptionSecret),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo, overrideRepo),
 		exportMyParcelOrderUC,
 		appshipping.NewListShipmentTrackingEventsUseCase(db, statusEventRepo),
-		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, myParcelFactory, encryptionSecret),
+		appshipping.NewRefreshShipmentTrackingUseCase(db, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo, carrierFactory, encryptionSecret),
 		appshipping.NewLookupAddressUseCase(pdok.NewClient(pdok.Config{})),
-		appshipping.NewCancelShipmentUseCase(db, connRepo, shipmentRepo, myParcelFactory, encryptionSecret, recordActivity),
-		appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myParcelFactory, encryptionSecret),
+		appshipping.NewCancelShipmentUseCase(db, connRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity),
+		appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, carrierFactory, encryptionSecret),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

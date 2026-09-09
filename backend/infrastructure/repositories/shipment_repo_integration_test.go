@@ -37,7 +37,7 @@ func seedMyParcelConnection(t *testing.T, db *gorm.DB, ctx context.Context) stri
 	return connectionID
 }
 
-func TestShipmentRepo_Integration_CreateFindByIDAndByMyParcelID(t *testing.T) {
+func TestShipmentRepo_Integration_CreateFindByIDAndByExternalShipmentID(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
 	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
@@ -49,7 +49,7 @@ func TestShipmentRepo_Integration_CreateFindByIDAndByMyParcelID(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		created = shippingDomain.Shipment{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
-			Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: 999, Barcode: "3SMYPA1",
+			Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: "999", Barcode: "3SMYPA1",
 			Status: 1, StatusMain: "registered", LabelFormat: shippingDomain.LabelFormatPDF,
 			PackageType:     shippingDomain.PackageTypePackage,
 			RecipientPerson: "Jane Doe", RecipientStreet: "Damrak", RecipientNumber: "1",
@@ -73,14 +73,14 @@ func TestShipmentRepo_Integration_CreateFindByIDAndByMyParcelID(t *testing.T) {
 	var byMPID *shippingDomain.Shipment
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
-		byMPID, err = repo.FindByMyParcelShipmentID(ctx, 999)
+		byMPID, err = repo.FindByExternalShipmentID(ctx, "999")
 		return err
 	})
 	require.NoError(t, err)
 	require.Equal(t, created.ID, byMPID.ID)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		_, err := repo.FindByMyParcelShipmentID(ctx, 424242)
+		_, err := repo.FindByExternalShipmentID(ctx, "424242")
 		return err
 	})
 	require.ErrorIs(t, err, shippingDomain.ErrShipmentNotFound)
@@ -98,7 +98,7 @@ func TestShipmentRepo_Integration_UpdateStatusAndFindStaleNonTerminal(t *testing
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		s := shippingDomain.Shipment{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
-			Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: 1000, Barcode: "3SMYPA2",
+			Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: "1000", Barcode: "3SMYPA2",
 			Status: 1, StatusMain: "registered", LabelFormat: shippingDomain.LabelFormatPDF,
 			RecipientPerson: "P", RecipientStreet: "S", RecipientCity: "C", RecipientCC: "NL",
 		}
@@ -187,7 +187,7 @@ func TestShipmentRepo_Integration_MarkCancelled(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		s := shippingDomain.Shipment{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
-			Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: 5000, Barcode: "3SMYPA5",
+			Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: "5000", Barcode: "3SMYPA5",
 			Status: 1, StatusMain: "registered", LabelFormat: shippingDomain.LabelFormatPDF,
 			RecipientPerson: "P", RecipientStreet: "S", RecipientCity: "C", RecipientCC: "NL",
 		}
@@ -229,7 +229,7 @@ func TestShipmentStatusEventRepo_Integration_Append(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		s := shippingDomain.Shipment{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
-			Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: 2000, Barcode: "3SMYPA3",
+			Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: "2000", Barcode: "3SMYPA3",
 			LabelFormat:     shippingDomain.LabelFormatPDF,
 			RecipientPerson: "P", RecipientStreet: "S", RecipientCity: "C", RecipientCC: "NL",
 		}
@@ -257,18 +257,18 @@ func TestShipmentStatusEventRepo_Integration_ListByShipmentID_newestFirstAndScop
 	var shipmentAID, shipmentBID string
 	now := time.Now()
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		mk := func(mpID int64, barcode string) string {
+		mk := func(externalID string, barcode string) string {
 			s := shippingDomain.Shipment{
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
-				Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: mpID, Barcode: barcode,
+				Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: externalID, Barcode: barcode,
 				LabelFormat: shippingDomain.LabelFormatPDF, RecipientPerson: "P", RecipientStreet: "S",
 				RecipientCity: "C", RecipientCC: "NL",
 			}
 			require.NoError(t, shipmentRepo.Create(ctx, &s))
 			return s.ID
 		}
-		shipmentAID = mk(4001, "3SMYPA-A")
-		shipmentBID = mk(4002, "3SMYPA-B")
+		shipmentAID = mk("4001", "3SMYPA-A")
+		shipmentBID = mk("4002", "3SMYPA-B")
 
 		appendEvent := func(shipmentID string, status int, statusMain, source string, occurredAt time.Time) {
 			e := shippingDomain.ShipmentStatusEvent{
@@ -310,7 +310,7 @@ func TestShipmentRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 	err := tenant.WithTenant(ctxA, db, func(ctx context.Context) error {
 		s := shippingDomain.Shipment{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
-			Carrier: shippingDomain.CarrierPostNL, MyParcelShipmentID: 3000, Barcode: "3SMYPA4",
+			Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: "3000", Barcode: "3SMYPA4",
 			LabelFormat:     shippingDomain.LabelFormatPDF,
 			RecipientPerson: "P", RecipientStreet: "S", RecipientCity: "C", RecipientCC: "NL",
 		}

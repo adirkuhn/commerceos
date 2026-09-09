@@ -18,7 +18,7 @@ type shipmentModel struct {
 	SalesOrderID              string `gorm:"not null;type:uuid"`
 	ConnectionID              string `gorm:"not null;type:uuid"`
 	Carrier                   int
-	MyParcelShipmentID        *int64 `gorm:"column:myparcel_shipment_id"`
+	ExternalShipmentID        *string `gorm:"column:external_shipment_id"`
 	Barcode                   string
 	Status                    int
 	StatusMain                string
@@ -88,18 +88,18 @@ func (r *ShipmentRepo) FindByID(ctx context.Context, id string) (*shippingDomain
 	return toShipmentDomain(m), nil
 }
 
-func (r *ShipmentRepo) FindByMyParcelShipmentID(ctx context.Context, myParcelShipmentID int64) (*shippingDomain.Shipment, error) {
+func (r *ShipmentRepo) FindByExternalShipmentID(ctx context.Context, externalShipmentID string) (*shippingDomain.Shipment, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var m shipmentModel
-	err = tx.Where("myparcel_shipment_id = ?", myParcelShipmentID).First(&m).Error
+	err = tx.Where("external_shipment_id = ?", externalShipmentID).First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, shippingDomain.ErrShipmentNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("shipmentRepo.FindByMyParcelShipmentID: %w", err)
+		return nil, fmt.Errorf("shipmentRepo.FindByExternalShipmentID: %w", err)
 	}
 	return toShipmentDomain(m), nil
 }
@@ -180,13 +180,13 @@ func (r *ShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt
 }
 
 func toShipmentModel(s *shippingDomain.Shipment) shipmentModel {
-	var mpID *int64
-	if s.MyParcelShipmentID != 0 {
-		mpID = &s.MyParcelShipmentID
+	var extID *string
+	if s.ExternalShipmentID != "" {
+		extID = &s.ExternalShipmentID
 	}
 	return shipmentModel{
 		TenantID: s.TenantID, SalesOrderID: s.SalesOrderID, ConnectionID: s.ConnectionID,
-		Carrier: int(s.Carrier), MyParcelShipmentID: mpID, Barcode: s.Barcode,
+		Carrier: int(s.Carrier), ExternalShipmentID: extID, Barcode: s.Barcode,
 		Status: s.Status, StatusMain: s.StatusMain, TrackingURL: s.TrackingURL, LabelFormat: s.LabelFormat,
 		PackageType: int(s.PackageType), SignatureRequired: s.SignatureRequired, OnlyRecipient: s.OnlyRecipient,
 		InsuranceAmountMinorUnits: s.InsuranceAmountMinorEUR,
@@ -199,13 +199,13 @@ func toShipmentModel(s *shippingDomain.Shipment) shipmentModel {
 }
 
 func toShipmentDomain(m shipmentModel) *shippingDomain.Shipment {
-	var mpID int64
-	if m.MyParcelShipmentID != nil {
-		mpID = *m.MyParcelShipmentID
+	var extID string
+	if m.ExternalShipmentID != nil {
+		extID = *m.ExternalShipmentID
 	}
 	return &shippingDomain.Shipment{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, ConnectionID: m.ConnectionID,
-		Carrier: shippingDomain.Carrier(m.Carrier), MyParcelShipmentID: mpID, Barcode: m.Barcode,
+		Carrier: shippingDomain.Carrier(m.Carrier), ExternalShipmentID: extID, Barcode: m.Barcode,
 		Status: m.Status, StatusMain: m.StatusMain, TrackingURL: m.TrackingURL, LabelFormat: m.LabelFormat,
 		PackageType: shippingDomain.PackageType(m.PackageType), SignatureRequired: m.SignatureRequired, OnlyRecipient: m.OnlyRecipient,
 		InsuranceAmountMinorEUR: m.InsuranceAmountMinorUnits,

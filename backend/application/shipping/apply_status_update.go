@@ -15,19 +15,19 @@ import (
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
-// fetchBarcodeIfMissing calls MyParcel's GET /shipments/{id} (the only
-// source for a barcode outside the shipment_status_change webhook payload,
-// which GetTrackTrace/GET-tracktrace never carries -- see
-// domain/integrations.MyParcelClient.GetShipmentBarcode's doc) when the
+// fetchBarcodeIfMissing calls the carrier's "fetch this shipment" endpoint
+// (the only source for a barcode outside the shipment_status_change webhook
+// payload, which GetTrackTrace never carries -- see
+// domain/integrations.CarrierClient.GetShipmentBarcode's doc) when the
 // shipment doesn't already have one -- skipped entirely otherwise, since
 // it's an extra API call for nothing once a shipment already has its
 // barcode. Best-effort: a failure here is logged, not returned -- this is
 // a backfill nicety, it must never fail the poll/refresh it's called from.
-func fetchBarcodeIfMissing(ctx context.Context, client integrationsDomain.MyParcelClient, shipment shippingDomain.Shipment) string {
+func fetchBarcodeIfMissing(ctx context.Context, client integrationsDomain.CarrierClient, shipment shippingDomain.Shipment) string {
 	if shipment.Barcode != "" {
 		return ""
 	}
-	barcode, err := client.GetShipmentBarcode(ctx, shipment.MyParcelShipmentID)
+	barcode, err := client.GetShipmentBarcode(ctx, shipment.ExternalShipmentID)
 	if err != nil {
 		log.Printf("fetchBarcodeIfMissing: shipment %s: %v", shipment.ID, err)
 		return ""

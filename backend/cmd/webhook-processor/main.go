@@ -91,7 +91,7 @@ func main() {
 	shipmentHandler := appshipping.NewHandleShipmentWebhookUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
 		repositories.NewConnectionRepo(db), salesOrderRepo,
-		myparcel.NewClientFactory(), cfg.IntegrationsEncryptionSecret, updateSalesOrder,
+		myparcel.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret, updateSalesOrder,
 		notifyShipmentDeliveryUC,
 	)
 	orderStatusHandler := appshipping.NewHandleOrderStatusWebhookUseCase(

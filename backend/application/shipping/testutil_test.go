@@ -122,6 +122,57 @@ func (f *fakeMyParcelClientFactory) NewClient(apiKey string) (integrationsDomain
 	return f.client, nil
 }
 
+// --- CarrierClient/CarrierClientFactory fakes ---
+
+type fakeCarrierClient struct {
+	createShipmentFn           func(ctx context.Context, in integrationsDomain.CreateCarrierShipmentRequest) (integrationsDomain.CarrierShipmentResult, error)
+	cancelShipmentFn           func(ctx context.Context, externalShipmentID string) error
+	getLabelFn                 func(ctx context.Context, externalShipmentID, format, size string) (integrationsDomain.LabelResult, error)
+	getTrackTraceFn            func(ctx context.Context, externalShipmentID string) (integrationsDomain.TrackTraceResult, error)
+	getShipmentBarcodeFn       func(ctx context.Context, externalShipmentID string) (string, error)
+	getDeliveryPriceEstimateFn func(ctx context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error)
+}
+
+func (f *fakeCarrierClient) CreateShipment(ctx context.Context, in integrationsDomain.CreateCarrierShipmentRequest) (integrationsDomain.CarrierShipmentResult, error) {
+	return f.createShipmentFn(ctx, in)
+}
+func (f *fakeCarrierClient) CancelShipment(ctx context.Context, externalShipmentID string) error {
+	if f.cancelShipmentFn == nil {
+		return nil
+	}
+	return f.cancelShipmentFn(ctx, externalShipmentID)
+}
+func (f *fakeCarrierClient) GetLabel(ctx context.Context, externalShipmentID, format, size string) (integrationsDomain.LabelResult, error) {
+	return f.getLabelFn(ctx, externalShipmentID, format, size)
+}
+func (f *fakeCarrierClient) GetTrackTrace(ctx context.Context, externalShipmentID string) (integrationsDomain.TrackTraceResult, error) {
+	return f.getTrackTraceFn(ctx, externalShipmentID)
+}
+func (f *fakeCarrierClient) GetShipmentBarcode(ctx context.Context, externalShipmentID string) (string, error) {
+	if f.getShipmentBarcodeFn == nil {
+		return "", nil
+	}
+	return f.getShipmentBarcodeFn(ctx, externalShipmentID)
+}
+func (f *fakeCarrierClient) GetDeliveryPriceEstimate(ctx context.Context, in integrationsDomain.DeliveryPriceEstimateInput) ([]integrationsDomain.DeliveryPriceOption, error) {
+	if f.getDeliveryPriceEstimateFn == nil {
+		return nil, nil
+	}
+	return f.getDeliveryPriceEstimateFn(ctx, in)
+}
+
+type fakeCarrierClientFactory struct {
+	client       integrationsDomain.CarrierClient
+	newClientErr error
+}
+
+func (f *fakeCarrierClientFactory) NewClient(apiKey string) (integrationsDomain.CarrierClient, error) {
+	if f.newClientErr != nil {
+		return nil, f.newClientErr
+	}
+	return f.client, nil
+}
+
 // --- ShipmentRepository fake ---
 
 // noExistingShipments is the common fakeShipmentRepo.findBySalesOrderIDFn
@@ -136,7 +187,7 @@ func noExistingShipments(_ context.Context, _ string) ([]shippingDomain.Shipment
 type fakeShipmentRepo struct {
 	createFn                   func(ctx context.Context, s *shippingDomain.Shipment) error
 	findByIDFn                 func(ctx context.Context, id string) (*shippingDomain.Shipment, error)
-	findByMyParcelShipmentIDFn func(ctx context.Context, id int64) (*shippingDomain.Shipment, error)
+	findByExternalShipmentIDFn func(ctx context.Context, id string) (*shippingDomain.Shipment, error)
 	findBySalesOrderIDFn       func(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error)
 	findStaleNonTerminalFn     func(ctx context.Context, olderThan time.Time, limit int) ([]shippingDomain.Shipment, error)
 	updateStatusFn             func(ctx context.Context, id string, status int, statusMain, trackingURL, barcode string) error
@@ -149,8 +200,8 @@ func (f *fakeShipmentRepo) Create(ctx context.Context, s *shippingDomain.Shipmen
 func (f *fakeShipmentRepo) FindByID(ctx context.Context, id string) (*shippingDomain.Shipment, error) {
 	return f.findByIDFn(ctx, id)
 }
-func (f *fakeShipmentRepo) FindByMyParcelShipmentID(ctx context.Context, id int64) (*shippingDomain.Shipment, error) {
-	return f.findByMyParcelShipmentIDFn(ctx, id)
+func (f *fakeShipmentRepo) FindByExternalShipmentID(ctx context.Context, id string) (*shippingDomain.Shipment, error) {
+	return f.findByExternalShipmentIDFn(ctx, id)
 }
 func (f *fakeShipmentRepo) FindBySalesOrderID(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, error) {
 	return f.findBySalesOrderIDFn(ctx, salesOrderID)
@@ -377,6 +428,7 @@ func (f *fakeTenantSettingsRepo) Get(ctx context.Context) (*settingsDomain.Tenan
 func (f *fakeTenantSettingsRepo) Upsert(context.Context, *settingsDomain.TenantSettings) error {
 	return nil
 }
+
 // tenantSettingsRepoWithCurrency is the terse default most CreateShipment
 // tests reach for -- they only care that some currency reaches
 // MyParcelShipmentOptions.Currency, not the exact value; tests asserting

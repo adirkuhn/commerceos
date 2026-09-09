@@ -47,7 +47,7 @@ type ReconcileShipmentsUseCase struct {
 	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
 	connRepo         integrationsDomain.ConnectionRepository
 	salesOrderRepo   omsDomain.SalesOrderRepository
-	myParcelFactory  integrationsDomain.MyParcelClientFactory
+	carrierFactory   integrationsDomain.CarrierClientFactory
 	encSecret        string
 	updateSalesOrder SalesOrderStatusUpdater
 	whatsappNotifier ShipmentDeliveryNotifier
@@ -59,14 +59,14 @@ func NewReconcileShipmentsUseCase(
 	statusEventRepo shippingDomain.ShipmentStatusEventRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	salesOrderRepo omsDomain.SalesOrderRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 	updateSalesOrder SalesOrderStatusUpdater,
 	whatsappNotifier ShipmentDeliveryNotifier,
 ) *ReconcileShipmentsUseCase {
 	return &ReconcileShipmentsUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
-		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}
 }
@@ -105,14 +105,14 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 	if err != nil {
 		return nil, fmt.Errorf("reconcileShipments: decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("reconcileShipments: build client: %w", err)
 	}
 
 	for _, s := range stale {
 		result.Checked++
-		tt, err := client.GetTrackTrace(ctx, s.MyParcelShipmentID)
+		tt, err := client.GetTrackTrace(ctx, s.ExternalShipmentID)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: get tracktrace: %v", s.ID, err))
 			continue

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -53,7 +54,7 @@ type HandleShipmentWebhookUseCase struct {
 	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
 	connRepo         integrationsDomain.ConnectionRepository
 	salesOrderRepo   omsDomain.SalesOrderRepository
-	myParcelFactory  integrationsDomain.MyParcelClientFactory
+	carrierFactory   integrationsDomain.CarrierClientFactory
 	encSecret        string
 	updateSalesOrder SalesOrderStatusUpdater
 	// whatsappNotifier may be nil (deployment hasn't wired WhatsApp yet) --
@@ -67,14 +68,14 @@ func NewHandleShipmentWebhookUseCase(
 	statusEventRepo shippingDomain.ShipmentStatusEventRepository,
 	connRepo integrationsDomain.ConnectionRepository,
 	salesOrderRepo omsDomain.SalesOrderRepository,
-	myParcelFactory integrationsDomain.MyParcelClientFactory,
+	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
 	updateSalesOrder SalesOrderStatusUpdater,
 	whatsappNotifier ShipmentDeliveryNotifier,
 ) *HandleShipmentWebhookUseCase {
 	return &HandleShipmentWebhookUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
-		salesOrderRepo: salesOrderRepo, myParcelFactory: myParcelFactory, encSecret: encryptionSecret,
+		salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
 	}
 }
@@ -98,7 +99,7 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 	var shipment shippingDomain.Shipment
 	var conn integrationsDomain.Connection
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		s, err := uc.shipmentRepo.FindByMyParcelShipmentID(ctx, hook.ShipmentID)
+		s, err := uc.shipmentRepo.FindByExternalShipmentID(ctx, strconv.FormatInt(hook.ShipmentID, 10))
 		if err != nil {
 			return err
 		}
@@ -121,12 +122,12 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 	if err != nil {
 		return fmt.Errorf("decrypt api key: %w", err)
 	}
-	client, err := uc.myParcelFactory.NewClient(apiKey)
+	client, err := uc.carrierFactory.NewClient(apiKey)
 	if err != nil {
 		return fmt.Errorf("build client: %w", err)
 	}
 
-	tt, err := client.GetTrackTrace(ctx, hook.ShipmentID)
+	tt, err := client.GetTrackTrace(ctx, strconv.FormatInt(hook.ShipmentID, 10))
 	if err != nil {
 		return fmt.Errorf("get tracktrace: %w", err)
 	}
