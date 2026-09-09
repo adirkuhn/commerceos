@@ -7,6 +7,8 @@ import { useAuth } from '../auth/AuthContext'
 import { useThemePage } from '../theme/hooks/useThemePage'
 import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
+import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
+import { buildStarterHomeBlocks } from '../theme/starterTemplate'
 import { defaultMobileRect, MOBILE_CANVAS_WIDTH } from '../theme/mobileLayout'
 import { BlockPreview } from '../theme/components/BlockPreview'
 import { BlockPropsPanel } from '../theme/components/BlockPropsPanel'
@@ -54,6 +56,7 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [cssPanelOpen, setCssPanelOpen] = useState(false)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
   const [dirty, setDirty] = useState(false)
   const initializedFor = useRef<string | null>(null)
 
@@ -115,6 +118,18 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
     setDirty(true)
   }
 
+  const applyTemplate = (palette: (typeof THEME_PALETTES)[number]) => {
+    if (blocks.length > 0 && !window.confirm('Replace this page\'s current blocks with the starter template?')) {
+      return
+    }
+    setBlocks(buildStarterHomeBlocks(''))
+    setCustomCss(paletteCustomCSS(palette))
+    selectBlock(null)
+    setCssPanelOpen(false)
+    setDirty(true)
+    setTemplatesOpen(false)
+  }
+
   const handleSave = async () => {
     await save({ canvas_width: canvasWidth, blocks, custom_css: customCss })
     setDirty(false)
@@ -164,6 +179,34 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
               <Smartphone size={14} />
             </button>
           </div>
+          {slug === 'home' && (
+            <div className="relative">
+              <button
+                onClick={() => setTemplatesOpen(o => !o)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                Template
+              </button>
+              {templatesOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                  <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">Starter template + color</p>
+                  {THEME_PALETTES.map(palette => (
+                    <button
+                      key={palette.id}
+                      onClick={() => applyTemplate(palette)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-50"
+                    >
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full border border-gray-200"
+                        style={{ backgroundColor: palette.colors[500] }}
+                      />
+                      {palette.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <button
             onClick={openCssPanel}
             className={clsx(
