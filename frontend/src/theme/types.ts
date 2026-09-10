@@ -90,16 +90,36 @@ export interface Block {
   props: Record<string, unknown>
 }
 
+// EditorMode selects which document storefront-frontend renders a page
+// from -- 'freeform' (this editor's own absolutely-positioned canvas,
+// below) or 'puck' (authored by storefront-frontend's own embedded Puck
+// editor at /edit/:slug -- see ThemeEditorPage's "Edit visually"
+// launcher). Both documents are kept on every row regardless of which is
+// active -- mirrors backend domain/theme.EditorMode.
+export type EditorMode = 'freeform' | 'puck'
+
 export interface ThemePage {
   sales_channel_id: string
   slug: PageSlug
   canvas_width: number
   blocks: Block[]
   custom_css: string
+  editor_mode: EditorMode
+  // Opaque -- this editor never reads/writes its contents, only round-trips
+  // it unchanged on every freeform save so switching modes never loses the
+  // other one's content. See domain/theme.ThemePage.PuckData's doc comment.
+  puck_data?: Record<string, unknown> | null
 }
 
 export interface SaveThemePagePayload {
   canvas_width: number
   blocks: Block[]
   custom_css: string
+  editor_mode: EditorMode
+  puck_data?: Record<string, unknown> | null
+}
+
+export interface EditSession {
+  token: string
+  expires_at: string
 }

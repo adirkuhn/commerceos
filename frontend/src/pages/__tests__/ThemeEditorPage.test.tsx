@@ -13,6 +13,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../theme/api', () => ({
   getThemePage: vi.fn(),
   saveThemePage: vi.fn(),
+  createEditSession: vi.fn(),
 }))
 
 import * as themeApi from '../../theme/api'
@@ -25,7 +26,9 @@ function renderAt(pathname: string) {
   )
 }
 
-const emptyPage: ThemePage = { sales_channel_id: 'chan-1', slug: 'home', canvas_width: 1440, blocks: [], custom_css: '' }
+const emptyPage: ThemePage = {
+  sales_channel_id: 'chan-1', slug: 'home', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform',
+}
 
 const heroPage: ThemePage = {
   sales_channel_id: 'chan-1',
@@ -35,6 +38,7 @@ const heroPage: ThemePage = {
     { id: 'b1', type: 'hero', layout: { desktop: { x: 10, y: 10, width: 300, height: 150 }, mobile: null }, props: { heading: 'Big sale' } },
   ],
   custom_css: '',
+  editor_mode: 'freeform',
 }
 
 beforeEach(() => {
@@ -193,5 +197,67 @@ describe('ThemeEditorPage', () => {
 
     expect(screen.getByTestId('theme-canvas')).toHaveStyle({ width: '390px' })
     expect(screen.getByText('Big sale')).toBeInTheDocument() // falls back to a computed default, still renders
+  })
+
+  it('shows the current editor mode and switches it without needing unsaved changes', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue({ ...heroPage, editor_mode: 'puck' })
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await screen.findByText('Big sale')
+
+    expect(screen.getByRole('button', { name: 'Freeform' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Puck' })).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(screen.getByRole('button', { name: 'Puck' }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.editor_mode).toBe('puck')
+    expect(payload.blocks).toBe(heroPage.blocks)
+    expect(payload.custom_css).toBe(heroPage.custom_css)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Puck' })).toHaveAttribute('aria-pressed', 'true'))
+  })
+
+  it('does not re-save when clicking the already-active mode', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await screen.findByText('Big sale')
+
+    await user.click(screen.getByRole('button', { name: 'Freeform' }))
+
+    expect(themeApi.saveThemePage).not.toHaveBeenCalled()
+  })
+
+  it('"Edit visually" mints an edit session and opens storefront-frontend\'s Puck editor in a new tab', async () => {
+    const user = userEvent.setup()
+    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)
+    vi.mocked(themeApi.createEditSession).mockResolvedValue({ token: 'edit-token-1', expires_at: '2026-01-01T00:00:00Z' })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await screen.findByText('Big sale')
+
+    await user.click(screen.getByRole('button', { name: /Edit visually/ }))
+
+    await waitFor(() => expect(themeApi.createEditSession).toHaveBeenCalledWith('test-token', 'chan-1'))
+    expect(openSpy).toHaveBeenCalledWith('https://shop.test/edit/home?token=edit-token-1', '_blank', 'noopener,noreferrer')
+  })
+
+  it('shows an error when starting a visual edit session fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)
+    vi.mocked(themeApi.createEditSession).mockRejectedValue(new Error('session limit reached'))
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await screen.findByText('Big sale')
+
+    await user.click(screen.getByRole('button', { name: /Edit visually/ }))
+
+    expect(await screen.findByText('session limit reached')).toBeInTheDocument()
   })
 })

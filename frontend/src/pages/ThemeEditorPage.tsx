@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Rnd } from 'react-rnd'
-import { ArrowLeft, Plus, Code, Monitor, Smartphone, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Plus, Code, Monitor, Smartphone, ExternalLink, Wand2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useThemePage } from '../theme/hooks/useThemePage'
@@ -9,13 +9,14 @@ import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { buildStarterHomeBlocks } from '../theme/starterTemplate'
-import { storefrontPreviewURL } from '../theme/storefrontLink'
+import { createEditSession } from '../theme/api'
+import { storefrontEditURL, storefrontPreviewURL } from '../theme/storefrontLink'
 import { defaultMobileRect, MOBILE_CANVAS_WIDTH } from '../theme/mobileLayout'
 import { BlockPreview } from '../theme/components/BlockPreview'
 import { BlockPropsPanel } from '../theme/components/BlockPropsPanel'
 import { CustomCSSPanel } from '../theme/components/CustomCSSPanel'
 import { PAGE_SLUGS, PAGE_SLUG_LABELS, EDITABLE_BLOCK_TYPES, BLOCK_TYPE_LABELS } from '../theme/types'
-import type { Block, PageSlug, Rect } from '../theme/types'
+import type { Block, EditorMode, PageSlug, Rect } from '../theme/types'
 
 const CANVAS_HEIGHT = 900
 type Breakpoint = 'desktop' | 'mobile'
@@ -59,6 +60,8 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [editSessionLoading, setEditSessionLoading] = useState(false)
+  const [editSessionError, setEditSessionError] = useState<string | null>(null)
   const initializedFor = useRef<string | null>(null)
 
   useEffect(() => {
@@ -131,9 +134,49 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
     setTemplatesOpen(false)
   }
 
+  // editorMode is which document the storefront actually renders live --
+  // 'freeform' (this canvas) or 'puck' (storefront-frontend's own
+  // embedded Puck editor, see openVisualEditor). Saving this canvas never
+  // changes it implicitly: a merchant polishing freeform content while
+  // Puck is live must not accidentally flip the storefront back. Only
+  // switchMode changes it, explicitly, round-tripping whichever document
+  // isn't being switched to unchanged (see backend domain/theme.ThemePage's
+  // coexisting-documents doc comment).
+  const editorMode: EditorMode = page?.editor_mode ?? 'freeform'
+
   const handleSave = async () => {
-    await save({ canvas_width: canvasWidth, blocks, custom_css: customCss })
+    await save({ canvas_width: canvasWidth, blocks, custom_css: customCss, editor_mode: editorMode, puck_data: page?.puck_data })
     setDirty(false)
+  }
+
+  const switchMode = async (mode: EditorMode) => {
+    if (mode === editorMode) return
+    await save({ canvas_width: canvasWidth, blocks, custom_css: customCss, editor_mode: mode, puck_data: page?.puck_data })
+    setDirty(false)
+  }
+
+  // openVisualEditor mints a short-lived edit session token (a distinct,
+  // higher-privilege credential from any storefront key -- see backend
+  // application/theme.CreateEditSessionUseCase's own doc comment) and
+  // opens storefront-frontend's embedded Puck editor in a new tab, never
+  // an iframe: the editor needs the real live storefront components and
+  // styling, which only storefront-frontend itself can render.
+  const openVisualEditor = async () => {
+    setEditSessionError(null)
+    setEditSessionLoading(true)
+    try {
+      const session = await createEditSession(token, channelId)
+      const url = storefrontEditURL(slug, session.token)
+      if (!url) {
+        setEditSessionError('Storefront URL is not configured.')
+        return
+      }
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (e) {
+      setEditSessionError(e instanceof Error ? e.message : 'Could not start a visual edit session.')
+    } finally {
+      setEditSessionLoading(false)
+    }
   }
 
   const displayedWidth = breakpoint === 'desktop' ? canvasWidth : MOBILE_CANVAS_WIDTH
@@ -166,6 +209,33 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
         </div>
         <div className="flex items-center gap-3">
           {error && <p className="text-xs text-red-500">{error}</p>}
+          {editSessionError && <p className="text-xs text-red-500">{editSessionError}</p>}
+          <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
+            <button
+              aria-pressed={editorMode === 'freeform'}
+              onClick={() => switchMode('freeform')}
+              title="Storefront renders this canvas's blocks live"
+              className={clsx('rounded-md px-2 py-1 text-xs font-medium transition-colors', editorMode === 'freeform' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
+            >
+              Freeform
+            </button>
+            <button
+              aria-pressed={editorMode === 'puck'}
+              onClick={() => switchMode('puck')}
+              title="Storefront renders the visual (Puck) editor's content live"
+              className={clsx('rounded-md px-2 py-1 text-xs font-medium transition-colors', editorMode === 'puck' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
+            >
+              Puck
+            </button>
+          </div>
+          <button
+            onClick={openVisualEditor}
+            disabled={editSessionLoading}
+            title="Opens storefront-frontend's embedded visual editor in a new tab -- the real live components, true WYSIWYG"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Wand2 size={12} /> {editSessionLoading ? 'Opening…' : 'Edit visually'}
+          </button>
           <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
             <button
               aria-label="Desktop"

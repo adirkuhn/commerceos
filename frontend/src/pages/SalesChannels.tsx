@@ -132,6 +132,7 @@ async function seedStarterTheme(token: string, channel: SalesChannel): Promise<v
       canvas_width: 1440,
       blocks: buildStarterHomeBlocks(channel.name),
       custom_css: paletteCustomCSS(palette),
+      editor_mode: 'freeform',
     })
   } catch {
     // Non-blocking -- see this function's doc comment.

@@ -1,4 +1,4 @@
-import type { APIResponse, PageSlug, SaveThemePagePayload, ThemePage } from './types'
+import type { APIResponse, EditSession, PageSlug, SaveThemePagePayload, ThemePage } from './types'
 
 function base(): string {
   return `${import.meta.env.VITE_API_BASE_URL}/theme`
@@ -32,4 +32,13 @@ export function saveThemePage(
     { method: 'PUT', body: JSON.stringify(payload) },
     token,
   )
+}
+
+// createEditSession mints the short-lived token storefront-frontend's
+// embedded Puck editor (/edit/:slug) authenticates with -- a distinct,
+// higher-privilege credential from a storefront API key, never shown to a
+// shopper (see backend application/theme.CreateEditSessionUseCase's own
+// doc comment).
+export function createEditSession(token: string, channelId: string): Promise<EditSession> {
+  return request<EditSession>(`${base()}/sales-channels/${channelId}/edit-sessions`, { method: 'POST' }, token)
 }

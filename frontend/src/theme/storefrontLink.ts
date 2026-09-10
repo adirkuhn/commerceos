@@ -63,3 +63,17 @@ export function storefrontPreviewURL(channelId: string, slug: PageSlug): string 
   const origin = storefrontOrigin()
   return origin ? `${origin}${storefrontEnterPath(channelId, path)}` : ''
 }
+
+// storefrontEditURL is the full URL the theme editor's "Edit visually"
+// button opens -- storefront-frontend's own embedded Puck editor
+// (/edit/:slug), authenticated with a freshly-minted, short-lived edit
+// session token (see theme/api.createEditSession). Never routed through
+// storefrontEnterPath's public storefront key -- editing is a distinct,
+// higher-privilege credential (see backend
+// application/theme.CreateEditSessionUseCase's own doc comment). ""
+// when the origin can't be computed, same as storefrontVisitURL/
+// storefrontPreviewURL.
+export function storefrontEditURL(slug: PageSlug, sessionToken: string): string {
+  const origin = storefrontOrigin()
+  return origin ? `${origin}/edit/${slug}?token=${encodeURIComponent(sessionToken)}` : ''
+}
