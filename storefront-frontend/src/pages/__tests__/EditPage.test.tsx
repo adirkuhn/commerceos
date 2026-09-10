@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EditPage from '../EditPage'
@@ -21,13 +22,26 @@ vi.mock('../../api/categories', () => ({
 // Real Puck renders a full drag-and-drop editor UI with no simple way to
 // trigger onPublish from a test; capturing the prop directly lets the
 // round-trip test call it exactly as Puck would on a merchant's publish
-// click, without asserting anything about Puck's own internals.
+// click, without asserting anything about Puck's own internals. Also
+// renders overrides.headerActions (EditPage's Save button lives there)
+// and stubs usePuck (Save reads Puck's current in-progress data through
+// it) so its own real component still works when rendered in these tests.
 let capturedOnPublish: ((data: unknown) => void | Promise<void>) | undefined
+let mockPuckData: unknown = { content: [], root: {} }
 vi.mock('@puckeditor/core', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Puck: ({ onPublish }: { onPublish: (data: unknown) => void | Promise<void> }) => {
+  usePuck: () => ({ appState: { data: mockPuckData } }),
+  Puck: ({ onPublish, overrides }: {
+    onPublish: (data: unknown) => void | Promise<void>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    overrides?: { headerActions?: (props: { children: any }) => any }
+  }) => {
     capturedOnPublish = onPublish
-    return <div>puck-editor-marker</div>
+    return (
+      <div>
+        puck-editor-marker
+        {overrides?.headerActions?.({ children: <span>publish-marker</span> })}
+      </div>
+    )
   },
 }))
 
@@ -45,7 +59,10 @@ function renderAt(pathname: string) {
   )
 }
 
-beforeEach(() => { vi.clearAllMocks() })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockPuckData = { content: [], root: {} }
+})
 
 const existingFreeformBlock: Block = {
   id: 'b1', type: 'hero', layout: { desktop: { x: 0, y: 0, width: 100, height: 100 }, mobile: null }, props: {},
@@ -55,6 +72,8 @@ const draftPage: ThemePage = {
   slug: 'home', canvas_width: 1440, blocks: [existingFreeformBlock], custom_css: 'body { color: red; }',
   editor_mode: 'puck', puck_data: { content: [], root: {} }, sales_channel_id: 'channel-1',
 }
+
+const freeformDraftPage: ThemePage = { ...draftPage, editor_mode: 'freeform' }
 
 describe('EditPage', () => {
   it('fetches the draft with the token from the URL, scoped to the slug', async () => {
@@ -115,5 +134,38 @@ describe('EditPage', () => {
       editor_mode: 'puck',
       puck_data: newPuckData,
     })
+  })
+
+  it('Publish always sets editor_mode to puck, even starting from freeform', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(freeformDraftPage)
+    vi.mocked(themeDraftApi.saveThemeDraft).mockResolvedValue(freeformDraftPage)
+
+    renderAt('/edit/home?token=edit-token-1')
+    await screen.findByText('puck-editor-marker')
+
+    await act(async () => { await capturedOnPublish!({ content: [], root: {} }) })
+
+    const [, , payload] = vi.mocked(themeDraftApi.saveThemeDraft).mock.calls[0]
+    expect(payload.editor_mode).toBe('puck')
+  })
+
+  it('shows a Save button that persists the draft without switching editor_mode away from freeform', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(freeformDraftPage)
+    vi.mocked(themeDraftApi.saveThemeDraft).mockResolvedValue(freeformDraftPage)
+    mockPuckData = { content: [{ type: 'Hero' }], root: {} }
+
+    renderAt('/edit/home?token=edit-token-1')
+    await screen.findByText('puck-editor-marker')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(themeDraftApi.saveThemeDraft).toHaveBeenCalledWith('edit-token-1', 'home', {
+      canvas_width: freeformDraftPage.canvas_width,
+      blocks: freeformDraftPage.blocks,
+      custom_css: freeformDraftPage.custom_css,
+      editor_mode: 'freeform',
+      puck_data: mockPuckData,
+    }))
   })
 })
