@@ -63,6 +63,13 @@ export interface ThemePage {
   // Opaque -- see domain/theme.ThemePage.PuckData's doc comment. Only
   // meaningful when editor_mode is 'puck'.
   puck_data?: Record<string, unknown> | null
+  // Only present on the embedded-editor draft response (see
+  // api/themeDraft.ts) -- the public embed (api/theme.ts) never sends
+  // it, a shopper's own key already scopes that request. EditPage uses
+  // it to scope the editor's own live blocks (see
+  // api/client.ts.setStorefrontKey) to the right tenant/channel on this
+  // multi-tenant deployment.
+  sales_channel_id?: string
 }
 
 // Mirrors backend domain/theme.PageSlug.RequiredBlockType: these pages

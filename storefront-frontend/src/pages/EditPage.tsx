@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Puck, type Data } from '@puckeditor/core'
 import '@puckeditor/core/puck.css'
+import { setStorefrontKey } from '../api/client'
 import { getThemeDraft, saveThemeDraft } from '../api/themeDraft'
 import { buildPuckConfig } from '../puck/config'
 import type { PageSlug, ThemePage } from '../types'
@@ -30,7 +31,16 @@ export default function EditPage() {
       return
     }
     getThemeDraft(token, pageSlug)
-      .then(setPage)
+      .then(fetchedPage => {
+        // Scopes the editor's own live blocks (ProductGrid, CartSummary,
+        // CheckoutForm, ...) to this edit session's channel -- api/client.ts's
+        // storefront key is shared per-origin state and this same deployment
+        // serves every tenant, so it must be set fresh on every load rather
+        // than trusting whatever a previous shopper/merchant visit left in
+        // localStorage (see StoreEntry's identical reasoning for shoppers).
+        if (fetchedPage.sales_channel_id) setStorefrontKey(fetchedPage.sales_channel_id)
+        setPage(fetchedPage)
+      })
       .catch((err: Error) => setError(err.message))
   }, [token, pageSlug])
 

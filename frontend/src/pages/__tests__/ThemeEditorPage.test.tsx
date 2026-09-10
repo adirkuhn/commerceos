@@ -245,7 +245,7 @@ describe('ThemeEditorPage', () => {
     await user.click(screen.getByRole('button', { name: /Edit visually/ }))
 
     await waitFor(() => expect(themeApi.createEditSession).toHaveBeenCalledWith('test-token', 'chan-1'))
-    expect(openSpy).toHaveBeenCalledWith('https://shop.test/edit/home?token=edit-token-1', '_blank', 'noopener,noreferrer')
+    expect(openSpy).toHaveBeenCalledWith('https://shop.test/store/edit/home?token=edit-token-1', '_blank', 'noopener,noreferrer')
   })
 
   it('shows an error when starting a visual edit session fails', async () => {

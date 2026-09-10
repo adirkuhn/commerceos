@@ -1301,8 +1301,18 @@ components:
 
     StorefrontThemeDraftPage:
       type: object
-      required: [slug, canvas_width, blocks, custom_css, editor_mode]
+      required: [sales_channel_id, slug, canvas_width, blocks, custom_css, editor_mode]
       properties:
+        sales_channel_id:
+          type: string
+          description: >
+            The edit session's own channel -- lets the embedded Puck
+            editor scope its real, live blocks (product grid, cart,
+            checkout, ...) to the right tenant/channel on this
+            multi-tenant deployment, the same way storefront-frontend's
+            own StoreEntry does for a shopper (the channel's id doubles
+            safely as its own storefront bearer key, see
+            application/apikeys.ResolveAPIKeyUseCase's fallback).
         slug: { $ref: '#/components/schemas/StorefrontPageSlug' }
         canvas_width: { type: integer }
         blocks:

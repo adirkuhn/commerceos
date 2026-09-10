@@ -10,6 +10,10 @@ vi.mock('../../api/themeDraft', () => ({
   saveThemeDraft: vi.fn(),
 }))
 
+vi.mock('../../api/client', () => ({
+  setStorefrontKey: vi.fn(),
+}))
+
 // Real Puck renders a full drag-and-drop editor UI with no simple way to
 // trigger onPublish from a test; capturing the prop directly lets the
 // round-trip test call it exactly as Puck would on a merchant's publish
@@ -24,6 +28,7 @@ vi.mock('@puckeditor/core', () => ({
 }))
 
 import * as themeDraftApi from '../../api/themeDraft'
+import * as clientApi from '../../api/client'
 
 function renderAt(pathname: string) {
   return render(
@@ -43,7 +48,7 @@ const existingFreeformBlock: Block = {
 
 const draftPage: ThemePage = {
   slug: 'home', canvas_width: 1440, blocks: [existingFreeformBlock], custom_css: 'body { color: red; }',
-  editor_mode: 'puck', puck_data: { content: [], root: {} },
+  editor_mode: 'puck', puck_data: { content: [], root: {} }, sales_channel_id: 'channel-1',
 }
 
 describe('EditPage', () => {
@@ -53,6 +58,14 @@ describe('EditPage', () => {
     renderAt('/edit/home?token=edit-token-1')
 
     await waitFor(() => expect(themeDraftApi.getThemeDraft).toHaveBeenCalledWith('edit-token-1', 'home'))
+  })
+
+  it('scopes the storefront key to this edit session\'s channel, so live blocks fetch the right tenant\'s data', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(draftPage)
+
+    renderAt('/edit/home?token=edit-token-1')
+
+    await waitFor(() => expect(clientApi.setStorefrontKey).toHaveBeenCalledWith('channel-1'))
   })
 
   it('shows an explanatory error when opened with no token', async () => {

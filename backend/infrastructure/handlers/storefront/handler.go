@@ -856,7 +856,7 @@ func (h *Handler) GetStorefrontThemeDraft(c *gin.Context, slug genstorefront.Sto
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenStorefrontThemeDraftPage(*page))
+	middleware.OK(c, toGenStorefrontThemeDraftPage(*page, resolved.SalesChannelID))
 }
 
 func (h *Handler) SaveStorefrontThemeDraft(c *gin.Context, slug genstorefront.StorefrontPageSlug) {
@@ -889,16 +889,17 @@ func (h *Handler) SaveStorefrontThemeDraft(c *gin.Context, slug genstorefront.St
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	middleware.OK(c, toGenStorefrontThemeDraftPage(*page))
+	middleware.OK(c, toGenStorefrontThemeDraftPage(*page, resolved.SalesChannelID))
 }
 
-func toGenStorefrontThemeDraftPage(p themeDomain.ThemePage) genstorefront.StorefrontThemeDraftPage {
+func toGenStorefrontThemeDraftPage(p themeDomain.ThemePage, salesChannelID string) genstorefront.StorefrontThemeDraftPage {
 	blocks := make([]genstorefront.StorefrontBlock, len(p.Blocks))
 	for i, b := range p.Blocks {
 		blocks[i] = toGenStorefrontBlock(b)
 	}
 	draft := genstorefront.StorefrontThemeDraftPage{
-		Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS,
+		SalesChannelId: salesChannelID,
+		Slug:           genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS,
 		EditorMode: genstorefront.StorefrontEditorMode(p.EditorMode),
 	}
 	if p.PuckData != nil {

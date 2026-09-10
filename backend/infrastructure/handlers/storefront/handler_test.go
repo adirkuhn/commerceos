@@ -1038,6 +1038,7 @@ func TestGetStorefrontThemeDraftHandler_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"editor_mode":"puck"`)
 	assert.Contains(t, w.Body.String(), `"content"`)
+	assert.Contains(t, w.Body.String(), `"sales_channel_id":"channel-1"`)
 	assert.Equal(t, "edit-token-1", resolveEditSession.gotToken)
 	assert.Equal(t, "channel-1", getThemeDraft.gotChannelID)
 }
@@ -1080,6 +1081,7 @@ func TestSaveStorefrontThemeDraftHandler_success(t *testing.T) {
 	assert.Equal(t, "channel-1", saveThemeDraft.gotInput.SalesChannelID)
 	assert.Equal(t, themeDomain.EditorModePuck, saveThemeDraft.gotInput.EditorMode)
 	assert.Equal(t, map[string]any{"content": []any{"x"}}, saveThemeDraft.gotInput.PuckData)
+	assert.Contains(t, w.Body.String(), `"sales_channel_id":"channel-1"`)
 }
 
 func TestSaveStorefrontThemeDraftHandler_missingBearerIs401(t *testing.T) {

@@ -17,6 +17,12 @@ export function storefrontOrigin(): string {
   }
 }
 
+// STOREFRONT_PATH_PREFIX is where Traefik path-mounts storefront-frontend
+// on storefrontOrigin()'s own domain (PathPrefix(`/store`) + stripprefix,
+// see docker-compose.yml's storefront service) -- every link into it
+// needs this prefix, storefrontOrigin()'s bare origin does not route there.
+const STOREFRONT_PATH_PREFIX = '/store'
+
 // storefrontEnterPath is every internal channel's own storefront entry
 // point -- the channel's own id doubles as its storefront bearer key (see
 // backend application/apikeys.ResolveAPIKeyUseCase's fallback). next, when
@@ -24,7 +30,7 @@ export function storefrontOrigin(): string {
 // remembering the key (defaults to "/", the home page) -- used to preview
 // a specific page instead of always landing on home.
 export function storefrontEnterPath(channelId: string, next?: string): string {
-  const path = `/store/enter/${channelId}`
+  const path = `${STOREFRONT_PATH_PREFIX}/enter/${channelId}`
   return next ? `${path}?next=${encodeURIComponent(next)}` : path
 }
 
@@ -75,5 +81,5 @@ export function storefrontPreviewURL(channelId: string, slug: PageSlug): string 
 // storefrontPreviewURL.
 export function storefrontEditURL(slug: PageSlug, sessionToken: string): string {
   const origin = storefrontOrigin()
-  return origin ? `${origin}/edit/${slug}?token=${encodeURIComponent(sessionToken)}` : ''
+  return origin ? `${origin}${STOREFRONT_PATH_PREFIX}/edit/${slug}?token=${encodeURIComponent(sessionToken)}` : ''
 }
