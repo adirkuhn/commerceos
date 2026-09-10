@@ -13,6 +13,32 @@ import (
 	themeDomain "github.com/adirkuhn/commerceos/domain/theme"
 )
 
+type fakeEditSessionRepo struct {
+	byToken   map[string]themeDomain.EditSession
+	createErr error
+	created   *themeDomain.EditSession
+}
+
+func (f *fakeEditSessionRepo) Create(_ context.Context, s *themeDomain.EditSession) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
+	if f.byToken == nil {
+		f.byToken = map[string]themeDomain.EditSession{}
+	}
+	s.ID = "session-" + s.Token
+	f.byToken[s.Token] = *s
+	f.created = s
+	return nil
+}
+
+func (f *fakeEditSessionRepo) FindByToken(_ context.Context, token string) (*themeDomain.EditSession, error) {
+	if s, ok := f.byToken[token]; ok {
+		return &s, nil
+	}
+	return nil, nil
+}
+
 func newMockGormDB(t *testing.T, n int) *gorm.DB {
 	t.Helper()
 	mockDB, mock, err := sqlmock.New()

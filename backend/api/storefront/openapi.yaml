@@ -645,6 +645,68 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /storefront/v1/theme/draft/pages/{slug}:
+    get:
+      operationId: getStorefrontThemeDraft
+      summary: Fetch one page's full document for editing (embedded Puck editor)
+      description: >
+        Requires `Authorization: Bearer <theme edit session token>` (see
+        application/theme.CreateEditSessionUseCase/ResolveEditSessionUseCase)
+        -- a distinct, higher-privilege credential from the public
+        storefront key getStorefrontTheme uses: this can also write (see
+        the PUT below), and is never shown to a shopper. Unlike
+        getStorefrontTheme, includes editor-only fields (editor_mode,
+        puck_data) since this is what the embedded Puck editor actually
+        edits.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/StorefrontPageSlug' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontThemeDraftPageResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: saveStorefrontThemeDraft
+      summary: Replace one page's whole document (embedded Puck editor save)
+      description: >
+        Same auth as the GET above. Always a full replace, same "rewrite
+        wholesale" convention as the admin Theme Builder's saveThemePage.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/StorefrontPageSlug' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveStorefrontThemeDraftRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontThemeDraftPageResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     CartToken:
@@ -1221,3 +1283,44 @@ components:
       properties:
         data: { $ref: '#/components/schemas/StorefrontThemePage' }
         error: { nullable: true }
+
+    StorefrontEditorMode:
+      type: string
+      description: See domain/theme.EditorMode's doc comment.
+      enum: [freeform, puck]
+
+    StorefrontThemeDraftPage:
+      type: object
+      required: [slug, canvas_width, blocks, custom_css, editor_mode]
+      properties:
+        slug: { $ref: '#/components/schemas/StorefrontPageSlug' }
+        canvas_width: { type: integer }
+        blocks:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontBlock' }
+        custom_css: { type: string }
+        editor_mode: { $ref: '#/components/schemas/StorefrontEditorMode' }
+        puck_data:
+          type: object
+          nullable: true
+          description: Opaque -- see domain/theme.ThemePage.PuckData's doc comment.
+
+    StorefrontThemeDraftPageResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/StorefrontThemeDraftPage' }
+        error: { nullable: true }
+
+    SaveStorefrontThemeDraftRequest:
+      type: object
+      required: [canvas_width, blocks, custom_css]
+      properties:
+        canvas_width: { type: integer }
+        blocks:
+          type: array
+          items: { $ref: '#/components/schemas/StorefrontBlock' }
+        custom_css: { type: string }
+        editor_mode: { $ref: '#/components/schemas/StorefrontEditorMode' }
+        puck_data:
+          type: object
+          nullable: true

@@ -17,3 +17,18 @@ type Repository interface {
 	// comment).
 	Upsert(ctx context.Context, p *ThemePage) error
 }
+
+// EditSessionRepository persists EditSession rows -- scoped to the current
+// tenant via RLS (set by tenant.WithTenant) for Create, and looked up
+// under a super-admin bypass for FindByToken (see
+// application/theme.ResolveEditSessionUseCase's own doc comment on why: a
+// caller presenting a token has no tenant identity yet, that's exactly
+// what a successful resolution establishes -- same cross-tenant-read-by-
+// secret pattern application/apikeys.ResolveAPIKeyUseCase already uses).
+type EditSessionRepository interface {
+	Create(ctx context.Context, s *EditSession) error
+	// FindByToken returns nil, nil (not an error) when no session matches
+	// -- callers treat "no row" and "row exists but expired" identically
+	// (see EditSession.IsExpired), never leaking which to the caller.
+	FindByToken(ctx context.Context, token string) (*EditSession, error)
+}

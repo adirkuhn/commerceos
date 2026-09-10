@@ -76,6 +76,44 @@ func TestSaveThemePage_rejectsInvalidBlockType(t *testing.T) {
 	require.ErrorIs(t, err, themeDomain.ErrInvalidBlockType)
 }
 
+func TestSaveThemePage_defaultsToFreeformEditorMode(t *testing.T) {
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": {ID: "channel-1", Type: channelsDomain.ChannelTypeInternal}}}
+	repo := &fakeThemeRepo{}
+	uc := appTheme.NewSaveThemePageUseCase(newMockGormDB(t, 1), repo, channelRepo)
+
+	page, err := uc.Execute(context.Background(), appTheme.SaveThemePageInput{
+		SalesChannelID: "channel-1", Slug: themeDomain.PageSlugHome, CanvasWidth: 1440,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, themeDomain.EditorModeFreeform, page.EditorMode)
+}
+
+func TestSaveThemePage_savesPuckModeAndData(t *testing.T) {
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": {ID: "channel-1", Type: channelsDomain.ChannelTypeInternal}}}
+	repo := &fakeThemeRepo{}
+	uc := appTheme.NewSaveThemePageUseCase(newMockGormDB(t, 1), repo, channelRepo)
+
+	page, err := uc.Execute(context.Background(), appTheme.SaveThemePageInput{
+		SalesChannelID: "channel-1", Slug: themeDomain.PageSlugHome, CanvasWidth: 1440,
+		EditorMode: themeDomain.EditorModePuck, PuckData: map[string]any{"content": []any{"x"}},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, themeDomain.EditorModePuck, page.EditorMode)
+	require.Equal(t, map[string]any{"content": []any{"x"}}, page.PuckData)
+}
+
+func TestSaveThemePage_rejectsInvalidEditorMode(t *testing.T) {
+	uc := appTheme.NewSaveThemePageUseCase(newMockGormDB(t, 0), &fakeThemeRepo{}, &fakeChannelRepo{})
+
+	_, err := uc.Execute(context.Background(), appTheme.SaveThemePageInput{
+		SalesChannelID: "channel-1", Slug: themeDomain.PageSlugHome, EditorMode: "bogus-mode",
+	})
+
+	require.ErrorIs(t, err, themeDomain.ErrInvalidEditorMode)
+}
+
 func TestSaveThemePage_propagatesUnknownChannel(t *testing.T) {
 	uc := appTheme.NewSaveThemePageUseCase(newMockGormDB(t, 1), &fakeThemeRepo{}, &fakeChannelRepo{})
 

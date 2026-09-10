@@ -158,6 +158,30 @@ func (s PageSlug) RequiredBlockType() (BlockType, bool) {
 	}
 }
 
+// EditorMode selects which document a ThemePage actually renders from --
+// Blocks (ModeFreeform, the absolutely-positioned canvas the rest of this
+// package's doc comments describe) or PuckData (ModePuck, an opaque
+// document authored by storefront-frontend's own embedded Puck editor,
+// which renders the real live storefront components directly -- see
+// PuckData's own doc comment for why). Both documents are kept on every
+// row regardless of which is active: switching modes back and forth never
+// loses the other one's content.
+type EditorMode string
+
+const (
+	EditorModeFreeform EditorMode = "freeform"
+	EditorModePuck     EditorMode = "puck"
+)
+
+func (m EditorMode) Valid() bool {
+	switch m {
+	case EditorModeFreeform, EditorModePuck:
+		return true
+	default:
+		return false
+	}
+}
+
 // ThemePage is one page's whole canvas document for one sales channel --
 // Slug identifies which storefront page this is (see PageSlug).
 // CanvasWidth is the fixed design width every Block's Rect is positioned
@@ -166,6 +190,11 @@ func (s PageSlug) RequiredBlockType() (BlockType, bool) {
 // boundary as CustomHTML's raw markup -- admin-JWT-gated, never shopper
 // input) -- an escape hatch for styling the canvas can't express, not a
 // replacement for it.
+//
+// PuckData is EditorMode Puck's document -- untyped here on purpose, same
+// reason Block.Props is untyped: its shape belongs to storefront-frontend's
+// own Puck component-field configuration, not this domain layer. Only
+// meaningful when EditorMode is Puck; nil otherwise.
 type ThemePage struct {
 	ID             string
 	TenantID       string
@@ -174,6 +203,8 @@ type ThemePage struct {
 	CanvasWidth    int
 	Blocks         []Block
 	CustomCSS      string
+	EditorMode     EditorMode
+	PuckData       map[string]any
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

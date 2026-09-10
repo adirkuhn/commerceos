@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
@@ -57,6 +58,24 @@ func (e BlockType) Valid() bool {
 	case BlockTypeRichText:
 		return true
 	case BlockTypeWishlist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EditorMode.
+const (
+	Freeform EditorMode = "freeform"
+	Puck     EditorMode = "puck"
+)
+
+// Valid indicates whether the value is a known member of the EditorMode enum.
+func (e EditorMode) Valid() bool {
+	switch e {
+	case Freeform:
+		return true
+	case Puck:
 		return true
 	default:
 		return false
@@ -128,6 +147,21 @@ type BlockLayout struct {
 // BlockType product_details/cart_summary/checkout_form/order_status/wishlist are "functional" blocks -- they render real wired-up behavior (the actual add-to-cart control, the actual payment-submitting checkout form), not just presentation. See domain/theme.BlockType.IsFunctional.
 type BlockType string
 
+// EditSession defines model for EditSession.
+type EditSession struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	Token     string    `json:"token"`
+}
+
+// EditSessionResponse defines model for EditSessionResponse.
+type EditSessionResponse struct {
+	Data  *EditSession `json:"data,omitempty"`
+	Error interface{}  `json:"error,omitempty"`
+}
+
+// EditorMode Which document a page actually renders from -- freeform (the absolutely-positioned canvas, in `blocks`) or puck (an opaque document authored by storefront-frontend's own embedded Puck editor, in `puck_data`). Both fields are always present regardless of which is active -- switching modes never loses the other one's content. See domain/theme.EditorMode's doc comment.
+type EditorMode string
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -153,6 +187,10 @@ type SaveThemePageRequest struct {
 	Blocks      []Block `json:"blocks"`
 	CanvasWidth int     `json:"canvas_width"`
 	CustomCss   string  `json:"custom_css"`
+
+	// EditorMode Which document a page actually renders from -- freeform (the absolutely-positioned canvas, in `blocks`) or puck (an opaque document authored by storefront-frontend's own embedded Puck editor, in `puck_data`). Both fields are always present regardless of which is active -- switching modes never loses the other one's content. See domain/theme.EditorMode's doc comment.
+	EditorMode *EditorMode             `json:"editor_mode,omitempty"`
+	PuckData   *map[string]interface{} `json:"puck_data,omitempty"`
 }
 
 // ThemePage defines model for ThemePage.
@@ -161,9 +199,15 @@ type ThemePage struct {
 	CanvasWidth int     `json:"canvas_width"`
 
 	// CustomCss Raw CSS injected as-is into the storefront-frontend's page -- same trust boundary as a custom_html block's raw markup (admin-JWT-gated, never shopper input), just page-scoped instead of block-scoped.
-	CustomCss      string   `json:"custom_css"`
-	SalesChannelId string   `json:"sales_channel_id"`
-	Slug           PageSlug `json:"slug"`
+	CustomCss string `json:"custom_css"`
+
+	// EditorMode Which document a page actually renders from -- freeform (the absolutely-positioned canvas, in `blocks`) or puck (an opaque document authored by storefront-frontend's own embedded Puck editor, in `puck_data`). Both fields are always present regardless of which is active -- switching modes never loses the other one's content. See domain/theme.EditorMode's doc comment.
+	EditorMode EditorMode `json:"editor_mode"`
+
+	// PuckData Opaque to this API -- its shape belongs to storefront-frontend's own Puck component-field configuration. Only meaningful when editor_mode is puck.
+	PuckData       *map[string]interface{} `json:"puck_data,omitempty"`
+	SalesChannelId string                  `json:"sales_channel_id"`
+	Slug           PageSlug                `json:"slug"`
 }
 
 // ThemePageResponse defines model for ThemePageResponse.
@@ -186,6 +230,9 @@ type SaveThemePageJSONRequestBody = SaveThemePageRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// CreateThemeEditSession Mint a short-lived token authorizing storefront-frontend's embedded visual (Puck) editor for one channel
+	// (POST /theme/sales-channels/{channelId}/edit-sessions)
+	CreateThemeEditSession(c *gin.Context, channelId ChannelId)
 	// GetThemePage Fetch one channel's saved canvas document for a page
 	// (GET /theme/sales-channels/{channelId}/pages/{slug})
 	GetThemePage(c *gin.Context, channelId ChannelId, slug PageSlugParam)
@@ -202,6 +249,31 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// CreateThemeEditSession operation middleware
+func (siw *ServerInterfaceWrapper) CreateThemeEditSession(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "channelId" -------------
+	var channelId ChannelId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "channelId", c.Param("channelId"), &channelId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter channelId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateThemeEditSession(c, channelId)
+}
 
 // GetThemePage operation middleware
 func (siw *ServerInterfaceWrapper) GetThemePage(c *gin.Context) {
@@ -300,6 +372,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/theme/sales-channels/:channelId/pages/:slug", wrapper.GetThemePage)
 	router.PUT(options.BaseURL+"/theme/sales-channels/:channelId/pages/:slug", wrapper.SaveThemePage)
+	router.POST(options.BaseURL+"/theme/sales-channels/:channelId/edit-sessions", wrapper.CreateThemeEditSession)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -307,35 +380,43 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"XwEAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

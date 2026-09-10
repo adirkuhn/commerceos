@@ -17,6 +17,12 @@ type SaveThemePageInput struct {
 	CanvasWidth    int
 	Blocks         []themeDomain.Block
 	CustomCSS      string
+	// EditorMode/PuckData default to Freeform/nil when the caller doesn't
+	// set them (the zero value of EditorMode is "", not Freeform -- Execute
+	// treats "" as Freeform explicitly so every existing caller predating
+	// this field keeps saving freeform pages unchanged).
+	EditorMode themeDomain.EditorMode
+	PuckData   map[string]any
 }
 
 type SaveThemePageUseCase struct {
@@ -44,6 +50,13 @@ func (uc *SaveThemePageUseCase) Execute(ctx context.Context, in SaveThemePageInp
 			return nil, fmt.Errorf("saveThemePage: %w", themeDomain.ErrInvalidBlockType)
 		}
 	}
+	editorMode := in.EditorMode
+	if editorMode == "" {
+		editorMode = themeDomain.EditorModeFreeform
+	}
+	if !editorMode.Valid() {
+		return nil, fmt.Errorf("saveThemePage: %w", themeDomain.ErrInvalidEditorMode)
+	}
 
 	var saved *themeDomain.ThemePage
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -53,7 +66,8 @@ func (uc *SaveThemePageUseCase) Execute(ctx context.Context, in SaveThemePageInp
 		now := time.Now()
 		page := themeDomain.ThemePage{
 			TenantID: tenant.IDFromContext(ctx), SalesChannelID: in.SalesChannelID, Slug: in.Slug,
-			CanvasWidth: in.CanvasWidth, Blocks: in.Blocks, CustomCSS: in.CustomCSS, CreatedAt: now, UpdatedAt: now,
+			CanvasWidth: in.CanvasWidth, Blocks: in.Blocks, CustomCSS: in.CustomCSS,
+			EditorMode: editorMode, PuckData: in.PuckData, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := uc.repo.Upsert(ctx, &page); err != nil {
 			return err

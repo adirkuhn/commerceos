@@ -41,7 +41,7 @@ func (uc *GetThemePageUseCase) Execute(ctx context.Context, salesChannelID strin
 			return err
 		}
 		if found == nil {
-			page = &themeDomain.ThemePage{SalesChannelID: salesChannelID, Slug: slug, CanvasWidth: 1440}
+			page = &themeDomain.ThemePage{SalesChannelID: salesChannelID, Slug: slug, CanvasWidth: 1440, EditorMode: themeDomain.EditorModeFreeform}
 			return nil
 		}
 		page = found

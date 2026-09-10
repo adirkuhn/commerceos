@@ -15,7 +15,9 @@ import (
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
+	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
@@ -388,6 +390,61 @@ func (s *stubGetStorefrontTheme) Execute(_ context.Context, channelID, slug stri
 	return &themeDomain.ThemePage{SalesChannelID: channelID, Slug: themeDomain.PageSlug(slug), CanvasWidth: 1440}, nil
 }
 
+type stubResolveEditSession struct {
+	out themeDomain.EditSession
+	err error
+
+	gotToken string
+}
+
+func (s *stubResolveEditSession) Execute(_ context.Context, token string) (themeDomain.EditSession, error) {
+	s.gotToken = token
+	if s.err != nil {
+		return themeDomain.EditSession{}, s.err
+	}
+	return s.out, nil
+}
+
+type stubGetThemeDraft struct {
+	out *themeDomain.ThemePage
+	err error
+
+	gotChannelID string
+	gotSlug      themeDomain.PageSlug
+}
+
+func (s *stubGetThemeDraft) Execute(_ context.Context, channelID string, slug themeDomain.PageSlug) (*themeDomain.ThemePage, error) {
+	s.gotChannelID, s.gotSlug = channelID, slug
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &themeDomain.ThemePage{SalesChannelID: channelID, Slug: slug, CanvasWidth: 1440, EditorMode: themeDomain.EditorModeFreeform}, nil
+}
+
+type stubSaveThemeDraft struct {
+	out *themeDomain.ThemePage
+	err error
+
+	gotInput appTheme.SaveThemePageInput
+}
+
+func (s *stubSaveThemeDraft) Execute(_ context.Context, in appTheme.SaveThemePageInput) (*themeDomain.ThemePage, error) {
+	s.gotInput = in
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &themeDomain.ThemePage{
+		SalesChannelID: in.SalesChannelID, Slug: in.Slug, CanvasWidth: in.CanvasWidth, Blocks: in.Blocks,
+		CustomCSS: in.CustomCSS, EditorMode: in.EditorMode, PuckData: in.PuckData,
+	}, nil
+}
+
 type stubGetShippingOptions struct {
 	out []appstorefront.ShippingOption
 
@@ -419,10 +476,19 @@ func newTestHandler(
 	listAccountOrders := &stubListAccountOrders{}
 	logout := &stubLogout{}
 	createPaymentIntent := &stubCreatePaymentIntent{}
+	resolveEditSession := &stubResolveEditSession{}
+	getThemeDraft := &stubGetThemeDraft{}
+	saveThemeDraft := &stubSaveThemeDraft{}
 	for _, e := range extra {
 		switch v := e.(type) {
 		case *stubGetStorefrontTheme:
 			getTheme = v
+		case *stubResolveEditSession:
+			resolveEditSession = v
+		case *stubGetThemeDraft:
+			getThemeDraft = v
+		case *stubSaveThemeDraft:
+			saveThemeDraft = v
 		case *stubGetShippingOptions:
 			getShippingOptions = v
 		case *stubApplyCoupon:
@@ -458,7 +524,7 @@ func newTestHandler(
 		getTheme, getShippingOptions, applyCoupon, submitReview, listReviews,
 		createWishlist, getWishlist, toggleWishlistItem, getProductRecommendations,
 		requestMagicLink, verifySession, getAccount, listAccountOrders, logout,
-		createPaymentIntent,
+		createPaymentIntent, resolveEditSession, getThemeDraft, saveThemeDraft,
 	)
 }
 
@@ -940,6 +1006,94 @@ func TestGetStorefrontThemeHandler_invalidSlugIs422(t *testing.T) {
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/pages/not-a-real-page", "", "test-key")
 
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestGetStorefrontThemeDraftHandler_success(t *testing.T) {
+	resolveEditSession := &stubResolveEditSession{out: themeDomain.EditSession{TenantID: "tenant-1", SalesChannelID: "channel-1"}}
+	getThemeDraft := &stubGetThemeDraft{out: &themeDomain.ThemePage{
+		SalesChannelID: "channel-1", Slug: themeDomain.PageSlugHome, CanvasWidth: 1440,
+		EditorMode: themeDomain.EditorModePuck, PuckData: map[string]any{"content": []any{"x"}},
+	}}
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, resolveEditSession, getThemeDraft)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/draft/pages/home", "", "edit-token-1")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"editor_mode":"puck"`)
+	assert.Contains(t, w.Body.String(), `"content"`)
+	assert.Equal(t, "edit-token-1", resolveEditSession.gotToken)
+	assert.Equal(t, "channel-1", getThemeDraft.gotChannelID)
+}
+
+func TestGetStorefrontThemeDraftHandler_missingBearerIs401(t *testing.T) {
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/draft/pages/home", "", "")
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetStorefrontThemeDraftHandler_invalidOrExpiredTokenIs401(t *testing.T) {
+	resolveEditSession := &stubResolveEditSession{err: themeDomain.ErrEditSessionNotFound}
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, resolveEditSession)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/draft/pages/home", "", "wrong-token")
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestGetStorefrontThemeDraftHandler_invalidSlugIs422(t *testing.T) {
+	resolveEditSession := &stubResolveEditSession{out: themeDomain.EditSession{TenantID: "tenant-1", SalesChannelID: "channel-1"}}
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, resolveEditSession)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/draft/pages/not-a-real-page", "", "edit-token-1")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestSaveStorefrontThemeDraftHandler_success(t *testing.T) {
+	resolveEditSession := &stubResolveEditSession{out: themeDomain.EditSession{TenantID: "tenant-1", SalesChannelID: "channel-1"}}
+	saveThemeDraft := &stubSaveThemeDraft{}
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, resolveEditSession, saveThemeDraft)
+
+	body := `{"canvas_width":1440,"blocks":[],"custom_css":"","editor_mode":"puck","puck_data":{"content":["x"]}}`
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/theme/draft/pages/home", body, "edit-token-1")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "channel-1", saveThemeDraft.gotInput.SalesChannelID)
+	assert.Equal(t, themeDomain.EditorModePuck, saveThemeDraft.gotInput.EditorMode)
+	assert.Equal(t, map[string]any{"content": []any{"x"}}, saveThemeDraft.gotInput.PuckData)
+}
+
+func TestSaveStorefrontThemeDraftHandler_missingBearerIs401(t *testing.T) {
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	body := `{"canvas_width":1440,"blocks":[],"custom_css":""}`
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/theme/draft/pages/home", body, "")
+
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestSaveStorefrontThemeDraftHandler_invalidBlockTypeIs422(t *testing.T) {
+	resolveEditSession := &stubResolveEditSession{out: themeDomain.EditSession{TenantID: "tenant-1", SalesChannelID: "channel-1"}}
+	saveThemeDraft := &stubSaveThemeDraft{err: themeDomain.ErrInvalidBlockType}
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, resolveEditSession, saveThemeDraft)
+
+	body := `{"canvas_width":1440,"blocks":[{"id":"b1","type":"not-a-real-type","layout":{"desktop":{"x":0,"y":0,"width":1,"height":1}},"props":{}}],"custom_css":""}`
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/theme/draft/pages/home", body, "edit-token-1")
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestSaveStorefrontThemeDraftHandler_unknownChannelIs404(t *testing.T) {
+	resolveEditSession := &stubResolveEditSession{out: themeDomain.EditSession{TenantID: "tenant-1", SalesChannelID: "missing-channel"}}
+	saveThemeDraft := &stubSaveThemeDraft{err: channelsDomain.ErrSalesChannelNotFound}
+	h := newTestHandler(&stubResolveStorefrontKey{}, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, resolveEditSession, saveThemeDraft)
+
+	body := `{"canvas_width":1440,"blocks":[],"custom_css":""}`
+	w := doRequest(newTestRouter(h), http.MethodPut, "/api/v1/storefront/v1/theme/draft/pages/home", body, "edit-token-1")
+
+	require.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestCreateWishlistHandler_success(t *testing.T) {

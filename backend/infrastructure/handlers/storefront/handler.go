@@ -28,6 +28,7 @@ import (
 	appstorefront "github.com/adirkuhn/commerceos/application/storefront"
 	appTheme "github.com/adirkuhn/commerceos/application/theme"
 	apikeysDomain "github.com/adirkuhn/commerceos/domain/apikeys"
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	couponsDomain "github.com/adirkuhn/commerceos/domain/coupons"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -96,6 +97,28 @@ type lookupOrderUC interface {
 
 type getStorefrontThemeUC interface {
 	Execute(ctx context.Context, salesChannelID, slug string) (*themeDomain.ThemePage, error)
+}
+
+// resolveEditSessionUC turns a theme-edit-session bearer token into the
+// tenant/channel it authorizes -- a distinct, higher-privilege credential
+// from resolveAPIKeyUC's storefront key (see
+// application/theme.ResolveEditSessionUseCase's own doc comment).
+type resolveEditSessionUC interface {
+	Execute(ctx context.Context, token string) (themeDomain.EditSession, error)
+}
+
+// getThemeDraftUC/saveThemeDraftUC are the admin Theme Builder's own
+// GetThemePageUseCase/SaveThemePageUseCase, redeclared here (interface at
+// point of use, per this codebase's ISP convention) -- unlike
+// getStorefrontThemeUC's read-only, editor-fields-stripped view, the
+// embedded Puck editor needs the full document (editor_mode, puck_data)
+// and the ability to write it back.
+type getThemeDraftUC interface {
+	Execute(ctx context.Context, salesChannelID string, slug themeDomain.PageSlug) (*themeDomain.ThemePage, error)
+}
+
+type saveThemeDraftUC interface {
+	Execute(ctx context.Context, in appTheme.SaveThemePageInput) (*themeDomain.ThemePage, error)
 }
 
 type submitReviewUC interface {
@@ -168,6 +191,9 @@ type Handler struct {
 	listAccountOrders         listAccountOrdersUC
 	logout                    logoutUC
 	createPaymentIntent       createPaymentIntentUC
+	resolveEditSession        resolveEditSessionUC
+	getThemeDraft             getThemeDraftUC
+	saveThemeDraft            saveThemeDraftUC
 }
 
 func NewHandler(
@@ -196,6 +222,9 @@ func NewHandler(
 	listAccountOrders listAccountOrdersUC,
 	logout logoutUC,
 	createPaymentIntent createPaymentIntentUC,
+	resolveEditSession resolveEditSessionUC,
+	getThemeDraft getThemeDraftUC,
+	saveThemeDraft saveThemeDraftUC,
 ) *Handler {
 	return &Handler{
 		resolveAPIKey: resolveAPIKey, getCartRecommendations: getCartRecommendations,
@@ -208,6 +237,7 @@ func NewHandler(
 		requestMagicLink:          requestMagicLink, verifyMagicLink: verifyMagicLink, getAccount: getAccount,
 		listAccountOrders: listAccountOrders, logout: logout,
 		createPaymentIntent: createPaymentIntent,
+		resolveEditSession:  resolveEditSession, getThemeDraft: getThemeDraft, saveThemeDraft: saveThemeDraft,
 	}
 }
 
@@ -289,6 +319,9 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL strin
 		appstorefront.NewListAccountOrdersUseCase(db, customerSessionRepo, salesRepo),
 		appstorefront.NewLogoutUseCase(db, customerSessionRepo),
 		createPaymentIntent,
+		appTheme.NewResolveEditSessionUseCase(db, repositories.NewThemeEditSessionRepo(db)),
+		appTheme.NewGetThemePageUseCase(db, themeRepo),
+		appTheme.NewSaveThemePageUseCase(db, themeRepo, channelRepo),
 	)
 	genstorefront.RegisterHandlers(rg, h)
 }
@@ -801,6 +834,82 @@ func toGenStorefrontBlock(b themeDomain.Block) genstorefront.StorefrontBlock {
 	return genstorefront.StorefrontBlock{Id: b.ID, Type: genstorefront.StorefrontBlockType(b.Type), Layout: layout, Props: props}
 }
 
+func (h *Handler) GetStorefrontThemeDraft(c *gin.Context, slug genstorefront.StorefrontPageSlug) {
+	resolved, ok := h.authenticateEditSession(c)
+	if !ok {
+		return
+	}
+	pageSlug := themeDomain.PageSlug(slug)
+	if !pageSlug.Valid() {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", themeDomain.ErrInvalidPageSlug.Error())
+		return
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	page, err := h.getThemeDraft.Execute(ctx, resolved.SalesChannelID, pageSlug)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenStorefrontThemeDraftPage(*page))
+}
+
+func (h *Handler) SaveStorefrontThemeDraft(c *gin.Context, slug genstorefront.StorefrontPageSlug) {
+	resolved, ok := h.authenticateEditSession(c)
+	if !ok {
+		return
+	}
+	var req genstorefront.SaveStorefrontThemeDraftRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	blocks := make([]themeDomain.Block, len(req.Blocks))
+	for i, b := range req.Blocks {
+		blocks[i] = fromGenStorefrontBlock(b)
+	}
+	editorMode := themeDomain.EditorModeFreeform
+	if req.EditorMode != nil {
+		editorMode = themeDomain.EditorMode(*req.EditorMode)
+	}
+	var puckData map[string]any
+	if req.PuckData != nil {
+		puckData = *req.PuckData
+	}
+	ctx := tenant.WithTenantID(c.Request.Context(), resolved.TenantID)
+	page, err := h.saveThemeDraft.Execute(ctx, appTheme.SaveThemePageInput{
+		SalesChannelID: resolved.SalesChannelID, Slug: themeDomain.PageSlug(slug), CanvasWidth: req.CanvasWidth,
+		Blocks: blocks, CustomCSS: req.CustomCss, EditorMode: editorMode, PuckData: puckData,
+	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenStorefrontThemeDraftPage(*page))
+}
+
+func toGenStorefrontThemeDraftPage(p themeDomain.ThemePage) genstorefront.StorefrontThemeDraftPage {
+	blocks := make([]genstorefront.StorefrontBlock, len(p.Blocks))
+	for i, b := range p.Blocks {
+		blocks[i] = toGenStorefrontBlock(b)
+	}
+	draft := genstorefront.StorefrontThemeDraftPage{
+		Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS,
+		EditorMode: genstorefront.StorefrontEditorMode(p.EditorMode),
+	}
+	if p.PuckData != nil {
+		draft.PuckData = &p.PuckData
+	}
+	return draft
+}
+
+func fromGenStorefrontBlock(b genstorefront.StorefrontBlock) themeDomain.Block {
+	layout := themeDomain.BlockLayout{Desktop: themeDomain.Rect{
+		X: b.Layout.Desktop.X, Y: b.Layout.Desktop.Y, Width: b.Layout.Desktop.Width, Height: b.Layout.Desktop.Height,
+	}}
+	if b.Layout.Mobile != nil {
+		layout.Mobile = &themeDomain.Rect{X: b.Layout.Mobile.X, Y: b.Layout.Mobile.Y, Width: b.Layout.Mobile.Width, Height: b.Layout.Mobile.Height}
+	}
+	return themeDomain.Block{ID: b.Id, Type: themeDomain.BlockType(b.Type), Layout: layout, Props: b.Props}
+}
+
 // authenticate resolves the bearer key to a tenant only -- used by routes
 // (GetCartRecommendations) that don't need a specific sales channel.
 func (h *Handler) authenticate(c *gin.Context) (apikeysDomain.ResolvedAPIKey, bool) {
@@ -832,6 +941,26 @@ func (h *Handler) authenticateChannel(c *gin.Context) (apikeysDomain.ResolvedAPI
 	if resolved.SalesChannelID == nil {
 		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "this key is not scoped to a sales channel")
 		return apikeysDomain.ResolvedAPIKey{}, false
+	}
+	return resolved, true
+}
+
+// authenticateEditSession resolves the bearer token as a theme edit
+// session -- entirely separate from authenticate/authenticateChannel's
+// storefront-key resolution above (see resolveEditSessionUC's own doc
+// comment on why these must never be interchangeable).
+func (h *Handler) authenticateEditSession(c *gin.Context) (themeDomain.EditSession, bool) {
+	token := bearerToken(c.GetHeader("Authorization"))
+	if token == "" {
+		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "missing bearer token")
+		return themeDomain.EditSession{}, false
+	}
+	resolved, err := h.resolveEditSession.Execute(c.Request.Context(), token)
+	if err != nil {
+		// Deliberately the same message as the missing-header case above --
+		// never lets a caller distinguish "no token" from "wrong/expired token".
+		middleware.Fail(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid edit session")
+		return themeDomain.EditSession{}, false
 	}
 	return resolved, true
 }
@@ -919,11 +1048,14 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, storefrontDomain.ErrInvalidOrExpiredMagicLink),
 		errors.Is(err, storefrontDomain.ErrCardPaymentNotSupported),
 		errors.Is(err, storefrontDomain.ErrCardPaymentMismatch),
-		errors.Is(err, themeDomain.ErrInvalidPageSlug):
+		errors.Is(err, themeDomain.ErrInvalidPageSlug),
+		errors.Is(err, themeDomain.ErrInvalidBlockType),
+		errors.Is(err, themeDomain.ErrInvalidEditorMode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartNotFound), errors.Is(err, storefrontDomain.ErrOrderNotFound),
 		errors.Is(err, storefrontDomain.ErrWishlistNotFound), errors.Is(err, storefrontDomain.ErrSessionNotFound),
-		errors.Is(err, couponsDomain.ErrCouponNotFound):
+		errors.Is(err, couponsDomain.ErrCouponNotFound),
+		errors.Is(err, channelsDomain.ErrSalesChannelNotFound):
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, storefrontDomain.ErrCartAlreadyCheckedOut):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())

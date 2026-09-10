@@ -64,6 +64,29 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /theme/sales-channels/{channelId}/edit-sessions:
+    post:
+      operationId: createThemeEditSession
+      summary: Mint a short-lived token authorizing storefront-frontend's embedded visual (Puck) editor for one channel
+      description: >
+        Distinct from, and never interchangeable with, a storefront API
+        key -- this grants edit access to the channel's theme, not
+        public/anonymous-shopper privilege. The admin app opens
+        storefront-frontend's editor with this token in the URL; it's
+        never shown to a shopper. See domain/theme.EditSession's doc
+        comment.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditSessionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     ChannelId:
@@ -129,9 +152,20 @@ components:
           type: object
           description: Block-type-specific free-form data (e.g. hero's heading text/image URL, custom_html's raw markup/CSS).
 
+    EditorMode:
+      type: string
+      description: >
+        Which document a page actually renders from -- freeform (the
+        absolutely-positioned canvas, in `blocks`) or puck (an opaque
+        document authored by storefront-frontend's own embedded Puck
+        editor, in `puck_data`). Both fields are always present regardless
+        of which is active -- switching modes never loses the other one's
+        content. See domain/theme.EditorMode's doc comment.
+      enum: [freeform, puck]
+
     ThemePage:
       type: object
-      required: [sales_channel_id, slug, canvas_width, blocks, custom_css]
+      required: [sales_channel_id, slug, canvas_width, blocks, custom_css, editor_mode]
       properties:
         sales_channel_id: { type: string }
         slug: { $ref: '#/components/schemas/PageSlug' }
@@ -146,6 +180,14 @@ components:
             same trust boundary as a custom_html block's raw markup
             (admin-JWT-gated, never shopper input), just page-scoped
             instead of block-scoped.
+        editor_mode: { $ref: '#/components/schemas/EditorMode' }
+        puck_data:
+          type: object
+          nullable: true
+          description: >
+            Opaque to this API -- its shape belongs to storefront-frontend's
+            own Puck component-field configuration. Only meaningful when
+            editor_mode is puck.
 
     ThemePageResponse:
       type: object
@@ -162,6 +204,23 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Block' }
         custom_css: { type: string }
+        editor_mode: { $ref: '#/components/schemas/EditorMode' }
+        puck_data:
+          type: object
+          nullable: true
+
+    EditSession:
+      type: object
+      required: [token, expires_at]
+      properties:
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    EditSessionResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/EditSession' }
+        error: { nullable: true }
 
     ErrorResponse:
       type: object

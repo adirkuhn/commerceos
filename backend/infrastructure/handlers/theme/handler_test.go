@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -60,8 +61,30 @@ func (s *stubSaveThemePage) Execute(_ context.Context, in appTheme.SaveThemePage
 	}, nil
 }
 
-func newTestHandler(get *stubGetThemePage, save *stubSaveThemePage) *themehandler.Handler {
-	return themehandler.NewHandler(get, save)
+type stubCreateEditSession struct {
+	out *themeDomain.EditSession
+	err error
+
+	gotChannelID string
+}
+
+func (s *stubCreateEditSession) Execute(_ context.Context, channelID string) (*themeDomain.EditSession, error) {
+	s.gotChannelID = channelID
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return &themeDomain.EditSession{SalesChannelID: channelID, Token: "test-token", ExpiresAt: time.Now().Add(time.Hour)}, nil
+}
+
+func newTestHandler(get *stubGetThemePage, save *stubSaveThemePage, editSessions ...*stubCreateEditSession) *themehandler.Handler {
+	es := &stubCreateEditSession{}
+	if len(editSessions) > 0 {
+		es = editSessions[0]
+	}
+	return themehandler.NewHandler(get, save, es)
 }
 
 func newTestRouter(h *themehandler.Handler) *gin.Engine {
@@ -200,6 +223,33 @@ func TestSaveThemePageHandler_invalidBlockTypeReturns422(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
+func TestSaveThemePageHandler_roundTripsPuckModeAndData(t *testing.T) {
+	save := &stubSaveThemePage{}
+	h := newTestHandler(&stubGetThemePage{}, save)
+	r := newTestRouter(h)
+
+	puckMode := gentheme.Puck
+	puckData := map[string]interface{}{"content": []interface{}{"x"}}
+	body := gentheme.SaveThemePageRequest{CanvasWidth: 1440, Blocks: []gentheme.Block{}, EditorMode: &puckMode, PuckData: &puckData}
+	w := doRequest(r, http.MethodPut, "/api/v1/theme/sales-channels/chan-1/pages/home", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, themeDomain.EditorModePuck, save.gotInput.EditorMode)
+	assert.Equal(t, map[string]any{"content": []any{"x"}}, save.gotInput.PuckData)
+}
+
+func TestSaveThemePageHandler_defaultsToFreeformWhenEditorModeOmitted(t *testing.T) {
+	save := &stubSaveThemePage{}
+	h := newTestHandler(&stubGetThemePage{}, save)
+	r := newTestRouter(h)
+
+	body := gentheme.SaveThemePageRequest{CanvasWidth: 1440, Blocks: []gentheme.Block{}}
+	w := doRequest(r, http.MethodPut, "/api/v1/theme/sales-channels/chan-1/pages/home", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, themeDomain.EditorModeFreeform, save.gotInput.EditorMode)
+}
+
 func TestSaveThemePageHandler_unknownChannelReturns404(t *testing.T) {
 	save := &stubSaveThemePage{err: channelsDomain.ErrSalesChannelNotFound}
 	h := newTestHandler(&stubGetThemePage{}, save)
@@ -207,6 +257,31 @@ func TestSaveThemePageHandler_unknownChannelReturns404(t *testing.T) {
 
 	body := gentheme.SaveThemePageRequest{CanvasWidth: 1440, Blocks: []gentheme.Block{}}
 	w := doRequest(r, http.MethodPut, "/api/v1/theme/sales-channels/missing/pages/home", body)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCreateThemeEditSessionHandler_success(t *testing.T) {
+	create := &stubCreateEditSession{out: &themeDomain.EditSession{SalesChannelID: "chan-1", Token: "abc123", ExpiresAt: time.Now().Add(time.Hour)}}
+	h := newTestHandler(&stubGetThemePage{}, &stubSaveThemePage{}, create)
+	r := newTestRouter(h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/theme/sales-channels/chan-1/edit-sessions", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var resp gentheme.EditSessionResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.NotNil(t, resp.Data)
+	assert.Equal(t, "abc123", resp.Data.Token)
+	assert.Equal(t, "chan-1", create.gotChannelID)
+}
+
+func TestCreateThemeEditSessionHandler_unknownChannelReturns404(t *testing.T) {
+	create := &stubCreateEditSession{err: channelsDomain.ErrSalesChannelNotFound}
+	h := newTestHandler(&stubGetThemePage{}, &stubSaveThemePage{}, create)
+	r := newTestRouter(h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/theme/sales-channels/missing/edit-sessions", nil)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
