@@ -8,7 +8,8 @@ import (
 
 	"gorm.io/gorm"
 
-	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/events"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -60,21 +61,25 @@ type myParcelOrderWebhookPayload struct {
 // An unknown MyParcel order UUID (no myparcel_fulfilment_orders row -- a
 // tenant that never exported this specific order) is a no-op, same
 // convention as HandleShipmentWebhookUseCase's unknown shipment_id.
+//
+// "processed" no longer decides anything about the SalesOrder itself here
+// -- it just raises a ShipmentFulfillmentSignal event (KindOrderProcessed);
+// ApplyShipmentFulfillmentSignalUseCase is the one place that signal (and
+// the Shipments-API one HandleShipmentWebhookUseCase/ReconcileShipmentsUseCase
+// raise) turns into an actual status transition.
 type HandleOrderStatusWebhookUseCase struct {
 	db                  *gorm.DB
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository
-	salesOrderRepo      omsDomain.SalesOrderRepository
-	updateSalesOrder    SalesOrderStatusUpdater
+	outboxRepo          outbox.Repository
 }
 
 func NewHandleOrderStatusWebhookUseCase(
 	db *gorm.DB,
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository,
-	salesOrderRepo omsDomain.SalesOrderRepository,
-	updateSalesOrder SalesOrderStatusUpdater,
+	outboxRepo outbox.Repository,
 ) *HandleOrderStatusWebhookUseCase {
 	return &HandleOrderStatusWebhookUseCase{
-		db: db, fulfilmentOrderRepo: fulfilmentOrderRepo, salesOrderRepo: salesOrderRepo, updateSalesOrder: updateSalesOrder,
+		db: db, fulfilmentOrderRepo: fulfilmentOrderRepo, outboxRepo: outboxRepo,
 	}
 }
 
@@ -123,8 +128,12 @@ func (uc *HandleOrderStatusWebhookUseCase) handleOne(ctx context.Context, hook m
 }
 
 func (uc *HandleOrderStatusWebhookUseCase) applyProcessed(ctx context.Context, fulfilment shippingDomain.MyParcelFulfilmentOrder) error {
-	if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, fulfilment.SalesOrderID, false); err != nil {
-		return fmt.Errorf("update sales order status: %w", err)
+	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		return enqueueShipmentFulfillmentSignal(ctx, uc.outboxRepo, fulfilment.SalesOrderID,
+			events.ShipmentFulfillmentSignalKindOrderProcessed, "", 0)
+	})
+	if err != nil {
+		return fmt.Errorf("handleOrderStatusWebhook: enqueue fulfillment signal: %w", err)
 	}
 	return nil
 }

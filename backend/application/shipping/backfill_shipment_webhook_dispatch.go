@@ -203,7 +203,7 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 		return &shipmentDispatchOutcome{applied: false}
 	}
 	if _, err := applyStatusUpdate(ctx, d.db, d.shipmentRepo, d.statusEventRepo, d.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill, barcode); err != nil {
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceBackfill, barcode, nil); err != nil {
 		return &shipmentDispatchOutcome{err: fmt.Errorf("apply status update: %w", err)}
 	}
 	if d.updateSalesOrder != nil {

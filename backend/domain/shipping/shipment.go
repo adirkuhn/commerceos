@@ -107,6 +107,12 @@ const (
 	StatusEventSourceBackfill StatusEventSource = "backfill"
 )
 
+// StatusMainRegistered is MyParcel's status.main value for a shipment
+// that's had its label created/registered but not yet physically handed to
+// the carrier -- excluded by IsCarrierConfirmed below, since a label
+// existing isn't proof the parcel has actually left the building.
+const StatusMainRegistered = "registered"
+
 // StatusMainDelivered is MyParcel's status.main value for a shipment's
 // final, actually-delivered-to-customer state -- confirmed against a real
 // account's shipment_status_events on 2026-09-03 (codes 7/8/9 all send
@@ -114,16 +120,28 @@ const (
 // SalesOrder.
 //
 // There is deliberately no StatusMainShipped constant: MarkOrderShippedOn-
-// Fulfillment used to gate on status_main == "shipped", but the real
-// account never sends that string -- confirmed values in transit are
-// "registered", "handed_to_carrier", "sorting", "distribution" (see the
-// same query). Rather than hardcode one of those as "the" shipped
-// transition, every shipment webhook/poll/backfill/reconcile event now
-// unconditionally offers the order to MarkOrderShippedOnFulfillment, which
-// itself gates on SalesOrder.Fulfilled (set independently by
-// application/oms.CompletePickingUseCase at pick/pack time) -- so this
-// stops depending on enumerating MyParcel's status.main vocabulary at all.
+// Fulfillment used to gate purely on SalesOrder.Fulfilled (set only by
+// application/oms.CompletePickingUseCase at pick/pack time), never on any
+// status_main string, because the real account never sends "shipped" --
+// confirmed values in transit are "registered", "handed_to_carrier",
+// "sorting", "distribution", "delivered" (see the same query). That left
+// any order fulfilled purely by creating a MyParcel label -- no internal
+// pick/pack session ever run, e.g. many Bol orders -- stuck on Processing
+// forever: the carrier confirmed hand-off over and over, but Fulfilled
+// never got set by anything. IsCarrierConfirmed below is the fix: any
+// status_main except "registered" is now itself treated as real evidence
+// the carrier has physical custody, strong enough to flip Fulfilled (see
+// application/shipping.ApplyShipmentFulfillmentSignalUseCase), independent
+// of whether a picking session ever ran.
 const StatusMainDelivered = "delivered"
+
+// IsCarrierConfirmed reports whether a status.main value is real evidence
+// the carrier has physical custody of the parcel -- every value except
+// "registered" (see StatusMainDelivered's doc comment for the full
+// enumeration and why "registered" alone doesn't count).
+func IsCarrierConfirmed(statusMain string) bool {
+	return statusMain != "" && statusMain != StatusMainRegistered
+}
 
 var (
 	ErrShipmentNotFound    = errors.New("shipping: shipment not found")

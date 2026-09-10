@@ -2,6 +2,7 @@ package shipping
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -9,9 +10,12 @@ import (
 	"gorm.io/gorm"
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
+	"github.com/adirkuhn/commerceos/internal/idgen"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -50,15 +54,22 @@ type SalesOrderStatusUpdater interface {
 // RefreshShipmentTrackingUseCase (staff-triggered) and
 // shipmentWebhookDispatcher (backfill) so none of them ever drift on what a
 // status change actually does: record the new Shipment status + a
-// ShipmentStatusEvent. It does not touch SalesOrder itself -- callers do
-// that afterwards via MarkOrderShippedOnFulfillment/completeOrderOnDelivery
-// (see those docs for why: it's keyed off SalesOrder.Fulfilled, not any
-// particular status.main string). barcode is the webhook payload's own
-// `barcode` field (only the shipment_status_change webhook carries it --
-// MyParcel's tracktrace GET, what the poll/refresh paths use, doesn't) --
-// empty when the caller has none to offer, in which case the shipment's
-// existing barcode (set at label-creation time, or nothing yet if MyParcel
-// hadn't assigned one) is left untouched, never blanked out.
+// ShipmentStatusEvent, and (outboxRepo non-nil) raise a
+// ShipmentFulfillmentSignal event in the same transaction -- what that
+// signal means for SalesOrder is entirely
+// ApplyShipmentFulfillmentSignalUseCase's decision, not this function's or
+// its callers'. outboxRepo is nil for RefreshShipmentTrackingUseCase (a
+// staff-triggered "refresh from provider" that has never driven order
+// status forward, kept that way) and for shipmentWebhookDispatcher's
+// one-time historical backfill (raising a fresh event for years-old
+// redelivered webhooks would be surprising, not useful) -- both keep their
+// pre-existing direct-call behavior for whatever they do with the result.
+// barcode is the webhook payload's own `barcode` field (only the
+// shipment_status_change webhook carries it -- MyParcel's tracktrace GET,
+// what the poll/refresh paths use, doesn't) -- empty when the caller has
+// none to offer, in which case the shipment's existing barcode (set at
+// label-creation time, or nothing yet if MyParcel hadn't assigned one) is
+// left untouched, never blanked out.
 func applyStatusUpdate(
 	ctx context.Context, db *gorm.DB,
 	shipmentRepo shippingDomain.ShipmentRepository,
@@ -68,6 +79,7 @@ func applyStatusUpdate(
 	tt integrationsDomain.TrackTraceResult,
 	source shippingDomain.StatusEventSource,
 	barcode string,
+	outboxRepo outbox.Repository,
 ) (shippingDomain.ShipmentStatusEvent, error) {
 	event := shippingDomain.ShipmentStatusEvent{
 		ShipmentID: shipmentID, Status: tt.StatusCode, StatusMain: tt.StatusMain, Source: source, OccurredAt: time.Now(),
@@ -77,9 +89,37 @@ func applyStatusUpdate(
 			return err
 		}
 		event.TenantID = tenant.IDFromContext(ctx)
-		return statusEventRepo.Append(ctx, &event)
+		if err := statusEventRepo.Append(ctx, &event); err != nil {
+			return err
+		}
+		if outboxRepo == nil {
+			return nil
+		}
+		return enqueueShipmentFulfillmentSignal(ctx, outboxRepo, salesOrderID,
+			events.ShipmentFulfillmentSignalKindShipmentStatus, tt.StatusMain, tt.StatusCode)
 	})
 	return event, err
+}
+
+// enqueueShipmentFulfillmentSignal writes a ShipmentFulfillmentSignal
+// outbox row in the caller's current transaction -- must be called from
+// inside the same tenant.WithTenant block as whatever write it reports on,
+// so the event and that write commit atomically (same convention as
+// application/inventory's enqueueStockChanged).
+func enqueueShipmentFulfillmentSignal(ctx context.Context, outboxRepo outbox.Repository, salesOrderID, kind, statusMain string, statusCode int) error {
+	event := events.ShipmentFulfillmentSignal{
+		Base:         events.Base{EventID: idgen.NewV4(), OccurredAt: time.Now()},
+		TenantID:     tenant.IDFromContext(ctx),
+		SalesOrderID: salesOrderID,
+		Kind:         kind,
+		StatusMain:   statusMain,
+		StatusCode:   statusCode,
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+	return outboxRepo.Enqueue(ctx, event.EventName(), event.EventID, payload, event.OccurredAt)
 }
 
 // completeOrderOnDelivery moves a SalesOrder to Completed once its shipment
@@ -147,16 +187,17 @@ func notifyWhatsAppOnDelivery(ctx context.Context, notifier ShipmentDeliveryNoti
 // and attaches a shipment-info order note) -- CommerceOS's own record of
 // the order always says Shipped.
 //
-// requireFulfilled additionally gates on SalesOrder.Fulfilled (set
-// independently by application/oms.CompletePickingUseCase at pick/pack
-// time) -- true for every shipment_status_change-family caller
-// (HandleShipmentWebhookUseCase, shipmentWebhookDispatcher,
-// ReconcileShipmentsUseCase), since a live account's shipment_status_events
-// showed status.main never sends "shipped" (real values: "registered",
-// "handed_to_carrier", "sorting", "distribution", "delivered" -- confirmed
-// 2026-09-03) -- rather than re-guess one of those as "the" shipped
-// transition, those callers offer every shipment event unconditionally and
-// let Fulfilled decide. false for HandleOrderStatusWebhookUseCase.applyProcessed
+// requireFulfilled additionally gates on SalesOrder.Fulfilled -- true for
+// every shipment_status_change-family caller (ApplyShipmentFulfillmentSignal-
+// UseCase's KindShipmentStatus branch, shipmentWebhookDispatcher's backfill).
+// Fulfilled itself is set two ways now: independently by
+// application/oms.CompletePickingUseCase at pick/pack time, or (since the
+// bug this event exists to fix: an order fulfilled purely by creating a
+// MyParcel label, no picking session ever run, stuck on Processing forever)
+// by ApplyShipmentFulfillmentSignalUseCase itself the moment
+// shippingDomain.IsCarrierConfirmed(statusMain) is true -- see that use
+// case's doc. requireFulfilled is false for
+// ApplyShipmentFulfillmentSignalUseCase's KindOrderProcessed branch
 // (MyParcel's order_status_change "processed" webhook): that's its own
 // unambiguous "MyParcel fulfilled this order" signal, independent of
 // CommerceOS's local pick/pack state -- gating it on local Fulfilled would

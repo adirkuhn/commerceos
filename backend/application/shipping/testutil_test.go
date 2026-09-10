@@ -15,6 +15,7 @@ import (
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
@@ -486,8 +487,9 @@ type fakeSalesOrderStatusUpdater struct {
 }
 
 type fakeSalesOrderStatusUpdateCall struct {
-	id     string
-	status omsDomain.SalesOrderStatus
+	id        string
+	status    omsDomain.SalesOrderStatus
+	fulfilled *bool
 }
 
 func (f *fakeSalesOrderStatusUpdater) Execute(ctx context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -495,9 +497,31 @@ func (f *fakeSalesOrderStatusUpdater) Execute(ctx context.Context, id string, in
 	if in.Status != nil {
 		status = *in.Status
 	}
-	f.calls = append(f.calls, fakeSalesOrderStatusUpdateCall{id: id, status: status})
+	f.calls = append(f.calls, fakeSalesOrderStatusUpdateCall{id: id, status: status, fulfilled: in.Fulfilled})
 	if f.executeFn != nil {
 		return f.executeFn(ctx, id, in)
 	}
 	return &omsDomain.SalesOrder{ID: id, Status: status}, nil
 }
+
+// --- outbox.Repository fake ---
+
+type stubOutboxRepo struct {
+	calls []stubOutboxEnqueueCall
+	err   error
+}
+
+type stubOutboxEnqueueCall struct {
+	subject string
+	payload []byte
+}
+
+func (s *stubOutboxRepo) Enqueue(_ context.Context, subject, _ string, payload []byte, _ time.Time) error {
+	s.calls = append(s.calls, stubOutboxEnqueueCall{subject: subject, payload: payload})
+	return s.err
+}
+func (s *stubOutboxRepo) FetchPending(_ context.Context, _ int) ([]outbox.Message, error) {
+	return nil, nil
+}
+func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return nil }
+func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }

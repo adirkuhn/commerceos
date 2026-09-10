@@ -10,6 +10,7 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/domain/webhooks"
 	"github.com/adirkuhn/commerceos/internal/crypto"
@@ -43,23 +44,21 @@ type myParcelWebhookPayload struct {
 // which calls this after its own persist+dedupe step -- that generic
 // "prove this event was received" behavior is unchanged for every other
 // provider). For each shipment_id in the payload: look up the local
-// Shipment, fetch its authoritative current status from MyParcel, record
-// it, then offer the SalesOrder to MarkOrderShippedOnFulfillment/
-// completeOrderOnDelivery on every event -- both gate themselves (on
-// SalesOrder.Fulfilled / StatusMainDelivered respectively), see their docs
-// for why this no longer filters by status.main here first.
+// Shipment, fetch its authoritative current status from MyParcel, and
+// record it via applyStatusUpdate -- which (this use case always supplies a
+// real outboxRepo) raises a ShipmentFulfillmentSignal event in the same
+// transaction. What that means for the SalesOrder is entirely
+// ApplyShipmentFulfillmentSignalUseCase's decision (see its doc), not this
+// use case's -- it only reports what MyParcel said.
 type HandleShipmentWebhookUseCase struct {
-	db               *gorm.DB
-	shipmentRepo     shippingDomain.ShipmentRepository
-	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
-	connRepo         integrationsDomain.ConnectionRepository
-	salesOrderRepo   omsDomain.SalesOrderRepository
-	carrierFactory   integrationsDomain.CarrierClientFactory
-	encSecret        string
-	updateSalesOrder SalesOrderStatusUpdater
-	// whatsappNotifier may be nil (deployment hasn't wired WhatsApp yet) --
-	// see notifyWhatsAppOnDelivery.
-	whatsappNotifier ShipmentDeliveryNotifier
+	db              *gorm.DB
+	shipmentRepo    shippingDomain.ShipmentRepository
+	statusEventRepo shippingDomain.ShipmentStatusEventRepository
+	connRepo        integrationsDomain.ConnectionRepository
+	salesOrderRepo  omsDomain.SalesOrderRepository
+	carrierFactory  integrationsDomain.CarrierClientFactory
+	encSecret       string
+	outboxRepo      outbox.Repository
 }
 
 func NewHandleShipmentWebhookUseCase(
@@ -70,13 +69,12 @@ func NewHandleShipmentWebhookUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
-	updateSalesOrder SalesOrderStatusUpdater,
-	whatsappNotifier ShipmentDeliveryNotifier,
+	outboxRepo outbox.Repository,
 ) *HandleShipmentWebhookUseCase {
 	return &HandleShipmentWebhookUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
 		salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
-		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
+		outboxRepo: outboxRepo,
 	}
 }
 
@@ -132,17 +130,7 @@ func (uc *HandleShipmentWebhookUseCase) handleOne(ctx context.Context, hook myPa
 		return fmt.Errorf("get tracktrace: %w", err)
 	}
 
-	if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook, hook.Barcode); err != nil {
-		return err
-	}
-	if uc.updateSalesOrder != nil {
-		if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, shipment.SalesOrderID, true); err != nil {
-			return err
-		}
-	}
-	if err := completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, shipment.SalesOrderID); err != nil {
-		return err
-	}
-	return notifyWhatsAppOnDelivery(ctx, uc.whatsappNotifier, tt.StatusMain, tt.StatusCode, shipment.SalesOrderID)
+	_, err = applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
+		shipment.ID, shipment.SalesOrderID, tt, shippingDomain.StatusEventSourceWebhook, hook.Barcode, uc.outboxRepo)
+	return err
 }

@@ -2,6 +2,7 @@ package shipping_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
@@ -40,7 +42,7 @@ func TestRetryWebhookEventDispatch_reprocessesAFailedEventAndReturnsItsUpdatedRo
 	updater := &fakeSalesOrderStatusUpdater{}
 
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, statusEventRepo, connRepo, salesOrderRepo,
-		&fakeCarrierClientFactory{client: client}, testEncSecret, nil, updater, nil, nil)
+		&fakeCarrierClientFactory{client: client}, testEncSecret, nil, updater, nil, &stubOutboxRepo{}, nil)
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
 
@@ -66,7 +68,7 @@ func TestRetryWebhookEventDispatch_stillFailingReturnsTheFailedRowNotAnError(t *
 	}}
 
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, shipmentRepo, &fakeShipmentStatusEventRepo{},
-		connRepo, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil, nil, nil)
+		connRepo, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{client: client}, testEncSecret, nil, nil, nil, &stubOutboxRepo{}, nil)
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
 
@@ -78,7 +80,7 @@ func TestRetryWebhookEventDispatch_stillFailingReturnsTheFailedRowNotAnError(t *
 func TestRetryWebhookEventDispatch_unknownID_returnsNotFound(t *testing.T) {
 	eventRepo := &fakeWebhookEventRepoForBackfill{}
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 1), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), "missing")
 
@@ -91,7 +93,7 @@ func TestRetryWebhookEventDispatch_nonDispatchableTopic_returnsTypedError(t *tes
 		{ID: "evt-row-1", Provider: "woocommerce", Topic: "order.updated", EventID: "evt-1", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusReceived},
 	}}
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 1), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), "evt-row-1")
 
@@ -107,19 +109,20 @@ func TestRetryWebhookEventDispatch_orderStatusChangeTopic_reprocessesAndMarksPro
 	}}
 	fulfilment := &shippingDomain.MyParcelFulfilmentOrder{SalesOrderID: "order-1", MyParcelUUID: "mp-uuid-1"}
 	fulfilmentRepo := &fakeMyParcelFulfilmentOrderRepo{findByMyParcelUUIDFn: func(context.Context, string) (*shippingDomain.MyParcelFulfilmentOrder, error) { return fulfilment, nil }}
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusPending}
-	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
-	updater := &fakeSalesOrderStatusUpdater{}
+	outboxRepo := &stubOutboxRepo{}
 
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, salesOrderRepo, &fakeCarrierClientFactory{}, testEncSecret, fulfilmentRepo, updater, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, fulfilmentRepo, &fakeSalesOrderStatusUpdater{}, nil, outboxRepo, nil)
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, webhooksDomain.WebhookEventStatusProcessed, updated.Status)
-	require.Len(t, updater.calls, 1)
-	assert.Equal(t, omsDomain.SalesOrderStatusShipped, updater.calls[0].status)
+	require.Len(t, outboxRepo.calls, 1)
+	var event events.ShipmentFulfillmentSignal
+	require.NoError(t, json.Unmarshal(outboxRepo.calls[0].payload, &event))
+	assert.Equal(t, "order-1", event.SalesOrderID)
+	assert.Equal(t, events.ShipmentFulfillmentSignalKindOrderProcessed, event.Kind)
 }
 
 func TestRetryWebhookEventDispatch_orderStatusChangeTopic_unrecognizedStatus_marksFailedNotAnError(t *testing.T) {
@@ -131,7 +134,7 @@ func TestRetryWebhookEventDispatch_orderStatusChangeTopic_unrecognizedStatus_mar
 	fulfilmentRepo := &fakeMyParcelFulfilmentOrderRepo{findByMyParcelUUIDFn: func(context.Context, string) (*shippingDomain.MyParcelFulfilmentOrder, error) { return fulfilment, nil }}
 
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, fulfilmentRepo, &fakeSalesOrderStatusUpdater{}, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, fulfilmentRepo, &fakeSalesOrderStatusUpdater{}, nil, &stubOutboxRepo{}, nil)
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
 
@@ -157,7 +160,7 @@ func TestRetryWebhookEventDispatch_genericProvider_reprocessesAndMarksProcessed(
 	}}
 	handler := &fakeRetryableWebhookHandler{}
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil,
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, &stubOutboxRepo{},
 		map[string]appshipping.RetryableWebhookHandler{"stripe": handler})
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
@@ -175,7 +178,7 @@ func TestRetryWebhookEventDispatch_genericProvider_stillFailingReturnsTheFailedR
 	}}
 	handler := &fakeRetryableWebhookHandler{err: errors.New("still down")}
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 10), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil,
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, &stubOutboxRepo{},
 		map[string]appshipping.RetryableWebhookHandler{"revolut": handler})
 
 	updated, err := uc.Execute(context.Background(), "evt-row-1")
@@ -190,7 +193,7 @@ func TestRetryWebhookEventDispatch_unregisteredGenericProvider_returnsNotDispatc
 		{ID: "evt-row-1", Provider: "stripe", Topic: "checkout.session.completed", EventID: "evt-1", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusFailed},
 	}}
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 1), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), "evt-row-1")
 
@@ -203,7 +206,7 @@ func TestRetryWebhookEventDispatch_orderStatusChangeTopic_noFulfilmentOrderRepoW
 		{ID: "evt-row-1", Provider: "myparcel", Topic: "order_status_change", EventID: "evt-1", Payload: []byte(`{}`), Status: webhooksDomain.WebhookEventStatusReceived},
 	}}
 	uc := appshipping.NewRetryWebhookEventDispatchUseCase(newMockGormDB(t, 1), eventRepo, &fakeShipmentRepo{}, &fakeShipmentStatusEventRepo{},
-		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, nil)
+		&mocks.ConnectionRepo{}, &fakeSalesOrderRepo{}, &fakeCarrierClientFactory{}, testEncSecret, nil, nil, nil, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), "evt-row-1")
 

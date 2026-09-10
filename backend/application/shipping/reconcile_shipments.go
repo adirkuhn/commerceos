@@ -9,6 +9,7 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -42,15 +43,14 @@ type ReconcileShipmentsResult struct {
 // partial-failure-tolerant convention as channels' own scheduled runners
 // (see cmd/scheduler/dispatch.go's resultErr).
 type ReconcileShipmentsUseCase struct {
-	db               *gorm.DB
-	shipmentRepo     shippingDomain.ShipmentRepository
-	statusEventRepo  shippingDomain.ShipmentStatusEventRepository
-	connRepo         integrationsDomain.ConnectionRepository
-	salesOrderRepo   omsDomain.SalesOrderRepository
-	carrierFactory   integrationsDomain.CarrierClientFactory
-	encSecret        string
-	updateSalesOrder SalesOrderStatusUpdater
-	whatsappNotifier ShipmentDeliveryNotifier
+	db              *gorm.DB
+	shipmentRepo    shippingDomain.ShipmentRepository
+	statusEventRepo shippingDomain.ShipmentStatusEventRepository
+	connRepo        integrationsDomain.ConnectionRepository
+	salesOrderRepo  omsDomain.SalesOrderRepository
+	carrierFactory  integrationsDomain.CarrierClientFactory
+	encSecret       string
+	outboxRepo      outbox.Repository
 }
 
 func NewReconcileShipmentsUseCase(
@@ -61,13 +61,12 @@ func NewReconcileShipmentsUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	carrierFactory integrationsDomain.CarrierClientFactory,
 	encryptionSecret string,
-	updateSalesOrder SalesOrderStatusUpdater,
-	whatsappNotifier ShipmentDeliveryNotifier,
+	outboxRepo outbox.Repository,
 ) *ReconcileShipmentsUseCase {
 	return &ReconcileShipmentsUseCase{
 		db: db, shipmentRepo: shipmentRepo, statusEventRepo: statusEventRepo, connRepo: connRepo,
 		salesOrderRepo: salesOrderRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
-		updateSalesOrder: updateSalesOrder, whatsappNotifier: whatsappNotifier,
+		outboxRepo: outboxRepo,
 	}
 }
 
@@ -134,22 +133,8 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 		}
 		barcode := fetchBarcodeIfMissing(ctx, client, s)
 		if _, err := applyStatusUpdate(ctx, uc.db, uc.shipmentRepo, uc.statusEventRepo, uc.salesOrderRepo,
-			s.ID, s.SalesOrderID, tt, shippingDomain.StatusEventSourceReconciliation, barcode); err != nil {
+			s.ID, s.SalesOrderID, tt, shippingDomain.StatusEventSourceReconciliation, barcode, uc.outboxRepo); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: apply update: %v", s.ID, err))
-			continue
-		}
-		if uc.updateSalesOrder != nil {
-			if err := MarkOrderShippedOnFulfillment(ctx, uc.db, uc.salesOrderRepo, uc.updateSalesOrder, s.SalesOrderID, true); err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: mark shipped: %v", s.ID, err))
-				continue
-			}
-		}
-		if err := completeOrderOnDelivery(ctx, uc.updateSalesOrder, tt.StatusMain, s.SalesOrderID); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: complete on delivery: %v", s.ID, err))
-			continue
-		}
-		if err := notifyWhatsAppOnDelivery(ctx, uc.whatsappNotifier, tt.StatusMain, tt.StatusCode, s.SalesOrderID); err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("shipment %s: notify whatsapp: %v", s.ID, err))
 			continue
 		}
 		result.Updated++

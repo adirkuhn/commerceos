@@ -313,8 +313,18 @@ func main() {
 	shipmentReconcileUC := shippingapp.NewReconcileShipmentsUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
 		connRepo, salesOrderRepo, myparcelinfra.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret,
-		updateSalesOrderUC, notifyShipmentDeliveryUC,
+		outboxRepo,
 	)
+
+	applyShipmentFulfillmentSignalUC := shippingapp.NewApplyShipmentFulfillmentSignalUseCase(db, salesOrderRepo, updateSalesOrderUC, notifyShipmentDeliveryUC)
+	shipmentFulfillmentSignalConsumer := consumers.NewShipmentFulfillmentSignalConsumer(processedEventRepo, applyShipmentFulfillmentSignalUC, js)
+	shipmentFulfillmentSignalSub, err := js.Subscribe(events.ShipmentFulfillmentSignal{}.EventName(), shipmentFulfillmentSignalConsumer.Handle,
+		nats.Durable("shipment-fulfillment-signal-scheduler"), nats.ManualAck(),
+		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
+	if err != nil {
+		log.Fatalf("subscribe shipping.shipment.fulfillment_signal: %v", err)
+	}
+	defer shipmentFulfillmentSignalSub.Unsubscribe()
 
 	rs := buildRunners(
 		importUC,

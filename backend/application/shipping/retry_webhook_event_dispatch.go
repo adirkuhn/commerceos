@@ -8,6 +8,7 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -52,6 +53,7 @@ func NewRetryWebhookEventDispatchUseCase(
 	fulfilmentOrderRepo shippingDomain.MyParcelFulfilmentOrderRepository,
 	updateSalesOrder SalesOrderStatusUpdater,
 	whatsappNotifier ShipmentDeliveryNotifier,
+	outboxRepo outbox.Repository,
 	genericHandlers map[string]RetryableWebhookHandler,
 ) *RetryWebhookEventDispatchUseCase {
 	uc := &RetryWebhookEventDispatchUseCase{dispatcher: &shipmentWebhookDispatcher{
@@ -64,7 +66,7 @@ func NewRetryWebhookEventDispatchUseCase(
 	// fall through Execute's default case as not-dispatchable, same as
 	// before this feature existed.
 	if fulfilmentOrderRepo != nil {
-		uc.orderStatusHandler = NewHandleOrderStatusWebhookUseCase(db, fulfilmentOrderRepo, salesOrderRepo, updateSalesOrder)
+		uc.orderStatusHandler = NewHandleOrderStatusWebhookUseCase(db, fulfilmentOrderRepo, outboxRepo)
 	}
 	return uc
 }
