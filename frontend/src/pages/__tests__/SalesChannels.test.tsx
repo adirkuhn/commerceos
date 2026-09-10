@@ -232,6 +232,35 @@ describe('Create sales channel', () => {
     expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
       custom_css: expect.stringContaining('#0369a1'),
     }))
+    // Editorial's typography override (serif headings, softened corners)
+    // must reach every page's own custom_css, not just home's -- header/
+    // footer are their own separate ThemePage documents (see
+    // seedStarterTheme's doc comment) and would otherwise render
+    // indistinguishably from Classic's nav/footer.
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'header', expect.objectContaining({
+      custom_css: expect.stringContaining('serif'),
+    }))
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
+      custom_css: expect.stringContaining('serif'),
+    }))
+  })
+
+  it('gives the default Classic template no extra CSS beyond the palette -- unchanged look for existing merchants', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int2', name: 'Classic Store', type: 'internal', connection_id: null }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'Classic Store')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int2', 'home', expect.objectContaining({
+        custom_css: expect.not.stringContaining('serif'),
+      }))
+    })
   })
 
   it('does not seed a theme for a non-internal channel (WooCommerce/Bol have no storefront of their own)', async () => {

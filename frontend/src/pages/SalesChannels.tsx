@@ -15,7 +15,7 @@ import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrat
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
-import { STARTER_TEMPLATES } from '../theme/starterTemplate'
+import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
 import type { StarterCategory, StarterTemplateId } from '../theme/starterTemplate'
 import type { Block, PageSlug } from '../theme/types'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
@@ -143,6 +143,12 @@ async function seedStarterTheme(
 ): Promise<void> {
   const template = STARTER_TEMPLATES.find(t => t.id === templateId) ?? STARTER_TEMPLATES[0]
   const palette = THEME_PALETTES.find(p => p.id === paletteId) ?? THEME_PALETTES[0]
+  // Every page carries the same combined CSS, not just home -- header/
+  // footer are their own ThemePage documents (see Layout in
+  // storefront-frontend), so without their own copy of it neither the
+  // palette's colors nor Editorial's typography would reach the nav or
+  // footer, only the home page's own content.
+  const customCss = combinedStarterCSS(paletteCustomCSS(palette), templateId)
   const pages: [PageSlug, Block[]][] = [
     ['header', template.buildHeader(channel.name, categories)],
     ['home', template.buildHome(channel.name, categories)],
@@ -153,7 +159,7 @@ async function seedStarterTheme(
       await saveThemePage(token, channel.id, slug, {
         canvas_width: 1440,
         blocks,
-        custom_css: slug === 'home' ? paletteCustomCSS(palette) : '',
+        custom_css: customCss,
         editor_mode: 'freeform',
       })
     } catch {

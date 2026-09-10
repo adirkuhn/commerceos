@@ -382,6 +382,27 @@ describe('ThemeEditorPage', () => {
     await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
     const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
     expect(payload.blocks[0].layout.desktop.height).toBe(520)
+    // Layout alone (taller hero) is a subtle difference -- the CSS override
+    // (serif headings, softened corners) is what actually makes Editorial
+    // read as a different theme, not just a reshuffled Classic.
+    expect(payload.custom_css).toContain('serif')
+  })
+
+  it('applies only the palette, no extra CSS, when the Classic template stays selected', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue(emptyPage)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: 'Template' }))
+    await user.click(screen.getByRole('button', { name: /Carvão/ }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.custom_css).not.toContain('serif')
   })
 
   it('shows an error when starting a visual edit session fails', async () => {

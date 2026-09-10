@@ -8,7 +8,7 @@ import { useThemePage } from '../theme/hooks/useThemePage'
 import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
-import { STARTER_TEMPLATES } from '../theme/starterTemplate'
+import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
 import type { StarterTemplateId } from '../theme/starterTemplate'
 import { createEditSession } from '../theme/api'
 import { storefrontEditURL, storefrontPreviewURL } from '../theme/storefrontLink'
@@ -130,7 +130,7 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
     }
     const template = STARTER_TEMPLATES.find(t => t.id === selectedTemplateId) ?? STARTER_TEMPLATES[0]
     setBlocks(template.buildHome(''))
-    setCustomCss(paletteCustomCSS(palette))
+    setCustomCss(combinedStarterCSS(paletteCustomCSS(palette), selectedTemplateId))
     selectBlock(null)
     setCssPanelOpen(false)
     setDirty(true)

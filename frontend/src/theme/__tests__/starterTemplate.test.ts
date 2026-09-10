@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildStarterFooterBlocks, buildStarterHeaderBlocks, buildStarterHomeBlocks,
   buildEditorialFooterBlocks, buildEditorialHeaderBlocks, buildEditorialHomeBlocks,
-  STARTER_TEMPLATES,
+  STARTER_TEMPLATES, STARTER_TEMPLATE_CSS, combinedStarterCSS,
 } from '../starterTemplate'
 
 describe('buildStarterHomeBlocks', () => {
@@ -148,6 +148,27 @@ describe('buildEditorialFooterBlocks', () => {
       { label: 'Terms & conditions', url: '/' },
       { label: 'Returns & refunds', url: '/' },
     ])
+  })
+})
+
+describe('combinedStarterCSS', () => {
+  it('appends nothing for classic -- palette CSS unchanged', () => {
+    expect(combinedStarterCSS(':root { --brand-500: #000; }', 'classic')).toBe(':root { --brand-500: #000; }')
+  })
+
+  it('appends serif headings + softened corners for editorial, so the two templates look visually distinct even with identical block content', () => {
+    const result = combinedStarterCSS(':root { --brand-500: #000; }', 'editorial')
+
+    expect(result).toContain(':root { --brand-500: #000; }')
+    expect(result).toContain('serif')
+    expect(result).toContain('border-radius')
+    expect(result).not.toBe(STARTER_TEMPLATE_CSS.classic)
+    expect(result).not.toBe('')
+  })
+
+  it('classic and editorial produce different CSS for the same palette', () => {
+    const palette = ':root { --brand-500: #1f8a3d; }'
+    expect(combinedStarterCSS(palette, 'classic')).not.toBe(combinedStarterCSS(palette, 'editorial'))
   })
 })
 

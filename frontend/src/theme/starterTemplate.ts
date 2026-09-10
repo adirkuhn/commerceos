@@ -242,3 +242,32 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   { id: 'classic', label: 'Classic', buildHeader: buildStarterHeaderBlocks, buildHome: buildStarterHomeBlocks, buildFooter: buildStarterFooterBlocks },
   { id: 'editorial', label: 'Editorial', buildHeader: buildEditorialHeaderBlocks, buildHome: buildEditorialHomeBlocks, buildFooter: buildEditorialFooterBlocks },
 ]
+
+// Block components (BlockRenderer in storefront-frontend) render fixed
+// Tailwind markup regardless of which starter template built the block --
+// hero/featured_products headings are always plain-sans h2s, cards are
+// always .rounded-lg, no per-template style hook exists on the components
+// themselves. So a template's only real visual levers are (a) block
+// position/composition (see build*Blocks above) and (b) custom_css, a raw
+// <style> tag every page already supports (see palettes.ts). Classic's
+// entry here is '' -- the plain look every internal channel has always
+// had, unchanged. Editorial overrides headings to a serif face and softens
+// every rounded corner site-wide, so the two templates read as visually
+// distinct even for a tenant with no categories yet (where the two
+// layouts' block positions alone are barely different). !important is
+// necessary, not sloppy: Tailwind's own utility classes (equal or higher
+// selector specificity, e.g. .rounded-lg) come from a stylesheet loaded
+// before this inline tag and would otherwise win the cascade.
+export const STARTER_TEMPLATE_CSS: Record<StarterTemplateId, string> = {
+  classic: '',
+  editorial: `h1, h2 {\n  font-family: Georgia, 'Times New Roman', serif !important;\n  letter-spacing: 0.01em !important;\n}\n.rounded, .rounded-lg {\n  border-radius: 1rem !important;\n}`,
+}
+
+// combinedStarterCSS is what every seeded/reapplied starter page's
+// custom_css is actually set to -- the palette's :root color variables
+// (see paletteCustomCSS) plus the chosen template's own overrides above,
+// concatenated into the one <style> tag a ThemePage carries.
+export function combinedStarterCSS(paletteCSS: string, templateId: StarterTemplateId): string {
+  const templateCSS = STARTER_TEMPLATE_CSS[templateId]
+  return templateCSS ? `${paletteCSS}\n\n${templateCSS}` : paletteCSS
+}
