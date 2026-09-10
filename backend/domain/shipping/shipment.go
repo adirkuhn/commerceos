@@ -59,7 +59,12 @@ type PackageType int
 const (
 	PackageTypePackage        PackageType = 1
 	PackageTypeMailboxPackage PackageType = 2
-	PackageTypeDigitalStamp   PackageType = 4
+	// id 3 ("letter") is deprecated/unused by MyParcel -- intentionally no
+	// const for it.
+	PackageTypeDigitalStamp PackageType = 4
+	PackageTypeSmallPackage PackageType = 5
+	PackageTypeEnvelope     PackageType = 6
+	PackageTypeUnfranked    PackageType = 7
 )
 
 const (

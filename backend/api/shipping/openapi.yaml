@@ -426,7 +426,13 @@ components:
       properties:
         connection_id: { type: string }
         default_carrier: { type: integer }
-        default_package_type: { type: integer }
+        default_package_type:
+          type: integer
+          description: >-
+            MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
+            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
+            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            MyParcel.
         default_label_format: { type: string, enum: [pdf, zpl] }
         default_label_size: { type: string, enum: [A4, A6] }
         default_signature_required: { type: boolean }
@@ -449,7 +455,14 @@ components:
       properties:
         connection_id: { type: string }
         carrier: { type: integer }
-        package_type: { type: integer, nullable: true }
+        package_type:
+          type: integer
+          nullable: true
+          description: >-
+            MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
+            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
+            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            MyParcel. Null means "use the connection's default".
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
         insure_by_default: { type: boolean, nullable: true }
@@ -481,7 +494,13 @@ components:
       required: [default_carrier, default_package_type, default_label_format]
       properties:
         default_carrier: { type: integer }
-        default_package_type: { type: integer }
+        default_package_type:
+          type: integer
+          description: >-
+            MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
+            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
+            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            MyParcel.
         default_label_format: { type: string, enum: [pdf, zpl] }
         default_label_size: { type: string, enum: [A4, A6] }
         default_signature_required: { type: boolean }
@@ -495,7 +514,14 @@ components:
     UpsertCarrierOverrideRequest:
       type: object
       properties:
-        package_type: { type: integer, nullable: true }
+        package_type:
+          type: integer
+          nullable: true
+          description: >-
+            MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
+            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
+            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            MyParcel. Null means "use the connection's default".
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
         insure_by_default: { type: boolean, nullable: true }
@@ -531,7 +557,14 @@ components:
         connection_id: { type: string, format: uuid }
         carrier: { type: integer }
         recipient: { $ref: '#/components/schemas/RecipientAddress' }
-        package_type: { type: integer, nullable: true }
+        package_type:
+          type: integer
+          nullable: true
+          description: >-
+            MyParcel shipment_options.package_type: 1 Package, 2 Mailbox
+            package (Letterbox parcel), 4 Digital stamp, 5 Small package,
+            6 Envelope, 7 Unfranked. Id 3 (Letter) is deprecated/unused by
+            MyParcel. Null means "use the connection's default".
         signature_required: { type: boolean, nullable: true }
         only_recipient: { type: boolean, nullable: true }
         label_format: { type: string, enum: [pdf, zpl], nullable: true }

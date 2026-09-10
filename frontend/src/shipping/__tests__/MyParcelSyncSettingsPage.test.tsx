@@ -97,6 +97,24 @@ describe('MyParcelSyncSettingsPage -- already-connected settings', () => {
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 
+  it('offers every MyParcel box type in the default package type select', async () => {
+    vi.mocked(api.getShippingSettings).mockResolvedValue({
+      settings: {
+        connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1,
+        default_label_format: 'pdf', default_signature_required: false, default_only_recipient: false,
+        insure_by_default: false, myparcel_account_id: null, myparcel_shop_id: null, auto_print_enabled: false,
+      },
+      carrier_overrides: [],
+    })
+    render(<MyParcelSyncSettingsPage connectionId="conn-mp-1" onClose={vi.fn()} />)
+
+    const select = await screen.findByLabelText('Default package type')
+    const labels = Array.from(select.querySelectorAll('option')).map(o => o.textContent)
+    expect(labels).toEqual([
+      'Package', 'Mailbox package', 'Digital stamp', 'Small package', 'Envelope', 'Unfranked',
+    ])
+  })
+
   it('saves a per-carrier override independently of the global form', async () => {
     vi.mocked(api.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
     vi.mocked(api.upsertCarrierOverride).mockResolvedValue({

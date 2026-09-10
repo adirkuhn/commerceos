@@ -15,10 +15,15 @@ export const CARRIERS = [
   { id: 13, label: 'UPS Express Saver' },
 ] as const
 
+// id 3 ("letter") is deprecated/unused by MyParcel -- intentionally
+// skipped here, same as backend domain/shipping.PackageType.
 export const PACKAGE_TYPES = [
   { id: 1, label: 'Package' },
   { id: 2, label: 'Mailbox package' },
   { id: 4, label: 'Digital stamp' },
+  { id: 5, label: 'Small package' },
+  { id: 6, label: 'Envelope' },
+  { id: 7, label: 'Unfranked' },
 ] as const
 
 export interface RecipientAddress {
