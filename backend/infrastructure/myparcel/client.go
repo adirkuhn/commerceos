@@ -67,6 +67,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -130,18 +131,26 @@ func (c *Client) authValue() string {
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path, accept string, reqBody, respBody any) error {
+	_, err := c.doJSONRaw(ctx, method, path, accept, reqBody, respBody)
+	return err
+}
+
+// doJSONRaw is doJSON plus the raw response body -- only GetDeliveryOptions
+// needs the raw bytes (to log them when MyParcel returns zero priced slots,
+// see that method's doc comment), every other caller stays on doJSON.
+func (c *Client) doJSONRaw(ctx context.Context, method, path, accept string, reqBody, respBody any) ([]byte, error) {
 	var bodyReader io.Reader
 	if reqBody != nil {
 		b, err := json.Marshal(reqBody)
 		if err != nil {
-			return fmt.Errorf("myparcel: encode request: %w", err)
+			return nil, fmt.Errorf("myparcel: encode request: %w", err)
 		}
 		bodyReader = bytes.NewReader(b)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, c.cfg.BaseURL+path, bodyReader)
 	if err != nil {
-		return fmt.Errorf("myparcel: build request: %w", err)
+		return nil, fmt.Errorf("myparcel: build request: %w", err)
 	}
 	req.Header.Set(authHeader, c.authValue())
 	req.Header.Set("Accept", accept)
@@ -151,20 +160,20 @@ func (c *Client) doJSON(ctx context.Context, method, path, accept string, reqBod
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("myparcel: request %s %s: %w", method, path, err)
+		return nil, fmt.Errorf("myparcel: request %s %s: %w", method, path, err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &APIError{StatusCode: resp.StatusCode, Body: string(body)}
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(body)}
 	}
 	if respBody != nil && len(body) > 0 {
 		if err := json.Unmarshal(body, respBody); err != nil {
-			return fmt.Errorf("myparcel: decode response for %s %s: %w", method, path, err)
+			return nil, fmt.Errorf("myparcel: decode response for %s %s: %w", method, path, err)
 		}
 	}
-	return nil
+	return body, nil
 }
 
 // --- Shipments ---
@@ -697,7 +706,8 @@ func (c *Client) GetDeliveryOptions(ctx context.Context, in DeliveryOptionsInput
 
 	var resp deliveryOptionsEnvelope
 	path := "/delivery_options?" + q.Encode()
-	if err := c.doJSON(ctx, http.MethodGet, path, deliveryOptionsAccept, nil, &resp); err != nil {
+	rawBody, err := c.doJSONRaw(ctx, http.MethodGet, path, deliveryOptionsAccept, nil, &resp)
+	if err != nil {
 		return nil, err
 	}
 
@@ -708,6 +718,16 @@ func (c *Client) GetDeliveryOptions(ctx context.Context, in DeliveryOptionsInput
 				PriceComment: t.PriceComment, AmountMinorUnits: t.Price.Amount, Currency: t.Price.Currency,
 			})
 		}
+	}
+	if len(options) == 0 {
+		// MyParcel returned 200 with no priced slots -- happens legitimately
+		// when a shop has no delivery-options/dropoff-point config for this
+		// carrier in the MyParcel dashboard, but could also mean this
+		// client's response parsing (deliveryOptionsEnvelope) no longer
+		// matches a real response shape. Logging the raw body here (rather
+		// than silently returning empty) is the only way to tell the two
+		// apart without a live sandbox to inspect.
+		log.Printf("myparcel: GetDeliveryOptions returned no priced slots for %s: %s", path, string(rawBody))
 	}
 	return options, nil
 }
