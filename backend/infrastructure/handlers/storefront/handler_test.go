@@ -975,7 +975,8 @@ func TestGetStorefrontThemeHandler_success(t *testing.T) {
 		Blocks: []themeDomain.Block{
 			{ID: "b1", Type: themeDomain.BlockTypeHero, Layout: themeDomain.BlockLayout{Desktop: themeDomain.Rect{X: 1, Y: 2, Width: 3, Height: 4}}, Props: map[string]any{}},
 		},
-		CustomCSS: ".hero { color: red; }",
+		CustomCSS:  ".hero { color: red; }",
+		EditorMode: themeDomain.EditorModeFreeform,
 	}}
 	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, theme)
 
@@ -985,8 +986,24 @@ func TestGetStorefrontThemeHandler_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"canvas_width":1440`)
 	assert.Contains(t, w.Body.String(), `"id":"b1"`)
 	assert.Contains(t, w.Body.String(), `"custom_css":".hero { color: red; }"`)
+	assert.Contains(t, w.Body.String(), `"editor_mode":"freeform"`)
 	assert.Equal(t, "channel-1", theme.gotChannelID)
 	assert.Equal(t, "home", theme.gotSlug)
+}
+
+func TestGetStorefrontThemeHandler_puckModePageIncludesPuckData(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	theme := &stubGetStorefrontTheme{out: &themeDomain.ThemePage{
+		SalesChannelID: "channel-1", Slug: themeDomain.PageSlugHome, CanvasWidth: 1440,
+		EditorMode: themeDomain.EditorModePuck, PuckData: map[string]any{"content": []any{"x"}},
+	}}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, &stubListProducts{}, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{}, theme)
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/theme/pages/home", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"editor_mode":"puck"`)
+	assert.Contains(t, w.Body.String(), `"content"`)
 }
 
 func TestGetStorefrontThemeHandler_channelUnscopedKeyIs401(t *testing.T) {

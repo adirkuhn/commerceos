@@ -817,7 +817,14 @@ func toGenStorefrontThemePage(p themeDomain.ThemePage) genstorefront.StorefrontT
 	for i, b := range p.Blocks {
 		blocks[i] = toGenStorefrontBlock(b)
 	}
-	return genstorefront.StorefrontThemePage{Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS}
+	page := genstorefront.StorefrontThemePage{
+		Slug: genstorefront.StorefrontPageSlug(p.Slug), CanvasWidth: p.CanvasWidth, Blocks: blocks, CustomCss: p.CustomCSS,
+		EditorMode: genstorefront.StorefrontEditorMode(p.EditorMode),
+	}
+	if p.PuckData != nil {
+		page.PuckData = &p.PuckData
+	}
+	return page
 }
 
 func toGenStorefrontBlock(b themeDomain.Block) genstorefront.StorefrontBlock {

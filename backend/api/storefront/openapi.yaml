@@ -1267,7 +1267,7 @@ components:
 
     StorefrontThemePage:
       type: object
-      required: [slug, canvas_width, blocks, custom_css]
+      required: [slug, canvas_width, blocks, custom_css, editor_mode]
       properties:
         slug: { $ref: '#/components/schemas/StorefrontPageSlug' }
         canvas_width: { type: integer }
@@ -1277,6 +1277,16 @@ components:
         custom_css:
           type: string
           description: Raw merchant-authored CSS -- injected as-is by the storefront-frontend, same trust boundary as a custom_html block's raw markup.
+        editor_mode:
+          $ref: '#/components/schemas/StorefrontEditorMode'
+        puck_data:
+          type: object
+          nullable: true
+          description: >
+            Opaque -- see domain/theme.ThemePage.PuckData's doc comment.
+            Only meaningful when editor_mode is puck; the storefront-
+            frontend renders this via Puck's own read-only Render instead
+            of `blocks` when so.
 
     StorefrontThemePageResponse:
       type: object
