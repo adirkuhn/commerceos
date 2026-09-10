@@ -3,6 +3,7 @@ import { Heart, Menu, ShoppingBag, User, Scale } from 'lucide-react'
 import { Container } from './Container'
 import { Button } from '@/components/ui/Button'
 import { SearchBar } from '@/components/ecommerce/SearchBar'
+import { SettingsMenu } from './SettingsMenu'
 import { useCart } from '@/features/cart/hooks'
 import { useCartStore } from '@/stores/cartStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -49,6 +50,7 @@ export function Header() {
         </div>
 
         <div className="ml-auto flex items-center gap-1 sm:ml-0">
+          <SettingsMenu />
           <Button asChild variant="ghost" size="icon" aria-label={`Compare (${compareCount} products)`}>
             <Link to="/compare" className="relative">
               <Scale className="h-5 w-5" />
