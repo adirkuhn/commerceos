@@ -57,14 +57,28 @@ func ResolveOptions(settings *ShippingConnectionSettings, override *ShippingCarr
 		out.SignatureRequired = true
 		out.OnlyRecipient = true
 	}
-	// Every non-Package box type (Mailbox package, Digital stamp, Small
-	// package, Envelope, Unfranked) is an unregistered/administrative mail
-	// product on MyParcel's side and cannot carry signature/only_recipient/
-	// insurance at all -- confirmed by a real 422 (error 3705,
-	// "Verzendingsopties kunnen niet worden gebruikt met Brievenbuspakje")
-	// for Mailbox package specifically. This gate always wins, even over an
-	// explicit override that tries to force one of these on alongside a
-	// non-Package type, since it's a hard API constraint, not a preference.
+	return GateOptionsForPackageType(out)
+}
+
+// GateOptionsForPackageType zeroes SignatureRequired/OnlyRecipient/Insure
+// whenever PackageType isn't Package -- every non-Package box type (Mailbox
+// package, Digital stamp, Small package, Envelope, Unfranked) is an
+// unregistered/administrative mail product on MyParcel's side and cannot
+// carry signature/only_recipient/insurance at all, confirmed by a real 422
+// (error 3705, "Verzendingsopties kunnen niet worden gebruikt met
+// Brievenbuspakje") for Mailbox package specifically. This always wins, even
+// over an explicit override/per-shipment choice that tries to force one of
+// these on alongside a non-Package type, since it's a hard API constraint,
+// not a preference.
+//
+// Exported (not just inlined in ResolveOptions) because CreateShipmentUseCase
+// must re-run it after layering CreateShipmentInput's own per-shipment
+// PackageType/SignatureRequired/OnlyRecipient overrides on top of
+// ResolveOptions' result -- those are applied after ResolveOptions returns,
+// so a request that both raises the connection's own signature/insurance
+// default AND picks a non-Package type per-shipment would otherwise bypass
+// the gate ResolveOptions already ran.
+func GateOptionsForPackageType(out ResolvedOptions) ResolvedOptions {
 	if out.PackageType != PackageTypePackage {
 		out.SignatureRequired = false
 		out.OnlyRecipient = false

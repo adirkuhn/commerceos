@@ -212,6 +212,13 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if in.LabelFormat != "" {
 		resolved.LabelFormat = in.LabelFormat
 	}
+	// Re-run the options gate: ResolveOptions already ran it, but only
+	// against the connection/carrier-layered PackageType -- these
+	// per-shipment overrides are layered on afterward, so a request that
+	// picks a non-Package type per-shipment on top of a connection default
+	// with signature/insurance on would otherwise bypass the gate entirely
+	// (see GateOptionsForPackageType's doc comment).
+	resolved = shippingDomain.GateOptionsForPackageType(resolved)
 
 	// The insured amount is always this specific order's own value, never a
 	// caller-supplied or pre-configured figure -- looked up only when

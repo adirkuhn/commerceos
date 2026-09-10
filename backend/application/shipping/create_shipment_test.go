@@ -214,7 +214,57 @@ func TestCreateShipment_perShipmentOverride_winsOverConnectionDefault(t *testing
 
 	require.NoError(t, err)
 	assert.Equal(t, int(shippingDomain.PackageTypeDigitalStamp), gotCreateInput.Options.PackageType)
-	assert.True(t, gotCreateInput.Options.SignatureRequired)
+	// Digital stamp can't carry signature at all (MyParcel 422 error 3705) --
+	// GateOptionsForPackageType must win even though the caller explicitly
+	// asked for signature on, proving the per-shipment override wins on
+	// PackageType itself but never bypasses the options gate.
+	assert.False(t, gotCreateInput.Options.SignatureRequired)
+}
+
+// TestCreateShipment_perShipmentPackageTypeOverride_gatesOptionsFromConnectionDefault
+// pins the real MyParcel 422 this codebase actually hit: a connection
+// default with insurance (and therefore signature/only_recipient, see
+// ResolveOptions) on, staff picking Mailbox package per-shipment with no
+// other per-shipment override at all. ResolveOptions itself never sees
+// PackageTypeMailboxPackage (its own gate only runs against the connection/
+// carrier-layered PackageType) -- the request-level PackageType override is
+// applied by CreateShipmentUseCase after ResolveOptions returns, so the
+// gate must be re-run there too.
+func TestCreateShipment_perShipmentPackageTypeOverride_gatesOptionsFromConnectionDefault(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		FindByConnectionIDFn: func(_ context.Context, _ string) (*shippingDomain.ShippingConnectionSettings, error) {
+			return &shippingDomain.ShippingConnectionSettings{DefaultPackageType: shippingDomain.PackageTypePackage, InsureByDefault: true}, nil
+		},
+	}
+	overrideRepo := &fakeShippingCarrierOverrideRepo{
+		findByConnectionAndCarrierFn: func(_ context.Context, _ string, _ shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error) {
+			return nil, nil
+		},
+	}
+	var gotCreateInput integrationsDomain.CreateCarrierShipmentRequest
+	client := &fakeCarrierClient{
+		createShipmentFn: func(_ context.Context, in integrationsDomain.CreateCarrierShipmentRequest) (integrationsDomain.CarrierShipmentResult, error) {
+			gotCreateInput = in
+			return integrationsDomain.CarrierShipmentResult{ExternalShipmentID: "1", Barcode: "b"}, nil
+		},
+	}
+	shipmentRepo := &fakeShipmentRepo{createFn: func(_ context.Context, s *shippingDomain.Shipment) error { s.ID = "s-1"; return nil }, findBySalesOrderIDFn: noExistingShipments}
+	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 3), connRepo, settingsRepo, overrideRepo, shipmentRepo,
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"), notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{})
+
+	mailbox := shippingDomain.PackageTypeMailboxPackage
+	ctx := tenant.WithTenantID(context.Background(), "tenant-1")
+	_, err := uc.Execute(ctx, appshipping.CreateShipmentInput{
+		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),
+		PackageType: &mailbox,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int(shippingDomain.PackageTypeMailboxPackage), gotCreateInput.Options.PackageType)
+	assert.False(t, gotCreateInput.Options.SignatureRequired)
+	assert.Nil(t, gotCreateInput.Options.InsuranceAmountMinorUnits, "insurance must not be computed/sent for a non-Package box type")
 }
 
 // TestCreateShipment_insuredByCarrierOverride_computesAmountFromOrderTotal
