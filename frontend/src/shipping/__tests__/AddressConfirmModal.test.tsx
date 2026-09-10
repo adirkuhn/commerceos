@@ -115,8 +115,24 @@ describe('AddressConfirmModal', () => {
     // not_found, which must not block the submit.
     await waitFor(() => expect(onNext).toHaveBeenCalledWith({
       carrier: 1,
+      packageType: 1,
       recipient: expect.objectContaining({ person: 'Jane Doe', street: 'Damrak', number: '2', city: 'Amsterdam' }),
     }))
+  })
+
+  it('offers every MyParcel box type and defaults to Package, hands off the chosen one', async () => {
+    const onNext = vi.fn()
+    render(<AddressConfirmModal token="test-token" initialAddress={address} defaultCarrier={1} onNext={onNext} onClose={vi.fn()} />)
+
+    const select = screen.getByLabelText<HTMLSelectElement>('Package type')
+    expect(select.value).toBe('1')
+    const labels = Array.from(select.querySelectorAll('option')).map(o => o.textContent)
+    expect(labels).toEqual(['Package', 'Mailbox package', 'Digital stamp', 'Small package', 'Envelope', 'Unfranked'])
+
+    await userEvent.selectOptions(select, '6')
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+
+    await waitFor(() => expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ packageType: 6 })))
   })
 
   // Reaching this modal via LabelPreviewModal's "Back to edit" must not
@@ -130,6 +146,7 @@ describe('AddressConfirmModal', () => {
         initialAddress={address}
         initialRecipient={{ person: 'Edited Name', street: 'Edited Street', city: 'Rotterdam', cc: 'NL' }}
         initialCarrier={4}
+        initialPackageType={2}
         onNext={onNext}
         onClose={vi.fn()}
       />,
@@ -138,6 +155,7 @@ describe('AddressConfirmModal', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Edited Name')
     expect(screen.getByLabelText('Street')).toHaveValue('Edited Street')
     expect(screen.getByLabelText<HTMLSelectElement>('Carrier').value).toBe('4')
+    expect(screen.getByLabelText<HTMLSelectElement>('Package type').value).toBe('2')
   })
 
   it('calls onClose when the close button is clicked', async () => {
@@ -252,6 +270,7 @@ describe('AddressConfirmModal — submit-time validation gate', () => {
 
     expect(onNext).toHaveBeenCalledWith({
       carrier: 1,
+      packageType: 1,
       recipient: expect.objectContaining({ street: 'Damstraat', city: 'Amsterdam' }),
     })
   })
@@ -268,6 +287,7 @@ describe('AddressConfirmModal — submit-time validation gate', () => {
 
     expect(onNext).toHaveBeenCalledWith({
       carrier: 1,
+      packageType: 1,
       recipient: expect.objectContaining({ street: 'Damrak', city: 'Amsterdam' }),
     })
   })

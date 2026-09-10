@@ -95,6 +95,8 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   // defaultCarrier (the shipping-method guess below) take effect on first
   // open instead of always being masked by a hardcoded initial value.
   const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
+  // Same null-until-first-onNext rationale as pendingCarrier above.
+  const [pendingPackageType, setPendingPackageType] = useState<number | null>(null)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   // See Picking.tsx's identical labelTab doc.
@@ -103,6 +105,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
   const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
+  const [connectionDefaultPackageType, setConnectionDefaultPackageType] = useState(1)
   useEffect(() => {
     if (!myParcelConnection) return
     shippingApi.getShippingSettings(token, myParcelConnection.id)
@@ -110,6 +113,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
         setLabelSize(result.settings?.default_label_size ?? 'A4')
         setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
+        setConnectionDefaultPackageType(result.settings?.default_package_type ?? 1)
       })
       .catch(() => setAutoPrintEnabled(false))
   }, [token, myParcelConnection])
@@ -145,7 +149,9 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     let shipment
     try {
       shipment = await shippingApi.createShipment(token, {
-        carrier: pendingCarrier ?? connectionDefaultCarrier, recipient: pendingRecipient,
+        carrier: pendingCarrier ?? connectionDefaultCarrier,
+        package_type: pendingPackageType ?? connectionDefaultPackageType,
+        recipient: pendingRecipient,
         connection_id: myParcelConnection.id, sales_order_id: order.id,
       })
     } catch (err) {
@@ -451,8 +457,10 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             connectionId={myParcelConnection?.id}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
+            initialPackageType={pendingPackageType ?? undefined}
             defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
-            onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+            defaultPackageType={connectionDefaultPackageType}
+            onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
             onClose={() => setLabelStep(null)}
           />
         )}
@@ -460,6 +468,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <LabelPreviewModal
             recipient={pendingRecipient}
             carrier={pendingCarrier ?? connectionDefaultCarrier}
+            packageType={pendingPackageType ?? connectionDefaultPackageType}
             labelSize={labelSize}
             onLabelSizeChange={setLabelSize}
             onBack={() => setLabelStep('address')}
@@ -541,8 +550,10 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
             connectionId={myParcelConnection?.id}
             initialRecipient={pendingRecipient ?? undefined}
             initialCarrier={pendingCarrier ?? undefined}
+            initialPackageType={pendingPackageType ?? undefined}
             defaultCarrier={guessCarrierFromShippingMethod(order.shipping_method_title, order.shipping_method, connectionDefaultCarrier)}
-            onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+            defaultPackageType={connectionDefaultPackageType}
+            onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
             onClose={() => setLabelStep(null)}
           />
         )}
@@ -550,6 +561,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <LabelPreviewModal
             recipient={pendingRecipient}
             carrier={pendingCarrier ?? connectionDefaultCarrier}
+            packageType={pendingPackageType ?? connectionDefaultPackageType}
             labelSize={labelSize}
             onLabelSizeChange={setLabelSize}
             onBack={() => setLabelStep('address')}

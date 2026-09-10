@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import clsx from 'clsx'
 import type { RecipientAddress } from './types'
-import { CARRIERS } from './types'
+import { CARRIERS, PACKAGE_TYPES } from './types'
 
 interface LabelPreviewModalProps {
   recipient: RecipientAddress
   carrier: number
+  // Optional only so existing call sites/tests that don't care about box
+  // type (yet) don't need updating -- both real call sites always pass it.
+  packageType?: number
   labelSize: 'A4' | 'A6'
   onLabelSizeChange: (size: 'A4' | 'A6') => void
   // Returns to AddressConfirmModal with recipient/carrier preserved (see
@@ -26,10 +29,11 @@ interface LabelPreviewModalProps {
 // shows exactly what will be sent to MyParcel, laid out like the physical
 // label itself (not just a form echo), plus the label-size choice, before
 // staff commit to actually creating the shipment.
-export function LabelPreviewModal({ recipient, carrier, labelSize, onLabelSizeChange, onBack, onPrint, onClose }: LabelPreviewModalProps) {
+export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, onLabelSizeChange, onBack, onPrint, onClose }: LabelPreviewModalProps) {
   const [printing, setPrinting] = useState(false)
   const [error, setError] = useState('')
   const carrierLabel = CARRIERS.find(c => c.id === carrier)?.label ?? `Carrier ${carrier}`
+  const packageTypeLabel = PACKAGE_TYPES.find(p => p.id === packageType)?.label
 
   async function handlePrint() {
     setError('')
@@ -70,6 +74,9 @@ export function LabelPreviewModal({ recipient, carrier, labelSize, onLabelSizeCh
           <p className="text-sm font-medium">{recipient.cc}</p>
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{carrierLabel}</span>
+            {packageTypeLabel && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{packageTypeLabel}</span>
+            )}
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{labelSize}</span>
           </div>
         </div>

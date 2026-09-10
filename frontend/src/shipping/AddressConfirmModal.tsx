@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import type { Address } from '../oms/types'
 import type { RecipientAddress, DeliveryPriceOption } from './types'
-import { CARRIERS } from './types'
+import { CARRIERS, PACKAGE_TYPES } from './types'
 import * as shippingApi from './api'
 
 // ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
@@ -78,6 +78,10 @@ interface AddressConfirmModalProps {
   // used only when initialAddress itself has none.
   fallbackEmail?: string
   defaultCarrier?: number
+  // Connection's own default box type (ShippingConnectionSettings.default_
+  // package_type) -- same fallback role as defaultCarrier. Undefined (no
+  // connection/settings loaded yet) falls back to Package (1).
+  defaultPackageType?: number
   // Needed to fetch the estimated label cost (MyParcel's GET
   // /delivery_options is scoped to a connection's own API key) -- undefined
   // simply skips the estimate entirely, same as a non-NL/BE address.
@@ -87,11 +91,12 @@ interface AddressConfirmModalProps {
   // silently discarded by re-deriving from the order's raw address again.
   initialRecipient?: RecipientAddress
   initialCarrier?: number
+  initialPackageType?: number
   // Synchronous: this step is preview-only now -- no shipment is created
   // here. onNext just hands the confirmed fields up to LabelPreviewModal,
   // which is where "Print label" actually creates it (see that component's
   // doc comment for why creation moved to the print click).
-  onNext: (input: { carrier: number; recipient: RecipientAddress }) => void
+  onNext: (input: { carrier: number; packageType: number; recipient: RecipientAddress }) => void
   onClose: () => void
 }
 
@@ -110,9 +115,10 @@ function normalize(s: string): string {
 // whatever staff already entered, with a one-click fix. Real MyParcel-side
 // validation still only happens when the create-shipment call itself
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
-export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, connectionId, initialRecipient, initialCarrier, onNext, onClose }: AddressConfirmModalProps) {
+export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
+  const [packageType, setPackageType] = useState(initialPackageType ?? defaultPackageType ?? 1)
 
   // Estimated label cost -- MyParcel's own GET /delivery_options is the
   // only price MyParcel's API exposes before a shipment exists, and it only
@@ -242,7 +248,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
       const outcome = await runAddressCheck().finally(() => setSubmitting(false))
       if (outcome === 'mismatch') return
     }
-    onNext({ carrier, recipient })
+    onNext({ carrier, packageType, recipient })
   }
 
   const inputClass = 'w-full px-2.5 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-100 text-gray-900'
@@ -326,11 +332,19 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
                 silently reaching MyParcel blank. */}
             <input id="addr-email" type="email" required {...field('email')} className={inputClass} />
           </div>
-          <div>
-            <label htmlFor="ship-carrier" className={labelClass}>Carrier</label>
-            <select id="ship-carrier" value={carrier} onChange={e => setCarrier(Number(e.target.value))} className={inputClass}>
-              {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="ship-carrier" className={labelClass}>Carrier</label>
+              <select id="ship-carrier" value={carrier} onChange={e => setCarrier(Number(e.target.value))} className={inputClass}>
+                {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="ship-package-type" className={labelClass}>Package type</label>
+              <select id="ship-package-type" value={packageType} onChange={e => setPackageType(Number(e.target.value))} className={inputClass}>
+                {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
           </div>
           {estimate.status === 'loading' && (
             <p className="text-[11px] dark:text-gray-500 text-gray-400">Estimating label cost…</p>

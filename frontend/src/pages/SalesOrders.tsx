@@ -823,6 +823,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
   const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
   const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
   const [pendingCarrier, setPendingCarrier] = useState(1)
+  const [pendingPackageType, setPendingPackageType] = useState(1)
   const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   // See Picking.tsx's identical labelTab doc.
@@ -893,7 +894,9 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
     let shipment
     try {
       await shippingApi.exportMyParcelOrder(token, myParcelConnection.id, detail.sales_order.id, input)
-      shipment = await shippingApi.createShipment(token, { ...input, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id })
+      shipment = await shippingApi.createShipment(token, {
+        ...input, package_type: pendingPackageType, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id,
+      })
     } catch (err) {
       tab?.close()
       throw err
@@ -1217,7 +1220,8 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
           fallbackEmail={detail.sales_order.billing?.email}
           initialRecipient={pendingRecipient ?? undefined}
           initialCarrier={pendingCarrier}
-          onNext={({ carrier, recipient }) => { setPendingCarrier(carrier); setPendingRecipient(recipient); setLabelStep('preview') }}
+          initialPackageType={pendingPackageType}
+          onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
           onClose={() => setLabelStep(null)}
         />
       )}
@@ -1225,6 +1229,7 @@ function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: string;
         <LabelPreviewModal
           recipient={pendingRecipient}
           carrier={pendingCarrier}
+          packageType={pendingPackageType}
           labelSize={labelSize}
           onLabelSizeChange={setLabelSize}
           onBack={() => setLabelStep('address')}
