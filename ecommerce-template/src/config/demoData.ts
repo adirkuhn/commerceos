@@ -3,6 +3,7 @@
 // is the one place fixture data lives; nothing here is Lorem Ipsum.
 import type {
   Brand, Category, Product, ProductVariant, Order, Customer, Coupon, Review, Question, FlashSale, BlogPost, CmsPage,
+  Company, CompanyUserSummary, PriceList,
 } from '@/types'
 import { slugify } from '@/lib/utils'
 
@@ -201,6 +202,26 @@ for (const product of PRODUCTS) {
   product.frequentlyBoughtWithIds = otherCategory.slice(0, 2).map(p => p.id)
 }
 
+// -- B2B wholesale terms ---------------------------------------------------
+// A handful of realistically-bulk-purchased products (tees, beanies,
+// mugs, headlamps, poles) get an MOQ + quantity-break ladder -- most of
+// the catalog stays consumer-only (no minOrderQuantity/quantityBreaks at
+// all), matching how a real merchant would only wholesale part of a line.
+const WHOLESALE_TERMS: Record<string, { minOrderQuantity: number; quantityBreaks: { minQuantity: number; discountPercent: number }[] }> = {
+  'Meridian Everyday Tee': { minOrderQuantity: 12, quantityBreaks: [{ minQuantity: 12, discountPercent: 10 }, { minQuantity: 50, discountPercent: 20 }, { minQuantity: 100, discountPercent: 28 }] },
+  'Highline Wool Beanie': { minOrderQuantity: 24, quantityBreaks: [{ minQuantity: 24, discountPercent: 12 }, { minQuantity: 75, discountPercent: 22 }] },
+  'Basecamp Steel Mug, 12oz': { minOrderQuantity: 24, quantityBreaks: [{ minQuantity: 24, discountPercent: 15 }, { minQuantity: 100, discountPercent: 25 }] },
+  'Northstar Rechargeable Headlamp': { minOrderQuantity: 10, quantityBreaks: [{ minQuantity: 10, discountPercent: 8 }, { minQuantity: 30, discountPercent: 16 }] },
+  'Trailhead Adjustable Trekking Poles': { minOrderQuantity: 6, quantityBreaks: [{ minQuantity: 6, discountPercent: 10 }, { minQuantity: 20, discountPercent: 18 }] },
+}
+for (const product of PRODUCTS) {
+  const terms = WHOLESALE_TERMS[product.name]
+  if (terms) {
+    product.minOrderQuantity = terms.minOrderQuantity
+    product.quantityBreaks = terms.quantityBreaks
+  }
+}
+
 // -- Coupons ---------------------------------------------------------------
 export const COUPONS: Coupon[] = [
   { code: 'WELCOME10', kind: 'percentage', label: '10% off your first order', value: 10 },
@@ -218,6 +239,29 @@ export const FLASH_SALES: FlashSale[] = [
   },
 ]
 
+// -- B2B ------------------------------------------------------------------
+// A company's price list is a flat discount off list price (see
+// lib/b2bPricing.ts). The demo customer belongs to Trailhead Outfitters as
+// its owner, so logging in as morgan@example.com is enough to see every
+// B2B surface (company account view, price-list pricing, quick order)
+// without a separate demo login.
+export const PRICE_LISTS: PriceList[] = [
+  { id: 'pricelist-wholesale', name: 'Wholesale', discountPercent: 20 },
+  { id: 'pricelist-vip', name: 'VIP Partner', discountPercent: 30 },
+]
+
+export const DEMO_COMPANY: Company = {
+  id: 'company-1', name: 'Trailhead Outfitters LLC', vatNumber: 'US-84-1234567',
+  priceListId: 'pricelist-wholesale', purchaseLimitMinorUnits: 500000, requiresApprovalAboveMinorUnits: 150000,
+}
+
+export const DEMO_COMPANY_USERS: CompanyUserSummary[] = [
+  { id: 'cu-1', name: 'Morgan Lee', email: 'morgan@example.com', role: 'owner' },
+  { id: 'cu-2', name: 'Priya Shah', email: 'priya@trailheadoutfitters.example', role: 'buyer' },
+  { id: 'cu-3', name: 'Sam Torres', email: 'sam@trailheadoutfitters.example', role: 'approver' },
+  { id: 'cu-4', name: 'Casey Nguyen', email: 'casey@trailheadoutfitters.example', role: 'buyer' },
+]
+
 // -- Customer + orders -------------------------------------------------
 export const DEMO_CUSTOMER: Customer = {
   id: 'cust-demo', firstName: 'Morgan', lastName: 'Lee', email: 'morgan@example.com', phone: '+1 555-0148',
@@ -226,6 +270,8 @@ export const DEMO_CUSTOMER: Customer = {
     { id: 'addr-2', label: 'Office', firstName: 'Morgan', lastName: 'Lee', line1: '900 Pearl St, Suite 4', city: 'Boulder', province: 'CO', postalCode: '80302', country: 'US' },
   ],
   preferences: { orderUpdates: true, newsletter: true, productRestock: false },
+  company: DEMO_COMPANY,
+  companyRole: 'owner',
   createdAt: '2025-11-02T00:00:00Z',
 }
 

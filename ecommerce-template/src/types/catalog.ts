@@ -2,6 +2,7 @@
 // see lib/utils.ts formatMoney. Kept independent of any API/transport
 // shape (see spec section 31): an ApiProductRepository would map its own
 // wire DTOs onto these same types, components never see the difference.
+import type { QuantityDiscountTier } from './promotions'
 
 export type ProductKind = 'simple' | 'variable' | 'digital' | 'downloadable' | 'subscription' | 'bundle' | 'gift_card' | 'service'
 
@@ -98,6 +99,11 @@ export interface Product {
   frequentlyBoughtWithIds?: string[]
   weightGrams?: number
   createdAt: string
+  // B2B wholesale terms -- absent for a consumer-only product. See
+  // lib/b2bPricing.ts for how a company's price list further adjusts
+  // `price` on top of these.
+  minOrderQuantity?: number
+  quantityBreaks?: QuantityDiscountTier[]
 }
 
 export function productStockLabel(product: Product): string {

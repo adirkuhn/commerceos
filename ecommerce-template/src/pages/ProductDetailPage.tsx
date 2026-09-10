@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import { Badge } from '@/components/ui/Badge'
 import { ProductGallery } from '@/components/ecommerce/ProductGallery'
-import { ProductPrice } from '@/components/ecommerce/ProductPrice'
+import { B2BPriceDisplay } from '@/components/ecommerce/B2BPriceDisplay'
+import { QuantityBreaksTable } from '@/components/ecommerce/QuantityBreaksTable'
 import { ProductRating } from '@/components/ecommerce/ProductRating'
 import { VariantSelector, findMatchingVariant } from '@/components/ecommerce/VariantSelector'
 import { QuantitySelector } from '@/components/ecommerce/QuantitySelector'
@@ -47,6 +48,7 @@ export default function ProductDetailPage() {
     if (!product) return
     recordViewed(product.id)
     analytics.track('product_viewed', { productId: product.id })
+    if (product.minOrderQuantity) setQuantity(product.minOrderQuantity)
   }, [product, recordViewed])
 
   if (isLoading) return <LoadingState />
@@ -96,7 +98,7 @@ export default function ProductDetailPage() {
               <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{product.name}</h1>
               <p className="mt-1 text-xs text-muted-foreground">SKU {variant?.sku ?? product.sku}</p>
               <div className="mt-2"><ProductRating rating={product.rating} reviewCount={product.reviewCount} /></div>
-              <ProductPrice price={price} compareAtPrice={compareAtPrice} currency={product.currency} size="lg" className="mt-4" />
+              <B2BPriceDisplay price={price} compareAtPrice={compareAtPrice} currency={product.currency} size="lg" className="mt-4" />
               <p className="mt-1 text-xs text-muted-foreground">{product.taxIncluded ? 'Tax included' : 'Tax calculated at checkout'}</p>
 
               <p className="mt-4 text-sm text-muted-foreground">{product.shortDescription}</p>
@@ -113,7 +115,7 @@ export default function ProductDetailPage() {
               </div>
 
               <div className="mt-4 flex items-center gap-4">
-                <QuantitySelector value={quantity} onChange={setQuantity} max={Math.max(1, stock)} />
+                <QuantitySelector value={quantity} onChange={setQuantity} min={product.minOrderQuantity ?? 1} max={Math.max(product.minOrderQuantity ?? 1, stock)} />
                 <AddToCartButton product={product} variant={variant} quantity={quantity} disabled={needsVariant} />
               </div>
               <div className="mt-3 flex gap-3">
@@ -143,6 +145,12 @@ export default function ProductDetailPage() {
               {alreadyInCart && <p className="mt-2 text-xs text-emerald-600">Already in your cart</p>}
 
               <div className="mt-6"><ShippingEstimator /></div>
+
+              {product.quantityBreaks && product.quantityBreaks.length > 0 && (
+                <div className="mt-6">
+                  <QuantityBreaksTable basePrice={price} currency={product.currency} minOrderQuantity={product.minOrderQuantity} tiers={product.quantityBreaks} />
+                </div>
+              )}
 
               {pluginTabs.length > 0 && (
                 <div className="mt-6 space-y-4">

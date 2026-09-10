@@ -32,6 +32,8 @@ const AccountOrdersPage = lazy(() => import('@/pages/account/AccountOrdersPage')
 const AccountAddressesPage = lazy(() => import('@/pages/account/AccountAddressesPage'))
 const AccountProfilePage = lazy(() => import('@/pages/account/AccountProfilePage'))
 const AccountReturnsPage = lazy(() => import('@/pages/account/AccountReturnsPage'))
+const AccountCompanyPage = lazy(() => import('@/pages/account/AccountCompanyPage'))
+const AccountQuickOrderPage = lazy(() => import('@/pages/account/AccountQuickOrderPage'))
 
 export function AppRouter() {
   return (
@@ -65,6 +67,8 @@ export function AppRouter() {
             <Route path="profile" element={<AccountProfilePage />} />
             <Route path="wishlist" element={<WishlistPage />} />
             <Route path="returns" element={<AccountReturnsPage />} />
+            <Route path="company" element={<AccountCompanyPage />} />
+            <Route path="quick-order" element={<AccountQuickOrderPage />} />
           </Route>
 
           <Route path="/page/:slug" element={<CmsPage />} />
