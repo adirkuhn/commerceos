@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { setStorefrontKey } from './api/client'
 import { CartProvider, useCart } from './cart/CartContext'
 import { WishlistProvider, useWishlist } from './wishlist/WishlistContext'
@@ -46,13 +46,26 @@ function AccountLink() {
   )
 }
 
+// A safe redirect target: exactly one leading slash, never "//host/..."
+// (a protocol-relative URL, which some browsers/history APIs treat as
+// off-site) -- next comes from a query param a link/QR code controls, so
+// it's untrusted input even though react-router's own navigate() never
+// actually leaves this origin for it.
+function safeNextPath(next: string | null): string {
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/'
+}
+
 // StoreEntry is this deployment's one entry point for selecting which
 // tenant/channel to show -- a shopper never lands here directly (it's what
 // a shared link/QR code from the admin app points at), it just remembers
 // the key (see setStorefrontKey) and redirects into the app's normal
 // routes, which stay entirely unaware a multi-tenant deployment exists.
+// next (defaults to "/") is which page to land on -- the theme editor's
+// own "Preview" button uses this to jump straight to the page it's
+// previewing instead of always landing on home.
 function StoreEntry() {
   const { storeKey } = useParams<{ storeKey: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   useEffect(() => {
     // Set the key before navigating away, in that order, within the same
@@ -60,8 +73,8 @@ function StoreEntry() {
     // effects (higher up the tree, so React fires them after this one)
     // must never fire their first fetch against the old/empty key.
     if (storeKey) setStorefrontKey(storeKey)
-    navigate('/', { replace: true })
-  }, [storeKey, navigate])
+    navigate(safeNextPath(searchParams.get('next')), { replace: true })
+  }, [storeKey, searchParams, navigate])
   return null
 }
 

@@ -17,6 +17,7 @@ import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
 import { buildStarterHomeBlocks } from '../theme/starterTemplate'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
+import { storefrontEnterPath, storefrontVisitURL } from '../theme/storefrontLink'
 
 const PER_PAGE = 20
 
@@ -137,33 +138,6 @@ async function seedStarterTheme(token: string, channel: SalesChannel): Promise<v
   }
 }
 
-// storefrontPath is what every internal channel's own storefront URL ends
-// in, regardless of where storefront-frontend is actually deployed -- the
-// channel's own id doubles as its storefront bearer key (see backend
-// application/apikeys.ResolveAPIKeyUseCase's fallback). /store/enter/...
-// matches storefront-frontend's own entry route (App.tsx's StoreEntry) --
-// it's path-mounted at /store by default (see docker-compose.yml's
-// storefront service), not a separate domain.
-function storefrontPath(channelId: string): string {
-  return `/store/enter/${channelId}`
-}
-
-// storefrontURL is the full clickable link. VITE_STOREFRONT_URL overrides
-// this once storefront-frontend is deployed on a dedicated domain of its
-// own; until then this defaults to VITE_API_BASE_URL's own origin, since
-// that's where storefront-frontend is path-mounted by default -- a real,
-// working link with no extra configuration step. "" only if that default
-// somehow can't be computed (VITE_API_BASE_URL isn't a valid URL).
-function storefrontURL(channelId: string): string {
-  const explicit = import.meta.env.VITE_STOREFRONT_URL
-  if (explicit) return `${explicit}${storefrontPath(channelId)}`
-  try {
-    const base = new URL(import.meta.env.VITE_API_BASE_URL).origin
-    return `${base}${storefrontPath(channelId)}`
-  } catch {
-    return ''
-  }
-}
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
 // The same two types create a SalesOrder directly (Woo/Bol only ever
@@ -223,7 +197,7 @@ export default function SalesChannels() {
   const [copiedChannelId, setCopiedChannelId] = useState<string | null>(null)
   async function copyStorefrontPath(channelId: string) {
     try {
-      await navigator.clipboard.writeText(storefrontPath(channelId))
+      await navigator.clipboard.writeText(storefrontEnterPath(channelId))
       setCopiedChannelId(channelId)
       setTimeout(() => setCopiedChannelId(null), 1500)
     } catch {
@@ -375,13 +349,13 @@ export default function SalesChannels() {
                   )}
                 </div>
                 {channel.type === INTERNAL_TYPE && (
-                  storefrontURL(channel.id) ? (
+                  storefrontVisitURL(channel.id) ? (
                     <a
-                      href={storefrontURL(channel.id)}
+                      href={storefrontVisitURL(channel.id)}
                       target="_blank"
                       rel="noreferrer"
                       className="mt-2 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
-                      title={storefrontURL(channel.id)}
+                      title={storefrontVisitURL(channel.id)}
                     >
                       Visit store ↗
                     </a>
@@ -391,7 +365,7 @@ export default function SalesChannels() {
                         className="truncate text-[10px] dark:text-gray-500 text-gray-400"
                         title="Storefront app URL not configured yet (VITE_STOREFRONT_URL) -- this is the path to add to it"
                       >
-                        Store path: <code className="dark:text-gray-400 text-gray-500">{storefrontPath(channel.id)}</code>
+                        Store path: <code className="dark:text-gray-400 text-gray-500">{storefrontEnterPath(channel.id)}</code>
                       </p>
                       <button
                         onClick={() => copyStorefrontPath(channel.id)}

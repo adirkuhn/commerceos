@@ -158,6 +158,28 @@ describe('ThemeEditorPage', () => {
     expect(screen.getByLabelText('Custom CSS')).toBeInTheDocument()
   })
 
+  it('shows a working "Preview" link for a slug with a real storefront route', async () => {
+    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await screen.findByText('Big sale')
+
+    const link = screen.getByRole('link', { name: /Preview/ })
+    expect(link).toHaveAttribute('href', 'https://shop.test/store/enter/chan-1?next=%2F')
+  })
+
+  it('disables "Preview" for a slug with no fixed storefront route (order-confirmation)', async () => {
+    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
+    vi.mocked(themeApi.getThemePage).mockResolvedValue({ ...emptyPage, slug: 'order-confirmation' })
+
+    renderAt('/sales-channels/chan-1/theme/order-confirmation')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    expect(screen.queryByRole('link', { name: /Preview/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preview/ })).toBeDisabled()
+  })
+
   it('switching to Mobile shrinks the canvas to the mobile design width', async () => {
     const user = userEvent.setup()
     vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)

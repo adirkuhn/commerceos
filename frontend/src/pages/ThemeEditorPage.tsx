@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Rnd } from 'react-rnd'
-import { ArrowLeft, Plus, Code, Monitor, Smartphone } from 'lucide-react'
+import { ArrowLeft, Plus, Code, Monitor, Smartphone, ExternalLink } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useThemePage } from '../theme/hooks/useThemePage'
@@ -9,6 +9,7 @@ import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { buildStarterHomeBlocks } from '../theme/starterTemplate'
+import { storefrontPreviewURL } from '../theme/storefrontLink'
 import { defaultMobileRect, MOBILE_CANVAS_WIDTH } from '../theme/mobileLayout'
 import { BlockPreview } from '../theme/components/BlockPreview'
 import { BlockPropsPanel } from '../theme/components/BlockPropsPanel'
@@ -136,6 +137,10 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
   }
 
   const displayedWidth = breakpoint === 'desktop' ? canvasWidth : MOBILE_CANVAS_WIDTH
+  // The real, saved, live-rendered page -- see storefrontPreviewURL's own
+  // doc comment for which slugs this covers. Always the last-saved
+  // version (unsaved edits in this canvas aren't reflected until Save).
+  const previewURL = storefrontPreviewURL(channelId, slug)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -206,6 +211,25 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
                 </div>
               )}
             </div>
+          )}
+          {previewURL ? (
+            <a
+              href={previewURL}
+              target="_blank"
+              rel="noreferrer"
+              title="Opens the real, saved, live-rendered page (not this canvas's rough layout preview) in a new tab"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              <ExternalLink size={12} /> Preview
+            </a>
+          ) : (
+            <button
+              disabled
+              title="This page has no fixed storefront route to preview generically (e.g. it needs a real product/order first)"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-300"
+            >
+              <ExternalLink size={12} /> Preview
+            </button>
           )}
           <button
             onClick={openCssPanel}

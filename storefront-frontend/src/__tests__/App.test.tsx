@@ -31,4 +31,29 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/')
     expect(localStorage.getItem('commerceos_storefront_key')).toBe('channel-abc-123')
   })
+
+  it('honors ?next= to land on a specific page -- the theme editor\'s Preview button', async () => {
+    mockFetch()
+    localStorage.clear()
+    window.history.pushState({}, '', '/enter/channel-abc-123?next=/products')
+
+    render(<App />)
+
+    // ProductsPage is theme-driven too (CanvasPage), so this same "no
+    // content yet" text just confirms rendering settled past the
+    // redirect -- the real assertion is the URL below.
+    expect(await screen.findByText(/no content yet/)).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/products')
+  })
+
+  it('ignores a protocol-relative ?next= (off-site redirect attempt) and falls back to home', async () => {
+    mockFetch()
+    localStorage.clear()
+    window.history.pushState({}, '', '/enter/channel-abc-123?next=//evil.example.com')
+
+    render(<App />)
+
+    expect(await screen.findByText(/no content yet/)).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+  })
 })
