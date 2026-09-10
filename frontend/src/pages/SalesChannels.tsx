@@ -16,6 +16,7 @@ import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
 import { buildStarterFooterBlocks, buildStarterHeaderBlocks, buildStarterHomeBlocks } from '../theme/starterTemplate'
+import type { StarterCategory } from '../theme/starterTemplate'
 import type { Block, PageSlug } from '../theme/types'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { storefrontEnterPath, storefrontVisitURL } from '../theme/storefrontLink'
@@ -119,19 +120,22 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 const INTERNAL_TYPE: ChannelType = 'internal'
 
 // seedStarterTheme gives a brand-new internal channel real header/home/
-// footer pages immediately (logo+nav, hero/about/product-grid, tagline+
-// contact placeholders, one default palette) -- merchants shouldn't have
-// to know the theme editor's "Template" button exists just to get past a
-// blank storefront. Still just a starting point: freely editable/
-// replaceable afterward, same as if a merchant had clicked Template
-// themselves. Best-effort per page -- a failure here must not block
-// channel creation from succeeding; the channel still exists and the
-// merchant can seed/edit its theme by hand from the editor.
-async function seedStarterTheme(token: string, channel: SalesChannel): Promise<void> {
+// footer pages immediately (logo+nav, hero/about/one Featured Products
+// section per existing category, tagline+legal+contact placeholders, one
+// default palette) -- merchants shouldn't have to know the theme editor's
+// "Template" button exists just to get past a blank storefront. Uses the
+// tenant's own real categories (already loaded for this form's own
+// enrollment picker) to shape the nav/home sections -- real catalog
+// structure, not fabricated content. Still just a starting point: freely
+// editable/replaceable afterward, same as if a merchant had clicked
+// Template themselves. Best-effort per page -- a failure here must not
+// block channel creation from succeeding; the channel still exists and
+// the merchant can seed/edit its theme by hand from the editor.
+async function seedStarterTheme(token: string, channel: SalesChannel, categories: StarterCategory[]): Promise<void> {
   const palette = THEME_PALETTES.find(p => p.id === 'verde') ?? THEME_PALETTES[0]
   const pages: [PageSlug, Block[]][] = [
-    ['header', buildStarterHeaderBlocks(channel.name)],
-    ['home', buildStarterHomeBlocks(channel.name)],
+    ['header', buildStarterHeaderBlocks(channel.name, categories)],
+    ['home', buildStarterHomeBlocks(channel.name, categories)],
     ['footer', buildStarterFooterBlocks(channel.name)],
   ]
   for (const [slug, blocks] of pages) {
@@ -259,7 +263,7 @@ export default function SalesChannels() {
       } else {
         const created = await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
         if (channelType === INTERNAL_TYPE) {
-          await seedStarterTheme(token ?? '', created)
+          await seedStarterTheme(token ?? '', created, categories)
         }
       }
       if (shared.connectionId) {

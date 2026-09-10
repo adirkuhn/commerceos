@@ -193,8 +193,18 @@ describe('Create sales channel', () => {
         custom_css: expect.stringContaining(':root'),
       }))
     })
+    // Header nav and home's Featured Products section link to this
+    // tenant's own real category (sampleCategory, mocked in beforeEach)
+    // -- real catalog structure, not fabricated content.
     expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'header', expect.objectContaining({
-      blocks: expect.arrayContaining([expect.objectContaining({ type: 'nav_menu' })]),
+      blocks: expect.arrayContaining([expect.objectContaining({
+        type: 'nav_menu', props: { links: [{ label: 'Apparel', url: '/products?category=cat-1' }] },
+      })]),
+    }))
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
+      blocks: expect.arrayContaining([expect.objectContaining({
+        type: 'featured_products', props: expect.objectContaining({ title: 'Apparel', categoryId: 'cat-1' }),
+      })]),
     }))
     expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
       blocks: expect.arrayContaining([expect.objectContaining({ type: 'rich_text' })]),
