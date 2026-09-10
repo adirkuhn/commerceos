@@ -1,7 +1,7 @@
 import type { Order } from '@/types'
 import type { OrderRepository } from '../types'
 import { simulateLatency } from './latency'
-import { ORDERS } from '@/config/demoData'
+import { ORDERS, DEMO_CUSTOMER } from '@/config/demoData'
 
 export class MockOrderRepository implements OrderRepository {
   async listForCustomer(customerId: string): Promise<Order[]> {
@@ -33,5 +33,14 @@ export class MockOrderRepository implements OrderRepository {
     if (lineProductIds.length === 0) throw new Error('Select at least one item to return.')
     if (!reason.trim()) throw new Error('A return reason is required.')
     return order
+  }
+
+  async findByOrderNumberAndEmail(orderNumber: string, email: string): Promise<Order | null> {
+    await simulateLatency()
+    const normalizedEmail = email.toLowerCase().trim()
+    const order = ORDERS.find(o => o.orderNumber.toLowerCase() === orderNumber.toLowerCase().trim())
+    if (!order) return null
+    const orderEmail = (order.guestEmail ?? (order.customerId === DEMO_CUSTOMER.id ? DEMO_CUSTOMER.email : undefined))?.toLowerCase()
+    return orderEmail === normalizedEmail ? order : null
   }
 }

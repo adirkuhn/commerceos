@@ -129,7 +129,7 @@ function CustomerStep({ isAuthenticated }: { isAuthenticated: boolean }) {
           <Link to="/login?next=/checkout" className="text-primary underline">Log in</Link> for a faster checkout, or continue as a guest below.
         </p>
       )}
-      <form onSubmit={handleSubmit((values) => { checkout.setEmail(values.email); checkout.nextStep() })} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit((values) => { checkout.setEmail(values.email); checkout.nextStep() })} className="space-y-4">
         <div>
           <Label htmlFor="checkout-email">Email</Label>
           <Input id="checkout-email" type="email" className="mt-1.5" {...register('email')} />

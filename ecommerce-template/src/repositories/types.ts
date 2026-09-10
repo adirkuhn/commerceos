@@ -73,6 +73,11 @@ export interface OrderRepository {
   getById(id: string): Promise<Order | null>
   cancel(id: string): Promise<Order>
   requestReturn(orderId: string, lineProductIds: string[], reason: string): Promise<Order>
+  // Guest order tracking (/order-lookup) -- an order number alone isn't
+  // enough to look up (it's not a secret), so this also requires the
+  // email address the order was placed under, same as a real backend
+  // would enforce server-side.
+  findByOrderNumberAndEmail(orderNumber: string, email: string): Promise<Order | null>
 }
 
 export interface CustomerRepository {

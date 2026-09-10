@@ -112,6 +112,7 @@ function ReviewForm({ productId, author, onDone }: { productId: string; author: 
   return (
     <form
       className="mb-6 space-y-3 rounded-[var(--radius)] border border-border p-4"
+      noValidate
       onSubmit={handleSubmit((values) => {
         submitReview.mutate(
           { productId, author: authorName || 'Anonymous', rating: values.rating as 1 | 2 | 3 | 4 | 5, title: values.title, body: values.body, verifiedPurchase: false },
