@@ -47,11 +47,22 @@ export interface Block {
   props: Record<string, unknown>
 }
 
+// EditorMode selects which of ThemePage's two documents CanvasPage
+// actually renders from -- 'freeform' (blocks, the absolutely-positioned
+// canvas below) or 'puck' (puck_data, authored by the embedded Puck
+// editor at /edit/:slug -- see puck/config.tsx). Mirrors backend
+// domain/theme.EditorMode.
+export type EditorMode = 'freeform' | 'puck'
+
 export interface ThemePage {
   slug: PageSlug
   canvas_width: number
   blocks: Block[]
   custom_css: string
+  editor_mode: EditorMode
+  // Opaque -- see domain/theme.ThemePage.PuckData's doc comment. Only
+  // meaningful when editor_mode is 'puck'.
+  puck_data?: Record<string, unknown> | null
 }
 
 // Mirrors backend domain/theme.PageSlug.RequiredBlockType: these pages

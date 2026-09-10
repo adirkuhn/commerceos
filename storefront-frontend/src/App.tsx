@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { setStorefrontKey } from './api/client'
 import { CartProvider, useCart } from './cart/CartContext'
@@ -15,6 +15,11 @@ import { OrderLookupPage } from './pages/OrderLookupPage'
 import { WishlistPage } from './pages/WishlistPage'
 import { LoginPage } from './pages/LoginPage'
 import { AccountPage } from './pages/AccountPage'
+
+// Lazy: pulls in @puckeditor/core (see CanvasPage.tsx's own lazy import for
+// why) -- a shopper's browser must never fetch this, only a merchant's
+// edit-session-token-bearing visit to /edit/:slug does.
+const EditPage = lazy(() => import('./pages/EditPage'))
 
 function CartLink() {
   const { cart } = useCart()
@@ -105,30 +110,51 @@ function Layout({ children }: { children: ReactNode }) {
 // than intended.
 const basename = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '')
 
+// ShopperRoutes is everything a real shopper's browser ever renders --
+// split out so /edit/:slug (below) mounts none of CartProvider/
+// WishlistProvider/AuthProvider or the shopper header/nav: it's a
+// merchant tool (the embedded Puck editor, see pages/EditPage.tsx), not
+// part of the storefront a shopper sees.
+function ShopperRoutes() {
+  return (
+    <CartProvider>
+      <WishlistProvider>
+        <AuthProvider>
+          <Layout>
+            <Routes>
+              <Route path="/enter/:storeKey" element={<StoreEntry />} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/products/:id" element={<ProductPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmationPage />} />
+              <Route path="/order-lookup" element={<OrderLookupPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/account" element={<AccountPage />} />
+            </Routes>
+          </Layout>
+        </AuthProvider>
+      </WishlistProvider>
+    </CartProvider>
+  )
+}
+
 export function App() {
   return (
     <BrowserRouter basename={basename}>
-      <CartProvider>
-        <WishlistProvider>
-          <AuthProvider>
-            <Layout>
-              <Routes>
-                <Route path="/enter/:storeKey" element={<StoreEntry />} />
-                <Route path="/" element={<HomePage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/products/:id" element={<ProductPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmationPage />} />
-                <Route path="/order-lookup" element={<OrderLookupPage />} />
-                <Route path="/wishlist" element={<WishlistPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/account" element={<AccountPage />} />
-              </Routes>
-            </Layout>
-          </AuthProvider>
-        </WishlistProvider>
-      </CartProvider>
+      <Routes>
+        <Route
+          path="/edit/:slug"
+          element={
+            <Suspense fallback={<p className="p-6 text-sm text-gray-500">Loading editor…</p>}>
+              <EditPage />
+            </Suspense>
+          }
+        />
+        <Route path="/*" element={<ShopperRoutes />} />
+      </Routes>
     </BrowserRouter>
   )
 }

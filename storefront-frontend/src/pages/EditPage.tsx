@@ -1,0 +1,55 @@
+import { useEffect, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { Puck, type Data } from '@puckeditor/core'
+import '@puckeditor/core/puck.css'
+import { getThemeDraft, saveThemeDraft } from '../api/themeDraft'
+import { buildPuckConfig } from '../puck/config'
+import type { PageSlug } from '../types'
+
+const EMPTY_PUCK_DATA: Data = { content: [], root: {} }
+
+// EditPage is storefront-frontend's own embedded visual (Puck) editor --
+// mounted at /edit/:slug (see App.tsx), reached only from the admin app's
+// "Edit visually" launcher (frontend/pages/ThemeEditorPage.tsx), which
+// mints the ?token= this page authenticates every request with (see
+// backend application/theme.CreateEditSessionUseCase). Never linked from
+// anywhere a shopper would see -- this is a merchant tool, not part of
+// the storefront.
+export default function EditPage() {
+  const { slug } = useParams<{ slug: string }>()
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token') ?? ''
+  const pageSlug = slug as PageSlug
+
+  const [data, setData] = useState<Data | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) {
+      setError('Missing edit session token -- open this page from the admin app\'s "Edit visually" button.')
+      return
+    }
+    getThemeDraft(token, pageSlug)
+      .then(page => setData((page.puck_data as Data | undefined) ?? EMPTY_PUCK_DATA))
+      .catch((err: Error) => setError(err.message))
+  }, [token, pageSlug])
+
+  if (error) {
+    return <p className="p-6 text-sm text-red-600">Could not load this page: {error}</p>
+  }
+  if (!data) {
+    return <p className="p-6 text-sm text-gray-500">Loading…</p>
+  }
+
+  return (
+    <Puck
+      config={buildPuckConfig(pageSlug)}
+      data={data}
+      onPublish={async (newData: Data) => {
+        await saveThemeDraft(token, pageSlug, {
+          canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'puck', puck_data: newData as Record<string, unknown>,
+        })
+      }}
+    />
+  )
+}

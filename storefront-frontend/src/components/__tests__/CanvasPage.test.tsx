@@ -33,7 +33,7 @@ describe('CanvasPage', () => {
     const page: ThemePage = {
       slug: 'home',
       canvas_width: 1440,
-      custom_css: '',
+      custom_css: '', editor_mode: 'freeform',
       blocks: [
         { id: 'b1', type: 'hero', layout: { desktop: { x: 10, y: 20, width: 300, height: 150 }, mobile: null }, props: { heading: 'Welcome' } },
       ],
@@ -49,7 +49,7 @@ describe('CanvasPage', () => {
   })
 
   it('shows an empty-page message when there are no blocks', async () => {
-    mockFetch<ThemePage>({ slug: 'home', canvas_width: 1440, blocks: [], custom_css: '' })
+    mockFetch<ThemePage>({ slug: 'home', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
 
     render(<CanvasPage slug="home" />)
 
@@ -66,7 +66,7 @@ describe('CanvasPage', () => {
 
   it('injects custom_css as a style tag', async () => {
     mockFetch<ThemePage>({
-      slug: 'home', canvas_width: 1440, custom_css: '.hero { color: red; }',
+      slug: 'home', canvas_width: 1440, custom_css: '.hero { color: red; }', editor_mode: 'freeform',
       blocks: [{ id: 'b1', type: 'hero', layout: { desktop: { x: 0, y: 0, width: 100, height: 100 }, mobile: null }, props: {} }],
     })
 
@@ -79,7 +79,7 @@ describe('CanvasPage', () => {
   it('uses the mobile Rect on a mobile viewport, falling back to a computed default when unset', async () => {
     mockMatchMedia(true)
     mockFetch<ThemePage>({
-      slug: 'home', canvas_width: 1440, custom_css: '',
+      slug: 'home', canvas_width: 1440, custom_css: '', editor_mode: 'freeform',
       blocks: [
         { id: 'b1', type: 'hero', layout: { desktop: { x: 100, y: 50, width: 600, height: 200 }, mobile: null }, props: { heading: 'Welcome' } },
       ],
@@ -97,7 +97,7 @@ describe('CanvasPage', () => {
   it('uses a saved mobile Rect over the computed default when one exists', async () => {
     mockMatchMedia(true)
     mockFetch<ThemePage>({
-      slug: 'home', canvas_width: 1440, custom_css: '',
+      slug: 'home', canvas_width: 1440, custom_css: '', editor_mode: 'freeform',
       blocks: [
         { id: 'b1', type: 'hero', layout: { desktop: { x: 100, y: 50, width: 600, height: 200 }, mobile: { x: 5, y: 5, width: 380, height: 120 } }, props: { heading: 'Welcome' } },
       ],

@@ -20,3 +20,16 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     dispatchEvent: () => false,
   })
 }
+
+// jsdom doesn't implement ResizeObserver -- @puckeditor/core's drag/drop
+// dependency (@dnd-kit/dom) constructs one at module load, so anything
+// that even imports from @puckeditor/core (e.g. CanvasPage.tsx, for its
+// editor_mode:'puck' branch) needs this defined before that import runs,
+// regardless of whether the test actually exercises Puck rendering.
+if (typeof window !== 'undefined' && !window.ResizeObserver) {
+  window.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}

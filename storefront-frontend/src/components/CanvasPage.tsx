@@ -1,8 +1,18 @@
+import { Suspense, lazy } from 'react'
+import type { Data } from '@puckeditor/core'
 import { useThemePage } from './useThemePage'
 import { BlockRenderer } from './BlockRenderer'
 import { useIsMobileViewport, defaultMobileRect, MOBILE_CANVAS_WIDTH } from './mobileLayout'
 import { REQUIRED_BLOCK_TYPE_BY_SLUG } from '../types'
 import type { Block, PageSlug, Rect, ThemePage } from '../types'
+
+// Lazy: @puckeditor/core's whole runtime (dnd-kit, tiptap, etc) must never
+// be in the bundle a shopper downloads just to view a freeform page --
+// only fetched the first time a page actually resolves to editor_mode
+// 'puck'. See PuckPageRenderer.tsx's own doc comment.
+const PuckPageRenderer = lazy(() => import('../puck/PuckPageRenderer'))
+
+const EMPTY_PUCK_DATA: Data = { content: [], root: {} }
 
 interface Props {
   slug: PageSlug
@@ -38,6 +48,18 @@ export function CanvasPage({ slug }: Props) {
   }
   if (!page) {
     return null
+  }
+
+  // Puck-authored pages (editor_mode 'puck', see frontend/theme/storefrontLink.ts's
+  // "Edit visually" launcher) render through Puck's own read-only Render
+  // instead of the freeform absolutely-positioned block list below --
+  // puck_data is a wholly separate document, not translated into Block[].
+  if (page.editor_mode === 'puck') {
+    return (
+      <Suspense fallback={<p className="px-6 py-16 text-center text-brand-500">Loading…</p>}>
+        <PuckPageRenderer slug={slug} data={(page.puck_data as Data | undefined) ?? EMPTY_PUCK_DATA} />
+      </Suspense>
+    )
   }
 
   const blocks = withRequiredBlock(page)
