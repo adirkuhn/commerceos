@@ -37,6 +37,15 @@ export const THEME_PALETTES: ThemePalette[] = [
     label: 'Vinho',
     colors: { 50: '#fdf2f4', 100: '#fbdce2', 500: '#9d174d', 600: '#831843', 700: '#500724' },
   },
+  // Derived from a merchant-supplied Brazilian grocery storefront design
+  // (deep forest green on a warm cream background) -- see the Mercado
+  // starter template in starterTemplate.ts, which pairs naturally with
+  // this palette but isn't tied to it; either can be picked independently.
+  {
+    id: 'canto',
+    label: 'Verde Cerrado',
+    colors: { 50: '#fbf9f4', 100: '#f1eadf', 500: '#1b4b31', 600: '#143925', 700: '#0d2619' },
+  },
 ]
 
 export function paletteCustomCSS(palette: ThemePalette): string {

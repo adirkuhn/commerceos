@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildStarterFooterBlocks, buildStarterHeaderBlocks, buildStarterHomeBlocks,
   buildEditorialFooterBlocks, buildEditorialHeaderBlocks, buildEditorialHomeBlocks,
+  buildMercadoFooterBlocks, buildMercadoHeaderBlocks, buildMercadoHomeBlocks,
   STARTER_TEMPLATES, STARTER_TEMPLATE_CSS, combinedStarterCSS,
 } from '../starterTemplate'
 
@@ -172,9 +173,78 @@ describe('combinedStarterCSS', () => {
   })
 })
 
+describe('buildMercadoHomeBlocks', () => {
+  it('returns a hero, a floating badge, and the product catalog, in reading order', () => {
+    const blocks = buildMercadoHomeBlocks('Cantinho Brasileiro')
+
+    expect(blocks.map(b => b.type)).toEqual(['hero', 'custom_html', 'product_grid', 'custom_html', 'custom_html', 'custom_html'])
+  })
+
+  it('lays out category sections three-up', () => {
+    const blocks = buildMercadoHomeBlocks('Store', [
+      { id: 'cat-1', name: 'Bebidas' }, { id: 'cat-2', name: 'Snacks' }, { id: 'cat-3', name: 'Doces' },
+    ])
+    const featured = blocks.filter(b => b.type === 'featured_products')
+
+    expect(featured).toHaveLength(3)
+    expect(featured[0].layout.desktop.y).toBe(featured[1].layout.desktop.y)
+    expect(featured[0].layout.desktop.y).toBe(featured[2].layout.desktop.y)
+    expect(featured[0].layout.desktop.x).toBeLessThan(featured[1].layout.desktop.x)
+    expect(featured[1].layout.desktop.x).toBeLessThan(featured[2].layout.desktop.x)
+  })
+
+  it('caps category sections at 6', () => {
+    const categories = Array.from({ length: 10 }, (_, i) => ({ id: `cat-${i}`, name: `Category ${i}` }))
+    const blocks = buildMercadoHomeBlocks('Store', categories)
+
+    expect(blocks.filter(b => b.type === 'featured_products')).toHaveLength(6)
+  })
+
+  it('always ends with two promo banners and a trust-badge row, below the catalog', () => {
+    const blocks = buildMercadoHomeBlocks('Store', [{ id: 'cat-1', name: 'Bebidas' }])
+    const trailing = blocks.slice(-3)
+
+    expect(trailing.every(b => b.type === 'custom_html')).toBe(true)
+    const catalogBottom = Math.max(...blocks.filter(b => b.type === 'featured_products').map(b => b.layout.desktop.y + b.layout.desktop.height))
+    expect(trailing[0].layout.desktop.y).toBeGreaterThanOrEqual(catalogBottom)
+  })
+})
+
+describe('buildMercadoHeaderBlocks', () => {
+  it('returns an announcement bar, a logo, and a nav menu, in that order', () => {
+    const blocks = buildMercadoHeaderBlocks('Store', [{ id: 'cat-1', name: 'Bebidas' }])
+
+    expect(blocks.map(b => b.type)).toEqual(['custom_html', 'hero', 'nav_menu'])
+    expect(blocks[2].props.links).toEqual([{ label: 'Bebidas', url: '/products?category=cat-1' }])
+  })
+})
+
+describe('buildMercadoFooterBlocks', () => {
+  it('returns a store-name band and a legal nav menu', () => {
+    const blocks = buildMercadoFooterBlocks('Cantinho Brasileiro')
+
+    expect(blocks.map(b => b.type)).toEqual(['custom_html', 'nav_menu'])
+    expect(blocks[0].props.html).toContain('Cantinho Brasileiro')
+    expect(blocks[1].props.links).toEqual([
+      { label: 'Privacy policy', url: '/' },
+      { label: 'Terms & conditions', url: '/' },
+      { label: 'Returns & refunds', url: '/' },
+    ])
+  })
+})
+
+describe('STARTER_TEMPLATE_CSS mercado', () => {
+  it('gives Mercado its own serif/rounded/accent overrides, distinct from Editorial', () => {
+    expect(STARTER_TEMPLATE_CSS.mercado).toContain('serif')
+    expect(STARTER_TEMPLATE_CSS.mercado).toContain('border-radius')
+    expect(STARTER_TEMPLATE_CSS.mercado).toContain('#e06c5c')
+    expect(STARTER_TEMPLATE_CSS.mercado).not.toBe(STARTER_TEMPLATE_CSS.editorial)
+  })
+})
+
 describe('STARTER_TEMPLATES', () => {
-  it('lists classic and editorial, each producing header/home/footer blocks', () => {
-    expect(STARTER_TEMPLATES.map(t => t.id)).toEqual(['classic', 'editorial'])
+  it('lists classic, editorial, and mercado, each producing header/home/footer blocks', () => {
+    expect(STARTER_TEMPLATES.map(t => t.id)).toEqual(['classic', 'editorial', 'mercado'])
     for (const template of STARTER_TEMPLATES) {
       expect(template.buildHeader('Store').length).toBeGreaterThan(0)
       expect(template.buildHome('Store').length).toBeGreaterThan(0)
