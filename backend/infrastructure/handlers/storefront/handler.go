@@ -497,6 +497,12 @@ func (h *Handler) ListStorefrontProducts(c *gin.Context, params genstorefront.Li
 		return
 	}
 	in := appstorefront.ListProductsInput{CategoryID: params.CategoryId}
+	if params.ProductIds != nil {
+		in.ProductIDs = *params.ProductIds
+	}
+	if params.ExcludeProductIds != nil {
+		in.ExcludeProductIDs = *params.ExcludeProductIds
+	}
 	if params.Search != nil {
 		in.Search = *params.Search
 	}

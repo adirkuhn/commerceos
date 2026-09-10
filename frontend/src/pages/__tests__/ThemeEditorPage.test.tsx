@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -14,6 +14,10 @@ vi.mock('../../theme/api', () => ({
   getThemePage: vi.fn(),
   saveThemePage: vi.fn(),
   createEditSession: vi.fn(),
+}))
+
+vi.mock('../../pms/api', () => ({
+  listCategories: vi.fn().mockResolvedValue([]),
 }))
 
 import * as themeApi from '../../theme/api'
@@ -89,6 +93,64 @@ describe('ThemeEditorPage', () => {
     expect(payload.blocks).toHaveLength(1)
     expect(payload.blocks[0].type).toBe('hero')
     expect(payload.blocks[0].props.heading).toBe('Welcome shoppers')
+  })
+
+  it('sets a Hero block\'s button text/link', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue(emptyPage)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: /add block/i }))
+    await user.click(screen.getByRole('button', { name: 'Hero' }))
+
+    await user.type(screen.getByLabelText('Button text'), 'Shop now')
+    await user.type(screen.getByLabelText('Button link'), '/products')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.blocks[0].props.ctaText).toBe('Shop now')
+    expect(payload.blocks[0].props.ctaUrl).toBe('/products')
+  })
+
+  it('adds a Featured Products block, picks a category and a limit, and saves', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue(emptyPage)
+    const pmsApi = await import('../../pms/api')
+    vi.mocked(pmsApi.listCategories).mockResolvedValue([
+      { id: 'cat-1', tenant_id: 't1', name: 'Bebidas', slug: 'bebidas', position: 0, created_at: '2026-01-01', updated_at: '2026-01-01' },
+    ])
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: /add block/i }))
+    await user.click(screen.getByRole('button', { name: 'Featured products' }))
+
+    const titleInput = screen.getByLabelText('Title')
+    await user.clear(titleInput)
+    await user.type(titleInput, 'Bebidas')
+    await user.type(screen.getByLabelText('Subtitle'), 'Sucos e refrigerantes')
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Bebidas' })).toBeInTheDocument())
+    await user.selectOptions(screen.getByLabelText(/^Category/), 'cat-1')
+    fireEvent.change(screen.getByLabelText(/^Exclude product IDs/), { target: { value: 'p9, p10' } })
+    fireEvent.change(screen.getByLabelText('Number of products'), { target: { value: '4' } })
+    fireEvent.change(screen.getByLabelText('Items per row (desktop)'), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText('Items per row (mobile)'), { target: { value: '1' } })
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.blocks[0].type).toBe('featured_products')
+    expect(payload.blocks[0].props).toMatchObject({
+      title: 'Bebidas', subtitle: 'Sucos e refrigerantes', categoryId: 'cat-1', excludeProductIds: ['p9', 'p10'],
+      limit: 4, itemsPerRowDesktop: 3, itemsPerRowMobile: 1,
+    })
   })
 
   it('deletes a block', async () => {

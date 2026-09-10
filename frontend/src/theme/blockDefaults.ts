@@ -8,8 +8,12 @@ function newBlockId(): string {
 }
 
 const DEFAULT_PROPS: Record<BlockType, Record<string, unknown>> = {
-  hero: { heading: 'Welcome', subheading: '', imageUrl: '' },
+  hero: { heading: 'Welcome', subheading: '', imageUrl: '', ctaText: '', ctaUrl: '' },
   product_grid: {},
+  featured_products: {
+    title: 'Featured products', subtitle: '', categoryId: '', productIds: [], excludeProductIds: [],
+    limit: 8, itemsPerRowDesktop: 4, itemsPerRowMobile: 2,
+  },
   rich_text: { content: 'Edit this text…' },
   custom_html: { html: '' },
   product_details: {},
@@ -30,6 +34,7 @@ const DEFAULT_RECT: Record<BlockType, Rect> = {
   rich_text: { x: 20, y: 20, width: 320, height: 160 },
   custom_html: { x: 20, y: 20, width: 320, height: 160 },
   product_grid: { x: 0, y: 20, width: 1440, height: 600 },
+  featured_products: { x: 0, y: 20, width: 1440, height: 420 },
   product_details: { x: 0, y: 20, width: 1440, height: 600 },
   cart_summary: { x: 0, y: 20, width: 1440, height: 600 },
   checkout_form: { x: 0, y: 20, width: 1440, height: 600 },

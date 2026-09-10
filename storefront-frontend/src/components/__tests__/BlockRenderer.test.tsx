@@ -6,6 +6,12 @@ import { BlockRenderer } from '../BlockRenderer'
 import type { Block, PageSlug } from '../../types'
 
 vi.mock('../blocks/ProductGridBlock', () => ({ ProductGridBlock: () => <div>product-grid-block</div> }))
+vi.mock('../blocks/FeaturedProductsBlock', () => ({
+  FeaturedProductsBlock: (props: {
+    title: string; subtitle?: string; categoryId?: string; productIds?: string[]; excludeProductIds?: string[]
+    limit: number; itemsPerRowDesktop: number; itemsPerRowMobile: number
+  }) => <div data-testid="featured-products-block" data-props={JSON.stringify(props)} />,
+}))
 vi.mock('../blocks/ProductDetailsBlock', () => ({ ProductDetailsBlock: () => <div>product-details-block</div> }))
 vi.mock('../blocks/CartSummaryBlock', () => ({ CartSummaryBlock: () => <div>cart-summary-block</div> }))
 vi.mock('../blocks/CheckoutFormBlock', () => ({ CheckoutFormBlock: () => <div>checkout-form-block</div> }))
@@ -31,6 +37,42 @@ describe('BlockRenderer', () => {
 
     expect(screen.getByText('Big sale')).toBeInTheDocument()
     expect(screen.getByText('50% off')).toBeInTheDocument()
+  })
+
+  it("renders a hero block's CTA button, only when both text and link are set", () => {
+    renderBlock(block({ type: 'hero', props: { heading: 'Sale', ctaText: 'Shop now', ctaUrl: '/products' } }))
+
+    expect(screen.getByRole('link', { name: 'Shop now' })).toHaveAttribute('href', '/products')
+  })
+
+  it("omits a hero block's CTA button when only one of text/link is set", () => {
+    renderBlock(block({ type: 'hero', props: { heading: 'Sale', ctaText: 'Shop now' } }))
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('renders featured_products with every prop passed through', () => {
+    renderBlock(block({
+      type: 'featured_products',
+      props: {
+        title: 'Bebidas', subtitle: 'Sucos', categoryId: 'cat-1', productIds: ['p1', 'p2'], excludeProductIds: ['p3'],
+        limit: 4, itemsPerRowDesktop: 3, itemsPerRowMobile: 1,
+      },
+    }))
+    const props = JSON.parse(screen.getByTestId('featured-products-block').dataset.props!)
+    expect(props).toEqual({
+      title: 'Bebidas', subtitle: 'Sucos', categoryId: 'cat-1', productIds: ['p1', 'p2'], excludeProductIds: ['p3'],
+      limit: 4, itemsPerRowDesktop: 3, itemsPerRowMobile: 1,
+    })
+  })
+
+  it('renders featured_products with sensible defaults when only title is set', () => {
+    renderBlock(block({ type: 'featured_products', props: { title: 'Snacks' } }))
+    const props = JSON.parse(screen.getByTestId('featured-products-block').dataset.props!)
+    expect(props).toEqual({
+      title: 'Snacks', subtitle: undefined, categoryId: undefined, productIds: undefined, excludeProductIds: undefined,
+      limit: 8, itemsPerRowDesktop: 4, itemsPerRowMobile: 2,
+    })
   })
 
   it("renders a rich_text block's content", () => {

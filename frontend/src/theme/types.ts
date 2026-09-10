@@ -35,6 +35,7 @@ export const PAGE_SLUG_LABELS: Record<PageSlug, string> = {
 export type BlockType =
   | 'hero'
   | 'product_grid'
+  | 'featured_products'
   | 'rich_text'
   | 'custom_html'
   | 'product_details'
@@ -54,12 +55,13 @@ export type BlockType =
 // BlockPropsPanel shows no fields for it beyond delete.
 export const EDITABLE_BLOCK_TYPES: BlockType[] = [
   'hero', 'rich_text', 'custom_html',
-  'product_grid', 'product_details', 'cart_summary', 'checkout_form', 'order_status', 'wishlist', 'login_form', 'account',
+  'product_grid', 'featured_products', 'product_details', 'cart_summary', 'checkout_form', 'order_status', 'wishlist', 'login_form', 'account',
 ]
 
 export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   hero: 'Hero',
   product_grid: 'Product grid',
+  featured_products: 'Featured products',
   rich_text: 'Rich text',
   custom_html: 'Custom HTML',
   product_details: 'Product details',

@@ -33,6 +33,14 @@ export function BlockPreview({ block }: { block: Block }) {
         </div>
       )
     }
+    case 'featured_products': {
+      const title = typeof block.props.title === 'string' ? block.props.title : ''
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-amber-50 p-3">
+          <p className="text-[11px] font-medium text-amber-700">{title || 'Featured products'} — renders live content</p>
+        </div>
+      )
+    }
     default:
       return (
         <div className="flex h-full w-full items-center justify-center bg-amber-50 p-3">

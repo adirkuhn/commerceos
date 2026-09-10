@@ -3,9 +3,10 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { Puck, type Data } from '@puckeditor/core'
 import '@puckeditor/core/puck.css'
 import { setStorefrontKey } from '../api/client'
+import { listCategories } from '../api/categories'
 import { getThemeDraft, saveThemeDraft } from '../api/themeDraft'
 import { buildPuckConfig } from '../puck/config'
-import type { PageSlug, ThemePage } from '../types'
+import type { PageSlug, StorefrontCategory, ThemePage } from '../types'
 
 const EMPTY_PUCK_DATA: Data = { content: [], root: {} }
 
@@ -23,6 +24,7 @@ export default function EditPage() {
   const pageSlug = slug as PageSlug
 
   const [page, setPage] = useState<ThemePage | null>(null)
+  const [categories, setCategories] = useState<StorefrontCategory[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -38,8 +40,13 @@ export default function EditPage() {
         // serves every tenant, so it must be set fresh on every load rather
         // than trusting whatever a previous shopper/merchant visit left in
         // localStorage (see StoreEntry's identical reasoning for shoppers).
+        // Must happen before listCategories below -- that call rides the
+        // same shared key.
         if (fetchedPage.sales_channel_id) setStorefrontKey(fetchedPage.sales_channel_id)
         setPage(fetchedPage)
+        // Best-effort: only powers FeaturedProducts' category dropdown,
+        // which still works (as "All categories") if this fails.
+        listCategories().then(setCategories).catch(() => {})
       })
       .catch((err: Error) => setError(err.message))
   }, [token, pageSlug])
@@ -55,7 +62,7 @@ export default function EditPage() {
 
   return (
     <Puck
-      config={buildPuckConfig(pageSlug)}
+      config={buildPuckConfig(pageSlug, categories)}
       data={data}
       onPublish={async (newData: Data) => {
         // Round-trips page's own freeform blocks/custom_css/canvas_width

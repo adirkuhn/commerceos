@@ -1,4 +1,5 @@
 import { ProductGridBlock } from './blocks/ProductGridBlock'
+import { FeaturedProductsBlock } from './blocks/FeaturedProductsBlock'
 import { ProductDetailsBlock } from './blocks/ProductDetailsBlock'
 import { CartSummaryBlock } from './blocks/CartSummaryBlock'
 import { CheckoutFormBlock } from './blocks/CheckoutFormBlock'
@@ -11,6 +12,16 @@ import type { Block, PageSlug } from '../types'
 function stringProp(props: Record<string, unknown>, key: string): string {
   const v = props[key]
   return typeof v === 'string' ? v : ''
+}
+
+function numberProp(props: Record<string, unknown>, key: string, fallback: number): number {
+  const v = props[key]
+  return typeof v === 'number' ? v : fallback
+}
+
+function stringArrayProp(props: Record<string, unknown>, key: string): string[] | undefined {
+  const v = props[key]
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined
 }
 
 interface Props {
@@ -29,6 +40,8 @@ export function BlockRenderer({ block, pageSlug }: Props) {
       const heading = stringProp(block.props, 'heading')
       const subheading = stringProp(block.props, 'subheading')
       const imageUrl = stringProp(block.props, 'imageUrl')
+      const ctaText = stringProp(block.props, 'ctaText')
+      const ctaUrl = stringProp(block.props, 'ctaUrl')
       return (
         <div
           className="flex h-full w-full flex-col justify-center gap-2 bg-brand-50 px-8"
@@ -36,9 +49,27 @@ export function BlockRenderer({ block, pageSlug }: Props) {
         >
           {heading && <h2 className="text-3xl font-semibold text-brand-700">{heading}</h2>}
           {subheading && <p className="text-brand-500">{subheading}</p>}
+          {ctaText && ctaUrl && (
+            <a href={ctaUrl} className="mt-2 inline-block w-fit rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+              {ctaText}
+            </a>
+          )}
         </div>
       )
     }
+    case 'featured_products':
+      return (
+        <FeaturedProductsBlock
+          title={stringProp(block.props, 'title')}
+          subtitle={stringProp(block.props, 'subtitle') || undefined}
+          categoryId={stringProp(block.props, 'categoryId') || undefined}
+          productIds={stringArrayProp(block.props, 'productIds')}
+          excludeProductIds={stringArrayProp(block.props, 'excludeProductIds')}
+          limit={numberProp(block.props, 'limit', 8)}
+          itemsPerRowDesktop={numberProp(block.props, 'itemsPerRowDesktop', 4)}
+          itemsPerRowMobile={numberProp(block.props, 'itemsPerRowMobile', 2)}
+        />
+      )
     case 'rich_text': {
       const content = stringProp(block.props, 'content')
       return (

@@ -1398,3 +1398,55 @@ func TestProductRepo_Integration_ListManualModeWithNoIncludesMatchesNothing(t *t
 	require.NoError(t, err)
 	require.Empty(t, results)
 }
+
+// TestProductRepo_Integration_AndIncludeIDsNarrowsRegardlessOfCategory
+// proves AndIncludeIDs' independent "AND id IN (...)" behaves like
+// AndCategoryID's own test above -- a manually-curated Featured Products
+// block (application/storefront.ListProductsInput.ProductIDs) narrows to
+// exactly its picked list even when a product sits in an unrelated
+// category, and a non-nil-but-empty list matches nothing rather than
+// falling through to "unconstrained".
+func TestProductRepo_Integration_AndIncludeIDsNarrowsRegardlessOfCategory(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	categoryRepo := repositories.NewCategoryRepo(db)
+
+	var categoryID string
+	var pickedID, unpickedInCategoryID, unrelatedID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		cat := &pmsDomain.Category{TenantID: tenant.IDFromContext(ctx), Name: "Beverages", Slug: "beverages-and-include-ids-test", CreatedAt: now, UpdatedAt: now}
+		if err := categoryRepo.Create(ctx, cat); err != nil {
+			return err
+		}
+		categoryID = cat.ID
+		unpickedInCategoryID = seedProductForFilterTest(t, ctx, productRepo, "In category, not picked", &categoryID, nil)
+		pickedID = seedProductForFilterTest(t, ctx, productRepo, "Manually picked, different category", nil, nil)
+		unrelatedID = seedProductForFilterTest(t, ctx, productRepo, "Neither", nil, nil)
+		return nil
+	})
+	require.NoError(t, err)
+	_ = unpickedInCategoryID
+	_ = unrelatedID
+
+	pickedIDs := []string{pickedID}
+	var results []pmsDomain.Product
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{AndIncludeIDs: &pickedIDs})
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, pickedID, results[0].ID)
+
+	emptyPicked := []string{}
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		results, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{AndIncludeIDs: &emptyPicked})
+		return err
+	})
+	require.NoError(t, err)
+	require.Empty(t, results)
+}

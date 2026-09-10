@@ -20,6 +20,12 @@ func TestBlockType_IsFunctional(t *testing.T) {
 	assert.False(t, theme.BlockTypeRichText.IsFunctional())
 	assert.False(t, theme.BlockTypeProductGrid.IsFunctional())
 	assert.False(t, theme.BlockTypeCustomHTML.IsFunctional())
+	assert.False(t, theme.BlockTypeFeaturedProducts.IsFunctional())
+}
+
+func TestBlockType_Valid(t *testing.T) {
+	assert.True(t, theme.BlockTypeFeaturedProducts.Valid())
+	assert.False(t, theme.BlockType("not-a-real-type").Valid())
 }
 
 func TestPageSlug_RequiredBlockType(t *testing.T) {

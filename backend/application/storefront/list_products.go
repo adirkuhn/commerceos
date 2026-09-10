@@ -28,9 +28,23 @@ type ProductSummary struct {
 
 type ListProductsInput struct {
 	CategoryID *string
-	Search     string
-	Page       int
-	PerPage    int
+	// ProductIDs narrows to exactly this list of product ids, on top of
+	// "enrolled on this channel" -- a merchant's manually-curated
+	// "Featured Products" block (see domain/theme.BlockTypeFeaturedProducts)
+	// uses this instead of CategoryID. nil means unconstrained; a non-nil
+	// empty slice means "match nothing" (see pms.ProductFilter.AndIncludeIDs'
+	// own doc comment) -- callers that never set it (every other listing
+	// use, e.g. the /products page) leave it nil.
+	ProductIDs []string
+	// ExcludeProductIDs removes these from the result regardless of every
+	// other filter -- combines with the channel's own manual-override
+	// excludes (below), same as pms.ProductFilter.ExcludeIDs' own doc
+	// comment. A merchant's Featured Products block uses this for "this
+	// category, minus these specific ones."
+	ExcludeProductIDs []string
+	Search            string
+	Page              int
+	PerPage           int
 }
 
 // CategoryFacet is one category a shopper could switch to from the
@@ -119,10 +133,15 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, salesChannelID strin
 			}
 		}
 
+		excludeIDs = append(excludeIDs, in.ExcludeProductIDs...)
+
 		active := pmsDomain.ProductStatusActive
 		pmsInput = apppms.ListProductsInput{
 			Page: in.Page, PerPage: in.PerPage, Search: in.Search,
 			AndCategoryID: in.CategoryID, ExcludeIDs: excludeIDs, Status: &active,
+		}
+		if in.ProductIDs != nil {
+			pmsInput.AndIncludeIDs = &in.ProductIDs
 		}
 		switch channel.EnrollmentMode {
 		case channelsDomain.EnrollmentModeAll:

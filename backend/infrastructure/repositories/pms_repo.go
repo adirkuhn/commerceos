@@ -328,10 +328,11 @@ func (r *ProductRepo) FindBySlug(ctx context.Context, slug string) (*pmsDomain.P
 }
 
 // applyProductFilter applies every ProductFilter constraint to q except
-// AndCategoryID when includeAndCategory is false -- shared by List (which
-// always applies it) and CountByCategory (which deliberately doesn't: a
-// category facet's count must reflect "how many if this category were
-// picked instead", not "how many within the already-picked category").
+// AndCategoryID/AndIncludeIDs when includeAndCategory is false -- shared by
+// List (which always applies them) and CountByCategory (which deliberately
+// doesn't: a category facet's count must reflect "how many if this
+// category were picked instead", not "how many within the already-picked
+// category/manual list").
 // Returns the search pattern too, since List's result ordering needs it.
 func applyProductFilter(q *gorm.DB, filter pmsDomain.ProductFilter, includeAndCategory bool) (*gorm.DB, string, error) {
 	if filter.CategoryID != nil || filter.Tag != nil || filter.IncludeIDs != nil {
@@ -367,6 +368,13 @@ func applyProductFilter(q *gorm.DB, filter pmsDomain.ProductFilter, includeAndCa
 	}
 	if includeAndCategory && filter.AndCategoryID != nil {
 		q = q.Where("category_id = ?", *filter.AndCategoryID)
+	}
+	if includeAndCategory && filter.AndIncludeIDs != nil {
+		if len(*filter.AndIncludeIDs) > 0 {
+			q = q.Where("id IN ?", *filter.AndIncludeIDs)
+		} else {
+			q = q.Where("1 = 0")
+		}
 	}
 	if filter.Status != nil {
 		q = q.Where("status = ?", string(*filter.Status))

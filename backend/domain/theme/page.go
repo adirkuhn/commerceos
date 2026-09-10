@@ -28,10 +28,11 @@ import "time"
 type BlockType string
 
 const (
-	BlockTypeHero        BlockType = "hero"
-	BlockTypeProductGrid BlockType = "product_grid"
-	BlockTypeRichText    BlockType = "rich_text"
-	BlockTypeCustomHTML  BlockType = "custom_html"
+	BlockTypeHero             BlockType = "hero"
+	BlockTypeProductGrid      BlockType = "product_grid"
+	BlockTypeFeaturedProducts BlockType = "featured_products"
+	BlockTypeRichText         BlockType = "rich_text"
+	BlockTypeCustomHTML       BlockType = "custom_html"
 
 	BlockTypeProductDetails BlockType = "product_details"
 	BlockTypeCartSummary    BlockType = "cart_summary"
@@ -44,7 +45,7 @@ const (
 
 func (t BlockType) Valid() bool {
 	switch t {
-	case BlockTypeHero, BlockTypeProductGrid, BlockTypeRichText, BlockTypeCustomHTML,
+	case BlockTypeHero, BlockTypeProductGrid, BlockTypeFeaturedProducts, BlockTypeRichText, BlockTypeCustomHTML,
 		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist,
 		BlockTypeLoginForm, BlockTypeAccount:
 		return true

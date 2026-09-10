@@ -81,6 +81,43 @@ func TestListProducts_browseCategoryFilterPassesThroughAsAndCategoryID(t *testin
 	require.Equal(t, "cat-shoes", *catalog.gotIn.AndCategoryID)
 }
 
+func TestListProducts_manualProductIDsFilterPassesThroughAsAndIncludeIDs(t *testing.T) {
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
+	catalog := &fakeListPOSProductCatalog{}
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
+
+	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{ProductIDs: []string{"p1", "p2"}, Page: 1, PerPage: 20})
+
+	require.NoError(t, err)
+	require.NotNil(t, catalog.gotIn.AndIncludeIDs)
+	require.Equal(t, []string{"p1", "p2"}, *catalog.gotIn.AndIncludeIDs)
+}
+
+func TestListProducts_excludeProductIDsCombinesWithChannelOverrideExcludes(t *testing.T) {
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
+	overrideRepo := &fakeOverrideRepo{byChannel: map[string][]channelsDomain.SalesChannelProductOverride{
+		"channel-1": {{ProductID: "override-excluded", Included: false}},
+	}}
+	catalog := &fakeListPOSProductCatalog{}
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, overrideRepo, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
+
+	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{ExcludeProductIDs: []string{"block-excluded"}, Page: 1, PerPage: 20})
+
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"override-excluded", "block-excluded"}, catalog.gotIn.ExcludeIDs)
+}
+
+func TestListProducts_nilProductIDsLeavesAndIncludeIDsUnconstrained(t *testing.T) {
+	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
+	catalog := &fakeListPOSProductCatalog{}
+	uc := appstorefront.NewListProductsUseCase(newMockGormDB(t, 2), channelRepo, &fakeOverrideRepo{}, catalog, &fakeProductRepo{}, &fakeCategoryRepo{}, &fakeSKUCurrencyPriceRepo{}, &fakeExchangeRateRepo{})
+
+	_, err := uc.Execute(context.Background(), "channel-1", appstorefront.ListProductsInput{Page: 1, PerPage: 20})
+
+	require.NoError(t, err)
+	require.Nil(t, catalog.gotIn.AndIncludeIDs)
+}
+
 func TestListProducts_mapsSKUsFirstSKUAsListingPrice(t *testing.T) {
 	channelRepo := &fakeChannelRepo{byID: map[string]channelsDomain.SalesChannel{"channel-1": internalChannel("channel-1")}}
 	sale := int64(400)

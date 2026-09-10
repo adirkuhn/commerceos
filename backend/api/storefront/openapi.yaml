@@ -437,6 +437,30 @@ paths:
         - name: category_id
           in: query
           schema: { type: string }
+        - name: product_ids
+          in: query
+          description: >
+            Narrows to exactly this list of product ids, on top of channel
+            enrollment -- powers a merchant's manually-curated Featured
+            Products block (see theme.StorefrontBlockType's featured_products
+            value). Omit entirely for every other listing use; an empty list
+            means "match nothing", not "unconstrained".
+          style: form
+          explode: false
+          schema:
+            type: array
+            items: { type: string }
+        - name: exclude_product_ids
+          in: query
+          description: >
+            Removes these product ids from the result regardless of
+            category/enrollment -- "this category, minus these specific
+            ones" for a Featured Products block.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items: { type: string }
         - name: search
           in: query
           schema: { type: string }
@@ -1234,7 +1258,7 @@ components:
         real, wired-up control for these (add-to-cart, the payment-
         submitting checkout form, etc), using this block only for its
         layout Rect. See domain/theme.BlockType.IsFunctional.
-      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist, login_form, account]
+      enum: [hero, product_grid, featured_products, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist, login_form, account]
 
     StorefrontRect:
       type: object

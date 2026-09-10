@@ -383,6 +383,7 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
         {!cssPanelOpen && selectedBlock && (
           <div className="w-64 shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
             <BlockPropsPanel
+              token={token}
               block={selectedBlock}
               onChangeProps={props => updateBlock(selectedBlock.id, b => ({ ...b, props }))}
               onDelete={() => deleteBlock(selectedBlock.id)}

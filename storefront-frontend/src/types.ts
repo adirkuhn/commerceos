@@ -18,6 +18,7 @@ export type PageSlug =
 export type BlockType =
   | 'hero'
   | 'product_grid'
+  | 'featured_products'
   | 'rich_text'
   | 'custom_html'
   | 'product_details'

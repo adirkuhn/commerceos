@@ -14,6 +14,10 @@ vi.mock('../../api/client', () => ({
   setStorefrontKey: vi.fn(),
 }))
 
+vi.mock('../../api/categories', () => ({
+  listCategories: vi.fn().mockResolvedValue([]),
+}))
+
 // Real Puck renders a full drag-and-drop editor UI with no simple way to
 // trigger onPublish from a test; capturing the prop directly lets the
 // round-trip test call it exactly as Puck would on a merchant's publish
@@ -29,6 +33,7 @@ vi.mock('@puckeditor/core', () => ({
 
 import * as themeDraftApi from '../../api/themeDraft'
 import * as clientApi from '../../api/client'
+import * as categoriesApi from '../../api/categories'
 
 function renderAt(pathname: string) {
   return render(
@@ -66,6 +71,16 @@ describe('EditPage', () => {
     renderAt('/edit/home?token=edit-token-1')
 
     await waitFor(() => expect(clientApi.setStorefrontKey).toHaveBeenCalledWith('channel-1'))
+  })
+
+  it('fetches categories for FeaturedProducts\' picker, non-blocking if it fails', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(draftPage)
+    vi.mocked(categoriesApi.listCategories).mockRejectedValue(new Error('network error'))
+
+    renderAt('/edit/home?token=edit-token-1')
+
+    await waitFor(() => expect(categoriesApi.listCategories).toHaveBeenCalled())
+    expect(await screen.findByText('puck-editor-marker')).toBeInTheDocument()
   })
 
   it('shows an explanatory error when opened with no token', async () => {

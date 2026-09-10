@@ -323,9 +323,12 @@ func (s *stubCheckoutCart) Execute(_ context.Context, token string, in appstoref
 type stubListProducts struct {
 	out *appstorefront.ListProductsResult
 	err error
+
+	gotIn appstorefront.ListProductsInput
 }
 
-func (s *stubListProducts) Execute(_ context.Context, _ string, _ appstorefront.ListProductsInput) (*appstorefront.ListProductsResult, error) {
+func (s *stubListProducts) Execute(_ context.Context, _ string, in appstorefront.ListProductsInput) (*appstorefront.ListProductsResult, error) {
+	s.gotIn = in
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -822,6 +825,28 @@ func TestListStorefrontProductsHandler_includesCategoryFacets(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"category_name":"Shoes"`)
 	assert.Contains(t, w.Body.String(), `"count":3`)
+}
+
+func TestListStorefrontProductsHandler_parsesProductIDsQueryParam(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	list := &stubListProducts{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, list, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products?product_ids=p1,p2", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"p1", "p2"}, list.gotIn.ProductIDs)
+}
+
+func TestListStorefrontProductsHandler_parsesExcludeProductIDsQueryParam(t *testing.T) {
+	resolve := &stubResolveStorefrontKey{resolved: channelScopedKey("tenant-1", "channel-1")}
+	list := &stubListProducts{}
+	h := newTestHandler(resolve, &stubGetCartRecommendations{}, &stubCreateCart{}, &stubGetCart{}, &stubUpdateCartItems{}, &stubCheckoutCart{}, list, &stubGetProduct{}, &stubListCategories{}, &stubLookupOrder{})
+
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/storefront/v1/products?exclude_product_ids=p3", "", "test-key")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, []string{"p3"}, list.gotIn.ExcludeProductIDs)
 }
 
 func TestListStorefrontProductsHandler_rejectsTenantWideKey(t *testing.T) {

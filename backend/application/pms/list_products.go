@@ -27,6 +27,7 @@ type ListProductsInput struct {
 	// agnostic, storefront translates a channel's actual rule into these
 	// generic filter primitives).
 	AndCategoryID *string
+	AndIncludeIDs *[]string
 	CategoryID    *string
 	Tag           *string
 	IncludeIDs    *[]string
@@ -68,7 +69,7 @@ func (uc *ListProductsUseCase) Execute(ctx context.Context, in ListProductsInput
 
 	filter := pmsDomain.ProductFilter{
 		Limit: perPage, Offset: (page - 1) * perPage,
-		AndCategoryID: in.AndCategoryID, CategoryID: in.CategoryID, Tag: in.Tag,
+		AndCategoryID: in.AndCategoryID, AndIncludeIDs: in.AndIncludeIDs, CategoryID: in.CategoryID, Tag: in.Tag,
 		IncludeIDs: in.IncludeIDs, ExcludeIDs: in.ExcludeIDs, Status: in.Status,
 	}
 	if in.Search != "" {

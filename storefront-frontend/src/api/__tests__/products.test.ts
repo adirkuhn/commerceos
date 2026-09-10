@@ -28,6 +28,22 @@ describe('products api', () => {
     expect(url).toContain('per_page=10')
   })
 
+  it('listProducts sends product_ids/exclude_product_ids as comma-joined lists', async () => {
+    mockFetch<StorefrontProductListResult>({ items: [], total: 0, category_facets: [] })
+    await listProducts({ productIds: ['p1', 'p2'], excludeIds: ['p3'] })
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toContain('product_ids=p1%2Cp2')
+    expect(url).toContain('exclude_product_ids=p3')
+  })
+
+  it('listProducts omits product_ids/exclude_product_ids when empty', async () => {
+    mockFetch<StorefrontProductListResult>({ items: [], total: 0, category_facets: [] })
+    await listProducts({ productIds: [], excludeIds: [] })
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(url).not.toContain('product_ids')
+    expect(url).not.toContain('exclude_product_ids')
+  })
+
   it('getProduct fetches one product by id', async () => {
     const product: StorefrontProduct = {
       id: 'p1', slug: 'p1', name: 'Widget', description: '', category_id: null, tags: [], images: [], variants: [],

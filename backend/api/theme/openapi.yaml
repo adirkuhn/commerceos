@@ -120,7 +120,7 @@ components:
         are "functional" blocks -- they render real wired-up behavior (the
         actual add-to-cart control, the actual payment-submitting checkout
         form), not just presentation. See domain/theme.BlockType.IsFunctional.
-      enum: [hero, product_grid, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist, login_form, account]
+      enum: [hero, product_grid, featured_products, rich_text, custom_html, product_details, cart_summary, checkout_form, order_status, wishlist, login_form, account]
 
     Rect:
       type: object
