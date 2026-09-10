@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { Suspense, lazy, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { setStorefrontKey } from './api/client'
-import { CartProvider, useCart } from './cart/CartContext'
-import { WishlistProvider, useWishlist } from './wishlist/WishlistContext'
-import { AuthProvider, useAuth } from './auth/AuthContext'
+import { CartProvider } from './cart/CartContext'
+import { WishlistProvider } from './wishlist/WishlistContext'
+import { AuthProvider } from './auth/AuthContext'
+import { CanvasPage } from './components/CanvasPage'
 import { HomePage } from './pages/HomePage'
 import { ProductsPage } from './pages/ProductsPage'
 import { ProductPage } from './pages/ProductPage'
@@ -20,36 +21,6 @@ import { AccountPage } from './pages/AccountPage'
 // why) -- a shopper's browser must never fetch this, only a merchant's
 // edit-session-token-bearing visit to /edit/:slug does.
 const EditPage = lazy(() => import('./pages/EditPage'))
-
-function CartLink() {
-  const { cart } = useCart()
-  const count = cart?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0
-  return (
-    <Link to="/cart" className="text-brand-500 hover:text-brand-700">
-      Cart{count > 0 ? ` (${count})` : ''}
-    </Link>
-  )
-}
-
-function WishlistLink() {
-  const { wishlist } = useWishlist()
-  const count = wishlist?.product_ids.length ?? 0
-  return (
-    <Link to="/wishlist" className="ml-auto text-brand-500 hover:text-brand-700">
-      Wishlist{count > 0 ? ` (${count})` : ''}
-    </Link>
-  )
-}
-
-function AccountLink() {
-  const { account, loading } = useAuth()
-  if (loading) return null
-  return (
-    <Link to={account ? '/account' : '/login'} className="text-brand-500 hover:text-brand-700">
-      {account ? (account.first_name || 'Account') : 'Sign in'}
-    </Link>
-  )
-}
 
 // A safe redirect target: exactly one leading slash, never "//host/..."
 // (a protocol-relative URL, which some browsers/history APIs treat as
@@ -83,20 +54,24 @@ function StoreEntry() {
   return null
 }
 
+// Layout is the site-wide chrome around every real page -- both header
+// and footer are themselves ThemePage "pseudo-pages" (see backend
+// domain/theme.PageSlugHeader's own doc comment), rendered by the same
+// CanvasPage/BlockRenderer machinery every real page uses, not hardcoded
+// markup. header's one required block (nav_actions) guarantees the real
+// Cart/Wishlist/Account links always render even before a merchant ever
+// opens the editor; footer has no requirement and simply renders nothing
+// until a merchant adds content (see CanvasPage's own "chrome" handling).
 function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-white text-brand-700">
       <header className="border-b border-brand-100">
-        <nav className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4 text-sm">
-          <Link to="/" className="font-semibold">Store</Link>
-          <Link to="/products" className="text-brand-500 hover:text-brand-700">Products</Link>
-          <CartLink />
-          <WishlistLink />
-          <AccountLink />
-          <Link to="/order-lookup" className="text-brand-500 hover:text-brand-700">Track order</Link>
-        </nav>
+        <CanvasPage slug="header" />
       </header>
       {children}
+      <footer className="border-t border-brand-100">
+        <CanvasPage slug="footer" />
+      </footer>
     </div>
   )
 }

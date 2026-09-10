@@ -17,12 +17,16 @@ vi.mock('../../components/blocks/OrderStatusBlock', () => ({ OrderStatusBlock: (
 vi.mock('../../components/blocks/WishlistBlock', () => ({ WishlistBlock: () => <div>wishlist-marker</div> }))
 vi.mock('../../components/blocks/LoginFormBlock', () => ({ LoginFormBlock: () => <div>login-form-marker</div> }))
 vi.mock('../../components/blocks/AccountBlock', () => ({ AccountBlock: () => <div>account-marker</div> }))
+vi.mock('../../components/blocks/NavMenuBlock', () => ({
+  NavMenuBlock: ({ links }: { links: { label: string; url: string }[] }) => <div data-testid="nav-menu-marker" data-links={JSON.stringify(links)} />,
+}))
+vi.mock('../../components/blocks/NavActionsBlock', () => ({ NavActionsBlock: () => <div>nav-actions-marker</div> }))
 
 describe('buildPuckConfig', () => {
   it('registers every storefront block type as a Puck component', () => {
     const config = buildPuckConfig('home')
     expect(Object.keys(config.components ?? {}).sort()).toEqual([
-      'Account', 'CartSummary', 'CheckoutForm', 'CustomHTML', 'FeaturedProducts', 'Hero', 'LoginForm',
+      'Account', 'CartSummary', 'CheckoutForm', 'CustomHTML', 'FeaturedProducts', 'Hero', 'LoginForm', 'NavActions', 'NavMenu',
       'OrderStatus', 'ProductDetails', 'ProductGrid', 'RichText', 'Wishlist',
     ])
   })
@@ -121,5 +125,35 @@ describe('buildPuckConfig', () => {
     render(<>{(config.components!.OrderStatus.render as any)({})}</>)
 
     expect(screen.getByText('order-status-marker:order-lookup')).toBeInTheDocument()
+  })
+
+  it('renders NavMenu with its links, defaulting to an empty list', () => {
+    const config = buildPuckConfig('header')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    render(<>{(config.components!.NavMenu.render as any)({ links: [{ label: 'Bebidas', url: '/products?category=cat-1' }] })}</>)
+
+    expect(screen.getByTestId('nav-menu-marker').dataset.links).toBe('[{"label":"Bebidas","url":"/products?category=cat-1"}]')
+
+    render(<>{(config.components!.NavMenu.render as any)({ links: undefined })}</>)
+    expect(screen.getAllByTestId('nav-menu-marker')[1].dataset.links).toBe('[]')
+  })
+
+  it('NavMenu\'s array field has label/url subfields and a summary derived from the label', () => {
+    const config = buildPuckConfig('header')
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const linksField = (config.components!.NavMenu.fields as any).links
+    expect(linksField.type).toBe('array')
+    expect(Object.keys(linksField.arrayFields)).toEqual(['label', 'url'])
+    expect(linksField.getItemSummary({ label: 'Bebidas' })).toBe('Bebidas')
+    expect(linksField.getItemSummary({ label: '' })).toBe('Link')
+  })
+
+  it('renders the real, live NavActions component', () => {
+    const config = buildPuckConfig('header')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    render(<>{(config.components!.NavActions.render as any)({})}</>)
+
+    expect(screen.getByText('nav-actions-marker')).toBeInTheDocument()
   })
 })

@@ -41,6 +41,19 @@ export function BlockPreview({ block }: { block: Block }) {
         </div>
       )
     }
+    case 'nav_menu': {
+      const links = Array.isArray(block.props.links) ? block.props.links : []
+      return (
+        <div className="flex h-full w-full items-center gap-3 overflow-hidden bg-gray-50 px-3">
+          {links.length === 0 && <p className="text-xs text-gray-400">Nav menu — no links yet</p>}
+          {links.map((l, i) => (
+            <p key={i} className="truncate text-xs text-brand-600">
+              {typeof l?.label === 'string' && l.label ? l.label : 'Link'}
+            </p>
+          ))}
+        </div>
+      )
+    }
     default:
       return (
         <div className="flex h-full w-full items-center justify-center bg-amber-50 p-3">

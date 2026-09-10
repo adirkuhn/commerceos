@@ -16,6 +16,7 @@ const DEFAULT_PROPS: Record<BlockType, Record<string, unknown>> = {
   },
   rich_text: { content: 'Edit this text…' },
   custom_html: { html: '' },
+  nav_menu: { links: [] },
   product_details: {},
   cart_summary: {},
   checkout_form: {},
@@ -23,6 +24,7 @@ const DEFAULT_PROPS: Record<BlockType, Record<string, unknown>> = {
   wishlist: {},
   login_form: {},
   account: {},
+  nav_actions: {},
 }
 
 // Decorative blocks start as a small box a merchant places by hand. The
@@ -33,6 +35,7 @@ const DEFAULT_RECT: Record<BlockType, Rect> = {
   hero: { x: 20, y: 20, width: 320, height: 160 },
   rich_text: { x: 20, y: 20, width: 320, height: 160 },
   custom_html: { x: 20, y: 20, width: 320, height: 160 },
+  nav_menu: { x: 20, y: 20, width: 400, height: 48 },
   product_grid: { x: 0, y: 20, width: 1440, height: 600 },
   featured_products: { x: 0, y: 20, width: 1440, height: 420 },
   product_details: { x: 0, y: 20, width: 1440, height: 600 },
@@ -42,6 +45,7 @@ const DEFAULT_RECT: Record<BlockType, Rect> = {
   wishlist: { x: 0, y: 20, width: 1440, height: 600 },
   login_form: { x: 0, y: 20, width: 480, height: 400 },
   account: { x: 0, y: 20, width: 1440, height: 600 },
+  nav_actions: { x: 200, y: 20, width: 300, height: 48 },
 }
 
 export function createBlock(type: BlockType): Block {

@@ -1,8 +1,23 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { CanvasPage } from '../CanvasPage'
+import { CartProvider } from '../../cart/CartContext'
+import { WishlistProvider } from '../../wishlist/WishlistContext'
+import { AuthProvider } from '../../auth/AuthContext'
 import type { APIResponse, ThemePage } from '../../types'
+
+// nav_actions (header's required block) needs real cart/wishlist/auth
+// context -- only exercised by the "header (chrome)" test below, but
+// vi.mock must be top-level regardless.
+vi.mock('../../api/cart', () => ({
+  createCart: vi.fn(), getCart: vi.fn(), updateCartItems: vi.fn(), checkoutCart: vi.fn(), applyCoupon: vi.fn(),
+}))
+vi.mock('../../api/wishlist', () => ({ createWishlist: vi.fn(), getWishlist: vi.fn(), toggleWishlistItem: vi.fn() }))
+vi.mock('../../api/auth', () => ({
+  requestMagicLink: vi.fn(), verifySession: vi.fn(), getAccount: vi.fn(), listAccountOrders: vi.fn(), logout: vi.fn(),
+}))
 
 function mockFetch<T>(data: T) {
   const body: APIResponse<T> = { data, error: null }
@@ -62,6 +77,39 @@ describe('CanvasPage', () => {
     render(<CanvasPage slug="home" />)
 
     await waitFor(() => expect(screen.getByText(/Could not load this page: boom/)).toBeInTheDocument())
+  })
+
+  it('footer (chrome) renders nothing instead of an empty-page message when there are no blocks', async () => {
+    mockFetch<ThemePage>({ slug: 'footer', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
+
+    const { container } = render(<CanvasPage slug="footer" />)
+
+    await waitFor(() => expect(screen.queryByText(/Loading/)).not.toBeInTheDocument())
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('footer (chrome) renders nothing on a fetch error, instead of an error message', async () => {
+    mockFetchError('boom')
+
+    const { container } = render(<CanvasPage slug="footer" />)
+
+    await waitFor(() => expect(screen.queryByText(/Loading/)).not.toBeInTheDocument())
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('header (chrome) still synthesizes its required nav_actions block even with no saved blocks', async () => {
+    mockFetch<ThemePage>({ slug: 'header', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
+
+    render(
+      <MemoryRouter>
+        <CartProvider><WishlistProvider><AuthProvider>
+          <CanvasPage slug="header" />
+        </AuthProvider></WishlistProvider></CartProvider>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByTestId('canvas-page')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cart' })).toBeInTheDocument()
   })
 
   it('injects custom_css as a style tag', async () => {

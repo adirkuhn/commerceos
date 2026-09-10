@@ -184,14 +184,21 @@ describe('Create sales channel', () => {
         defaultWarehouseId: 'wh-1',
       })
     })
-    // A brand-new internal channel gets a real home page immediately --
-    // no separate "click Template in the editor" step required.
+    // A brand-new internal channel gets real header/home/footer pages
+    // immediately -- no separate "click Template in the editor" step
+    // required, and no site-wide chrome left blank either.
     await waitFor(() => {
       expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
         blocks: expect.arrayContaining([expect.objectContaining({ type: 'hero' })]),
         custom_css: expect.stringContaining(':root'),
       }))
     })
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'header', expect.objectContaining({
+      blocks: expect.arrayContaining([expect.objectContaining({ type: 'nav_menu' })]),
+    }))
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
+      blocks: expect.arrayContaining([expect.objectContaining({ type: 'rich_text' })]),
+    }))
   })
 
   it('does not seed a theme for a non-internal channel (WooCommerce/Bol have no storefront of their own)', async () => {

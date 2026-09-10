@@ -21,11 +21,20 @@ func TestBlockType_IsFunctional(t *testing.T) {
 	assert.False(t, theme.BlockTypeProductGrid.IsFunctional())
 	assert.False(t, theme.BlockTypeCustomHTML.IsFunctional())
 	assert.False(t, theme.BlockTypeFeaturedProducts.IsFunctional())
+	assert.False(t, theme.BlockTypeNavMenu.IsFunctional())
+	assert.True(t, theme.BlockTypeNavActions.IsFunctional())
 }
 
 func TestBlockType_Valid(t *testing.T) {
 	assert.True(t, theme.BlockTypeFeaturedProducts.Valid())
+	assert.True(t, theme.BlockTypeNavMenu.Valid())
+	assert.True(t, theme.BlockTypeNavActions.Valid())
 	assert.False(t, theme.BlockType("not-a-real-type").Valid())
+}
+
+func TestPageSlug_Valid_includesHeaderAndFooter(t *testing.T) {
+	assert.True(t, theme.PageSlugHeader.Valid())
+	assert.True(t, theme.PageSlugFooter.Valid())
 }
 
 func TestPageSlug_RequiredBlockType(t *testing.T) {
@@ -44,6 +53,8 @@ func TestPageSlug_RequiredBlockType(t *testing.T) {
 		{theme.PageSlugWishlist, theme.BlockTypeWishlist, true},
 		{theme.PageSlugLogin, theme.BlockTypeLoginForm, true},
 		{theme.PageSlugAccount, theme.BlockTypeAccount, true},
+		{theme.PageSlugHeader, theme.BlockTypeNavActions, true},
+		{theme.PageSlugFooter, "", false},
 	}
 	for _, tc := range tests {
 		gotType, gotOK := tc.slug.RequiredBlockType()

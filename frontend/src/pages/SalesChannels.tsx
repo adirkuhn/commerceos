@@ -15,7 +15,8 @@ import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrat
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
-import { buildStarterHomeBlocks } from '../theme/starterTemplate'
+import { buildStarterFooterBlocks, buildStarterHeaderBlocks, buildStarterHomeBlocks } from '../theme/starterTemplate'
+import type { Block, PageSlug } from '../theme/types'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { storefrontEnterPath, storefrontVisitURL } from '../theme/storefrontLink'
 
@@ -117,25 +118,33 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 // directly (WhatsApp is the other, for its chat checkout).
 const INTERNAL_TYPE: ChannelType = 'internal'
 
-// seedStarterTheme gives a brand-new internal channel a real home page
-// immediately (hero/about/product-grid/footer, one default palette) --
-// merchants shouldn't have to know the theme editor's "Template" button
-// exists just to get past a blank storefront. Still just a starting
-// point: freely editable/replaceable afterward, same as if a merchant had
-// clicked Template themselves. Best-effort -- a failure here must not
-// block channel creation from succeeding; the channel still exists and
-// the merchant can seed/edit its theme by hand from the editor.
+// seedStarterTheme gives a brand-new internal channel real header/home/
+// footer pages immediately (logo+nav, hero/about/product-grid, tagline+
+// contact placeholders, one default palette) -- merchants shouldn't have
+// to know the theme editor's "Template" button exists just to get past a
+// blank storefront. Still just a starting point: freely editable/
+// replaceable afterward, same as if a merchant had clicked Template
+// themselves. Best-effort per page -- a failure here must not block
+// channel creation from succeeding; the channel still exists and the
+// merchant can seed/edit its theme by hand from the editor.
 async function seedStarterTheme(token: string, channel: SalesChannel): Promise<void> {
   const palette = THEME_PALETTES.find(p => p.id === 'verde') ?? THEME_PALETTES[0]
-  try {
-    await saveThemePage(token, channel.id, 'home', {
-      canvas_width: 1440,
-      blocks: buildStarterHomeBlocks(channel.name),
-      custom_css: paletteCustomCSS(palette),
-      editor_mode: 'freeform',
-    })
-  } catch {
-    // Non-blocking -- see this function's doc comment.
+  const pages: [PageSlug, Block[]][] = [
+    ['header', buildStarterHeaderBlocks(channel.name)],
+    ['home', buildStarterHomeBlocks(channel.name)],
+    ['footer', buildStarterFooterBlocks(channel.name)],
+  ]
+  for (const [slug, blocks] of pages) {
+    try {
+      await saveThemePage(token, channel.id, slug, {
+        canvas_width: 1440,
+        blocks,
+        custom_css: slug === 'home' ? paletteCustomCSS(palette) : '',
+        editor_mode: 'freeform',
+      })
+    } catch {
+      // Non-blocking, per page -- see this function's doc comment.
+    }
   }
 }
 

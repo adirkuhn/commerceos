@@ -16,6 +16,10 @@ vi.mock('../blocks/ProductDetailsBlock', () => ({ ProductDetailsBlock: () => <di
 vi.mock('../blocks/CartSummaryBlock', () => ({ CartSummaryBlock: () => <div>cart-summary-block</div> }))
 vi.mock('../blocks/CheckoutFormBlock', () => ({ CheckoutFormBlock: () => <div>checkout-form-block</div> }))
 vi.mock('../blocks/OrderStatusBlock', () => ({ OrderStatusBlock: ({ pageSlug }: { pageSlug: string }) => <div>order-status-block:{pageSlug}</div> }))
+vi.mock('../blocks/NavMenuBlock', () => ({
+  NavMenuBlock: ({ links }: { links: { label: string; url: string }[] }) => <div>nav-menu-block:{JSON.stringify(links)}</div>,
+}))
+vi.mock('../blocks/NavActionsBlock', () => ({ NavActionsBlock: () => <div>nav-actions-block</div> }))
 
 function block(overrides: Partial<Block>): Block {
   return {
@@ -95,5 +99,15 @@ describe('BlockRenderer', () => {
   it('dispatches order_status with the current page slug', () => {
     renderBlock(block({ type: 'order_status' }), 'order-lookup')
     expect(screen.getByText('order-status-block:order-lookup')).toBeInTheDocument()
+  })
+
+  it('renders nav_menu with its links prop, ignoring malformed entries', () => {
+    renderBlock(block({ type: 'nav_menu', props: { links: [{ label: 'Bebidas', url: '/products?category=cat-1' }, 'not-a-link', { label: 42 }] } }))
+    expect(screen.getByText('nav-menu-block:[{"label":"Bebidas","url":"/products?category=cat-1"}]')).toBeInTheDocument()
+  })
+
+  it('dispatches nav_actions to the real, live component', () => {
+    renderBlock(block({ type: 'nav_actions' }))
+    expect(screen.getByText('nav-actions-block')).toBeInTheDocument()
   })
 })

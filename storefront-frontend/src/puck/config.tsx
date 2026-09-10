@@ -8,6 +8,8 @@ import { OrderStatusBlock } from '../components/blocks/OrderStatusBlock'
 import { WishlistBlock } from '../components/blocks/WishlistBlock'
 import { LoginFormBlock } from '../components/blocks/LoginFormBlock'
 import { AccountBlock } from '../components/blocks/AccountBlock'
+import { NavMenuBlock, type NavMenuLink } from '../components/blocks/NavMenuBlock'
+import { NavActionsBlock } from '../components/blocks/NavActionsBlock'
 import type { PageSlug } from '../types'
 
 function parseIdList(value: unknown): string[] | undefined {
@@ -148,6 +150,26 @@ export function buildPuckConfig(slug: PageSlug, categories: { id: string; name: 
       Account: {
         fields: {},
         render: () => <AccountBlock />,
+      },
+      NavMenu: {
+        fields: {
+          links: {
+            type: 'array',
+            label: 'Links',
+            arrayFields: {
+              label: { type: 'text', label: 'Label' },
+              url: { type: 'text', label: 'URL (an internal path like /products, or a full https:// link)' },
+            },
+            defaultItemProps: { label: 'Link', url: '/' },
+            getItemSummary: (item: NavMenuLink) => item.label || 'Link',
+          },
+        },
+        defaultProps: { links: [] },
+        render: ({ links }) => <NavMenuBlock links={(links as NavMenuLink[] | undefined) ?? []} />,
+      },
+      NavActions: {
+        fields: {},
+        render: () => <NavActionsBlock />,
       },
     },
   }

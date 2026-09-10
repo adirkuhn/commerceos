@@ -14,6 +14,11 @@ export type PageSlug =
   | 'wishlist'
   | 'login'
   | 'account'
+  // header/footer are site-wide "pseudo-pages", not a real shopper route --
+  // see backend domain/theme.PageSlugHeader's own doc comment. Layout
+  // renders them around every real page's own content.
+  | 'header'
+  | 'footer'
 
 export type BlockType =
   | 'hero'
@@ -21,6 +26,11 @@ export type BlockType =
   | 'featured_products'
   | 'rich_text'
   | 'custom_html'
+  // nav_menu is a merchant-ordered list of label/url links -- reusable for
+  // both the header page (category browse links) and the footer page
+  // (privacy/terms/returns links). Not tied to any one concept, unlike
+  // every other block here.
+  | 'nav_menu'
   | 'product_details'
   | 'cart_summary'
   | 'checkout_form'
@@ -28,6 +38,11 @@ export type BlockType =
   | 'wishlist'
   | 'login_form'
   | 'account'
+  // nav_actions is the header page's one required functional block -- the
+  // real, live Cart/Wishlist/Account links (real counts, real auth
+  // state), bundled as one wired widget. See backend
+  // domain/theme.BlockTypeNavActions' own doc comment.
+  | 'nav_actions'
 
 export interface Rect {
   x: number
@@ -86,6 +101,7 @@ export const REQUIRED_BLOCK_TYPE_BY_SLUG: Partial<Record<PageSlug, BlockType>> =
   wishlist: 'wishlist',
   login: 'login_form',
   account: 'account',
+  header: 'nav_actions',
 }
 
 export interface Wishlist {

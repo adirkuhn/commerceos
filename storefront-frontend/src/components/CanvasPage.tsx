@@ -36,15 +36,26 @@ function withRequiredBlock(page: ThemePage): Block[] {
   ]
 }
 
+// isChrome pages (header/footer) render around every real page rather
+// than being navigated to directly -- a full-page loading/error/empty
+// message (sized for a shopper who just clicked a link to get here)
+// would be jarring chrome flashing on every visit, so they collapse to
+// nothing instead: the page's own real content is still the useful
+// thing on screen underneath/around, not the pseudo-page's own state.
+function isChrome(slug: PageSlug): boolean {
+  return slug === 'header' || slug === 'footer'
+}
+
 export function CanvasPage({ slug }: Props) {
   const { page, loading, error } = useThemePage(slug)
   const isMobile = useIsMobileViewport()
+  const chrome = isChrome(slug)
 
   if (loading) {
-    return <p className="px-6 py-16 text-center text-brand-500">Loading…</p>
+    return chrome ? null : <p className="px-6 py-16 text-center text-brand-500">Loading…</p>
   }
   if (error) {
-    return <p className="px-6 py-16 text-center text-red-600">Could not load this page: {error}</p>
+    return chrome ? null : <p className="px-6 py-16 text-center text-red-600">Could not load this page: {error}</p>
   }
   if (!page) {
     return null
@@ -64,7 +75,7 @@ export function CanvasPage({ slug }: Props) {
 
   const blocks = withRequiredBlock(page)
   if (blocks.length === 0) {
-    return <p className="px-6 py-16 text-center text-brand-500">This page has no content yet.</p>
+    return chrome ? null : <p className="px-6 py-16 text-center text-brand-500">This page has no content yet.</p>
   }
 
   const rectFor = (block: Block): Rect => (isMobile ? block.layout.mobile ?? defaultMobileRect(block.layout.desktop) : block.layout.desktop)

@@ -33,6 +33,12 @@ const (
 	BlockTypeFeaturedProducts BlockType = "featured_products"
 	BlockTypeRichText         BlockType = "rich_text"
 	BlockTypeCustomHTML       BlockType = "custom_html"
+	// BlockTypeNavMenu is a merchant-ordered list of label/url links -- not
+	// tied to any one concept (categories, legal pages, ...), so it's
+	// reusable on both the header page (category browse links) and the
+	// footer page (privacy/terms/returns links) without needing two
+	// separate block types.
+	BlockTypeNavMenu BlockType = "nav_menu"
 
 	BlockTypeProductDetails BlockType = "product_details"
 	BlockTypeCartSummary    BlockType = "cart_summary"
@@ -41,13 +47,20 @@ const (
 	BlockTypeWishlist       BlockType = "wishlist"
 	BlockTypeLoginForm      BlockType = "login_form"
 	BlockTypeAccount        BlockType = "account"
+	// BlockTypeNavActions is the header page's one required functional
+	// block -- the real, live Cart/Wishlist/Account/Track-order links
+	// (real counts, real auth state), bundled as one wired widget the same
+	// way BlockTypeCheckoutForm bundles a whole form rather than being
+	// split into one block per field. See PageSlugHeader's own
+	// RequiredBlockType entry.
+	BlockTypeNavActions BlockType = "nav_actions"
 )
 
 func (t BlockType) Valid() bool {
 	switch t {
-	case BlockTypeHero, BlockTypeProductGrid, BlockTypeFeaturedProducts, BlockTypeRichText, BlockTypeCustomHTML,
+	case BlockTypeHero, BlockTypeProductGrid, BlockTypeFeaturedProducts, BlockTypeRichText, BlockTypeCustomHTML, BlockTypeNavMenu,
 		BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist,
-		BlockTypeLoginForm, BlockTypeAccount:
+		BlockTypeLoginForm, BlockTypeAccount, BlockTypeNavActions:
 		return true
 	default:
 		return false
@@ -60,7 +73,7 @@ func (t BlockType) Valid() bool {
 func (t BlockType) IsFunctional() bool {
 	switch t {
 	case BlockTypeProductDetails, BlockTypeCartSummary, BlockTypeCheckoutForm, BlockTypeOrderStatus, BlockTypeWishlist,
-		BlockTypeLoginForm, BlockTypeAccount:
+		BlockTypeLoginForm, BlockTypeAccount, BlockTypeNavActions:
 		return true
 	default:
 		return false
@@ -119,12 +132,22 @@ const (
 	PageSlugWishlist          PageSlug = "wishlist"
 	PageSlugLogin             PageSlug = "login"
 	PageSlugAccount           PageSlug = "account"
+	// PageSlugHeader/PageSlugFooter are the two site-wide "pseudo-pages" --
+	// not a real storefront route (a shopper never navigates to
+	// /store/header), just the same ThemePage/canvas-editor/embedded-Puck
+	// machinery every real page already gets, reused so header/footer
+	// content is a customizable block layout too instead of hardcoded
+	// chrome. storefront-frontend's Layout renders them around every real
+	// page's own content.
+	PageSlugHeader PageSlug = "header"
+	PageSlugFooter PageSlug = "footer"
 )
 
 func (s PageSlug) Valid() bool {
 	switch s {
 	case PageSlugHome, PageSlugProducts, PageSlugProduct, PageSlugCart, PageSlugCheckout,
-		PageSlugOrderConfirmed, PageSlugOrderStatusLookup, PageSlugWishlist, PageSlugLogin, PageSlugAccount:
+		PageSlugOrderConfirmed, PageSlugOrderStatusLookup, PageSlugWishlist, PageSlugLogin, PageSlugAccount,
+		PageSlugHeader, PageSlugFooter:
 		return true
 	default:
 		return false
@@ -154,6 +177,8 @@ func (s PageSlug) RequiredBlockType() (BlockType, bool) {
 		return BlockTypeLoginForm, true
 	case PageSlugAccount:
 		return BlockTypeAccount, true
+	case PageSlugHeader:
+		return BlockTypeNavActions, true
 	default:
 		return "", false
 	}

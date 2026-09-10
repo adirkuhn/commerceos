@@ -7,6 +7,8 @@ import { OrderStatusBlock } from './blocks/OrderStatusBlock'
 import { WishlistBlock } from './blocks/WishlistBlock'
 import { LoginFormBlock } from './blocks/LoginFormBlock'
 import { AccountBlock } from './blocks/AccountBlock'
+import { NavMenuBlock, type NavMenuLink } from './blocks/NavMenuBlock'
+import { NavActionsBlock } from './blocks/NavActionsBlock'
 import type { Block, PageSlug } from '../types'
 
 function stringProp(props: Record<string, unknown>, key: string): string {
@@ -22,6 +24,13 @@ function numberProp(props: Record<string, unknown>, key: string, fallback: numbe
 function stringArrayProp(props: Record<string, unknown>, key: string): string[] | undefined {
   const v = props[key]
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : undefined
+}
+
+function navLinksProp(props: Record<string, unknown>, key: string): NavMenuLink[] {
+  const v = props[key]
+  if (!Array.isArray(v)) return []
+  return v.filter((x): x is NavMenuLink =>
+    typeof x === 'object' && x !== null && typeof (x as NavMenuLink).label === 'string' && typeof (x as NavMenuLink).url === 'string')
 }
 
 interface Props {
@@ -101,6 +110,10 @@ export function BlockRenderer({ block, pageSlug }: Props) {
       return <LoginFormBlock />
     case 'account':
       return <AccountBlock />
+    case 'nav_menu':
+      return <NavMenuBlock links={navLinksProp(block.props, 'links')} />
+    case 'nav_actions':
+      return <NavActionsBlock />
     default:
       return (
         <div className="flex h-full w-full items-center justify-center border border-dashed border-gray-300 bg-gray-50">

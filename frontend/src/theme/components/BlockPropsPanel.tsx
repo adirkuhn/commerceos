@@ -1,7 +1,18 @@
-import { Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { useCategories } from '../../pms/hooks/useCategories'
 import { BLOCK_TYPE_LABELS } from '../types'
 import type { Block } from '../types'
+
+interface NavLink {
+  label: string
+  url: string
+}
+
+function navLinksProp(props: Record<string, unknown>, key: string): NavLink[] {
+  const v = props[key]
+  if (!Array.isArray(v)) return []
+  return v.filter((x): x is NavLink => typeof x === 'object' && x !== null && typeof (x as NavLink).label === 'string' && typeof (x as NavLink).url === 'string')
+}
 
 interface Props {
   token: string
@@ -31,6 +42,7 @@ export function BlockPropsPanel({ token, block, onChangeProps, onDelete }: Props
   const setIdList = (key: string, raw: string) => onChangeProps({
     ...block.props, [key]: raw.split(',').map(id => id.trim()).filter(id => id !== ''),
   })
+  const setNavLinks = (links: NavLink[]) => onChangeProps({ ...block.props, links })
   // Only fetched for the one block type that needs it -- useCategories
   // itself already no-ops without a token, so this is cheap for every
   // other block type too.
@@ -128,6 +140,55 @@ export function BlockPropsPanel({ token, block, onChangeProps, onDelete }: Props
       {block.type === 'custom_html' && (
         <TextAreaField label="HTML" value={stringProp(block.props, 'html')} onChange={v => set('html', v)} monospace />
       )}
+
+      {block.type === 'nav_menu' && (
+        <NavLinksField links={navLinksProp(block.props, 'links')} onChange={setNavLinks} />
+      )}
+    </div>
+  )
+}
+
+function NavLinksField({ links, onChange }: { links: NavLink[]; onChange: (links: NavLink[]) => void }) {
+  const update = (i: number, patch: Partial<NavLink>) => onChange(links.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
+  const remove = (i: number) => onChange(links.filter((_, idx) => idx !== i))
+  const add = () => onChange([...links, { label: 'Link', url: '/' }])
+
+  return (
+    <div className="text-xs">
+      <span className="mb-1 block font-medium text-gray-500">Links</span>
+      <div className="flex flex-col gap-2">
+        {links.map((link, i) => (
+          <div key={i} className="flex items-center gap-1.5 rounded-lg border border-gray-200 p-1.5">
+            <div className="flex flex-1 flex-col gap-1">
+              <input
+                type="text"
+                aria-label={`Link ${i + 1} label`}
+                value={link.label}
+                onChange={e => update(i, { label: e.target.value })}
+                placeholder="Label"
+                className="w-full rounded border border-gray-200 px-2 py-1 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-brand-500"
+              />
+              <input
+                type="text"
+                aria-label={`Link ${i + 1} URL`}
+                value={link.url}
+                onChange={e => update(i, { url: e.target.value })}
+                placeholder="/products or https://…"
+                className="w-full rounded border border-gray-200 px-2 py-1 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
+            <button onClick={() => remove(i)} aria-label={`Remove link ${i + 1}`} className="text-gray-400 hover:text-red-500">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={add}
+        className="mt-2 flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-2.5 py-1.5 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700"
+      >
+        <Plus size={12} /> Add link
+      </button>
     </div>
   )
 }

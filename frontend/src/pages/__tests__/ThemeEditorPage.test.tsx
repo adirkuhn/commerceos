@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -151,6 +151,60 @@ describe('ThemeEditorPage', () => {
       title: 'Bebidas', subtitle: 'Sucos e refrigerantes', categoryId: 'cat-1', excludeProductIds: ['p9', 'p10'],
       limit: 4, itemsPerRowDesktop: 3, itemsPerRowMobile: 1,
     })
+  })
+
+  it('adds a Nav menu block, adds two links, and saves', async () => {
+    const user = userEvent.setup()
+    const headerEmptyPage: ThemePage = { ...emptyPage, slug: 'header' }
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(headerEmptyPage)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue(headerEmptyPage)
+
+    renderAt('/sales-channels/chan-1/theme/header')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: /add block/i }))
+    await user.click(screen.getByRole('button', { name: 'Nav menu' }))
+
+    await user.click(screen.getByRole('button', { name: /add link/i }))
+    fireEvent.change(screen.getByLabelText('Link 1 label'), { target: { value: 'Products' } })
+    fireEvent.change(screen.getByLabelText('Link 1 URL'), { target: { value: '/products' } })
+    await user.click(screen.getByRole('button', { name: /add link/i }))
+    fireEvent.change(screen.getByLabelText('Link 2 label'), { target: { value: 'Track order' } })
+    fireEvent.change(screen.getByLabelText('Link 2 URL'), { target: { value: '/order-lookup' } })
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.blocks[0].type).toBe('nav_menu')
+    expect(payload.blocks[0].props.links).toEqual([
+      { label: 'Products', url: '/products' },
+      { label: 'Track order', url: '/order-lookup' },
+    ])
+  })
+
+  it('removes a link from a Nav menu block', async () => {
+    const user = userEvent.setup()
+    const headerPageWithLinks: ThemePage = {
+      ...emptyPage, slug: 'header',
+      blocks: [{
+        id: 'nav1', type: 'nav_menu', layout: { desktop: { x: 0, y: 0, width: 400, height: 48 }, mobile: null },
+        props: { links: [{ label: 'Products', url: '/products' }, { label: 'Track order', url: '/order-lookup' }] },
+      }],
+    }
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(headerPageWithLinks)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue(headerPageWithLinks)
+
+    renderAt('/sales-channels/chan-1/theme/header')
+    const canvas = await screen.findByTestId('theme-canvas')
+    await user.click(within(canvas).getByText('Products'))
+
+    await user.click(screen.getByRole('button', { name: 'Remove link 1' }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.blocks[0].props.links).toEqual([{ label: 'Track order', url: '/order-lookup' }])
   })
 
   it('deletes a block', async () => {
