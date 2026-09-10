@@ -57,5 +57,18 @@ func ResolveOptions(settings *ShippingConnectionSettings, override *ShippingCarr
 		out.SignatureRequired = true
 		out.OnlyRecipient = true
 	}
+	// Every non-Package box type (Mailbox package, Digital stamp, Small
+	// package, Envelope, Unfranked) is an unregistered/administrative mail
+	// product on MyParcel's side and cannot carry signature/only_recipient/
+	// insurance at all -- confirmed by a real 422 (error 3705,
+	// "Verzendingsopties kunnen niet worden gebruikt met Brievenbuspakje")
+	// for Mailbox package specifically. This gate always wins, even over an
+	// explicit override that tries to force one of these on alongside a
+	// non-Package type, since it's a hard API constraint, not a preference.
+	if out.PackageType != PackageTypePackage {
+		out.SignatureRequired = false
+		out.OnlyRecipient = false
+		out.Insure = false
+	}
 	return out
 }

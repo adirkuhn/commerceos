@@ -20,13 +20,13 @@ func TestResolveOptions_noSettingsNoOverride_usesHardcodedDefaults(t *testing.T)
 
 func TestResolveOptions_settingsOnly_usesConnectionDefaults(t *testing.T) {
 	settings := &shipping.ShippingConnectionSettings{
-		DefaultPackageType: shipping.PackageTypeMailboxPackage, DefaultLabelFormat: shipping.LabelFormatZPL,
+		DefaultPackageType: shipping.PackageTypePackage, DefaultLabelFormat: shipping.LabelFormatZPL,
 		DefaultSignatureRequired: true, DefaultOnlyRecipient: true,
 	}
 
 	out := shipping.ResolveOptions(settings, nil, shipping.CarrierDPD)
 
-	assert.Equal(t, shipping.PackageTypeMailboxPackage, out.PackageType)
+	assert.Equal(t, shipping.PackageTypePackage, out.PackageType)
 	assert.Equal(t, shipping.LabelFormatZPL, out.LabelFormat)
 	assert.True(t, out.SignatureRequired)
 	assert.True(t, out.OnlyRecipient)
@@ -36,13 +36,13 @@ func TestResolveOptions_carrierOverride_winsOverConnectionSettings(t *testing.T)
 	settings := &shipping.ShippingConnectionSettings{
 		DefaultPackageType: shipping.PackageTypePackage, DefaultSignatureRequired: false,
 	}
-	pkgType := shipping.PackageTypeDigitalStamp
+	pkgType := shipping.PackageTypePackage
 	sig := true
 	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierBpost, PackageType: &pkgType, SignatureRequired: &sig}
 
 	out := shipping.ResolveOptions(settings, override, shipping.CarrierBpost)
 
-	assert.Equal(t, shipping.PackageTypeDigitalStamp, out.PackageType)
+	assert.Equal(t, shipping.PackageTypePackage, out.PackageType)
 	assert.True(t, out.SignatureRequired)
 	// OnlyRecipient has no override set -- must still fall through to the
 	// connection settings' own value (false, the zero value here), not get
@@ -61,7 +61,7 @@ func TestResolveOptions_insuranceLayersLikeOtherFields(t *testing.T) {
 }
 
 func TestResolveOptions_insuranceFallsBackToConnectionDefaultWhenNoOverride(t *testing.T) {
-	settings := &shipping.ShippingConnectionSettings{InsureByDefault: true}
+	settings := &shipping.ShippingConnectionSettings{DefaultPackageType: shipping.PackageTypePackage, InsureByDefault: true}
 
 	out := shipping.ResolveOptions(settings, nil, shipping.CarrierPostNL)
 
@@ -69,7 +69,9 @@ func TestResolveOptions_insuranceFallsBackToConnectionDefaultWhenNoOverride(t *t
 }
 
 func TestResolveOptions_insuredShipmentForcesSignatureAndOnlyRecipient(t *testing.T) {
-	settings := &shipping.ShippingConnectionSettings{DefaultSignatureRequired: false, DefaultOnlyRecipient: false}
+	settings := &shipping.ShippingConnectionSettings{
+		DefaultPackageType: shipping.PackageTypePackage, DefaultSignatureRequired: false, DefaultOnlyRecipient: false,
+	}
 	yes := true
 	override := &shipping.ShippingCarrierOverride{Carrier: shipping.CarrierPostNL, InsureByDefault: &yes}
 
@@ -87,4 +89,52 @@ func TestResolveOptions_notInsuredDoesNotForceSignatureOrOnlyRecipient(t *testin
 
 	assert.False(t, out.SignatureRequired)
 	assert.False(t, out.OnlyRecipient)
+}
+
+// TestResolveOptions_nonPackageType_forcesOptionsOff pins a real MyParcel
+// 422 (error 3705, "Verzendingsopties kunnen niet worden gebruikt met
+// Brievenbuspakje" -- "shipment options cannot be used with Mailbox
+// package"): every non-Package box type is an unregistered/administrative
+// mail product on MyParcel's side and cannot carry signature, only_recipient
+// or insurance at all, regardless of what the connection/carrier defaults
+// say. Confirmed by a real 422 for Mailbox package specifically; Digital
+// stamp/Small package/Envelope/Unfranked are the same product class and
+// gated the same way, per MyParcel's own product model.
+func TestResolveOptions_nonPackageType_forcesOptionsOff(t *testing.T) {
+	nonPackageTypes := []shipping.PackageType{
+		shipping.PackageTypeMailboxPackage, shipping.PackageTypeDigitalStamp,
+		shipping.PackageTypeSmallPackage, shipping.PackageTypeEnvelope, shipping.PackageTypeUnfranked,
+	}
+	for _, pt := range nonPackageTypes {
+		settings := &shipping.ShippingConnectionSettings{
+			DefaultPackageType: pt, DefaultSignatureRequired: true, DefaultOnlyRecipient: true, InsureByDefault: true,
+		}
+
+		out := shipping.ResolveOptions(settings, nil, shipping.CarrierPostNL)
+
+		assert.Equal(t, pt, out.PackageType)
+		assert.False(t, out.SignatureRequired, "package type %d must not carry signature_required", pt)
+		assert.False(t, out.OnlyRecipient, "package type %d must not carry only_recipient", pt)
+		assert.False(t, out.Insure, "package type %d must not carry insurance", pt)
+	}
+}
+
+// A per-carrier override picking a non-Package type must still win the gate
+// even when the override itself also tries to force signature/insurance on
+// -- the gate is a hard MyParcel API constraint, not a preference any layer
+// (including an explicit override) can opt back into.
+func TestResolveOptions_carrierOverridePicksNonPackageType_stillForcesOptionsOff(t *testing.T) {
+	pkgType := shipping.PackageTypeMailboxPackage
+	sig, onlyRecipient, insure := true, true, true
+	override := &shipping.ShippingCarrierOverride{
+		Carrier: shipping.CarrierPostNL, PackageType: &pkgType,
+		SignatureRequired: &sig, OnlyRecipient: &onlyRecipient, InsureByDefault: &insure,
+	}
+
+	out := shipping.ResolveOptions(nil, override, shipping.CarrierPostNL)
+
+	assert.Equal(t, shipping.PackageTypeMailboxPackage, out.PackageType)
+	assert.False(t, out.SignatureRequired)
+	assert.False(t, out.OnlyRecipient)
+	assert.False(t, out.Insure)
 }
