@@ -630,6 +630,7 @@ func TestClient_GetDeliveryOptions_sendsExpectedQueryAndAcceptHeader(t *testing.
 	assert.Equal(t, "1234 AB", q.Get("postal_code"))
 	assert.Equal(t, "31", q.Get("number"))
 	assert.Equal(t, "1", q.Get("carrier"))
+	assert.Equal(t, "myparcel", q.Get("platform"))
 	require.Len(t, options, 2)
 	assert.Equal(t, myparcel.DeliveryPriceOption{PriceComment: "standard", AmountMinorUnits: 1000, Currency: "EUR"}, options[0])
 	assert.Equal(t, myparcel.DeliveryPriceOption{PriceComment: "morning", AmountMinorUnits: 1500, Currency: "EUR"}, options[1])

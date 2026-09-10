@@ -52,6 +52,11 @@
 //   - The order_lines[]/price minor-units assumption above.
 //   - GetDeliveryOptions' carrier query param -- see that method's own doc
 //     comment.
+//   - GetDeliveryOptions' platform query param -- a real 400 ("platform veld
+//     is verplicht" / "platform field is required") confirmed this endpoint
+//     needs it, but the accepted value is only inferred as "myparcel" from
+//     MyParcel's own platform-slug convention elsewhere, not confirmed
+//     against a real sandbox response.
 package myparcel
 
 import (
@@ -681,6 +686,11 @@ func (c *Client) GetDeliveryOptions(ctx context.Context, in DeliveryOptionsInput
 	q.Set("cc", in.CC)
 	q.Set("postal_code", in.PostalCode)
 	q.Set("number", in.Number)
+	// platform is required by this endpoint -- MyParcel rejects the request
+	// with 400 "platform veld is verplicht" ("platform field is required")
+	// without it. Fixed value, not per-call, since this client only ever
+	// talks to MyParcel's own platform.
+	q.Set("platform", "myparcel")
 	if in.Carrier != 0 {
 		q.Set("carrier", strconv.Itoa(in.Carrier))
 	}
