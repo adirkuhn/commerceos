@@ -300,6 +300,7 @@ func (r *BatchRepo) MarkExpired(ctx context.Context, id string) error {
 type batchToExpireRow struct {
 	BatchID  string `gorm:"column:batch_id"`
 	TenantID string `gorm:"column:tenant_id"`
+	SKUID    string `gorm:"column:sku_id"`
 }
 
 func (r *BatchRepo) ListToExpire(ctx context.Context) ([]invDomain.BatchToExpire, error) {
@@ -309,7 +310,7 @@ func (r *BatchRepo) ListToExpire(ctx context.Context) ([]invDomain.BatchToExpire
 	}
 	var rows []batchToExpireRow
 	err = tx.Raw(`
-		SELECT b.id AS batch_id, b.tenant_id AS tenant_id
+		SELECT b.id AS batch_id, b.tenant_id AS tenant_id, b.sku_id AS sku_id
 		FROM batches b
 		JOIN tenant_settings ts ON ts.tenant_id = b.tenant_id
 		WHERE b.status = ?
@@ -322,7 +323,7 @@ func (r *BatchRepo) ListToExpire(ctx context.Context) ([]invDomain.BatchToExpire
 	}
 	out := make([]invDomain.BatchToExpire, len(rows))
 	for i, row := range rows {
-		out[i] = invDomain.BatchToExpire{BatchID: row.BatchID, TenantID: row.TenantID}
+		out[i] = invDomain.BatchToExpire{BatchID: row.BatchID, TenantID: row.TenantID, SKUID: row.SKUID}
 	}
 	return out, nil
 }

@@ -85,7 +85,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	notificationRepo := repositories.NewNotificationRepo(db)
 
 	expireSalePriceUC := apppms.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
-	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo)
+	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo, outboxRepo)
 	recalculateCostPricesUC := apppms.NewRecalculateCostPricesUseCase(
 		db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, costPriceHistoryRepo,
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),

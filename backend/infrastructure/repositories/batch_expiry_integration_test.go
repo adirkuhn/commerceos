@@ -90,6 +90,7 @@ func TestBatchRepo_Integration_ListToExpire_appliesPerTenantThresholdAndSkipsAlr
 	}
 	require.True(t, foundIDs[dueID], "batch past its tenant's threshold must be found")
 	require.Len(t, found, 1, "within-threshold, no-expiry, already-expired, and disabled-tenant batches must all be excluded")
+	require.Equal(t, skuA, found[0].SKUID, "SKUID must be populated -- ExpireBatchUseCase needs it to enqueue inventory.stock.changed")
 }
 
 func TestBatchRepo_Integration_ListPendingReview_returnsOnlyExpiredUnreviewedBatches(t *testing.T) {

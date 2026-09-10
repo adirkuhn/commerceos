@@ -45,6 +45,7 @@ type ExpiredBatchReview struct {
 type BatchToExpire struct {
 	BatchID  string
 	TenantID string
+	SKUID    string
 }
 
 type WarehouseRepository interface {

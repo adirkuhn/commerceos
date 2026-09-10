@@ -40,7 +40,7 @@ func (uc *RunExpiredBatchesUseCase) Run(ctx context.Context) error {
 
 	for _, b := range toExpire {
 		runCtx := tenant.WithTenantID(adminCtx, b.TenantID)
-		if err := uc.expireBatchUC.Execute(runCtx, b.BatchID); err != nil {
+		if err := uc.expireBatchUC.Execute(runCtx, b.BatchID, b.SKUID); err != nil {
 			log.Printf("expire batch %s: %v", b.BatchID, err)
 		}
 	}
