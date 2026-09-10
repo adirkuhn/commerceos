@@ -364,6 +364,26 @@ describe('ThemeEditorPage', () => {
     expect(openSpy).toHaveBeenCalledWith('https://shop.test/store/edit/home?token=edit-token-1', '_blank', 'noopener,noreferrer')
   })
 
+  it('applies the editorial starter template when picked before a palette', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue(emptyPage)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: 'Template' }))
+    await user.click(screen.getByRole('button', { name: 'Editorial' }))
+    await user.click(screen.getByRole('button', { name: /Carvão/ }))
+
+    expect(screen.getByText('Welcome to our store')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalledTimes(1))
+    const [, , , payload] = vi.mocked(themeApi.saveThemePage).mock.calls[0]
+    expect(payload.blocks[0].layout.desktop.height).toBe(520)
+  })
+
   it('shows an error when starting a visual edit session fails', async () => {
     const user = userEvent.setup()
     vi.mocked(themeApi.getThemePage).mockResolvedValue(heroPage)

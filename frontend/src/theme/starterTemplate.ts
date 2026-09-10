@@ -128,3 +128,117 @@ function footerInfoHTML(storeName: string): string {
   </div>
 </div>`
 }
+
+// ---------------------------------------------------------------------------
+// Editorial template -- a second starter layout, picked instead of the
+// classic one above (see STARTER_TEMPLATES). Same block types, same
+// category-driven content rules (real catalog structure, generic
+// placeholder copy elsewhere), but a distinct arrangement: a taller
+// full-bleed hero, a centered narrow story column instead of a full-width
+// one, and category sections in a two-up grid instead of stacked full-width
+// rows -- reads as a boutique/editorial storefront rather than a grocery-
+// style category list.
+const EDITORIAL_COLUMN_WIDTH = 700
+const EDITORIAL_COLUMN_GAP = 40
+
+export function buildEditorialHomeBlocks(storeName: string, categories: StarterCategory[] = []): Block[] {
+  const hero = createBlock('hero')
+  hero.layout.desktop = { x: 0, y: 0, width: 1440, height: 520 }
+  hero.props = {
+    heading: storeName || 'Welcome to our store',
+    subheading: 'Curated picks, thoughtfully sourced.',
+    imageUrl: '',
+  }
+
+  const about = createBlock('rich_text')
+  about.layout.desktop = { x: 220, y: 540, width: 1000, height: 140 }
+  about.props = {
+    content: `${storeName || 'Our store'} brings you the products you love, sourced with care and shipped straight to your door.`,
+  }
+
+  const sections = categories.slice(0, MAX_STARTER_CATEGORY_SECTIONS)
+  if (sections.length === 0) {
+    const products = createBlock('product_grid')
+    products.layout.desktop = { x: 0, y: 700, width: 1440, height: 600 }
+    return [hero, about, products]
+  }
+
+  const featuredBlocks = sections.map((category, i) => {
+    const featured = createBlock('featured_products')
+    const column = i % 2
+    featured.layout.desktop = {
+      x: column === 0 ? 0 : EDITORIAL_COLUMN_WIDTH + EDITORIAL_COLUMN_GAP,
+      y: 700 + Math.floor(i / 2) * 440,
+      width: EDITORIAL_COLUMN_WIDTH,
+      height: 420,
+    }
+    featured.props = { ...featured.props, title: category.name, categoryId: category.id }
+    return featured
+  })
+
+  return [hero, about, ...featuredBlocks]
+}
+
+export function buildEditorialHeaderBlocks(storeName: string, categories: StarterCategory[] = []): Block[] {
+  const logo = createBlock('hero')
+  logo.layout.desktop = { x: 570, y: 0, width: 300, height: 32 }
+  logo.props = { heading: storeName || 'Store', subheading: '', imageUrl: '', ctaText: '', ctaUrl: '' }
+
+  const links = categories.slice(0, MAX_STARTER_CATEGORY_SECTIONS).map(c => ({ label: c.name, url: `/products?category=${c.id}` }))
+
+  const nav = createBlock('nav_menu')
+  nav.layout.desktop = { x: 320, y: 40, width: 800, height: 32 }
+  nav.props = { links: links.length > 0 ? links : [{ label: 'Products', url: '/products' }, { label: 'Track order', url: '/order-lookup' }] }
+
+  return [logo, nav]
+}
+
+export function buildEditorialFooterBlocks(storeName: string): Block[] {
+  const tagline = createBlock('rich_text')
+  tagline.layout.desktop = { x: 220, y: 0, width: 1000, height: 60 }
+  tagline.props = { content: `${storeName || 'Our store'} -- quality products, delivered with care.` }
+
+  const newsletter = createBlock('custom_html')
+  newsletter.layout.desktop = { x: 0, y: 80, width: 1440, height: 120 }
+  newsletter.props = { html: editorialNewsletterHTML() }
+
+  const legalNav = createBlock('nav_menu')
+  legalNav.layout.desktop = { x: 420, y: 220, width: 600, height: 40 }
+  legalNav.props = {
+    links: [
+      { label: 'Privacy policy', url: '/' },
+      { label: 'Terms & conditions', url: '/' },
+      { label: 'Returns & refunds', url: '/' },
+    ],
+  }
+
+  return [tagline, newsletter, legalNav]
+}
+
+function editorialNewsletterHTML(): string {
+  return `<div style="text-align:center;padding:32px 16px;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;font-family:system-ui,sans-serif;">
+  <p style="font-weight:600;margin:0 0 4px;color:#111827;">Join our newsletter</p>
+  <p style="margin:0 0 12px;color:#4b5563;font-size:14px;">New arrivals and offers, straight to your inbox.</p>
+  <p style="margin:0;color:#9ca3af;font-size:12px;">email@example.com</p>
+</div>`
+}
+
+export type StarterTemplateId = 'classic' | 'editorial'
+
+export interface StarterTemplate {
+  id: StarterTemplateId
+  label: string
+  buildHeader: (storeName: string, categories?: StarterCategory[]) => Block[]
+  buildHome: (storeName: string, categories?: StarterCategory[]) => Block[]
+  buildFooter: (storeName: string) => Block[]
+}
+
+// STARTER_TEMPLATES is the picker's source of truth -- both the internal-
+// channel create form (SalesChannels.tsx) and the theme editor's own
+// "Template" dropdown (ThemeEditorPage.tsx) render from this list rather
+// than hard-coding template names, so a third template only needs adding
+// here.
+export const STARTER_TEMPLATES: StarterTemplate[] = [
+  { id: 'classic', label: 'Classic', buildHeader: buildStarterHeaderBlocks, buildHome: buildStarterHomeBlocks, buildFooter: buildStarterFooterBlocks },
+  { id: 'editorial', label: 'Editorial', buildHeader: buildEditorialHeaderBlocks, buildHome: buildEditorialHomeBlocks, buildFooter: buildEditorialFooterBlocks },
+]

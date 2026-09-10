@@ -8,7 +8,8 @@ import { useThemePage } from '../theme/hooks/useThemePage'
 import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
-import { buildStarterHomeBlocks } from '../theme/starterTemplate'
+import { STARTER_TEMPLATES } from '../theme/starterTemplate'
+import type { StarterTemplateId } from '../theme/starterTemplate'
 import { createEditSession } from '../theme/api'
 import { storefrontEditURL, storefrontPreviewURL } from '../theme/storefrontLink'
 import { defaultMobileRect, MOBILE_CANVAS_WIDTH } from '../theme/mobileLayout'
@@ -59,6 +60,7 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
   const [cssPanelOpen, setCssPanelOpen] = useState(false)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<StarterTemplateId>('classic')
   const [dirty, setDirty] = useState(false)
   const [editSessionLoading, setEditSessionLoading] = useState(false)
   const [editSessionError, setEditSessionError] = useState<string | null>(null)
@@ -126,7 +128,8 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
     if (blocks.length > 0 && !window.confirm('Replace this page\'s current blocks with the starter template?')) {
       return
     }
-    setBlocks(buildStarterHomeBlocks(''))
+    const template = STARTER_TEMPLATES.find(t => t.id === selectedTemplateId) ?? STARTER_TEMPLATES[0]
+    setBlocks(template.buildHome(''))
     setCustomCss(paletteCustomCSS(palette))
     selectBlock(null)
     setCssPanelOpen(false)
@@ -265,6 +268,22 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
               {templatesOpen && (
                 <div className="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
                   <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">Starter template + color</p>
+                  <div role="group" aria-label="Starter template" className="mb-2 flex gap-1 px-1">
+                    {STARTER_TEMPLATES.map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        aria-pressed={selectedTemplateId === t.id}
+                        onClick={() => setSelectedTemplateId(t.id)}
+                        className={clsx(
+                          'flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
+                          selectedTemplateId === t.id ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
                   {THEME_PALETTES.map(palette => (
                     <button
                       key={palette.id}

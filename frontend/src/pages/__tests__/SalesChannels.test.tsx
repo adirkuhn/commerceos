@@ -211,6 +211,29 @@ describe('Create sales channel', () => {
     }))
   })
 
+  it('lets a merchant pick a different starter template + color for a new internal channel', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.selectOptions(screen.getByLabelText('Starter theme'), 'editorial')
+    await userEvent.selectOptions(screen.getByLabelText('Starter theme color'), 'oceano')
+    await userEvent.type(screen.getByLabelText('Name'), 'B2C Store')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => {
+      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
+        blocks: expect.arrayContaining([expect.objectContaining({ type: 'custom_html' })]),
+      }))
+    })
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
+      custom_css: expect.stringContaining('#0369a1'),
+    }))
+  })
+
   it('does not seed a theme for a non-internal channel (WooCommerce/Bol have no storefront of their own)', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-woo-2', name: 'Second Woo Store' }))
     renderPage()

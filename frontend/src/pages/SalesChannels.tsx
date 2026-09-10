@@ -15,8 +15,8 @@ import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrat
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
-import { buildStarterFooterBlocks, buildStarterHeaderBlocks, buildStarterHomeBlocks } from '../theme/starterTemplate'
-import type { StarterCategory } from '../theme/starterTemplate'
+import { STARTER_TEMPLATES } from '../theme/starterTemplate'
+import type { StarterCategory, StarterTemplateId } from '../theme/starterTemplate'
 import type { Block, PageSlug } from '../theme/types'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { storefrontEnterPath, storefrontVisitURL } from '../theme/storefrontLink'
@@ -55,13 +55,19 @@ interface ChannelFormState {
   // "" means "use the tenant's default currency" -- only settable at
   // creation, see SalesChannelPayload.currencyCode's own doc comment.
   currencyCode: string
+  // Only read at creation time (see seedStarterTheme) -- an internal
+  // channel's starter theme is picked once, up front, same as today's
+  // single hard-coded template/palette used to be. Freely changeable
+  // afterward from the theme editor's own Template dropdown.
+  starterTemplateId: StarterTemplateId
+  starterPaletteId: string
 }
 
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
-    quantityBreaks: [], currencyCode: '',
+    quantityBreaks: [], currencyCode: '', starterTemplateId: 'classic', starterPaletteId: 'verde',
   }
 }
 
@@ -121,22 +127,26 @@ const INTERNAL_TYPE: ChannelType = 'internal'
 
 // seedStarterTheme gives a brand-new internal channel real header/home/
 // footer pages immediately (logo+nav, hero/about/one Featured Products
-// section per existing category, tagline+legal+contact placeholders, one
-// default palette) -- merchants shouldn't have to know the theme editor's
-// "Template" button exists just to get past a blank storefront. Uses the
-// tenant's own real categories (already loaded for this form's own
-// enrollment picker) to shape the nav/home sections -- real catalog
-// structure, not fabricated content. Still just a starting point: freely
-// editable/replaceable afterward, same as if a merchant had clicked
-// Template themselves. Best-effort per page -- a failure here must not
-// block channel creation from succeeding; the channel still exists and
-// the merchant can seed/edit its theme by hand from the editor.
-async function seedStarterTheme(token: string, channel: SalesChannel, categories: StarterCategory[]): Promise<void> {
-  const palette = THEME_PALETTES.find(p => p.id === 'verde') ?? THEME_PALETTES[0]
+// section per existing category, tagline+legal+contact placeholders, the
+// merchant's chosen starter template + palette) -- merchants shouldn't
+// have to know the theme editor's "Template" button exists just to get
+// past a blank storefront. Uses the tenant's own real categories (already
+// loaded for this form's own enrollment picker) to shape the nav/home
+// sections -- real catalog structure, not fabricated content. Still just a
+// starting point: freely editable/replaceable afterward, same as if a
+// merchant had clicked Template themselves. Best-effort per page -- a
+// failure here must not block channel creation from succeeding; the
+// channel still exists and the merchant can seed/edit its theme by hand
+// from the editor.
+async function seedStarterTheme(
+  token: string, channel: SalesChannel, categories: StarterCategory[], templateId: StarterTemplateId, paletteId: string,
+): Promise<void> {
+  const template = STARTER_TEMPLATES.find(t => t.id === templateId) ?? STARTER_TEMPLATES[0]
+  const palette = THEME_PALETTES.find(p => p.id === paletteId) ?? THEME_PALETTES[0]
   const pages: [PageSlug, Block[]][] = [
-    ['header', buildStarterHeaderBlocks(channel.name, categories)],
-    ['home', buildStarterHomeBlocks(channel.name, categories)],
-    ['footer', buildStarterFooterBlocks(channel.name)],
+    ['header', template.buildHeader(channel.name, categories)],
+    ['home', template.buildHome(channel.name, categories)],
+    ['footer', template.buildFooter(channel.name)],
   ]
   for (const [slug, blocks] of pages) {
     try {
@@ -184,6 +194,11 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
       minQuantity: b.min_quantity.toString(), discountPercent: (b.discount_basis_points / 100).toString(),
     })),
     currencyCode: channel.currency_code ?? '',
+    // Not editable/used once a channel already exists (see
+    // ChannelFormState.starterTemplateId's own doc comment) -- placeholder
+    // values only, never read on an edit submit.
+    starterTemplateId: 'classic',
+    starterPaletteId: 'verde',
   }
 }
 
@@ -263,7 +278,7 @@ export default function SalesChannels() {
       } else {
         const created = await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
         if (channelType === INTERNAL_TYPE) {
-          await seedStarterTheme(token ?? '', created, categories)
+          await seedStarterTheme(token ?? '', created, categories, form.starterTemplateId, form.starterPaletteId)
         }
       }
       if (shared.connectionId) {
@@ -491,6 +506,34 @@ export default function SalesChannels() {
                     {exchangeRates.length === 0
                       ? 'No exchange rates configured yet -- add one under Settings > Localization to sell in another currency.'
                       : "Fixed for this channel once created. Prices convert via Settings > Localization's exchange rate unless a product has a manual override for it."}
+                  </p>
+                </div>
+              )}
+              {!editingChannel && form.channelType === INTERNAL_TYPE && (
+                <div>
+                  <label htmlFor="channel-starter-template" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+                    Starter theme
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      id="channel-starter-template"
+                      value={form.starterTemplateId}
+                      onChange={e => setForm(f => ({ ...f, starterTemplateId: e.target.value as StarterTemplateId }))}
+                      className="flex-1 px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      {STARTER_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                    <select
+                      aria-label="Starter theme color"
+                      value={form.starterPaletteId}
+                      onChange={e => setForm(f => ({ ...f, starterPaletteId: e.target.value }))}
+                      className="flex-1 px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      {THEME_PALETTES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                    </select>
+                  </div>
+                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+                    Starting point for this storefront's header/home/footer pages -- freely editable afterward from Theme.
                   </p>
                 </div>
               )}
