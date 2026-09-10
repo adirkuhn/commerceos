@@ -4,7 +4,7 @@ import { Puck, type Data } from '@puckeditor/core'
 import '@puckeditor/core/puck.css'
 import { getThemeDraft, saveThemeDraft } from '../api/themeDraft'
 import { buildPuckConfig } from '../puck/config'
-import type { PageSlug } from '../types'
+import type { PageSlug, ThemePage } from '../types'
 
 const EMPTY_PUCK_DATA: Data = { content: [], root: {} }
 
@@ -21,7 +21,7 @@ export default function EditPage() {
   const token = searchParams.get('token') ?? ''
   const pageSlug = slug as PageSlug
 
-  const [data, setData] = useState<Data | null>(null)
+  const [page, setPage] = useState<ThemePage | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -30,25 +30,36 @@ export default function EditPage() {
       return
     }
     getThemeDraft(token, pageSlug)
-      .then(page => setData((page.puck_data as Data | undefined) ?? EMPTY_PUCK_DATA))
+      .then(setPage)
       .catch((err: Error) => setError(err.message))
   }, [token, pageSlug])
 
   if (error) {
     return <p className="p-6 text-sm text-red-600">Could not load this page: {error}</p>
   }
-  if (!data) {
+  if (!page) {
     return <p className="p-6 text-sm text-gray-500">Loading…</p>
   }
+
+  const data = (page.puck_data as Data | undefined) ?? EMPTY_PUCK_DATA
 
   return (
     <Puck
       config={buildPuckConfig(pageSlug)}
       data={data}
       onPublish={async (newData: Data) => {
+        // Round-trips page's own freeform blocks/custom_css/canvas_width
+        // unchanged -- a Puck save must never clobber the freeform
+        // document, only switch which one is active (see
+        // domain/theme.ThemePage's coexisting-documents doc comment).
         await saveThemeDraft(token, pageSlug, {
-          canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'puck', puck_data: newData as Record<string, unknown>,
+          canvas_width: page.canvas_width,
+          blocks: page.blocks,
+          custom_css: page.custom_css,
+          editor_mode: 'puck',
+          puck_data: newData as Record<string, unknown>,
         })
+        setPage({ ...page, editor_mode: 'puck', puck_data: newData as Record<string, unknown> })
       }}
     />
   )
