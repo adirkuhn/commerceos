@@ -4,7 +4,18 @@ import { useThemePage } from './useThemePage'
 import { BlockRenderer } from './BlockRenderer'
 import { useIsMobileViewport, defaultMobileRect, MOBILE_CANVAS_WIDTH } from './mobileLayout'
 import { REQUIRED_BLOCK_TYPE_BY_SLUG } from '../types'
-import type { Block, PageSlug, Rect, ThemePage } from '../types'
+import type { Block, BlockType, PageSlug, Rect, ThemePage } from '../types'
+
+// DEFAULT_REQUIRED_BLOCK_HEIGHT sizes a synthesized required block
+// sensibly for its own context -- nav_actions is a slim header nav row
+// sitting alongside the logo/nav_menu blocks (see PageSlugHeader's own
+// doc comment), not a full page section like every other required block
+// type (cart/checkout/product/order/wishlist/login/account), which all
+// use DEFAULT_SYNTHESIZED_HEIGHT.
+const DEFAULT_REQUIRED_BLOCK_HEIGHT: Partial<Record<BlockType, number>> = {
+  nav_actions: 48,
+}
+const DEFAULT_SYNTHESIZED_HEIGHT = 600
 
 // Lazy: @puckeditor/core's whole runtime (dnd-kit, tiptap, etc) must never
 // be in the bundle a shopper downloads just to view a freeform page --
@@ -30,9 +41,10 @@ function withRequiredBlock(page: ThemePage): Block[] {
     return page.blocks
   }
   const y = page.blocks.reduce((max, b) => Math.max(max, b.layout.desktop.y + b.layout.desktop.height), 0)
+  const height = DEFAULT_REQUIRED_BLOCK_HEIGHT[required] ?? DEFAULT_SYNTHESIZED_HEIGHT
   return [
     ...page.blocks,
-    { id: `default-${required}`, type: required, layout: { desktop: { x: 0, y, width: page.canvas_width, height: 600 }, mobile: null }, props: {} },
+    { id: `default-${required}`, type: required, layout: { desktop: { x: 0, y, width: page.canvas_width, height }, mobile: null }, props: {} },
   ]
 }
 
@@ -80,7 +92,11 @@ export function CanvasPage({ slug }: Props) {
 
   const rectFor = (block: Block): Rect => (isMobile ? block.layout.mobile ?? defaultMobileRect(block.layout.desktop) : block.layout.desktop)
   const canvasWidth = isMobile ? MOBILE_CANVAS_WIDTH : page.canvas_width
-  const height = Math.max(...blocks.map(b => { const r = rectFor(b); return r.y + r.height }), 400)
+  // Chrome (header/footer) sizes to its actual content, no artificial
+  // floor -- a 400px-tall header/footer on every single page would be
+  // its own, worse version of this same bug. A real page still gets the
+  // 400px floor so a nearly-empty one doesn't look cut off.
+  const height = Math.max(...blocks.map(b => { const r = rectFor(b); return r.y + r.height }), chrome ? 0 : 400)
 
   return (
     <div className="overflow-x-auto">

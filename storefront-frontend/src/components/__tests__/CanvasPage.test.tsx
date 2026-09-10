@@ -112,6 +112,42 @@ describe('CanvasPage', () => {
     expect(screen.getByRole('link', { name: 'Cart' })).toBeInTheDocument()
   })
 
+  it('sizes a synthesized nav_actions block as a slim nav row, not a full-page section', async () => {
+    // Real bug: a header with a saved logo+nav_menu (both 48px tall) got
+    // its required nav_actions synthesized at the generic full-page
+    // height (600px), leaving a ~600px blank gap in every page's header.
+    mockFetch<ThemePage>({
+      slug: 'header', canvas_width: 1440, custom_css: '', editor_mode: 'freeform',
+      blocks: [
+        { id: 'logo', type: 'hero', layout: { desktop: { x: 0, y: 0, width: 300, height: 48 }, mobile: null }, props: {} },
+        { id: 'nav', type: 'nav_menu', layout: { desktop: { x: 320, y: 0, width: 700, height: 48 }, mobile: null }, props: { links: [] } },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <CartProvider><WishlistProvider><AuthProvider>
+          <CanvasPage slug="header" />
+        </AuthProvider></WishlistProvider></CartProvider>
+      </MemoryRouter>,
+    )
+
+    // Synthesized nav_actions sits below the existing 48px-tall row (y:48)
+    // at its own slim 48px height -- total 96px, not the old bug's 648px.
+    expect(await screen.findByTestId('canvas-page')).toHaveStyle({ height: '96px' })
+  })
+
+  it('sizes header/footer (chrome) to their real content height, with no artificial 400px floor', async () => {
+    mockFetch<ThemePage>({
+      slug: 'footer', canvas_width: 1440, custom_css: '', editor_mode: 'freeform',
+      blocks: [{ id: 'b1', type: 'rich_text', layout: { desktop: { x: 0, y: 0, width: 1440, height: 40 }, mobile: null }, props: { content: 'Tagline' } }],
+    })
+
+    render(<CanvasPage slug="footer" />)
+
+    expect(await screen.findByTestId('canvas-page')).toHaveStyle({ height: '40px' })
+  })
+
   it('injects custom_css as a style tag', async () => {
     mockFetch<ThemePage>({
       slug: 'home', canvas_width: 1440, custom_css: '.hero { color: red; }', editor_mode: 'freeform',
