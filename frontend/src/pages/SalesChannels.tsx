@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Radio, X, Search } from 'lucide-react'
+import { ArrowLeft, Radio, X, Search, Code2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesChannels } from '../integrations/hooks/useSalesChannels'
@@ -12,7 +12,7 @@ import type { Connection, SalesChannel, EnrollmentMode, ChannelType, QuantityBre
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
-import { storefrontEnterPath, storefrontVisitURL } from '../theme/storefrontLink'
+import { CURRENCY_OPTIONS } from '../settings/currencyOptions'
 
 const PER_PAGE = 20
 
@@ -38,13 +38,6 @@ interface ChannelFormState {
   // WAREHOUSE_REQUIRED_TYPES's doc comment for which channel types need it.
   channelWarehouseId: string
   paymentConnectionId: string
-  // Held as a percent string ("20" means 20%) for the input field --
-  // converted to basis points only at submit time (see priceAdjustmentBasisPointsOrError).
-  priceAdjustmentPercent: string
-  // Each row held as percent/quantity strings for the same reason
-  // priceAdjustmentPercent is -- converted+validated only at submit time
-  // (see quantityBreaksOrError).
-  quantityBreaks: { minQuantity: string; discountPercent: string }[]
   // "" means "use the tenant's default currency" -- only settable at
   // creation, see SalesChannelPayload.currencyCode's own doc comment.
   currencyCode: string
@@ -53,8 +46,8 @@ interface ChannelFormState {
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
-    enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
-    quantityBreaks: [], currencyCode: '',
+    enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '',
+    currencyCode: '',
   }
 }
 
@@ -112,6 +105,44 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 // directly (WhatsApp is the other, for its chat checkout).
 const INTERNAL_TYPE: ChannelType = 'internal'
 
+// HEADLESS_API_ENDPOINTS is a reference snapshot of an internal channel's
+// real commerce API -- backend/api/storefront/openapi.yaml is the actual
+// source of truth (used for real request validation/codegen); this is
+// just a legible summary for a developer wiring a headless frontend to
+// this channel, not a substitute for that spec. Excludes /theme/* (the
+// old Puck-editor-only routes -- irrelevant to a headless integration,
+// see the "remove Freeform" commit). Keep in sync with openapi.yaml by
+// hand if a storefront route is added/changed/removed.
+const HEADLESS_API_ENDPOINTS: { method: string; path: string; summary: string }[] = [
+  { method: 'GET', path: '/products', summary: "List the calling channel's enrolled catalog" },
+  { method: 'GET', path: '/products/{id}', summary: "Fetch one enrolled product's full variant/SKU/image detail" },
+  { method: 'GET', path: '/products/{id}/recommendations', summary: 'Products historically bought alongside this one' },
+  { method: 'GET', path: '/products/{id}/reviews', summary: "List a product's reviews, with a rating summary" },
+  { method: 'POST', path: '/products/{id}/reviews', summary: 'Submit a review for a product' },
+  { method: 'GET', path: '/categories', summary: "The tenant's whole category tree, flat with parent_id" },
+  { method: 'POST', path: '/recommendations/cart', summary: "Cross-sell candidates for the shopper's whole cart" },
+  { method: 'POST', path: '/carts', summary: "Start a new guest cart on the calling key's sales channel" },
+  { method: 'GET', path: '/carts/{token}', summary: "Fetch a cart's current line items and subtotal" },
+  { method: 'PUT', path: '/carts/{token}/items', summary: "Replace a cart's whole line set" },
+  { method: 'PUT', path: '/carts/{token}/coupon', summary: 'Attach a coupon code to the cart, or remove it' },
+  { method: 'POST', path: '/carts/{token}/shipping-options', summary: 'Priced delivery options for a shipping address' },
+  { method: 'POST', path: '/carts/{token}/payment-intent', summary: "Start an embedded Stripe Elements card payment for this cart's total" },
+  { method: 'POST', path: '/carts/{token}/checkout', summary: "Place an order for a cart's current contents" },
+  { method: 'POST', path: '/wishlists', summary: 'Start a new, empty wishlist on the calling channel' },
+  { method: 'GET', path: '/wishlists/{token}', summary: 'Fetch a wishlist by its token' },
+  { method: 'PUT', path: '/wishlists/{token}/items', summary: 'Add product_id to the wishlist, or remove it' },
+  { method: 'POST', path: '/auth/magic-link', summary: 'Email a one-time sign-in link to the given address' },
+  { method: 'POST', path: '/auth/session', summary: 'Exchange a magic-link token for a signed-in session' },
+  { method: 'GET', path: '/account/{token}', summary: "Fetch the signed-in shopper's profile" },
+  { method: 'DELETE', path: '/account/{token}', summary: 'End the session' },
+  { method: 'GET', path: '/account/{token}/orders', summary: "The signed-in shopper's order history" },
+  { method: 'GET', path: '/orders/lookup', summary: 'Guest order-status lookup by order number + billing email' },
+]
+
+function apiBaseURL(): string {
+  return `${import.meta.env.VITE_API_BASE_URL}/storefront/v1`
+}
+
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
 // The same two types create a SalesOrder directly (Woo/Bol only ever
@@ -139,10 +170,6 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
     defaultWarehouseId: connection?.default_warehouse_id ?? '',
     channelWarehouseId: channel.default_warehouse_id ?? '',
     paymentConnectionId: channel.payment_connection_id ?? '',
-    priceAdjustmentPercent: channel.price_adjustment_basis_points ? (channel.price_adjustment_basis_points / 100).toString() : '',
-    quantityBreaks: (channel.quantity_breaks ?? []).map(b => ({
-      minQuantity: b.min_quantity.toString(), discountPercent: (b.discount_basis_points / 100).toString(),
-    })),
     currencyCode: channel.currency_code ?? '',
   }
 }
@@ -167,15 +194,16 @@ export default function SalesChannels() {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
-  const [copiedChannelId, setCopiedChannelId] = useState<string | null>(null)
-  async function copyStorefrontPath(channelId: string) {
+  const [apiDocsChannel, setApiDocsChannel] = useState<SalesChannel | null>(null)
+  const [copiedAuthHeader, setCopiedAuthHeader] = useState(false)
+  async function copyAuthHeader(channelId: string) {
     try {
-      await navigator.clipboard.writeText(storefrontEnterPath(channelId))
-      setCopiedChannelId(channelId)
-      setTimeout(() => setCopiedChannelId(null), 1500)
+      await navigator.clipboard.writeText(`Authorization: Bearer ${channelId}`)
+      setCopiedAuthHeader(true)
+      setTimeout(() => setCopiedAuthHeader(false), 1500)
     } catch {
       // Clipboard access can be denied (permissions, insecure context) --
-      // the path is already shown selectable on screen, so this is a
+      // the header is already shown selectable on screen, so this is a
       // convenience failure, not a blocker; no error surfaced for it.
     }
   }
@@ -210,8 +238,14 @@ export default function SalesChannels() {
         enrollmentMode: form.enrollmentMode,
         enrollmentCategoryId: form.enrollmentMode === 'category' ? form.enrollmentCategoryId || null : null,
         enrollmentTag: form.enrollmentMode === 'tag' ? form.enrollmentTag || null : null,
-        priceAdjustmentBasisPoints: priceAdjustmentBasisPointsOrError(form.priceAdjustmentPercent),
-        quantityBreaks: quantityBreaksOrError(form.quantityBreaks),
+        // Discount/quantity tiers are edited from the Products tab now
+        // (see ChannelProductsPanel's PricingSection), not this form --
+        // an edit here must still resend the channel's current values
+        // unchanged (this is a full-state update, not a sparse patch;
+        // sending null/[] would silently wipe them). A brand-new channel
+        // has neither yet.
+        priceAdjustmentBasisPoints: editingChannel ? (editingChannel.price_adjustment_basis_points ?? null) : null,
+        quantityBreaks: editingChannel ? (editingChannel.quantity_breaks ?? []) : [],
         // Only sent for the types that actually need it (see
         // WAREHOUSE_REQUIRED_TYPES's doc comment) -- omitted (not null) for
         // every other type, since it has no meaning there.
@@ -319,32 +353,12 @@ export default function SalesChannels() {
                   )}
                 </div>
                 {channel.type === INTERNAL_TYPE && (
-                  storefrontVisitURL(channel.id) ? (
-                    <a
-                      href={storefrontVisitURL(channel.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
-                      title={storefrontVisitURL(channel.id)}
-                    >
-                      Visit store ↗
-                    </a>
-                  ) : (
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <p
-                        className="truncate text-[10px] dark:text-gray-500 text-gray-400"
-                        title="Storefront app URL not configured yet (VITE_STOREFRONT_URL) -- this is the path to add to it"
-                      >
-                        Store path: <code className="dark:text-gray-400 text-gray-500">{storefrontEnterPath(channel.id)}</code>
-                      </p>
-                      <button
-                        onClick={() => copyStorefrontPath(channel.id)}
-                        className="shrink-0 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
-                      >
-                        {copiedChannelId === channel.id ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                  )
+                  <button
+                    onClick={() => setApiDocsChannel(channel)}
+                    className="mt-2 flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                  >
+                    <Code2 size={11} /> API docs
+                  </button>
                 )}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
@@ -433,12 +447,13 @@ export default function SalesChannels() {
                     className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Default (tenant's own currency)</option>
-                    {exchangeRates.map(r => <option key={r.currency_code} value={r.currency_code}>{r.currency_code}</option>)}
+                    {CURRENCY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                   <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
-                    {exchangeRates.length === 0
-                      ? 'No exchange rates configured yet -- add one under Settings > Localization to sell in another currency.'
-                      : "Fixed for this channel once created. Prices convert via Settings > Localization's exchange rate unless a product has a manual override for it."}
+                    Fixed for this channel once created.
+                    {form.currencyCode && !exchangeRates.some(r => r.currency_code === form.currencyCode)
+                      ? ` No exchange rate configured for ${form.currencyCode} yet -- add one under Settings > Localization, or prices won't convert.`
+                      : " Prices convert via Settings > Localization's exchange rate unless a product has a manual override for it."}
                   </p>
                 </div>
               )}
@@ -555,82 +570,6 @@ export default function SalesChannels() {
                   />
                 </div>
               )}
-              {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
-                <div>
-                  <label htmlFor="channel-price-adjustment" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
-                    Discount off list price (%)
-                  </label>
-                  <input
-                    id="channel-price-adjustment"
-                    type="number" step={0.01}
-                    value={form.priceAdjustmentPercent}
-                    onChange={e => setForm(f => ({ ...f, priceAdjustmentPercent: e.target.value }))}
-                    placeholder="0"
-                    className="w-full px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
-                    Applied to every product's price on this storefront -- e.g. 20 for a wholesale channel selling at 20% off retail.
-                  </p>
-                </div>
-              )}
-              {(editingChannel ? editingChannel.type : form.channelType) === INTERNAL_TYPE && (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">
-                      Quantity tiers
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, quantityBreaks: [...f.quantityBreaks, { minQuantity: '', discountPercent: '' }] }))}
-                      className="text-[10px] text-blue-500 hover:text-blue-400"
-                    >
-                      + Add tier
-                    </button>
-                  </div>
-                  {form.quantityBreaks.length === 0 && (
-                    <p className="text-[10px] dark:text-gray-500 text-gray-400">No quantity tiers -- every order uses the flat discount above.</p>
-                  )}
-                  <div className="space-y-2">
-                    {form.quantityBreaks.map((row, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input
-                          type="number" min={1} step={1}
-                          aria-label={`Quantity tier ${i + 1} minimum quantity`}
-                          value={row.minQuantity}
-                          onChange={e => setForm(f => ({
-                            ...f, quantityBreaks: f.quantityBreaks.map((r, ri) => (ri === i ? { ...r, minQuantity: e.target.value } : r)),
-                          }))}
-                          placeholder="Qty"
-                          className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <span className="text-[10px] dark:text-gray-500 text-gray-400">units or more →</span>
-                        <input
-                          type="number" step={0.01}
-                          aria-label={`Quantity tier ${i + 1} discount percent`}
-                          value={row.discountPercent}
-                          onChange={e => setForm(f => ({
-                            ...f, quantityBreaks: f.quantityBreaks.map((r, ri) => (ri === i ? { ...r, discountPercent: e.target.value } : r)),
-                          }))}
-                          placeholder="0"
-                          className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <span className="text-[10px] dark:text-gray-500 text-gray-400">% off</span>
-                        <button
-                          type="button"
-                          onClick={() => setForm(f => ({ ...f, quantityBreaks: f.quantityBreaks.filter((_, ri) => ri !== i) }))}
-                          aria-label={`Remove quantity tier ${i + 1}`}
-                          className="ml-auto text-gray-400 hover:text-red-400"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
-                    Buy this many or more of one SKU in a single cart line and get this bigger discount instead of the flat rate above.
-                  </p>
-                </div>
-              )}
               {editingChannel && PAYMENT_CAPABLE_TYPES.includes(editingChannel.type) && (
                 <div>
                   <label htmlFor="channel-payment-method" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
@@ -714,6 +653,199 @@ export default function SalesChannels() {
           </div>
         </div>
       )}
+
+      {apiDocsChannel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setApiDocsChannel(null)} />
+          <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900">{apiDocsChannel.name} — headless API</h3>
+              <button onClick={() => setApiDocsChannel(null)} aria-label="Close">
+                <X size={14} className="dark:text-gray-500 text-gray-400" />
+              </button>
+            </div>
+            <p className="text-[10px] dark:text-gray-500 text-gray-400 mb-3">
+              No storefront app is attached to this channel -- it's a plain REST API any frontend can call directly.
+            </p>
+            <div className="shrink-0 mb-3 p-2.5 rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200 space-y-1.5">
+              <p className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Base URL</p>
+              <code className="block text-xs dark:text-gray-200 text-gray-800 break-all">{apiBaseURL()}</code>
+              <p className="text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider pt-1">Auth (every request)</p>
+              <div className="flex items-center gap-1.5">
+                <code className="flex-1 text-xs dark:text-gray-200 text-gray-800 break-all">Authorization: Bearer {apiDocsChannel.id}</code>
+                <button
+                  onClick={() => copyAuthHeader(apiDocsChannel.id)}
+                  className="shrink-0 text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                >
+                  {copiedAuthHeader ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-[10px] dark:text-gray-500 text-gray-400">
+                Public/anonymous-shopper privilege only -- this channel's own id doubles as its bearer key, same trust
+                model as a Stripe publishable key.
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto -mx-5 px-5">
+              {HEADLESS_API_ENDPOINTS.map(ep => (
+                <div key={`${ep.method} ${ep.path}`} className="flex items-start gap-2 py-1.5 border-b dark:border-[#2D3748] border-gray-100 last:border-0">
+                  <span
+                    className={clsx(
+                      'shrink-0 w-14 text-center text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5',
+                      ep.method === 'GET' && 'bg-blue-500/10 text-blue-500',
+                      ep.method === 'POST' && 'bg-green-500/10 text-green-500',
+                      ep.method === 'PUT' && 'bg-amber-500/10 text-amber-500',
+                      ep.method === 'DELETE' && 'bg-red-500/10 text-red-500',
+                    )}
+                  >
+                    {ep.method}
+                  </span>
+                  <div className="min-w-0">
+                    <code className="text-[11px] dark:text-gray-300 text-gray-700 break-all">{ep.path}</code>
+                    <p className="text-[10px] dark:text-gray-500 text-gray-400">{ep.summary}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="shrink-0 pt-3 text-[10px] dark:text-gray-500 text-gray-400">
+              Full request/response contracts: backend/api/storefront/openapi.yaml.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface PricingSectionProps {
+  channel: SalesChannel
+  update: (id: string, payload: UpdateSalesChannelPayload) => Promise<SalesChannel>
+  onChannelUpdated: (channel: SalesChannel) => void
+}
+
+// PricingSection lives on the Products tab, not the create/edit channel
+// form -- a discount/quantity tier is a pricing-on-this-catalog concern,
+// same place a merchant already manages which products are even on this
+// channel. Every save is a full-state update (see UpdateSalesChannelPayload
+// itself, and applyRule's identical pattern above) -- name/enrollment/
+// active are resent unchanged from the channel prop, only pricing fields
+// come from this section's own local state.
+function PricingSection({ channel, update, onChannelUpdated }: PricingSectionProps) {
+  const [percent, setPercent] = useState(
+    channel.price_adjustment_basis_points ? (channel.price_adjustment_basis_points / 100).toString() : '',
+  )
+  const [quantityBreaks, setQuantityBreaks] = useState(
+    (channel.quantity_breaks ?? []).map(b => ({ minQuantity: b.min_quantity.toString(), discountPercent: (b.discount_basis_points / 100).toString() })),
+  )
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSave = async () => {
+    setError('')
+    setSaving(true)
+    try {
+      const updated = await update(channel.id, {
+        name: channel.name,
+        connectionId: channel.connection_id,
+        enrollmentMode: channel.enrollment_mode,
+        enrollmentCategoryId: channel.enrollment_category_id ?? null,
+        enrollmentTag: channel.enrollment_tag ?? null,
+        priceAdjustmentBasisPoints: priceAdjustmentBasisPointsOrError(percent),
+        quantityBreaks: quantityBreaksOrError(quantityBreaks),
+        active: channel.active,
+      })
+      onChannelUpdated(updated)
+      setDirty(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save pricing')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mx-5 mt-4 p-4 rounded-xl border dark:border-[#2D3748] border-gray-200 dark:bg-[#1F2937] bg-white shrink-0">
+      <h3 className="text-xs font-semibold dark:text-gray-100 text-gray-900 mb-3">Pricing</h3>
+      <div>
+        <label htmlFor="pricing-discount" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
+          Discount off list price (%)
+        </label>
+        <input
+          id="pricing-discount"
+          type="number" step={0.01}
+          value={percent}
+          onChange={e => { setPercent(e.target.value); setDirty(true) }}
+          placeholder="0"
+          className="w-full max-w-xs px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+        />
+        <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+          Applied to every product's price on this storefront -- e.g. 20 for a wholesale channel selling at 20% off retail.
+        </p>
+      </div>
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider">Quantity tiers</label>
+          <button
+            type="button"
+            onClick={() => { setQuantityBreaks(b => [...b, { minQuantity: '', discountPercent: '' }]); setDirty(true) }}
+            className="text-[10px] text-blue-500 hover:text-blue-400"
+          >
+            + Add tier
+          </button>
+        </div>
+        {quantityBreaks.length === 0 && (
+          <p className="text-[10px] dark:text-gray-500 text-gray-400">No quantity tiers -- every order uses the flat discount above.</p>
+        )}
+        <div className="space-y-2">
+          {quantityBreaks.map((row, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="number" min={1} step={1}
+                aria-label={`Quantity tier ${i + 1} minimum quantity`}
+                value={row.minQuantity}
+                onChange={e => {
+                  setQuantityBreaks(qb => qb.map((r, ri) => (ri === i ? { ...r, minQuantity: e.target.value } : r)))
+                  setDirty(true)
+                }}
+                placeholder="Qty"
+                className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <span className="text-[10px] dark:text-gray-500 text-gray-400">units or more →</span>
+              <input
+                type="number" step={0.01}
+                aria-label={`Quantity tier ${i + 1} discount percent`}
+                value={row.discountPercent}
+                onChange={e => {
+                  setQuantityBreaks(qb => qb.map((r, ri) => (ri === i ? { ...r, discountPercent: e.target.value } : r)))
+                  setDirty(true)
+                }}
+                placeholder="0"
+                className="w-20 px-2 py-1.5 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <span className="text-[10px] dark:text-gray-500 text-gray-400">% off</span>
+              <button
+                type="button"
+                onClick={() => { setQuantityBreaks(qb => qb.filter((_, ri) => ri !== i)); setDirty(true) }}
+                aria-label={`Remove quantity tier ${i + 1}`}
+                className="ml-auto text-gray-400 hover:text-red-400"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
+          Buy this many or more of one SKU in a single cart line and get this bigger discount instead of the flat rate above.
+        </p>
+      </div>
+      {error && <p className="mt-3 text-xs text-red-400 bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error}</p>}
+      <button
+        onClick={handleSave}
+        disabled={saving || !dirty}
+        className="mt-3 px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Save pricing'}
+      </button>
     </div>
   )
 }
@@ -832,6 +964,10 @@ function ChannelProductsPanel({ channel, onChannelUpdated, onClose, update, cate
         </button>
       </div>
       {bulkError && <p className="px-5 pt-2 text-xs text-red-400 shrink-0">{bulkError}</p>}
+
+      {channel.type === INTERNAL_TYPE && (
+        <PricingSection channel={channel} update={update} onChannelUpdated={onChannelUpdated} />
+      )}
 
       <div className="px-5 pt-4 shrink-0">
         <div className="relative max-w-xs">

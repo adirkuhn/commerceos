@@ -181,11 +181,7 @@ describe('Create sales channel', () => {
     })
   })
 
-  it('shows a currency picker only for Internal channels, listing configured exchange rates', async () => {
-    vi.mocked(fxApi.listExchangeRates).mockResolvedValue([
-      { currency_code: 'USD', rate_basis_points: 10876, updated_at: '' },
-      { currency_code: 'GBP', rate_basis_points: 8700, updated_at: '' },
-    ])
+  it('shows a currency picker only for Internal channels, offering the full currency list regardless of configured exchange rates', async () => {
     renderPage()
     await screen.findByText('My Woo Store')
 
@@ -194,8 +190,25 @@ describe('Create sales channel', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
     const currencySelect = await screen.findByLabelText('Currency')
-    expect(within(currencySelect).getByText('USD')).toBeInTheDocument()
-    expect(within(currencySelect).getByText('GBP')).toBeInTheDocument()
+    expect(within(currencySelect).getByText('USD — US Dollar')).toBeInTheDocument()
+    expect(within(currencySelect).getByText('GBP — British Pound')).toBeInTheDocument()
+    expect(within(currencySelect).getByText('EUR — Euro')).toBeInTheDocument()
+    expect(within(currencySelect).getByText('CHF — Swiss Franc')).toBeInTheDocument()
+  })
+
+  it('warns when the selected currency has no configured exchange rate yet', async () => {
+    vi.mocked(fxApi.listExchangeRates).mockResolvedValue([{ currency_code: 'USD', rate_basis_points: 10876, updated_at: '' }])
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.selectOptions(await screen.findByLabelText('Currency'), 'GBP')
+
+    expect(screen.getByText(/No exchange rate configured for GBP yet/)).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('Currency'), 'USD')
+    expect(screen.queryByText(/No exchange rate configured/)).not.toBeInTheDocument()
   })
 
   it('creates an Internal channel with the selected non-default currency', async () => {
@@ -469,6 +482,156 @@ describe('Sales channel fulfillment warehouse', () => {
   })
 })
 
+describe('Headless API docs', () => {
+  it('shows an "API docs" button only for Internal channels', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    expect(screen.queryByRole('button', { name: 'API docs' })).not.toBeInTheDocument()
+  })
+
+  it('opens a reference showing the base URL, bearer auth using the channel id, and the endpoint list', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.com/api/v1')
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2C Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'API docs' }))
+
+    expect(screen.getByText('https://api.example.com/api/v1/storefront/v1')).toBeInTheDocument()
+    expect(screen.getByText('Authorization: Bearer chan-int')).toBeInTheDocument()
+    expect(screen.getByText('/products')).toBeInTheDocument()
+    expect(screen.getByText('/carts/{token}/checkout')).toBeInTheDocument()
+    expect(screen.queryByText(/theme/)).not.toBeInTheDocument()
+  })
+
+  it('closes the API docs modal', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'API docs' }))
+
+    await userEvent.click(screen.getByLabelText('Close'))
+
+    expect(screen.queryByText('B2C Store — headless API')).not.toBeInTheDocument()
+  })
+})
+
+describe('Pricing (Products tab)', () => {
+  it('shows the Pricing section only for Internal channels', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    expect(screen.queryByText('Pricing')).not.toBeInTheDocument()
+  })
+
+  it('shows Pricing for an Internal channel, disabling Save until something changes', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    expect(screen.getByText('Pricing')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save pricing' })).toBeDisabled()
+  })
+
+  it('prefills the existing discount and quantity tiers', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
+      id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null,
+      price_adjustment_basis_points: 1500, quantity_breaks: [{ min_quantity: 10, discount_basis_points: 2000 }],
+    })])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    expect(screen.getByLabelText('Discount off list price (%)')).toHaveValue(15)
+    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
+    expect(screen.getByLabelText('Quantity tier 1 discount percent')).toHaveValue(20)
+  })
+
+  it('saves a changed discount percent, preserving the channel\'s other fields', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null, enrollment_mode: 'manual' })])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', price_adjustment_basis_points: 2000 }))
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '20')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', {
+        name: 'B2C Store', connectionId: null, enrollmentMode: 'manual', enrollmentCategoryId: null, enrollmentTag: null,
+        priceAdjustmentBasisPoints: 2000, quantityBreaks: [], active: true,
+      })
+    })
+  })
+
+  it('rejects a discount over 100%', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '150')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
+
+    expect(await screen.findByText('Discount must be between 0 and 100%.')).toBeInTheDocument()
+    expect(integrationsApi.updateSalesChannel).not.toHaveBeenCalled()
+  })
+
+  it('adds and saves a quantity tier', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    vi.mocked(integrationsApi.updateSalesChannel).mockResolvedValue(sampleChannel({
+      id: 'chan-int', name: 'B2C Store', type: 'internal', quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    }))
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
+    await userEvent.type(screen.getByLabelText('Quantity tier 1 minimum quantity'), '10')
+    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
+
+    await waitFor(() => {
+      expect(integrationsApi.updateSalesChannel).toHaveBeenCalledWith('test-token', 'chan-int', expect.objectContaining({
+        quantityBreaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+      }))
+    })
+  })
+
+  it('removes a quantity tier row', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
+      id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null,
+      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
+    })])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove quantity tier 1' }))
+
+    expect(screen.queryByLabelText('Quantity tier 1 minimum quantity')).not.toBeInTheDocument()
+  })
+
+  it('rejects a quantity tier with no minimum quantity', async () => {
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null })])
+    renderPage()
+    await screen.findByText('B2C Store')
+    await userEvent.click(screen.getByRole('button', { name: 'Products' }))
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
+    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
+    await userEvent.click(screen.getByRole('button', { name: 'Save pricing' }))
+
+    expect(await screen.findByText('Each quantity tier needs a minimum quantity of at least 1.')).toBeInTheDocument()
+    expect(integrationsApi.updateSalesChannel).not.toHaveBeenCalled()
+  })
+})
+
 describe('WhatsApp payment method', () => {
   function whatsappChannel(overrides: Partial<SalesChannel> = {}): SalesChannel {
     return sampleChannel({ id: 'chan-wa', name: 'WA Channel', type: 'whatsapp', connection_id: 'conn-wa-1', default_warehouse_id: 'wh-1', ...overrides })
@@ -481,179 +644,6 @@ describe('WhatsApp payment method', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     expect(screen.queryByLabelText('Payment method')).not.toBeInTheDocument()
-  })
-
-  it('shows the discount field only for Internal channels', async () => {
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    expect(screen.queryByLabelText('Discount off list price (%)')).not.toBeInTheDocument()
-
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    expect(screen.getByLabelText('Discount off list price (%)')).toBeInTheDocument()
-  })
-
-  it('converts a percent into basis points and sends it on create', async () => {
-    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 2000 }))
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
-    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '20')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    await waitFor(() => {
-      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
-        priceAdjustmentBasisPoints: 2000,
-      }))
-    })
-  })
-
-  it('prefills the discount field from basis points when editing', async () => {
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null, price_adjustment_basis_points: 1500 })])
-    renderPage()
-    await screen.findByText('B2B Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-
-    expect(screen.getByLabelText('Discount off list price (%)')).toHaveValue(15)
-  })
-
-  it('shows a per-channel "Visit store" link built from the channel id, when a dedicated storefront base URL is configured', async () => {
-    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
-    renderPage()
-    await screen.findByText('B2B Store')
-
-    const link = screen.getByRole('link', { name: /Visit store/ })
-    expect(link).toHaveAttribute('href', 'https://shop.test/store/enter/chan-int')
-  })
-
-  it('defaults the store link to the API base URL\'s own origin -- a working link with no extra configuration', async () => {
-    vi.stubEnv('VITE_STOREFRONT_URL', '')
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
-    renderPage()
-    await screen.findByText('B2B Store')
-
-    const link = screen.getByRole('link', { name: /Visit store/ })
-    expect(link).toHaveAttribute('href', 'https://api.commerceos.dev.localhost/store/enter/chan-int')
-  })
-
-  it('falls back to a copyable store path (never hidden entirely) if the API base URL itself cannot be parsed', async () => {
-    vi.stubEnv('VITE_STOREFRONT_URL', '')
-    vi.stubEnv('VITE_API_BASE_URL', 'not-a-valid-url')
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({ id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null })])
-    renderPage()
-    await screen.findByText('B2B Store')
-
-    expect(screen.queryByRole('link', { name: /Visit store/ })).not.toBeInTheDocument()
-    expect(screen.getByText('/store/enter/chan-int')).toBeInTheDocument()
-  })
-
-  it('shows a separate store link per channel when multiple internal channels exist', async () => {
-    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
-      sampleChannel({ id: 'chan-b2c', name: 'B2C Store', type: 'internal', connection_id: null }),
-      sampleChannel({ id: 'chan-b2b', name: 'B2B Store', type: 'internal', connection_id: null }),
-    ])
-    renderPage()
-    await screen.findByText('B2C Store')
-    await screen.findByText('B2B Store')
-
-    const links = screen.getAllByRole('link', { name: /Visit store/ })
-    expect(links.map(l => l.getAttribute('href'))).toEqual([
-      'https://shop.test/store/enter/chan-b2c',
-      'https://shop.test/store/enter/chan-b2b',
-    ])
-  })
-
-  it('rejects a discount over 100%', async () => {
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
-    await userEvent.type(screen.getByLabelText('Discount off list price (%)'), '150')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    expect(await screen.findByText('Discount must be between 0 and 100%.')).toBeInTheDocument()
-    expect(integrationsApi.createSalesChannel).not.toHaveBeenCalled()
-  })
-
-  it('adds a quantity tier and saves it', async () => {
-    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({
-      id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null,
-      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
-    }))
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
-    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
-    await userEvent.type(screen.getByLabelText('Quantity tier 1 minimum quantity'), '10')
-    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    await waitFor(() => {
-      expect(integrationsApi.createSalesChannel).toHaveBeenCalledWith('test-token', expect.objectContaining({
-        quantityBreaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
-      }))
-    })
-  })
-
-  it('prefills quantity tiers back when editing', async () => {
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
-      id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null,
-      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
-    })])
-    renderPage()
-    await screen.findByText('B2B Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-
-    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
-    expect(screen.getByLabelText('Quantity tier 1 discount percent')).toHaveValue(15)
-  })
-
-  it('removes a quantity tier row', async () => {
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([sampleChannel({
-      id: 'chan-int', name: 'B2B Store', type: 'internal', connection_id: null,
-      quantity_breaks: [{ min_quantity: 10, discount_basis_points: 1500 }],
-    })])
-    renderPage()
-    await screen.findByText('B2B Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    expect(screen.getByLabelText('Quantity tier 1 minimum quantity')).toHaveValue(10)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Remove quantity tier 1' }))
-
-    expect(screen.queryByLabelText('Quantity tier 1 minimum quantity')).not.toBeInTheDocument()
-  })
-
-  it('rejects a quantity tier with no minimum quantity', async () => {
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.type(screen.getByLabelText('Name'), 'B2B Store')
-    await userEvent.click(screen.getByRole('button', { name: '+ Add tier' }))
-    await userEvent.type(screen.getByLabelText('Quantity tier 1 discount percent'), '15')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    expect(await screen.findByText('Each quantity tier needs a minimum quantity of at least 1.')).toBeInTheDocument()
-    expect(integrationsApi.createSalesChannel).not.toHaveBeenCalled()
   })
 
   it("does not wipe quantity tiers when applying a bulk enrollment action", async () => {

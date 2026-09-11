@@ -13,6 +13,7 @@ import type { Connection, AIProvider, SalesChannel } from '../integrations/types
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import * as settingsApi from '../settings/api'
 import type { TenantSettings, TenantSettingsInput, ApiKey } from '../settings/types'
+import { CURRENCY_OPTIONS } from '../settings/currencyOptions'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
@@ -914,12 +915,6 @@ function AIIntegrationCard() {
 
 // ── Localization settings section ─────────────────────────────────────────────
 
-const CURRENCY_OPTIONS = [
-  { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'USD', label: 'USD — US Dollar' },
-  { value: 'GBP', label: 'GBP — British Pound' },
-  { value: 'CHF', label: 'CHF — Swiss Franc' },
-]
 const TIMEZONE_OPTIONS = [
   { value: 'Europe/Amsterdam', label: 'Europe/Amsterdam (UTC+2)' },
   { value: 'Europe/London', label: 'Europe/London (UTC+1)' },
