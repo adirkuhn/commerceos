@@ -88,6 +88,50 @@ func (r *OutboxRepository) MarkFailed(ctx context.Context, id uint) error {
 		Update("status", string(outbox.StatusFailed)).Error
 }
 
+// ListFailedBySubjectPrefix and ResetToPending back cmd/backfill-outbox-replay
+// only -- not part of domain/outbox.Repository (ISP, same reasoning as
+// relayOutboxRepo below RecordPublishFailure: dozens of unrelated call
+// sites only ever Enqueue, and would gain a no-op method for nothing).
+//
+// A prefix match (not "every Failed row") so an incident scoped to one
+// event subject (e.g. "shipping.") can be replayed without touching
+// Failed rows from an unrelated one still awaiting manual triage.
+func (r *OutboxRepository) ListFailedBySubjectPrefix(ctx context.Context, prefix string) ([]outbox.Message, error) {
+	var rows []outboxModel
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND subject LIKE ?", string(outbox.StatusFailed), prefix+"%").
+		Order("id asc").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	msgs := make([]outbox.Message, len(rows))
+	for i, row := range rows {
+		msgs[i] = outbox.Message{
+			ID:          row.ID,
+			EventID:     row.EventID,
+			Subject:     row.Subject,
+			Payload:     row.Payload,
+			Status:      outbox.Status(row.Status),
+			OccurredAt:  row.OccurredAt,
+			PublishedAt: row.PublishedAt,
+			CreatedAt:   row.CreatedAt,
+			RetryCount:  row.RetryCount,
+		}
+	}
+	return msgs, nil
+}
+
+// ResetToPending requeues a Failed row for another publish attempt.
+// retry_count is reset to 0 so the row gets its full retry budget again
+// instead of immediately re-exhausting and flipping back to Failed after
+// one more failure inherited from whatever the original incident was.
+func (r *OutboxRepository) ResetToPending(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Model(&outboxModel{}).
+		Where("id = ?", id).
+		Updates(map[string]any{"status": string(outbox.StatusPending), "retry_count": 0}).Error
+}
+
 // RecordPublishFailure is called by the relay (not part of domain/outbox's
 // Repository interface -- see cmd/relay's narrower relayOutboxRepo, ISP)
 // after a genuine per-message publish failure (not a NATS/JetStream

@@ -77,11 +77,63 @@ func TestOutboxRepo_Integration_RecordPublishFailureRetriesUntilExhausted(t *tes
 	require.Empty(t, pending, "3rd failure of 3 -- budget exhausted, must no longer be picked up")
 }
 
+// TestOutboxRepo_Integration_ListFailedBySubjectPrefixAndResetToPending
+// covers the backfill path used after the 2026-09-11 incident where
+// "shipping.>" was missing from the JetStream stream's subjects: every
+// ShipmentFulfillmentSignal outbox row failed to publish with "no stream
+// matches subject" and, after exhausting its retry budget, landed in
+// Failed. The relay only ever re-fetches Pending rows (see cmd/relay's
+// FetchPending call), so once the stream is fixed these rows need an
+// explicit requeue -- this is that mechanism (cmd/backfill-outbox-replay).
+func TestOutboxRepo_Integration_ListFailedBySubjectPrefixAndResetToPending(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewOutboxRepository(db)
+
+	shippingID := enqueueOneWithSubject(t, ctx, db, repo, "shipping.shipment.fulfillment_signal", uuid.NewString())
+	require.NoError(t, repo.MarkFailed(context.Background(), shippingID))
+
+	// A failed row on an unrelated subject must never be swept up by a
+	// "shipping." prefix backfill -- ListFailedBySubjectPrefix is a prefix
+	// match, not "every Failed row", so an inventory-sync incident and a
+	// shipping incident can be replayed independently of each other.
+	invID := enqueueOneWithSubject(t, ctx, db, repo, "inventory.stock.changed", uuid.NewString())
+	require.NoError(t, repo.MarkFailed(context.Background(), invID))
+
+	failed, err := repo.ListFailedBySubjectPrefix(context.Background(), "shipping.")
+	require.NoError(t, err)
+	require.Len(t, failed, 1)
+	require.Equal(t, shippingID, failed[0].ID)
+	require.Equal(t, outbox.StatusFailed, failed[0].Status)
+
+	require.NoError(t, repo.ResetToPending(context.Background(), shippingID))
+
+	pending, err := repo.FetchPending(context.Background(), 50)
+	require.NoError(t, err)
+	require.Len(t, pending, 1, "only the requeued shipping row -- the unrelated inventory row stays Failed")
+	require.Equal(t, shippingID, pending[0].ID)
+	require.Equal(t, 0, pending[0].RetryCount, "requeue must reset retry_count so a fresh publish attempt doesn't inherit the old exhausted budget")
+
+	stillFailedShipping, err := repo.ListFailedBySubjectPrefix(context.Background(), "shipping.")
+	require.NoError(t, err)
+	require.Empty(t, stillFailedShipping, "requeued row must no longer show up as failed")
+
+	stillFailedInventory, err := repo.ListFailedBySubjectPrefix(context.Background(), "inventory.")
+	require.NoError(t, err)
+	require.Len(t, stillFailedInventory, 1, "unrelated failed row must be untouched by a shipping-only requeue")
+	require.Equal(t, invID, stillFailedInventory[0].ID)
+}
+
 func enqueueOne(t *testing.T, ctx context.Context, db *gorm.DB, repo *repositories.OutboxRepository, eventID string) uint {
+	t.Helper()
+	return enqueueOneWithSubject(t, ctx, db, repo, "pms.product.changed", eventID)
+}
+
+func enqueueOneWithSubject(t *testing.T, ctx context.Context, db *gorm.DB, repo *repositories.OutboxRepository, subject, eventID string) uint {
 	t.Helper()
 	var id uint
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		return repo.Enqueue(ctx, "pms.product.changed", eventID, []byte(`{}`), time.Now())
+		return repo.Enqueue(ctx, subject, eventID, []byte(`{}`), time.Now())
 	})
 	require.NoError(t, err)
 	pending, err := repo.FetchPending(context.Background(), 50)
