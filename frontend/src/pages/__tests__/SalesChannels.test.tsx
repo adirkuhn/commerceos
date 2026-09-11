@@ -211,6 +211,29 @@ describe('Create sales channel', () => {
     }))
   })
 
+  it('seeds a brand-new internal channel straight into Puck -- editor_mode + puck_data populated, matching the freeform blocks', async () => {
+    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
+    await userEvent.type(screen.getByLabelText('Name'), 'B2C Store')
+    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
+    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
+
+    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalled())
+    for (const slug of ['header', 'home', 'footer']) {
+      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', slug, expect.objectContaining({
+        editor_mode: 'puck',
+        puck_data: expect.objectContaining({ content: expect.any(Array), root: {} }),
+      }))
+    }
+    const [, , , homePayload] = vi.mocked(themeApi.saveThemePage).mock.calls.find(c => c[2] === 'home')!
+    const puckContent = (homePayload.puck_data as { content: { type: string }[] }).content
+    expect(puckContent.map(c => c.type)).toContain('Hero')
+  })
+
   it('lets a merchant pick a different starter template + color for a new internal channel', async () => {
     vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
     renderPage()

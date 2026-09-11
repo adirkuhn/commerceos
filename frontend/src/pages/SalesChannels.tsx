@@ -16,6 +16,7 @@ import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
 import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
+import { blocksToPuckData } from '../theme/puckConversion'
 import type { StarterCategory, StarterTemplateId } from '../theme/starterTemplate'
 import type { Block, PageSlug } from '../theme/types'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
@@ -158,9 +159,15 @@ async function seedStarterTheme(
     try {
       await saveThemePage(token, channel.id, slug, {
         canvas_width: 1440,
+        // blocks/canvas_width stay populated even though editor_mode is
+        // 'puck' below -- both documents always coexist on a ThemePage
+        // (see domain/theme.ThemePage), this is just never the active one
+        // for a brand-new channel. Harmless, and a real fallback if a
+        // merchant ever needs it.
         blocks,
         custom_css: customCss,
-        editor_mode: 'freeform',
+        editor_mode: 'puck',
+        puck_data: blocksToPuckData(blocks),
       })
     } catch {
       // Non-blocking, per page -- see this function's doc comment.
