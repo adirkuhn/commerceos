@@ -19,6 +19,19 @@ vi.mock('../../api/categories', () => ({
   listCategories: vi.fn().mockResolvedValue([]),
 }))
 
+// EditPage now wraps its Puck canvas in a read-only CanvasPage preview of
+// the live header/footer (see showsChromeContext) -- that component uses
+// its own useThemePage hook (api/theme.getStorefrontTheme), a wholly
+// separate fetch from the merchant-token-authenticated getThemeDraft
+// above. Empty pages here since these tests aren't about that preview's
+// own content -- just that adding it doesn't break anything already
+// covered.
+vi.mock('../../api/theme', () => ({
+  getStorefrontTheme: vi.fn().mockResolvedValue({
+    slug: 'header', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform', sales_channel_id: 'channel-1',
+  }),
+}))
+
 // Real Puck renders a full drag-and-drop editor UI with no simple way to
 // trigger onPublish from a test; capturing the prop directly lets the
 // round-trip test call it exactly as Puck would on a merchant's publish
@@ -147,6 +160,45 @@ describe('EditPage', () => {
 
     const [, , payload] = vi.mocked(themeDraftApi.saveThemeDraft).mock.calls[0]
     expect(payload.editor_mode).toBe('puck')
+  })
+
+  it('renders the page\'s own custom_css as a style tag, so palette/typography actually reach the Puck editor', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(draftPage)
+
+    const { container } = renderAt('/edit/home?token=edit-token-1')
+    await screen.findByText('puck-editor-marker')
+
+    expect(container.querySelector('style')?.textContent).toBe(draftPage.custom_css)
+  })
+
+  it('shows a read-only live header/footer around the editor for a real content page', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(draftPage)
+
+    renderAt('/edit/home?token=edit-token-1')
+    await screen.findByText('puck-editor-marker')
+
+    expect(screen.getByText(/Live header/)).toBeInTheDocument()
+    expect(screen.getByText(/Live footer/)).toBeInTheDocument()
+  })
+
+  it('shows no header/footer context when editing the header page itself', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue({ ...draftPage, slug: 'header' })
+
+    renderAt('/edit/header?token=edit-token-1')
+    await screen.findByText('puck-editor-marker')
+
+    expect(screen.queryByText(/Live header/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Live footer/)).not.toBeInTheDocument()
+  })
+
+  it('shows no header/footer context when editing the footer page itself', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue({ ...draftPage, slug: 'footer' })
+
+    renderAt('/edit/footer?token=edit-token-1')
+    await screen.findByText('puck-editor-marker')
+
+    expect(screen.queryByText(/Live header/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Live footer/)).not.toBeInTheDocument()
   })
 
   it('shows a Save button that persists the draft without switching editor_mode away from freeform', async () => {

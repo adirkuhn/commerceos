@@ -9,7 +9,19 @@ import { setStorefrontKey } from '../api/client'
 import { listCategories } from '../api/categories'
 import { getThemeDraft, saveThemeDraft } from '../api/themeDraft'
 import { buildPuckConfig } from '../puck/config'
+import { CanvasPage } from '../components/CanvasPage'
 import type { PageSlug, StorefrontCategory, ThemePage } from '../types'
+
+// showsChromeContext is true for every real page, not the header/footer
+// pseudo-pages themselves -- editing 'header' already shows the real
+// header content as the thing being edited; wrapping it in another copy
+// of itself around it would be redundant and confusing. Everywhere else,
+// a merchant editing e.g. 'home' sees the real live header/footer around
+// it (read-only) for the same visual continuity the actual storefront has
+// (see App.tsx's Layout), not just an isolated content block in a void.
+function showsChromeContext(slug: PageSlug): boolean {
+  return slug !== 'header' && slug !== 'footer'
+}
 
 const EMPTY_PUCK_DATA: Data = { content: [], root: {} }
 
@@ -110,6 +122,27 @@ export default function EditPage() {
     <CartProvider>
       <WishlistProvider>
         <AuthProvider>
+          {/* Puck renders its editable canvas inside its own iframe (see
+              @puckeditor/core's default iframe.syncHostStyles), mirroring
+              every style/link element already present in this parent
+              document at mount time into it -- unscoped is correct here,
+              not a leak to guard against like the old admin canvas: a
+              scoped selector wouldn't match anything inside the iframe at
+              all, since Puck's own DOM structure inside it isn't something
+              this page controls. Without this tag, none of a channel's
+              palette colors or starter-template typography (see frontend/
+              theme/starterTemplate.ts) ever reached the Puck editor -- a
+              page could look completely different here than its own live,
+              published self. */}
+          {page.custom_css && <style>{page.custom_css}</style>}
+          {showsChromeContext(pageSlug) && (
+            <div aria-hidden className="pointer-events-none">
+              <p className="bg-yellow-50 px-4 py-1 text-center text-[11px] font-medium text-yellow-700">
+                Live header (read-only, for context -- edit it separately from the Page picker)
+              </p>
+              <CanvasPage slug="header" />
+            </div>
+          )}
           <Puck
             config={buildPuckConfig(pageSlug, categories)}
             data={data}
@@ -123,6 +156,14 @@ export default function EditPage() {
               ),
             }}
           />
+          {showsChromeContext(pageSlug) && (
+            <div aria-hidden className="pointer-events-none">
+              <p className="bg-yellow-50 px-4 py-1 text-center text-[11px] font-medium text-yellow-700">
+                Live footer (read-only, for context -- edit it separately from the Page picker)
+              </p>
+              <CanvasPage slug="footer" />
+            </div>
+          )}
         </AuthProvider>
       </WishlistProvider>
     </CartProvider>
