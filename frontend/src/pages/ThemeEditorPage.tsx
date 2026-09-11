@@ -1,28 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Rnd } from 'react-rnd'
-import { ArrowLeft, Plus, Code, Monitor, Smartphone, ExternalLink, Wand2 } from 'lucide-react'
+import { ArrowLeft, Code, ExternalLink, Wand2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import { useThemePage } from '../theme/hooks/useThemePage'
 import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
-import { createBlock } from '../theme/blockDefaults'
-import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
-import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
-import { scopeCssToCanvas } from '../theme/scopeCanvasCss'
-import type { StarterTemplateId } from '../theme/starterTemplate'
+import { blocksToPuckData } from '../theme/puckConversion'
 import { createEditSession } from '../theme/api'
 import { storefrontEditURL, storefrontPreviewURL } from '../theme/storefrontLink'
-import { defaultMobileRect, MOBILE_CANVAS_WIDTH } from '../theme/mobileLayout'
-import { BlockPreview } from '../theme/components/BlockPreview'
-import { BlockPropsPanel } from '../theme/components/BlockPropsPanel'
 import { CustomCSSPanel } from '../theme/components/CustomCSSPanel'
-import { PAGE_SLUGS, PAGE_SLUG_LABELS, EDITABLE_BLOCK_TYPES, BLOCK_TYPE_LABELS } from '../theme/types'
-import type { Block, EditorMode, PageSlug, Rect } from '../theme/types'
+import { PAGE_SLUGS, PAGE_SLUG_LABELS } from '../theme/types'
+import type { PageSlug } from '../theme/types'
 
-const CANVAS_HEIGHT = 900
-type Breakpoint = 'desktop' | 'mobile'
-
+// Freeform (the old drag/resize canvas -- BlockPreview, BlockPropsPanel,
+// the Rnd-based layout editor) is gone. Puck (storefront-frontend's own
+// embedded visual editor, see openVisualEditor below) is now the only way
+// to edit a page's content -- it already registers every block type as a
+// real, live, wired-up component (see storefront-frontend/puck/config.tsx),
+// unlike the old canvas's own rough approximation. This page now only
+// handles page selection, launching Puck, previewing the live result, and
+// custom_css -- the one thing Puck itself has no UI for.
 export default function ThemeEditorPage() {
   const { token } = useAuth()
   const navigate = useNavigate()
@@ -53,16 +50,9 @@ interface EditorProps {
 function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
   const { page, loading, saving, error, save } = useThemePage(token, channelId, slug)
 
-  const [blocks, setBlocks] = useState<Block[]>([])
-  const [canvasWidth, setCanvasWidth] = useState(1440)
   const [customCss, setCustomCss] = useState('')
-  const [breakpoint, setBreakpoint] = useState<Breakpoint>('desktop')
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  const [cssDirty, setCssDirty] = useState(false)
   const [cssPanelOpen, setCssPanelOpen] = useState(false)
-  const [addMenuOpen, setAddMenuOpen] = useState(false)
-  const [templatesOpen, setTemplatesOpen] = useState(false)
-  const [selectedTemplateId, setSelectedTemplateId] = useState<StarterTemplateId>('classic')
-  const [dirty, setDirty] = useState(false)
   const [editSessionLoading, setEditSessionLoading] = useState(false)
   const [editSessionError, setEditSessionError] = useState<string | null>(null)
   const initializedFor = useRef<string | null>(null)
@@ -70,93 +60,45 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
   useEffect(() => {
     const key = `${channelId}|${slug}`
     if (page && initializedFor.current !== key) {
-      setBlocks(page.blocks)
-      setCanvasWidth(page.canvas_width)
       setCustomCss(page.custom_css)
-      setSelectedBlockId(null)
+      setCssDirty(false)
       setCssPanelOpen(false)
-      setBreakpoint('desktop')
-      setDirty(false)
       initializedFor.current = key
+      // A page created before straight-to-Puck seeding (see
+      // SalesChannels.tsx's seedStarterTheme) or the "Migrate to Puck"
+      // bulk action still has editor_mode 'freeform' with real blocks and
+      // empty puck_data -- opening it here converts it in place, the same
+      // one-page version of that bulk action's own per-page logic, so
+      // simply opening any page (even just to edit its Custom CSS) is
+      // never blocked on a merchant remembering to migrate it first.
+      if (page.editor_mode === 'freeform' && page.blocks.length > 0) {
+        save({
+          canvas_width: page.canvas_width,
+          blocks: page.blocks,
+          custom_css: page.custom_css,
+          editor_mode: 'puck',
+          puck_data: blocksToPuckData(page.blocks),
+        })
+      }
     }
+    // save is stable across renders (see useThemePage) but is
+    // deliberately omitted -- including it would re-run this effect on
+    // every save, including the very auto-migration save it triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, channelId, slug])
 
-  const selectedBlock = blocks.find(b => b.id === selectedBlockId) ?? null
+  const openCssPanel = () => setCssPanelOpen(o => !o)
 
-  const selectBlock = (id: string | null) => {
-    setSelectedBlockId(id)
-    if (id) setCssPanelOpen(false)
-  }
-
-  const openCssPanel = () => {
-    setCssPanelOpen(true)
-    setSelectedBlockId(null)
-  }
-
-  const updateBlock = (id: string, updater: (b: Block) => Block) => {
-    setBlocks(prev => prev.map(b => (b.id === id ? updater(b) : b)))
-    setDirty(true)
-  }
-
-  // The Rect the canvas actually displays/edits for the current
-  // breakpoint -- Mobile falls back to a computed full-width default
-  // (see mobileLayout.ts) until a merchant's first drag/resize in Mobile
-  // view gives it a real saved override.
-  const rectFor = (block: Block): Rect => (breakpoint === 'desktop' ? block.layout.desktop : block.layout.mobile ?? defaultMobileRect(block.layout.desktop))
-
-  const updateRect = (id: string, rect: Rect) => {
-    updateBlock(id, b => ({
-      ...b,
-      layout: breakpoint === 'desktop' ? { ...b.layout, desktop: rect } : { ...b.layout, mobile: rect },
-    }))
-  }
-
-  const addBlock = (type: (typeof EDITABLE_BLOCK_TYPES)[number]) => {
-    const block = createBlock(type)
-    setBlocks(prev => [...prev, block])
-    selectBlock(block.id)
-    setDirty(true)
-    setAddMenuOpen(false)
-  }
-
-  const deleteBlock = (id: string) => {
-    setBlocks(prev => prev.filter(b => b.id !== id))
-    if (selectedBlockId === id) selectBlock(null)
-    setDirty(true)
-  }
-
-  const applyTemplate = (palette: (typeof THEME_PALETTES)[number]) => {
-    if (blocks.length > 0 && !window.confirm('Replace this page\'s current blocks with the starter template?')) {
-      return
-    }
-    const template = STARTER_TEMPLATES.find(t => t.id === selectedTemplateId) ?? STARTER_TEMPLATES[0]
-    setBlocks(template.buildHome(''))
-    setCustomCss(combinedStarterCSS(paletteCustomCSS(palette), selectedTemplateId))
-    selectBlock(null)
-    setCssPanelOpen(false)
-    setDirty(true)
-    setTemplatesOpen(false)
-  }
-
-  // editorMode is which document the storefront actually renders live --
-  // 'freeform' (this canvas) or 'puck' (storefront-frontend's own
-  // embedded Puck editor, see openVisualEditor). Saving this canvas never
-  // changes it implicitly: a merchant polishing freeform content while
-  // Puck is live must not accidentally flip the storefront back. Only
-  // switchMode changes it, explicitly, round-tripping whichever document
-  // isn't being switched to unchanged (see backend domain/theme.ThemePage's
-  // coexisting-documents doc comment).
-  const editorMode: EditorMode = page?.editor_mode ?? 'freeform'
-
-  const handleSave = async () => {
-    await save({ canvas_width: canvasWidth, blocks, custom_css: customCss, editor_mode: editorMode, puck_data: page?.puck_data })
-    setDirty(false)
-  }
-
-  const switchMode = async (mode: EditorMode) => {
-    if (mode === editorMode) return
-    await save({ canvas_width: canvasWidth, blocks, custom_css: customCss, editor_mode: mode, puck_data: page?.puck_data })
-    setDirty(false)
+  const handleSaveCss = async () => {
+    if (!page) return
+    await save({
+      canvas_width: page.canvas_width,
+      blocks: page.blocks,
+      custom_css: customCss,
+      editor_mode: 'puck',
+      puck_data: page.puck_data,
+    })
+    setCssDirty(false)
   }
 
   // openVisualEditor mints a short-lived edit session token (a distinct,
@@ -183,10 +125,9 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
     }
   }
 
-  const displayedWidth = breakpoint === 'desktop' ? canvasWidth : MOBILE_CANVAS_WIDTH
   // The real, saved, live-rendered page -- see storefrontPreviewURL's own
   // doc comment for which slugs this covers. Always the last-saved
-  // version (unsaved edits in this canvas aren't reflected until Save).
+  // version (unsaved custom_css edits aren't reflected until Save).
   const previewURL = storefrontPreviewURL(channelId, slug)
 
   return (
@@ -214,24 +155,6 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
         <div className="flex items-center gap-3">
           {error && <p className="text-xs text-red-500">{error}</p>}
           {editSessionError && <p className="text-xs text-red-500">{editSessionError}</p>}
-          <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
-            <button
-              aria-pressed={editorMode === 'freeform'}
-              onClick={() => switchMode('freeform')}
-              title="Storefront renders this canvas's blocks live"
-              className={clsx('rounded-md px-2 py-1 text-xs font-medium transition-colors', editorMode === 'freeform' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
-            >
-              Freeform
-            </button>
-            <button
-              aria-pressed={editorMode === 'puck'}
-              onClick={() => switchMode('puck')}
-              title="Storefront renders the visual (Puck) editor's content live"
-              className={clsx('rounded-md px-2 py-1 text-xs font-medium transition-colors', editorMode === 'puck' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
-            >
-              Puck
-            </button>
-          </div>
           <button
             onClick={openVisualEditor}
             disabled={editSessionLoading}
@@ -240,74 +163,12 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
           >
             <Wand2 size={12} /> {editSessionLoading ? 'Opening…' : 'Edit visually'}
           </button>
-          <div className="flex items-center rounded-lg border border-gray-200 bg-white p-0.5">
-            <button
-              aria-label="Desktop"
-              aria-pressed={breakpoint === 'desktop'}
-              onClick={() => setBreakpoint('desktop')}
-              className={clsx('rounded-md p-1.5 transition-colors', breakpoint === 'desktop' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
-            >
-              <Monitor size={14} />
-            </button>
-            <button
-              aria-label="Mobile"
-              aria-pressed={breakpoint === 'mobile'}
-              onClick={() => setBreakpoint('mobile')}
-              className={clsx('rounded-md p-1.5 transition-colors', breakpoint === 'mobile' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:text-gray-600')}
-            >
-              <Smartphone size={14} />
-            </button>
-          </div>
-          {slug === 'home' && (
-            <div className="relative">
-              <button
-                onClick={() => setTemplatesOpen(o => !o)}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
-              >
-                Template
-              </button>
-              {templatesOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
-                  <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">Starter template + color</p>
-                  <div role="group" aria-label="Starter template" className="mb-2 flex gap-1 px-1">
-                    {STARTER_TEMPLATES.map(t => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        aria-pressed={selectedTemplateId === t.id}
-                        onClick={() => setSelectedTemplateId(t.id)}
-                        className={clsx(
-                          'flex-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors',
-                          selectedTemplateId === t.id ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-                        )}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                  {THEME_PALETTES.map(palette => (
-                    <button
-                      key={palette.id}
-                      onClick={() => applyTemplate(palette)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-50"
-                    >
-                      <span
-                        className="h-4 w-4 shrink-0 rounded-full border border-gray-200"
-                        style={{ backgroundColor: palette.colors[500] }}
-                      />
-                      {palette.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
           {previewURL ? (
             <a
               href={previewURL}
               target="_blank"
               rel="noreferrer"
-              title="Opens the real, saved, live-rendered page (not this canvas's rough layout preview) in a new tab"
+              title="Opens the real, saved, live-rendered page in a new tab"
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
             >
               <ExternalLink size={12} /> Preview
@@ -330,30 +191,9 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
           >
             <Code size={12} /> Custom CSS
           </button>
-          <div className="relative">
-            <button
-              onClick={() => setAddMenuOpen(o => !o)}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <Plus size={12} /> Add block
-            </button>
-            {addMenuOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                {EDITABLE_BLOCK_TYPES.map(type => (
-                  <button
-                    key={type}
-                    onClick={() => addBlock(type)}
-                    className="block w-full px-3 py-1.5 text-left text-xs text-gray-600 hover:bg-gray-50"
-                  >
-                    {BLOCK_TYPE_LABELS[type]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
           <button
-            onClick={handleSave}
-            disabled={saving || !dirty}
+            onClick={handleSaveCss}
+            disabled={saving || !cssDirty}
             className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save'}
@@ -366,50 +206,20 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
           {loading ? (
             <p className="text-sm text-gray-500">Loading…</p>
           ) : (
-            <div
-              id="theme-editor-canvas"
-              data-testid="theme-canvas"
-              className="relative mx-auto bg-white shadow-sm"
-              style={{ width: displayedWidth, height: CANVAS_HEIGHT }}
-              onClick={() => selectBlock(null)}
-            >
-              {customCss && <style>{scopeCssToCanvas(customCss, '#theme-editor-canvas')}</style>}
-              {blocks.map(block => {
-                const rect = rectFor(block)
-                return (
-                  <Rnd
-                    key={block.id}
-                    bounds="parent"
-                    size={{ width: rect.width, height: rect.height }}
-                    position={{ x: rect.x, y: rect.y }}
-                    onDragStop={(_e, d) => updateRect(block.id, { ...rect, x: d.x, y: d.y })}
-                    onResizeStop={(_e, _dir, ref, _delta, pos) => updateRect(block.id, {
-                      x: pos.x, y: pos.y, width: parseInt(ref.style.width, 10), height: parseInt(ref.style.height, 10),
-                    })}
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectBlock(block.id) }}
-                    className={selectedBlockId === block.id ? 'ring-2 ring-brand-500' : 'ring-1 ring-gray-200'}
-                  >
-                    <BlockPreview block={block} />
-                  </Rnd>
-                )
-              })}
+            <div className="mx-auto max-w-xl rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
+              <Wand2 size={20} className="mx-auto mb-2 text-gray-400" />
+              <p className="text-sm font-medium text-gray-700">Content is edited in Puck</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Click "Edit visually" above to open storefront-frontend's own embedded editor -- the real, live
+                components, not an approximation. Custom CSS (colors, typography) is the one thing edited here.
+              </p>
             </div>
           )}
         </div>
 
         {cssPanelOpen && (
           <div className="w-80 shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
-            <CustomCSSPanel value={customCss} onChange={v => { setCustomCss(v); setDirty(true) }} />
-          </div>
-        )}
-        {!cssPanelOpen && selectedBlock && (
-          <div className="w-64 shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
-            <BlockPropsPanel
-              token={token}
-              block={selectedBlock}
-              onChangeProps={props => updateBlock(selectedBlock.id, b => ({ ...b, props }))}
-              onDelete={() => deleteBlock(selectedBlock.id)}
-            />
+            <CustomCSSPanel value={customCss} onChange={v => { setCustomCss(v); setCssDirty(true) }} />
           </div>
         )}
       </div>

@@ -63,36 +63,6 @@ export type BlockType =
   // domain/theme.BlockTypeNavActions' own doc comment.
   | 'nav_actions'
 
-// Every block type is addable from the canvas -- including the
-// functional ones, which otherwise only ever appear at their
-// storefront-synthesized default position (see storefront-frontend
-// CanvasPage.withRequiredBlock). Adding one here lets a merchant
-// reposition/resize the real thing; it never has editable props (its
-// content is live cart/catalog/order data, not merchant text) so
-// BlockPropsPanel shows no fields for it beyond delete.
-export const EDITABLE_BLOCK_TYPES: BlockType[] = [
-  'hero', 'rich_text', 'custom_html', 'nav_menu',
-  'product_grid', 'featured_products', 'product_details', 'cart_summary', 'checkout_form', 'order_status', 'wishlist', 'login_form', 'account',
-  'nav_actions',
-]
-
-export const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
-  hero: 'Hero',
-  product_grid: 'Product grid',
-  featured_products: 'Featured products',
-  rich_text: 'Rich text',
-  custom_html: 'Custom HTML',
-  nav_menu: 'Nav menu',
-  product_details: 'Product details',
-  cart_summary: 'Cart summary',
-  checkout_form: 'Checkout form',
-  order_status: 'Order status',
-  wishlist: 'Wishlist',
-  login_form: 'Login form',
-  account: 'Account',
-  nav_actions: 'Nav actions (cart/wishlist/account)',
-}
-
 export interface Rect {
   x: number
   y: number
@@ -113,11 +83,15 @@ export interface Block {
 }
 
 // EditorMode selects which document storefront-frontend renders a page
-// from -- 'freeform' (this editor's own absolutely-positioned canvas,
-// below) or 'puck' (authored by storefront-frontend's own embedded Puck
+// from -- 'puck' (authored by storefront-frontend's own embedded Puck
 // editor at /edit/:slug -- see ThemeEditorPage's "Edit visually"
-// launcher). Both documents are kept on every row regardless of which is
-// active -- mirrors backend domain/theme.EditorMode.
+// launcher), the only mode any admin UI still writes. 'freeform' is a
+// legacy value: this system's own former drag/resize canvas (removed --
+// see ThemeEditorPage and theme/migrateToPuck.ts) used to write it;
+// existing channels not yet converted still carry it until their editor
+// is opened or "Migrate to Puck" runs. Both documents are kept on every
+// row regardless of which is active -- mirrors backend
+// domain/theme.EditorMode.
 export type EditorMode = 'freeform' | 'puck'
 
 export interface ThemePage {
