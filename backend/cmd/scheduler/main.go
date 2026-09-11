@@ -235,42 +235,30 @@ func main() {
 	// nacking it into another attempt already proven to fail. BackOff
 	// paces those redeliveries instead of hammering the handler at flat
 	// ~30s (AckWait's default) intervals.
-	productChangedSub, err := js.Subscribe(events.ProductChanged{}.EventName(), productChangedConsumer.Handle,
-		nats.Durable("product-changed-scheduler"), nats.ManualAck(),
-		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
-	if err != nil {
-		log.Fatalf("subscribe pms.product.changed: %v", err)
+	if sub := subscribeConsumer(js, events.ProductChanged{}.EventName(), "product-changed-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, productChangedConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
-	defer productChangedSub.Unsubscribe()
 
 	deleteProductFromChannelsUC := channelsapp.NewDeleteProductFromChannelsUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
 	productDeletedConsumer := consumers.NewProductDeletedConsumer(processedEventRepo, deleteProductFromChannelsUC, js)
-	productDeletedSub, err := js.Subscribe(events.ProductDeleted{}.EventName(), productDeletedConsumer.Handle,
-		nats.Durable("product-deleted-scheduler"), nats.ManualAck(),
-		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
-	if err != nil {
-		log.Fatalf("subscribe pms.product.deleted: %v", err)
+	if sub := subscribeConsumer(js, events.ProductDeleted{}.EventName(), "product-deleted-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, productDeletedConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
-	defer productDeletedSub.Unsubscribe()
 
 	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)
-	stockChangedSub, err := js.Subscribe(events.InventoryStockChanged{}.EventName(), stockChangedConsumer.Handle,
-		nats.Durable("inventory-stock-changed-scheduler"), nats.ManualAck(),
-		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
-	if err != nil {
-		log.Fatalf("subscribe inventory.stock.changed: %v", err)
+	if sub := subscribeConsumer(js, events.InventoryStockChanged{}.EventName(), "inventory-stock-changed-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, stockChangedConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
-	defer stockChangedSub.Unsubscribe()
 
 	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
-	salesOrderStatusChangedSub, err := js.Subscribe(events.SalesOrderStatusChanged{}.EventName(), salesOrderStatusChangedConsumer.Handle,
-		nats.Durable("sales-order-status-changed-scheduler"), nats.ManualAck(),
-		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
-	if err != nil {
-		log.Fatalf("subscribe oms.sales_order.status_changed: %v", err)
+	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, salesOrderStatusChangedConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
-	defer salesOrderStatusChangedSub.Unsubscribe()
 
 	// jobRunners was built before syncProductUC/syncStockUC existed --
 	// added here instead of at its original declaration. Safe to mutate
@@ -291,13 +279,10 @@ func main() {
 
 	notifyOrderStatusUC := whatsappapp.NewNotifyOrderStatusUseCase(db, salesOrderRepo, customerRepo, connRepo, evolutionapi.NewClientFactory(), cfg.IntegrationsEncryptionSecret)
 	whatsAppOrderStatusConsumer := consumers.NewWhatsAppOrderStatusConsumer(processedEventRepo, notifyOrderStatusUC, js)
-	whatsAppOrderStatusSub, err := js.Subscribe(events.SalesOrderStatusChanged{}.EventName(), whatsAppOrderStatusConsumer.Handle,
-		nats.Durable("whatsapp-order-status-scheduler"), nats.ManualAck(),
-		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
-	if err != nil {
-		log.Fatalf("subscribe oms.sales_order.status_changed (whatsapp): %v", err)
+	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "whatsapp-order-status-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, whatsAppOrderStatusConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
-	defer whatsAppOrderStatusSub.Unsubscribe()
 
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
@@ -318,13 +303,10 @@ func main() {
 
 	applyShipmentFulfillmentSignalUC := shippingapp.NewApplyShipmentFulfillmentSignalUseCase(db, salesOrderRepo, updateSalesOrderUC, notifyShipmentDeliveryUC)
 	shipmentFulfillmentSignalConsumer := consumers.NewShipmentFulfillmentSignalConsumer(processedEventRepo, applyShipmentFulfillmentSignalUC, js)
-	shipmentFulfillmentSignalSub, err := js.Subscribe(events.ShipmentFulfillmentSignal{}.EventName(), shipmentFulfillmentSignalConsumer.Handle,
-		nats.Durable("shipment-fulfillment-signal-scheduler"), nats.ManualAck(),
-		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
-	if err != nil {
-		log.Fatalf("subscribe shipping.shipment.fulfillment_signal: %v", err)
+	if sub := subscribeConsumer(js, events.ShipmentFulfillmentSignal{}.EventName(), "shipment-fulfillment-signal-scheduler",
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, shipmentFulfillmentSignalConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
 	}
-	defer shipmentFulfillmentSignalSub.Unsubscribe()
 
 	rs := buildRunners(
 		importUC,

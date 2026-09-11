@@ -22,7 +22,7 @@ const StreamName = "COMMERCEOS_EVENTS"
 // one here whenever a new domain starts publishing events; EnsureStream
 // updates an already-existing stream's subject list too, so this doesn't
 // require dropping the stream in a live deployment.
-var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>"}
+var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>"}
 
 // EnsureStream creates the stream if it doesn't exist yet, or widens its
 // subject list if it exists but is missing one of `subjects` (e.g. a new
