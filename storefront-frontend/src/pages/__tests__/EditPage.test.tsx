@@ -37,8 +37,12 @@ vi.mock('../../api/theme', () => ({
 // round-trip test call it exactly as Puck would on a merchant's publish
 // click, without asserting anything about Puck's own internals. Also
 // renders overrides.headerActions (EditPage's Save button lives there)
-// and stubs usePuck (Save reads Puck's current in-progress data through
-// it) so its own real component still works when rendered in these tests.
+// and overrides.iframe (the header/footer preview lives there -- real
+// Puck renders this wrapping its own draggable canvas inside its iframe,
+// not EditPage itself, so this must be invoked here for those tests to
+// exercise anything real) and stubs usePuck (Save reads Puck's current
+// in-progress data through it) so its own real component still works
+// when rendered in these tests.
 let capturedOnPublish: ((data: unknown) => void | Promise<void>) | undefined
 let mockPuckData: unknown = { content: [], root: {} }
 vi.mock('@puckeditor/core', () => ({
@@ -46,13 +50,14 @@ vi.mock('@puckeditor/core', () => ({
   Puck: ({ onPublish, overrides }: {
     onPublish: (data: unknown) => void | Promise<void>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    overrides?: { headerActions?: (props: { children: any }) => any }
+    overrides?: { headerActions?: (props: { children: any }) => any; iframe?: (props: { children: any }) => any }
   }) => {
     capturedOnPublish = onPublish
     return (
       <div>
         puck-editor-marker
         {overrides?.headerActions?.({ children: <span>publish-marker</span> })}
+        {overrides?.iframe?.({ children: <span>iframe-children-marker</span> })}
       </div>
     )
   },
@@ -179,6 +184,24 @@ describe('EditPage', () => {
 
     expect(screen.getByText(/Live header/)).toBeInTheDocument()
     expect(screen.getByText(/Live footer/)).toBeInTheDocument()
+  })
+
+  it('places the header/footer preview inside Puck\'s own iframe (wrapping its canvas), not outside it as a sibling', async () => {
+    vi.mocked(themeDraftApi.getThemeDraft).mockResolvedValue(draftPage)
+
+    const { container } = renderAt('/edit/home?token=edit-token-1')
+    const header = await screen.findByText(/Live header/)
+    const canvasMarker = screen.getByText('iframe-children-marker')
+    const footer = screen.getByText(/Live footer/)
+
+    // All three came out of the same overrides.iframe render function --
+    // real Puck mounts that function's whole return value inside its own
+    // iframe document, so this proves the header/footer share that
+    // context with the actual editable canvas instead of sitting outside
+    // it. Reading order also confirms header-above/footer-below the
+    // canvas, not just "somewhere inside."
+    const order = Array.from(container.querySelectorAll('*')).filter(el => el === header || el === canvasMarker || el === footer)
+    expect(order).toEqual([header, canvasMarker, footer])
   })
 
   it('shows no header/footer context when editing the header page itself', async () => {

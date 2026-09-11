@@ -135,14 +135,6 @@ export default function EditPage() {
               page could look completely different here than its own live,
               published self. */}
           {page.custom_css && <style>{page.custom_css}</style>}
-          {showsChromeContext(pageSlug) && (
-            <div aria-hidden className="pointer-events-none">
-              <p className="bg-yellow-50 px-4 py-1 text-center text-[11px] font-medium text-yellow-700">
-                Live header (read-only, for context -- edit it separately from the Page picker)
-              </p>
-              <CanvasPage slug="header" />
-            </div>
-          )}
           <Puck
             config={buildPuckConfig(pageSlug, categories)}
             data={data}
@@ -154,16 +146,37 @@ export default function EditPage() {
                   {children}
                 </>
               ),
+              // Puck's own draggable canvas (children) already renders
+              // inside its iframe -- wrapping it here, not alongside <Puck>
+              // as a sibling, puts the header/footer preview in that same
+              // iframe/document instead of outside it. A sibling looked
+              // visually disconnected (a different container, no shared
+              // page-width context) even though its styling was correct;
+              // this reads as one continuous page, matching the real
+              // storefront's own Layout (see App.tsx).
+              iframe: ({ children }) => (
+                <>
+                  {showsChromeContext(pageSlug) && (
+                    <div aria-hidden className="pointer-events-none">
+                      <p className="bg-yellow-50 px-4 py-1 text-center text-[11px] font-medium text-yellow-700">
+                        Live header (read-only, for context -- edit it separately from the Page picker)
+                      </p>
+                      <CanvasPage slug="header" />
+                    </div>
+                  )}
+                  {children}
+                  {showsChromeContext(pageSlug) && (
+                    <div aria-hidden className="pointer-events-none">
+                      <p className="bg-yellow-50 px-4 py-1 text-center text-[11px] font-medium text-yellow-700">
+                        Live footer (read-only, for context -- edit it separately from the Page picker)
+                      </p>
+                      <CanvasPage slug="footer" />
+                    </div>
+                  )}
+                </>
+              ),
             }}
           />
-          {showsChromeContext(pageSlug) && (
-            <div aria-hidden className="pointer-events-none">
-              <p className="bg-yellow-50 px-4 py-1 text-center text-[11px] font-medium text-yellow-700">
-                Live footer (read-only, for context -- edit it separately from the Page picker)
-              </p>
-              <CanvasPage slug="footer" />
-            </div>
-          )}
         </AuthProvider>
       </WishlistProvider>
     </CartProvider>
