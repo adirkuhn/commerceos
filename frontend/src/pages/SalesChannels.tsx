@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Radio, X, Search } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
-import { themeEditorPath } from '../theme/routing'
 import { useSalesChannels } from '../integrations/hooks/useSalesChannels'
 import { useSalesChannelProducts } from '../integrations/hooks/useSalesChannelProducts'
 import { useConnections } from '../integrations/hooks/useConnections'
@@ -14,14 +12,6 @@ import type { Connection, SalesChannel, EnrollmentMode, ChannelType, QuantityBre
 import type { SalesChannelPayload, UpdateSalesChannelPayload } from '../integrations/api'
 import Pagination from '../components/common/Pagination'
 import { useExchangeRates } from '../fx/hooks/useExchangeRates'
-import { saveThemePage } from '../theme/api'
-import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
-import { blocksToPuckData } from '../theme/puckConversion'
-import { migrateAllChannelsToPuck } from '../theme/migrateToPuck'
-import type { ChannelMigrationResult } from '../theme/migrateToPuck'
-import type { StarterCategory, StarterTemplateId } from '../theme/starterTemplate'
-import type { Block, PageSlug } from '../theme/types'
-import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { storefrontEnterPath, storefrontVisitURL } from '../theme/storefrontLink'
 
 const PER_PAGE = 20
@@ -58,19 +48,13 @@ interface ChannelFormState {
   // "" means "use the tenant's default currency" -- only settable at
   // creation, see SalesChannelPayload.currencyCode's own doc comment.
   currencyCode: string
-  // Only read at creation time (see seedStarterTheme) -- an internal
-  // channel's starter theme is picked once, up front, same as today's
-  // single hard-coded template/palette used to be. Freely changeable
-  // afterward from the theme editor's own Template dropdown.
-  starterTemplateId: StarterTemplateId
-  starterPaletteId: string
 }
 
 function emptyForm(): ChannelFormState {
   return {
     name: '', channelType: 'woocommerce', connectionId: '', enrollmentMode: 'all', enrollmentCategoryId: '',
     enrollmentTag: '', active: true, defaultWarehouseId: '', channelWarehouseId: '', paymentConnectionId: '', priceAdjustmentPercent: '',
-    quantityBreaks: [], currencyCode: '', starterTemplateId: 'classic', starterPaletteId: 'verde',
+    quantityBreaks: [], currencyCode: '',
   }
 }
 
@@ -128,55 +112,6 @@ const TYPE_LABELS: Record<ChannelType, string> = {
 // directly (WhatsApp is the other, for its chat checkout).
 const INTERNAL_TYPE: ChannelType = 'internal'
 
-// seedStarterTheme gives a brand-new internal channel real header/home/
-// footer pages immediately (logo+nav, hero/about/one Featured Products
-// section per existing category, tagline+legal+contact placeholders, the
-// merchant's chosen starter template + palette) -- merchants shouldn't
-// have to know the theme editor's "Template" button exists just to get
-// past a blank storefront. Uses the tenant's own real categories (already
-// loaded for this form's own enrollment picker) to shape the nav/home
-// sections -- real catalog structure, not fabricated content. Still just a
-// starting point: freely editable/replaceable afterward, same as if a
-// merchant had clicked Template themselves. Best-effort per page -- a
-// failure here must not block channel creation from succeeding; the
-// channel still exists and the merchant can seed/edit its theme by hand
-// from the editor.
-async function seedStarterTheme(
-  token: string, channel: SalesChannel, categories: StarterCategory[], templateId: StarterTemplateId, paletteId: string,
-): Promise<void> {
-  const template = STARTER_TEMPLATES.find(t => t.id === templateId) ?? STARTER_TEMPLATES[0]
-  const palette = THEME_PALETTES.find(p => p.id === paletteId) ?? THEME_PALETTES[0]
-  // Every page carries the same combined CSS, not just home -- header/
-  // footer are their own ThemePage documents (see Layout in
-  // storefront-frontend), so without their own copy of it neither the
-  // palette's colors nor Editorial's typography would reach the nav or
-  // footer, only the home page's own content.
-  const customCss = combinedStarterCSS(paletteCustomCSS(palette), templateId)
-  const pages: [PageSlug, Block[]][] = [
-    ['header', template.buildHeader(channel.name, categories)],
-    ['home', template.buildHome(channel.name, categories)],
-    ['footer', template.buildFooter(channel.name)],
-  ]
-  for (const [slug, blocks] of pages) {
-    try {
-      await saveThemePage(token, channel.id, slug, {
-        canvas_width: 1440,
-        // blocks/canvas_width stay populated even though editor_mode is
-        // 'puck' below -- both documents always coexist on a ThemePage
-        // (see domain/theme.ThemePage), this is just never the active one
-        // for a brand-new channel. Harmless, and a real fallback if a
-        // merchant ever needs it.
-        blocks,
-        custom_css: customCss,
-        editor_mode: 'puck',
-        puck_data: blocksToPuckData(blocks),
-      })
-    } catch {
-      // Non-blocking, per page -- see this function's doc comment.
-    }
-  }
-}
-
 const CONNECTION_REQUIRED_TYPES: ChannelType[] = (Object.keys(TYPE_LABELS) as ChannelType[]).filter(t => t !== INTERNAL_TYPE)
 const PAYMENT_CAPABLE_TYPES: ChannelType[] = ['whatsapp', INTERNAL_TYPE]
 // The same two types create a SalesOrder directly (Woo/Bol only ever
@@ -209,16 +144,10 @@ function toForm(channel: SalesChannel, connections: Connection[]): ChannelFormSt
       minQuantity: b.min_quantity.toString(), discountPercent: (b.discount_basis_points / 100).toString(),
     })),
     currencyCode: channel.currency_code ?? '',
-    // Not editable/used once a channel already exists (see
-    // ChannelFormState.starterTemplateId's own doc comment) -- placeholder
-    // values only, never read on an edit submit.
-    starterTemplateId: 'classic',
-    starterPaletteId: 'verde',
   }
 }
 
 export default function SalesChannels() {
-  const navigate = useNavigate()
   const { token } = useAuth()
   const { channels, loading, error, create, update, remove } = useSalesChannels(token ?? '')
   const { connections, refresh: refreshConnections } = useConnections(token ?? '')
@@ -227,23 +156,6 @@ export default function SalesChannels() {
   const { rates: exchangeRates } = useExchangeRates(token ?? '')
 
   const [managingChannel, setManagingChannel] = useState<SalesChannel | null>(null)
-
-  const [migrating, setMigrating] = useState(false)
-  const [migrationResults, setMigrationResults] = useState<ChannelMigrationResult[] | null>(null)
-  const [migrationError, setMigrationError] = useState('')
-
-  const runMigration = async () => {
-    setMigrationError('')
-    setMigrating(true)
-    try {
-      const results = await migrateAllChannelsToPuck(token ?? '', channels)
-      setMigrationResults(results)
-    } catch (err) {
-      setMigrationError(err instanceof Error ? err.message : 'Migration failed')
-    } finally {
-      setMigrating(false)
-    }
-  }
 
   const [editingChannel, setEditingChannel] = useState<SalesChannel | null>(null)
   const [creating, setCreating] = useState(false)
@@ -308,10 +220,7 @@ export default function SalesChannels() {
       if (editingChannel) {
         await update(editingChannel.id, { ...shared, active: form.active } satisfies UpdateSalesChannelPayload)
       } else {
-        const created = await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
-        if (channelType === INTERNAL_TYPE) {
-          await seedStarterTheme(token ?? '', created, categories, form.starterTemplateId, form.starterPaletteId)
-        }
+        await create({ ...shared, type: channelType, currencyCode: form.currencyCode || undefined } satisfies SalesChannelPayload)
       }
       if (shared.connectionId) {
         const connection = connections.find(c => c.id === shared.connectionId)
@@ -380,27 +289,14 @@ export default function SalesChannels() {
         <>
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sales channels</h2>
-            <div className="flex items-center gap-2">
-              {channels.some(c => c.type === INTERNAL_TYPE) && (
-                <button
-                  onClick={runMigration}
-                  disabled={migrating}
-                  title="Converts every internal channel's own freeform pages to Puck, in place -- a brand-new channel already seeds straight into Puck, this is for one created before that."
-                  className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  {migrating ? 'Migrating…' : 'Migrate to Puck'}
-                </button>
-              )}
-              <button
-                onClick={openCreate}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
-              >
-                Add sales channel
-              </button>
-            </div>
+            <button
+              onClick={openCreate}
+              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+            >
+              Add sales channel
+            </button>
           </div>
           {error && <p className="text-xs text-red-400">{error}</p>}
-          {migrationError && <p className="text-xs text-red-400">{migrationError}</p>}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {channels.map(channel => (
               <div
@@ -450,21 +346,13 @@ export default function SalesChannels() {
                     </div>
                   )
                 )}
-                <div className={clsx('mt-3 grid gap-2', channel.type === INTERNAL_TYPE ? 'grid-cols-4' : 'grid-cols-3')}>
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     onClick={() => setManagingChannel(channel)}
                     className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
                   >
                     Products
                   </button>
-                  {channel.type === INTERNAL_TYPE && (
-                    <button
-                      onClick={() => navigate(themeEditorPath(channel.id, 'home'))}
-                      className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
-                    >
-                      Theme
-                    </button>
-                  )}
                   <button
                     onClick={() => openEdit(channel)}
                     className="py-1.5 rounded-lg dark:bg-[#111827] bg-gray-100 text-[10px] dark:text-gray-400 text-gray-500 hover:text-blue-400 transition-colors"
@@ -551,34 +439,6 @@ export default function SalesChannels() {
                     {exchangeRates.length === 0
                       ? 'No exchange rates configured yet -- add one under Settings > Localization to sell in another currency.'
                       : "Fixed for this channel once created. Prices convert via Settings > Localization's exchange rate unless a product has a manual override for it."}
-                  </p>
-                </div>
-              )}
-              {!editingChannel && form.channelType === INTERNAL_TYPE && (
-                <div>
-                  <label htmlFor="channel-starter-template" className="block text-[10px] dark:text-gray-500 text-gray-400 uppercase tracking-wider mb-1.5">
-                    Starter theme
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      id="channel-starter-template"
-                      value={form.starterTemplateId}
-                      onChange={e => setForm(f => ({ ...f, starterTemplateId: e.target.value as StarterTemplateId }))}
-                      className="flex-1 px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      {STARTER_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                    </select>
-                    <select
-                      aria-label="Starter theme color"
-                      value={form.starterPaletteId}
-                      onChange={e => setForm(f => ({ ...f, starterPaletteId: e.target.value }))}
-                      className="flex-1 px-3 py-2 text-xs rounded-lg dark:bg-[#111827] bg-white border dark:border-[#2D3748] border-gray-200 dark:text-gray-300 text-gray-700 outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      {THEME_PALETTES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                    </select>
-                  </div>
-                  <p className="mt-1.5 text-[10px] dark:text-gray-500 text-gray-400">
-                    Starting point for this storefront's header/home/footer pages -- freely editable afterward from Theme.
                   </p>
                 </div>
               )}
@@ -851,47 +711,6 @@ export default function SalesChannels() {
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {migrationResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setMigrationResults(null)} />
-          <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
-            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-3">Migrated to Puck</h3>
-            {migrationResults.length === 0 ? (
-              <p className="text-xs dark:text-gray-400 text-gray-500">No internal channels to migrate.</p>
-            ) : (
-              <div className="space-y-2 mb-4">
-                {migrationResults.map(result => (
-                  <div key={result.channelId} className="p-2.5 rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200">
-                    <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{result.channelName}</p>
-                    <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
-                      {result.migratedSlugs.length === 0
-                        ? 'Already on Puck, or nothing to convert.'
-                        : `Converted: ${result.migratedSlugs.join(', ')}`}
-                    </p>
-                    {result.previewUrl && (
-                      <a
-                        href={result.previewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
-                      >
-                        Visit store ↗
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <button
-              onClick={() => setMigrationResults(null)}
-              className="w-full py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

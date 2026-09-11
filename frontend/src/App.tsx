@@ -10,7 +10,6 @@ import Sidebar from './components/layout/Sidebar'
 import Topbar from './components/layout/Topbar'
 import CommandPalette from './components/layout/CommandPalette'
 import { PAGE_ROUTES, DETAIL_PAGE_ROUTES } from './routes'
-import ThemeEditorPage from './pages/ThemeEditorPage'
 
 const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_PATH = '/scanner'
@@ -42,7 +41,6 @@ function AppContent() {
             {DETAIL_PAGE_ROUTES.map(({ path, Component }) => (
               <Route key={path} path={path} element={<Component />} />
             ))}
-            <Route path="/sales-channels/:channelId/theme/:slug" element={<ThemeEditorPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

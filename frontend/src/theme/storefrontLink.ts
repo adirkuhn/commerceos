@@ -1,5 +1,3 @@
-import type { PageSlug } from './types'
-
 // storefrontOrigin is where storefront-frontend is actually reachable.
 // VITE_STOREFRONT_URL overrides this once it's deployed on a dedicated
 // domain of its own; until then it defaults to VITE_API_BASE_URL's own
@@ -34,52 +32,13 @@ export function storefrontEnterPath(channelId: string, next?: string): string {
   return next ? `${path}?next=${encodeURIComponent(next)}` : path
 }
 
-// storefrontVisitURL is the full clickable "Visit store" link.
+// storefrontVisitURL is the full clickable "Visit store" link -- an
+// internal channel's one public entry point. Independent of any
+// particular rendered frontend: whatever's deployed at storefrontOrigin()
+// (today's storefront-frontend, or a future headless React storefront
+// attached to this same channel id as its bearer key) is reached the same
+// way.
 export function storefrontVisitURL(channelId: string): string {
   const origin = storefrontOrigin()
   return origin ? `${origin}${storefrontEnterPath(channelId)}` : ''
-}
-
-// SLUG_PREVIEW_PATH maps a theme page slug to the real storefront route
-// that renders it, for the "Preview" button in the theme editor. Omits
-// slugs with no fixed route to preview: 'product' needs a real product id
-// (falls back to the products list, the closest fixed-path equivalent),
-// 'order-confirmation' needs a real just-placed order number and can't be
-// previewed generically at all.
-export const SLUG_PREVIEW_PATH: Partial<Record<PageSlug, string>> = {
-  home: '/',
-  products: '/products',
-  product: '/products',
-  cart: '/cart',
-  checkout: '/checkout',
-  'order-lookup': '/order-lookup',
-  wishlist: '/wishlist',
-  login: '/login',
-  account: '/account',
-}
-
-// storefrontPreviewURL is the full URL the theme editor's "Preview" button
-// opens -- the real, saved, live-rendered storefront page (real styling,
-// real product data, real custom HTML), not the editor's own rough
-// canvas approximation. "" when this slug has no previewable route (see
-// SLUG_PREVIEW_PATH) or the origin can't be computed.
-export function storefrontPreviewURL(channelId: string, slug: PageSlug): string {
-  const path = SLUG_PREVIEW_PATH[slug]
-  if (!path) return ''
-  const origin = storefrontOrigin()
-  return origin ? `${origin}${storefrontEnterPath(channelId, path)}` : ''
-}
-
-// storefrontEditURL is the full URL the theme editor's "Edit visually"
-// button opens -- storefront-frontend's own embedded Puck editor
-// (/edit/:slug), authenticated with a freshly-minted, short-lived edit
-// session token (see theme/api.createEditSession). Never routed through
-// storefrontEnterPath's public storefront key -- editing is a distinct,
-// higher-privilege credential (see backend
-// application/theme.CreateEditSessionUseCase's own doc comment). ""
-// when the origin can't be computed, same as storefrontVisitURL/
-// storefrontPreviewURL.
-export function storefrontEditURL(slug: PageSlug, sessionToken: string): string {
-  const origin = storefrontOrigin()
-  return origin ? `${origin}${STOREFRONT_PATH_PREFIX}/edit/${slug}?token=${encodeURIComponent(sessionToken)}` : ''
 }

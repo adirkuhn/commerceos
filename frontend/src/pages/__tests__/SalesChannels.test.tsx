@@ -35,11 +35,6 @@ vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
 }))
 
-vi.mock('../../theme/api', () => ({
-  saveThemePage: vi.fn(),
-  getThemePage: vi.fn(),
-}))
-
 vi.mock('../../fx/api', () => ({
   listExchangeRates: vi.fn(),
   upsertExchangeRate: vi.fn(),
@@ -50,7 +45,6 @@ import * as integrationsApi from '../../integrations/api'
 import * as pmsApi from '../../pms/api'
 import * as inventoryApi from '../../inventory/api'
 import * as fxApi from '../../fx/api'
-import * as themeApi from '../../theme/api'
 
 const wooConnection: Connection = {
   id: 'conn-1', provider: 'woocommerce', store_url: 'https://mystore.com', status: 'connected', created_at: '', default_currency: 'USD',
@@ -122,56 +116,6 @@ describe('Sales channels list', () => {
     expect(screen.getByText('Woocommerce — https://mystore.com')).toBeInTheDocument()
     expect(screen.getByText('All products')).toBeInTheDocument()
   })
-
-  it('does not show "Migrate to Puck" when there are no internal channels', async () => {
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    expect(screen.queryByRole('button', { name: 'Migrate to Puck' })).not.toBeInTheDocument()
-  })
-})
-
-describe('Migrate to Puck', () => {
-  const heroBlock = { id: 'b1', type: 'hero' as const, layout: { desktop: { x: 0, y: 0, width: 100, height: 100 }, mobile: null }, props: { heading: 'Welcome' } }
-
-  beforeEach(() => {
-    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
-    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
-      sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }),
-    ])
-  })
-
-  it('shows "Migrate to Puck" once at least one internal channel exists', async () => {
-    renderPage()
-    expect(await screen.findByRole('button', { name: 'Migrate to Puck' })).toBeInTheDocument()
-  })
-
-  it('converts each freeform page with real content, reporting what changed and the channel\'s preview link', async () => {
-    vi.mocked(themeApi.getThemePage).mockImplementation(async (_t, _c, slug) =>
-      slug === 'home'
-        ? { sales_channel_id: 'chan-int', slug: 'home', canvas_width: 1440, blocks: [heroBlock], custom_css: '', editor_mode: 'freeform' }
-        : { sales_channel_id: 'chan-int', slug, canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
-    vi.mocked(themeApi.saveThemePage).mockResolvedValue({ sales_channel_id: 'chan-int', slug: 'home', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'puck' })
-
-    renderPage()
-    await userEvent.click(await screen.findByRole('button', { name: 'Migrate to Puck' }))
-
-    const modal = (await screen.findByText('Migrated to Puck')).closest('div')!
-    expect(within(modal).getByText('B2C Store')).toBeInTheDocument()
-    expect(within(modal).getByText('Converted: home')).toBeInTheDocument()
-    expect(within(modal).getByRole('link', { name: /Visit store/ })).toHaveAttribute('href', 'https://shop.test/store/enter/chan-int')
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({ editor_mode: 'puck' }))
-  })
-
-  it('reports nothing to convert for a channel with no freeform content', async () => {
-    vi.mocked(themeApi.getThemePage).mockResolvedValue({ sales_channel_id: 'chan-int', slug: 'home', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
-
-    renderPage()
-    await userEvent.click(await screen.findByRole('button', { name: 'Migrate to Puck' }))
-
-    expect(await screen.findByText('Already on Puck, or nothing to convert.')).toBeInTheDocument()
-    expect(themeApi.saveThemePage).not.toHaveBeenCalled()
-  })
 })
 
 describe('Create sales channel', () => {
@@ -235,120 +179,6 @@ describe('Create sales channel', () => {
         defaultWarehouseId: 'wh-1',
       })
     })
-    // A brand-new internal channel gets real header/home/footer pages
-    // immediately -- no separate "click Template in the editor" step
-    // required, and no site-wide chrome left blank either.
-    await waitFor(() => {
-      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
-        blocks: expect.arrayContaining([expect.objectContaining({ type: 'hero' })]),
-        custom_css: expect.stringContaining(':root'),
-      }))
-    })
-    // Header nav and home's Featured Products section link to this
-    // tenant's own real category (sampleCategory, mocked in beforeEach)
-    // -- real catalog structure, not fabricated content.
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'header', expect.objectContaining({
-      blocks: expect.arrayContaining([expect.objectContaining({
-        type: 'nav_menu', props: { links: [{ label: 'Apparel', url: '/products?category=cat-1' }] },
-      })]),
-    }))
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
-      blocks: expect.arrayContaining([expect.objectContaining({
-        type: 'featured_products', props: expect.objectContaining({ title: 'Apparel', categoryId: 'cat-1' }),
-      })]),
-    }))
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
-      blocks: expect.arrayContaining([expect.objectContaining({ type: 'rich_text' })]),
-    }))
-  })
-
-  it('seeds a brand-new internal channel straight into Puck -- editor_mode + puck_data populated, matching the freeform blocks', async () => {
-    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.type(screen.getByLabelText('Name'), 'B2C Store')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    await waitFor(() => expect(themeApi.saveThemePage).toHaveBeenCalled())
-    for (const slug of ['header', 'home', 'footer']) {
-      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', slug, expect.objectContaining({
-        editor_mode: 'puck',
-        puck_data: expect.objectContaining({ content: expect.any(Array), root: {} }),
-      }))
-    }
-    const [, , , homePayload] = vi.mocked(themeApi.saveThemePage).mock.calls.find(c => c[2] === 'home')!
-    const puckContent = (homePayload.puck_data as { content: { type: string }[] }).content
-    expect(puckContent.map(c => c.type)).toContain('Hero')
-  })
-
-  it('lets a merchant pick a different starter template + color for a new internal channel', async () => {
-    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }))
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.selectOptions(screen.getByLabelText('Starter theme'), 'editorial')
-    await userEvent.selectOptions(screen.getByLabelText('Starter theme color'), 'oceano')
-    await userEvent.type(screen.getByLabelText('Name'), 'B2C Store')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    await waitFor(() => {
-      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
-        blocks: expect.arrayContaining([expect.objectContaining({ type: 'custom_html' })]),
-      }))
-    })
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({
-      custom_css: expect.stringContaining('#0369a1'),
-    }))
-    // Editorial's typography override (serif headings, softened corners)
-    // must reach every page's own custom_css, not just home's -- header/
-    // footer are their own separate ThemePage documents (see
-    // seedStarterTheme's doc comment) and would otherwise render
-    // indistinguishably from Classic's nav/footer.
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'header', expect.objectContaining({
-      custom_css: expect.stringContaining('serif'),
-    }))
-    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'footer', expect.objectContaining({
-      custom_css: expect.stringContaining('serif'),
-    }))
-  })
-
-  it('gives the default Classic template no extra CSS beyond the palette -- unchanged look for existing merchants', async () => {
-    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-int2', name: 'Classic Store', type: 'internal', connection_id: null }))
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.selectOptions(screen.getByLabelText('Type'), 'internal')
-    await userEvent.type(screen.getByLabelText('Name'), 'Classic Store')
-    await userEvent.selectOptions(screen.getByLabelText('Fulfillment warehouse'), 'wh-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    await waitFor(() => {
-      expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int2', 'home', expect.objectContaining({
-        custom_css: expect.not.stringContaining('serif'),
-      }))
-    })
-  })
-
-  it('does not seed a theme for a non-internal channel (WooCommerce/Bol have no storefront of their own)', async () => {
-    vi.mocked(integrationsApi.createSalesChannel).mockResolvedValue(sampleChannel({ id: 'chan-woo-2', name: 'Second Woo Store' }))
-    renderPage()
-    await screen.findByText('My Woo Store')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add sales channel' }))
-    await userEvent.type(screen.getByLabelText('Name'), 'Second Woo Store')
-    await userEvent.selectOptions(screen.getByLabelText('Connection'), 'conn-1')
-    await userEvent.click(screen.getByRole('button', { name: 'Add channel' }))
-
-    await waitFor(() => expect(integrationsApi.createSalesChannel).toHaveBeenCalled())
-    expect(themeApi.saveThemePage).not.toHaveBeenCalled()
   })
 
   it('shows a currency picker only for Internal channels, listing configured exchange rates', async () => {
