@@ -77,9 +77,16 @@ export function CanvasPage({ slug }: Props) {
   // "Edit visually" launcher) render through Puck's own read-only Render
   // instead of the freeform absolutely-positioned block list below --
   // puck_data is a wholly separate document, not translated into Block[].
+  // custom_css (palette colors, a starter template's own typography
+  // overrides -- see frontend/theme/starterTemplate.ts) is a property of
+  // the page itself, independent of which document is active, so it must
+  // render in both branches -- this one used to return before ever
+  // reaching the <style> tag below, silently dropping every Puck-mode
+  // page's palette/template styling entirely.
   if (page.editor_mode === 'puck') {
     return (
       <Suspense fallback={<p className="px-6 py-16 text-center text-brand-500">Loading…</p>}>
+        {page.custom_css && <style>{page.custom_css}</style>}
         <PuckPageRenderer slug={slug} data={(page.puck_data as Data | undefined) ?? EMPTY_PUCK_DATA} />
       </Suspense>
     )

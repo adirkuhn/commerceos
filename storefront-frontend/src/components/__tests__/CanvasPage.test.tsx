@@ -160,6 +160,18 @@ describe('CanvasPage', () => {
     expect(container.querySelector('style')?.textContent).toBe('.hero { color: red; }')
   })
 
+  it('injects custom_css as a style tag for a Puck-authored page too, not just freeform', async () => {
+    mockFetch<ThemePage>({
+      slug: 'home', canvas_width: 1440, custom_css: 'h1, h2 { font-family: serif; }', editor_mode: 'puck', blocks: [],
+      puck_data: { content: [{ type: 'Hero', props: { id: 'b1', heading: 'Puck heading' } }], root: {} },
+    })
+
+    const { container } = render(<CanvasPage slug="home" />)
+    await screen.findByText('Puck heading')
+
+    expect(container.querySelector('style')?.textContent).toBe('h1, h2 { font-family: serif; }')
+  })
+
   it('uses the mobile Rect on a mobile viewport, falling back to a computed default when unset', async () => {
     mockMatchMedia(true)
     mockFetch<ThemePage>({
