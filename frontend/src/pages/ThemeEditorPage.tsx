@@ -9,6 +9,7 @@ import { themeEditorParamsFromPath, themeEditorPath } from '../theme/routing'
 import { createBlock } from '../theme/blockDefaults'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
 import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
+import { scopeCssToCanvas } from '../theme/scopeCanvasCss'
 import type { StarterTemplateId } from '../theme/starterTemplate'
 import { createEditSession } from '../theme/api'
 import { storefrontEditURL, storefrontPreviewURL } from '../theme/storefrontLink'
@@ -366,11 +367,13 @@ function ThemeEditor({ token, channelId, slug, navigate }: EditorProps) {
             <p className="text-sm text-gray-500">Loading…</p>
           ) : (
             <div
+              id="theme-editor-canvas"
               data-testid="theme-canvas"
               className="relative mx-auto bg-white shadow-sm"
               style={{ width: displayedWidth, height: CANVAS_HEIGHT }}
               onClick={() => selectBlock(null)}
             >
+              {customCss && <style>{scopeCssToCanvas(customCss, '#theme-editor-canvas')}</style>}
               {blocks.map(block => {
                 const rect = rectFor(block)
                 return (

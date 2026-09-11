@@ -4,7 +4,13 @@ import type { Block } from '../types'
 // A rough approximation of each block type's real rendering, just enough
 // for the merchant to judge layout/positioning while editing -- the
 // storefront-frontend owns the real, styled rendering (and, for
-// functional blocks, the actual wired-up behavior).
+// functional blocks, the actual wired-up behavior). Headings use the same
+// tag (h2) the live storefront's BlockRenderer uses -- a starter
+// template's custom_css (see starterTemplate.ts's STARTER_TEMPLATE_CSS)
+// targets h1/h2 to change typography, and ThemeEditorPage now injects
+// that same custom_css into this canvas (see its own render), so this
+// preview must use matching tags for that override to actually show here,
+// not just on the real storefront.
 export function BlockPreview({ block }: { block: Block }) {
   switch (block.type) {
     case 'hero': {
@@ -12,7 +18,7 @@ export function BlockPreview({ block }: { block: Block }) {
       const subheading = typeof block.props.subheading === 'string' ? block.props.subheading : ''
       return (
         <div className="h-full w-full overflow-hidden bg-brand-50 p-3">
-          <p className="truncate text-sm font-semibold text-brand-700">{heading || 'Hero heading'}</p>
+          <h2 className="truncate text-sm font-semibold text-brand-700">{heading || 'Hero heading'}</h2>
           {subheading && <p className="truncate text-xs text-brand-500">{subheading}</p>}
         </div>
       )
@@ -26,18 +32,28 @@ export function BlockPreview({ block }: { block: Block }) {
       )
     }
     case 'custom_html': {
+      // Admin-authored HTML, same trust boundary as the live storefront's
+      // own custom_html rendering (see storefront-frontend BlockRenderer's
+      // doc comment) -- rendered for real here too, not shown as raw
+      // source text, since several starter templates (Editorial, Mercado)
+      // use it for real visual content (a footer band, promo banners, a
+      // trust-badge row) that a merchant needs to actually see to judge.
       const html = typeof block.props.html === 'string' ? block.props.html : ''
-      return (
-        <div className="h-full w-full overflow-hidden bg-gray-50 p-3">
-          <p className="truncate text-[11px] font-mono text-gray-500">{html || '<!-- custom html -->'}</p>
-        </div>
-      )
+      return html
+        ? <div className="h-full w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: html }} />
+        : (
+          <div className="flex h-full w-full items-center justify-center bg-gray-50 p-3">
+            <p className="text-[11px] font-mono text-gray-400">&lt;!-- custom html --&gt;</p>
+          </div>
+        )
     }
     case 'featured_products': {
       const title = typeof block.props.title === 'string' ? block.props.title : ''
       return (
         <div className="flex h-full w-full items-center justify-center bg-amber-50 p-3">
-          <p className="text-[11px] font-medium text-amber-700">{title || 'Featured products'} — renders live content</p>
+          {title ? <h2 className="text-[11px] font-medium text-amber-700">{title} — renders live content</h2> : (
+            <p className="text-[11px] font-medium text-amber-700">Featured products — renders live content</p>
+          )}
         </div>
       )
     }

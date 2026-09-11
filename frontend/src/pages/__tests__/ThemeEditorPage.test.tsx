@@ -388,6 +388,26 @@ describe('ThemeEditorPage', () => {
     expect(payload.custom_css).toContain('serif')
   })
 
+  it('scopes the applied template CSS to this canvas alone, so it never restyles the editor\'s own chrome', async () => {
+    const user = userEvent.setup()
+    vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
+
+    renderAt('/sales-channels/chan-1/theme/home')
+    await waitFor(() => expect(themeApi.getThemePage).toHaveBeenCalled())
+
+    await user.click(screen.getByRole('button', { name: 'Template' }))
+    await user.click(screen.getByRole('button', { name: 'Editorial' }))
+    await user.click(screen.getByRole('button', { name: /Carvão/ }))
+
+    const canvas = screen.getByTestId('theme-canvas')
+    const styleTag = canvas.querySelector('style')
+    expect(styleTag?.textContent).toContain('#theme-editor-canvas h1, #theme-editor-canvas h2')
+    expect(styleTag?.textContent).not.toContain('h1, h2 {')
+    // The editor's own "Theme editor" <h1> sits outside this canvas --
+    // unaffected regardless of the scoped rule's content.
+    expect(screen.getByRole('heading', { name: 'Theme editor', level: 1 })).toBeInTheDocument()
+  })
+
   it('applies only the palette, no extra CSS, when the Classic template stays selected', async () => {
     const user = userEvent.setup()
     vi.mocked(themeApi.getThemePage).mockResolvedValue(emptyPage)
