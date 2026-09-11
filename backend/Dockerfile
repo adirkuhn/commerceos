@@ -6,6 +6,7 @@ RUN go install github.com/pressly/goose/v3/cmd/goose@latest
 COPY . .
 RUN go build -o /api ./cmd/api && go build -o /relay ./cmd/relay && go build -o /scheduler ./cmd/scheduler && \
     go build -o /backfill-woo-sale-prices ./cmd/backfill-woo-sale-prices && \
+    go build -o /backfill-outbox-replay ./cmd/backfill-outbox-replay && \
     go build -o /webhook-processor ./cmd/webhook-processor && \
     go build -o /webhook-forwarder ./cmd/webhook-forwarder
 
@@ -18,6 +19,7 @@ COPY --from=builder /api /api
 COPY --from=builder /relay /relay
 COPY --from=builder /scheduler /scheduler
 COPY --from=builder /backfill-woo-sale-prices /backfill-woo-sale-prices
+COPY --from=builder /backfill-outbox-replay /backfill-outbox-replay
 COPY --from=builder /webhook-processor /webhook-processor
 COPY --from=builder /webhook-forwarder /webhook-forwarder
 COPY --from=builder /go/bin/goose /goose
