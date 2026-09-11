@@ -17,6 +17,8 @@ import { useExchangeRates } from '../fx/hooks/useExchangeRates'
 import { saveThemePage } from '../theme/api'
 import { STARTER_TEMPLATES, combinedStarterCSS } from '../theme/starterTemplate'
 import { blocksToPuckData } from '../theme/puckConversion'
+import { migrateAllChannelsToPuck } from '../theme/migrateToPuck'
+import type { ChannelMigrationResult } from '../theme/migrateToPuck'
 import type { StarterCategory, StarterTemplateId } from '../theme/starterTemplate'
 import type { Block, PageSlug } from '../theme/types'
 import { THEME_PALETTES, paletteCustomCSS } from '../theme/palettes'
@@ -226,6 +228,23 @@ export default function SalesChannels() {
 
   const [managingChannel, setManagingChannel] = useState<SalesChannel | null>(null)
 
+  const [migrating, setMigrating] = useState(false)
+  const [migrationResults, setMigrationResults] = useState<ChannelMigrationResult[] | null>(null)
+  const [migrationError, setMigrationError] = useState('')
+
+  const runMigration = async () => {
+    setMigrationError('')
+    setMigrating(true)
+    try {
+      const results = await migrateAllChannelsToPuck(token ?? '', channels)
+      setMigrationResults(results)
+    } catch (err) {
+      setMigrationError(err instanceof Error ? err.message : 'Migration failed')
+    } finally {
+      setMigrating(false)
+    }
+  }
+
   const [editingChannel, setEditingChannel] = useState<SalesChannel | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<ChannelFormState>(emptyForm())
@@ -361,14 +380,27 @@ export default function SalesChannels() {
         <>
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold dark:text-gray-100 text-gray-900">Sales channels</h2>
-            <button
-              onClick={openCreate}
-              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
-            >
-              Add sales channel
-            </button>
+            <div className="flex items-center gap-2">
+              {channels.some(c => c.type === INTERNAL_TYPE) && (
+                <button
+                  onClick={runMigration}
+                  disabled={migrating}
+                  title="Converts every internal channel's own freeform pages to Puck, in place -- a brand-new channel already seeds straight into Puck, this is for one created before that."
+                  className="px-3 py-1.5 rounded-lg dark:bg-[#1F2937] bg-white border dark:border-[#2D3748] border-gray-200 text-xs font-medium dark:text-gray-300 text-gray-600 hover:dark:bg-[#2D3748] hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  {migrating ? 'Migrating…' : 'Migrate to Puck'}
+                </button>
+              )}
+              <button
+                onClick={openCreate}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+              >
+                Add sales channel
+              </button>
+            </div>
           </div>
           {error && <p className="text-xs text-red-400">{error}</p>}
+          {migrationError && <p className="text-xs text-red-400">{migrationError}</p>}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
             {channels.map(channel => (
               <div
@@ -819,6 +851,47 @@ export default function SalesChannels() {
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {migrationResults && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setMigrationResults(null)} />
+          <div className="relative w-full max-w-md dark:bg-[#1F2937] bg-white rounded-xl shadow-2xl border dark:border-[#2D3748] border-gray-200 p-5">
+            <h3 className="text-sm font-semibold dark:text-gray-100 text-gray-900 mb-3">Migrated to Puck</h3>
+            {migrationResults.length === 0 ? (
+              <p className="text-xs dark:text-gray-400 text-gray-500">No internal channels to migrate.</p>
+            ) : (
+              <div className="space-y-2 mb-4">
+                {migrationResults.map(result => (
+                  <div key={result.channelId} className="p-2.5 rounded-lg dark:bg-[#111827] bg-gray-50 border dark:border-[#2D3748] border-gray-200">
+                    <p className="text-xs font-medium dark:text-gray-200 text-gray-800">{result.channelName}</p>
+                    <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-0.5">
+                      {result.migratedSlugs.length === 0
+                        ? 'Already on Puck, or nothing to convert.'
+                        : `Converted: ${result.migratedSlugs.join(', ')}`}
+                    </p>
+                    {result.previewUrl && (
+                      <a
+                        href={result.previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block truncate text-[10px] text-blue-500 hover:text-blue-400 transition-colors"
+                      >
+                        Visit store ↗
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setMigrationResults(null)}
+              className="w-full py-2 rounded-lg dark:bg-[#111827] bg-gray-100 text-xs font-medium dark:text-gray-300 text-gray-600 transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

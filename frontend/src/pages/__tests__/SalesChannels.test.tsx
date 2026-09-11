@@ -37,6 +37,7 @@ vi.mock('../../inventory/api', () => ({
 
 vi.mock('../../theme/api', () => ({
   saveThemePage: vi.fn(),
+  getThemePage: vi.fn(),
 }))
 
 vi.mock('../../fx/api', () => ({
@@ -120,6 +121,56 @@ describe('Sales channels list', () => {
     expect(await screen.findByText('My Woo Store')).toBeInTheDocument()
     expect(screen.getByText('Woocommerce — https://mystore.com')).toBeInTheDocument()
     expect(screen.getByText('All products')).toBeInTheDocument()
+  })
+
+  it('does not show "Migrate to Puck" when there are no internal channels', async () => {
+    renderPage()
+    await screen.findByText('My Woo Store')
+
+    expect(screen.queryByRole('button', { name: 'Migrate to Puck' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Migrate to Puck', () => {
+  const heroBlock = { id: 'b1', type: 'hero' as const, layout: { desktop: { x: 0, y: 0, width: 100, height: 100 }, mobile: null }, props: { heading: 'Welcome' } }
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_STOREFRONT_URL', 'https://shop.test')
+    vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([
+      sampleChannel({ id: 'chan-int', name: 'B2C Store', type: 'internal', connection_id: null }),
+    ])
+  })
+
+  it('shows "Migrate to Puck" once at least one internal channel exists', async () => {
+    renderPage()
+    expect(await screen.findByRole('button', { name: 'Migrate to Puck' })).toBeInTheDocument()
+  })
+
+  it('converts each freeform page with real content, reporting what changed and the channel\'s preview link', async () => {
+    vi.mocked(themeApi.getThemePage).mockImplementation(async (_t, _c, slug) =>
+      slug === 'home'
+        ? { sales_channel_id: 'chan-int', slug: 'home', canvas_width: 1440, blocks: [heroBlock], custom_css: '', editor_mode: 'freeform' }
+        : { sales_channel_id: 'chan-int', slug, canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
+    vi.mocked(themeApi.saveThemePage).mockResolvedValue({ sales_channel_id: 'chan-int', slug: 'home', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'puck' })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Migrate to Puck' }))
+
+    const modal = (await screen.findByText('Migrated to Puck')).closest('div')!
+    expect(within(modal).getByText('B2C Store')).toBeInTheDocument()
+    expect(within(modal).getByText('Converted: home')).toBeInTheDocument()
+    expect(within(modal).getByRole('link', { name: /Visit store/ })).toHaveAttribute('href', 'https://shop.test/store/enter/chan-int')
+    expect(themeApi.saveThemePage).toHaveBeenCalledWith('test-token', 'chan-int', 'home', expect.objectContaining({ editor_mode: 'puck' }))
+  })
+
+  it('reports nothing to convert for a channel with no freeform content', async () => {
+    vi.mocked(themeApi.getThemePage).mockResolvedValue({ sales_channel_id: 'chan-int', slug: 'home', canvas_width: 1440, blocks: [], custom_css: '', editor_mode: 'freeform' })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Migrate to Puck' }))
+
+    expect(await screen.findByText('Already on Puck, or nothing to convert.')).toBeInTheDocument()
+    expect(themeApi.saveThemePage).not.toHaveBeenCalled()
   })
 })
 
