@@ -101,6 +101,74 @@ func TestExportWooStockLevels_recordsErrorForMultiVariantProductAndContinues(t *
 	require.Empty(t, h.wooClient.updateStockCalled)
 }
 
+// TestExportWooStockLevels_pushesEachVariantsStockForAPerVariantListingSet
+// is the exact incident reported 2026-09-11/12 for "Guaraná Antarctica
+// Garrafa" and "Guaraná Antarctica Zero Garrafa": a real multi-variant
+// product (HasVariants=true, e.g. two bottle sizes), each variant with
+// exactly one SKU, pushed to Woo in variations mode -- one
+// ProductChannelListing per variant, VariantID set on each, IsVariation
+// true, plus the sibling parent row (VariantID nil) for the variable
+// product itself.
+//
+// pushOne used to always call variantRepo.ListByProduct(listing.ProductID)
+// and require the *whole product* to have exactly one variant, completely
+// ignoring listing.VariantID -- so every push for a real multi-variant
+// product failed with ErrCannotPushVariableProduct ("every variant must
+// have exactly one SKU to be pushed to a channel") even though each
+// variant, individually, already had exactly one SKU. The fix mirrors
+// sync_stock_to_channels.go's resolveListingSKUID: when listing.VariantID
+// is set, resolve that variant's SKU directly instead of re-deriving it
+// from the whole product.
+func TestExportWooStockLevels_pushesEachVariantsStockForAPerVariantListingSet(t *testing.T) {
+	h := newHarness(nil)
+	product := pmsDomain.Product{
+		ID: "product-1", Name: "Guaraná Antarctica Garrafa", Slug: "guarana-antarctica-garrafa",
+		Status: pmsDomain.ProductStatusActive, HasVariants: true,
+	}
+	variant1 := pmsDomain.Variant{ID: "variant-1", ProductID: product.ID, Name: "1.5L"}
+	variant2 := pmsDomain.Variant{ID: "variant-2", ProductID: product.ID, Name: "1.5L"}
+	sku1 := pmsDomain.SKU{ID: "sku-1", VariantID: variant1.ID, SKUCode: "5601151960455", Status: pmsDomain.SKUStatusActive}
+	sku2 := pmsDomain.SKU{ID: "sku-2", VariantID: variant2.ID, SKUCode: "5601045300008", Status: pmsDomain.SKUStatusActive}
+
+	h.variantRepo.byProduct = map[string][]pmsDomain.Variant{product.ID: {variant1, variant2}}
+	h.skuRepo.byVariant = map[string][]pmsDomain.SKU{
+		variant1.ID: {sku1},
+		variant2.ID: {sku2},
+	}
+	parentVariantID := (*string)(nil)
+	v1ID, v2ID := variant1.ID, variant2.ID
+	h.listingRepo.byConnection = []channelsDomain.ProductChannelListing{
+		{ID: "listing-parent", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "9000", VariantID: parentVariantID},
+		{ID: "listing-1", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "9001", VariantID: &v1ID, IsVariation: true},
+		{ID: "listing-2", ProductID: product.ID, ConnectionID: "conn-1", ExternalID: "9002", VariantID: &v2ID, IsVariation: true},
+	}
+	stockLevel := &stubStockLevelGetterBySKU{levels: map[string]*invapp.StockLevel{
+		sku1.ID: {SKUID: sku1.ID, Syncable: 12},
+		sku2.ID: {SKUID: sku2.ID, Syncable: 5},
+	}}
+
+	uc := appchannels.NewExportWooStockLevelsUseCase(
+		newMockGormDB(t, 5), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel,
+	)
+
+	result, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	require.Empty(t, result.Errors)
+	require.Equal(t, 2, result.Updated, "the parent listing has no SKU of its own and is skipped, not errored -- only the two variant listings push")
+	require.Len(t, h.wooClient.updateStockCalled, 2)
+
+	byExternalID := map[string]stubStockUpdate{}
+	for _, c := range h.wooClient.updateStockCalled {
+		byExternalID[c.ExternalID] = c
+	}
+	require.Equal(t, 12, byExternalID["9001"].Quantity)
+	require.Equal(t, "9000", byExternalID["9001"].ParentExternalID, "a variation-mode listing must target the parent variable product, not \"\"")
+	require.Equal(t, 5, byExternalID["9002"].Quantity)
+	require.Equal(t, "9000", byExternalID["9002"].ParentExternalID)
+}
+
 func TestExportWooStockLevels_recordsErrorWhenWooUpdateFails(t *testing.T) {
 	h, sku := newStockSyncHarness(nil)
 	h.wooClient.updateStockErr = errors.New("woo 500")

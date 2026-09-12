@@ -82,19 +82,62 @@ func (uc *ExportWooStockLevelsUseCase) Execute(ctx context.Context, in ExportWoo
 
 	result := &StockSyncResult{}
 	for _, listing := range listings {
-		uc.pushOne(ctx, client, listing, result)
+		uc.pushOne(ctx, client, listings, listing, result)
 	}
 	return result, nil
 }
 
+// hasVariantSibling reports whether listing is the product-level "parent"
+// row of a variations-mode listing set (VariantID nil, but a sibling row
+// for the same product+connection has VariantID set) -- see
+// channelsDomain.ProductChannelListing's own doc comment for the three
+// shapes a product's listing set can take. The parent row represents the
+// variable product container itself, never a SKU, so it has no stock of
+// its own to push.
+func hasVariantSibling(listings []channelsDomain.ProductChannelListing, listing channelsDomain.ProductChannelListing) bool {
+	for _, l := range listings {
+		if l.ProductID == listing.ProductID && l.ConnectionID == listing.ConnectionID && l.VariantID != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // pushOne resolves the listing's single SKU and pushes its current
 // syncable stock level to Woo. Virtual SKUs are skipped (never have a
-// ledger to report). Failures on one listing are recorded on the result
+// ledger to report), and so is a variations-mode parent row (see
+// hasVariantSibling). Failures on one listing are recorded on the result
 // and never abort the rest of the run.
-func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integrationsDomain.WooClient, listing channelsDomain.ProductChannelListing, result *StockSyncResult) {
+//
+// listing.VariantID, when set, names the SKU's variant directly -- no need
+// to (incorrectly) re-derive it from the whole product, which breaks for
+// any real multi-variant product (see the 2026-09-11/12 incident this
+// fixed: every push for a product with more than one variant failed with
+// ErrCannotPushVariableProduct even though each variant, individually,
+// already had exactly one SKU). Only a legacy nil-VariantID listing for a
+// genuinely single-SKU product still needs that whole-product fallback.
+// Mirrors sync_stock_to_channels.go's resolveListingSKUID.
+func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integrationsDomain.WooClient, listings []channelsDomain.ProductChannelListing, listing channelsDomain.ProductChannelListing, result *StockSyncResult) {
+	if listing.VariantID == nil && hasVariantSibling(listings, listing) {
+		return
+	}
+
 	var skuID string
 	var isVirtual bool
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if listing.VariantID != nil {
+			skus, err := uc.skuRepo.ListByVariant(ctx, *listing.VariantID)
+			if err != nil {
+				return err
+			}
+			if len(skus) != 1 {
+				return channelsDomain.ErrCannotPushVariableProduct
+			}
+			skuID = skus[0].ID
+			isVirtual = skus[0].IsVirtual
+			return nil
+		}
+
 		variants, err := uc.variantRepo.ListByProduct(ctx, listing.ProductID)
 		if err != nil {
 			return err
@@ -134,7 +177,7 @@ func (uc *ExportWooStockLevelsUseCase) pushOne(ctx context.Context, client integ
 	for _, md := range metadata {
 		fields[md.Key] = md.Value
 	}
-	if err := client.UpdateProductStock(ctx, "", listing.ExternalID, int(level.Syncable), metadata); err != nil {
+	if err := client.UpdateProductStock(ctx, parentExternalIDFor(listings, listing), listing.ExternalID, int(level.Syncable), metadata); err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("sku %s: %v: %v", skuID, integrationsDomain.ErrWooRequestFailed, err))
 		recordSyncLog(ctx, uc.db, uc.syncLogRepo, listing, channelsDomain.SyncFlowPush, channelsDomain.SyncLogStatusError, err.Error(), fields)
 		return
