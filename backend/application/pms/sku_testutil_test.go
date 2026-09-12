@@ -30,20 +30,23 @@ func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return
 func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
 
 type stubSKURepo struct {
-	findByCodeResult     *pmsDomain.SKU
-	findByCodeErr        error
-	findByIDResult       *pmsDomain.SKU
-	findByIDErr          error
-	findByBarcodeResult  *pmsDomain.SKU
-	findByBarcodeErr     error
-	created              *pmsDomain.SKU
-	createErr            error
-	updated              *pmsDomain.SKU
-	gotCode              string
-	gotBarcode           string
-	listActiveResult     []pmsDomain.SKU
-	listActiveErr        error
-	updateCostPriceCalls []struct {
+	findByCodeResult      *pmsDomain.SKU
+	findByCodeErr         error
+	findByIDResult        *pmsDomain.SKU
+	findByIDErr           error
+	findByBarcodeResult   *pmsDomain.SKU
+	findByBarcodeErr      error
+	gotScaleCode          string
+	findByScaleCodeResult *pmsDomain.SKU
+	findByScaleCodeErr    error
+	created               *pmsDomain.SKU
+	createErr             error
+	updated               *pmsDomain.SKU
+	gotCode               string
+	gotBarcode            string
+	listActiveResult      []pmsDomain.SKU
+	listActiveErr         error
+	updateCostPriceCalls  []struct {
 		SKUID               string
 		CostPriceMinorUnits int64
 	}
@@ -88,6 +91,13 @@ func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDoma
 		return nil, pmsDomain.ErrSKUNotFound
 	}
 	return s.findByBarcodeResult, s.findByBarcodeErr
+}
+func (s *stubSKURepo) FindByScaleCode(_ context.Context, scaleCode string) (*pmsDomain.SKU, error) {
+	s.gotScaleCode = scaleCode
+	if s.findByScaleCodeResult == nil && s.findByScaleCodeErr == nil {
+		return nil, pmsDomain.ErrSKUNotFound
+	}
+	return s.findByScaleCodeResult, s.findByScaleCodeErr
 }
 func (s *stubSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
 	return nil, nil

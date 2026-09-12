@@ -155,6 +155,37 @@ components:
             sale with no end date.
         currency_code: { type: string }
         status: { type: string }
+        scale_code:
+          type: string
+          nullable: true
+          description: >-
+            5-digit code the tenant programs into their butcher/deli scale
+            for this SKU. Non-null only for a SKU sold via a
+            weight-embedded barcode (GS1 "prefix 2x" variable-weight
+            EAN-13): the full printed barcode differs on every package
+            since it encodes that package's actual weight, so it never
+            matches this SKU's own barcode field -- the POS must decode a
+            scanned code itself (prefix 20-29 + this 5-digit code + 5-digit
+            weight-in-grams + EAN-13 check digit) and look up by scale_code
+            instead of by exact barcode.
+        pricing_mode:
+          type: string
+          enum: [fixed, per_weight]
+          description: >-
+            How to price a scanned weight-embedded barcode for this SKU.
+            "fixed" (default): every package sells for price_minor_units
+            regardless of its actual weight (e.g. calabresa, kit feijoada
+            -- same price per package, different weights). "per_weight":
+            the total is price_per_kilo_minor_units times the decoded
+            weight in grams, divided by 1000 (e.g. dry meat, priced per
+            kilo). Irrelevant when scale_code is null.
+        price_per_kilo_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Rate per whole kilo, same minor-unit convention as
+            price_minor_units. Set only when pricing_mode is per_weight.
 
     POSProduct:
       type: object

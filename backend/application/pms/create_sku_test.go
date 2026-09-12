@@ -73,6 +73,99 @@ func TestCreateSKU_allowsPhysicalSKUWithDimensions(t *testing.T) {
 	require.Equal(t, int64(500), *sku.WeightGrams)
 }
 
+func TestCreateSKU_rejectsPerWeightPricingWithoutPricePerKilo(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{}, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PricingMode: pmsDomain.SKUPricingModePerWeight,
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrPricePerKiloRequiredForPerWeight))
+}
+
+func TestCreateSKU_rejectsPricePerKiloOnFixedPricing(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{}, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PricingMode: pmsDomain.SKUPricingModeFixed,
+		PricePerKiloMinorUnits: int64Ptr(2500),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrPricePerKiloOnlyForPerWeight))
+}
+
+func TestCreateSKU_rejectsNonPositivePricePerKilo(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{}, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PricingMode: pmsDomain.SKUPricingModePerWeight,
+		PricePerKiloMinorUnits: int64Ptr(0),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrInvalidPricePerKilo))
+}
+
+func TestCreateSKU_rejectsInvalidPricingMode(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{}, &stubOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PricingMode: pmsDomain.SKUPricingMode("bogus"),
+	})
+
+	require.Error(t, err)
+	require.True(t, errors.Is(err, pmsDomain.ErrInvalidSKUPricingMode))
+}
+
+func TestCreateSKU_defaultsToFixedPricingMode(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{}, &stubOutboxRepo{})
+
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, pmsDomain.SKUPricingModeFixed, sku.PricingMode)
+}
+
+func TestCreateSKU_persistsPerWeightPricingWithScaleCode(t *testing.T) {
+	variantRepo := &stubVariantRepo{}
+	skuRepo := &stubSKURepo{}
+	uc := apppms.NewCreateSKUUseCase(newMockGormDB(t), variantRepo, skuRepo, &stubSKUPriceHistoryRepo{}, &stubOutboxRepo{})
+
+	// Mirrors the "dry meat" case: price computed from a scanned package's
+	// actual weight, resolved via ScaleCode (see
+	// ResolveBarcodeUseCase/DecodeWeightEmbeddedBarcode) rather than an
+	// exact barcode match.
+	sku, err := uc.Execute(context.Background(), apppms.CreateSKUInput{
+		VariantID: "variant-1", SKUCode: "SKU-1", PriceMinorUnits: 100, CurrencyCode: "USD",
+		Status: pmsDomain.SKUStatusActive, PricingMode: pmsDomain.SKUPricingModePerWeight,
+		PricePerKiloMinorUnits: int64Ptr(4999), ScaleCode: strPtr("94721"),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, pmsDomain.SKUPricingModePerWeight, sku.PricingMode)
+	require.Equal(t, int64(4999), *sku.PricePerKiloMinorUnits)
+	require.Equal(t, "94721", *sku.ScaleCode)
+}
+
 func TestCreateSKU_rejectsSalePriceAboveRegularPrice(t *testing.T) {
 	variantRepo := &stubVariantRepo{}
 	skuRepo := &stubSKURepo{}

@@ -44,6 +44,13 @@ func genSKUUnitTypeOrEmpty(t *genpms.SKUUnitType) pmsDomain.SKUUnitType {
 	return pmsDomain.SKUUnitType(*t)
 }
 
+func genSKUPricingModeOrEmpty(m *genpms.SKUPricingMode) pmsDomain.SKUPricingMode {
+	if m == nil {
+		return ""
+	}
+	return pmsDomain.SKUPricingMode(*m)
+}
+
 func timePtrToGenDate(t *time.Time) *openapi_types.Date {
 	if t == nil {
 		return nil
@@ -553,25 +560,28 @@ func (h *Handler) CreateSKU(c *gin.Context, id genpms.Id) {
 		barcode = *req.Barcode
 	}
 	sku, err := h.createSKU.Execute(c.Request.Context(), apppms.CreateSKUInput{
-		VariantID:           id,
-		SKUCode:             req.SkuCode,
-		Barcode:             barcode,
-		PriceMinorUnits:     req.PriceMinorUnits,
-		SalePriceMinorUnits: req.SalePriceMinorUnits,
-		SaleEndDate:         genDateToTimePtr(req.SaleEndDate),
-		CurrencyCode:        req.CurrencyCode,
-		WeightGrams:         req.WeightGrams,
-		LengthMM:            req.LengthMm,
-		WidthMM:             req.WidthMm,
-		HeightMM:            req.HeightMm,
-		IsVirtual:           req.IsVirtual != nil && *req.IsVirtual,
-		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
-		CaseOfSKUID:         req.CaseOfSkuId,
-		UnitsPerCase:        req.UnitsPerCase,
-		UnitType:            genSKUUnitTypeOrEmpty(req.UnitType),
-		PortionedFromSKUID:  req.PortionedFromSkuId,
-		TaxClassID:          req.TaxClassId,
-		Status:              pmsDomain.SKUStatus(req.Status),
+		VariantID:              id,
+		SKUCode:                req.SkuCode,
+		Barcode:                barcode,
+		PriceMinorUnits:        req.PriceMinorUnits,
+		SalePriceMinorUnits:    req.SalePriceMinorUnits,
+		SaleEndDate:            genDateToTimePtr(req.SaleEndDate),
+		CurrencyCode:           req.CurrencyCode,
+		WeightGrams:            req.WeightGrams,
+		LengthMM:               req.LengthMm,
+		WidthMM:                req.WidthMm,
+		HeightMM:               req.HeightMm,
+		IsVirtual:              req.IsVirtual != nil && *req.IsVirtual,
+		TracksExpiry:           req.TracksExpiry != nil && *req.TracksExpiry,
+		CaseOfSKUID:            req.CaseOfSkuId,
+		UnitsPerCase:           req.UnitsPerCase,
+		UnitType:               genSKUUnitTypeOrEmpty(req.UnitType),
+		PortionedFromSKUID:     req.PortionedFromSkuId,
+		ScaleCode:              req.ScaleCode,
+		PricingMode:            genSKUPricingModeOrEmpty(req.PricingMode),
+		PricePerKiloMinorUnits: req.PricePerKiloMinorUnits,
+		TaxClassID:             req.TaxClassId,
+		Status:                 pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -591,25 +601,28 @@ func (h *Handler) UpdateSKU(c *gin.Context, id genpms.Id) {
 		barcode = *req.Barcode
 	}
 	sku, err := h.updateSKU.Execute(c.Request.Context(), apppms.UpdateSKUInput{
-		ID:                  id,
-		SKUCode:             req.SkuCode,
-		Barcode:             barcode,
-		PriceMinorUnits:     req.PriceMinorUnits,
-		SalePriceMinorUnits: req.SalePriceMinorUnits,
-		SaleEndDate:         genDateToTimePtr(req.SaleEndDate),
-		CurrencyCode:        req.CurrencyCode,
-		WeightGrams:         req.WeightGrams,
-		LengthMM:            req.LengthMm,
-		WidthMM:             req.WidthMm,
-		HeightMM:            req.HeightMm,
-		IsVirtual:           req.IsVirtual != nil && *req.IsVirtual,
-		TracksExpiry:        req.TracksExpiry != nil && *req.TracksExpiry,
-		CaseOfSKUID:         req.CaseOfSkuId,
-		UnitsPerCase:        req.UnitsPerCase,
-		UnitType:            genSKUUnitTypeOrEmpty(req.UnitType),
-		PortionedFromSKUID:  req.PortionedFromSkuId,
-		TaxClassID:          req.TaxClassId,
-		Status:              pmsDomain.SKUStatus(req.Status),
+		ID:                     id,
+		SKUCode:                req.SkuCode,
+		Barcode:                barcode,
+		PriceMinorUnits:        req.PriceMinorUnits,
+		SalePriceMinorUnits:    req.SalePriceMinorUnits,
+		SaleEndDate:            genDateToTimePtr(req.SaleEndDate),
+		CurrencyCode:           req.CurrencyCode,
+		WeightGrams:            req.WeightGrams,
+		LengthMM:               req.LengthMm,
+		WidthMM:                req.WidthMm,
+		HeightMM:               req.HeightMm,
+		IsVirtual:              req.IsVirtual != nil && *req.IsVirtual,
+		TracksExpiry:           req.TracksExpiry != nil && *req.TracksExpiry,
+		CaseOfSKUID:            req.CaseOfSkuId,
+		UnitsPerCase:           req.UnitsPerCase,
+		UnitType:               genSKUUnitTypeOrEmpty(req.UnitType),
+		PortionedFromSKUID:     req.PortionedFromSkuId,
+		ScaleCode:              req.ScaleCode,
+		PricingMode:            genSKUPricingModeOrEmpty(req.PricingMode),
+		PricePerKiloMinorUnits: req.PricePerKiloMinorUnits,
+		TaxClassID:             req.TaxClassId,
+		Status:                 pmsDomain.SKUStatus(req.Status),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -654,7 +667,10 @@ func (h *Handler) ResolveBarcode(c *gin.Context, code string) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := genpms.ResolveBarcodeResult{Sku: toGenSKU(result.SKU), UnitsPerScan: result.UnitsPerScan, ProductName: result.ProductName}
+	resp := genpms.ResolveBarcodeResult{
+		Sku: toGenSKU(result.SKU), UnitsPerScan: result.UnitsPerScan, ProductName: result.ProductName,
+		WeightGrams: result.WeightGrams, LineTotalMinorUnits: result.LineTotalMinorUnits,
+	}
 	c.JSON(http.StatusOK, genpms.ResolveBarcodeResponse{Data: &resp})
 }
 
@@ -968,34 +984,38 @@ func toGenSKU(s pmsDomain.SKU) genpms.SKU {
 		barcode = &s.Barcode
 	}
 	unitType := genpms.SKUUnitType(s.UnitType)
+	pricingMode := genpms.SKUPricingMode(s.PricingMode)
 	return genpms.SKU{
-		Id:                  s.ID,
-		TenantId:            s.TenantID,
-		VariantId:           s.VariantID,
-		SkuCode:             s.SKUCode,
-		Barcode:             barcode,
-		PriceMinorUnits:     s.PriceMinorUnits,
-		SalePriceMinorUnits: s.SalePriceMinorUnits,
-		SaleEndDate:         timePtrToGenDate(s.SaleEndDate),
-		CurrencyCode:        s.CurrencyCode,
-		WeightGrams:         s.WeightGrams,
-		LengthMm:            s.LengthMM,
-		WidthMm:             s.WidthMM,
-		HeightMm:            s.HeightMM,
-		IsVirtual:           s.IsVirtual,
-		TracksExpiry:        s.TracksExpiry,
-		CaseOfSkuId:         s.CaseOfSKUID,
-		UnitsPerCase:        s.UnitsPerCase,
-		UnitType:            &unitType,
-		PortionedFromSkuId:  s.PortionedFromSKUID,
-		TaxClassId:          s.TaxClassID,
-		WooTaxClassSlug:     s.WooTaxClassSlug,
-		WooTaxStatus:        s.WooTaxStatus,
-		Status:              genpms.SKUStatus(s.Status),
-		CostPriceMinorUnits: s.CostPriceMinorUnits,
-		CostPriceSource:     costPriceSourcePtr(s.CostPriceSource),
-		CreatedAt:           s.CreatedAt,
-		UpdatedAt:           s.UpdatedAt,
+		Id:                     s.ID,
+		TenantId:               s.TenantID,
+		VariantId:              s.VariantID,
+		SkuCode:                s.SKUCode,
+		Barcode:                barcode,
+		PriceMinorUnits:        s.PriceMinorUnits,
+		SalePriceMinorUnits:    s.SalePriceMinorUnits,
+		SaleEndDate:            timePtrToGenDate(s.SaleEndDate),
+		CurrencyCode:           s.CurrencyCode,
+		WeightGrams:            s.WeightGrams,
+		LengthMm:               s.LengthMM,
+		WidthMm:                s.WidthMM,
+		HeightMm:               s.HeightMM,
+		IsVirtual:              s.IsVirtual,
+		TracksExpiry:           s.TracksExpiry,
+		CaseOfSkuId:            s.CaseOfSKUID,
+		UnitsPerCase:           s.UnitsPerCase,
+		UnitType:               &unitType,
+		PortionedFromSkuId:     s.PortionedFromSKUID,
+		ScaleCode:              s.ScaleCode,
+		PricingMode:            &pricingMode,
+		PricePerKiloMinorUnits: s.PricePerKiloMinorUnits,
+		TaxClassId:             s.TaxClassID,
+		WooTaxClassSlug:        s.WooTaxClassSlug,
+		WooTaxStatus:           s.WooTaxStatus,
+		Status:                 genpms.SKUStatus(s.Status),
+		CostPriceMinorUnits:    s.CostPriceMinorUnits,
+		CostPriceSource:        costPriceSourcePtr(s.CostPriceSource),
+		CreatedAt:              s.CreatedAt,
+		UpdatedAt:              s.UpdatedAt,
 	}
 }
 
@@ -1065,7 +1085,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.Fail(c, http.StatusNotFound, "NOT_FOUND", err.Error())
 	case errors.Is(err, pmsDomain.ErrDuplicateSlug),
 		errors.Is(err, pmsDomain.ErrDuplicateSKUCode),
-		errors.Is(err, pmsDomain.ErrDuplicateBarcode):
+		errors.Is(err, pmsDomain.ErrDuplicateBarcode),
+		errors.Is(err, pmsDomain.ErrDuplicateScaleCode):
 		middleware.Fail(c, http.StatusConflict, "CONFLICT", err.Error())
 	case errors.Is(err, pmsDomain.ErrVariantsNotEnabled),
 		errors.Is(err, pmsDomain.ErrInvalidSlug),
@@ -1083,6 +1104,11 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrPortionedFromSKUMustTrackWeight),
 		errors.Is(err, pmsDomain.ErrBulkSKUCannotBePortioned),
 		errors.Is(err, pmsDomain.ErrExchangeRateRequired),
+		errors.Is(err, pmsDomain.ErrInvalidSKUPricingMode),
+		errors.Is(err, pmsDomain.ErrPricePerKiloRequiredForPerWeight),
+		errors.Is(err, pmsDomain.ErrPricePerKiloOnlyForPerWeight),
+		errors.Is(err, pmsDomain.ErrInvalidPricePerKilo),
+		errors.Is(err, pmsDomain.ErrInvalidCheckDigit),
 		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:

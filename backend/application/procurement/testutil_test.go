@@ -269,6 +269,9 @@ func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDoma
 	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
+func (s *stubSKURepo) FindByScaleCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, pmsDomain.ErrSKUNotFound
+}
 func (s *stubSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
 	return s.byVariant[variantID], nil
 }

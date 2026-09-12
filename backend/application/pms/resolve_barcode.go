@@ -20,6 +20,17 @@ type ResolveBarcodeResult struct {
 	// show this instead of the SKU code alone, which is rarely human
 	// readable on its own (often just a raw barcode).
 	ProductName string
+	// WeightGrams is non-nil only when the scanned code was a
+	// weight-embedded barcode (see pmsDomain.DecodeWeightEmbeddedBarcode)
+	// -- the actual weight of the specific package scanned.
+	WeightGrams *int64
+	// LineTotalMinorUnits is non-nil only alongside WeightGrams: the
+	// amount to charge for this specific scanned package. Fixed pricing
+	// (the SKU default) ignores the scanned weight and is just
+	// SKU.PriceMinorUnits; per-weight pricing is
+	// SKU.PricePerKiloMinorUnits * WeightGrams / 1000, rounded to the
+	// nearest minor unit.
+	LineTotalMinorUnits *int64
 }
 
 // ResolveBarcodeUseCase resolves a scanned or typed code to a SKU -- tried
@@ -65,7 +76,7 @@ func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*Res
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		sku, err := uc.skuRepo.FindByBarcode(ctx, code)
 		if err == nil {
-			return uc.fillResult(ctx, &result, *sku, 1)
+			return uc.fillResult(ctx, &result, *sku, 1, nil)
 		}
 		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 			return err
@@ -77,20 +88,37 @@ func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*Res
 			if err != nil {
 				return err
 			}
-			return uc.fillResult(ctx, &result, *sku, alias.UnitsPerScan)
+			return uc.fillResult(ctx, &result, *sku, alias.UnitsPerScan, nil)
 		}
 		if !errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound) {
 			return err
 		}
 
 		sku, err = uc.skuRepo.FindByCode(ctx, code)
-		if err != nil {
-			if errors.Is(err, pmsDomain.ErrSKUNotFound) {
-				return pmsDomain.ErrSKUNotFound
-			}
+		if err == nil {
+			return uc.fillResult(ctx, &result, *sku, 1, nil)
+		}
+		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 			return err
 		}
-		return uc.fillResult(ctx, &result, *sku, 1)
+
+		// Last resort: a butcher/deli scale barcode, whose full value
+		// never matches any of the exact lookups above since the weight
+		// digits differ on every printed package (see
+		// pmsDomain.DecodeWeightEmbeddedBarcode's doc comment).
+		decoded, decodeErr := pmsDomain.DecodeWeightEmbeddedBarcode(code)
+		if decodeErr != nil {
+			if errors.Is(decodeErr, pmsDomain.ErrNotWeightEmbeddedBarcode) {
+				return pmsDomain.ErrSKUNotFound
+			}
+			// Right shape, bad checksum -- a mis-scan, not "not found".
+			return decodeErr
+		}
+		sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+		if err != nil {
+			return err
+		}
+		return uc.fillResult(ctx, &result, *sku, 1, &decoded.WeightGrams)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("resolveBarcode: %w", err)
@@ -100,8 +128,10 @@ func (uc *ResolveBarcodeUseCase) Execute(ctx context.Context, code string) (*Res
 
 // fillResult resolves the SKU's product name (via its variant) alongside
 // the SKU/UnitsPerScan every resolution path already found -- one place so
-// each of the three lookup paths above doesn't repeat the two extra hops.
-func (uc *ResolveBarcodeUseCase) fillResult(ctx context.Context, result *ResolveBarcodeResult, sku pmsDomain.SKU, unitsPerScan int64) error {
+// each of the four lookup paths above doesn't repeat the two extra hops.
+// weightGrams is non-nil only for the weight-embedded-barcode path, and
+// drives the LineTotalMinorUnits computation below.
+func (uc *ResolveBarcodeUseCase) fillResult(ctx context.Context, result *ResolveBarcodeResult, sku pmsDomain.SKU, unitsPerScan int64, weightGrams *int64) error {
 	variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
 	if err != nil {
 		return err
@@ -110,6 +140,21 @@ func (uc *ResolveBarcodeUseCase) fillResult(ctx context.Context, result *Resolve
 	if err != nil {
 		return err
 	}
-	*result = ResolveBarcodeResult{SKU: sku, UnitsPerScan: unitsPerScan, ProductName: product.Name}
+	*result = ResolveBarcodeResult{SKU: sku, UnitsPerScan: unitsPerScan, ProductName: product.Name, WeightGrams: weightGrams}
+	if weightGrams != nil {
+		total := lineTotalForScannedWeight(sku, *weightGrams)
+		result.LineTotalMinorUnits = &total
+	}
 	return nil
+}
+
+// lineTotalForScannedWeight computes the amount to charge for one scanned
+// weight-embedded package -- see ResolveBarcodeResult.LineTotalMinorUnits.
+// Rounds to the nearest minor unit (round-half-up): fine here since both
+// operands are always non-negative.
+func lineTotalForScannedWeight(sku pmsDomain.SKU, weightGrams int64) int64 {
+	if sku.PricingMode != pmsDomain.SKUPricingModePerWeight || sku.PricePerKiloMinorUnits == nil {
+		return sku.PriceMinorUnits
+	}
+	return (*sku.PricePerKiloMinorUnits*weightGrams + 500) / 1000
 }

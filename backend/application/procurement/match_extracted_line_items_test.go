@@ -329,6 +329,9 @@ func (s *erroringSKURepo) FindByExactProductName(_ context.Context, _ string) (*
 func (s *erroringSKURepo) FindByBarcode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
 	return nil, s.err
 }
+func (s *erroringSKURepo) FindByScaleCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+	return nil, s.err
+}
 func (s *erroringSKURepo) ListByVariant(_ context.Context, _ string) ([]pmsDomain.SKU, error) {
 	return nil, nil
 }

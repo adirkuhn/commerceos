@@ -38,6 +38,22 @@ const (
 	SKUUnitTypeKilo SKUUnitType = "kilo"
 )
 
+// SKUPricingMode governs how a SKU's sale price is computed at checkout --
+// orthogonal to UnitType (which governs how its *stock* is denominated).
+// A weight-embedded-barcode packed item (see ScaleCode/
+// DecodeWeightEmbeddedBarcode) can be PricingModeFixed (e.g. calabresa,
+// kit feijoada -- every package sells for PriceMinorUnits regardless of
+// its actual weight) or PricingModePerWeight (e.g. dry meat -- the total
+// is PricePerKiloMinorUnits times the scanned package's actual weight).
+// Independently, either kind can have UnitType=kilo if the tenant also
+// wants stock tracked by weight rather than by package count.
+type SKUPricingMode string
+
+const (
+	SKUPricingModeFixed     SKUPricingMode = "fixed"
+	SKUPricingModePerWeight SKUPricingMode = "per_weight"
+)
+
 type SKU struct {
 	ID        string
 	TenantID  string
@@ -118,6 +134,24 @@ type SKU struct {
 	// referenced SKU must itself have UnitType=kilo and cannot itself
 	// have a PortionedFromSKUID (see ErrBulkSKUCannotBePortioned).
 	PortionedFromSKUID *string
+	// ScaleCode is nil unless this SKU is sold via a weight-embedded
+	// barcode (see DecodeWeightEmbeddedBarcode) -- the 5-digit code the
+	// tenant programs into their scale for this product, distinct from
+	// Barcode/BarcodeAlias.Code (which are exact-match, but every printed
+	// label for this SKU has a different full barcode since the weight
+	// varies per package). Tenant-unique when set.
+	ScaleCode *string
+	// PricingMode defaults to SKUPricingModeFixed -- see SKUPricingMode's
+	// doc comment. Only meaningful for scanning a weight-embedded barcode;
+	// a SKU with no ScaleCode is always priced at PriceMinorUnits
+	// regardless of this field.
+	PricingMode SKUPricingMode
+	// PricePerKiloMinorUnits is required (and must be positive) when
+	// PricingMode is SKUPricingModePerWeight, and must be nil otherwise
+	// (see ErrPricePerKiloRequiredForPerWeight/
+	// ErrPricePerKiloOnlyForPerWeight). Same minor-unit convention as
+	// PriceMinorUnits, priced per whole kilo.
+	PricePerKiloMinorUnits *int64
 	// TaxClassID is nil unless this SKU has its own tax.TaxClass assigned
 	// -- nil means "use the tenant's default class" (see
 	// tax.TaxClass.IsDefault), the common case, so most SKUs never set

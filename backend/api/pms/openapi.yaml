@@ -645,6 +645,15 @@ components:
       type: string
       enum: [unit, box, kilo]
 
+    # Governs how a scanned weight-embedded barcode is priced -- orthogonal
+    # to unit_type (which governs how stock is denominated). fixed
+    # (default): every package sells for price_minor_units regardless of
+    # its actual weight. per_weight: the total is price_per_kilo_minor_units
+    # times the scanned package's actual weight. See SKU.scale_code.
+    SKUPricingMode:
+      type: string
+      enum: [fixed, per_weight]
+
     Category:
       type: object
       required: [id, tenant_id, name, slug, position, created_at, updated_at]
@@ -809,6 +818,23 @@ components:
         # same portioned_from_sku_id, each consuming its own actual
         # weight.
         portioned_from_sku_id: { type: string, nullable: true }
+        scale_code:
+          type: string
+          nullable: true
+          description: >-
+            5-digit code programmed into a butcher/deli scale for this SKU.
+            Non-null only when sold via a GS1 "prefix 2x" variable-weight
+            EAN-13 barcode, whose full value differs on every package (the
+            weight is baked in) so it never matches this SKU's own barcode
+            field. Tenant-unique when set.
+        pricing_mode:
+          allOf: [{ $ref: '#/components/schemas/SKUPricingMode' }]
+          description: Defaults to fixed. Only meaningful when scale_code is set.
+        price_per_kilo_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Required (and positive) when pricing_mode is per_weight; must be null otherwise.
         # tax_class_id is null unless this SKU has its own tax class
         # assigned -- null means "use the tenant's default class" (see
         # the tax module's TaxClass.is_default).
@@ -1126,6 +1152,9 @@ components:
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
         unit_type: { $ref: '#/components/schemas/SKUUnitType' }
         portioned_from_sku_id: { type: string, nullable: true }
+        scale_code: { type: string, nullable: true }
+        pricing_mode: { $ref: '#/components/schemas/SKUPricingMode' }
+        price_per_kilo_minor_units: { type: integer, format: int64, minimum: 1, nullable: true }
         tax_class_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
@@ -1149,6 +1178,9 @@ components:
         units_per_case: { type: integer, format: int64, nullable: true, minimum: 1 }
         unit_type: { $ref: '#/components/schemas/SKUUnitType' }
         portioned_from_sku_id: { type: string, nullable: true }
+        scale_code: { type: string, nullable: true }
+        pricing_mode: { $ref: '#/components/schemas/SKUPricingMode' }
+        price_per_kilo_minor_units: { type: integer, format: int64, minimum: 1, nullable: true }
         tax_class_id: { type: string, nullable: true }
         status: { $ref: '#/components/schemas/SKUStatus' }
 
@@ -1213,6 +1245,20 @@ components:
         product_name:
           type: string
           description: The resolved SKU's product's name -- scanner apps show this instead of the SKU code alone, which is rarely human readable on its own.
+        weight_grams:
+          type: integer
+          format: int64
+          nullable: true
+          description: Non-null only when the scanned code was a weight-embedded barcode -- the actual weight of the specific package scanned.
+        line_total_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Non-null only alongside weight_grams: the amount to charge for
+            this specific scanned package -- sku.price_minor_units for
+            fixed pricing, or sku.price_per_kilo_minor_units * weight_grams
+            / 1000 (rounded) for per_weight pricing.
 
     ResolveBarcodeResponse:
       type: object

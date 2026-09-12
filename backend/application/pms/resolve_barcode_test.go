@@ -92,6 +92,81 @@ func TestResolveBarcode_trimsWhitespaceFromTheScannedCode(t *testing.T) {
 	assert.Equal(t, "012345", skuRepo.gotBarcode, "a scanner-emitted or manually-typed code can carry stray whitespace -- the exact-match lookup must not silently fail on it")
 }
 
+func TestResolveBarcode_resolvesWeightEmbeddedBarcodeFixedPricing(t *testing.T) {
+	// Real calabresa label: prefix 29, scale code 00633, weight 333g,
+	// valid check digit -- fixed pricing means every package sells for
+	// PriceMinorUnits regardless of the scanned weight.
+	db := newMockGormDB(t)
+	skuRepo := &stubSKURepo{findByScaleCodeResult: &pmsDomain.SKU{
+		ID: "sku-1", VariantID: "variant-1", ScaleCode: strPtr("00633"),
+		PricingMode: pmsDomain.SKUPricingModeFixed, PriceMinorUnits: 1999,
+	}}
+	aliasRepo := &stubBarcodeAliasRepoForResolve{}
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-1", ProductID: "product-1"}}
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-1", Name: "Calabresa"}}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+
+	result, err := uc.Execute(context.Background(), "2900633003332")
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.SKU.ID)
+	assert.Equal(t, "00633", skuRepo.gotScaleCode)
+	require.NotNil(t, result.WeightGrams)
+	assert.Equal(t, int64(333), *result.WeightGrams)
+	require.NotNil(t, result.LineTotalMinorUnits)
+	assert.Equal(t, int64(1999), *result.LineTotalMinorUnits, "fixed pricing ignores the scanned weight")
+	assert.Equal(t, int64(1), result.UnitsPerScan)
+}
+
+func TestResolveBarcode_resolvesWeightEmbeddedBarcodePerWeightPricing(t *testing.T) {
+	// Real dry-meat label: scale code 94721, weight 462g. Total = rate *
+	// grams / 1000, rounded to the nearest minor unit:
+	// 4999 * 462 / 1000 = 2309.538 -> 2310.
+	db := newMockGormDB(t)
+	skuRepo := &stubSKURepo{findByScaleCodeResult: &pmsDomain.SKU{
+		ID: "sku-2", VariantID: "variant-2", ScaleCode: strPtr("94721"),
+		PricingMode: pmsDomain.SKUPricingModePerWeight, PricePerKiloMinorUnits: int64Ptr(4999),
+		PriceMinorUnits: 0,
+	}}
+	aliasRepo := &stubBarcodeAliasRepoForResolve{}
+	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-2", ProductID: "product-2"}}
+	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-2", Name: "Dry Meat"}}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, variantRepo, productRepo)
+
+	result, err := uc.Execute(context.Background(), "2994721004622")
+
+	require.NoError(t, err)
+	require.NotNil(t, result.WeightGrams)
+	assert.Equal(t, int64(462), *result.WeightGrams)
+	require.NotNil(t, result.LineTotalMinorUnits)
+	assert.Equal(t, int64(2310), *result.LineTotalMinorUnits)
+}
+
+func TestResolveBarcode_returnsSKUNotFoundWhenScaleCodeUnregistered(t *testing.T) {
+	db := newMockGormDB(t)
+	skuRepo := &stubSKURepo{}
+	aliasRepo := &stubBarcodeAliasRepoForResolve{}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{})
+
+	_, err := uc.Execute(context.Background(), "2900633003332")
+
+	assert.ErrorIs(t, err, pmsDomain.ErrSKUNotFound)
+}
+
+func TestResolveBarcode_rejectsCorruptedWeightEmbeddedCheckDigit(t *testing.T) {
+	// Last digit corrupted (2 -> 9) -- a mis-scanned weight must not
+	// silently resolve to a possibly-wrong price, so this must surface as
+	// an invalid-barcode error distinct from a plain not-found.
+	db := newMockGormDB(t)
+	skuRepo := &stubSKURepo{}
+	aliasRepo := &stubBarcodeAliasRepoForResolve{}
+	uc := apppms.NewResolveBarcodeUseCase(db, skuRepo, aliasRepo, &stubVariantRepo{}, &stubProductRepo{})
+
+	_, err := uc.Execute(context.Background(), "2900633003339")
+
+	assert.ErrorIs(t, err, pmsDomain.ErrInvalidCheckDigit)
+}
+
 func TestResolveBarcode_returnsSKUNotFoundWhenNothingMatches(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{}

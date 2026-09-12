@@ -110,6 +110,12 @@ type SKURepository interface {
 	// barcode straight to a SKU. Returns ErrSKUNotFound when nothing
 	// matches -- same as FindByCode, no separate error type needed.
 	FindByBarcode(ctx context.Context, barcode string) (*SKU, error)
+	// FindByScaleCode resolves a SKU by its 5-digit ScaleCode -- used by
+	// ResolveBarcodeUseCase once a scanned code has been decoded as a
+	// weight-embedded barcode (see DecodeWeightEmbeddedBarcode), whose
+	// full barcode never matches FindByBarcode since the weight digits
+	// vary per package. Returns ErrSKUNotFound when nothing matches.
+	FindByScaleCode(ctx context.Context, scaleCode string) (*SKU, error)
 	// FindByExactProductName resolves a SKU via its parent Product's Name
 	// (normalized: case/punctuation/whitespace-insensitive, same convention
 	// as suppliers.FindByName -- NOT a fuzzy/substring search). Used by

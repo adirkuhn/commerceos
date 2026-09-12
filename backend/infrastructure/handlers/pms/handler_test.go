@@ -700,6 +700,36 @@ func TestUpdateSKU_passesSKUCodeThrough(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "WID-L-NEW")
 }
 
+func TestCreateSKU_passesPricingModeAndScaleCodeThrough(t *testing.T) {
+	pricePerKilo := int64(4999)
+	scaleCode := "94721"
+	s := &stubs{createSKU: stubCreateSKU{out: &pmsDomain.SKU{
+		ID: "s1", SKUCode: "DRYMEAT-1", PriceMinorUnits: 0, CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive,
+		PricingMode: pmsDomain.SKUPricingModePerWeight, PricePerKiloMinorUnits: &pricePerKilo, ScaleCode: &scaleCode,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/variants/v1/skus", map[string]any{
+		"sku_code": "DRYMEAT-1", "price_minor_units": 0, "currency_code": "USD", "status": "active",
+		"pricing_mode": "per_weight", "price_per_kilo_minor_units": 4999, "scale_code": "94721",
+	})
+	require.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, pmsDomain.SKUPricingModePerWeight, s.createSKU.gotInput.PricingMode)
+	require.NotNil(t, s.createSKU.gotInput.PricePerKiloMinorUnits)
+	assert.Equal(t, int64(4999), *s.createSKU.gotInput.PricePerKiloMinorUnits)
+	require.NotNil(t, s.createSKU.gotInput.ScaleCode)
+	assert.Equal(t, "94721", *s.createSKU.gotInput.ScaleCode)
+	assert.Contains(t, w.Body.String(), `"pricing_mode":"per_weight"`)
+	assert.Contains(t, w.Body.String(), `"scale_code":"94721"`)
+}
+
+func TestCreateSKU_rejectsPerWeightWithoutPricePerKilo(t *testing.T) {
+	s := &stubs{createSKU: stubCreateSKU{err: pmsDomain.ErrPricePerKiloRequiredForPerWeight}}
+	w := doRequest(newTestRouter(s), http.MethodPost, "/api/v1/pms/variants/v1/skus", map[string]any{
+		"sku_code": "DRYMEAT-1", "price_minor_units": 0, "currency_code": "USD", "status": "active",
+		"pricing_mode": "per_weight",
+	})
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func TestUpdateSKU_duplicateSKUCodeReturns409(t *testing.T) {
 	s := &stubs{updateSKU: stubUpdateSKU{err: pmsDomain.ErrDuplicateSKUCode}}
 	w := doRequest(newTestRouter(s), http.MethodPatch, "/api/v1/pms/skus/s1", map[string]any{
@@ -768,6 +798,30 @@ func TestResolveBarcode_success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "WID-L")
 	assert.Contains(t, w.Body.String(), `"units_per_scan":1`)
 	assert.Contains(t, w.Body.String(), `"product_name":"Widget"`)
+}
+
+func TestResolveBarcode_includesWeightAndLineTotalForWeightEmbeddedScan(t *testing.T) {
+	weightGrams := int64(462)
+	lineTotal := int64(2310)
+	s := &stubs{resolveBarcode: stubResolveBarcode{out: &apppms.ResolveBarcodeResult{
+		SKU:                 pmsDomain.SKU{ID: "s1", SKUCode: "DRYMEAT-1", CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive},
+		UnitsPerScan:        1,
+		ProductName:         "Dry Meat",
+		WeightGrams:         &weightGrams,
+		LineTotalMinorUnits: &lineTotal,
+	}}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/2994721004622", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"weight_grams":462`)
+	assert.Contains(t, w.Body.String(), `"line_total_minor_units":2310`)
+}
+
+func TestResolveBarcode_corruptedWeightEmbeddedCheckDigitReturns422(t *testing.T) {
+	s := &stubs{resolveBarcode: stubResolveBarcode{err: pmsDomain.ErrInvalidCheckDigit}}
+	w := doRequest(newTestRouter(s), http.MethodGet, "/api/v1/pms/skus/barcode-lookup/2900633003339", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestResolveBarcode_notFound(t *testing.T) {

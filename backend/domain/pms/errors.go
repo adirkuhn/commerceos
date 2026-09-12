@@ -86,4 +86,21 @@ var (
 	// misconfigured channel (its CurrencyCode's rate got deleted after
 	// the channel was created) rather than a normal "no price" case.
 	ErrExchangeRateRequired = errors.New("no exchange rate or price override configured for this currency")
+	// ErrInvalidSKUPricingMode guards SKU.PricingMode against any value
+	// outside fixed/per_weight.
+	ErrInvalidSKUPricingMode = errors.New("invalid sku pricing_mode")
+	// ErrPricePerKiloRequiredForPerWeight guards SKU.PricePerKiloMinorUnits:
+	// PricingMode=per_weight requires it to be set (and positive).
+	ErrPricePerKiloRequiredForPerWeight = errors.New("price_per_kilo_minor_units is required when pricing_mode is per_weight")
+	// ErrPricePerKiloOnlyForPerWeight guards the reverse: a fixed-pricing
+	// SKU (the default) must not carry a per-kilo rate that would never be
+	// read, since it'd be silently stale/misleading data.
+	ErrPricePerKiloOnlyForPerWeight = errors.New("price_per_kilo_minor_units can only be set when pricing_mode is per_weight")
+	// ErrInvalidPricePerKilo guards SKU.PricePerKiloMinorUnits: when set,
+	// it must be positive.
+	ErrInvalidPricePerKilo = errors.New("price_per_kilo_minor_units must be positive")
+	// ErrDuplicateScaleCode guards SKU.ScaleCode: a scale-decoded barcode
+	// must resolve to exactly one SKU within a tenant
+	// (skus_tenant_scale_code_idx).
+	ErrDuplicateScaleCode = errors.New("scale_code already in use by another sku")
 )

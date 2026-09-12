@@ -130,11 +130,13 @@ func (h *Handler) ListPOSStockLevels(c *gin.Context, params genpos.ListPOSStockL
 func toGenPOSProductSKUs(skus []apppms.POSProductSKU) []genpos.POSProductSKU {
 	out := make([]genpos.POSProductSKU, len(skus))
 	for i, s := range skus {
+		pricingMode := genpos.POSProductSKUPricingMode(s.PricingMode)
 		out[i] = genpos.POSProductSKU{
 			Id: s.ID, VariantId: &s.VariantID, VariantName: &s.VariantName,
 			SkuCode: s.SKUCode, Barcode: &s.Barcode,
 			PriceMinorUnits: s.PriceMinorUnits, SalePriceMinorUnits: s.SalePriceMinorUnits, SaleEndDate: s.SaleEndDate,
 			CurrencyCode: s.CurrencyCode, Status: string(s.Status),
+			ScaleCode: s.ScaleCode, PricingMode: &pricingMode, PricePerKiloMinorUnits: s.PricePerKiloMinorUnits,
 		}
 	}
 	return out

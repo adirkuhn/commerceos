@@ -14,25 +14,28 @@ import (
 )
 
 type UpdateSKUInput struct {
-	ID                  string
-	SKUCode             string
-	Barcode             string
-	PriceMinorUnits     int64
-	SalePriceMinorUnits *int64
-	SaleEndDate         *time.Time
-	CurrencyCode        string
-	WeightGrams         *int64
-	LengthMM            *int64
-	WidthMM             *int64
-	HeightMM            *int64
-	IsVirtual           bool
-	TracksExpiry        bool
-	CaseOfSKUID         *string
-	UnitsPerCase        *int64
-	UnitType            pmsDomain.SKUUnitType
-	PortionedFromSKUID  *string
-	TaxClassID          *string
-	Status              pmsDomain.SKUStatus
+	ID                     string
+	SKUCode                string
+	Barcode                string
+	PriceMinorUnits        int64
+	SalePriceMinorUnits    *int64
+	SaleEndDate            *time.Time
+	CurrencyCode           string
+	WeightGrams            *int64
+	LengthMM               *int64
+	WidthMM                *int64
+	HeightMM               *int64
+	IsVirtual              bool
+	TracksExpiry           bool
+	CaseOfSKUID            *string
+	UnitsPerCase           *int64
+	UnitType               pmsDomain.SKUUnitType
+	PortionedFromSKUID     *string
+	ScaleCode              *string
+	PricingMode            pmsDomain.SKUPricingMode
+	PricePerKiloMinorUnits *int64
+	TaxClassID             *string
+	Status                 pmsDomain.SKUStatus
 }
 
 type UpdateSKUUseCase struct {
@@ -73,6 +76,12 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
 	if err := validatePortionedFromShape(in.UnitType, in.PortionedFromSKUID); err != nil {
+		return nil, fmt.Errorf("updateSKU: %w", err)
+	}
+	if in.PricingMode == "" {
+		in.PricingMode = pmsDomain.SKUPricingModeFixed
+	}
+	if err := validateSKUPricingMode(in.PricingMode, in.PricePerKiloMinorUnits); err != nil {
 		return nil, fmt.Errorf("updateSKU: %w", err)
 	}
 
@@ -120,6 +129,9 @@ func (uc *UpdateSKUUseCase) Execute(ctx context.Context, in UpdateSKUInput) (*pm
 		existing.UnitsPerCase = in.UnitsPerCase
 		existing.UnitType = in.UnitType
 		existing.PortionedFromSKUID = in.PortionedFromSKUID
+		existing.ScaleCode = in.ScaleCode
+		existing.PricingMode = in.PricingMode
+		existing.PricePerKiloMinorUnits = in.PricePerKiloMinorUnits
 		existing.TaxClassID = in.TaxClassID
 		existing.Status = in.Status
 		existing.UpdatedAt = time.Now()

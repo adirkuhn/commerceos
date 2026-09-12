@@ -14,25 +14,28 @@ import (
 )
 
 type CreateSKUInput struct {
-	VariantID           string
-	SKUCode             string
-	Barcode             string
-	PriceMinorUnits     int64
-	SalePriceMinorUnits *int64
-	SaleEndDate         *time.Time
-	CurrencyCode        string
-	WeightGrams         *int64
-	LengthMM            *int64
-	WidthMM             *int64
-	HeightMM            *int64
-	IsVirtual           bool
-	TracksExpiry        bool
-	CaseOfSKUID         *string
-	UnitsPerCase        *int64
-	UnitType            pmsDomain.SKUUnitType
-	PortionedFromSKUID  *string
-	TaxClassID          *string
-	Status              pmsDomain.SKUStatus
+	VariantID              string
+	SKUCode                string
+	Barcode                string
+	PriceMinorUnits        int64
+	SalePriceMinorUnits    *int64
+	SaleEndDate            *time.Time
+	CurrencyCode           string
+	WeightGrams            *int64
+	LengthMM               *int64
+	WidthMM                *int64
+	HeightMM               *int64
+	IsVirtual              bool
+	TracksExpiry           bool
+	CaseOfSKUID            *string
+	UnitsPerCase           *int64
+	UnitType               pmsDomain.SKUUnitType
+	PortionedFromSKUID     *string
+	ScaleCode              *string
+	PricingMode            pmsDomain.SKUPricingMode
+	PricePerKiloMinorUnits *int64
+	TaxClassID             *string
+	Status                 pmsDomain.SKUStatus
 }
 
 type CreateSKUUseCase struct {
@@ -74,6 +77,12 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 	if err := validatePortionedFromShape(in.UnitType, in.PortionedFromSKUID); err != nil {
 		return nil, fmt.Errorf("createSKU: %w", err)
 	}
+	if in.PricingMode == "" {
+		in.PricingMode = pmsDomain.SKUPricingModeFixed
+	}
+	if err := validateSKUPricingMode(in.PricingMode, in.PricePerKiloMinorUnits); err != nil {
+		return nil, fmt.Errorf("createSKU: %w", err)
+	}
 
 	var sku pmsDomain.SKU
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -103,28 +112,31 @@ func (uc *CreateSKUUseCase) Execute(ctx context.Context, in CreateSKUInput) (*pm
 
 		now := time.Now()
 		sku = pmsDomain.SKU{
-			TenantID:            tenant.IDFromContext(ctx),
-			VariantID:           in.VariantID,
-			SKUCode:             in.SKUCode,
-			Barcode:             in.Barcode,
-			PriceMinorUnits:     in.PriceMinorUnits,
-			SalePriceMinorUnits: in.SalePriceMinorUnits,
-			SaleEndDate:         in.SaleEndDate,
-			CurrencyCode:        in.CurrencyCode,
-			WeightGrams:         in.WeightGrams,
-			LengthMM:            in.LengthMM,
-			WidthMM:             in.WidthMM,
-			HeightMM:            in.HeightMM,
-			IsVirtual:           in.IsVirtual,
-			TracksExpiry:        in.TracksExpiry,
-			CaseOfSKUID:         in.CaseOfSKUID,
-			UnitsPerCase:        in.UnitsPerCase,
-			UnitType:            in.UnitType,
-			PortionedFromSKUID:  in.PortionedFromSKUID,
-			TaxClassID:          in.TaxClassID,
-			Status:              in.Status,
-			CreatedAt:           now,
-			UpdatedAt:           now,
+			TenantID:               tenant.IDFromContext(ctx),
+			VariantID:              in.VariantID,
+			SKUCode:                in.SKUCode,
+			Barcode:                in.Barcode,
+			PriceMinorUnits:        in.PriceMinorUnits,
+			SalePriceMinorUnits:    in.SalePriceMinorUnits,
+			SaleEndDate:            in.SaleEndDate,
+			CurrencyCode:           in.CurrencyCode,
+			WeightGrams:            in.WeightGrams,
+			LengthMM:               in.LengthMM,
+			WidthMM:                in.WidthMM,
+			HeightMM:               in.HeightMM,
+			IsVirtual:              in.IsVirtual,
+			TracksExpiry:           in.TracksExpiry,
+			CaseOfSKUID:            in.CaseOfSKUID,
+			UnitsPerCase:           in.UnitsPerCase,
+			UnitType:               in.UnitType,
+			PortionedFromSKUID:     in.PortionedFromSKUID,
+			ScaleCode:              in.ScaleCode,
+			PricingMode:            in.PricingMode,
+			PricePerKiloMinorUnits: in.PricePerKiloMinorUnits,
+			TaxClassID:             in.TaxClassID,
+			Status:                 in.Status,
+			CreatedAt:              now,
+			UpdatedAt:              now,
 		}
 		if err := uc.skuRepo.Create(ctx, &sku); err != nil {
 			return err
@@ -223,6 +235,30 @@ func validateSKUUnitType(unitType pmsDomain.SKUUnitType) error {
 	default:
 		return pmsDomain.ErrInvalidSKUUnitType
 	}
+}
+
+// validateSKUPricingMode is the shared invariant for CreateSKU/UpdateSKU:
+// PricingMode must be a declared constant, PricePerKiloMinorUnits must be
+// set (and positive) exactly when PricingMode is per_weight, and must be
+// nil for fixed pricing (the default) -- see SKU.PricingMode's doc
+// comment for why the two are orthogonal to UnitType.
+func validateSKUPricingMode(pricingMode pmsDomain.SKUPricingMode, pricePerKiloMinorUnits *int64) error {
+	switch pricingMode {
+	case pmsDomain.SKUPricingModeFixed:
+		if pricePerKiloMinorUnits != nil {
+			return pmsDomain.ErrPricePerKiloOnlyForPerWeight
+		}
+	case pmsDomain.SKUPricingModePerWeight:
+		if pricePerKiloMinorUnits == nil {
+			return pmsDomain.ErrPricePerKiloRequiredForPerWeight
+		}
+		if *pricePerKiloMinorUnits <= 0 {
+			return pmsDomain.ErrInvalidPricePerKilo
+		}
+	default:
+		return pmsDomain.ErrInvalidSKUPricingMode
+	}
+	return nil
 }
 
 // validatePortionedFromShape is the shared invariant for CreateSKU/UpdateSKU:
