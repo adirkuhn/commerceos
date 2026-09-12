@@ -15,6 +15,12 @@ import (
 type ResolvePickScanCodeResult struct {
 	SKUID       string
 	ProductName string
+	// WeightGrams is non-nil only when the scanned code was a
+	// weight-embedded barcode (see pmsDomain.DecodeWeightEmbeddedBarcode)
+	// -- the actual weight of the specific package scanned, for the
+	// scanner app to prefill the pick quantity with (in kg) instead of
+	// defaulting to 1.
+	WeightGrams *int64
 }
 
 // variantFinderForPickScanResolve/productFinderForPickScanResolve mirror
@@ -38,13 +44,14 @@ type productFinderForPickScanResolve interface {
 // comment documents) -- both call their own tenant.WithTenant, and nesting
 // transactions is forbidden by CLAUDE.md.
 type ResolvePickScanCodeUseCase struct {
-	db               *gorm.DB
-	sessionRepo      omsDomain.PickingSessionRepository
-	lineItemRepo     omsDomain.SalesOrderLineItemRepository
-	skuRepo          skuResolverRepo
-	barcodeAliasRepo barcodeAliasFinder
-	variantRepo      variantFinderForPickScanResolve
-	productRepo      productFinderForPickScanResolve
+	db                 *gorm.DB
+	sessionRepo        omsDomain.PickingSessionRepository
+	lineItemRepo       omsDomain.SalesOrderLineItemRepository
+	skuRepo            skuResolverRepo
+	barcodeAliasRepo   barcodeAliasFinder
+	scaleCodeAliasRepo scaleCodeAliasFinder
+	variantRepo        variantFinderForPickScanResolve
+	productRepo        productFinderForPickScanResolve
 }
 
 func NewResolvePickScanCodeUseCase(
@@ -53,12 +60,14 @@ func NewResolvePickScanCodeUseCase(
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	skuRepo skuResolverRepo,
 	barcodeAliasRepo barcodeAliasFinder,
+	scaleCodeAliasRepo scaleCodeAliasFinder,
 	variantRepo variantFinderForPickScanResolve,
 	productRepo productFinderForPickScanResolve,
 ) *ResolvePickScanCodeUseCase {
 	return &ResolvePickScanCodeUseCase{
 		db: db, sessionRepo: sessionRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo,
-		barcodeAliasRepo: barcodeAliasRepo, variantRepo: variantRepo, productRepo: productRepo,
+		barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo,
+		variantRepo: variantRepo, productRepo: productRepo,
 	}
 }
 
@@ -80,7 +89,7 @@ func (uc *ResolvePickScanCodeUseCase) Execute(ctx context.Context, sessionID, co
 
 		sku, err := uc.skuRepo.FindByBarcode(ctx, code)
 		if err == nil {
-			return uc.fillResult(ctx, &result, *sku)
+			return uc.fillResult(ctx, &result, *sku, nil)
 		}
 		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 			return err
@@ -92,15 +101,41 @@ func (uc *ResolvePickScanCodeUseCase) Execute(ctx context.Context, sessionID, co
 			if err != nil {
 				return err
 			}
-			return uc.fillResult(ctx, &result, *sku)
+			return uc.fillResult(ctx, &result, *sku, nil)
 		}
 		if !errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
 			return aerr
 		}
 
+		if decoded, derr := pmsDomain.DecodeWeightEmbeddedBarcode(code); derr == nil {
+			sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+			if err == nil {
+				return uc.fillResult(ctx, &result, *sku, &decoded.WeightGrams)
+			}
+			if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+				return err
+			}
+			scaleAlias, saerr := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
+			if saerr == nil {
+				sku, err = uc.skuRepo.FindByID(ctx, scaleAlias.SKUID)
+				if err != nil {
+					return err
+				}
+				return uc.fillResult(ctx, &result, *sku, &decoded.WeightGrams)
+			}
+			if !errors.Is(saerr, pmsDomain.ErrScaleCodeAliasNotFound) {
+				return saerr
+			}
+		} else if !errors.Is(derr, pmsDomain.ErrNotWeightEmbeddedBarcode) {
+			return derr // right shape, bad checksum -- a mis-scan, not "not found"
+		}
+
 		byCode, cerr := uc.skuRepo.FindByCode(ctx, code)
 		if cerr == nil {
-			return uc.fillResult(ctx, &result, *byCode)
+			if byCode.PricingMode == pmsDomain.SKUPricingModePerWeight {
+				return pmsDomain.ErrWeightRequiredForPerWeightSKU
+			}
+			return uc.fillResult(ctx, &result, *byCode, nil)
 		}
 		if !errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
 			return cerr
@@ -114,7 +149,10 @@ func (uc *ResolvePickScanCodeUseCase) Execute(ctx context.Context, sessionID, co
 		if err != nil {
 			return err
 		}
-		return uc.fillResult(ctx, &result, *bySKU)
+		if bySKU.PricingMode == pmsDomain.SKUPricingModePerWeight {
+			return pmsDomain.ErrWeightRequiredForPerWeightSKU
+		}
+		return uc.fillResult(ctx, &result, *bySKU, nil)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("resolvePickScanCode: %w", err)
@@ -140,7 +178,7 @@ func (uc *ResolvePickScanCodeUseCase) resolveViaLineItem(ctx context.Context, sa
 	return "", pmsDomain.ErrSKUNotFound
 }
 
-func (uc *ResolvePickScanCodeUseCase) fillResult(ctx context.Context, result *ResolvePickScanCodeResult, sku pmsDomain.SKU) error {
+func (uc *ResolvePickScanCodeUseCase) fillResult(ctx context.Context, result *ResolvePickScanCodeResult, sku pmsDomain.SKU, weightGrams *int64) error {
 	variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
 	if err != nil {
 		return err
@@ -151,5 +189,6 @@ func (uc *ResolvePickScanCodeUseCase) fillResult(ctx context.Context, result *Re
 	}
 	result.SKUID = sku.ID
 	result.ProductName = product.Name
+	result.WeightGrams = weightGrams
 	return nil
 }

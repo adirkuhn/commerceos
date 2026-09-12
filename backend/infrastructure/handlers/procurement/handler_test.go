@@ -1395,6 +1395,28 @@ func TestResolveBookingScanCodeHandler_success(t *testing.T) {
 	assert.Equal(t, int64(12), body.Data.UnitsPerScan)
 }
 
+func TestResolveBookingScanCodeHandler_includesWeightGramsForAWeightEmbeddedScan(t *testing.T) {
+	weightGrams := int64(462)
+	resolve := &stubResolveBookingScanCode{out: &appprocurement.ResolveBookingScanCodeResult{SKUID: "sku-1", ProductName: "Dry Meat", UnitsPerScan: 1, WeightGrams: &weightGrams}}
+	h := newResolveBookingScanCodeTestHandler(resolve)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/resolve-scan", map[string]any{
+		"code": "2994721004622",
+	})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"weight_grams":462`)
+}
+
+func TestResolveBookingScanCodeHandler_weightRequiredForPerWeightSKUReturns422(t *testing.T) {
+	resolve := &stubResolveBookingScanCode{err: pmsDomain.ErrWeightRequiredForPerWeightSKU}
+	h := newResolveBookingScanCodeTestHandler(resolve)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/resolve-scan", map[string]any{
+		"code": "DRYMEAT-1",
+	})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func TestResolveBookingScanCodeHandler_bookingNotFoundReturns404(t *testing.T) {
 	resolve := &stubResolveBookingScanCode{err: procurementDomain.ErrBookingNotFound}
 	h := newResolveBookingScanCodeTestHandler(resolve)

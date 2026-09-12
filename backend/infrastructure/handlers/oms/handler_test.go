@@ -907,6 +907,27 @@ func TestResolvePickScanCode_success(t *testing.T) {
 	assert.Equal(t, "BARCODE-1", resolve.gotCode)
 }
 
+func TestResolvePickScanCode_includesWeightGramsForAWeightEmbeddedScan(t *testing.T) {
+	weightGrams := int64(462)
+	var resolve *stubResolvePickScanCode
+	body := map[string]any{"code": "2994721004622"}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) {
+		resolve = s.resolve
+		resolve.out = &appoms.ResolvePickScanCodeResult{SKUID: "sku-1", ProductName: "Dry Meat", WeightGrams: &weightGrams}
+	}), "POST", "/api/v1/picking-sessions/session-1/resolve-scan", body)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"weight_grams":462`)
+}
+
+func TestResolvePickScanCode_weightRequiredForPerWeightSKUReturns422(t *testing.T) {
+	body := map[string]any{"code": "DRYMEAT-1"}
+	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.resolve.err = pmsDomain.ErrWeightRequiredForPerWeightSKU }),
+		"POST", "/api/v1/picking-sessions/session-1/resolve-scan", body)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
 func TestResolvePickScanCode_notFound(t *testing.T) {
 	body := map[string]any{"code": "BARCODE-1"}
 	w := doRequest(routerWithPicking(func(s *pickingStubs) { s.resolve.err = omsDomain.ErrPickingSessionNotFound }),

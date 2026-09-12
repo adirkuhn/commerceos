@@ -22,6 +22,10 @@ type ResolveBookingScanCodeResult struct {
 	// eventual ScanBookingItemInput sent on Confirm carries sku_id (not
 	// code) and so skips ScanBookingItemUseCase's own alias-multiplier step.
 	UnitsPerScan int64
+	// WeightGrams is non-nil only when the scanned code was a
+	// weight-embedded barcode (see pmsDomain.DecodeWeightEmbeddedBarcode)
+	// -- the actual weight of the specific package scanned.
+	WeightGrams *int64
 }
 
 // variantFinderForBookingScanResolve/productFinderForBookingScanResolve
@@ -48,14 +52,15 @@ type productFinderForBookingScanResolve interface {
 // already documents) -- both call their own tenant.WithTenant, and nesting
 // transactions is forbidden by CLAUDE.md.
 type ResolveBookingScanCodeUseCase struct {
-	db               *gorm.DB
-	bookingRepo      procurementDomain.BookingRepository
-	poRepo           procurementDomain.PurchaseOrderRepository
-	skuRepo          pmsDomain.SKURepository
-	barcodeAliasRepo pmsDomain.BarcodeAliasRepository
-	lineItemRepo     procurementDomain.PurchaseOrderLineItemRepository
-	variantRepo      variantFinderForBookingScanResolve
-	productRepo      productFinderForBookingScanResolve
+	db                 *gorm.DB
+	bookingRepo        procurementDomain.BookingRepository
+	poRepo             procurementDomain.PurchaseOrderRepository
+	skuRepo            pmsDomain.SKURepository
+	barcodeAliasRepo   pmsDomain.BarcodeAliasRepository
+	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository
+	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
+	variantRepo        variantFinderForBookingScanResolve
+	productRepo        productFinderForBookingScanResolve
 }
 
 func NewResolveBookingScanCodeUseCase(
@@ -64,13 +69,14 @@ func NewResolveBookingScanCodeUseCase(
 	poRepo procurementDomain.PurchaseOrderRepository,
 	skuRepo pmsDomain.SKURepository,
 	barcodeAliasRepo pmsDomain.BarcodeAliasRepository,
+	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	variantRepo variantFinderForBookingScanResolve,
 	productRepo productFinderForBookingScanResolve,
 ) *ResolveBookingScanCodeUseCase {
 	return &ResolveBookingScanCodeUseCase{
 		db: db, bookingRepo: bookingRepo, poRepo: poRepo, skuRepo: skuRepo,
-		barcodeAliasRepo: barcodeAliasRepo, lineItemRepo: lineItemRepo,
+		barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo, lineItemRepo: lineItemRepo,
 		variantRepo: variantRepo, productRepo: productRepo,
 	}
 }
@@ -97,7 +103,7 @@ func (uc *ResolveBookingScanCodeUseCase) Execute(ctx context.Context, bookingID,
 
 		sku, err := uc.skuRepo.FindByBarcode(ctx, code)
 		if err == nil {
-			return uc.fillResult(ctx, &result, *sku, 1)
+			return uc.fillResult(ctx, &result, *sku, 1, nil)
 		}
 		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 			return err
@@ -109,15 +115,41 @@ func (uc *ResolveBookingScanCodeUseCase) Execute(ctx context.Context, bookingID,
 			if err != nil {
 				return err
 			}
-			return uc.fillResult(ctx, &result, *sku, alias.UnitsPerScan)
+			return uc.fillResult(ctx, &result, *sku, alias.UnitsPerScan, nil)
 		}
 		if !errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
 			return aerr
 		}
 
+		if decoded, derr := pmsDomain.DecodeWeightEmbeddedBarcode(code); derr == nil {
+			sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+			if err == nil {
+				return uc.fillResult(ctx, &result, *sku, 1, &decoded.WeightGrams)
+			}
+			if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+				return err
+			}
+			scaleAlias, saerr := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
+			if saerr == nil {
+				sku, err = uc.skuRepo.FindByID(ctx, scaleAlias.SKUID)
+				if err != nil {
+					return err
+				}
+				return uc.fillResult(ctx, &result, *sku, 1, &decoded.WeightGrams)
+			}
+			if !errors.Is(saerr, pmsDomain.ErrScaleCodeAliasNotFound) {
+				return saerr
+			}
+		} else if !errors.Is(derr, pmsDomain.ErrNotWeightEmbeddedBarcode) {
+			return derr // right shape, bad checksum -- a mis-scan, not "not found"
+		}
+
 		byCode, cerr := uc.skuRepo.FindByCode(ctx, code)
 		if cerr == nil {
-			return uc.fillResult(ctx, &result, *byCode, 1)
+			if byCode.PricingMode == pmsDomain.SKUPricingModePerWeight {
+				return pmsDomain.ErrWeightRequiredForPerWeightSKU
+			}
+			return uc.fillResult(ctx, &result, *byCode, 1, nil)
 		}
 		if !errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
 			return cerr
@@ -131,7 +163,10 @@ func (uc *ResolveBookingScanCodeUseCase) Execute(ctx context.Context, bookingID,
 		if err != nil {
 			return err
 		}
-		return uc.fillResult(ctx, &result, *bySKU, 1)
+		if bySKU.PricingMode == pmsDomain.SKUPricingModePerWeight {
+			return pmsDomain.ErrWeightRequiredForPerWeightSKU
+		}
+		return uc.fillResult(ctx, &result, *bySKU, 1, nil)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("resolveBookingScanCode: %w", err)
@@ -154,7 +189,7 @@ func (uc *ResolveBookingScanCodeUseCase) resolveViaLineItem(ctx context.Context,
 	return "", pmsDomain.ErrSKUNotFound
 }
 
-func (uc *ResolveBookingScanCodeUseCase) fillResult(ctx context.Context, result *ResolveBookingScanCodeResult, sku pmsDomain.SKU, unitsPerScan int64) error {
+func (uc *ResolveBookingScanCodeUseCase) fillResult(ctx context.Context, result *ResolveBookingScanCodeResult, sku pmsDomain.SKU, unitsPerScan int64, weightGrams *int64) error {
 	variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
 	if err != nil {
 		return err
@@ -166,5 +201,6 @@ func (uc *ResolveBookingScanCodeUseCase) fillResult(ctx context.Context, result 
 	result.SKUID = sku.ID
 	result.ProductName = product.Name
 	result.UnitsPerScan = unitsPerScan
+	result.WeightGrams = weightGrams
 	return nil
 }

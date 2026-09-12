@@ -207,7 +207,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
   // product), there's no "expected" total to default from -- falls back to
   // the resolved product name, defaulting qty to unitsPerScan (1 for a
   // direct match, or a case/box alias's multiplier).
-  function openBookingLineForSKU(skuId: string, productNameFallback: string, unitsPerScan: number, opts: { lotNumber?: string; expiryDate?: string | null }) {
+  function openBookingLineForSKU(skuId: string, productNameFallback: string, unitsPerScan: number, opts: { lotNumber?: string; expiryDate?: string | null }, weightGrams?: number | null) {
     const scannedQty = (detail?.scans ?? []).filter(s => s.sku_id === skuId).reduce((sum, s) => sum + s.quantity, 0)
     const li = detail?.line_items.find(l => l.sku_id === skuId)
     if (li) {
@@ -226,7 +226,11 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     }
     setBookingLine({
       skuId, description: productNameFallback, expected: scannedQty, scannedSoFar: scannedQty,
-      remaining: unitsPerScan,
+      // A weight-embedded scan's decoded weight (in kg) is the real
+      // quantity being received -- takes priority over unitsPerScan (1
+      // for a direct match, or a case/box alias's multiplier), which
+      // means nothing for a per_weight SKU.
+      remaining: weightGrams != null ? weightGrams / 1000 : unitsPerScan,
       suggestedLotNumber: opts.lotNumber, suggestedExpiryDate: opts.expiryDate,
     })
   }
@@ -244,7 +248,7 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
     try {
       const resolved = await api.resolveBookingScanCode(token, bookingId, code)
       setCode('')
-      openBookingLineForSKU(resolved.sku_id, resolved.product_name, resolved.units_per_scan, opts)
+      openBookingLineForSKU(resolved.sku_id, resolved.product_name, resolved.units_per_scan, opts, resolved.weight_grams)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
       try {
@@ -271,6 +275,14 @@ export function BookingScreen({ token, bookingId, onExit, onAuthError }: Booking
 
   function handleCandidateBook(c: SKUCandidate) {
     if (!pendingBookFields) return
+    // A name/code text match carries no real weight -- same rule
+    // ScanBookingItemUseCase enforces server-side for a barcode/SKU-code
+    // scan, applied here too so this fuzzy-search fallback can't bypass it.
+    if (c.sku.pricing_mode === 'per_weight') {
+      setCandidates([])
+      setError('Priced by weight — scan its scale barcode, not a name/code match')
+      return
+    }
     const fields = pendingBookFields
     setCandidates([])
     setPendingBookFields(null)

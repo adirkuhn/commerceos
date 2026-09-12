@@ -241,10 +241,11 @@ func (s *stubLineItemRepo) ListPurchaseOrderIDsReceivedBySKU(_ context.Context, 
 // document-matching pipeline, FindByBarcode by the scanner booking flow,
 // the rest are unused no-ops.
 type stubSKURepo struct {
-	byCode    map[string]*pmsDomain.SKU
-	byBarcode map[string]*pmsDomain.SKU
-	findByIDs map[string]*pmsDomain.SKU
-	byVariant map[string][]pmsDomain.SKU
+	byCode      map[string]*pmsDomain.SKU
+	byBarcode   map[string]*pmsDomain.SKU
+	byScaleCode map[string]*pmsDomain.SKU
+	findByIDs   map[string]*pmsDomain.SKU
+	byVariant   map[string][]pmsDomain.SKU
 }
 
 func (s *stubSKURepo) Create(_ context.Context, _ *pmsDomain.SKU) error { return nil }
@@ -269,7 +270,10 @@ func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDoma
 	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
-func (s *stubSKURepo) FindByScaleCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubSKURepo) FindByScaleCode(_ context.Context, scaleCode string) (*pmsDomain.SKU, error) {
+	if sku, ok := s.byScaleCode[scaleCode]; ok {
+		return sku, nil
+	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
 func (s *stubSKURepo) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
@@ -772,6 +776,31 @@ func (s *stubBarcodeAliasRepo) ListBySKUIDs(_ context.Context, _ []string) ([]pm
 	return s.listBySKU, nil
 }
 func (s *stubBarcodeAliasRepo) Delete(_ context.Context, _ string) error { return nil }
+
+type stubScaleCodeAliasRepo struct {
+	byCode  map[string]*pmsDomain.ScaleCodeAlias
+	findErr error
+}
+
+func (s *stubScaleCodeAliasRepo) Create(_ context.Context, _ *pmsDomain.ScaleCodeAlias) error {
+	return nil
+}
+func (s *stubScaleCodeAliasRepo) FindByCode(_ context.Context, code string) (*pmsDomain.ScaleCodeAlias, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if a, ok := s.byCode[code]; ok {
+		return a, nil
+	}
+	return nil, pmsDomain.ErrScaleCodeAliasNotFound
+}
+func (s *stubScaleCodeAliasRepo) ListBySKU(_ context.Context, _ string) ([]pmsDomain.ScaleCodeAlias, error) {
+	return nil, nil
+}
+func (s *stubScaleCodeAliasRepo) ListBySKUIDs(_ context.Context, _ []string) ([]pmsDomain.ScaleCodeAlias, error) {
+	return nil, nil
+}
+func (s *stubScaleCodeAliasRepo) Delete(_ context.Context, _ string) error { return nil }
 
 // stubReceiveStockForBooking tracks every call (CompleteBookingUseCase's
 // replay can call Execute once per staged receive row) -- outs[i], if set,

@@ -124,4 +124,13 @@ var (
 	// ErrScaleCodeAliasCodeRequired guards CreateScaleCodeAliasUseCase's
 	// input: a blank/whitespace-only code isn't a scale code.
 	ErrScaleCodeAliasCodeRequired = errors.New("code is required")
+	// ErrWeightRequiredForPerWeightSKU guards picking/booking scan
+	// resolution (oms.ScanPickItemUseCase/ResolvePickScanCodeUseCase,
+	// procurement.ScanBookingItemUseCase/ResolveBookingScanCodeUseCase):
+	// a SKU priced per_weight can only be resolved by actually decoding
+	// its weight-embedded barcode (or a ScaleCodeAlias) -- matching it via
+	// a typed SKU code or a line item's raw text carries no real weight,
+	// so it's rejected rather than silently letting a picker/receiver
+	// record a package that was never actually weighed.
+	ErrWeightRequiredForPerWeightSKU = errors.New("this item is priced by weight -- scan its scale barcode, not a product code")
 )

@@ -55,13 +55,14 @@ type ScanBookingItemResult struct {
 // it's done. See CompleteBookingUseCase, which replays every staged row for
 // real when the booking finishes.
 type ScanBookingItemUseCase struct {
-	db               *gorm.DB
-	bookingRepo      procurementDomain.BookingRepository
-	poRepo           procurementDomain.PurchaseOrderRepository
-	scanRepo         procurementDomain.BookingScanRepository
-	skuRepo          pmsDomain.SKURepository
-	barcodeAliasRepo pmsDomain.BarcodeAliasRepository
-	lineItemRepo     procurementDomain.PurchaseOrderLineItemRepository
+	db                 *gorm.DB
+	bookingRepo        procurementDomain.BookingRepository
+	poRepo             procurementDomain.PurchaseOrderRepository
+	scanRepo           procurementDomain.BookingScanRepository
+	skuRepo            pmsDomain.SKURepository
+	barcodeAliasRepo   pmsDomain.BarcodeAliasRepository
+	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository
+	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
 }
 
 func NewScanBookingItemUseCase(
@@ -71,11 +72,13 @@ func NewScanBookingItemUseCase(
 	scanRepo procurementDomain.BookingScanRepository,
 	skuRepo pmsDomain.SKURepository,
 	barcodeAliasRepo pmsDomain.BarcodeAliasRepository,
+	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 ) *ScanBookingItemUseCase {
 	return &ScanBookingItemUseCase{
 		db: db, bookingRepo: bookingRepo, poRepo: poRepo, scanRepo: scanRepo,
-		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, lineItemRepo: lineItemRepo,
+		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo,
+		lineItemRepo: lineItemRepo,
 	}
 }
 
@@ -146,22 +149,47 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 					skuID = alias.SKUID
 					effectiveQuantity = in.Quantity * alias.UnitsPerScan
 				} else if errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
-					// Same "type a SKU code" fallback pms.ResolveBarcodeUseCase
-					// already has -- Booking's scan resolution was missing it,
-					// even though the input's still called Code (not
-					// BarcodeOrSKUCode) and every scanner prompt promises it.
-					byCode, cerr := uc.skuRepo.FindByCode(ctx, in.Code)
-					if cerr == nil {
-						skuID = byCode.ID
-					} else if errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
-						liSKUID, lerr := uc.resolveViaLineItem(ctx, po.ID, in.Code)
-						if lerr != nil {
-							return lerr
+					weightSKUID, weightErr := uc.resolveWeightEmbeddedBarcode(ctx, in.Code)
+					if weightErr != nil {
+						// ErrNotWeightEmbeddedBarcode (wrong shape) and
+						// ErrSKUNotFound (right shape, but no SKU/alias
+						// registered under that scale code) both fall
+						// through to the weaker text-match fallbacks below
+						// -- same as pms.ResolveBarcodeUseCase's own
+						// ordering. Anything else (a corrupted checksum) is
+						// a mis-scan, not "keep trying".
+						if !errors.Is(weightErr, pmsDomain.ErrNotWeightEmbeddedBarcode) && !errors.Is(weightErr, pmsDomain.ErrSKUNotFound) {
+							return weightErr
 						}
-						skuID = liSKUID
-						scaleByLineItem = true
+						// Same "type a SKU code" fallback pms.ResolveBarcodeUseCase
+						// already has -- Booking's scan resolution was missing it,
+						// even though the input's still called Code (not
+						// BarcodeOrSKUCode) and every scanner prompt promises it.
+						byCode, cerr := uc.skuRepo.FindByCode(ctx, in.Code)
+						if cerr == nil {
+							if byCode.PricingMode == pmsDomain.SKUPricingModePerWeight {
+								return pmsDomain.ErrWeightRequiredForPerWeightSKU
+							}
+							skuID = byCode.ID
+						} else if errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
+							liSKUID, lerr := uc.resolveViaLineItem(ctx, po.ID, in.Code)
+							if lerr != nil {
+								return lerr
+							}
+							liSKU, ferr := uc.skuRepo.FindByID(ctx, liSKUID)
+							if ferr != nil {
+								return ferr
+							}
+							if liSKU.PricingMode == pmsDomain.SKUPricingModePerWeight {
+								return pmsDomain.ErrWeightRequiredForPerWeightSKU
+							}
+							skuID = liSKUID
+							scaleByLineItem = true
+						} else {
+							return cerr
+						}
 					} else {
-						return cerr
+						skuID = weightSKUID
 					}
 				} else {
 					return aerr
@@ -202,6 +230,35 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 	}
 
 	return &ScanBookingItemResult{Scan: scan}, nil
+}
+
+// resolveWeightEmbeddedBarcode tries code as a GS1 "prefix 2x"
+// variable-weight EAN-13 barcode (butcher/deli scale label) -- the
+// primary SKU.ScaleCode first, then a ScaleCodeAlias for a tenant with
+// more than one physical scale. Returns ErrNotWeightEmbeddedBarcode
+// unchanged when code isn't shaped like one at all (the caller's signal
+// to keep trying the SKU-code/line-item fallbacks), or
+// ErrInvalidCheckDigit for a mis-scan (right shape, bad checksum).
+func (uc *ScanBookingItemUseCase) resolveWeightEmbeddedBarcode(ctx context.Context, code string) (string, error) {
+	decoded, err := pmsDomain.DecodeWeightEmbeddedBarcode(code)
+	if err != nil {
+		return "", err
+	}
+	sku, err := uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+	if err == nil {
+		return sku.ID, nil
+	}
+	if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+		return "", err
+	}
+	alias, aerr := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
+	if aerr != nil {
+		if errors.Is(aerr, pmsDomain.ErrScaleCodeAliasNotFound) {
+			return "", pmsDomain.ErrSKUNotFound
+		}
+		return "", aerr
+	}
+	return alias.SKUID, nil
 }
 
 // resolveViaLineItem is the last-resort fallback: when code doesn't match

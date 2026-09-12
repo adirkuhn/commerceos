@@ -259,12 +259,13 @@ func (s *stubSalesOrderLineItemStockMovementRepo) ListByLineItem(_ context.Conte
 // from the requested ID (sku-1 -> SKU-1/BARCODE-1) so tests that don't care
 // about the exact snapshotted values don't need to configure it.
 type stubSKURepo struct {
-	byID       map[string]*pmsDomain.SKU
-	byCode     map[string]*pmsDomain.SKU
-	byBarcode  map[string]*pmsDomain.SKU
-	findErr    error
-	codeErr    error
-	barcodeErr error
+	byID        map[string]*pmsDomain.SKU
+	byCode      map[string]*pmsDomain.SKU
+	byBarcode   map[string]*pmsDomain.SKU
+	byScaleCode map[string]*pmsDomain.SKU
+	findErr     error
+	codeErr     error
+	barcodeErr  error
 }
 
 func (s *stubSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU, error) {
@@ -276,7 +277,10 @@ func (s *stubSKURepo) FindByCode(_ context.Context, code string) (*pmsDomain.SKU
 	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
-func (s *stubSKURepo) FindByScaleCode(_ context.Context, _ string) (*pmsDomain.SKU, error) {
+func (s *stubSKURepo) FindByScaleCode(_ context.Context, scaleCode string) (*pmsDomain.SKU, error) {
+	if sku, ok := s.byScaleCode[scaleCode]; ok {
+		return sku, nil
+	}
 	return nil, pmsDomain.ErrSKUNotFound
 }
 func (s *stubSKURepo) FindByBarcode(_ context.Context, barcode string) (*pmsDomain.SKU, error) {
@@ -312,6 +316,21 @@ func (s *stubBarcodeAliasRepo) FindByCode(_ context.Context, code string) (*pmsD
 		return a, nil
 	}
 	return nil, pmsDomain.ErrBarcodeAliasNotFound
+}
+
+type stubScaleCodeAliasRepo struct {
+	byCode  map[string]*pmsDomain.ScaleCodeAlias
+	findErr error
+}
+
+func (s *stubScaleCodeAliasRepo) FindByCode(_ context.Context, code string) (*pmsDomain.ScaleCodeAlias, error) {
+	if s.findErr != nil {
+		return nil, s.findErr
+	}
+	if a, ok := s.byCode[code]; ok {
+		return a, nil
+	}
+	return nil, pmsDomain.ErrScaleCodeAliasNotFound
 }
 
 type stubVariantRepoForPicking struct {

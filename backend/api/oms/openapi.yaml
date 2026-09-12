@@ -1163,6 +1163,15 @@ components:
       properties:
         sku_id: { type: string }
         product_name: { type: string }
+        weight_grams:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Non-null only when the scanned code was a weight-embedded
+            (butcher/deli scale) barcode -- the actual weight of the
+            specific package scanned. The scanner app should prefill the
+            pick quantity from this (in kg) rather than defaulting to 1.
 
     ResolvePickScanCodeResultResponse:
       type: object

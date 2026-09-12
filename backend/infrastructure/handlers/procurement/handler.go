@@ -306,6 +306,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 	bookingRepo := repositories.NewBookingRepo(db)
 	bookingScanRepo := repositories.NewBookingScanRepo(db)
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
+	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	batchRepo := repositories.NewBatchRepo(db)
 	movementRepo := repositories.NewStockMovementRepo(db)
 	discardRepo := repositories.NewDiscardRecordRepo(db)
@@ -344,8 +345,8 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewCompleteReceivingUseCase(db, receivingRecordRepo),
 		appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo),
 		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
-		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, lineItemRepo),
-		appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, barcodeAliasRepo, lineItemRepo, variantRepo, productRepo),
+		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, lineItemRepo),
+		appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, lineItemRepo, variantRepo, productRepo),
 		appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, bookingScanRepo),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo),
 		appprocurement.NewCompleteBookingUseCase(
@@ -815,7 +816,7 @@ func (h *Handler) ResolveBookingScanCode(c *gin.Context, id genprocurement.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := genprocurement.ResolveBookingScanCodeResult{SkuId: result.SKUID, ProductName: result.ProductName, UnitsPerScan: result.UnitsPerScan}
+	resp := genprocurement.ResolveBookingScanCodeResult{SkuId: result.SKUID, ProductName: result.ProductName, UnitsPerScan: result.UnitsPerScan, WeightGrams: result.WeightGrams}
 	c.JSON(http.StatusOK, genprocurement.ResolveBookingScanCodeResultResponse{Data: &resp})
 }
 
@@ -993,7 +994,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, procurementDomain.ErrInvalidDamagedQuantity),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, pmsDomain.ErrBarcodeAliasNotFound),
-		errors.Is(err, pmsDomain.ErrDuplicateSlug), errors.Is(err, pmsDomain.ErrDuplicateSKUCode):
+		errors.Is(err, pmsDomain.ErrDuplicateSlug), errors.Is(err, pmsDomain.ErrDuplicateSKUCode),
+		errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU), errors.Is(err, pmsDomain.ErrInvalidCheckDigit):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	default:
 		log.Printf("procurement: unhandled error: %v", err)

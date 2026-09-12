@@ -252,7 +252,14 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   // fall through to the freebie/new-item flow. A resolve miss still falls
   // back to a partial name/code/barcode search (same as Booking); only once
   // that search also comes up empty does it become a blocking error too.
-  async function routeResolvedSku(skuId: string) {
+  // weightGrams is set only when the scanned code was a weight-embedded
+  // (butcher/deli scale) barcode -- see ResolvePickScanCodeUseCase. The
+  // pick quantity becomes the scanned package's actual weight (in kg)
+  // instead of a flat 1 unit; a per_weight SKU can only ever reach this
+  // function via that path (ScanPickItemUseCase rejects any other
+  // resolution for one), so weightGrams is never nil here for one.
+  async function routeResolvedSku(skuId: string, weightGrams?: number | null) {
+    const quantity = weightGrams != null ? weightGrams / 1000 : 1
     const li = detail?.line_items.find(l => l.sku_id === skuId)
     if (li) {
       const pickedSoFar = pickedQuantityByLineItem(detail?.scans ?? []).get(li.id) ?? 0
@@ -261,7 +268,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
         setScanErrorAlert('Already fully picked')
         return
       }
-      await stage({ line_item_id: li.id, sku_id: skuId, action_type: 'pick', quantity: 1 })
+      await stage({ line_item_id: li.id, sku_id: skuId, action_type: 'pick', quantity })
       return
     }
     // No line item already carries this sku_id -- still worth trying the
@@ -269,7 +276,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     // lines (product name matches the scanned item) rather than this
     // always being a genuine "wrong order" scan (see
     // ScanPickItemUseCase.autoLinkUnmatchedLine).
-    const ok = await stage({ sku_id: skuId, action_type: 'pick', quantity: 1 })
+    const ok = await stage({ sku_id: skuId, action_type: 'pick', quantity })
     if (!ok) {
       setError('')
       playErrorSound()
@@ -284,7 +291,7 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
     try {
       const resolved = await api.resolvePickScanCode(token, sessionId, scannedCode)
       setCode('')
-      routeResolvedSku(resolved.sku_id)
+      routeResolvedSku(resolved.sku_id, resolved.weight_grams)
     } catch (err) {
       if (isAuthError(err)) return onAuthError()
       try {
@@ -306,6 +313,15 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError }: 
   }
 
   function handleCandidateSelect(c: SKUCandidate) {
+    // A name/code text match carries no real weight -- same rule
+    // ScanPickItemUseCase enforces server-side for a barcode/SKU-code
+    // scan, applied here too so this fuzzy-search fallback can't bypass it.
+    if (c.sku.pricing_mode === 'per_weight') {
+      setCandidates([])
+      playErrorSound()
+      setScanErrorAlert('Priced by weight — scan its scale barcode, not a name/code match')
+      return
+    }
     setCandidates([])
     setCode('')
     routeResolvedSku(c.sku.id)

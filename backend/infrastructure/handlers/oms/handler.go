@@ -157,6 +157,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	pickingSessionRepo := repositories.NewPickingSessionRepo(db)
 	pickScanRepo := repositories.NewPickScanRepo(db)
 	barcodeAliasRepo := repositories.NewBarcodeAliasRepo(db)
+	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
 	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo)
@@ -178,10 +179,10 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		addLineItem,
 		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
-		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
+		appoms.NewScanPickItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, salesOrderRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		appoms.NewSubstituteLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo),
 		appoms.NewRefundLineItemUseCase(db, pickingSessionRepo, pickScanRepo, lineItemRepo, permissionRepo),
-		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, variantRepo, productRepo),
+		appoms.NewResolvePickScanCodeUseCase(db, pickingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		appoms.NewDeletePickScanUseCase(db, pickingSessionRepo, pickScanRepo),
 		appoms.NewPausePickingUseCase(db, pickingSessionRepo),
 		// allocateStock/recordMovement's roles swap here vs. their names --
@@ -531,7 +532,7 @@ func (h *Handler) ResolvePickScanCode(c *gin.Context, id genoms.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := genoms.ResolvePickScanCodeResult{SkuId: result.SKUID, ProductName: result.ProductName}
+	resp := genoms.ResolvePickScanCodeResult{SkuId: result.SKUID, ProductName: result.ProductName, WeightGrams: result.WeightGrams}
 	c.JSON(http.StatusOK, genoms.ResolvePickScanCodeResultResponse{Data: &resp})
 }
 
@@ -730,7 +731,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, omsDomain.ErrBulkUpdateNoFieldsGiven), errors.Is(err, omsDomain.ErrSubstituteViaBatchEndpointOnly),
 		errors.Is(err, omsDomain.ErrSubstituteLinesRequired), errors.Is(err, omsDomain.ErrInvalidSubstituteQuantity),
 		errors.Is(err, omsDomain.ErrSubstitutionCoverageMismatch), errors.Is(err, omsDomain.ErrInvalidRefundQuantity),
-		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU):
+		errors.Is(err, omsDomain.ErrRefundRequiresLinkedSKU), errors.Is(err, pmsDomain.ErrWeightRequiredForPerWeightSKU),
+		errors.Is(err, pmsDomain.ErrInvalidCheckDigit):
 		middleware.Fail(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
 	case errors.Is(err, omsDomain.ErrPermissionDenied):
 		middleware.Fail(c, http.StatusForbidden, "FORBIDDEN", err.Error())

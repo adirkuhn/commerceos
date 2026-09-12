@@ -22,9 +22,13 @@ type skuResolverRepo interface {
 	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
 	FindByCode(ctx context.Context, code string) (*pmsDomain.SKU, error)
 	FindByBarcode(ctx context.Context, barcode string) (*pmsDomain.SKU, error)
+	FindByScaleCode(ctx context.Context, scaleCode string) (*pmsDomain.SKU, error)
 }
 type barcodeAliasFinder interface {
 	FindByCode(ctx context.Context, code string) (*pmsDomain.BarcodeAlias, error)
+}
+type scaleCodeAliasFinder interface {
+	FindByCode(ctx context.Context, code string) (*pmsDomain.ScaleCodeAlias, error)
 }
 
 type ScanPickItemInput struct {
@@ -71,15 +75,16 @@ type ScanPickItemResult struct {
 // CompletePickingUseCase replays every staged row when the session
 // finishes.
 type ScanPickItemUseCase struct {
-	db               *gorm.DB
-	sessionRepo      omsDomain.PickingSessionRepository
-	scanRepo         omsDomain.PickScanRepository
-	lineItemRepo     omsDomain.SalesOrderLineItemRepository
-	salesOrderRepo   omsDomain.SalesOrderRepository
-	skuRepo          skuResolverRepo
-	barcodeAliasRepo barcodeAliasFinder
-	variantRepo      variantFinderForPickScanResolve
-	productRepo      productFinderForPickScanResolve
+	db                 *gorm.DB
+	sessionRepo        omsDomain.PickingSessionRepository
+	scanRepo           omsDomain.PickScanRepository
+	lineItemRepo       omsDomain.SalesOrderLineItemRepository
+	salesOrderRepo     omsDomain.SalesOrderRepository
+	skuRepo            skuResolverRepo
+	barcodeAliasRepo   barcodeAliasFinder
+	scaleCodeAliasRepo scaleCodeAliasFinder
+	variantRepo        variantFinderForPickScanResolve
+	productRepo        productFinderForPickScanResolve
 }
 
 func NewScanPickItemUseCase(
@@ -90,12 +95,14 @@ func NewScanPickItemUseCase(
 	salesOrderRepo omsDomain.SalesOrderRepository,
 	skuRepo skuResolverRepo,
 	barcodeAliasRepo barcodeAliasFinder,
+	scaleCodeAliasRepo scaleCodeAliasFinder,
 	variantRepo variantFinderForPickScanResolve,
 	productRepo productFinderForPickScanResolve,
 ) *ScanPickItemUseCase {
 	return &ScanPickItemUseCase{
 		db: db, sessionRepo: sessionRepo, scanRepo: scanRepo, lineItemRepo: lineItemRepo, salesOrderRepo: salesOrderRepo,
-		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, variantRepo: variantRepo, productRepo: productRepo,
+		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo,
+		variantRepo: variantRepo, productRepo: productRepo,
 	}
 }
 
@@ -136,7 +143,7 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 
 		skuID := in.SKUID
 		if skuID == "" {
-			skuID, err = uc.resolveCode(ctx, session.SalesOrderID, in.Code)
+			skuID, _, err = uc.resolveCode(ctx, session.SalesOrderID, in.Code)
 			if err != nil {
 				return err
 			}
@@ -175,39 +182,78 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 	return &ScanPickItemResult{Scan: scan}, nil
 }
 
-// resolveCode runs the barcode -> alias -> SKU code -> order's own line
-// items fallback chain -- same shape as ScanBookingItemUseCase's inline
-// resolution, factored into a method here only because ScanPickItemUseCase
-// has more than one action type to apply it before (kept private to this
-// use case, NOT shared with ResolvePickScanCodeUseCase -- see that type's
-// doc comment for why the algorithm itself is deliberately duplicated,
-// not composed, across the two).
-func (uc *ScanPickItemUseCase) resolveCode(ctx context.Context, salesOrderID, code string) (string, error) {
+// resolveCode runs the barcode -> alias -> weight-embedded barcode ->
+// SKU code -> order's own line items fallback chain -- same shape as
+// ScanBookingItemUseCase's inline resolution, factored into a method here
+// only because ScanPickItemUseCase has more than one action type to apply
+// it before (kept private to this use case, NOT shared with
+// ResolvePickScanCodeUseCase -- see that type's doc comment for why the
+// algorithm itself is deliberately duplicated, not composed, across the
+// two).
+//
+// The weight-embedded step is tried before SKU-code/line-item so a
+// per_weight SKU (see ErrWeightRequiredForPerWeightSKU below) gets every
+// chance to resolve via its actual weight first. weightGrams is non-nil
+// only when resolved that way.
+func (uc *ScanPickItemUseCase) resolveCode(ctx context.Context, salesOrderID, code string) (string, *int64, error) {
 	sku, err := uc.skuRepo.FindByBarcode(ctx, code)
 	if err == nil {
-		return sku.ID, nil
+		return sku.ID, nil, nil
 	}
 	if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
-		return "", err
+		return "", nil, err
 	}
 
 	alias, aerr := uc.barcodeAliasRepo.FindByCode(ctx, code)
 	if aerr == nil {
-		return alias.SKUID, nil
+		return alias.SKUID, nil, nil
 	}
 	if !errors.Is(aerr, pmsDomain.ErrBarcodeAliasNotFound) {
-		return "", aerr
+		return "", nil, aerr
+	}
+
+	if decoded, derr := pmsDomain.DecodeWeightEmbeddedBarcode(code); derr == nil {
+		sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+		if err == nil {
+			return sku.ID, &decoded.WeightGrams, nil
+		}
+		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+			return "", nil, err
+		}
+		scaleAlias, saerr := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
+		if saerr == nil {
+			return scaleAlias.SKUID, &decoded.WeightGrams, nil
+		}
+		if !errors.Is(saerr, pmsDomain.ErrScaleCodeAliasNotFound) {
+			return "", nil, saerr
+		}
+	} else if !errors.Is(derr, pmsDomain.ErrNotWeightEmbeddedBarcode) {
+		return "", nil, derr // right shape, bad checksum -- a mis-scan, not "not found"
 	}
 
 	byCode, cerr := uc.skuRepo.FindByCode(ctx, code)
 	if cerr == nil {
-		return byCode.ID, nil
+		if byCode.PricingMode == pmsDomain.SKUPricingModePerWeight {
+			return "", nil, pmsDomain.ErrWeightRequiredForPerWeightSKU
+		}
+		return byCode.ID, nil, nil
 	}
 	if !errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
-		return "", cerr
+		return "", nil, cerr
 	}
 
-	return uc.resolveViaLineItem(ctx, salesOrderID, code)
+	liSKUID, lerr := uc.resolveViaLineItem(ctx, salesOrderID, code)
+	if lerr != nil {
+		return "", nil, lerr
+	}
+	liSKU, err := uc.skuRepo.FindByID(ctx, liSKUID)
+	if err != nil {
+		return "", nil, err
+	}
+	if liSKU.PricingMode == pmsDomain.SKUPricingModePerWeight {
+		return "", nil, pmsDomain.ErrWeightRequiredForPerWeightSKU
+	}
+	return liSKUID, nil, nil
 }
 
 // resolveViaLineItem is the last-resort fallback: when code doesn't match

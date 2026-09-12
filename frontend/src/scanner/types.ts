@@ -112,6 +112,11 @@ export interface ResolveBookingScanCodeResult {
   // since the eventual book-it call sends sku_id (not code) and so skips
   // the backend's own alias-multiplier step.
   units_per_scan: number
+  // Non-null only when the scanned code was a weight-embedded (butcher/
+  // deli scale) barcode -- the actual weight of the specific package
+  // scanned. Prefill the received quantity from this (in kg) rather than
+  // units_per_scan.
+  weight_grams?: number | null
 }
 
 export interface MissingBookingItem {
@@ -281,6 +286,10 @@ export interface RefundLineItemResult {
 export interface ResolvePickScanCodeResult {
   sku_id: string
   product_name: string
+  // Non-null only when the scanned code was a weight-embedded (butcher/
+  // deli scale) barcode -- the actual weight of the specific package
+  // scanned. Prefill the pick quantity from this (in kg) instead of 1.
+  weight_grams?: number | null
 }
 
 export interface MissingPickItem {

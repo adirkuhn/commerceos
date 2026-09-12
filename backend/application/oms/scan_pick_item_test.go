@@ -17,7 +17,7 @@ func TestScanPickItem_picksBySKUIDAndMatchesLineItem(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	scanRepo := &stubPickScanRepo{}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
 		SessionID: "session-1", SKUID: "sku-1", Quantity: 3, ScannedBy: "user-1",
@@ -35,7 +35,7 @@ func TestScanPickItem_pickRejectsSKUNotOnOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-other")}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1})
 
@@ -47,7 +47,7 @@ func TestScanPickItem_resolvesByBarcodeThenAliasThenCodeThenLineItem(t *testing.
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
 	skuRepo := &stubSKURepo{byBarcode: map[string]*pmsDomain.SKU{"BAR-1": {ID: "sku-1"}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "BAR-1", Quantity: 1})
 
@@ -60,7 +60,7 @@ func TestScanPickItem_resolvesViaBarcodeAlias(t *testing.T) {
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
 	aliasRepo := &stubBarcodeAliasRepo{byCode: map[string]*pmsDomain.BarcodeAlias{"CASE-1": {SKUID: "sku-1", UnitsPerScan: 12}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, aliasRepo, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, aliasRepo, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "CASE-1", Quantity: 1})
 
@@ -68,11 +68,75 @@ func TestScanPickItem_resolvesViaBarcodeAlias(t *testing.T) {
 	assert.Equal(t, "sku-1", result.Scan.SKUID)
 }
 
+func TestScanPickItem_resolvesWeightEmbeddedBarcodeViaPrimaryScaleCode(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
+	skuRepo := &stubSKURepo{byScaleCode: map[string]*pmsDomain.SKU{"94721": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	// Real dry-meat label: scale code 94721, weight 462g.
+	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "2994721004622", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.Scan.SKUID)
+}
+
+func TestScanPickItem_resolvesViaScaleCodeAliasForASecondScale(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
+	scaleAliasRepo := &stubScaleCodeAliasRepo{byCode: map[string]*pmsDomain.ScaleCodeAlias{"94722": {SKUID: "sku-1"}}}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, scaleAliasRepo, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	// Same dry meat, but this package was weighed on the tenant's second
+	// scale (code 94722, its SKU's primary is 94721). Weight 462g.
+	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "2994722004621", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.Scan.SKUID)
+}
+
+func TestScanPickItem_rejectsSKUCodeMatchForAPerWeightSKU(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
+	skuRepo := &stubSKURepo{byCode: map[string]*pmsDomain.SKU{"DRYMEAT-1": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "DRYMEAT-1", Quantity: 1})
+
+	assert.ErrorIs(t, err, pmsDomain.ErrWeightRequiredForPerWeightSKU)
+}
+
+func TestScanPickItem_rejectsLineItemTextMatchForAPerWeightSKU(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), SKUCode: "UNMATCHED-CODE"}}}
+	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "UNMATCHED-CODE", Quantity: 1})
+
+	assert.ErrorIs(t, err, pmsDomain.ErrWeightRequiredForPerWeightSKU)
+}
+
+func TestScanPickItem_rejectsCorruptedWeightEmbeddedCheckDigit(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "2900633003339", Quantity: 1})
+
+	assert.ErrorIs(t, err, pmsDomain.ErrInvalidCheckDigit)
+}
+
 func TestScanPickItem_resolvesViaOrdersOwnLineItemSKUCode(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1"), SKUCode: "UNMATCHED-CODE"}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "UNMATCHED-CODE", Quantity: 1})
 
@@ -98,7 +162,7 @@ func TestScanPickItem_autoLinksAnUnmatchedLineItemWhenProductNameMatches(t *test
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", VariantID: "variant-1"}}}
 	variantRepo := &stubVariantRepoForPicking{byID: map[string]*pmsDomain.Variant{"variant-1": {ID: "variant-1", ProductID: "product-1"}}}
 	productRepo := &stubProductRepoForPicking{byID: map[string]*pmsDomain.Product{"product-1": {ID: "product-1", Name: "Carne Seca ~414g"}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, salesOrderRepo, skuRepo, &stubBarcodeAliasRepo{}, variantRepo, productRepo)
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, scanRepo, lineItemRepo, salesOrderRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1})
 
@@ -124,7 +188,7 @@ func TestScanPickItem_autoLinkNormalizesNameComparison(t *testing.T) {
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", VariantID: "variant-1"}}}
 	variantRepo := &stubVariantRepoForPicking{byID: map[string]*pmsDomain.Variant{"variant-1": {ID: "variant-1", ProductID: "product-1"}}}
 	productRepo := &stubProductRepoForPicking{byID: map[string]*pmsDomain.Product{"product-1": {ID: "product-1", Name: "Carne Seca ~414g"}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, variantRepo, productRepo)
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, variantRepo, productRepo)
 
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1})
 
@@ -145,7 +209,7 @@ func TestScanPickItem_autoLinkAmbiguousWhenMultipleUnlinkedLinesMatch(t *testing
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", VariantID: "variant-1"}}}
 	variantRepo := &stubVariantRepoForPicking{byID: map[string]*pmsDomain.Variant{"variant-1": {ID: "variant-1", ProductID: "product-1"}}}
 	productRepo := &stubProductRepoForPicking{byID: map[string]*pmsDomain.Product{"product-1": {ID: "product-1", Name: "Carne Seca ~414g"}}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, variantRepo, productRepo)
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, variantRepo, productRepo)
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1})
 
@@ -156,7 +220,7 @@ func TestScanPickItem_autoLinkAmbiguousWhenMultipleUnlinkedLinesMatch(t *testing
 // see ErrSubstituteViaBatchEndpointOnly's doc.
 func TestScanPickItem_rejectsSubstituteActionType(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-2", ActionType: omsDomain.PickScanActionSubstitute, Quantity: 1})
 
@@ -166,7 +230,7 @@ func TestScanPickItem_rejectsSubstituteActionType(t *testing.T) {
 func TestScanPickItem_freebieForcesZeroPriceRegardlessOfInput(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	price := int64(5000)
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
@@ -181,7 +245,7 @@ func TestScanPickItem_freebieForcesZeroPriceRegardlessOfInput(t *testing.T) {
 
 func TestScanPickItem_newItemRequiresPrice(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", ActionType: omsDomain.PickScanActionNewItem, Quantity: 1})
 
@@ -191,7 +255,7 @@ func TestScanPickItem_newItemRequiresPrice(t *testing.T) {
 func TestScanPickItem_newItemUsesGivenPrice(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	price := int64(1250)
 	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{
@@ -206,7 +270,7 @@ func TestScanPickItem_newItemUsesGivenPrice(t *testing.T) {
 
 func TestScanPickItem_rejectsInvalidActionType(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", ActionType: "bogus", Quantity: 1})
 
@@ -215,7 +279,7 @@ func TestScanPickItem_rejectsInvalidActionType(t *testing.T) {
 
 func TestScanPickItem_rejectsNonPositiveQuantity(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 0})
 
@@ -224,7 +288,7 @@ func TestScanPickItem_rejectsNonPositiveQuantity(t *testing.T) {
 
 func TestScanPickItem_rejectsMissingCodeAndSKUID(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, &stubPickingSessionRepo{}, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Quantity: 1})
 
@@ -234,7 +298,7 @@ func TestScanPickItem_rejectsMissingCodeAndSKUID(t *testing.T) {
 func TestScanPickItem_rejectsWhenSessionNotActive(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", Status: omsDomain.PickingSessionStatusPaused}}
-	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	_, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", SKUID: "sku-1", Quantity: 1})
 
