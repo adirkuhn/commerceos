@@ -50,7 +50,7 @@ func TestResolveBookingScanCode_resolvesCaseBarcodeAliasWithMultiplier(t *testin
 func TestResolveBookingScanCode_resolvesWeightEmbeddedBarcodeAndReturnsWeightGrams(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo, variantRepo, productRepo := resolveBookingScanCodeFixtures()
-	skuRepo := &stubSKURepo{byScaleCode: map[string]*pmsDomain.SKU{"94721": {ID: "sku-1", VariantID: "variant-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
+	skuRepo := &stubSKURepo{byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-1", VariantID: "variant-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
 	uc := appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, variantRepo, productRepo)
 
 	// Real dry-meat label: scale code 94721, weight 462g.
@@ -65,7 +65,7 @@ func TestResolveBookingScanCode_resolvesWeightEmbeddedBarcodeAndReturnsWeightGra
 func TestResolveBookingScanCode_resolvesViaScaleCodeAliasForASecondScale(t *testing.T) {
 	db := newMockGormDB(t)
 	bookingRepo, poRepo, variantRepo, productRepo := resolveBookingScanCodeFixtures()
-	scaleAliasRepo := &stubScaleCodeAliasRepo{byCode: map[string]*pmsDomain.ScaleCodeAlias{"94722": {SKUID: "sku-1"}}}
+	scaleAliasRepo := &stubScaleCodeAliasRepo{byCode: map[string]*pmsDomain.ScaleCodeAlias{"2994722": {SKUID: "sku-1"}}}
 	skuRepo := &stubSKURepo{findByIDs: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", VariantID: "variant-1"}}}
 	uc := appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, &stubBarcodeAliasRepo{}, scaleAliasRepo, &stubLineItemRepo{}, variantRepo, productRepo)
 

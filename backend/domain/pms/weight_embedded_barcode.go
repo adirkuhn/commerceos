@@ -16,9 +16,11 @@ var ErrNotWeightEmbeddedBarcode = errors.New("not a weight-embedded barcode")
 var ErrInvalidCheckDigit = errors.New("invalid EAN-13 check digit")
 
 // DecodedWeightEmbeddedBarcode is what a GS1 "prefix 2x" variable-weight
-// EAN-13 barcode encodes: a 5-digit scale code (see SKU.ScaleCode) the
-// tenant programs into their scale per product, and the actual weight of
-// the specific package that was printed and scanned.
+// EAN-13 barcode encodes: a 7-digit scale code (see SKU.ScaleCode) --
+// the 2-digit GS1 prefix plus the 5-digit code the tenant programs into
+// their scale per product, stored and matched together exactly as printed
+// on the scale's own config screen -- and the actual weight of the
+// specific package that was printed and scanned.
 type DecodedWeightEmbeddedBarcode struct {
 	ScaleCode   string
 	WeightGrams int64
@@ -31,7 +33,8 @@ type DecodedWeightEmbeddedBarcode struct {
 // barcode format printed by butcher/deli scales -- every package of the
 // same product gets a different full barcode (the weight varies), so it
 // can never be matched by SKU.Barcode/BarcodeAlias exact lookup; callers
-// resolve the extracted ScaleCode against SKURepository.FindByScaleCode
+// resolve the extracted ScaleCode (prefix + scale code, 7 digits -- see
+// DecodedWeightEmbeddedBarcode) against SKURepository.FindByScaleCode
 // instead. Returns ErrNotWeightEmbeddedBarcode when the code doesn't have
 // this shape at all (falls through to normal lookup), or
 // ErrInvalidCheckDigit when the shape matches but the checksum doesn't
@@ -55,7 +58,7 @@ func DecodeWeightEmbeddedBarcode(code string) (*DecodedWeightEmbeddedBarcode, er
 	}
 	weightGrams, _ := strconv.ParseInt(code[7:12], 10, 64)
 	return &DecodedWeightEmbeddedBarcode{
-		ScaleCode:   code[2:7],
+		ScaleCode:   code[0:7],
 		WeightGrams: weightGrams,
 	}, nil
 }

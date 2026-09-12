@@ -72,7 +72,7 @@ func TestScanPickItem_resolvesWeightEmbeddedBarcodeViaPrimaryScaleCode(t *testin
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
-	skuRepo := &stubSKURepo{byScaleCode: map[string]*pmsDomain.SKU{"94721": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
+	skuRepo := &stubSKURepo{byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}}}
 	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	// Real dry-meat label: scale code 94721, weight 462g.
@@ -86,7 +86,7 @@ func TestScanPickItem_resolvesViaScaleCodeAliasForASecondScale(t *testing.T) {
 	db := newMockGormDB(t)
 	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
-	scaleAliasRepo := &stubScaleCodeAliasRepo{byCode: map[string]*pmsDomain.ScaleCodeAlias{"94722": {SKUID: "sku-1"}}}
+	scaleAliasRepo := &stubScaleCodeAliasRepo{byCode: map[string]*pmsDomain.ScaleCodeAlias{"2994722": {SKUID: "sku-1"}}}
 	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, &stubSKURepo{}, &stubBarcodeAliasRepo{}, scaleAliasRepo, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
 
 	// Same dry meat, but this package was weighed on the tenant's second

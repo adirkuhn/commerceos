@@ -904,7 +904,7 @@ describe('weight-embedded barcode pricing (scale_code / pricing_mode / price_per
     expect(screen.queryByText(/Set a scale code above too/)).not.toBeInTheDocument()
   })
 
-  it('scale code field strips the scale\'s 2-digit prefix once 7 digits are entered', async () => {
+  it('scale code field keeps the full 7-digit code (prefix included), just digits-only and capped', async () => {
     const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
     vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
     vi.mocked(pmsApi.updateProduct).mockResolvedValue(detail.product)
@@ -915,17 +915,18 @@ describe('weight-embedded barcode pricing (scale_code / pricing_mode / price_per
     await waitFor(() => expect(screen.getByDisplayValue('TSHIRT-1')).toBeInTheDocument())
 
     // Real calabresa label: prefix 29, scale code 00633 -- staff read/type
-    // the full 7-digit code off the scale, not knowing which 2 digits to
-    // drop, so the field must drop them automatically.
+    // the full 7-digit code exactly as shown on the scale, and that's what
+    // gets stored -- no stripping, matching DecodeWeightEmbeddedBarcode's
+    // own [0:7] (prefix+code) extraction.
     await userEvent.type(screen.getByLabelText('Scale code'), '2900633')
-    expect(screen.getByLabelText('Scale code')).toHaveValue('00633')
+    expect(screen.getByLabelText('Scale code')).toHaveValue('2900633')
 
     await userEvent.selectOptions(screen.getByLabelText('Pricing'), 'per_weight')
     await userEvent.type(screen.getByLabelText(/Price per kilo/), '49.99')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
-      scale_code: '00633',
+      scale_code: '2900633',
     })))
   })
 

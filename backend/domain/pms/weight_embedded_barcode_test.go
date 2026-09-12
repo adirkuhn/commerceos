@@ -13,18 +13,20 @@ func TestDecodeWeightEmbeddedBarcode_RealScaleSamples(t *testing.T) {
 	// kit feijoada share a ScaleCode per product across different package
 	// weights; dry meat likewise. Each is a valid GS1 "prefix 2x"
 	// variable-weight EAN-13: prefix(2) + scale_code(5) + weight_grams(5)
-	// + standard EAN-13 check digit(1).
+	// + standard EAN-13 check digit(1). ScaleCode is prefix+scale_code (7
+	// digits) -- stored and matched exactly as read off the scale's own
+	// config screen, no stripping.
 	tests := []struct {
 		barcode   string
 		wantScale string
 		wantGrams int64
 	}{
-		{"2900633003332", "00633", 333},
-		{"2900633003288", "00633", 328},
-		{"2908885004077", "08885", 407},
-		{"2908885004053", "08885", 405},
-		{"2994721004622", "94721", 462},
-		{"2994721004943", "94721", 494},
+		{"2900633003332", "2900633", 333},
+		{"2900633003288", "2900633", 328},
+		{"2908885004077", "2908885", 407},
+		{"2908885004053", "2908885", 405},
+		{"2994721004622", "2994721", 462},
+		{"2994721004943", "2994721", 494},
 	}
 	for _, tt := range tests {
 		t.Run(tt.barcode, func(t *testing.T) {
@@ -49,11 +51,12 @@ func TestDecodeWeightEmbeddedBarcode_AcceptsWholePrefixBlock(t *testing.T) {
 	// this store happens to be assigned -- covers another scale/vendor
 	// using e.g. 23 without code changes.
 	for prefix := 20; prefix <= 29; prefix++ {
-		barcode := recomputeCheckDigit(itoaPrefix(prefix) + "0063300333")
+		prefixStr := itoaPrefix(prefix)
+		barcode := recomputeCheckDigit(prefixStr + "0063300333")
 		t.Run(barcode, func(t *testing.T) {
 			got, err := DecodeWeightEmbeddedBarcode(barcode)
 			require.NoError(t, err)
-			assert.Equal(t, "00633", got.ScaleCode)
+			assert.Equal(t, prefixStr+"00633", got.ScaleCode)
 			assert.Equal(t, int64(333), got.WeightGrams)
 		})
 	}

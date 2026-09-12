@@ -119,10 +119,12 @@ func TestResolveBarcode_trimsWhitespaceFromTheScannedCode(t *testing.T) {
 func TestResolveBarcode_resolvesWeightEmbeddedBarcodeFixedPricing(t *testing.T) {
 	// Real calabresa label: prefix 29, scale code 00633, weight 333g,
 	// valid check digit -- fixed pricing means every package sells for
-	// PriceMinorUnits regardless of the scanned weight.
+	// PriceMinorUnits regardless of the scanned weight. ScaleCode is
+	// stored/matched as the full 7-digit prefix+code (2900633), exactly as
+	// read off the scale's own config screen -- no stripping.
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{findByScaleCodeResult: &pmsDomain.SKU{
-		ID: "sku-1", VariantID: "variant-1", ScaleCode: strPtr("00633"),
+		ID: "sku-1", VariantID: "variant-1", ScaleCode: strPtr("2900633"),
 		PricingMode: pmsDomain.SKUPricingModeFixed, PriceMinorUnits: 1999,
 	}}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
@@ -134,7 +136,7 @@ func TestResolveBarcode_resolvesWeightEmbeddedBarcodeFixedPricing(t *testing.T) 
 
 	require.NoError(t, err)
 	assert.Equal(t, "sku-1", result.SKU.ID)
-	assert.Equal(t, "00633", skuRepo.gotScaleCode)
+	assert.Equal(t, "2900633", skuRepo.gotScaleCode)
 	require.NotNil(t, result.WeightGrams)
 	assert.Equal(t, int64(333), *result.WeightGrams)
 	require.NotNil(t, result.LineTotalMinorUnits)
@@ -148,7 +150,7 @@ func TestResolveBarcode_resolvesWeightEmbeddedBarcodePerWeightPricing(t *testing
 	// 4999 * 462 / 1000 = 2309.538 -> 2310.
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{findByScaleCodeResult: &pmsDomain.SKU{
-		ID: "sku-2", VariantID: "variant-2", ScaleCode: strPtr("94721"),
+		ID: "sku-2", VariantID: "variant-2", ScaleCode: strPtr("2994721"),
 		PricingMode: pmsDomain.SKUPricingModePerWeight, PricePerKiloMinorUnits: int64Ptr(4999),
 		PriceMinorUnits: 0,
 	}}
@@ -173,12 +175,12 @@ func TestResolveBarcode_fallsBackToScaleCodeAliasForASecondScale(t *testing.T) {
 	// same SKU/pricing.
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{
-		ID: "sku-2", VariantID: "variant-2", ScaleCode: strPtr("94721"),
+		ID: "sku-2", VariantID: "variant-2", ScaleCode: strPtr("2994721"),
 		PricingMode: pmsDomain.SKUPricingModePerWeight, PricePerKiloMinorUnits: int64Ptr(4999),
 	}}
 	aliasRepo := &stubBarcodeAliasRepoForResolve{}
 	scaleAliasRepo := &stubScaleCodeAliasRepoForResolve{byCode: map[string]*pmsDomain.ScaleCodeAlias{
-		"94722": {ID: "scalealias-1", SKUID: "sku-2", Code: "94722"},
+		"2994722": {ID: "scalealias-1", SKUID: "sku-2", Code: "2994722"},
 	}}
 	variantRepo := &stubVariantRepo{findResult: &pmsDomain.Variant{ID: "variant-2", ProductID: "product-2"}}
 	productRepo := &stubProductRepo{product: &pmsDomain.Product{ID: "product-2", Name: "Dry Meat"}}
