@@ -301,6 +301,65 @@ func TestProductRepo_Integration_SearchMatchesSKUCodeAndBarcode(t *testing.T) {
 	require.Empty(t, noMatch)
 }
 
+// TestProductRepo_Integration_SearchMatchesScaleCodeAndItsAliases proves a
+// weight-embedded-barcode SKU (see domain/pms.SKU.ScaleCode) is findable
+// by its scale code the same way a normal SKU is findable by barcode --
+// this SKU has no plain Barcode at all (scanning it produces a different
+// full barcode per package), so ScaleCode/ScaleCodeAlias were the only
+// codes that could ever locate it, and applyProductFilter's search
+// originally only checked sku_code/barcode.
+func TestProductRepo_Integration_SearchMatchesScaleCodeAndItsAliases(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	productRepo := repositories.NewProductRepo(db)
+	variantRepo := repositories.NewVariantRepo(db)
+	skuRepo := repositories.NewSKURepo(db)
+	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
+
+	var skuID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		p := &pmsDomain.Product{
+			TenantID: tenant.IDFromContext(ctx), Name: "Calabresa", Slug: "calabresa-search",
+			Status: pmsDomain.ProductStatusActive, HasVariants: true, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := productRepo.Create(ctx, p); err != nil {
+			return err
+		}
+		v := &pmsDomain.Variant{TenantID: tenant.IDFromContext(ctx), ProductID: p.ID, Name: "Default", CreatedAt: now, UpdatedAt: now}
+		if err := variantRepo.Create(ctx, v); err != nil {
+			return err
+		}
+		scaleCode := "2900633"
+		sku := &pmsDomain.SKU{
+			TenantID: tenant.IDFromContext(ctx), VariantID: v.ID, SKUCode: "CALABRESA-300G",
+			ScaleCode: &scaleCode, PricingMode: pmsDomain.SKUPricingModeFixed,
+			CurrencyCode: "USD", Status: pmsDomain.SKUStatusActive, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := skuRepo.Create(ctx, sku); err != nil {
+			return err
+		}
+		skuID = sku.ID
+		return scaleCodeAliasRepo.Create(ctx, &pmsDomain.ScaleCodeAlias{
+			TenantID: tenant.IDFromContext(ctx), SKUID: skuID, Code: "2994722", CreatedAt: now, UpdatedAt: now,
+		})
+	})
+	require.NoError(t, err)
+
+	for _, query := range []string{"2900633", "2994722"} {
+		var products []pmsDomain.Product
+		err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			search := query
+			products, _, err = productRepo.List(ctx, pmsDomain.ProductFilter{Search: &search})
+			return err
+		})
+		require.NoError(t, err, "query %q", query)
+		require.Len(t, products, 1, "query %q should find the product by its scale code or scale code alias", query)
+		require.Equal(t, "Calabresa", products[0].Name, "query %q", query)
+	}
+}
+
 // TestProductRepo_Integration_SearchIsTypoTolerant proves the pg_trgm-based
 // fuzzy fallback (077_pg_trgm_extension.sql) actually works against real
 // Postgres -- a plain unit test with sqlmock can't verify the similarity()
