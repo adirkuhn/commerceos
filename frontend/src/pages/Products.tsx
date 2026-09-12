@@ -19,7 +19,7 @@ import * as pmsApi from '../pms/api'
 import * as integrationsApi from '../integrations/api'
 import * as inventoryApi from '../inventory/api'
 import type { Connection, ProductChannelListing, ProductChannelListingSyncStatus } from '../integrations/types'
-import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry, SKUCurrencyPrice } from '../pms/types'
+import type { Category, Product, ProductStatus, SKUStatus, SKUUnitType, SKUPricingMode, VariantWithSKUs, Media, SKU, SKUMarginInsight, SKUPriceHistoryEntry, SKUPriceHistoryReason, ProductHistoryEntry, SKUCurrencyPrice } from '../pms/types'
 import type { StockLevel } from '../inventory/types'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
@@ -378,6 +378,12 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
   const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
   const [portionedFromLabel, setPortionedFromLabel] = useState('')
   const [portionPickerOpen, setPortionPickerOpen] = useState(false)
+  // Weight-embedded (butcher/deli scale) barcode support (see
+  // pms.SKU.ScaleCode/PricingMode/PricePerKiloMinorUnits) -- scaleCode '' means
+  // this SKU isn't sold that way; pricingMode/pricePerKilo only matter when set.
+  const [scaleCode, setScaleCode] = useState('')
+  const [pricingMode, setPricingMode] = useState<SKUPricingMode>('fixed')
+  const [pricePerKilo, setPricePerKilo] = useState('')
   // null means "use the tenant's default tax class" (see TaxClass.is_default)
   // -- '' in the <select> represents that same choice.
   const [taxClassId, setTaxClassId] = useState<string | null>(null)
@@ -413,6 +419,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
         setUnitsPerCase(sku.units_per_case != null ? String(sku.units_per_case) : '')
         setUnitType(sku.unit_type ?? 'unit')
         setPortionedFromSKUID(sku.portioned_from_sku_id ?? null)
+        setScaleCode(sku.scale_code ?? '')
+        setPricingMode(sku.pricing_mode ?? 'fixed')
+        setPricePerKilo(sku.price_per_kilo_minor_units != null ? formatMinorUnitsAsInput(sku.price_per_kilo_minor_units) : '')
         setTaxClassId(sku.tax_class_id ?? null)
       }
     }
@@ -560,6 +569,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               units_per_case: caseOfSKUID ? parseIntOrUndefined(unitsPerCase) ?? null : null,
               unit_type: unitType,
               portioned_from_sku_id: portionedFromSKUID,
+              scale_code: scaleCode || null,
+              pricing_mode: pricingMode,
+              price_per_kilo_minor_units: pricingMode === 'per_weight' ? parseOptionalPriceToMinorUnits(pricePerKilo) : null,
               tax_class_id: taxClassId,
               status: skuStatus,
             })
@@ -573,6 +585,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
               currency_code: currency,
               is_virtual: isVirtual,
               ...dimensions,
+              scale_code: scaleCode || null,
+              pricing_mode: pricingMode,
+              price_per_kilo_minor_units: pricingMode === 'per_weight' ? parseOptionalPriceToMinorUnits(pricePerKilo) : null,
               tax_class_id: taxClassId,
               status: skuStatus,
             })
@@ -588,6 +603,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
             currency_code: currency,
             is_virtual: isVirtual,
             ...dimensions,
+            scale_code: scaleCode || null,
+            pricing_mode: pricingMode,
+            price_per_kilo_minor_units: pricingMode === 'per_weight' ? parseOptionalPriceToMinorUnits(pricePerKilo) : null,
             tax_class_id: taxClassId,
             status: skuStatus,
           })
@@ -781,6 +799,9 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   units_per_case: currentSku.units_per_case,
                   unit_type: currentSku.unit_type,
                   portioned_from_sku_id: currentSku.portioned_from_sku_id,
+                  scale_code: currentSku.scale_code,
+                  pricing_mode: currentSku.pricing_mode,
+                  price_per_kilo_minor_units: currentSku.price_per_kilo_minor_units,
                   tax_class_id: currentSku.tax_class_id,
                   status: currentSku.status,
                 })
@@ -1049,6 +1070,52 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   >
                     <Search size={12} /> This is a case of another product
                   </button>
+                )}
+              </FormCard>
+            )}
+
+            {showFlatSKU && currentSku && (
+              <FormCard
+                title="Weight-embedded barcode"
+                description="For a butcher/deli scale that prints a barcode with the package's weight baked in — every package gets a different full barcode, so scanning it is matched by this scale code instead."
+              >
+                <div>
+                  <label htmlFor="product-scale-code" className={labelClass}>Scale code</label>
+                  <input
+                    id="product-scale-code"
+                    type="text" placeholder="Not sold via a scale barcode" value={scaleCode}
+                    onChange={e => setScaleCode(e.target.value)}
+                    className={inputClass}
+                  />
+                  <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
+                    The 5-digit code programmed into the scale for this product — leave blank if it has a normal fixed barcode.
+                  </p>
+                </div>
+                {scaleCode && (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div>
+                      <label htmlFor="product-pricing-mode" className={labelClass}>Pricing</label>
+                      <select
+                        id="product-pricing-mode" value={pricingMode}
+                        onChange={e => setPricingMode(e.target.value as SKUPricingMode)}
+                        className={inputClass}
+                      >
+                        <option value="fixed">Fixed — same price per package</option>
+                        <option value="per_weight">Per kilo — price = rate × scanned weight</option>
+                      </select>
+                    </div>
+                    {pricingMode === 'per_weight' && (
+                      <div>
+                        <label htmlFor="product-price-per-kilo" className={labelClass}>Price per kilo ({currency})</label>
+                        <input
+                          id="product-price-per-kilo"
+                          type="number" step="0.01" min="0" required value={pricePerKilo}
+                          onChange={e => setPricePerKilo(e.target.value)}
+                          className={inputClass}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </FormCard>
             )}
@@ -2412,6 +2479,11 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
   const [portionedFromSKUID, setPortionedFromSKUID] = useState<string | null>(null)
   const [portionedFromLabel, setPortionedFromLabel] = useState('')
   const [portionPickerOpen, setPortionPickerOpen] = useState(false)
+  // See ProductEditPage's identical fields for the weight-embedded
+  // (butcher/deli scale) barcode -- same convention here.
+  const [scaleCode, setScaleCode] = useState('')
+  const [pricingMode, setPricingMode] = useState<SKUPricingMode>('fixed')
+  const [pricePerKilo, setPricePerKilo] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -2444,6 +2516,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         height_mm: isVirtual ? undefined : parseIntOrUndefined(heightMM),
         unit_type: unitType,
         portioned_from_sku_id: portionedFromSKUID,
+        scale_code: scaleCode || null,
+        pricing_mode: pricingMode,
+        price_per_kilo_minor_units: pricingMode === 'per_weight' ? parseOptionalPriceToMinorUnits(pricePerKilo) : null,
         status,
       })
       setAddingSKU(false)
@@ -2451,6 +2526,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
       setCurrency(tenantSettings?.default_currency || 'USD'); setStatus('active')
       setIsVirtual(false); setWeightGrams(''); setLengthMM(''); setWidthMM(''); setHeightMM('')
       setUnitType('unit'); setPortionedFromSKUID(null); setPortionedFromLabel('')
+      setScaleCode(''); setPricingMode('fixed'); setPricePerKilo('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add SKU')
     } finally {
@@ -2505,6 +2581,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         units_per_case: sku.units_per_case,
         unit_type: sku.unit_type,
         portioned_from_sku_id: sku.portioned_from_sku_id,
+        scale_code: sku.scale_code,
+        pricing_mode: sku.pricing_mode,
+        price_per_kilo_minor_units: sku.price_per_kilo_minor_units,
         status: sku.status,
       })
     } catch (err) {
@@ -2540,6 +2619,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
         units_per_case: sku.units_per_case,
         unit_type: next.unitType,
         portioned_from_sku_id: next.portionedFromSkuId,
+        scale_code: sku.scale_code,
+        pricing_mode: sku.pricing_mode,
+        price_per_kilo_minor_units: sku.price_per_kilo_minor_units,
         status: sku.status,
       })
       setExistingPortionPickerOpen(false)
@@ -2619,6 +2701,9 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           units_per_case: sku.units_per_case,
           unit_type: sku.unit_type,
           portioned_from_sku_id: sku.portioned_from_sku_id,
+          scale_code: sku.scale_code,
+          pricing_mode: sku.pricing_mode,
+          price_per_kilo_minor_units: sku.price_per_kilo_minor_units,
           status: editStatus,
         })
       }
@@ -3035,6 +3120,27 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
                 + Link to a weight pool
               </button>
             )
+          )}
+          <div>
+            <label className={fieldLabelClass}>Scale code (weight-embedded barcode)</label>
+            <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(e.target.value)} className={fieldInputClass} />
+          </div>
+          {scaleCode && (
+            <div className="grid grid-cols-2 gap-1.5">
+              <label className="flex flex-col gap-0.5 text-[10px] dark:text-gray-400 text-gray-500">
+                Pricing
+                <select value={pricingMode} onChange={e => setPricingMode(e.target.value as SKUPricingMode)} className={fieldInputClass}>
+                  <option value="fixed">Fixed / package</option>
+                  <option value="per_weight">Per kilo</option>
+                </select>
+              </label>
+              {pricingMode === 'per_weight' && (
+                <div>
+                  <label className={fieldLabelClass}>Price/kilo ({currency})</label>
+                  <input type="number" step="0.01" min="0" required value={pricePerKilo} onChange={e => setPricePerKilo(e.target.value)} className={fieldInputClass} />
+                </div>
+              )}
+            </div>
           )}
           {error && <p className="text-[10px] text-red-400">{error}</p>}
           <div className="flex gap-1.5">

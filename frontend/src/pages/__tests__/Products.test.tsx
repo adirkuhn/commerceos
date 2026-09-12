@@ -871,6 +871,139 @@ describe('weight pool for a variant-mode product (VariantRow)', () => {
   })
 })
 
+// Weight-embedded (butcher/deli scale) barcode support -- see
+// pms.SKU.ScaleCode/PricingMode/PricePerKiloMinorUnits. Every existing
+// per-field save (barcode, weight-pool link, variant/SKU edit) sends the
+// SKU's other fields as a straight pass-through, so these three new ones
+// must be preserved the same way or an unrelated save silently wipes them.
+describe('weight-embedded barcode pricing (scale_code / pricing_mode / price_per_kilo_minor_units)', () => {
+  it('flat SKU form: pricing controls stay hidden until a scale code is entered', async () => {
+    const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByDisplayValue('TSHIRT-1')).toBeInTheDocument())
+
+    expect(screen.queryByLabelText('Pricing')).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Scale code'), '00633')
+    expect(screen.getByLabelText('Pricing')).toBeInTheDocument()
+  })
+
+  it('flat SKU form: scale code + per-kilo pricing sends pricing_mode/price_per_kilo_minor_units on save', async () => {
+    const detail: ProductDetail = { product: product(), variants: [{ ...baseVariant, skus: [baseSku] }] }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateProduct).mockResolvedValue(detail.product)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(baseSku)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await waitFor(() => expect(screen.getByDisplayValue('TSHIRT-1')).toBeInTheDocument())
+
+    await userEvent.type(screen.getByLabelText('Scale code'), '94721')
+    await userEvent.selectOptions(screen.getByLabelText('Pricing'), 'per_weight')
+    await userEvent.type(screen.getByLabelText(/Price per kilo/), '49.99')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      scale_code: '94721', pricing_mode: 'per_weight', price_per_kilo_minor_units: 4999,
+    })))
+  })
+
+  it('editing an existing SKU\'s barcode preserves its scale_code/pricing_mode/price_per_kilo_minor_units unchanged', async () => {
+    const existingSku = { ...baseSku, scale_code: '00633', pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 4999 }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [existingSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(existingSku)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    const ean = await screen.findByLabelText('EAN')
+    await userEvent.clear(ean)
+    await userEvent.type(ean, '7891010249939')
+    await userEvent.click(within(ean.closest('div')!).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      scale_code: '00633', pricing_mode: 'per_weight', price_per_kilo_minor_units: 4999,
+    })))
+  })
+
+  it('making an existing SKU a weight pool preserves its scale_code/pricing_mode/price_per_kilo_minor_units unchanged', async () => {
+    const existingSku = { ...baseSku, scale_code: '00633', pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 4999 }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [existingSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(existingSku)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Make weight pool' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      scale_code: '00633', pricing_mode: 'per_weight', price_per_kilo_minor_units: 4999,
+    })))
+  })
+
+  it('adding a variant SKU with a scale code and per-kilo pricing sends the right fields', async () => {
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: 'Dry Meat', skus: [] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.createSKU).mockResolvedValue({ ...baseSku, id: 'new-sku' })
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('Dry Meat')
+
+    await userEvent.click(screen.getByRole('button', { name: '+ Add SKU' }))
+    const skuForm = screen.getByPlaceholderText('SKU code').closest('div')!.parentElement!.parentElement!
+    await userEvent.type(within(skuForm).getByPlaceholderText('SKU code'), 'DRYMEAT-1')
+    await userEvent.type(within(skuForm).getByPlaceholderText('0.00'), '0')
+    await userEvent.type(within(skuForm).getByPlaceholderText('Not sold via a scale barcode'), '94721')
+    await userEvent.selectOptions(within(skuForm).getByLabelText('Pricing'), 'per_weight')
+    const pricePerKiloInput = within(skuForm).getByText(/Price\/kilo/).parentElement!.querySelector('input')!
+    await userEvent.type(pricePerKiloInput, '49.99')
+    await userEvent.click(within(skuForm).getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(pmsApi.createSKU).toHaveBeenCalledWith('test-token', 'var-1', expect.objectContaining({
+      scale_code: '94721', pricing_mode: 'per_weight', price_per_kilo_minor_units: 4999,
+    })))
+  })
+
+  it('saving edited variant/SKU fields preserves scale_code/pricing_mode/price_per_kilo_minor_units unchanged', async () => {
+    const existingSku = { ...baseSku, scale_code: '00633', pricing_mode: 'per_weight' as const, price_per_kilo_minor_units: 4999 }
+    const detail: ProductDetail = {
+      product: product({ has_variants: true }),
+      variants: [{ ...baseVariant, id: 'var-1', name: '378g', skus: [existingSku] }],
+    }
+    vi.mocked(pmsApi.getProduct).mockResolvedValue(detail)
+    vi.mocked(pmsApi.updateVariant).mockResolvedValue({ ...baseVariant, id: 'var-1', name: '378g' })
+    vi.mocked(pmsApi.updateSKU).mockResolvedValue(existingSku)
+
+    render(<MemoryRouter><AppProvider><Products /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByTitle('Edit'))
+    await screen.findByText('378g')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit variant' }))
+    const editPanel = screen.getByPlaceholderText('Variant name').closest('div')!.parentElement!
+    await userEvent.click(within(editPanel).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(pmsApi.updateSKU).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+      scale_code: '00633', pricing_mode: 'per_weight', price_per_kilo_minor_units: 4999,
+    })))
+  })
+})
+
 describe('editing an existing variant SKU\'s barcode/EAN (VariantRow)', () => {
   it('prefills the existing barcode and hides Save until it changes', async () => {
     const detail: ProductDetail = {

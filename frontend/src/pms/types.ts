@@ -4,6 +4,12 @@ export type SKUStatus = 'active' | 'inactive'
 // from case_of_sku_id/units_per_case, a real multiplier relationship to
 // another SKU). kilo means stock quantity is grams, not a count.
 export type SKUUnitType = 'unit' | 'box' | 'kilo'
+// Governs how a scanned weight-embedded barcode is priced -- orthogonal to
+// unit_type (which governs how stock is denominated). 'fixed' (default):
+// every package sells for price_minor_units regardless of its actual
+// weight. 'per_weight': the total is price_per_kilo_minor_units times the
+// scanned package's actual weight.
+export type SKUPricingMode = 'fixed' | 'per_weight'
 
 export interface Category {
   id: string
@@ -88,6 +94,18 @@ export interface SKU {
   // off a kilo (weight-pool) SKU's pool -- see the inventory module's
   // portion-from-bulk action.
   portioned_from_sku_id?: string | null
+  // scale_code is null unless this SKU is sold via a weight-embedded
+  // barcode (a butcher/deli scale prints a GS1 "prefix 2x" variable-weight
+  // EAN-13 whose weight digits differ on every package, so it can never
+  // match this SKU's own barcode field) -- the 5-digit code programmed
+  // into the scale for this product. Tenant-unique when set.
+  scale_code?: string | null
+  // pricing_mode defaults to 'fixed'. Only meaningful when scale_code is
+  // set -- see SKUPricingMode.
+  pricing_mode?: SKUPricingMode
+  // Required (and positive) when pricing_mode is 'per_weight'; must be
+  // null otherwise.
+  price_per_kilo_minor_units?: number | null
   // tax_class_id is null unless this SKU has its own tax class assigned --
   // null means "use the tenant's default class" (see the Tax settings
   // section's TaxClass.is_default).
@@ -281,6 +299,9 @@ export interface CreateSKUPayload {
   units_per_case?: number | null
   unit_type?: SKUUnitType
   portioned_from_sku_id?: string | null
+  scale_code?: string | null
+  pricing_mode?: SKUPricingMode
+  price_per_kilo_minor_units?: number | null
   tax_class_id?: string | null
   status: SKUStatus
 }
@@ -302,6 +323,9 @@ export interface UpdateSKUPayload {
   units_per_case?: number | null
   unit_type?: SKUUnitType
   portioned_from_sku_id?: string | null
+  scale_code?: string | null
+  pricing_mode?: SKUPricingMode
+  price_per_kilo_minor_units?: number | null
   tax_class_id?: string | null
   status: SKUStatus
 }
