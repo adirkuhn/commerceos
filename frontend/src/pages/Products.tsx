@@ -1091,7 +1091,8 @@ function ProductEditPage({ productId, categories, onCreateCategory, onUpdateCate
                   <input
                     id="product-scale-code"
                     type="text" placeholder="Not sold via a scale barcode" value={scaleCode}
-                    onChange={e => setScaleCode(e.target.value)}
+                    onChange={e => setScaleCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                    maxLength={5} inputMode="numeric"
                     className={inputClass}
                   />
                   <p className="text-[10px] dark:text-gray-500 text-gray-400 mt-1">
@@ -2618,7 +2619,7 @@ function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
           <div className="grid grid-cols-2 gap-1.5 pt-1">
             <div>
               <label htmlFor={`scale-code-alias-${skuId}`} className={label}>Scale code</label>
-              <input id={`scale-code-alias-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(e.target.value)} className={input} />
+              <input id={`scale-code-alias-${skuId}`} type="text" value={newCode} onChange={e => setNewCode(e.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} inputMode="numeric" className={input} />
             </div>
           </div>
           <button
@@ -3317,7 +3318,7 @@ function VariantRow({ variant, detail, productMedia }: VariantRowProps) {
           )}
           <div>
             <label className={fieldLabelClass}>Scale code (weight-embedded barcode)</label>
-            <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(e.target.value)} className={fieldInputClass} />
+            <input type="text" placeholder="Not sold via a scale barcode" value={scaleCode} onChange={e => setScaleCode(e.target.value.replace(/\D/g, '').slice(0, 5))} maxLength={5} inputMode="numeric" className={fieldInputClass} />
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             <label className="flex flex-col gap-0.5 text-[10px] dark:text-gray-400 text-gray-500">
